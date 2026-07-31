@@ -8,7 +8,7 @@
 // webhook para las devoluciones SEPA — así tarjeta y SEPA siguen el mismo flujo.
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
-import { inngest, EVENTS } from '@/lib/inngest/client';
+import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
@@ -35,15 +35,7 @@ export const dunningDispatcher = inngest.createFunction(
       return data ?? [];
     });
 
-    if (studios.length > 0) {
-      await step.sendEvent(
-        'fan-out-dunning',
-        studios.map((s: { id: string }) => ({
-          name: EVENTS.DUNNING_ESTUDIO,
-          data: { studioId: s.id, nowISO },
-        })),
-      );
-    }
+    await enviarFanOutEnLotes(step, 'fan-out-dunning', EVENTS.DUNNING_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
 
     return { estudios: studios.length, ejecutadoEn: nowISO };
   },

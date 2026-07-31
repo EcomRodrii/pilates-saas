@@ -118,3 +118,9 @@ test('themeToCssVars: portalHeadingFontId "outfit" declara fuente y peso 600', (
   assert.match(vars['--portal-heading-font'], /Outfit/);
   assert.equal(vars['--portal-heading-weight'], '600');
 });
+
+test('themeToCssVars: portalHeadingFontId "instrumentSansBold" reusa --font-ui, peso 700 (tema Editorial)', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, portalHeadingFontId: 'instrumentSansBold' }) as Record<string, string>;
+  assert.match(vars['--portal-heading-font'], /--font-ui/);
+  assert.equal(vars['--portal-heading-weight'], '700');
+});

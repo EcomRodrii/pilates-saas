@@ -74,6 +74,36 @@ test('I1: sin sala libre (una sola sala, ya ocupada) → sin candidata', () => {
   assert.equal(candidatas.find(c => c.tipo === 'ABRIR_SESION'), undefined);
 });
 
+// P2-5: franja llena 3 semanas seguidas pero SIN lista de espera — antes
+// devolvía null siempre (exigía lista de espera >=2 O 5 semanas llenas). Un
+// estudio nuevo no puede tener 5 semanas de historial, así que se quedaba
+// sin ninguna señal aunque la clase llevara 3 semanas provablemente llena.
+test('I1: franja llena 3 semanas SIN lista de espera, estudio NUEVO → SÍ genera ABRIR_SESION', () => {
+  const sesiones = [slot(7), slot(14), slot(21)];
+  const reservasLlenas = sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id })));
+  const salas = [sala({ id: 's1', capacidad: 8 }), sala({ id: 's2', capacidad: 8 })];
+  const snap = snapshot({
+    sesiones, reservas: reservasLlenas, salas,
+    contexto: { nSociasActivas: 10, antiguedadDatosDias: 20, cadenaId: null, nSedesCadena: 1 },
+  });
+  const candidatas = ingresos.detectar(snap, memoriaVacia(), NOW);
+  const abrir = candidatas.find(c => c.tipo === 'ABRIR_SESION');
+  assert.ok(abrir);
+  // Sin patrón sostenido (solo 3 semanas, no 5) la confianza nunca llega a ALTA.
+  assert.notEqual(abrir.confianza.nivel, 'ALTA');
+});
+
+test('I1: mismo escenario (llena, sin lista de espera) en estudio YA ESTABLECIDO → sigue sin candidata', () => {
+  const sesiones = [slot(7), slot(14), slot(21)];
+  const reservasLlenas = sesiones.flatMap(se => Array.from({ length: 8 }, (_, i) => reserva({ socioId: `s${se.id}${i}`, estado: 'CONFIRMADA', sesionId: se.id })));
+  const salas = [sala({ id: 's1', capacidad: 8 }), sala({ id: 's2', capacidad: 8 })];
+  const snap = snapshot({
+    sesiones, reservas: reservasLlenas, salas,
+    contexto: { nSociasActivas: 200, antiguedadDatosDias: 400, cadenaId: null, nSedesCadena: 1 },
+  });
+  assert.equal(ingresos.detectar(snap, memoriaVacia(), NOW).find(c => c.tipo === 'ABRIR_SESION'), undefined);
+});
+
 test('I1: solo 1 semana llena (no consecutivas suficientes) → sin candidata', () => {
   const sesiones = [slot(7), slot(14), slot(21)];
   const reservas = [

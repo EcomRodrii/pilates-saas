@@ -11,6 +11,9 @@ import { confianzaAbrirSesion, confianzaRecuperarPagos, confianzaCobrarPendiente
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 const redondear1 = (n: number) => Math.round(n * 10) / 10;
+// P2-5: 5 semanas de patrón sostenido es estructuralmente imposible para un
+// estudio recién abierto — no tiene 5 semanas de historial que mostrar.
+const ESTUDIO_NUEVO_DIAS = 42;
 
 /**
  * Heurística MVP de capacidad física: existe una sala no usada en esta franja
@@ -62,7 +65,14 @@ function reglaI1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
   const demanda = demandaInsatisfecha(franja, s, OCURRENCIAS_MINIMAS);
   const ultimas5 = franja.ocupaciones.slice(0, 5);
   const media5Completa = ultimas5.length >= 5 && ultimas5.every(o => o >= 1);
-  if (demanda < 2 && !media5Completa) return null;
+  // P2-5: en un estudio nuevo (< 6 semanas de datos), exigir lista de espera
+  // O 5 semanas llenas deja SIN NINGUNA señal a una franja que ya lleva
+  // 3 semanas seguidas al 95%+ solo porque nadie usa la lista de espera —
+  // 3 ocurrencias llenas ya es suficiente para un estudio que no puede
+  // tener más historial que ese. La confianza sigue topada en MEDIA más
+  // abajo (patronSostenido exige 5+ semanas, imposible de cumplir aquí).
+  const estudioNuevo = s.contexto.antiguedadDatosDias < ESTUDIO_NUEVO_DIAS;
+  if (demanda < 2 && !media5Completa && !estudioNuevo) return null;
 
   if (!hayCapacidadFisica(franja, s)) return null;
 

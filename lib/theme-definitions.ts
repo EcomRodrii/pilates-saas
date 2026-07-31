@@ -17,7 +17,7 @@
 
 import type { ThemeConfig } from './theme-schema.ts';
 
-export type ThemeCapability = 'colors' | 'typography' | 'buttons' | 'cards';
+export type ThemeCapability = 'colors' | 'typography' | 'buttons' | 'cards' | 'nav';
 
 export interface ThemeDefinition {
   id: string;
@@ -46,6 +46,22 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     description: 'Titulares en Outfit, una geométrica de trazo limpio. Mismos colores de marca.',
     capabilities: ['typography'],
     defaults: { portalHeadingFontId: 'outfit' },
+  },
+  {
+    id: 'editorial',
+    version: 1,
+    label: 'Editorial',
+    // Sin la palabra "tarjetas" a propósito: colisionaba con el encabezado
+    // de esa sección en "Personalizar" (getByText('Tarjetas') dejaba de ser
+    // único, e2e/apariencia-boton-tarjeta.spec.ts).
+    description: 'Titulares en negrita, contenido destacado y barra inferior con pestaña expandible.',
+    capabilities: ['typography', 'buttons', 'cards', 'nav'],
+    defaults: {
+      portalHeadingFontId: 'instrumentSansBold',
+      buttonStyle: 'solid',
+      cardStyle: 'elevated',
+      tabBarStyle: 'pestanaActiva',
+    },
   },
 ];
 

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 import { getLayout } from '@/lib/layout-data';
+import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
@@ -346,7 +347,7 @@ export async function fetchPublicStudioData(
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
       rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
-      contenidoPortalRes, bannersPortalRes, layout,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -381,6 +382,12 @@ export async function fetchPublicStudioData(
       // (service-role, cacheada con React cache), así que se llama tal cual,
       // sin RLS/endpoint nuevo.
       getLayout(studioId),
+      // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
+      // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
+      // la única excepción — la barra inferior (portal-shell.tsx) decide con
+      // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
+      // puede decidir por sí solo.
+      getThemePublicado(studioId),
     ]);
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
@@ -403,6 +410,9 @@ export async function fetchPublicStudioData(
       contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       portalHome: layout.portalHome,
+      // Fase 3: nunca el borrador — solo lo publicado llega al portal en vivo.
+      homeBloques: layout.homeBloques.publicado,
+      tabBarStyle: temaPublicado.tabBarStyle,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),

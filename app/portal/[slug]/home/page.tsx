@@ -38,8 +38,8 @@ import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
 import type { BannerPortal } from '@/lib/types';
-import { aplicarLayout } from '@/lib/layout-runtime';
-import { PORTAL_HOME_SECCIONES } from '@/lib/portal-home-sections';
+import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
+import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
@@ -80,7 +80,7 @@ export default function PortalHome() {
   const { session } = usePortalAuth();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
-    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, portalHome,
+    tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal, homeBloques,
   } = useStudio();
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
@@ -111,18 +111,27 @@ export default function PortalHome() {
     return bannersPortal.filter(b => bannerVigente(b, hoyISO)).sort((a, b) => a.orden - b.orden);
   }, [bannersPortal, now]);
 
-  // Orden/visibilidad de los módulos de Inicio (Fase 2 del editor de temas) —
-  // mismo patrón que app/(dashboard)/dashboard/page.tsx: se reordena por CSS
-  // `order` sin mover el DOM, así que el saludo/tarjeta grande (fuera de este
-  // sistema) y los efectos de scroll que dependen de ellos no se ven afectados.
-  const modulosVisibles = useMemo(
-    () => aplicarLayout(PORTAL_HOME_SECCIONES.map(s => s.id), portalHome),
-    [portalHome],
-  );
-  const wrap = (id: string) => {
-    const i = modulosVisibles.indexOf(id);
+  // Orden/visibilidad del Inicio (Fase 3 del editor de temas — constructor de
+  // bloques): los 4 módulos de siempre (`sistema`) se ordenan por CSS `order`
+  // sin mover el DOM, mismo mecanismo de Fase 2, así que el saludo/tarjeta
+  // grande (fuera de este sistema) y los efectos de scroll que dependen de
+  // ellos no se ven afectados. Los bloques nuevos del catálogo
+  // (banner/texto/cta/faq) se AÑADEN como hermanos más en el mismo
+  // contenedor flex, con su `order` calculado en el mismo espacio de índices
+  // — así se intercalan de verdad con los módulos fijos, no solo se apilan
+  // detrás. `homeBloques` ya viene resuelto del servidor (con fallback a
+  // portalHome legacy si el estudio nunca tocó esto, ver resolveHomeBloques).
+  const bloquesOrdenados = useMemo(() => bloquesVisibles(homeBloques), [homeBloques]);
+  const wrap = (sistemaId: BloqueSistemaId) => {
+    const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
     return { style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
   };
+  const bloquesPersonalizados = useMemo(
+    () => bloquesOrdenados
+      .map((b, i) => ({ b, orden: i }))
+      .filter((x): x is { b: Exclude<BloqueHome, { kind: 'sistema' }>; orden: number } => x.b.kind !== 'sistema'),
+    [bloquesOrdenados],
+  );
 
   const raizRef = useRef<HTMLDivElement>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
@@ -432,12 +441,14 @@ export default function PortalHome() {
           </div>
         </div>
 
-        {/* Zona reordenable de Inicio (Fase 2 del editor de temas): cada
-            módulo se ordena por CSS `order` sin mover el DOM, así que ningún
-            efecto de scroll/parallax de arriba (que solo dependen del saludo
-            y la tarjeta grande, fuera de este sistema) se ve afectado. Con
-            `portalHome` vacío (ningún estudio lo ha configurado) el orden es
-            0/1/2/3 = el orden de siempre, píxel a píxel. */}
+        {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
+            cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
+            así que ningún efecto de scroll/parallax de arriba (que solo
+            dependen del saludo y la tarjeta grande, fuera de este sistema) se
+            ve afectado. Con `homeBloques` vacío (ningún estudio lo ha
+            configurado) el orden es 0/1/2/3 = el orden de siempre, píxel a
+            píxel. Los bloques nuevos del catálogo se añaden como hermanos
+            más abajo, con el `order` que les toque en ese mismo espacio. */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {/* Esta semana */}
           <div {...wrap('estaSemana')}>
@@ -609,6 +620,16 @@ export default function PortalHome() {
               );
             })}
           </div>
+
+          {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos de los 4
+              módulos de arriba en el mismo contenedor flex, con el `order`
+              que les toque para intercalarse de verdad en la posición
+              elegida en el editor. */}
+          {bloquesPersonalizados.map(({ b, orden }) => (
+            <div key={b.id} style={{ order: orden }}>
+              <BloqueHomeRender bloque={b} slug={slug} />
+            </div>
+          ))}
         </div>
       </div>
 

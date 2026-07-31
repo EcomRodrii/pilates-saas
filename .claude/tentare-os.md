@@ -387,6 +387,161 @@ reales.
 Con Fase 3 cerrada, las 13 reglas de reserva/cancelación pedidas
 originalmente están **completas**.
 
+## P2-5 — rediseño de los especialistas del Decision OS (completo)
+
+Feedback de una cadena de 2 sedes señaló 4 puntos ciegos estructurales en
+los especialistas del Centro de Control. El primer borrador de diseño
+proponía una reescritura completa de la página ("una tarjeta por
+especialista" → "lista única"); revisando la página real
+(`app/(dashboard)/centro-de-control/page.tsx`) resultó que **ya era una
+lista única priorizada** (Prioridades + Más situaciones, `RecommendationCard`
+en grid plano) — las tarjetas por especialista (`SpecialistCard`, "Mi
+Equipo") ya vivían en una sección secundaria, no en la vista principal. El
+diseño se corrigió sobre la marcha: los puntos ciegos de datos sí eran
+reales, pero la reescritura de página no hacía falta — solo faltaba
+conectar dos cosas que el backend ya calculaba y la UI nunca mostraba.
+
+**Priorizador de conflictos** (nuevo, pieza central): dos especialistas
+pueden tener razón cada uno por su lado y proponer acciones incompatibles
+sobre la misma sala/instructora/tipo de clase (p.ej. Ingresos "abre otra
+clase" vs Agenda "esta franja va vacía, fusiónala" — literalmente opuestos,
+ver comentario de `agenda.ts`: "Cubre el punto ciego de Ingresos, que solo
+detecta clases que se LLENAN"). `coordinarColisiones` (`director.ts`) solo
+dedupeaba por `socioId` compartido. `Candidata` gana `instructorId`/
+`tipoClaseId`/`salaId` opcionales; nuevo `lib/decision/conflictos.ts`
+(`detectarConflictos`) con una tabla explícita de pares de
+`TipoRecomendacion` opuestos — **no oculta ninguna candidata**, anota
+`datosUsados.conflictoCon` en ambas (mismo principio que
+`coordinarColisiones`) para que la propietaria decida, no el motor.
+`RecommendationCard` ahora pinta ese aviso cuando aparece.
+
+**SnapshotEstudio gana contexto de tamaño**: `sustituciones` (90d) +
+`contexto: { nSociasActivas, antiguedadDatosDias, cadenaId, nSedesCadena }`
+— base para calibrar umbrales por estudio pequeño/grande/cadena en vez de un
+umbral fijo único. `antiguedadDatosDias` sale de `Studio.creadoEn` (alta en
+Tentare, no año de apertura del negocio).
+
+Los 4 puntos ciegos, cerrados:
+1. **EQUIPO nunca miraba `sustituciones`** — nueva regla E2: una
+   sustitución en `contactando` pasado un margen generoso (3h, muy por
+   encima del ciclo de reintento automático por candidata, `VENTANA_MAX`=45min)
+   genera aviso apuntando a la instructora original de la clase sin cubrir.
+2. **INGRESOS exigía lista de espera ≥2 O 5 semanas llenas** antes de
+   generar cualquier señal — un estudio nuevo no puede tener 5 semanas de
+   historial. Con `contexto.antiguedadDatosDias < 42`, 3 ocurrencias llenas
+   ya basta; el techo de confianza sigue en MEDIA (nunca ALTA) porque
+   `patronSostenido` sigue exigiendo 5+ semanas.
+3. **FINANZAS usaba un índice de UNA suscripción por socia**
+   (`suscripcionActivaPorSocio`, pensado para "valor mensual") — con
+   `planes_por_tipo_de_clase` una socia puede tener un plan MENSUAL Y un
+   bono sueltos a la vez, y el índice solo veía el primero. F1 pasa a
+   iterar todas las suscripciones ACTIVAS del snapshot, no el índice de una
+   por socia.
+4. **CAPTACION dependía de `socio.leadStage`**, que el importador desde
+   otra plataforma nunca rellenaba — arreglado en el importador (raíz del
+   problema: `lead_stage: 'ACTIVA'` por defecto en altas migradas con
+   historial), no en el especialista.
+
+**`DecisionFlag` por especialista, activado**: existía en el esquema
+(`dbGetFeatureFlags`/`dbSetFeatureFlag`) pero **sin un solo caller** —
+confirmado con grep antes de tocar nada. `motor.ts` ahora filtra
+`ESPECIALISTAS` antes de correr nada (opt-out: `false` apaga, ausente o
+`true` deja correr). De paso, `CAPTACION` añadido al enum (hueco de
+catálogo — `EspecialistaId` ya la tenía).
+
+⚠️ **Gotcha de Inngest, nuevo en esta fase**: `dbGetFeatureFlags` devuelve
+un `Map`. Llamarlo directo dentro de un `step.run` lo habría serializado a
+`{}` en el replay — el mismo motivo por el que `memoria`/
+`dbListMemoriaRows` ya existían separados (comentario en el propio fichero,
+`lib/inngest/decision.ts`, que casi se pasa por alto). Nueva
+`dbListFeatureFlagRows` devuelve filas crudas; el `Map` se reconstruye
+SIEMPRE fuera del step.
+
+**Fuera de este cambio, deferred explícitamente**:
+- **Modo aprendizaje granular por especialista** (mostrar resultados de los
+  especialistas que ya tienen suficiente historial en vez de ocultar TODO
+  el bloque con `!resumen_diario`): toca la forma de `/api/decisiones` y
+  necesita verificación visual real antes de tocar el camino que decide qué
+  ve la propietaria en su primera pantalla — no se construyó sin poder
+  verlo en un navegador autenticado (sin credenciales de sesión de prueba
+  en este entorno).
+- **Calibración de umbrales con `contexto.nSedesCadena`**: la base
+  (`contexto.cadenaId`/`nSedesCadena`) ya existe en el snapshot, pero no
+  hay hoy una cadena real de tamaño suficiente para calibrar contra ella —
+  fase futura opcional, no construir umbrales a ciegas.
+- Ningún especialista `CADENA` nuevo ni dashboard agregado de cadena dentro
+  de Decision OS — `cadena_id` sigue siendo puramente de billing.
+
+**Verificación**: `npx tsc --noEmit` + `node --test` en cada PR (>1170
+tests en verde en todo momento); tests de regresión explícitos para dos
+bugs encontrados DURANTE la implementación (no antes de abrirla) — el
+early-return de EQUIPO E1 ("sin clases futuras = vacaciones") descartaba
+también las candidatas de E2 ya detectadas, y el gotcha de Inngest de
+arriba. UI (`RecommendationCard`/`especialista-info.ts`) no verificada en
+navegador autenticado — mismo tipo de limitación que fases anteriores de
+este repo cuando no hay credenciales de prueba en el entorno.
+
+## P2-14 — instructora en varias sedes de la misma cadena (completo)
+
+Petición explícita: una instructora debe poder trabajar en varias sedes de
+la misma cadena, con horario/disponibilidad/permisos **distintos por
+sede**, diseñado desde el principio (no una tabla puente añadida después).
+
+**Decisión central**: formalizar filas múltiples en `instructores` (una
+fila = una persona en una sede, con su propio rol/tarifa/disponibilidad) en
+vez de una tabla puente `instructor_sedes` nueva. El código YA trataba esto
+como modelo real en cuatro sitios antes de tocar nada:
+`mis_estudios()` lista TODAS las sedes de un `auth_user_id` sin `LIMIT 1`;
+`current_studio_id()` hace `ORDER BY studio_id LIMIT 1` con un comentario
+propio que dice "porque ahora es un caso central con cadenas, no ya raro";
+`resolverInstructorId` (`mi-disponibilidad`) documentaba el riesgo de
+"ficha duplicada" como conocido; `instructor_tarifas` (PR #562) ya daba
+tarifas independientes por sede por construcción, sin haberlo diseñado a
+propósito. Faltaba solo la garantía de integridad.
+
+`UNIQUE (auth_user_id, studio_id)` en `instructores` (migr
+`20260731003736`) — verificado en prod ANTES de escribir la migración que
+no había duplicados reales, así que no hizo falta limpieza previa.
+
+Piezas:
+- **Fix de `guardarDisponibilidad`** (`lib/sustituciones/disponibilidad.ts`):
+  el DELETE borraba solo por `instructor_id`, sin `studio_id` — con el
+  `UNIQUE` ya no puede cruzar de sede, pero se añadió el filtro como
+  defensa en profundidad. Verificado en vivo (`execute_sql`+`ROLLBACK`) que
+  el borrado de una sede no toca la disponibilidad de otra.
+- **Alta cross-sede** (`app/api/equipo/route.ts`, POST): si la instructora
+  ya tiene ficha activa en OTRA sede de la MISMA cadena, se vincula su
+  `auth_user_id` directo (sin flujo de invitación/self-claim). La búsqueda
+  por email queda SIEMPRE acotada a `cadena_id` resuelto desde
+  `sesion.studioId` — nunca abierta a toda la tabla `instructores`.
+  Revisado por `tentare-seguridad` antes de mergear (pedido explícito del
+  diseño): sin bloqueantes; confirmó que la falta de self-claim en este
+  camino es coherente con el resto del alta de equipo (la propietaria ya
+  decide unilateralmente sin pedir permiso a la instructora en el flujo
+  normal) — el único matiz es de producto (la instructora se entera de la
+  sede nueva al verla en su selector, no antes), no de seguridad.
+- **`mis_estudios()` gana `rol`**: el rol efectivo por sede (PROPIETARIO si
+  es dueña de esa sede, si no el rol de su fila `instructores` en esa
+  sede). El selector de sede (`SedeActiva`) lo muestra junto al nombre de
+  cada sede — para que no sorprenda un cambio de permisos al cambiar de
+  contexto (puede ser MANAGER en una y solo INSTRUCTOR en otra).
+
+⚠️ **Gotcha de grants, otra vez** (van varias veces en este repo):
+`mis_estudios()` cambió de firma (gana la columna `rol`) → Postgres crea un
+objeto función nuevo con `EXECUTE` por defecto a `PUBLIC` → `REVOKE ...
+FROM PUBLIC` + `GRANT` explícito + `has_function_privilege` verificado, sin
+excepción. De paso se corrigió un advisor `function_search_path_mutable`
+que ya tenía la función original (no relacionado con el cambio de firma,
+aprovechado en la misma migración).
+
+**Fuera de alcance, explícito**: herencia "cadena → override sede" para
+rol/tarifa/disponibilidad (prematuro, esas reglas no tienen un "default de
+cadena" con sentido); sincronizar nombre/avatar/color entre filas de la
+misma persona (contradice "permisos diferentes por sede", pedido
+explícitamente); vista combinada de ambas sedes a la vez (`sesion_activa`
+sigue siendo una sede activa por vez); fusión automática de fichas
+duplicadas existentes (ninguna encontrada en prod, no hizo falta).
+
 ## El Umbral — mensaje único diario del Decision OS (Fase 1, completa)
 
 Rediseño de producto del Decision OS (varias rondas de exploración con el
@@ -441,13 +596,25 @@ ingresos" (necesita lógica de comparación de métricas nueva); un resumen
 semanal enviado activamente (hoy solo se muestra al abrir la app si la
 semana fue silenciosa).
 
-⚠️ **Hallazgo aparte, sin relación con esta feature**: al verificar
+⚠️ **Hallazgo aparte, sin relación con esta feature — CERRADO**: al verificar
 `list_migrations` contra `dwqvdycjcffqwfkzapvi` antes de numerar esta
-migración, la BD remota tenía como última aplicada `20260731011858` — hay
-~40 migraciones locales entre esa y `20260731150100`
-(`reservar_plaza_restringe_instructor` en adelante, incl. cambios de RLS de
-seguridad reales) que están en el repo pero NO aplicadas en remoto. No se
-tocó en esta sesión (fuera de alcance) — verificar y aplicar por separado.
+migración, pareció que había ~40 migraciones locales sin aplicar en remoto
+(comparando por timestamp de fichero, justo la trampa que ya documenta este
+mismo fichero más abajo). Investigado por separado cruzando por NOMBRE
+contra `list_migrations` y verificando cada divergencia con `execute_sql`:
+**todas** estaban ya aplicadas en remoto (bajo nombres distintos, por un
+squash/renumeración antiguo, o por sesiones en paralelo). Se encontraron y
+corrigieron dos ficheros locales obsoletos: `20260731150000_socios_email_...`
+tenía un bug (índice sin excluir `borrado_en`) que nunca llegó a aplicarse
+porque otra sesión ya había aplicado la versión correcta bajo
+`20260730231442` — renombrado y corregido para que coincida. Quedan sin
+resolver `20260730109000_sesiones_reservas_solo_propias_instructor.sql` y
+`20260730110000_editar_serie_desde_restringe_instructor.sql`: ficheros
+locales que, si se aplicaran tal cual, REGRESARÍAN la seguridad (la política
+real en prod para `reservas_escritura_update`/`sesiones_escritura_insert` es
+más restrictiva que lo que estos ficheros crearían — evolucionada por
+migraciones posteriores ya aplicadas). No tocados a propósito por
+incertidumbre sobre su procedencia exacta — decisión pendiente de tomar.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

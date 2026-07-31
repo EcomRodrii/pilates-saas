@@ -1,21 +1,12 @@
 'use client';
 
-import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, UserPlus, type LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ESPECIALISTA_INFO } from './especialista-info';
 import type { PorEspecialistaAPI } from './use-decisiones';
 
 // "Mi Equipo" (Bible doc 4/doc 3): cada especialista es una tarjeta con
 // estado, trabajo pendiente e impacto — nunca gráficos.
-const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIcon }> = {
-  RETENCION: { nombre: 'Especialista en Retención', icon: Heart },
-  INGRESOS: { nombre: 'Especialista en Ingresos', icon: TrendingUp },
-  AGENDA: { nombre: 'Especialista en Agenda', icon: Calendar },
-  CAPTACION: { nombre: 'Especialista en Captación', icon: UserPlus },
-  MARKETING: { nombre: 'Especialista en Marketing', icon: Megaphone },
-  FINANZAS: { nombre: 'Especialista Financiero', icon: Wallet },
-  EQUIPO: { nombre: 'Especialista en Equipo', icon: UsersRound },
-};
 
 const ESTADO_INFO: Record<PorEspecialistaAPI['estado'], { label: string; color: string; bg: string }> = {
   // 'EXCELENTE' lo emite el director cuando hay CERO recomendaciones
@@ -39,7 +30,7 @@ export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Icon size={16} className="shrink-0 text-muted-foreground" />
-            <span className="text-[13px] font-semibold text-foreground truncate">{info.nombre}</span>
+            <span className="text-[13px] font-semibold text-foreground truncate">Especialista en {info.nombre}</span>
           </div>
           <Badge style={{ backgroundColor: estado.bg, color: estado.color }} className="shrink-0">
             {estado.label}

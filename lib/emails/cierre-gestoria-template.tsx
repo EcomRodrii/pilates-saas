@@ -12,6 +12,9 @@ export interface CierreGestoriaEmailProps {
   logoUrl?: string | null;
   colorPrimario?: string | null;
   anio: number;
+  // Presente = envío trimestral (modelo 303, obligatorio cada 3 meses — no se
+  // puede esperar al cierre de año). Ausente = el año completo, como antes.
+  trimestre?: 1 | 2 | 3 | 4 | null;
   remitente: string;             // nombre del estudio / propietaria que envía
   totales: { base: number; cuota: number; total: number; numFacturas: number; numManuales: number };
   trimestres: { trimestre: number; base: number; cuota: number; total: number }[];
@@ -22,17 +25,19 @@ const th: React.CSSProperties = { color: '#9C9C94', fontSize: 11, fontWeight: 70
 const td: React.CSSProperties = { color: '#1A1A1A', fontSize: 13, padding: '7px 0', borderTop: '1px solid #E5E1DA' };
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' as const };
 
-export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, anio, remitente, totales, trimestres, nombreAdjunto }: CierreGestoriaEmailProps) {
+export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, anio, trimestre, remitente, totales, trimestres, nombreAdjunto }: CierreGestoriaEmailProps) {
+  const periodo = trimestre ? `T${trimestre} ${anio}` : `año ${anio}`;
+  const filas = trimestre ? trimestres.filter((t) => t.trimestre === trimestre) : trimestres;
   return (
     <EmailLayout
       studioNombre={estudioNombre}
       logoUrl={logoUrl}
       colorPrimario={colorPrimario}
-      titulo={`Cierre de año ${anio}`}
-      preview={`Resumen fiscal ${anio} de ${estudioNombre} — ${eur(totales.total)} facturado`}
+      titulo={trimestre ? `Cierre T${trimestre} ${anio}` : `Cierre de año ${anio}`}
+      preview={`Resumen fiscal ${periodo} de ${estudioNombre} — ${eur(totales.total)} facturado`}
     >
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 16px' }}>
-        Hola, te comparto el <strong>cierre del año {anio}</strong> de <strong>{estudioNombre}</strong>: el resumen de ingresos y del IVA repercutido, con el libro de facturas emitidas adjunto en CSV (<em>{nombreAdjunto}</em>).
+        Hola, te comparto el <strong>cierre del {periodo}</strong> de <strong>{estudioNombre}</strong>: el resumen de ingresos y del IVA repercutido, con el libro de facturas emitidas adjunto en CSV (<em>{nombreAdjunto}</em>).
       </Text>
 
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '18px 22px', margin: '0 0 20px' }}>
@@ -43,13 +48,15 @@ export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, ani
         </Row>
       </Section>
 
-      <Text style={{ color: '#1A1A1A', fontSize: 13, fontWeight: 700, margin: '0 0 6px' }}>Resumen por trimestre</Text>
+      <Text style={{ color: '#1A1A1A', fontSize: 13, fontWeight: 700, margin: '0 0 6px' }}>
+        {trimestre ? 'Resumen del trimestre' : 'Resumen por trimestre'}
+      </Text>
       <table width="100%" cellPadding={0} cellSpacing={0} style={{ borderCollapse: 'collapse', margin: '0 0 18px' }}>
         <thead>
           <tr><th style={{ ...th, textAlign: 'left' as const }}>Trimestre</th><th style={{ ...th, textAlign: 'right' as const }}>Base</th><th style={{ ...th, textAlign: 'right' as const }}>IVA</th><th style={{ ...th, textAlign: 'right' as const }}>Total</th></tr>
         </thead>
         <tbody>
-          {trimestres.map((t) => (
+          {filas.map((t) => (
             <tr key={t.trimestre}>
               <td style={td}>T{t.trimestre}</td>
               <td style={tdR}>{eur(t.base)}</td>
@@ -58,7 +65,7 @@ export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, ani
             </tr>
           ))}
           <tr>
-            <td style={{ ...td, fontWeight: 800, borderTop: '2px solid #DAD6CC' }}>Año {anio}</td>
+            <td style={{ ...td, fontWeight: 800, borderTop: '2px solid #DAD6CC' }}>{trimestre ? `T${trimestre} ${anio}` : `Año ${anio}`}</td>
             <td style={{ ...tdR, fontWeight: 800, borderTop: '2px solid #DAD6CC' }}>{eur(totales.base)}</td>
             <td style={{ ...tdR, fontWeight: 800, borderTop: '2px solid #DAD6CC' }}>{eur(totales.cuota)}</td>
             <td style={{ ...tdR, fontWeight: 800, borderTop: '2px solid #DAD6CC' }}>{eur(totales.total)}</td>

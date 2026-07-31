@@ -17,13 +17,15 @@
 //    producto de marca blanca y quitarle su logo a quien paga por ponerlo no es
 //    una decisión que tocara tomar aquí.
 
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
+import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import {
   EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -33,8 +35,25 @@ export default function PortalLogin() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { loginConPassword } = usePortalAuth();
-  const { studio } = useStudio();
+  const { studio, dataLoaded, tabBarStyle } = useStudio();
   const { t, noche } = useModo();
+  // Tema "Editorial": una pantalla de bienvenida a pantalla completa antes del
+  // login, una sola vez por dispositivo. Empieza en `true` (se ve el login,
+  // el comportamiento de siempre) a propósito: bloquear la pantalla ENTERA
+  // hasta que se resuelva el tema/localStorage la dejaba a merced de la
+  // latencia real de red (rompió e2e/ayuda-no-miente.spec.ts en CI, que
+  // carga esta página sin mockear nada). Solo se pasa a `false` si de verdad
+  // hace falta la bienvenida — el pequeño flash login→bienvenida para quien
+  // vea este tema por primera vez es preferible a bloquear a todo el mundo.
+  const [bienvenidaVista, setBienvenidaVista] = useState(true);
+  useEffect(() => {
+    if (!dataLoaded || tabBarStyle !== 'pestanaActiva') return;
+    if (yaVioBienvenida(slug)) return;
+    // localStorage no existe en el servidor: esto solo puede resolverse tras
+    // montar, no hay forma de calcularlo durante el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBienvenidaVista(false);
+  }, [dataLoaded, tabBarStyle, slug]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -67,6 +86,17 @@ export default function PortalLogin() {
   }
 
   const nombreEstudio = studio?.nombre?.trim() || 'Tentare';
+
+  if (!bienvenidaVista) {
+    return (
+      <BienvenidaPortal
+        nombreEstudio={nombreEstudio}
+        fotoUrl={studio?.fotoUrl ?? null}
+        onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
+      />
+    );
+  }
+
   // El nombre va en una sola línea a 44 px. Uno largo («Estudio Alma de
   // Marbella») desbordaría el marco de 402, así que se encoge hasta 26 px en
   // vez de partirse: partir un display serif en dos líneas rompe el bloque.

@@ -55,12 +55,21 @@ export default function CierreDeAnoPage() {
   const [guardando, setGuardando] = useState(false);
   const [errorForm, setErrorForm] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<IngresoManual | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Envío a la gestoría
   const [envOpen, setEnvOpen] = useState(false);
   const [gestEmail, setGestEmail] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [envResult, setEnvResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  // 0 = año completo. El modelo 303 de IVA es trimestral, no anual — una
+  // gestoría real necesita poder pedir T1/T2/T3/T4 sin esperar al cierre.
+  const [envTrimestre, setEnvTrimestre] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   // Años disponibles: los de las facturas + el año actual.
   const anios = useMemo(() => {
@@ -121,14 +130,28 @@ export default function CierreDeAnoPage() {
 
   const confirmarBorrado = async () => {
     if (!borrar) return;
-    const id = borrar.id;
-    setManuales(prev => prev.filter(x => x.id !== id));
+    const eliminado = borrar;
+    setManuales(prev => prev.filter(x => x.id !== eliminado.id));
     setBorrar(null);
-    await fetch('/api/ingresos-manuales', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ id }),
-    }).catch(() => {});
+    // Antes: fetch fire-and-forget con `.catch(() => {})` — un fallo de red o un
+    // rechazo del servidor dejaba el ingreso borrado en pantalla mientras seguía
+    // vivo en la BD, sin ningún aviso. Se comprueba el resultado real y, si
+    // falla, se deshace el borrado optimista (mismo criterio que el resto de
+    // escrituras de esta pantalla, ver `guardar`).
+    try {
+      const res = await fetch('/api/ingresos-manuales', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ id: eliminado.id }),
+      });
+      if (!res.ok) {
+        setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
+        setToast('No se ha podido eliminar el ingreso. Inténtalo de nuevo.');
+      }
+    } catch {
+      setManuales(prev => [...prev, eliminado].sort((a, b) => (a.fecha < b.fecha ? -1 : 1)));
+      setToast('Error de red: no se ha podido eliminar el ingreso.');
+    }
   };
 
   // Previsualización del total al escribir el importe.
@@ -190,6 +213,7 @@ export default function CierreDeAnoPage() {
   const abrirEnvio = () => {
     setGestEmail(studio?.gestoriaEmail ?? '');
     setEnvResult(null);
+    setEnvTrimestre(0);
     setEnvOpen(true);
   };
   const enviarGestoria = async () => {
@@ -198,7 +222,7 @@ export default function CierreDeAnoPage() {
       const res = await fetch('/api/cierre/enviar-gestoria', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ anio, email: gestEmail.trim() }),
+        body: JSON.stringify({ anio, email: gestEmail.trim(), ...(envTrimestre ? { trimestre: envTrimestre } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) { setEnvResult({ ok: false, msg: data.error ?? 'No se ha podido enviar.' }); return; }
@@ -539,9 +563,11 @@ export default function CierreDeAnoPage() {
       <Dialog open={envOpen} onOpenChange={(v) => { setEnvOpen(v); if (!v) setEnvResult(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Enviar el cierre {anio} a tu gestoría</DialogTitle>
+            <DialogTitle>Enviar el cierre {envTrimestre ? `T${envTrimestre} ${anio}` : anio} a tu gestoría</DialogTitle>
             <DialogDescription>
-              Le llegará el resumen del año ({eur(cierre.totales.total)} facturado) y el libro de facturas emitidas en CSV. Podrá responder directamente a tu estudio.
+              {envTrimestre
+                ? 'Para el modelo 303 no hace falta esperar al cierre de año: elige el trimestre y el libro de facturas llegará acotado a esos 3 meses.'
+                : 'Le llegará el resumen del año (' + eur(cierre.totales.total) + ' facturado) y el libro de facturas emitidas en CSV. Podrá responder directamente a tu estudio.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -551,11 +577,28 @@ export default function CierreDeAnoPage() {
               <span>{envResult.msg}</span>
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="gest-email">Email de la gestoría</Label>
-              <Input id="gest-email" type="email" value={gestEmail} onChange={(e) => setGestEmail(e.target.value)} placeholder="gestoria@ejemplo.com" autoFocus />
-              {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
-              {envResult && !envResult.ok && <p className="text-xs text-destructive mt-1">{envResult.msg}</p>}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="gest-trimestre">Periodo</Label>
+                <select
+                  id="gest-trimestre"
+                  className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground focus:outline-none appearance-none cursor-pointer"
+                  value={envTrimestre}
+                  onChange={(e) => setEnvTrimestre(Number(e.target.value) as 0 | 1 | 2 | 3 | 4)}
+                >
+                  <option value={0}>Año completo ({anio})</option>
+                  <option value={1}>Trimestre 1 (ene-mar)</option>
+                  <option value={2}>Trimestre 2 (abr-jun)</option>
+                  <option value={3}>Trimestre 3 (jul-sep)</option>
+                  <option value={4}>Trimestre 4 (oct-dic)</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="gest-email">Email de la gestoría</Label>
+                <Input id="gest-email" type="email" value={gestEmail} onChange={(e) => setGestEmail(e.target.value)} placeholder="gestoria@ejemplo.com" autoFocus />
+                {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
+                {envResult && !envResult.ok && <p className="text-xs text-destructive mt-1">{envResult.msg}</p>}
+              </div>
             </div>
           )}
 
@@ -573,6 +616,12 @@ export default function CierreDeAnoPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2.5 bg-destructive text-destructive-foreground px-5 py-3 rounded-full shadow-xl text-sm font-semibold animate-in fade-in slide-in-from-bottom-4">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
