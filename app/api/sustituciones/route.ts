@@ -222,12 +222,21 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Aviso a las alumnas (si el estudio lo tiene activado): "tu clase sigue en pie".
-    let alumnas = { avisadas: 0, total: 0, skipped: false, desactivado: true };
+    // `body.avisar === false` es un NO explícito de quien confirma esta cobertura en
+    // concreto (franja de decisiones del calendario, punto 4 del rediseño) — pisa el
+    // ajuste general del estudio solo para esta llamada. Omitido/true = comportamiento
+    // de siempre (respeta `studios.avisar_alumnas`).
+    let alumnas: { avisadas: number; total: number; skipped: boolean; desactivado: boolean } =
+      { avisadas: 0, total: 0, skipped: false, desactivado: true };
     if (r.sesion_id) {
-      const { data: cand } = await admin.from('instructores').select('nombre').eq('id', instructorId).maybeSingle();
-      alumnas = await avisarAlumnas(admin, {
-        sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: cand?.nombre,
-      });
+      if (body?.avisar === false) {
+        alumnas = { avisadas: 0, total: 0, skipped: true, desactivado: false };
+      } else {
+        const { data: cand } = await admin.from('instructores').select('nombre').eq('id', instructorId).maybeSingle();
+        alumnas = await avisarAlumnas(admin, {
+          sesionId: r.sesion_id, studioId: sesion.studioId, tipo: 'cubierta', sustituta: cand?.nombre,
+        });
+      }
     }
     return NextResponse.json({ ...r, alumnas });
   }
