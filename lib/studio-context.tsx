@@ -154,6 +154,7 @@ import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
+import type { BloqueHome } from '@/lib/portal-home-bloques';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -232,6 +233,10 @@ interface StudioContextValue {
   // (components/theme/portal-home-editor.tsx), que llama a fetchLayout()/
   // guardarLayoutApi() directamente, no a través de este contexto.
   portalHome: OrdenVisibilidad;
+  // Constructor de bloques del Inicio del portal (Fase 3) — ya PUBLICADO
+  // (nunca el borrador, ver lib/db/supabase-data-admin.ts). Se edita desde
+  // components/theme/portal-home-editor.tsx igual que portalHome.
+  homeBloques: BloqueHome[];
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -551,6 +556,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
+  const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.homeBloques.publicado);
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -684,6 +690,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
+      setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.homeBloques.publicado);
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -3376,6 +3383,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     contenidoPortal,
     bannersPortal,
     portalHome,
+    homeBloques,
     favoritos,
     toggleFavorito,
     updateMensajeDestacado,
@@ -3578,7 +3586,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

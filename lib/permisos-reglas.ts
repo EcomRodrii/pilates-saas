@@ -133,6 +133,16 @@ export function puedeGestionarEquipo(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// Configurar el Inicio del portal — reordenar módulos, añadir/editar bloques
+// del catálogo (Fase 2/3 del editor de temas). Mismo criterio que
+// `puedeGestionarEquipo` (trabajo operativo/de marketing de sede, no
+// facturación), pero con nombre propio: son permisos conceptualmente
+// distintos que hoy coinciden, y podrían divergir el día que uno de los dos
+// cambie sin que el otro deba seguirle.
+export function puedeGestionarPortalHome(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
 // Roles que un rol puede REPARTIR al invitar o editar a alguien. La propietaria
 // reparte todo; el manager solo hacia abajo. Espejo de la policy 0113: si las
 // dos dejan de coincidir, la UI ofrece algo que la base de datos rechaza.

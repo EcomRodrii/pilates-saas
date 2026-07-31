@@ -5,6 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
+import type { BloqueHome } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
@@ -75,6 +76,37 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
   if (!res.ok) {
     const b = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(mensajeSeguro(b.error, 'No se ha podido guardar el menú. Vuelve a intentarlo.'));
+  }
+  return res.json();
+}
+
+// ── Constructor de bloques del Inicio del portal (Fase 3) ───────────────────
+// Flujo borrador/publicado propio, distinto de fetchLayout/guardarLayoutApi
+// (que se aplican en vivo) — ver comentario en layout-schema.ts.
+export async function fetchHomeBloquesBorrador(): Promise<BloqueHome[]> {
+  const res = await fetch('/api/portal-home-bloques', { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo cargar el Inicio del portal');
+  return res.json();
+}
+
+export async function guardarHomeBloquesBorradorApi(bloques: BloqueHome[]): Promise<BloqueHome[]> {
+  const res = await fetch('/api/portal-home-bloques', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(bloques),
+  });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(mensajeSeguro(b.error, 'No se ha podido guardar el Inicio del portal. Vuelve a intentarlo.'));
+  }
+  return res.json();
+}
+
+export async function publicarHomeBloquesApi(): Promise<BloqueHome[]> {
+  const res = await fetch('/api/portal-home-bloques/publish', { method: 'POST', headers: await authHeader() });
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(mensajeSeguro(b.error, 'No se han podido publicar los cambios del Inicio del portal. Vuelve a intentarlo.'));
   }
   return res.json();
 }

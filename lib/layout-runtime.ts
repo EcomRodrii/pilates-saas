@@ -4,7 +4,12 @@
 //
 // Separado de layout-schema.ts (que valida con zod) para que el dashboard
 // —la ruta más visitada del panel— pueda calcular qué secciones mostrar sin
-// arrastrar zod a su bundle de cliente. Cero dependencias.
+// arrastrar zod a su bundle de cliente. Cero dependencias de validación
+// (`portal-home-bloques.ts` es igual de puro, así que importarlo no rompe eso).
+
+import { resolveHomeBloques, DEFAULT_HOME_BLOQUES_SHAPE, type HomeBloquesShape } from './portal-home-bloques.ts';
+export type { HomeBloquesShape };
+export { resolveHomeBloques };
 
 export const MENU_POSICIONES = ['lateral', 'superior'] as const;
 export type MenuPosicion = (typeof MENU_POSICIONES)[number];
@@ -22,7 +27,13 @@ export interface LayoutConfigShape {
   home: OrdenVisibilidad;
   // Orden/visibilidad de los módulos de Inicio del PORTAL cliente (Fase 2 del
   // editor de temas) — distinto de `home`, que es la home del DASHBOARD.
+  // Legacy desde Fase 3: ver homeBloques/resolveHomeBloques.
   portalHome: OrdenVisibilidad;
+  // Constructor de bloques del Inicio del portal (Fase 3). Sustituye a
+  // `portalHome` como fuente de verdad en cuanto el estudio guarda un
+  // borrador aquí — hasta entonces, `resolveHomeBloques` sintetiza esto a
+  // partir de `portalHome`.
+  homeBloques: HomeBloquesShape;
 }
 
 export const DEFAULT_LAYOUT: LayoutConfigShape = {
@@ -31,6 +42,7 @@ export const DEFAULT_LAYOUT: LayoutConfigShape = {
   menuPosition: 'lateral',
   home: { orden: [], ocultos: [] },
   portalHome: { orden: [], ocultos: [] },
+  homeBloques: DEFAULT_HOME_BLOQUES_SHAPE,
 };
 
 function resolveOrdenVis(raw: unknown): OrdenVisibilidad {
@@ -48,10 +60,12 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
   const menuPosition = (MENU_POSICIONES as readonly string[]).includes(obj.menuPosition as string)
     ? (obj.menuPosition as MenuPosicion)
     : 'lateral';
+  const portalHome = resolveOrdenVis(obj.portalHome);
   return {
     orden, ocultos, menuPosition,
     home: resolveOrdenVis(obj.home),
-    portalHome: resolveOrdenVis(obj.portalHome),
+    portalHome,
+    homeBloques: resolveHomeBloques(obj.homeBloques, portalHome),
   };
 }
 

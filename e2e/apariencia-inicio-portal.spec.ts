@@ -1,10 +1,15 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fase 2 del editor de temas: pestaña "Inicio del portal" (dashboard). Verifica
-// el lado del EDITOR — el lado del consumo (portal cliente) se verifica en
-// e2e/portal-home-modulos.spec.ts. Mismo patrón de mock que
-// e2e/apariencia-boton-tarjeta.spec.ts / e2e/vocabulario-clientas.spec.ts.
+// Fase 3 del editor de temas: constructor de bloques del Inicio del portal
+// (pestaña "Inicio del portal" del dashboard). Generaliza Fase 2 (reordenar/
+// ocultar 4 módulos fijos) a añadir/quitar/configurar bloques del catálogo
+// (banner/texto/cta/faq), con borrador/publicar propio — ver
+// lib/portal-home-bloques.ts y lib/layout-data.ts.
+//
+// Verifica el lado del EDITOR — el lado del consumo (portal cliente) se
+// verifica en e2e/portal-home-modulos.spec.ts (legacy) y
+// e2e/portal-home-bloques-render.spec.ts (bloques nuevos).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -15,7 +20,17 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page) {
+const BLOQUES_DEFAULT = [
+  { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+  { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
+  { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
+  { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
+];
+
+async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
+  const peticionesGuardar: unknown[][] = [];
+  let publicadas = 0;
+
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -32,13 +47,20 @@ async function montar(page: Page) {
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
   await page.route('**/api/theme**', route => json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
-  await page.route('**/api/layout**', route => {
-    if (route.request().method() === 'PUT') return json(route, {});
-    return json(route, {
-      orden: [], ocultos: [], menuPosition: 'lateral',
-      home: { orden: [], ocultos: [] },
-      portalHome: { orden: [], ocultos: [] },
-    });
+  await page.route('**/api/layout**', route => json(route, {
+    orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] }, portalHome: { orden: [], ocultos: [] },
+  }));
+  let bloquesActuales = opts.bloquesGuardar ?? BLOQUES_DEFAULT;
+  await page.route('**/api/portal-home-bloques**', route => {
+    const url = route.request().url();
+    if (url.endsWith('/publish')) { publicadas++; return json(route, bloquesActuales); }
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as unknown[];
+      peticionesGuardar.push(body);
+      bloquesActuales = body;
+      return json(route, body);
+    }
+    return json(route, bloquesActuales);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -47,10 +69,11 @@ async function montar(page: Page) {
 
   await page.goto('/configuracion/apariencia');
   await page.getByRole('tab', { name: 'Inicio del portal' }).click();
+  return { peticionesGuardar, publicadasRef: () => publicadas };
 }
 
-test.describe('Editor de temas — Fase 2: Inicio del portal', () => {
-  test('los 4 módulos se listan, con la opción de ocultar cada uno', async ({ page }) => {
+test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del portal', () => {
+  test('los 4 módulos de siempre se listan, con la opción de ocultar cada uno', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Accesos rápidos/)).toBeVisible();
@@ -58,21 +81,58 @@ test.describe('Editor de temas — Fase 2: Inicio del portal', () => {
     await expect(page.getByText(/Contenido del estudio/)).toBeVisible();
   });
 
-  test('ocultar "Invita a una amiga" y guardar manda el patch correcto a /api/layout', async ({ page }) => {
-    await montar(page);
+  test('ocultar "Invita a una amiga" y guardar borrador manda el patch correcto, sin publicar', async ({ page }) => {
+    const { peticionesGuardar, publicadasRef } = await montar(page);
     await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Ocultar Invita a una amiga' }).click();
 
     const [req] = await Promise.all([
-      page.waitForRequest(r => r.url().includes('/api/layout') && r.method() === 'PUT'),
-      page.getByRole('button', { name: /Guardar Inicio del portal/ }).click(),
+      page.waitForRequest(r => r.url().endsWith('/api/portal-home-bloques') && r.method() === 'PUT'),
+      page.getByRole('button', { name: /Guardar borrador/ }).click(),
     ]);
-    const body = req.postDataJSON() as { portalHome?: { orden: string[]; ocultos: string[] } };
-    expect(body.portalHome?.ocultos).toContain('invitarAmiga');
-    expect(body.portalHome?.orden).toHaveLength(4);
+    const body = req.postDataJSON() as Array<{ sistemaId?: string; oculto?: boolean }>;
+    const invitar = body.find((b) => b.sistemaId === 'invitarAmiga');
+    expect(invitar?.oculto).toBe(true);
+    expect(body).toHaveLength(4);
+    expect(peticionesGuardar).toHaveLength(1);
+    expect(publicadasRef()).toBe(0); // "guardar borrador" no publica
 
-    // El botón pasa a "Mostrar" tras ocultar.
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
+  });
+
+  test('añadir un bloque de texto desde el catálogo, configurarlo y publicar', async ({ page }) => {
+    const { publicadasRef } = await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+
+    // El bloque nuevo se añade expandido, listo para configurar.
+    const textos = page.locator('textarea');
+    await textos.first().fill('Bienvenidas al estudio');
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().endsWith('/api/portal-home-bloques/publish') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: /Publicar/ }).click(),
+    ]);
+    expect(publicadasRef()).toBe(1);
+    await expect(page.getByText('¡Publicado!')).toBeVisible();
+  });
+
+  test('eliminar un bloque del catálogo (no un bloque sistema) lo quita de la lista', async ({ page }) => {
+    await montar(page, {
+      bloquesGuardar: [
+        ...BLOQUES_DEFAULT,
+        { id: 'b-1', kind: 'texto', config: { titulo: 'Aviso', texto: 'x' } },
+      ],
+    });
+    await expect(page.getByText('Aviso').or(page.getByText('Texto'))).toBeVisible({ timeout: 30_000 });
+    // Los bloques `sistema` no tienen botón de eliminar; el nuevo sí.
+    await expect(page.getByRole('button', { name: /Eliminar Esta semana/ })).toHaveCount(0);
+    const eliminar = page.getByRole('button', { name: /Eliminar Texto/ });
+    await expect(eliminar).toBeVisible();
+    await eliminar.click();
+    await expect(eliminar).toHaveCount(0);
   });
 });
