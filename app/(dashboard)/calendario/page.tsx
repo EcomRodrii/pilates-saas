@@ -48,10 +48,12 @@ import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaMes } from '@/components/calendario/vista-mes';
+import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
 import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
+import { type SesionBuscable } from '@/lib/calendario-busqueda';
 import { metricasDia, metricasSemana } from '@/lib/calendario-metricas';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
@@ -648,6 +650,34 @@ export default function Calendario() {
     id: s.id, salaId: s.salaId, instructorId: s.instructorId,
     inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
   })), [sesiones]);
+
+  // ── Buscador rápido (Fase 2): sobre TODO el estudio, no solo `datosVista` —
+  // misma regla de visibilidad que filtrarSesionesPorRol (lib/calendario-datos.ts),
+  // replicada aquí porque estos datos vienen del contexto completo, no del
+  // endpoint ya filtrado por rol.
+  const candidatasBusqueda = useMemo<SesionBuscable[]>(() => {
+    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
+    const salasById = new Map(salas.map(s => [s.id, s]));
+    const instrById = new Map(instructores.map(i => [i.id, i]));
+    const visibles = esInstructorTop && yoTop ? sesiones.filter(s => s.instructorId === yoTop.id) : sesiones;
+    return visibles.map(s => ({
+      id: s.id, inicio: s.inicio, cancelada: s.cancelada,
+      tipoClaseNombre: tiposById.get(s.tipoClaseId)?.nombre ?? '?',
+      salaNombre: salasById.get(s.salaId)?.nombre ?? '?',
+      instructorNombre: instrById.get(s.instructorId)?.nombre ?? '?',
+    }));
+  }, [sesiones, tiposClase, salas, instructores, esInstructorTop, yoTop]);
+
+  function saltarAClase(id: string) {
+    const s = sesiones.find(x => x.id === id);
+    if (!s) return;
+    const inicio = new Date(s.inicio);
+    setDiaSeleccionado(inicio);
+    setSemana(weekStart(inicio));
+    setVista('dia');
+    setSesionId(id);
+    setPestanaPanel('clientas');
+  }
 
   const conflictosForm = useMemo(() => {
     if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
@@ -1639,6 +1669,7 @@ export default function Calendario() {
         description={<span className="capitalize">{mesLabel}</span>}
         actions={
         <div className="flex items-center gap-2 flex-wrap">
+          <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
           {gestionaClientas && (
             <Link
               href="/calendario/importar"
