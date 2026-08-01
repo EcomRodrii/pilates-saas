@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
-  UserPlus, UserCheck, Pencil, Trash2,
+  UserPlus, UserCheck, Pencil, Trash2, Copy,
   Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -727,6 +727,29 @@ export default function Calendario() {
       repetirSemanas: 4,
     });
     setShowForm('editar');
+  }
+
+  // Duplicar: mismo tipo/sala/instructora/aforo, +7 días (nunca el mismo
+  // instante — chocaría consigo misma). Nace como clase suelta: sin notas
+  // (son de la instancia de origen, no de la plantilla) y sin precio puntual
+  // ni serie (emptyForm/crearSesion no llevan esos campos).
+  function openDuplicar(origen: SesionEnr) {
+    const ini = new Date(origen.inicio);
+    const fin = new Date(origen.fin);
+    setForm({
+      tipoClaseId: origen.tipoClaseId,
+      salaId: origen.salaId,
+      instructorId: origen.instructorId,
+      fecha: localDate(addDays(ini, 7)),
+      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      aforoMaximo: origen.aforoMaximo,
+      notas: '',
+      repetir: false,
+      repetirSemanas: 4,
+    });
+    setErrorSesion(null);
+    setShowForm('nueva');
   }
 
   async function crearSesion() {
@@ -1754,6 +1777,9 @@ export default function Calendario() {
             <>
               <button onClick={openEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                 <Pencil size={12} />Editar
+              </button>
+              <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                <Copy size={12} />Duplicar
               </button>
               {esInstructor ? (
                 <button onClick={() => setShowNoPuedoAsistir(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
