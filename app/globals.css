@@ -280,6 +280,19 @@ nextjs-portal { display: none !important; }
   100% { transform: translateX(240%) rotate(10deg); }
 }
 
+/* DashboardDrawer (components/ui/dashboard-drawer.tsx) — entra/sale
+   deslizándose desde el borde en vez de aparecer/desaparecer de golpe.
+   Reutilizado por paneles de todo el dashboard (calendario, equipo,
+   clientas…), no solo el rediseño del calendario. */
+@keyframes drawer-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drawer-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes drawer-sheet-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes drawer-sheet-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+.animate-drawer-backdrop-in { animation: drawer-backdrop-in .18s ease both; }
+.animate-drawer-backdrop-out { animation: drawer-backdrop-out .18s ease both; }
+.animate-drawer-sheet-in { animation: drawer-sheet-in .22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-drawer-sheet-out { animation: drawer-sheet-out .18s ease both; }
+
 /* Rediseño del Calendario, punto 10 — respeta prefers-reduced-motion. Global
    a propósito (no solo el módulo de calendario): ninguna otra pantalla lo
    comprobaba todavía, y es una preferencia de accesibilidad del sistema, no

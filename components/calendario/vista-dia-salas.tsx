@@ -64,7 +64,15 @@ export function VistaDiaSalas({
               {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
               <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground">{c.sala.nombre}</span>
             </p>
-            <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
+            {/* Columnas estrechas (móvil, varias salas) no caben las 4 piezas
+                de info en una línea sin truncar a "50…" — versión corta ahí,
+                completa desde `lg`. */}
+            <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground lg:hidden">
+              {c.sesiones.length > 0
+                ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${Math.round(c.ocupacionMedia * 100)}%`
+                : 'Sin clases'}
+            </p>
+            <p className="mt-0.5 hidden truncate text-[10.5px] text-muted-foreground lg:block">
               {c.sesiones.length > 0
                 ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${c.sala.capacidad} plazas · ${Math.round(c.ocupacionMedia * 100)}% · ${etiquetaOcupacion(c.ocupacionMedia)}`
                 : `${c.sala.capacidad} plazas · sin clases`}
