@@ -231,13 +231,16 @@ interface StudioContextValue {
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
   // de temas). Solo lectura aquí — se edita desde el dashboard
-  // (components/theme/portal-home-editor.tsx), que llama a fetchLayout()/
+  // (components/theme/portal-bloques-editor.tsx), que llama a fetchLayout()/
   // guardarLayoutApi() directamente, no a través de este contexto.
   portalHome: OrdenVisibilidad;
-  // Constructor de bloques del Inicio del portal (Fase 3) — ya PUBLICADO
-  // (nunca el borrador, ver lib/db/supabase-data-admin.ts). Se edita desde
-  // components/theme/portal-home-editor.tsx igual que portalHome.
+  // Constructor de bloques del portal (Fase 3, generalizado a Clases/Bonos en
+  // la Fase 1 del Theme Builder) — ya PUBLICADO (nunca el borrador, ver
+  // lib/db/supabase-data-admin.ts). Se edita desde
+  // components/theme/portal-bloques-editor.tsx igual que portalHome.
   homeBloques: BloqueHome[];
+  bloquesClases: BloqueHome[];
+  bloquesBonos: BloqueHome[];
   // Comportamiento de la barra inferior del portal (galería de temas,
   // "Editorial") — único campo del tema expuesto como valor JS, no solo CSS:
   // portal-shell.tsx decide con esto si pinta iconos/pestaña expandible.
@@ -561,7 +564,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
-  const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.homeBloques.publicado);
+  const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
+  const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
+  const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
@@ -696,7 +701,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
-      setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.homeBloques.publicado);
+      setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
+      setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
+      setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
@@ -3395,6 +3402,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bannersPortal,
     portalHome,
     homeBloques,
+    bloquesClases,
+    bloquesBonos,
     tabBarStyle,
     favoritos,
     toggleFavorito,
@@ -3598,7 +3607,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, tabBarStyle, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

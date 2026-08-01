@@ -4,7 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ThemeEditor } from './theme-editor';
 import { HomeEditor } from './home-editor';
 import { ContenidoPortalEditor } from './contenido-portal-editor';
-import { PortalHomeEditor } from './portal-home-editor';
+import { PortalBloquesEditor } from './portal-bloques-editor';
 
 // Pestañas de Apariencia. (La personalización del menú lateral se retiró
 // temporalmente: rompía el render del menú y hay que rehacerla verificándola.)
@@ -15,7 +15,7 @@ export function AparienciaTabs() {
         <TabsTrigger value="marca">Marca y colores</TabsTrigger>
         <TabsTrigger value="inicio">Inicio</TabsTrigger>
         <TabsTrigger value="contenido-portal">Contenido del portal</TabsTrigger>
-        <TabsTrigger value="inicio-portal">Inicio del portal</TabsTrigger>
+        <TabsTrigger value="bloques-portal">Bloques del portal</TabsTrigger>
       </TabsList>
 
       <TabsContent value="marca" className="pt-6">
@@ -38,12 +38,12 @@ export function AparienciaTabs() {
         <ContenidoPortalEditor />
       </TabsContent>
 
-      <TabsContent value="inicio-portal" className="pt-6">
+      <TabsContent value="bloques-portal" className="pt-6">
         <div className="mb-4">
-          <h2 className="text-[15px] font-bold text-foreground">Inicio del portal</h2>
-          <p className="text-[13px] text-muted-foreground">Reordena y oculta los módulos que ven tus clientas al abrir la app (distinto de la pestaña &quot;Inicio&quot;, que es tu propio panel).</p>
+          <h2 className="text-[15px] font-bold text-foreground">Bloques del portal</h2>
+          <p className="text-[13px] text-muted-foreground">Reordena y oculta los módulos de Inicio, Clases y Bonos, y añade bloques nuevos (distinto de la pestaña &quot;Inicio&quot;, que es tu propio panel).</p>
         </div>
-        <PortalHomeEditor />
+        <PortalBloquesEditor />
       </TabsContent>
     </Tabs>
   );

@@ -2,10 +2,12 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fase 3 del editor de temas: constructor de bloques del Inicio del portal
-// (pestaña "Inicio del portal" del dashboard). Generaliza Fase 2 (reordenar/
-// ocultar 4 módulos fijos) a añadir/quitar/configurar bloques del catálogo
-// (banner/texto/cta/faq), con borrador/publicar propio — ver
-// lib/portal-home-bloques.ts y lib/layout-data.ts.
+// (pestaña "Bloques del portal" del dashboard, con Home como pantalla activa
+// por defecto). Generaliza Fase 2 (reordenar/ocultar 4 módulos fijos) a
+// añadir/quitar/configurar bloques del catálogo (banner/texto/cta/faq), con
+// borrador/publicar propio — ver lib/portal-home-bloques.ts y
+// lib/layout-data.ts. La Fase 1 del Theme Builder generalizó el mismo editor
+// a Clases y Bonos (selector de pantalla arriba); este spec cubre solo Home.
 //
 // Verifica el lado del EDITOR — el lado del consumo (portal cliente) se
 // verifica en e2e/portal-home-modulos.spec.ts (legacy) y
@@ -51,9 +53,9 @@ async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
     orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] }, portalHome: { orden: [], ocultos: [] },
   }));
   let bloquesActuales = opts.bloquesGuardar ?? BLOQUES_DEFAULT;
-  await page.route('**/api/portal-home-bloques**', route => {
+  await page.route('**/api/portal-bloques**', route => {
     const url = route.request().url();
-    if (url.endsWith('/publish')) { publicadas++; return json(route, bloquesActuales); }
+    if (url.includes('/publish')) { publicadas++; return json(route, bloquesActuales); }
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];
       peticionesGuardar.push(body);
@@ -68,7 +70,7 @@ async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia');
-  await page.getByRole('tab', { name: 'Inicio del portal' }).click();
+  await page.getByRole('tab', { name: 'Bloques del portal' }).click();
   return { peticionesGuardar, publicadasRef: () => publicadas };
 }
 
@@ -88,7 +90,7 @@ test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del
     await page.getByRole('button', { name: 'Ocultar Invita a una amiga' }).click();
 
     const [req] = await Promise.all([
-      page.waitForRequest(r => r.url().endsWith('/api/portal-home-bloques') && r.method() === 'PUT'),
+      page.waitForRequest(r => r.url().includes('/api/portal-bloques?') && r.method() === 'PUT'),
       page.getByRole('button', { name: /Guardar borrador/ }).click(),
     ]);
     const body = req.postDataJSON() as Array<{ sistemaId?: string; oculto?: boolean }>;
@@ -113,7 +115,7 @@ test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del
     await textos.first().fill('Bienvenidas al estudio');
 
     await Promise.all([
-      page.waitForResponse(r => r.url().endsWith('/api/portal-home-bloques/publish') && r.request().method() === 'POST'),
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques/publish') && r.request().method() === 'POST'),
       page.getByRole('button', { name: /Publicar/ }).click(),
     ]);
     expect(publicadasRef()).toBe(1);

@@ -24,23 +24,28 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
 import { useStudio } from '@/lib/studio-context';
-import { fetchHomeBloquesBorrador, guardarHomeBloquesBorradorApi, publicarHomeBloquesApi } from '@/lib/api-client';
+import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
-  BLOCK_CATALOG, DEFAULT_HOME_BLOQUES, BLOQUE_SISTEMA_LABEL, getBlockCatalogEntry,
-  type BloqueHome, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
+  BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, PANTALLA_LABEL, getBlockCatalogEntry,
+  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
 } from '@/lib/portal-home-bloques';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { HomePreview } from './home-preview';
 
 // Fase 3 del editor de temas: generaliza el reordenar/ocultar de Fase 2 (los 4
-// módulos `sistema`) a un constructor de bloques tipo Shopify Sections — el
-// estudio también puede AÑADIR banner/texto/cta/faq del catálogo
-// (BLOCK_CATALOG), configurarlos y reordenarlos junto a los de siempre.
+// módulos `sistema` del Inicio) a un constructor de bloques tipo Shopify
+// Sections — el estudio también puede AÑADIR banner/texto/cta/faq del
+// catálogo (BLOCK_CATALOG), configurarlos y reordenarlos junto a los de
+// siempre. La Fase 1 del Theme Builder generaliza esto a Clases y Bonos: el
+// mismo editor, con un selector de pantalla arriba — DEFAULT_BLOQUES_POR_PANTALLA
+// y PANTALLA_IDS (lib/portal-home-bloques.ts) son la única lista a tocar para
+// dar de alta una pantalla nueva en este constructor.
 //
 // A diferencia de Fase 2 (que guardaba en vivo), esto tiene borrador/publicar
-// propio — hay contenido editorial real (texto, imagen, preguntas) que un
-// cambio a medias no debe publicar solo.
+// propio POR PANTALLA — hay contenido editorial real (texto, imagen,
+// preguntas) que un cambio a medias no debe publicar solo, y cada pantalla
+// puede ir a su ritmo (terminar Clases sin que eso publique Bonos a medias).
 
 const ICONOS: Record<string, LucideIcon> = {
   Image: ImageIcon, Type, MousePointerClick, HelpCircle,
@@ -48,6 +53,12 @@ const ICONOS: Record<string, LucideIcon> = {
 
 const inputCls = 'w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background';
 const labelCls = 'text-[11.5px] font-semibold text-muted-foreground block mb-1';
+
+const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
+  home: 'El saludo y tu próxima clase se mantienen siempre arriba.',
+  clases: 'El calendario de clases se mantiene siempre visible; los bloques que añadas van antes o después.',
+  bonos: 'Tu bono y accesos rápidos se mantienen siempre visibles; los bloques que añadas van antes o después.',
+};
 
 function labelDe(b: BloqueHome): string {
   if (b.kind === 'sistema') return BLOQUE_SISTEMA_LABEL[b.sistemaId];
@@ -158,10 +169,11 @@ function Fila({
   );
 }
 
-export function PortalHomeEditor() {
+export function PortalBloquesEditor() {
   const { rol } = usePermisos();
   const { studio } = useStudio();
-  const [bloques, setBloques] = useState<BloqueHome[]>(DEFAULT_HOME_BLOQUES);
+  const [pantalla, setPantalla] = useState<PantallaId>('home');
+  const [bloquesPorPantalla, setBloquesPorPantalla] = useState<Record<PantallaId, BloqueHome[]>>(DEFAULT_BLOQUES_POR_PANTALLA);
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
@@ -169,25 +181,42 @@ export function PortalHomeEditor() {
   const [expandidoId, setExpandidoId] = useState<string | null>(null);
   const [picker, setPicker] = useState(false);
 
+  const bloques = bloquesPorPantalla[pantalla];
+  function setBloques(actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
+    setBloquesPorPantalla((prev) => ({ ...prev, [pantalla]: actualizar(prev[pantalla]) }));
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Carga las tres pantallas de una vez: así el preview de la derecha enseña
+  // el borrador correcto sea cual sea la pantalla que se mire, aunque el
+  // editor tenga otra pestaña activa.
   useEffect(() => {
     let vivo = true;
-    fetchHomeBloquesBorrador()
-      .then((b) => { if (vivo && b.length > 0) setBloques(b); })
-      .catch(() => {})
+    Promise.all(PANTALLA_IDS.map((p) => fetchBloquesBorrador(p).catch(() => null)))
+      .then((resultados) => {
+        if (!vivo) return;
+        setBloquesPorPantalla((prev) => {
+          const siguiente = { ...prev };
+          PANTALLA_IDS.forEach((p, i) => {
+            const r = resultados[i];
+            if (r && r.length > 0) siguiente[p] = r;
+          });
+          return siguiente;
+        });
+      })
       .finally(() => { if (vivo) setEstado('listo'); });
     return () => { vivo = false; };
   }, []);
 
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
-    return <p className="text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden configurar el Inicio del portal.</p>;
+    return <p className="text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden configurar los bloques del portal.</p>;
   }
   if (estado === 'cargando') {
-    return <p className="text-sm text-muted-foreground">Cargando Inicio del portal…</p>;
+    return <p className="text-sm text-muted-foreground">Cargando bloques del portal…</p>;
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -224,11 +253,18 @@ export function PortalHomeEditor() {
     setAviso(null);
   }
 
+  function cambiarPantalla(p: PantallaId) {
+    setPantalla(p);
+    setExpandidoId(null);
+    setPicker(false);
+    setAviso(null);
+  }
+
   async function guardar() {
     setGuardando(true);
     setAviso(null);
     try {
-      await guardarHomeBloquesBorradorApi(bloques);
+      await guardarBloquesBorradorApi(pantalla, bloques);
       setAviso({ tipo: 'ok', texto: 'Borrador guardado. Tus clientas no lo ven todavía.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
@@ -241,8 +277,8 @@ export function PortalHomeEditor() {
     setPublicando(true);
     setAviso(null);
     try {
-      await guardarHomeBloquesBorradorApi(bloques);
-      await publicarHomeBloquesApi();
+      await guardarBloquesBorradorApi(pantalla, bloques);
+      await publicarBloquesApi(pantalla);
       setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus clientas.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
@@ -252,7 +288,7 @@ export function PortalHomeEditor() {
   }
 
   function restaurar() {
-    setBloques(DEFAULT_HOME_BLOQUES);
+    setBloques(() => DEFAULT_BLOQUES_POR_PANTALLA[pantalla]);
     setExpandidoId(null);
     setAviso(null);
   }
@@ -260,8 +296,23 @@ export function PortalHomeEditor() {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
     <div className="space-y-4">
+      <div className="flex gap-1.5" role="tablist" aria-label="Pantalla a editar">
+        {PANTALLA_IDS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="tab"
+            aria-selected={pantalla === p}
+            onClick={() => cambiarPantalla(p)}
+            className={`px-3 py-1.5 rounded-full text-[12.5px] font-semibold border ${pantalla === p ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
+          >
+            {PANTALLA_LABEL[p]}
+          </button>
+        ))}
+      </div>
+
       <p className="text-[13px] text-muted-foreground">
-        Arrastra para reordenar los bloques del Inicio del portal, usa el ojo para ocultar los que no uses, y añade bloques nuevos del catálogo. El saludo y tu próxima clase se mantienen siempre arriba.
+        Arrastra para reordenar los bloques de {PANTALLA_LABEL[pantalla]}, usa el ojo para ocultar los que no uses, y añade bloques nuevos del catálogo. {DESCRIPCION_PANTALLA[pantalla]}
       </p>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -332,16 +383,17 @@ export function PortalHomeEditor() {
         </button>
       </div>
       <p className="text-[11.5px] text-muted-foreground">
-        El borrador solo lo ves tú. Al publicar, el nuevo Inicio pasa a la app de clientas.
+        El borrador solo lo ves tú. Al publicar, {PANTALLA_LABEL[pantalla]} pasa a la app de clientas.
       </p>
     </div>
 
     {/* Preview en vivo (mismo mecanismo que "Marca y colores": iframe real,
         aquí de /portal-preview/[slug], sincronizado por postMessage con el
-        borrador de bloques en vez de con CSS vars). */}
+        borrador de bloques de las tres pantallas). Cambiar de pestaña arriba
+        también cambia la pantalla que se ve en el móvil. */}
     <div className="lg:sticky lg:top-4 space-y-2">
       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Vista previa en vivo</p>
-      <HomePreview bloques={bloques} slug={studio?.slug} />
+      <HomePreview bloquesPorPantalla={bloquesPorPantalla} pantalla={pantalla} onPantallaChange={cambiarPantalla} slug={studio?.slug} />
       <p className="text-[11px] text-muted-foreground">
         Con una socia de muestra (sin reservas propias) — el resto es tu estudio real.
       </p>
