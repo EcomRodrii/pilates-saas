@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { PortalHomeView } from './portal-home-view';
-import type { PortalSession } from '@/lib/portal-auth';
+import { SESION_MUESTRA } from '@/lib/theme/preview-sesion-muestra';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 
 // Sesión de muestra: esta ruta nunca tiene una socia real (ver
@@ -11,7 +11,6 @@ import type { BloqueHome } from '@/lib/portal-home-bloques';
 // la tarjeta grande — el resto (Esta semana, bloques del catálogo, colores,
 // tipografía) es el catálogo REAL del estudio, cargado por useStudio() vía
 // StudioSlugGate igual que en /reservar/[slug].
-const SESION_MUESTRA: PortalSession = { socioId: 'preview-socia', nombre: 'Vista previa', email: '' };
 
 // Escucha el borrador de bloques en vivo mandado por HomePreview (el iframe
 // que monta esta ruta, ver components/theme/home-preview.tsx) — mismo

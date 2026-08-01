@@ -1,0 +1,588 @@
+'use client';
+
+// CLASES — vista de presentación, desacoplada de la sesión real (Fase 5 del
+// editor de temas: vista previa completa de la app de socias).
+//
+// Extraída de app/portal/[slug]/clases/page.tsx, que ahora es un wrapper fino
+// (usePortalAuth real). Misma idea que PortalHomeView: recibe `session` por
+// prop en vez de leer usePortalAuth() directamente, así se puede montar tanto
+// con una socia real como con la sesión de muestra de /portal-preview/[slug]
+// (lib/theme/preview-sesion-muestra.ts) sin duplicar 550 líneas de JSX.
+//
+// `escribible = false` (solo en preview): las acciones de escritura
+// (reservar, cancelar, marcar favorita, pedir pase) NO llaman a useStudio()/a
+// la API real — la propietaria ve el mismo flujo de UI (abrir la hoja de
+// reserva, el bottom sheet de cancelación) sin dejar rastro en `reservas` con
+// un socioId ficticio que no existe en `socios` (rompería cualquier FK real
+// si se dejara pasar).
+//
+// La preparación de datos es la de siempre (mismos índices en una pasada, misma
+// cobertura de plan, misma ventana de cancelación). Lo que cambia es la
+// composición y, sobre todo, que esta pantalla deja de usar `ReservaCalendario`.
+//
+// POR QUÉ SE DESACOPLA (del componente de calendario, motivo original):
+// `ReservaCalendario` lo comparten esta pantalla y `/reservar/[slug]`, y desde
+// el rediseño **tienen diseños distintos** — el portal va por el prototipo y
+// la página pública por `Reservas.dc.html`. Mantenerlo compartido obligaría a
+// un solo componente a servir dos lenguajes visuales, que es como se acaba con
+// props tipo `variant` que nadie entiende. La LÓGICA no se duplica: sigue en
+// `useStudio()` y en `lib/booking-logic`; lo que se separa es la presentación.
+
+import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
+import { Star } from 'lucide-react';
+import { useStudio } from '@/lib/studio-context';
+import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
+import { esCancelacionTardia } from '@/lib/booking-logic';
+import { useModo } from '@/lib/portal-modo';
+import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
+import { HojaPase } from '@/components/portal/hoja-pase';
+import { BottomSheet, Button } from '@/components/portal/ui';
+import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
+import { semantic } from '@/lib/portal-tokens';
+import type { PortalSession } from '@/lib/portal-auth';
+import type { DatosPase } from '@/components/portal/hoja-pase';
+import type { Reserva, Spot } from '@/lib/types';
+
+type Vista = 'todas' | 'mias';
+
+const OCUPA_PLAZA: Reserva['estado'][] = ['CONFIRMADA', 'ASISTIDA'];
+const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
+const LETRA_DIA = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+
+/** Lunes de la semana de `d`, a las 00:00. */
+function lunesDe(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  // getDay(): 0 = domingo. El domingo pertenece a la semana que TERMINA, así
+  // que retrocede seis días, no cero.
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+const claveDia = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Stub de "pedir pase" para preview: NO llama a la API real (socioId ficticio,
+// 404/error garantizado) — devuelve un pase de muestra para que la hoja se
+// vea con contenido real en vez de un error o un hueco en blanco.
+async function pedirPaseDeMuestra(): Promise<DatosPase> {
+  return { hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null };
+}
+
+export function PortalClasesView({ session, escribible = true }: { session: PortalSession | null; escribible?: boolean }) {
+  const { slug } = useParams<{ slug: string }>();
+  const {
+    sesiones, reservas, tiposClase, salas, instructores, spots,
+    planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
+    favoritos, toggleFavorito,
+  } = useStudio();
+  const { t, noche } = useModo();
+  const socioId = session?.socioId ?? null;
+
+  const [vista, setVista] = useState<Vista>('todas');
+  const [semana, setSemana] = useState(0);
+  const [diaElegido, setDiaElegido] = useState<number | null>(null);
+  const [tipoElegido, setTipoElegido] = useState<string | null>(null);
+  // 'favoritas' es un valor especial de `tipoElegido`: reutiliza el mismo
+  // estado que ya filtra por tipo de clase, en vez de un segundo booleano que
+  // tendría que sincronizarse con él.
+  const FAVORITAS = '__favoritas__';
+  const idsFavoritos = useMemo(() => new Set(favoritos.map(f => f.tipoClaseId)), [favoritos]);
+  // Derivado, no estado: si se queda sin favoritos con el filtro puesto (p.ej.
+  // desmarca su última favorita), el chip "Favoritas" desaparece de la fila —
+  // sin esto el listado se quedaba vacío sin ningún control visible para
+  // volver a "Todas". Tratarlo como valor derivado (en vez de sincronizarlo
+  // con un efecto que llama a setTipoElegido) evita un render en cascada.
+  const tipoEfectivo = tipoElegido === FAVORITAS && idsFavoritos.size === 0 ? null : tipoElegido;
+  const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
+  const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
+  const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
+  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
+
+  const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
+
+  const activeSus = useMemo(() =>
+    suscripciones.find(s => s.socioId === socioId && s.estado === 'ACTIVA') ?? null,
+  [suscripciones, socioId]);
+  const planActivo = activeSus ? planesTarifa.find(p => p.id === activeSus.planId) ?? null : null;
+  const cubierta = tieneCoberturaPlan(activeSus, planActivo);
+
+  // Índices en una pasada — evita recorrer `reservas` por cada sesión.
+  const { ocupadasPorSesion, spotsOcupadosPorSesion, miReservaPorSesion } = useMemo(() => {
+    const ocupadas = new Map<string, number>();
+    const spotsOcup = new Map<string, string[]>();
+    const mia = new Map<string, Reserva>();
+    for (const r of reservas) {
+      if (OCUPA_PLAZA.includes(r.estado)) {
+        ocupadas.set(r.sesionId, (ocupadas.get(r.sesionId) ?? 0) + 1);
+        if (r.spotId) {
+          const arr = spotsOcup.get(r.sesionId) ?? [];
+          arr.push(r.spotId);
+          spotsOcup.set(r.sesionId, arr);
+        }
+      }
+      if (socioId && r.socioId === socioId && RESERVA_ACTIVA.includes(r.estado)) mia.set(r.sesionId, r);
+    }
+    return { ocupadasPorSesion: ocupadas, spotsOcupadosPorSesion: spotsOcup, miReservaPorSesion: mia };
+  }, [reservas, socioId]);
+
+  const spotsPorSala = useMemo(() => {
+    const m = new Map<string, Spot[]>();
+    for (const sp of spots) {
+      if (!sp.activo) continue;
+      const arr = m.get(sp.salaId) ?? [];
+      arr.push(sp);
+      m.set(sp.salaId, arr);
+    }
+    return m;
+  }, [spots]);
+
+  // Estable durante la vida de la página: con Date.now() la dependencia sería
+  // nueva en cada render y no se memoizaría nada.
+  const ahora = useMemo(() => new Date(), []);
+  const dias = useMemo(() => {
+    const l = lunesDe(ahora);
+    l.setDate(l.getDate() + semana * 7);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(l);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, [ahora, semana]);
+
+  // El día activo por defecto: hoy si cae en la semana que se mira, y si no, el
+  // lunes. Sin esto, al pasar de semana quedaba señalado un día fuera de vista.
+  const indiceHoy = dias.findIndex(d => claveDia(d) === claveDia(ahora));
+  const diaActivo = diaElegido ?? (indiceHoy >= 0 ? indiceHoy : 0);
+
+  const decorar = useMemo(() => (s: typeof sesiones[number]) => {
+    const ocupadas = ocupadasPorSesion.get(s.id) ?? 0;
+    return {
+      sesion: s,
+      tipo: tiposClase.find(tc => tc.id === s.tipoClaseId),
+      sala: salas.find(sl => sl.id === s.salaId),
+      instr: instructores.find(i => i.id === s.instructorId),
+      mia: miReservaPorSesion.get(s.id) ?? null,
+      ocupadas,
+      libres: Math.max(0, s.aforoMaximo - ocupadas),
+      pasada: new Date(s.inicio) < ahora,
+    };
+  }, [ocupadasPorSesion, tiposClase, salas, instructores, miReservaPorSesion, ahora]);
+
+  const clases = useMemo(() => {
+    const dia = dias[diaActivo];
+    if (!dia) return [];
+    const clave = claveDia(dia);
+    return sesiones
+      .filter(s => !s.cancelada && s.inicio.slice(0, 10) === clave)
+      .filter(s => tipoEfectivo === FAVORITAS ? idsFavoritos.has(s.tipoClaseId) : (!tipoEfectivo || s.tipoClaseId === tipoEfectivo))
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(decorar);
+  }, [dias, diaActivo, sesiones, tipoEfectivo, idsFavoritos, decorar]);
+
+  const misClases = useMemo(() =>
+    sesiones
+      .filter(s => !s.cancelada && miReservaPorSesion.has(s.id) && new Date(s.inicio) >= ahora)
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(decorar),
+  [sesiones, miReservaPorSesion, ahora, decorar]);
+
+  const confirmadas = misClases.filter(c => c.mia?.estado === 'CONFIRMADA').length;
+  const lista = vista === 'todas' ? clases : misClases;
+
+  const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const minutos = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
+
+  function abrirReserva(c: typeof clases[number]) {
+    setReservando({
+      id: c.sesion.id, inicio: c.sesion.inicio, fin: c.sesion.fin,
+      nombre: c.tipo?.nombre ?? 'Clase',
+      nivel: c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel ?? null,
+      salaNombre: c.sala?.nombre ?? null,
+      instructorNombre: c.instr?.nombre ?? null,
+      aforoMaximo: c.sesion.aforoMaximo,
+      ocupadas: c.ocupadas,
+      spots: spotsPorSala.get(c.sesion.salaId) ?? [],
+      spotsOcupados: spotsOcupadosPorSesion.get(c.sesion.id) ?? [],
+      precio: cubierta ? null : precioClaseSuelta,
+      sesionesTrasReservar: cubierta && activeSus?.sesionesRestantes != null
+        ? Math.max(0, activeSus.sesionesRestantes - 1)
+        : null,
+    });
+  }
+
+  async function confirmar(spotId: string | null) {
+    if (!reservando || !socioId) return;
+    if (!escribible) {
+      setReservando(null);
+      setAviso({ texto: 'Vista previa: esta reserva no se guarda de verdad.', error: false });
+      return;
+    }
+    // Se ESPERA al servidor antes de decir nada. Esta pantalla anunciaba
+    // «Reservada. Te esperamos.» pasara lo que pasara: con el estudio exigiendo
+    // bono y la socia sin ninguno, la reserva se rechazaba, el panel seguía a
+    // 0/8 y aquí ponía que estaba hecha.
+    const r = await addReserva(reservando.id, socioId, spotId);
+    setReservando(null);
+    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+    setAviso({
+      texto: r.estado === 'LISTA_ESPERA'
+        ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
+        : 'Reservada. Te esperamos.',
+      error: false,
+    });
+  }
+
+  // Antes: si la cancelación era tardía, `window.confirm()` nativo (sin marca,
+  // podía comportarse raro en un PWA instalado); si no era tardía, cancelaba
+  // DIRECTO sin preguntar nada — un toque accidental con el pulgar perdía la
+  // plaza sin poder deshacerlo. Ahora siempre confirma, con el mismo
+  // BottomSheet que el resto del portal (/reservas, detalle de clase).
+  function cancelar(c: { sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null }) {
+    if (!c.mia) return;
+    setCancelando(c);
+  }
+
+  function tardiaDe(c: { sesion: { inicio: string; tipoClaseId: string } }): { tardia: boolean; ventana: number } {
+    const ventana = tiposClase.find(tc => tc.id === c.sesion.tipoClaseId)?.ventanaCancelacionHoras
+      ?? studio?.cancelacionVentanaHoras ?? 0;
+    return { tardia: esCancelacionTardia(c.sesion.inicio, new Date(), ventana), ventana };
+  }
+
+  function marcarFavorita(tipoClaseId: string, accion: 'marcar' | 'desmarcar') {
+    if (!escribible) return;
+    void toggleFavorito(tipoClaseId, accion);
+  }
+
+  const circulo: React.CSSProperties = {
+    width: 38, height: 38, borderRadius: '50%',
+    border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
+    background: noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, color: t.muted2, cursor: 'pointer',
+    transition: transicion(['background'], dur.color),
+  };
+
+  const rangoSemana = `${dias[0].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — ${dias[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`
+    .replace(/\./g, '').toUpperCase();
+
+  return (
+    <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
+      <div style={{ padding: '0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
+            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Clases</h1>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+            <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
+            <button type="button" aria-label="Semana siguiente" onClick={() => { setSemana(s => s + 1); setDiaElegido(0); }} style={circulo}>→</button>
+          </div>
+        </div>
+
+        <div style={{
+          position: 'relative', display: 'flex', alignItems: 'center', height: 46, marginTop: 22,
+          padding: 5, borderRadius: 23,
+          background: noche ? 'rgba(28,31,23,.6)' : 'rgba(255,255,255,.6)',
+          border: `1px solid ${t.line}`,
+        }}>
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute', left: 5, top: 5, bottom: 5, width: 'calc((100% - 10px) / 2)',
+              borderRadius: 18, background: noche ? t.surface2 : '#FFFFFF', boxShadow: sombra.pastilla,
+              transform: `translateX(${vista === 'todas' ? 0 : 100}%)`,
+              transition: `transform ${dur.tab}ms ${EASE}`, pointerEvents: 'none',
+            }}
+          />
+          {([['todas', 'Todas las clases'], ['mias', `Mis reservas · ${confirmadas}`]] as const).map(([id, etiqueta]) => (
+            <button
+              key={id} type="button" onClick={() => setVista(id)} aria-pressed={vista === id}
+              style={{
+                position: 'relative', flex: 1, textAlign: 'center', background: 'none', border: 'none',
+                fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', cursor: 'pointer',
+                color: vista === id ? t.ink : t.muted, transition: 'color 350ms ease',
+              }}
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {vista === 'todas' && (
+        <>
+          {(tiposClase.length > 1 || idsFavoritos.size > 0) && (
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '18px 24px 4px', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {[{ id: null as string | null, nombre: 'Todas', color: null as string | null },
+                ...(idsFavoritos.size > 0 ? [{ id: FAVORITAS, nombre: 'Favoritas', color: null as string | null }] : []),
+                ...tiposClase.map(tc => ({ id: tc.id, nombre: tc.nombre, color: tc.color }))].map(chip => {
+                const activo = tipoEfectivo === chip.id;
+                return (
+                  <button
+                    key={chip.id ?? 'todas'} type="button" onClick={() => setTipoElegido(chip.id)} aria-pressed={activo}
+                    style={{
+                      flex: '0 0 auto', height: 36, padding: chip.color ? '0 16px' : '0 18px', borderRadius: 18,
+                      background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
+                      color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
+                      border: `1px solid ${activo ? 'transparent' : t.line}`,
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      fontSize: 11.5, fontWeight: 500, fontFamily: 'inherit', whiteSpace: 'nowrap', cursor: 'pointer',
+                      transition: transicion(['background', 'color'], 300),
+                    }}
+                  >
+                    {chip.id === FAVORITAS && <Star size={12} fill={activo ? 'currentColor' : 'none'} />}
+                    {chip.color && !activo && <span style={{ width: 6, height: 6, borderRadius: '50%', background: chip.color }} />}
+                    {chip.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ position: 'relative', display: 'flex', margin: '20px 24px 0', paddingBottom: 18, borderBottom: `1px solid ${t.line}` }}>
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute', left: 0, top: 0, width: 'calc(100% / 7)', height: 72,
+                display: 'flex', justifyContent: 'center', pointerEvents: 'none',
+                transform: `translateX(${diaActivo * 100}%)`,
+                transition: `transform 550ms ${EASE}`,
+              }}
+            >
+              <span style={{ width: 44, height: 72, borderRadius: 22, background: 'var(--portal-brand)', boxShadow: '0 12px 24px -14px rgba(34,42,30,.6)' }} />
+            </span>
+            {dias.map((d, i) => {
+              const activo = i === diaActivo;
+              const pasado = claveDia(d) < claveDia(ahora);
+              return (
+                <button
+                  key={d.toISOString()} type="button" onClick={() => setDiaElegido(i)} aria-pressed={activo}
+                  aria-label={d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  style={{
+                    position: 'relative', flex: 1, height: 72, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 7,
+                    background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: '.16em', color: activo ? 'color-mix(in srgb, var(--portal-brand-foreground) 65%, transparent)' : t.micro }}>
+                    {LETRA_DIA[d.getDay()]}
+                  </span>
+                  <span style={{ ...display(21), color: activo ? 'var(--portal-brand-foreground)' : (pasado ? t.micro : t.ink) }}>
+                    {d.getDate()}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {lista.length === 0 ? (
+          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
+            {vista === 'mias' ? 'Todavía no tienes ninguna clase reservada.' : 'No hay clases este día.'}
+          </p>
+        ) : lista.map(c => {
+          const reservada = !!c.mia;
+          const completa = c.libres <= 0 && !reservada;
+          const pocas = !reservada && c.libres > 0 && c.libres <= 3;
+          const spotMio = c.mia?.spotId ? spots.find(sp => sp.id === c.mia!.spotId) : null;
+          const esFavorita = idsFavoritos.has(c.sesion.tipoClaseId);
+
+          return (
+            <div
+              key={c.sesion.id}
+              style={{
+                position: 'relative',
+                borderRadius: radio.card, padding: 20, display: 'flex', gap: 18,
+                background: reservada
+                  ? (noche ? t.surface2 : '#EEF0EA')
+                  : (completa || c.pasada ? (noche ? 'rgba(28,31,23,.5)' : 'rgba(255,255,255,.5)') : t.surface),
+                border: `1px solid ${reservada ? (noche ? 'rgba(169,187,160,.22)' : 'rgba(44,53,44,.16)') : 'transparent'}`,
+                boxShadow: reservada || completa || c.pasada ? undefined : '0 14px 32px -24px rgba(34,42,30,.5)',
+                opacity: c.pasada ? 0.6 : 1,
+              }}
+            >
+              <div style={{ flex: '0 0 52px' }}>
+                <div style={{ ...display(26), color: completa || c.pasada ? t.muted2 : t.ink }}>{hora(c.sesion.inicio)}</div>
+                <div style={{ ...texto.nota, fontSize: 10, color: t.muted2, marginTop: 6 }}>{minutos(c.sesion.inicio, c.sesion.fin)} min</div>
+              </div>
+              <div style={{ width: 1, background: t.line }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {reservada && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--portal-brand)' }} />
+                    <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>
+                      {c.mia!.estado === 'LISTA_ESPERA'
+                        ? 'En lista de espera'
+                        : spotMio ? `Reservada · plaza ${spotMio.numero}` : 'Reservada'}
+                    </span>
+                  </div>
+                )}
+                <div style={{ ...display(23, reservada, 1.05), color: completa || c.pasada ? t.muted2 : t.ink, textWrap: 'pretty' } as React.CSSProperties}>
+                  {c.tipo?.nombre ?? 'Clase'}
+                </div>
+                <div style={{ ...texto.nota, color: t.muted, marginTop: 6 }}>
+                  {[c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel, c.sala?.nombre, reservada ? c.instr?.nombre : null].filter(Boolean).join(' · ')}
+                </div>
+                {!reservada && c.instr && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 14 }}>
+                    <span style={{ width: 26, height: 26, borderRadius: '50%', flex: '0 0 26px', background: c.instr.color ?? t.surface2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#FFFFFF' }}>
+                      {c.instr.nombre.trim()[0]?.toUpperCase()}
+                    </span>
+                    <span style={{ ...texto.metaFuerte, fontSize: 11.5, color: t.muted2 }}>{c.instr.nombre}</span>
+                  </div>
+                )}
+              </div>
+              {c.tipo?.fotoUrl && (
+                <div style={{ flex: '0 0 52px', width: 52, height: 52, borderRadius: 14, overflow: 'hidden', alignSelf: 'center' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={c.tipo.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: completa || c.pasada ? 0.6 : 1 }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.muted2 : pocas ? '#A65A0A' : t.heroAccent }}>
+                  {reservada ? '' : completa ? 'Completa' : `${c.libres} libres`}
+                </span>
+                {reservada ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPaseAbierto({ nombre: c.tipo?.nombre ?? 'Clase', sub: `${hora(c.sesion.inicio)} · ${c.sala?.nombre ?? ''}` })}
+                      style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Ver mi pase
+                    </button>
+                    <button
+                      type="button" onClick={() => cancelar(c)}
+                      style={{ ...texto.nota, fontSize: 10.5, color: t.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : c.pasada ? null : completa ? (
+                  <button
+                    type="button" onClick={() => abrirReserva(c)}
+                    style={{
+                      height: 34, padding: '0 16px', borderRadius: 17, border: `1px solid ${t.line}`,
+                      background: 'none', fontSize: 10.5, fontWeight: 500, color: t.muted2,
+                      whiteSpace: 'nowrap', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Lista de espera
+                  </button>
+                ) : (
+                  <button
+                    type="button" onClick={() => abrirReserva(c)}
+                    aria-label={`Reservar ${c.tipo?.nombre ?? 'clase'} a las ${hora(c.sesion.inicio)}`}
+                    style={{
+                      width: 38, height: 38, borderRadius: '50%', background: 'var(--portal-brand)',
+                      color: 'var(--portal-brand-foreground)', fontSize: 15, border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: transicion(['transform']),
+                    }}
+                  >
+                    →
+                  </button>
+                )}
+              </div>
+              {socioId && c.tipo && (
+                <button
+                  type="button"
+                  aria-label={esFavorita ? `Quitar ${c.tipo.nombre} de favoritas` : `Marcar ${c.tipo.nombre} como favorita`}
+                  aria-pressed={esFavorita}
+                  onClick={() => marcarFavorita(c.sesion.tipoClaseId, esFavorita ? 'desmarcar' : 'marcar')}
+                  style={{
+                    position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: esFavorita ? t.heroAccent : t.muted2,
+                  }}
+                >
+                  <Star size={15} fill={esFavorita ? 'currentColor' : 'none'} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+
+        {/* El cierre del diseño: después de la última clase se dice que no hay
+            más, en vez de dejar el scroll muriendo en blanco. Solo con lista y
+            solo en la vista del día. */}
+        {vista === 'todas' && lista.length > 0 && (
+          <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0 0' }}>
+            No hay más clases este {dias[diaActivo]?.toLocaleDateString('es-ES', { weekday: 'long' })}.
+          </p>
+        )}
+      </div>
+
+      {aviso && (
+        // El error de una cancelación/reserva revertida se veía IGUAL que el
+        // aviso de éxito (mismo gris apagado) — fácil de no notarlo cuando lo
+        // que de verdad importa es que la acción NO se hizo. El error usa el
+        // token semántico de "danger" (ya calibrado por contraste), en negrita.
+        <p
+          role="status"
+          style={{
+            ...texto.pie,
+            color: aviso.error ? semantic.danger.text : t.muted,
+            fontWeight: aviso.error ? 700 : texto.pie.fontWeight,
+            textAlign: 'center',
+            padding: '0 24px 16px',
+          }}
+        >
+          {aviso.texto}
+        </p>
+      )}
+
+      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
+
+      <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
+        {cancelando && (() => {
+          const { tardia, ventana } = tardiaDe(cancelando);
+          return (
+            <>
+              <h2 style={{ ...display(18), color: t.ink }}>¿Cancelar esta clase?</h2>
+              <p style={{ ...texto.pie, color: t.muted }}>
+                {tardia
+                  ? `Quedan menos de ${ventana} h para la clase. Según la política del estudio, puede que no se te devuelva la sesión.`
+                  : 'Perderás tu plaza y liberarás el hueco para otra socia.'}
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="secondary" onClick={() => setCancelando(null)} style={{ flex: 1 }}>Volver</Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    const mia = cancelando.mia;
+                    setCancelando(null);
+                    if (!mia) return;
+                    if (!escribible) {
+                      setAviso({ texto: 'Vista previa: esta cancelación no se guarda de verdad.', error: false });
+                      return;
+                    }
+                    void cancelarReserva(mia.id).then(r => setAviso(r.ok ? { texto: 'Reserva cancelada.', error: false } : { texto: r.error, error: true }));
+                  }}
+                  style={{ flex: 1 }}
+                >
+                  Sí, cancelar
+                </Button>
+              </div>
+            </>
+          );
+        })()}
+      </BottomSheet>
+      <HojaPase
+        abierta={paseAbierto != null}
+        onClose={() => setPaseAbierto(null)}
+        slug={slug}
+        nombreEstudio={studio?.nombre ?? 'tu estudio'}
+        tituloClase={paseAbierto?.nombre ?? ''}
+        subtitulo={paseAbierto?.sub ?? ''}
+        pedirPase={escribible ? pedirPaseDeAcceso : pedirPaseDeMuestra}
+      />
+    </div>
+  );
+}
