@@ -1566,7 +1566,7 @@ export default function Calendario() {
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
       <PageHeader
-        className="shrink-0 px-6 pt-5 pb-4 sm:items-center"
+        className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5 pb-3 lg:pb-4 sm:items-center"
         title="Calendario"
         description={<span className="capitalize">{mesLabel}</span>}
         actions={
@@ -1574,9 +1574,11 @@ export default function Calendario() {
           {gestionaClientas && (
             <Link
               href="/calendario/importar"
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              title="Importar horario"
+              aria-label="Importar horario"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 lg:px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Upload size={14} />Importar horario
+              <Upload size={14} /><span className="hidden lg:inline">Importar horario</span>
             </Link>
           )}
 
@@ -1666,12 +1668,16 @@ export default function Calendario() {
       />
 
       {/* ── Métricas (punto 8) ─────────────────────────────────────────────────── */}
-      <div className="px-6 pb-3 shrink-0">
+      {/* Ocultas en móvil (igual que el StatsBar viejo, hidden lg:block): son
+          agregados secundarios frente a "qué clase tengo ahora", y en una
+          pantalla de 375px las 3 tarjetas apiladas se comían media pantalla
+          antes de llegar a una sola clase. */}
+      <div className="hidden lg:block px-6 pb-3 shrink-0">
         <TarjetasMetricas tarjetas={tarjetas} />
       </div>
 
       {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
-      <div className="px-6 pb-3 shrink-0">
+      <div className="px-4 lg:px-6 pb-3 shrink-0">
         <FiltrosCalendario
           salas={datosVista?.salas ?? []}
           instructores={instructoresActivos}
@@ -1686,7 +1692,7 @@ export default function Calendario() {
 
       {/* ── Franja de decisiones (punto 3) ─────────────────────────────────────── */}
       {decisionesResumen.length > 0 && (
-        <div className="px-6 pb-3 shrink-0">
+        <div className="px-4 lg:px-6 pb-3 shrink-0">
           <FranjaDecisiones
             decisiones={decisionesResumen}
             indice={indiceDecision}
@@ -1698,7 +1704,7 @@ export default function Calendario() {
       )}
 
       {/* ── Día por salas / Semana 7 columnas ──────────────────────────────────── */}
-      <div className="flex-1 min-h-0 px-6 pb-6">
+      <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6">
         {!datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
         ) : vista === 'dia' ? (
