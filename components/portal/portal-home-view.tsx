@@ -131,7 +131,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
   // contenedor flex, con su `order` calculado en el mismo espacio de índices
   // — así se intercalan de verdad con los módulos fijos, no solo se apilan
   // detrás. `homeBloques` ya viene resuelto del servidor (con fallback a
-  // portalHome legacy si el estudio nunca tocó esto, ver resolveHomeBloques).
+  // portalHome legacy si el estudio nunca tocó esto, ver resolveBloquesPantalla).
   const bloquesOrdenados = useMemo(() => bloquesVisibles(homeBloques), [homeBloques]);
   const wrap = (sistemaId: BloqueSistemaId) => {
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);

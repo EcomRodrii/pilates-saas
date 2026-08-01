@@ -41,6 +41,8 @@ import { BottomSheet, Button } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
 import { semantic } from '@/lib/portal-tokens';
+import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
+import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
@@ -71,15 +73,34 @@ async function pedirPaseDeMuestra(): Promise<DatosPase> {
   return { hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null };
 }
 
-export function PortalClasesView({ session, escribible = true }: { session: PortalSession | null; escribible?: boolean }) {
+export function PortalClasesView({
+  session, escribible = true, bloquesOverride,
+}: { session: PortalSession | null; escribible?: boolean; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
-    favoritos, toggleFavorito,
+    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado,
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+
+  // Constructor de bloques (Fase 1 del Theme Builder, generaliza Fase 3): el
+  // calendario de clases es el único bloque `sistema` de esta pantalla — se
+  // ordena por CSS `order` sin mover el DOM, mismo mecanismo que Inicio. Los
+  // bloques del catálogo se intercalan como hermanos antes o después.
+  const bloques = bloquesOverride ?? bloquesClasesPublicado;
+  const bloquesOrdenados = useMemo(() => bloquesVisibles(bloques), [bloques]);
+  const wrap = (sistemaId: 'listadoClases') => {
+    const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
+    return { style: { order: i === -1 ? 0 : i } };
+  };
+  const bloquesPersonalizados = useMemo(
+    () => bloquesOrdenados
+      .map((b, i) => ({ b, orden: i }))
+      .filter((x): x is { b: Exclude<BloqueHome, { kind: 'sistema' }>; orden: number } => x.b.kind !== 'sistema'),
+    [bloquesOrdenados],
+  );
 
   const [vista, setVista] = useState<Vista>('todas');
   const [semana, setSemana] = useState(0);
@@ -270,6 +291,8 @@ export function PortalClasesView({ session, escribible = true }: { session: Port
 
   return (
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div {...wrap('listadoClases')}>
       <div style={{ padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>
@@ -537,6 +560,17 @@ export function PortalClasesView({ session, escribible = true }: { session: Port
           {aviso.texto}
         </p>
       )}
+      </div>
+
+      {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos del
+          calendario en el mismo contenedor flex, con el `order` que les
+          toque para intercalarse antes o después de él. */}
+      {bloquesPersonalizados.map(({ b, orden }) => (
+        <div key={b.id} style={{ order: orden, padding: '0 24px' }}>
+          <BloqueHomeRender bloque={b} slug={slug} />
+        </div>
+      ))}
+      </div>
 
       <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
 

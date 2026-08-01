@@ -23,7 +23,7 @@ import {
   type LayoutDraft,
   DEFAULT_LAYOUT,
 } from '@/lib/layout-schema';
-import type { BloqueHome } from '@/lib/portal-home-bloques';
+import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 
 // Dónde vive el layout de esta sede: en su cadena (compartido con las demás
 // sedes) o en la propia sede si no pertenece a ninguna cadena.
@@ -90,8 +90,8 @@ async function escribirConfig(admin: SupabaseClient, alcance: Alcance, final: La
  * editor que envían solo su parte). Valida con zod; lanza si inválida. En una
  * cadena escribe una sola vez, sobre la cadena: aplica a todas las sedes.
  *
- * No toca `homeBloques` — ese campo tiene su propio flujo borrador/publicado
- * (guardarHomeBloquesBorrador/publicarHomeBloques más abajo), a diferencia
+ * No toca `bloques` — ese campo tiene su propio flujo borrador/publicado por
+ * pantalla (guardarBloquesBorrador/publicarBloques más abajo), a diferencia
  * del resto de este esquema, que se aplica en vivo.
  */
 export async function guardarLayout(studioId: string, parche: LayoutDraft): Promise<LayoutConfig> {
@@ -113,30 +113,31 @@ export async function guardarLayout(studioId: string, parche: LayoutDraft): Prom
   return final;
 }
 
-// ── Constructor de bloques del Inicio del portal (Fase 3) ───────────────────
-// Draft/publish PROPIO de este campo — ver comentario en layout-schema.ts.
+// ── Constructor de bloques del portal (Fase 3, generalizado a todas las
+// pantallas en la Fase 1 del Theme Builder) ─────────────────────────────────
+// Draft/publish PROPIO por pantalla — ver comentario en layout-schema.ts.
 // Mismo patrón que theme-data.ts (guardarBorradorTheme/publicarTheme), pero
 // dentro de la misma fila de studio_layout/cadenas en vez de una tabla aparte
 // (studio_layout.config ya es jsonb libre, cero migración de esquema).
 
-/** Bloques BORRADOR del Inicio del portal (editor). */
-export const getHomeBloquesBorrador = cache(async (studioId: string): Promise<BloqueHome[]> => {
+/** Bloques BORRADOR de una pantalla del portal (editor). */
+export const getBloquesBorrador = cache(async (studioId: string, pantalla: PantallaId): Promise<BloqueHome[]> => {
   const admin = getSupabaseAdmin();
-  if (!admin || !studioId) return DEFAULT_LAYOUT.homeBloques.draft;
+  if (!admin || !studioId) return DEFAULT_LAYOUT.bloques[pantalla].draft;
   const alcance = await alcanceDe(admin, studioId);
-  return resolveLayout(await leerConfig(admin, alcance)).homeBloques.draft;
+  return resolveLayout(await leerConfig(admin, alcance)).bloques[pantalla].draft;
 });
 
-/** Bloques PUBLICADOS del Inicio del portal (runtime, lo que ve la clienta). */
-export const getHomeBloquesPublicado = cache(async (studioId: string): Promise<BloqueHome[]> => {
+/** Bloques PUBLICADOS de una pantalla del portal (runtime, lo que ve la clienta). */
+export const getBloquesPublicado = cache(async (studioId: string, pantalla: PantallaId): Promise<BloqueHome[]> => {
   const admin = getSupabaseAdmin();
-  if (!admin || !studioId) return DEFAULT_LAYOUT.homeBloques.publicado;
+  if (!admin || !studioId) return DEFAULT_LAYOUT.bloques[pantalla].publicado;
   const alcance = await alcanceDe(admin, studioId);
-  return resolveLayout(await leerConfig(admin, alcance)).homeBloques.publicado;
+  return resolveLayout(await leerConfig(admin, alcance)).bloques[pantalla].publicado;
 });
 
-/** Guarda (reemplaza) el BORRADOR de bloques. No toca lo publicado. */
-export async function guardarHomeBloquesBorrador(studioId: string, bloques: BloqueHome[]): Promise<BloqueHome[]> {
+/** Guarda (reemplaza) el BORRADOR de bloques de una pantalla. No toca lo publicado ni las demás pantallas. */
+export async function guardarBloquesBorrador(studioId: string, pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('LAYOUT_SIN_ADMIN');
   const validados = z.array(bloqueHomeSchema).parse(bloques);
@@ -145,23 +146,23 @@ export async function guardarHomeBloquesBorrador(studioId: string, bloques: Bloq
   const actual = resolveLayout(await leerConfig(admin, alcance));
   const final = layoutConfigSchema.parse({
     ...actual,
-    homeBloques: { ...actual.homeBloques, draft: validados },
+    bloques: { ...actual.bloques, [pantalla]: { ...actual.bloques[pantalla], draft: validados } },
   });
   await escribirConfig(admin, alcance, final);
   return validados;
 }
 
-/** Publica el borrador de bloques: copia draft → publicado. */
-export async function publicarHomeBloques(studioId: string): Promise<BloqueHome[]> {
+/** Publica el borrador de bloques de una pantalla: copia draft → publicado. */
+export async function publicarBloques(studioId: string, pantalla: PantallaId): Promise<BloqueHome[]> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('LAYOUT_SIN_ADMIN');
 
   const alcance = await alcanceDe(admin, studioId);
   const actual = resolveLayout(await leerConfig(admin, alcance));
-  const publicado = actual.homeBloques.draft;
+  const publicado = actual.bloques[pantalla].draft;
   const final = layoutConfigSchema.parse({
     ...actual,
-    homeBloques: { draft: publicado, publicado },
+    bloques: { ...actual.bloques, [pantalla]: { draft: publicado, publicado } },
   });
   await escribirConfig(admin, alcance, final);
   return publicado;

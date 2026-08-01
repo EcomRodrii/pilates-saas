@@ -15,13 +15,33 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, plazaFijaTexto, fechaLarga } from '@/lib/bonos-portal';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
+import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 
-export function PortalBonosView({ session, navegar }: { session: PortalSession | null; navegar: (ruta: string) => void }) {
+export function PortalBonosView({
+  session, navegar, bloquesOverride,
+}: { session: PortalSession | null; navegar: (ruta: string) => void; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
-  const { suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas } = useStudio();
+  const { suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas, bloquesBonos: bloquesBonosPublicado } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+
+  // Constructor de bloques (Fase 1 del Theme Builder, generaliza Fase 3): el
+  // saldo/plan es el único bloque `sistema` de esta pantalla — se ordena por
+  // CSS `order` sin mover el DOM, mismo mecanismo que Inicio/Clases.
+  const bloques = bloquesOverride ?? bloquesBonosPublicado;
+  const bloquesOrdenados = useMemo(() => bloquesVisibles(bloques), [bloques]);
+  const wrap = (sistemaId: 'listadoBonos') => {
+    const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
+    return { style: { order: i === -1 ? 0 : i } };
+  };
+  const bloquesPersonalizados = useMemo(
+    () => bloquesOrdenados
+      .map((b, i) => ({ b, orden: i }))
+      .filter((x): x is { b: Exclude<BloqueHome, { kind: 'sistema' }>; orden: number } => x.b.kind !== 'sistema'),
+    [bloquesOrdenados],
+  );
 
   const bono = useMemo(
     () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId),
@@ -58,6 +78,8 @@ export function PortalBonosView({ session, navegar }: { session: PortalSession |
 
   return (
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div {...wrap('listadoBonos')}>
       <div style={{ padding: '62px 24px 24px' }}>
         <div style={{ ...micro(9.5, 0.28), color: t.micro }}>Saldo y planes</div>
         <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Bonos</h1>
@@ -169,6 +191,17 @@ export function PortalBonosView({ session, navegar }: { session: PortalSession |
           () => navegar(`/portal/${slug}/progreso`),
           true,
         )}
+      </div>
+      </div>
+
+      {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos del bloque de
+          saldo/plan en el mismo contenedor flex, con el `order` que les toque
+          para intercalarse antes o después de él. */}
+      {bloquesPersonalizados.map(({ b, orden }) => (
+        <div key={b.id} style={{ order: orden, padding: '0 24px' }}>
+          <BloqueHomeRender bloque={b} slug={slug} />
+        </div>
+      ))}
       </div>
     </div>
   );

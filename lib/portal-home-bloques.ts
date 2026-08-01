@@ -1,19 +1,40 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// Constructor de bloques del Inicio del portal (Fase 3 del editor de temas)
+// Constructor de bloques del portal (Theme Builder — Fase 1 de la
+// generalización, sobre la Fase 3 del editor de temas)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Fase 2 (lib/portal-home-sections.ts) dejó reordenar/ocultar 4 módulos FIJOS.
-// Esta fase generaliza eso a una lista ordenada de "bloques": los 4 módulos de
-// siempre siguen existiendo como bloques `sistema` (mismo contenido, ahora
-// como entradas de esta lista en vez de un `{orden, ocultos}` aparte), y se
-// pueden AÑADIR bloques nuevos de un catálogo (banner/texto/cta/faq) con su
-// propia configuración — el mecanismo real de "constructor tipo Shopify".
+// Fase 3 construyó el constructor tipo Shopify Sections SOLO para el Inicio
+// del portal: una lista ordenada de "bloques", donde los módulos de siempre
+// son bloques `sistema` y se pueden AÑADIR bloques del catálogo
+// (banner/texto/cta/faq) con su propia configuración.
+//
+// Esta fase generaliza ese MISMO modelo a Clases y Bonos, en vez de crear un
+// sistema nuevo por pantalla: cada pantalla tiene su propia lista de bloques
+// `sistema` (Home conserva sus 4 de siempre; Clases/Bonos tienen uno solo, su
+// propio contenido funcional, que nunca se puede quitar del todo) más el
+// mismo catálogo añadible, ya genérico, sin cambios.
+//
+// `PANTALLA_IDS`/`BLOQUES_SISTEMA_POR_PANTALLA` son la ÚNICA lista a tocar
+// para dar de alta una pantalla nueva en el constructor de bloques — así una
+// pantalla futura hereda el sistema añadiendo una entrada, no construyendo
+// uno desde cero.
 //
 // Puro (sin zod, sin React) para poder usarse en el bundle de cliente sin
 // arrastrar peso — mismo principio que layout-runtime.ts. La validación con
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
-export const BLOQUES_SISTEMA_IDS = ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio'] as const;
+export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
+export type PantallaId = (typeof PANTALLA_IDS)[number];
+
+export const PANTALLA_LABEL: Record<PantallaId, string> = {
+  home: 'Inicio',
+  clases: 'Clases',
+  bonos: 'Bonos',
+};
+
+export const BLOQUES_SISTEMA_IDS = [
+  'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
+] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
 export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
@@ -21,6 +42,17 @@ export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
   accesosRapidos: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
   invitarAmiga: 'Invita a una amiga',
   contenidoEstudio: 'Contenido del estudio (mensaje destacado y banners)',
+  listadoClases: 'Calendario de clases',
+  listadoBonos: 'Tu bono y accesos rápidos',
+};
+
+// Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
+// pueden reordenar/ocultar como cualquier otro bloque, pero no eliminar: son
+// el contenido funcional de la pantalla, no decorativo.
+export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
+  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio'],
+  clases: ['listadoClases'],
+  bonos: ['listadoBonos'],
 };
 
 export interface BannerConfig {
@@ -54,9 +86,11 @@ export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
 // Catálogo de lo que se puede AÑADIR desde el picker del editor — los bloques
 // `sistema` no están aquí porque no se "añaden", ya existen siempre por
-// defecto (ver DEFAULT_HOME_BLOQUES). Icono como nombre de lucide-react (string,
-// no el componente) para no meter React en este módulo puro — el editor
-// resuelve el nombre a un icono real.
+// defecto (ver DEFAULT_BLOQUES_POR_PANTALLA). Icono como nombre de
+// lucide-react (string, no el componente) para no meter React en este módulo
+// puro — el editor resuelve el nombre a un icono real. Mismo catálogo para
+// las tres pantallas: un banner/CTA/FAQ es igual de válido en Clases o Bonos
+// que en Inicio.
 export interface BlockCatalogEntry<K extends BloqueTipoCatalogo = BloqueTipoCatalogo> {
   kind: K;
   label: string;
@@ -96,32 +130,45 @@ function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
   return { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
 }
 
-// Por defecto (ningún estudio ha tocado esto todavía): los 4 módulos de
-// siempre, en el orden de siempre, visibles. Bit a bit lo mismo que
-// PORTAL_HOME_SECCIONES + portalHome vacío en Fase 2.
-export const DEFAULT_HOME_BLOQUES: BloqueHome[] = BLOQUES_SISTEMA_IDS.map(bloqueSistema);
+// Por defecto (ningún estudio ha tocado esto todavía): los bloques `sistema`
+// de cada pantalla, en su orden por defecto, visibles.
+export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
+  home: BLOQUES_SISTEMA_POR_PANTALLA.home.map(bloqueSistema),
+  clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map(bloqueSistema),
+  bonos: BLOQUES_SISTEMA_POR_PANTALLA.bonos.map(bloqueSistema),
+};
+/** @deprecated usar DEFAULT_BLOQUES_POR_PANTALLA.home */
+export const DEFAULT_HOME_BLOQUES: BloqueHome[] = DEFAULT_BLOQUES_POR_PANTALLA.home;
 
 export interface HomeBloquesShape {
   draft: BloqueHome[];
   publicado: BloqueHome[];
 }
-export const DEFAULT_HOME_BLOQUES_SHAPE: HomeBloquesShape = {
-  draft: DEFAULT_HOME_BLOQUES,
-  publicado: DEFAULT_HOME_BLOQUES,
+export type BloquesPorPantallaShape = Record<PantallaId, HomeBloquesShape>;
+
+export const DEFAULT_BLOQUES_SHAPE: BloquesPorPantallaShape = {
+  home: { draft: DEFAULT_BLOQUES_POR_PANTALLA.home, publicado: DEFAULT_BLOQUES_POR_PANTALLA.home },
+  clases: { draft: DEFAULT_BLOQUES_POR_PANTALLA.clases, publicado: DEFAULT_BLOQUES_POR_PANTALLA.clases },
+  bonos: { draft: DEFAULT_BLOQUES_POR_PANTALLA.bonos, publicado: DEFAULT_BLOQUES_POR_PANTALLA.bonos },
 };
+/** @deprecated usar DEFAULT_BLOQUES_SHAPE.home */
+export const DEFAULT_HOME_BLOQUES_SHAPE: HomeBloquesShape = DEFAULT_BLOQUES_SHAPE.home;
 
 /**
- * Compatibilidad con Fase 2: si `publicado`/`draft` ya tienen algo, se
- * respeta tal cual (es la fuente de verdad desde que el estudio guarda un
- * borrador con este sistema). Si están vacíos, se sintetizan los 4 bloques
- * `sistema` a partir del `{orden, ocultos}` legacy de `portalHome` — un
- * estudio que ya reordenó en Fase 2 ve EXACTAMENTE lo mismo al entrar aquí,
- * sin migrar datos. Mismo principio que `resolveTheme()`: nunca lanza, ante
- * cualquier duda cae al default visual de siempre.
+ * Resuelve los bloques de UNA pantalla. Mismo principio que resolveTheme():
+ * ante cualquier duda cae al default visual de siempre, nunca lanza.
+ *
+ * `legacyPortalHome` solo se usa (y solo tiene sentido) para `home`: es la
+ * compatibilidad con Fase 2, que dejaba reordenar/ocultar sus 4 módulos fijos
+ * antes de que existiera este constructor de bloques. Un estudio que ya
+ * reordenó en Fase 2 ve EXACTAMENTE lo mismo al entrar aquí, sin migrar
+ * datos. Clases y Bonos no tienen legado que migrar — si no hay nada
+ * guardado, arrancan siempre con su único bloque sistema.
  */
-export function resolveHomeBloques(
+export function resolveBloquesPantalla(
   raw: unknown,
-  portalHomeLegacy: { orden: string[]; ocultos: string[] },
+  pantallaId: PantallaId,
+  legacyPortalHome?: { orden: string[]; ocultos: string[] },
 ): HomeBloquesShape {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const draft = Array.isArray(obj.draft) ? (obj.draft as BloqueHome[]) : [];
@@ -131,16 +178,21 @@ export function resolveHomeBloques(
     return { draft: draft.length > 0 ? draft : publicado, publicado };
   }
 
-  const legacyOcultos = new Set(portalHomeLegacy.ocultos);
-  const ordenLegacy = [
-    ...portalHomeLegacy.orden.filter((id): id is BloqueSistemaId => (BLOQUES_SISTEMA_IDS as readonly string[]).includes(id)),
-    ...BLOQUES_SISTEMA_IDS.filter((id) => !portalHomeLegacy.orden.includes(id)),
-  ];
-  const sintetizado = ordenLegacy.map((id) => (legacyOcultos.has(id) ? { ...bloqueSistema(id), oculto: true } : bloqueSistema(id)));
-  return { draft: sintetizado, publicado: sintetizado };
+  if (pantallaId === 'home' && legacyPortalHome) {
+    const sistemaIds = BLOQUES_SISTEMA_POR_PANTALLA.home;
+    const legacyOcultos = new Set(legacyPortalHome.ocultos);
+    const ordenLegacy = [
+      ...legacyPortalHome.orden.filter((id): id is BloqueSistemaId => (sistemaIds as readonly string[]).includes(id)),
+      ...sistemaIds.filter((id) => !legacyPortalHome.orden.includes(id)),
+    ];
+    const sintetizado = ordenLegacy.map((id) => (legacyOcultos.has(id) ? { ...bloqueSistema(id), oculto: true } : bloqueSistema(id)));
+    return { draft: sintetizado, publicado: sintetizado };
+  }
+
+  return DEFAULT_BLOQUES_SHAPE[pantallaId];
 }
 
-/** Bloques visibles, en orden — lo que de verdad se pinta en la Home. */
+/** Bloques visibles, en orden — lo que de verdad se pinta en la pantalla. */
 export function bloquesVisibles(bloques: BloqueHome[]): BloqueHome[] {
   return bloques.filter((b) => !b.oculto);
 }
