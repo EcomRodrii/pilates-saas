@@ -18,7 +18,7 @@
 // `score` — el resto no se oculta, sigue viva para mañana (cooldown/expiración
 // ya existentes en prioridad.ts/motor.ts se encargan de eso).
 // ─────────────────────────────────────────────────────────────────────────────
-import type { ContextoEstudio, Impacto } from './tipos.ts';
+import type { ContextoEstudio, Impacto, TipoRecomendacion } from './tipos.ts';
 import type { CandidataPriorizada } from './prioridad.ts';
 
 /** Registro de un mensaje (o silencio) ya emitido, para la puerta de novedad. */
@@ -27,19 +27,55 @@ export interface RegistroMensajeDia {
   motivoMotor: string | null;
 }
 
+/** Cuántas veces un `tipo` fue el mensaje del día y cuántas se siguió de verdad
+ *  (APROBADA/EJECUTADA) — base del Umbral adaptativo, ver `dbCalcularSeguimientoPorTipo`. */
+export interface TasaSeguimiento {
+  total: number;
+  seguidas: number;
+}
+
 export type ResultadoUmbral =
   | { tipo: 'MENSAJE'; candidata: CandidataPriorizada }
   | { tipo: 'SILENCIO'; motivo: string };
 
-// Heurística de partida (Fase 1, sin aprendizaje adaptativo todavía — ver
-// tentare-os.md "Umbral no es fijo"): por debajo de esto, el sistema no está
-// seguro de que actuar hoy cambie algo respecto a esperar unos días.
+// Heurística de partida (Fase 1): por debajo de esto, el sistema no está
+// seguro de que actuar hoy cambie algo respecto a esperar unos días. Fase 2
+// (abajo, `calibrarUmbral`) la ajusta por tipo según el historial real del
+// propio estudio — este valor sigue siendo el punto de partida sin datos.
 const URGENCIA_MINIMA_HOY = 0.45;
 
 // € por socia activa y por sede al mes que hace falta para justificar una
 // interrupción — no un € fijo. Punto de partida documentado, no una cifra
-// definitiva: se recalibrará con datos reales de aceptación/descarte.
+// definitiva.
 const IMPACTO_MIN_EUR_POR_SOCIA_SEDE_MES = 0.05;
+
+// Umbral adaptativo (Fase 2, ver tentare-os.md "El Umbral no es fijo"). Con
+// menos de esto de historial DECIDIDO para un tipo, no hay señal suficiente
+// para mover el listón — se queda en el punto de partida.
+const MIN_MUESTRAS_PARA_CALIBRAR = 5;
+
+/**
+ * Ajusta el listón de urgencia/impacto para un `tipo` según su propio
+ * historial de seguimiento en ESTE estudio — no un € o urgencia fijos para
+ * todos. Si casi siempre se sigue, el Umbral exige un poco menos (esta
+ * propietaria ya demostró que le importa); si casi nunca se sigue, exige más
+ * (está gastando su atención en algo que no le compensa). Acotado en ambas
+ * direcciones para no desbocarse con pocas muestras o una racha rara.
+ */
+export function calibrarUmbral(tipo: TipoRecomendacion, tasas: Map<TipoRecomendacion, TasaSeguimiento>): { urgenciaMin: number; impactoFactor: number } {
+  const t = tasas.get(tipo);
+  if (!t || t.total < MIN_MUESTRAS_PARA_CALIBRAR) {
+    return { urgenciaMin: URGENCIA_MINIMA_HOY, impactoFactor: 1 };
+  }
+  const tasaSeguimiento = t.seguidas / t.total;
+  if (tasaSeguimiento >= 0.8) {
+    return { urgenciaMin: Math.max(0.30, URGENCIA_MINIMA_HOY - 0.10), impactoFactor: 0.6 };
+  }
+  if (tasaSeguimiento <= 0.3) {
+    return { urgenciaMin: Math.min(0.65, URGENCIA_MINIMA_HOY + 0.15), impactoFactor: 2 };
+  }
+  return { urgenciaMin: URGENCIA_MINIMA_HOY, impactoFactor: 1 };
+}
 
 function eurMesDe(impacto: Impacto): number | null {
   if (impacto.unidad === 'EUR_MES') return impacto.valor;
@@ -47,13 +83,14 @@ function eurMesDe(impacto: Impacto): number | null {
   return null; // PCT_OCUPACION no tiene conversión a € limpia — no bloquea esta puerta
 }
 
-/** Puerta 5: ¿el impacto compensa, relativo al tamaño del estudio? */
-export function impactoCompensa(impacto: Impacto | undefined, contexto: ContextoEstudio): boolean {
+/** Puerta 5: ¿el impacto compensa, relativo al tamaño del estudio? `impactoFactor`
+ *  viene de `calibrarUmbral` — 1 = sin calibrar, <1 exige menos, >1 exige más. */
+export function impactoCompensa(impacto: Impacto | undefined, contexto: ContextoEstudio, impactoFactor = 1): boolean {
   if (!impacto) return true; // sin impacto medible (p.ej. carga de equipo) — no se descarta por esta puerta
   const eurMes = eurMesDe(impacto);
   if (eurMes === null) return true;
   const escala = Math.max(1, contexto.nSociasActivas) * Math.max(1, contexto.nSedesCadena);
-  return eurMes / escala >= IMPACTO_MIN_EUR_POR_SOCIA_SEDE_MES;
+  return eurMes / escala >= IMPACTO_MIN_EUR_POR_SOCIA_SEDE_MES * impactoFactor;
 }
 
 /** Puerta 3: ¿es la primera vez que se sabe, o ya se avisó sin cambios? */
@@ -67,19 +104,23 @@ export function esNovedad(candidata: CandidataPriorizada, historialReciente: Reg
  * Arbitraje del día. `yaAutoResueltas` son los dedupeKey que el piloto
  * automático (autonomia.ts) ya seleccionó para ejecutarse solo en este mismo
  * ciclo — si el sistema ya lo va a resolver, no compite por el mensaje.
+ * `tasasPorTipo` calibra las puertas 1 y 5 por tipo con el historial real de
+ * este estudio (Fase 2) — vacío por defecto, mismo comportamiento que Fase 1.
  */
 export function elegirMensajeDelDia(
   candidatas: CandidataPriorizada[],
   contexto: ContextoEstudio,
   historialReciente: RegistroMensajeDia[],
   yaAutoResueltas: Set<string> = new Set(),
+  tasasPorTipo: Map<TipoRecomendacion, TasaSeguimiento> = new Map(),
 ): ResultadoUmbral {
   const elegibles = candidatas.filter(c => {
-    if (c.urgencia < URGENCIA_MINIMA_HOY) return false;               // 1. decae si se espera
+    const { urgenciaMin, impactoFactor } = calibrarUmbral(c.tipo, tasasPorTipo);
+    if (c.urgencia < urgenciaMin) return false;                         // 1. decae si se espera
     if (yaAutoResueltas.has(c.dedupeKey)) return false;                 // 2. necesita criterio humano
     if (!esNovedad(c, historialReciente)) return false;                 // 3. primera vez que se sabe
     if (!c.accion) return false;                                       // 4. una acción clara (estructural)
-    if (!impactoCompensa(c.impacto, contexto)) return false;            // 5. compensa el impacto
+    if (!impactoCompensa(c.impacto, contexto, impactoFactor)) return false; // 5. compensa el impacto
     return true;
   });
 

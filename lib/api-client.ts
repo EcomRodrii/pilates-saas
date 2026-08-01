@@ -111,6 +111,16 @@ export async function publicarHomeBloquesApi(): Promise<BloqueHome[]> {
   return res.json();
 }
 
+// Token firmado de corta duración para /portal-preview/[slug] (Fase 4 del
+// editor de temas — preview en vivo del constructor de bloques). Ver
+// lib/theme/home-preview-token.ts.
+export async function fetchHomePreviewToken(): Promise<string> {
+  const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+  const b = (await res.json()) as { token: string };
+  return b.token;
+}
+
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
