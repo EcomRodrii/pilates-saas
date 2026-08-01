@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { inicioSemana, rangoDia, rangoSemana, claveRango } from './calendario-rango.ts';
+import { inicioSemana, rangoDia, rangoSemana, claveRango, inicioMes, rangoMes } from './calendario-rango.ts';
 
 // 2026-07-15 es miércoles.
 const MIERCOLES = new Date(2026, 6, 15, 14, 30);
@@ -54,3 +54,23 @@ function addDaysTest(d: Date, n: number): Date {
   r.setDate(r.getDate() + n);
   return r;
 }
+
+test('inicioMes: cualquier día del mes cae en el día 1 a medianoche', () => {
+  const i = inicioMes(MIERCOLES);
+  assert.equal(i.getDate(), 1);
+  assert.equal(i.getMonth(), 6);
+  assert.equal(i.getHours(), 0);
+});
+
+test('rangoMes: hasta es el día 1 del mes SIGUIENTE (funciona en diciembre)', () => {
+  const { desde, hasta } = rangoMes(new Date(2026, 11, 20));
+  assert.equal(new Date(desde).getMonth(), 11);
+  assert.equal(new Date(hasta).getMonth(), 0);
+  assert.equal(new Date(hasta).getFullYear(), 2027);
+});
+
+test('rangoMes: dos fechas del mismo mes producen la misma clave', () => {
+  const r1 = rangoMes(MIERCOLES);
+  const r2 = rangoMes(new Date(2026, 6, 1));
+  assert.equal(claveRango(r1), claveRango(r2));
+});

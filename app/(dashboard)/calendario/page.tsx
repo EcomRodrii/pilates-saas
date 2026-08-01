@@ -47,14 +47,16 @@ import { FranjaDecisiones, type DecisionResumen } from '@/components/calendario/
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { VistaSemana } from '@/components/calendario/vista-semana';
+import { VistaMes } from '@/components/calendario/vista-mes';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
+import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { metricasDia, metricasSemana } from '@/lib/calendario-metricas';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
-import { rangoDia, rangoSemana, claveRango, type RangoFechas } from '@/lib/calendario-rango';
+import { rangoDia, rangoSemana, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -489,16 +491,18 @@ export default function Calendario() {
   const [mounted, setMounted] = useState(false);
   const FALLBACK = new Date('2026-01-01T12:00:00');
 
-  // ── Vista: Día (por sala) / Semana (7 columnas) — punto 2 del rediseño ──────
-  const [vista, setVista] = useState<'dia' | 'semana'>('semana');
+  // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
+  const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
+  const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
   useEffect(() => {
     const today = new Date();
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
+    setMesVisto(today);
   }, []);
 
   const now = mounted ? new Date() : FALLBACK;
@@ -674,9 +678,22 @@ export default function Calendario() {
     const hoy = new Date();
     setSemana(weekStart(hoy));
     setDiaSeleccionado(hoy);
+    setMesVisto(hoy);
   }
   function cambiarDia(delta: number) {
     setDiaSeleccionado(prev => addDays(prev, delta));
+  }
+  function cambiarMes(delta: number) {
+    setMesVisto(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + delta);
+      return d;
+    });
+  }
+  function onSeleccionarDia(fecha: string) {
+    setDiaSeleccionado(new Date(`${fecha}T12:00:00`));
+    setSemana(weekStart(new Date(`${fecha}T12:00:00`)));
+    setVista('dia');
   }
 
   // ── Session actions (creación/edición/cancelación — sin cambios de fondo) ───
@@ -1110,7 +1127,9 @@ export default function Calendario() {
   const [datosVista, setDatosVista] = useState<DatosVista | null>(null);
   const cacheVistaRef = useRef<Map<string, DatosVista>>(new Map());
 
-  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado) : rangoSemana(semana);
+  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado)
+    : vista === 'mes' ? rangoMes(mesVisto)
+    : rangoSemana(semana);
   const claveVista = claveRango(rango);
 
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
@@ -1255,6 +1274,30 @@ export default function Calendario() {
     });
     return prepararColumnasDiaSemana(cols);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
+
+  // ── Vista de Mes: agregación por día, no por hora (Fase 2) ─────────────────
+  const diasMes = useMemo(() => {
+    if (!datosVista) return new Map<string, DiaMes>();
+    const salasById = new Map(datosVista.salas.map(s => [s.id, s]));
+    const sesiones: SesionMes[] = sesionesVistaFiltradas.map(s => {
+      const r = reservasPorSesion.get(s.id) ?? [];
+      const confirmadas = r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length;
+      const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
+      const estado = estadoPorSesion.get(s.id) ?? 'PROGRAMADA';
+      const sala = salasById.get(s.salaId);
+      const sobreaforo = sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0;
+      const huecosLibres = Math.max(0, s.aforoMaximo - confirmadas);
+      return {
+        id: s.id,
+        fecha: localDate(s.inicio),
+        confirmadas,
+        aforoMaximo: s.aforoMaximo,
+        cancelada: s.cancelada,
+        pideAtencion: pideDecision(estado, { enEspera, sobreaforo, huecosLibres }),
+      };
+    });
+    return agregarPorDiaMes(sesiones);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion]);
 
   // ── Métricas (punto 8: hablan de lo que se está mirando) ────────────────────
   const tarjetas = useMemo(() => {
@@ -1462,6 +1505,8 @@ export default function Calendario() {
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = vista === 'semana'
     ? `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    : vista === 'mes'
+    ? mesVisto.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
     : diaSeleccionado.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   // ── Panel lateral: sesión seleccionada, vista de rol ────────────────────────
@@ -1619,12 +1664,18 @@ export default function Calendario() {
             >
               <LayoutGrid size={13} />Semana
             </button>
+            <button
+              onClick={() => setVista('mes')}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+            >
+              <CalendarDays size={13} />Mes
+            </button>
           </div>
 
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(-1) : cambiarDia(-1)}
-              aria-label={vista === 'semana' ? 'Semana anterior' : 'Día anterior'}
+              onClick={() => vista === 'semana' ? cambiarSemana(-1) : vista === 'mes' ? cambiarMes(-1) : cambiarDia(-1)}
+              aria-label={vista === 'semana' ? 'Semana anterior' : vista === 'mes' ? 'Mes anterior' : 'Día anterior'}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1633,8 +1684,8 @@ export default function Calendario() {
               Hoy
             </button>
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(1) : cambiarDia(1)}
-              aria-label={vista === 'semana' ? 'Semana siguiente' : 'Día siguiente'}
+              onClick={() => vista === 'semana' ? cambiarSemana(1) : vista === 'mes' ? cambiarMes(1) : cambiarDia(1)}
+              aria-label={vista === 'semana' ? 'Semana siguiente' : vista === 'mes' ? 'Mes siguiente' : 'Día siguiente'}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronRight size={16} />
@@ -1695,9 +1746,13 @@ export default function Calendario() {
           agregados secundarios frente a "qué clase tengo ahora", y en una
           pantalla de 375px las 3 tarjetas apiladas se comían media pantalla
           antes de llegar a una sola clase. */}
-      <div className="hidden lg:block px-6 pb-3 shrink-0">
-        <TarjetasMetricas tarjetas={tarjetas} />
-      </div>
+      {/* Sin sentido en Mes: son agregados de la ventana de Día/Semana visible
+          (metricasDia/metricasSemana), no del mes entero. */}
+      {vista !== 'mes' && (
+        <div className="hidden lg:block px-6 pb-3 shrink-0">
+          <TarjetasMetricas tarjetas={tarjetas} />
+        </div>
+      )}
 
       {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
       <div className="px-4 lg:px-6 pb-3 shrink-0">
@@ -1714,7 +1769,9 @@ export default function Calendario() {
       </div>
 
       {/* ── Franja de decisiones (punto 3) ─────────────────────────────────────── */}
-      {decisionesResumen.length > 0 && (
+      {/* Sin sentido en Mes: listaría cada clase pendiente del mes entero, no
+          "lo de hoy/esta semana" que la franja está pensada para resumir. */}
+      {vista !== 'mes' && decisionesResumen.length > 0 && (
         <div className="px-4 lg:px-6 pb-3 shrink-0">
           <FranjaDecisiones
             decisiones={decisionesResumen}
@@ -1726,7 +1783,7 @@ export default function Calendario() {
         </div>
       )}
 
-      {/* ── Día por salas / Semana 7 columnas ──────────────────────────────────── */}
+      {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
       <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6">
         {!datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
@@ -1742,6 +1799,13 @@ export default function Calendario() {
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             accionPara={accionParaBloque}
+          />
+        ) : vista === 'mes' ? (
+          <VistaMes
+            mesVisto={mesVisto}
+            datos={diasMes}
+            hoyStr={todayStr}
+            onSeleccionarDia={onSeleccionarDia}
           />
         ) : (
           <VistaSemana
