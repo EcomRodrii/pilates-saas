@@ -945,6 +945,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         cuotaIVA: s.cuotaIVA ?? f.cuotaIVA,
         total: s.total ?? f.total,
       } : f));
+    } else {
+      // El sellado en servidor falló (NIF inválido, red, RLS...): la factura
+      // optimista nunca se llegó a persistir en `facturas`, así que hay que
+      // quitarla del estado local o el usuario la ve en pantalla hasta el
+      // próximo refresco desde el servidor, sin saber que nunca se guardó.
+      setFacturas(prev => prev.filter(f => f.id !== fac.id));
+      setDbError({ msg: r.error ?? 'No se ha podido generar la factura', key: Date.now() });
     }
   }
 
