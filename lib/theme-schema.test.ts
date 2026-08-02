@@ -132,3 +132,32 @@ test('themeConfigSchema acepta instrumentSansBold y tabBarStyle pestanaActiva (t
 test('resolveTheme: tabBarStyle inválido cae a clasica', () => {
   assert.equal(resolveTheme({ tabBarStyle: 'flotante' }).tabBarStyle, 'clasica');
 });
+
+test('themeConfigSchema: navPortal ausente → default sin ocultos/etiquetas/iconos (tema guardado antes de la Fase 2)', () => {
+  const sinNav: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinNav.navPortal;
+  const r = themeConfigSchema.safeParse(sinNav);
+  assert.equal(r.success, true);
+  if (r.success) assert.deepEqual(r.data.navPortal, { ocultos: [], etiquetas: {}, iconos: {} });
+});
+
+test('themeConfigSchema acepta navPortal con pestañas ocultas, renombradas y con icono distinto', () => {
+  const r = themeConfigSchema.safeParse({
+    ...DEFAULT_THEME,
+    navPortal: { ocultos: ['videos'], etiquetas: { clases: 'Agenda' }, iconos: { bonos: 'Star' } },
+  });
+  assert.equal(r.success, true);
+});
+
+test('themeConfigSchema rechaza un icono de navPortal fuera del catálogo curado', () => {
+  const r = themeConfigSchema.safeParse({
+    ...DEFAULT_THEME,
+    navPortal: { ocultos: [], etiquetas: {}, iconos: { clases: 'IconoInventado' } },
+  });
+  assert.equal(r.success, false);
+});
+
+test('resolveTheme: navPortal corrupto no lanza y cae al default', () => {
+  assert.doesNotThrow(() => resolveTheme({ navPortal: 'basura' }));
+  assert.deepEqual(resolveTheme({ navPortal: 'basura' }).navPortal, { ocultos: [], etiquetas: {}, iconos: {} });
+});
