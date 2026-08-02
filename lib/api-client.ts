@@ -782,7 +782,7 @@ export interface FacturaSellada {
   total?: number;
 }
 
-export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellada?: boolean; aviso?: string | null; factura?: FacturaSellada }> {
+export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellada?: boolean; aviso?: string | null; factura?: FacturaSellada; error?: string }> {
   try {
     const res = await fetch('/api/facturas/sellar', {
       method: 'POST',
@@ -801,10 +801,11 @@ export async function sellarFactura(fac: Factura): Promise<{ ok: boolean; sellad
         total: fac.total,
       }),
     });
-    if (!res.ok) return { ok: false };
-    return await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data?.error ?? 'No se ha podido sellar la factura' };
+    return data;
   } catch {
-    return { ok: false };
+    return { ok: false, error: 'No se pudo conectar con el servidor para sellar la factura' };
   }
 }
 
