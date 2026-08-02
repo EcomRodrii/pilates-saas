@@ -28,19 +28,18 @@
 // props tipo `variant` que nadie entiende. La LÓGICA no se duplica: sigue en
 // `useStudio()` y en `lib/booking-logic`; lo que se separa es la presentación.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Star } from 'lucide-react';
-import { useStudio } from '@/lib/studio-context';
+import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { esCancelacionTardia } from '@/lib/booking-logic';
 import { useModo } from '@/lib/portal-modo';
-import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
+import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
-import { BottomSheet, Button } from '@/components/portal/ui';
+import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
-import { semantic } from '@/lib/portal-tokens';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -80,10 +79,27 @@ export function PortalClasesView({
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
-    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado,
+    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, recargarPublico,
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+
+  // El aforo que se ve aquí es el del último `cargarPublico()` (al montar, o
+  // al volver a primer plano si pasaron 15s+). Si otra socia ocupa la última
+  // plaza mientras esta pantalla sigue abierta, no se entera hasta que pasa
+  // una de esas dos cosas — la queja de "no parece tiempo real". Realtime de
+  // verdad queda fuera de esta fase a propósito (ver REFRESCO_ACTIVO_MS en
+  // studio-context.tsx); un intervalo corto MIENTRAS esta pantalla está
+  // montada corrige el caso real: la socia mirando el calendario mientras
+  // alguien reserva a la vez. Se usa un ref para no reiniciar el intervalo en
+  // cada render (recargarPublico es una función nueva por render).
+  const recargarRef = useRef(recargarPublico);
+  useEffect(() => { recargarRef.current = recargarPublico; });
+  useEffect(() => {
+    if (!escribible) return; // preview: sin servidor real que consultar
+    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    return () => clearInterval(id);
+  }, [escribible]);
 
   // Constructor de bloques (Fase 1 del Theme Builder, generaliza Fase 3): el
   // calendario de clases es el único bloque `sistema` de esta pantalla — se
@@ -117,10 +133,10 @@ export function PortalClasesView({
   // volver a "Todas". Tratarlo como valor derivado (en vez de sincronizarlo
   // con un efecto que llama a setTipoElegido) evita un render en cascada.
   const tipoEfectivo = tipoElegido === FAVORITAS && idsFavoritos.size === 0 ? null : tipoElegido;
-  const [reservando, setReservando] = useState<ClaseParaReservar | null>(null);
+  const [reservandoId, setReservandoId] = useState<string | null>(null);
   const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
-  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
+  const [aviso, setAviso] = useState<AvisoToast | null>(null);
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
@@ -217,43 +233,65 @@ export function PortalClasesView({
   const minutos = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / 60000);
 
   function abrirReserva(c: typeof clases[number]) {
-    setReservando({
-      id: c.sesion.id, inicio: c.sesion.inicio, fin: c.sesion.fin,
-      nombre: c.tipo?.nombre ?? 'Clase',
-      nivel: c.tipo?.nivel === 'TODOS' ? 'Todos los niveles' : c.tipo?.nivel ?? null,
-      salaNombre: c.sala?.nombre ?? null,
-      instructorNombre: c.instr?.nombre ?? null,
-      aforoMaximo: c.sesion.aforoMaximo,
-      ocupadas: c.ocupadas,
-      spots: spotsPorSala.get(c.sesion.salaId) ?? [],
-      spotsOcupados: spotsOcupadosPorSesion.get(c.sesion.id) ?? [],
+    setReservandoId(c.sesion.id);
+  }
+
+  // Objeto derivado, no snapshot: antes `abrirReserva` congelaba el aforo/las
+  // plazas al momento de abrir, así que el refresco activo de 5s
+  // (REFRESCO_ACTIVO_MS) actualizaba la LISTA detrás de la hoja pero no lo
+  // que la hoja misma mostraba — la propia garantía que ese refresco existe
+  // para dar quedaba rota justo donde más importa (la socia a punto de
+  // confirmar). Recalcularlo en cada render, igual que ya hacía
+  // `claseParaReservar` en la página de detalle de clase, lo mantiene vivo.
+  const reservando: ClaseParaReservar | null = useMemo(() => {
+    if (!reservandoId) return null;
+    const s = sesiones.find(x => x.id === reservandoId);
+    if (!s) return null;
+    const tipo = tiposClase.find(tc => tc.id === s.tipoClaseId);
+    const sala = salas.find(sl => sl.id === s.salaId);
+    const instr = instructores.find(i => i.id === s.instructorId);
+    return {
+      id: s.id, inicio: s.inicio, fin: s.fin,
+      nombre: tipo?.nombre ?? 'Clase',
+      nivel: tipo?.nivel === 'TODOS' ? 'Todos los niveles' : tipo?.nivel ?? null,
+      salaNombre: sala?.nombre ?? null,
+      instructorNombre: instr?.nombre ?? null,
+      instructorFotoUrl: instr?.fotoUrl ?? null,
+      aforoMaximo: s.aforoMaximo,
+      ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
+      spots: spotsPorSala.get(s.salaId) ?? [],
+      spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
       precio: cubierta ? null : precioClaseSuelta,
       sesionesTrasReservar: cubierta && activeSus?.sesionesRestantes != null
         ? Math.max(0, activeSus.sesionesRestantes - 1)
         : null,
-    });
-  }
+    };
+  }, [
+    reservandoId, sesiones, tiposClase, salas, instructores, ocupadasPorSesion,
+    spotsPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta, activeSus,
+  ]);
 
-  async function confirmar(spotId: string | null) {
-    if (!reservando || !socioId) return;
+  // Devuelve el resultado a `HojaReserva`, que posee el morph del botón y el
+  // cierre de la hoja (~1.2s tras el éxito) — este sitio ya no cierra
+  // `reservando` a mano. Sigue sin haber optimismo: `addReserva` se espera
+  // entero antes de decir nada (bug #500).
+  async function confirmar(spotId: string | null): Promise<ResultadoConfirmar> {
+    if (!reservando || !socioId) return { ok: false, error: 'No se ha podido confirmar la reserva.' };
     if (!escribible) {
-      setReservando(null);
       setAviso({ texto: 'Vista previa: esta reserva no se guarda de verdad.', error: false });
-      return;
+      return { ok: true, estado: 'CONFIRMADA' };
     }
-    // Se ESPERA al servidor antes de decir nada. Esta pantalla anunciaba
-    // «Reservada. Te esperamos.» pasara lo que pasara: con el estudio exigiendo
-    // bono y la socia sin ninguno, la reserva se rechazaba, el panel seguía a
-    // 0/8 y aquí ponía que estaba hecha.
     const r = await addReserva(reservando.id, socioId, spotId);
-    setReservando(null);
-    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+    if (!r.ok) return { ok: false, error: r.error };
     setAviso({
       texto: r.estado === 'LISTA_ESPERA'
         ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
-        : 'Reservada. Te esperamos.',
+        : r.estado === 'PENDIENTE_APROBACION'
+          ? 'Reserva enviada: queda pendiente de aprobación.'
+          : 'Reservada. Te esperamos.',
       error: false,
     });
+    return { ok: true, estado: r.estado };
   }
 
   // Antes: si la cancelación era tardía, `window.confirm()` nativo (sin marca,
@@ -411,7 +449,6 @@ export function PortalClasesView({
         ) : lista.map(c => {
           const reservada = !!c.mia;
           const completa = c.libres <= 0 && !reservada;
-          const pocas = !reservada && c.libres > 0 && c.libres <= 3;
           const spotMio = c.mia?.spotId ? spots.find(sp => sp.id === c.mia!.spotId) : null;
           const esFavorita = idsFavoritos.has(c.sesion.tipoClaseId);
 
@@ -467,9 +504,9 @@ export function PortalClasesView({
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', color: completa || c.pasada ? t.muted2 : pocas ? '#A65A0A' : t.heroAccent }}>
-                  {reservada ? '' : completa ? 'Completa' : `${c.libres} libres`}
-                </span>
+                {!reservada && (
+                  <AforoIndicator libres={c.libres} umbralUrgencia={3} style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }} />
+                )}
                 {reservada ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                     <button
@@ -542,24 +579,6 @@ export function PortalClasesView({
         )}
       </div>
 
-      {aviso && (
-        // El error de una cancelación/reserva revertida se veía IGUAL que el
-        // aviso de éxito (mismo gris apagado) — fácil de no notarlo cuando lo
-        // que de verdad importa es que la acción NO se hizo. El error usa el
-        // token semántico de "danger" (ya calibrado por contraste), en negrita.
-        <p
-          role="status"
-          style={{
-            ...texto.pie,
-            color: aviso.error ? semantic.danger.text : t.muted,
-            fontWeight: aviso.error ? 700 : texto.pie.fontWeight,
-            textAlign: 'center',
-            padding: '0 24px 16px',
-          }}
-        >
-          {aviso.texto}
-        </p>
-      )}
       </div>
 
       {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos del
@@ -572,7 +591,9 @@ export function PortalClasesView({
       ))}
       </div>
 
-      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservando(null)} onConfirmar={confirmar} />
+      <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
+
+      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservandoId(null)} onConfirmar={confirmar} />
 
       <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
         {cancelando && (() => {

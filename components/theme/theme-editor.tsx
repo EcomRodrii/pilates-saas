@@ -501,7 +501,6 @@ export function ThemeEditor() {
               <PortalNav
                 items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
                 activeIndex={0}
-                tabBarStyle={draft.tabBarStyle}
                 slug={studio?.slug ?? ''}
                 interactive={false}
               />

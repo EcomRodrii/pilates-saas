@@ -13,11 +13,19 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { Calendar, Clock, MapPin, User as UserIcon } from 'lucide-react';
+import { Calendar, Clock, MapPin, QrCode, User as UserIcon } from 'lucide-react';
 import type { Reserva, Sesion } from '@/lib/types';
 import { formatFechaCorta as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
-import { Card, Badge, Tabs, EmptyState, BottomSheet, Button, type BadgeVariant, type TabItem } from '@/components/portal/ui';
+import { Card, Badge, Tabs, EmptyState, BottomSheet, Button, Toast, type AvisoToast, type BadgeVariant, type TabItem } from '@/components/portal/ui';
+import { HojaPase, type DatosPase } from '@/components/portal/hoja-pase';
+import { pedirPaseDeAcceso } from '@/lib/api-client';
 import type { PortalSession } from '@/lib/portal-auth';
+
+// Stub de "pedir pase" para preview: NO llama a la API real (socioId
+// ficticio, 404/error garantizado) — mismo criterio que PortalClasesView.
+async function pedirPaseDeMuestra(): Promise<DatosPase> {
+  return { hayPase: true, vigente: true, yaAsistida: false, codigo: 'PREVIEW', token: null };
+}
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
 
@@ -42,14 +50,15 @@ export function PortalReservasView({
   session, escribible = true, navegar,
 }: { session: PortalSession | null; escribible?: boolean; navegar: (ruta: string) => void }) {
   const { slug } = useParams<{ slug: string }>();
-  const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera } = useStudio();
+  const { reservas, sesiones, tiposClase, salas, instructores, cancelarReserva, aceptarOfertaEspera, studio } = useStudio();
   const { t } = useModo();
   const [tab, setTab] = useState<Tab>('PROXIMAS');
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   const [aceptandoId, setAceptandoId] = useState<string | null>(null);
+  const [paseAbierto, setPaseAbierto] = useState(false);
   // Cancelar también puede fallar en el servidor. Cerrar la hoja sin mirar dejaba
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const socioId = session?.socioId;
   const now = new Date();
 
@@ -77,13 +86,14 @@ export function PortalReservasView({
   }, [misReservas, now]);
 
   const lista = porTab[tab];
+  const proximaClase = porTab.PROXIMAS[0] ?? null;
 
   async function aceptarOferta(reservaId: string) {
-    if (!escribible) { setAviso('Vista previa: esto no se guarda de verdad.'); return; }
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); return; }
     setAceptandoId(reservaId);
     const r = await aceptarOfertaEspera(reservaId);
     setAceptandoId(null);
-    if (!r.ok) setAviso(r.error);
+    if (!r.ok) setAviso({ texto: r.error, error: true });
   }
 
   const TABS: TabItem<Tab>[] = [
@@ -102,13 +112,28 @@ export function PortalReservasView({
       </div>
 
       <div style={{ padding: '0 16px 24px' }}>
-        {aviso && (
-          <p
-            role="status"
-            style={{ fontSize: 13, color: t.ink, background: t.surface2, borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}
-          >
-            {aviso}
-          </p>
+        {/* El pase vivía enterrado dentro de cada tarjeta de Clases — aquí, la
+            pantalla dedicada a "mis reservas", no había ningún acceso a él en
+            absoluto. Una tarjeta fija arriba (Fase 2, feedback de 49
+            propietarias: "el pase de acceso debería destacar") en vez de una
+            quinta pestaña: no es una lista más, es la acción que se repite
+            cada vez que la socia entra al estudio. */}
+        {proximaClase && (
+          <Card style={{ padding: '16px 16px 16px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+              background: 'var(--portal-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <QrCode size={19} color="var(--portal-brand-foreground)" />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink }}>Tu pase de acceso</p>
+              <p style={{ fontSize: 11.5, color: t.muted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {tiposClase.find(tc => tc.id === proximaClase.s.tipoClaseId)?.nombre ?? 'Clase'} · {formatFecha(proximaClase.s.inicio)} {formatHora(proximaClase.s.inicio)}
+              </p>
+            </div>
+            <Button size="small" onClick={() => setPaseAbierto(true)}>Ver</Button>
+          </Card>
         )}
         <div style={{ marginBottom: 16, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16 }}>
           <Tabs items={TABS} active={tab} onChange={setTab} scroll />
@@ -185,8 +210,8 @@ export function PortalReservasView({
               if (!cancelando) return;
               const id = cancelando.id;
               setCancelando(null);
-              if (!escribible) { setAviso('Vista previa: esta cancelación no se guarda de verdad.'); return; }
-              void cancelarReserva(id).then(r => { if (!r.ok) setAviso(r.error); });
+              if (!escribible) { setAviso({ texto: 'Vista previa: esta cancelación no se guarda de verdad.', error: false }); return; }
+              void cancelarReserva(id).then(r => { if (!r.ok) setAviso({ texto: r.error, error: true }); });
             }}
             style={{ flex: 1 }}
           >
@@ -194,6 +219,20 @@ export function PortalReservasView({
           </Button>
         </div>
       </BottomSheet>
+
+      {proximaClase && (
+        <HojaPase
+          abierta={paseAbierto}
+          onClose={() => setPaseAbierto(false)}
+          slug={slug}
+          nombreEstudio={studio?.nombre ?? 'tu estudio'}
+          tituloClase={tiposClase.find(tc => tc.id === proximaClase.s.tipoClaseId)?.nombre ?? 'Clase'}
+          subtitulo={`${formatFecha(proximaClase.s.inicio)} · ${salas.find(s => s.id === proximaClase.s.salaId)?.nombre ?? ''}`}
+          pedirPase={escribible ? pedirPaseDeAcceso : pedirPaseDeMuestra}
+        />
+      )}
+
+      <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>
   );
 }
