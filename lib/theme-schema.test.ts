@@ -161,3 +161,32 @@ test('resolveTheme: navPortal corrupto no lanza y cae al default', () => {
   assert.doesNotThrow(() => resolveTheme({ navPortal: 'basura' }));
   assert.deepEqual(resolveTheme({ navPortal: 'basura' }).navPortal, { ocultos: [], etiquetas: {}, iconos: {} });
 });
+
+test('themeConfigSchema: redesSociales ausente → default vacío (tema guardado antes de la Fase 3)', () => {
+  const sinRedes: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinRedes.redesSociales;
+  const r = themeConfigSchema.safeParse(sinRedes);
+  assert.equal(r.success, true);
+  if (r.success) assert.deepEqual(r.data.redesSociales, { instagram: '', facebook: '', whatsapp: '' });
+});
+
+test('themeConfigSchema acepta redesSociales con las tres cuentas', () => {
+  const r = themeConfigSchema.safeParse({
+    ...DEFAULT_THEME,
+    redesSociales: { instagram: 'https://instagram.com/x', facebook: 'https://facebook.com/x', whatsapp: 'https://wa.me/34600000000' },
+  });
+  assert.equal(r.success, true);
+});
+
+test('themeConfigSchema rechaza claves extra en redesSociales (strict)', () => {
+  const r = themeConfigSchema.safeParse({
+    ...DEFAULT_THEME,
+    redesSociales: { instagram: '', facebook: '', whatsapp: '', tiktok: 'https://tiktok.com/@x' },
+  });
+  assert.equal(r.success, false);
+});
+
+test('resolveTheme: redesSociales corrupto no lanza y cae al default vacío', () => {
+  assert.doesNotThrow(() => resolveTheme({ redesSociales: 'basura' }));
+  assert.deepEqual(resolveTheme({ redesSociales: 'basura' }).redesSociales, { instagram: '', facebook: '', whatsapp: '' });
+});

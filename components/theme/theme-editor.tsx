@@ -15,7 +15,10 @@ import {
   subirFaviconEstudio,
   eliminarFaviconEstudio,
 } from '@/lib/portal-storage';
-import { DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, type ThemeConfig } from '@/lib/theme-schema';
+import {
+  DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
+  type ThemeConfig, type RedSocialId,
+} from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { THEME_DEFINITIONS, type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
@@ -32,6 +35,15 @@ const CAMPOS_COLOR: { key: keyof ThemeConfig; label: string }[] = [
   { key: 'background', label: 'Fondo' },
   { key: 'text', label: 'Texto' },
 ];
+
+const RED_SOCIAL_LABEL: Record<RedSocialId, string> = {
+  instagram: 'Instagram', facebook: 'Facebook', whatsapp: 'WhatsApp',
+};
+const RED_SOCIAL_PLACEHOLDER: Record<RedSocialId, string> = {
+  instagram: 'https://instagram.com/tu-estudio',
+  facebook: 'https://facebook.com/tu-estudio',
+  whatsapp: 'https://wa.me/34600000000',
+};
 
 // Paletas de arranque: el usuario elige un color de marca bonito y el resto de
 // la paleta se deriva armónicamente (derivarPaleta). Después puede afinar.
@@ -109,6 +121,7 @@ export function ThemeEditor() {
   // Igual que en los helpers de abajo: `draft.navPortal` puede faltar en un
   // tema que no pasó por resolveTheme (parcial/legado) — nunca se lee crudo.
   const navPortalResuelto = resolveNavConfig(draft.navPortal);
+  const redesSocialesResueltas = { instagram: '', facebook: '', whatsapp: '', ...(draft.redesSociales as Partial<Record<RedSocialId, string>> | undefined) };
 
   // Cualquier edición manual ("Personalizar") marca el tema como
   // personalizado: la tarjeta del tema elegido en "Tema" deja de decir solo
@@ -175,6 +188,23 @@ export function ThemeEditor() {
       else delete iconos[seg];
       return { ...d, navPortal: { ...actual, iconos }, themeCustomized: true };
     });
+    setAviso(null);
+  }
+
+  // Redes sociales del pie de página público (Fase 3). Igual que arriba: el
+  // dato se guarda tal cual, sin validar como URL estricta aquí — el filtro
+  // de enlaces peligrosos vive en el render (resolverHrefBloque). `d.redesSociales`
+  // puede faltar en un tema parcial/legado — mismo motivo que navPortal arriba.
+  function setRedSocial(id: RedSocialId, valor: string) {
+    setDraft((d) => ({
+      ...d,
+      redesSociales: {
+        instagram: '', facebook: '', whatsapp: '',
+        ...(d.redesSociales as Partial<Record<RedSocialId, string>> | undefined),
+        [id]: valor,
+      },
+      themeCustomized: true,
+    }));
     setAviso(null);
   }
 
@@ -476,6 +506,30 @@ export function ThemeEditor() {
                 interactive={false}
               />
             </div>
+          </div>
+        </section>
+
+        {/* Redes sociales del pie de página público (Fase 3 del Theme
+            Builder) — se ven en el pie de app/reservar/[slug], la página de
+            reservas pública. Vacío = no se muestra ese icono. */}
+        <section className="space-y-2">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Redes sociales</p>
+          <p className="text-[11.5px] text-muted-foreground -mt-1">
+            Se ven en el pie de tu página pública de reservas. Deja en blanco la que no uses.
+          </p>
+          <div className="space-y-2">
+            {REDES_SOCIALES_IDS.map((id) => (
+              <label key={id} className="flex items-center gap-3">
+                <span className="w-20 shrink-0 text-[12px] font-semibold text-foreground">{RED_SOCIAL_LABEL[id]}</span>
+                <input
+                  value={redesSocialesResueltas[id]}
+                  onChange={(e) => setRedSocial(id, e.target.value)}
+                  placeholder={RED_SOCIAL_PLACEHOLDER[id]}
+                  aria-label={RED_SOCIAL_LABEL[id]}
+                  className="min-w-0 flex-1 text-[12.5px] px-2.5 py-1.5 rounded-lg border border-border bg-background"
+                />
+              </label>
+            ))}
           </div>
         </section>
 
