@@ -30,11 +30,19 @@ export interface VistaDiaSalasProps {
   /** true = esta clase se atenúa (filtro por instructora, punto 9: nunca se esconde). */
   atenuada?: (d: DatoSesion) => boolean;
   accionPara?: (d: DatoSesion) => { texto: string; onClick: () => void } | null;
+  /** Fase 2: true = esta clase se puede arrastrar (permiso ya resuelto por el
+   *  llamador — una instructora solo puede arrastrar sus propias clases). */
+  arrastrable?: (d: DatoSesion) => boolean;
+  /** offsetYPx: distancia en px desde el borde superior de la columna DONDE
+   *  SE SOLTÓ (puede ser otra sala) — el propio componente resuelve la
+   *  columna de destino con `elementFromPoint`, el caller no necesita saber
+   *  de geometría. */
+  onMoverSesion?: (sesionId: string, destino: { salaId: string; offsetYPx: number; pxPorHora: number }) => void;
 }
 
 export function VistaDiaSalas({
   columnas, datos, horaInicioMin, horaFinMin, pxPorHora, ahoraMin,
-  seleccionadaId, onSeleccionar, atenuada, accionPara,
+  seleccionadaId, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion,
 }: VistaDiaSalasProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -82,7 +90,7 @@ export function VistaDiaSalas({
       </div>
 
       {/* Rejilla: scrollea ELLA, no la página (punto 10). */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollRef} data-testid="grid-dia-scroll" className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex" style={{ height: altoTotal }}>
           <div className="relative w-14 flex-none">
             {horas.map(h => (
@@ -100,6 +108,7 @@ export function VistaDiaSalas({
             {columnas.map(c => (
               <div
                 key={c.sala.id}
+                data-sala-id={c.sala.id}
                 className="relative min-w-0 border-l border-border/60"
                 style={{
                   backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
@@ -131,6 +140,15 @@ export function VistaDiaSalas({
                       atenuada={atenuada?.(d)}
                       onSeleccionar={() => onSeleccionar(s.id)}
                       accion={accionPara?.(d) ?? null}
+                      arrastrable={arrastrable?.(d) ?? false}
+                      onMover={!onMoverSesion ? undefined : (clientX, clientY) => {
+                        const destino = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
+                          ?.closest<HTMLElement>('[data-sala-id]');
+                        const salaId = destino?.dataset.salaId ?? c.sala.id;
+                        const rect = destino?.getBoundingClientRect();
+                        const offsetYPx = rect ? clientY - rect.top : clientY;
+                        onMoverSesion(s.id, { salaId, offsetYPx, pxPorHora });
+                      }}
                       style={{
                         top: topPx, height: Math.max(altoPx, 20),
                         left: `calc(${s.carril * anchoPct}% + 4px)`,

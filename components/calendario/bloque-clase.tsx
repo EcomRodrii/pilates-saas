@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { colorOcupacion, etiquetaOcupacion, ratioOcupacion } from '@/lib/ocupacion';
 import { PINTA, type EstadoSesion } from '@/lib/calendario-estado';
 import { cn, horaEstudio } from '@/lib/utils';
@@ -27,14 +28,60 @@ export interface BloqueClaseProps {
   style: React.CSSProperties;
   onSeleccionar: () => void;
   accion?: { texto: string; onClick: () => void } | null;
+  /** Fase 2: arrastrar para mover. Pointer Events (no `draggable` nativo —
+   *  no dispara por touch en iOS Safari, y RECEPCION/PROPIETARIO operan
+   *  desde tablet). `onMover` recibe la posición del puntero al soltar; el
+   *  padre (VistaDiaSalas/VistaSemana) resuelve la columna de destino. */
+  arrastrable?: boolean;
+  onMover?: (clientX: number, clientY: number) => void;
 }
 
 export function BloqueClase({
   sesion, tipo, instructor, reservasSesion, estado, modo, seleccionada,
-  atenuada, style, onSeleccionar, accion,
+  atenuada, style, onSeleccionar, accion, arrastrable, onMover,
 }: BloqueClaseProps) {
   const p = PINTA[estado];
   const ancho = modo === 'ancho';
+
+  const arrastreRef = useRef<{ pointerId: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const ultimoFueArrastreRef = useRef(false);
+  const [arrastrando, setArrastrando] = useState(false);
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!arrastrable || !onMover) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    arrastreRef.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false };
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const a = arrastreRef.current;
+    if (!a || a.pointerId !== e.pointerId) return;
+    const dx = e.clientX - a.startX;
+    const dy = e.clientY - a.startY;
+    if (!a.moved && Math.abs(dx) + Math.abs(dy) > 4) { a.moved = true; setArrastrando(true); }
+    if (a.moved) e.currentTarget.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const a = arrastreRef.current;
+    if (!a || a.pointerId !== e.pointerId) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    e.currentTarget.style.transform = '';
+    arrastreRef.current = null;
+    setArrastrando(false);
+    ultimoFueArrastreRef.current = a.moved;
+    if (a.moved) onMover?.(e.clientX, e.clientY);
+  }
+  function onPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
+    if (arrastreRef.current?.pointerId !== e.pointerId) return;
+    e.currentTarget.style.transform = '';
+    arrastreRef.current = null;
+    setArrastrando(false);
+  }
+  function onClick() {
+    // El click que sigue a un pointerup de arrastre no debe reabrir/cerrar el
+    // panel de la clase — solo el resultado del arrastre importa.
+    if (ultimoFueArrastreRef.current) { ultimoFueArrastreRef.current = false; return; }
+    onSeleccionar();
+  }
 
   const confirmadas = reservasSesion.filter(r => r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA').length;
   const enEspera = reservasSesion.filter(r => r.estado === 'LISTA_ESPERA').length;
@@ -48,18 +95,26 @@ export function BloqueClase({
     <div
       role="button"
       tabIndex={0}
-      onClick={onSeleccionar}
+      onClick={onClick}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSeleccionar(); } }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
       title={`${horaTexto} · ${tipo.nombre} · ${instructor?.nombre ?? 'sin instructora'}`}
       style={{
         ...style,
         background: seleccionada ? 'var(--muted)' : p.fondo,
         borderLeftColor: estado === 'PROGRAMADA' ? tipo.color : p.barra,
-        opacity: atenuada ? 0.35 : sesion.cancelada ? 0.6 : estado === 'FINALIZADA' ? 0.55 : 1,
+        opacity: arrastrando ? 0.85 : atenuada ? 0.35 : sesion.cancelada ? 0.6 : estado === 'FINALIZADA' ? 0.55 : 1,
+        touchAction: arrastrable ? 'none' : undefined,
+        zIndex: arrastrando ? 40 : undefined,
+        boxShadow: arrastrando ? '0 12px 24px -8px rgba(0,0,0,0.35)' : undefined,
       }}
       className={cn(
         'absolute flex flex-col overflow-hidden rounded-r-md border border-border/60 border-l-[3px]',
-        'cursor-pointer transition-transform duration-150 hover:-translate-y-px hover:shadow-md hover:z-20',
+        'transition-transform duration-150 hover:-translate-y-px hover:shadow-md hover:z-20',
+        arrastrable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         ancho ? 'gap-1 p-2' : 'gap-0.5 px-1.5 py-1',
       )}
     >

@@ -23,11 +23,16 @@ export interface VistaSemanaProps {
   seleccionadaId: string | null;
   onSeleccionar: (id: string) => void;
   atenuada?: (d: DatoSesion) => boolean;
+  /** Fase 2: aquí las columnas son DÍAS, no salas — arrastrar solo puede
+   *  cambiar día+hora, nunca sala (para eso hace falta la vista de Día o el
+   *  formulario de editar). */
+  arrastrable?: (d: DatoSesion) => boolean;
+  onMoverSesion?: (sesionId: string, destino: { diaColumna: number; offsetYPx: number; pxPorHora: number }) => void;
 }
 
 export function VistaSemana({
   columnas, datos, fechasSemana, hoyIndex, ahoraMin, horaInicioMin, horaFinMin, pxPorHora,
-  seleccionadaId, onSeleccionar, atenuada,
+  seleccionadaId, onSeleccionar, atenuada, arrastrable, onMoverSesion,
 }: VistaSemanaProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -93,6 +98,7 @@ export function VistaSemana({
             {columnas.map((c, i) => (
               <div
                 key={c.dia}
+                data-dia-index={i}
                 className="relative min-w-0 border-l border-border/60"
                 style={{
                   background: hoyIndex === i ? 'color-mix(in srgb, var(--muted) 60%, var(--card))' : undefined,
@@ -123,6 +129,15 @@ export function VistaSemana({
                       seleccionada={seleccionadaId === s.id}
                       atenuada={atenuada?.(d)}
                       onSeleccionar={() => onSeleccionar(s.id)}
+                      arrastrable={arrastrable?.(d) ?? false}
+                      onMover={!onMoverSesion ? undefined : (clientX, clientY) => {
+                        const destino = (document.elementFromPoint(clientX, clientY) as HTMLElement | null)
+                          ?.closest<HTMLElement>('[data-dia-index]');
+                        const diaColumna = destino ? Number(destino.dataset.diaIndex) : i;
+                        const rect = destino?.getBoundingClientRect();
+                        const offsetYPx = rect ? clientY - rect.top : clientY;
+                        onMoverSesion(s.id, { diaColumna, offsetYPx, pxPorHora });
+                      }}
                       style={{
                         top: topPx, height: Math.max(altoPx, 14),
                         left: `calc(${s.carril * anchoPct}% + 2px)`,

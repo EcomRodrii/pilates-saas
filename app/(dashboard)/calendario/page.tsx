@@ -54,7 +54,8 @@ import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
-import { metricasDia, metricasSemana } from '@/lib/calendario-metricas';
+import { metricasDia, metricasSemana, mmA } from '@/lib/calendario-metricas';
+import { minutosDesdeOffset, nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
@@ -1532,6 +1533,87 @@ export default function Calendario() {
     setPestanaPanel('clientas');
   }
 
+  // ── Arrastrar y soltar (Fase 2) ──────────────────────────────────────────────
+  const [confirmarArrastre, setConfirmarArrastre] = useState<{
+    sesionId: string; nuevoSalaId: string; nuevoInicio: string; nuevoFin: string;
+    apuntadas: number; horaTexto: string;
+  } | null>(null);
+
+  const arrastrableSesion = useCallback((d: DatoSesion) =>
+    !d.sesion.cancelada && (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
+  [esInstructorTop, yoTop]);
+
+  async function ejecutarMoverSesion(sesionId: string, nuevoSalaId: string, nuevoInicio: string, nuevoFin: string) {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (!sesion) return;
+    const cambioHora = new Date(sesion.inicio).getTime() !== new Date(nuevoInicio).getTime();
+    const cambioSala = sesion.salaId !== nuevoSalaId;
+    const guardado = await updateSesion(sesionId, { salaId: nuevoSalaId, inicio: nuevoInicio, fin: nuevoFin });
+    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (cambioHora || cambioSala) {
+      const d = new Date(nuevoInicio);
+      void avisarCambioHorarioSala(
+        sesionId,
+        {
+          clase: sesion.tipoClase.nombre, cuando: cuandoEstudio(d), d, sala: nombreSala(nuevoSalaId),
+          instructora: nombreInstructor(sesion.instructorId), instructorActual: nombreInstructor(sesion.instructorId),
+        },
+        { cambioHora, cambioSala },
+      );
+    }
+    showToast('Clase movida');
+    void refrescarVista();
+  }
+
+  // Reutiliza detectarConflictos/hayConflicto — los mismos imports que ya usa
+  // conflictosForm para el formulario de editar (page.tsx arriba), no una
+  // comprobación nueva.
+  function moverSesionArrastrada(
+    sesionId: string,
+    destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number },
+  ) {
+    if (guardandoSesion || !datosVista) return;
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (!sesion || sesion.cancelada) return;
+    if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
+
+    const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
+    const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
+    const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
+    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaAperturaMin);
+    const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, nuevoInicioMin);
+    if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
+      showToast('Fuera del horario del estudio');
+      return;
+    }
+
+    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : new Date(sesion.inicio);
+    if (!baseDate) return;
+    const nuevoInicio = toISO(localDate(baseDate), mmA(inicioMin));
+    const nuevoFin = toISO(localDate(baseDate), mmA(finMin));
+    const nuevoSalaId = destino.salaId ?? sesion.salaId;
+    if (nuevoInicio === sesion.inicio && nuevoSalaId === sesion.salaId) return;
+
+    const conflicto = detectarConflictos(
+      { salaId: nuevoSalaId, instructorId: sesion.instructorId, inicio: nuevoInicio, fin: nuevoFin },
+      existentesSlot, sesionId,
+    );
+    if (hayConflicto(conflicto)) {
+      showToast(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
+      return;
+    }
+
+    const apuntadas = cuantasApuntadas(sesionId);
+    if (apuntadas > 0) {
+      // Un desliz en un iPad no debe reprogramar una clase con gente apuntada
+      // y avisarla por email sin confirmación previa — a diferencia del
+      // formulario de editar (que ya tiene su propia pausa: el botón Guardar).
+      setConfirmarArrastre({ sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas, horaTexto: mmA(inicioMin) });
+      return;
+    }
+    void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
+  }
+
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = vista === 'semana'
     ? `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
@@ -1830,6 +1912,8 @@ export default function Calendario() {
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             accionPara={accionParaBloque}
+            arrastrable={arrastrableSesion}
+            onMoverSesion={moverSesionArrastrada}
           />
         ) : vista === 'mes' ? (
           <VistaMes
@@ -1851,6 +1935,8 @@ export default function Calendario() {
             seleccionadaId={sesionId}
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
+            arrastrable={arrastrableSesion}
+            onMoverSesion={moverSesionArrastrada}
           />
         )}
       </div>
@@ -2393,6 +2479,40 @@ export default function Calendario() {
               }}
             >
               Sí, avisar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Fase 2: confirmación al arrastrar una clase con clientas apuntadas ──── */}
+      <Dialog open={confirmarArrastre !== null} onOpenChange={open => !open && setConfirmarArrastre(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              ¿Mover a las {confirmarArrastre?.horaTexto} y avisar a{' '}
+              {confirmarArrastre?.apuntadas === 1 ? 'la clienta' : `las ${confirmarArrastre?.apuntadas} clientas`}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground mt-2">
+            Hay reservas confirmadas en esta clase — al moverla les avisamos por email del nuevo horario.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarArrastre(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                const c = confirmarArrastre;
+                setConfirmarArrastre(null);
+                if (!c) return;
+                void ejecutarMoverSesion(c.sesionId, c.nuevoSalaId, c.nuevoInicio, c.nuevoFin);
+              }}
+            >
+              Mover y avisar
             </button>
           </div>
         </DialogContent>
