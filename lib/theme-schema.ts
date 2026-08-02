@@ -12,6 +12,7 @@
 // la UI (requisito 3 del brief).
 
 import { z } from 'zod';
+import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG } from './portal-nav.ts';
 
 /** Hex de 3 o 6 dígitos. */
 export const hexSchema = z
@@ -94,6 +95,35 @@ export const ESTILOS_TAB_BAR = [
 
 export type TabBarStyleId = (typeof ESTILOS_TAB_BAR)[number]['id'];
 
+const navSegIdSchema = z.enum(NAV_SEG_IDS);
+const navIconoSchema = z.enum(NAV_ICONOS_DISPONIBLES);
+
+/**
+ * Navegación inferior del portal cliente (Fase 2 del Theme Builder) — ocultar
+ * pestañas y sustituir etiqueta/icono, ver lib/portal-nav.ts. Objeto de
+ * claves fijas (una por `NavSegId`), mismo criterio que `bloquesPorPantallaSchema`
+ * en layout-schema.ts: un catálogo cerrado y conocido, no un `z.record` abierto.
+ */
+const navConfigSchema = z
+  .object({
+    ocultos: z.array(navSegIdSchema),
+    etiquetas: z.object({
+      home: z.string().optional(),
+      clases: z.string().optional(),
+      bonos: z.string().optional(),
+      videos: z.string().optional(),
+      perfil: z.string().optional(),
+    }),
+    iconos: z.object({
+      home: navIconoSchema.optional(),
+      clases: navIconoSchema.optional(),
+      bonos: navIconoSchema.optional(),
+      videos: navIconoSchema.optional(),
+      perfil: navIconoSchema.optional(),
+    }),
+  })
+  .default(DEFAULT_NAV_CONFIG);
+
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
 const faviconSchema = z.string().url().nullable();
@@ -124,6 +154,10 @@ export const themeConfigSchema = z
     portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
     // Barra inferior del portal cliente — ver ESTILOS_TAB_BAR arriba.
     tabBarStyle: tabBarStyleSchema.default('clasica'),
+    // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
+    // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
+    // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
+    navPortal: navConfigSchema,
     // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y
     // qué versión) partió este tema, y si el estudio lo ha tocado a mano
     // después de elegirlo. Metadato de procedencia — no gobierna el render
@@ -155,6 +189,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
+  navPortal: DEFAULT_NAV_CONFIG,
   themeId: 'classic',
   themeVersion: 1,
   themeCustomized: false,
@@ -184,6 +219,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
+    navPortal: pick('navPortal', navConfigSchema),
     themeId: pick('themeId', themeIdSchema),
     themeVersion: pick('themeVersion', themeVersionSchema),
     themeCustomized: pick('themeCustomized', themeCustomizedSchema),

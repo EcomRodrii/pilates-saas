@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useId } from 'react';
-import { Upload, Trash2, RotateCcw, Check, AlertTriangle, Sparkles, ChevronDown } from 'lucide-react';
+import { Upload, Trash2, RotateCcw, Check, AlertTriangle, Sparkles, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import {
@@ -16,9 +16,12 @@ import {
   eliminarFaviconEstudio,
 } from '@/lib/portal-storage';
 import { DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, type ThemeConfig } from '@/lib/theme-schema';
-import { validarContrasteTheme } from '@/lib/theme-runtime';
+import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { THEME_DEFINITIONS, type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
+import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
+import { PortalNav } from '@/components/portal/portal-nav';
+import { altura } from '@/lib/portal-design';
 import { ThemePreview } from './theme-preview';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
@@ -103,6 +106,9 @@ export function ThemeEditor() {
   }
 
   const contraste = validarContrasteTheme(draft);
+  // Igual que en los helpers de abajo: `draft.navPortal` puede faltar en un
+  // tema que no pasó por resolveTheme (parcial/legado) — nunca se lee crudo.
+  const navPortalResuelto = resolveNavConfig(draft.navPortal);
 
   // Cualquier edición manual ("Personalizar") marca el tema como
   // personalizado: la tarjeta del tema elegido en "Tema" deja de decir solo
@@ -128,6 +134,47 @@ export function ThemeEditor() {
   // algo en "Personalizar".
   function elegirTema(def: ThemeDefinition) {
     setDraft((d) => ({ ...d, ...def.defaults, themeId: def.id, themeVersion: def.version, themeCustomized: false }));
+    setAviso(null);
+  }
+
+  // Navegación del portal (Fase 2 del Theme Builder): ocultar/renombrar/
+  // cambiar icono de una pestaña. `home` nunca se puede ocultar — es el
+  // destino de login del portal (ver resolveNavConfig en lib/portal-nav.ts,
+  // que también lo protege server-side si algo se cuela por aquí).
+  // `d.navPortal` puede faltar en un tema guardado ANTES de esta fase (o en
+  // cualquier fuente que no pase por resolveTheme) — resolveNavConfig() nunca
+  // lanza, mismo principio que el resto de este esquema (ver lib/theme-schema.ts).
+  function toggleNavOculto(seg: NavSegId) {
+    if (seg === 'home') return;
+    setDraft((d) => {
+      const actual = resolveNavConfig(d.navPortal);
+      const ocultos = actual.ocultos.includes(seg)
+        ? actual.ocultos.filter((s) => s !== seg)
+        : [...actual.ocultos, seg];
+      return { ...d, navPortal: { ...actual, ocultos }, themeCustomized: true };
+    });
+    setAviso(null);
+  }
+
+  function setNavEtiqueta(seg: NavSegId, valor: string) {
+    setDraft((d) => {
+      const actual = resolveNavConfig(d.navPortal);
+      const etiquetas = { ...actual.etiquetas };
+      if (valor.trim()) etiquetas[seg] = valor;
+      else delete etiquetas[seg];
+      return { ...d, navPortal: { ...actual, etiquetas }, themeCustomized: true };
+    });
+    setAviso(null);
+  }
+
+  function setNavIcono(seg: NavSegId, valor: string) {
+    setDraft((d) => {
+      const actual = resolveNavConfig(d.navPortal);
+      const iconos = { ...actual.iconos };
+      if (valor) iconos[seg] = valor as NavIconoId;
+      else delete iconos[seg];
+      return { ...d, navPortal: { ...actual, iconos }, themeCustomized: true };
+    });
     setAviso(null);
   }
 
@@ -363,6 +410,72 @@ export function ThemeEditor() {
                 {c.label}
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* Navegación del portal (Fase 2 del Theme Builder): ocultar
+            pestañas y sustituir etiqueta/icono. Sin reordenar a propósito —
+            ver comentario en lib/portal-nav.ts. */}
+        <section className="space-y-2">
+          <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Navegación del portal</p>
+          <p className="text-[11.5px] text-muted-foreground -mt-1">
+            Oculta las pestañas que no uses y cambia su nombre o icono. El orden es el mismo para todos los estudios.
+          </p>
+          <div className="space-y-1.5">
+            {NAV_DISPONIBLES.map((item) => {
+              const oculta = navPortalResuelto.ocultos.includes(item.seg);
+              return (
+                <div key={item.seg} className="flex items-center gap-2 rounded-xl border border-border p-2.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleNavOculto(item.seg)}
+                    disabled={item.seg === 'home'}
+                    title={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? 'Mostrar' : 'Ocultar'}
+                    aria-label={item.seg === 'home' ? 'Inicio no se puede ocultar' : oculta ? `Mostrar ${item.label}` : `Ocultar ${item.label}`}
+                    className="shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-25 disabled:hover:text-muted-foreground"
+                  >
+                    {oculta ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                  <span className={`w-14 shrink-0 text-[12px] font-semibold ${oculta ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
+                    {item.label}
+                  </span>
+                  <input
+                    value={navPortalResuelto.etiquetas[item.seg] ?? ''}
+                    onChange={(e) => setNavEtiqueta(item.seg, e.target.value)}
+                    placeholder={item.label}
+                    aria-label={`Etiqueta de ${item.label}`}
+                    className="min-w-0 flex-1 text-[12.5px] px-2.5 py-1.5 rounded-lg border border-border bg-background"
+                  />
+                  <select
+                    value={navPortalResuelto.iconos[item.seg] ?? ''}
+                    onChange={(e) => setNavIcono(item.seg, e.target.value)}
+                    aria-label={`Icono de ${item.label}`}
+                    className="shrink-0 text-[12.5px] px-2 py-1.5 rounded-lg border border-border bg-background"
+                  >
+                    <option value="">Icono de siempre</option>
+                    {NAV_ICONOS_DISPONIBLES.map((i) => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Preview en vivo (sin iframe: el widget de verdad, con las CSS
+              vars del borrador aplicadas directamente — mismo componente que
+              usa portal-shell.tsx, así que lo que se ve aquí es exacto). */}
+          <div style={themeToCssVars(draft)} className="rounded-2xl border border-border bg-muted/40 p-4">
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Así se ve</p>
+            <div style={{ position: 'relative', height: altura.tabbar }}>
+              <PortalNav
+                items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
+                activeIndex={0}
+                tabBarStyle={draft.tabBarStyle}
+                slug={studio?.slug ?? ''}
+                interactive={false}
+              />
+            </div>
           </div>
         </section>
 
