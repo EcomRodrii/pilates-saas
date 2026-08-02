@@ -4,8 +4,10 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, type R
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
+import { supabase } from '@/lib/db/supabase';
+import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
@@ -331,6 +333,7 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura>;
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => void;
@@ -648,6 +651,52 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   useEffect(() => {
     fijarEtiqueta('studio_id', studio?.id ?? undefined);
   }, [studio?.id]);
+
+  // El self-claim de una instructora (confirmar el correo de invitación) pasa
+  // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
+  // service-role, ajeno por completo a la pestaña de la propietaria. Sin esto,
+  // `instructores` solo se cargaba una vez al montar (más abajo) y no había
+  // forma de que ese cambio llegara sin recargar: ni polling, ni revalidate al
+  // recuperar el foco (eso solo existe para el portal público, `publicSlug`,
+  // más abajo). Mismo patrón que ya usa el chat de equipo
+  // (`lib/stores/use-team-chat-store.ts`) para `mensajes_equipo`. Solo para el
+  // dashboard autenticado — el portal público no necesita ver altas de equipo.
+  useEffect(() => {
+    if (publicSlug || shadowedByPublicRoute || !studio?.id) return;
+    const studioId = studio.id;
+    let vivo = true;
+    let canal: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!vivo) return;
+      await supabase.realtime.setAuth(data.session?.access_token ?? null);
+      if (!vivo) return;
+      canal = supabase
+        .channel(`instructores:${studioId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'instructores', filter: `studio_id=eq.${studioId}` },
+          payload => {
+            if (payload.eventType === 'DELETE') {
+              const old = payload.old as { id?: string };
+              if (old.id) setInstructores(prev => prev.filter(i => i.id !== old.id));
+              return;
+            }
+            const fila = mapInstructor(payload.new as RowInstructores);
+            setInstructores(prev =>
+              prev.some(i => i.id === fila.id)
+                ? prev.map(i => (i.id === fila.id ? fila : i))
+                : [...prev, fila],
+            );
+          },
+        )
+        .subscribe();
+    })();
+    return () => {
+      vivo = false;
+      if (canal) supabase.removeChannel(canal);
+    };
+  }, [publicSlug, shadowedByPublicRoute, studio?.id]);
 
   // ── Fetch all data from Supabase whenever the auth session changes ──────────
   // (mount, login, logout) — RLS now returns different rows to anon vs.
@@ -2425,6 +2474,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertRecibo(nuevo);
   }
 
+  // Factura al contado desde el modal "Nueva factura" (cobros/panel-pendientes):
+  // a diferencia de addRecibo (PENDIENTE, se cobra más tarde), aquí el cobro es
+  // inmediato — no hay fecha de vencimiento en el formulario porque no hay nada
+  // que esperar. Se ESCRIBE PRIMERO y se espera confirmación (mismo criterio que
+  // marcarCobrado/addSala): antes este botón era un placeholder sin cablear que
+  // cerraba el modal sin llamar a ninguna API — "se genera" pero nunca existió
+  // ni en BD ni en el estado local.
+  async function crearFacturaDirecta(fields: { socioId: string; concepto: string; importe: number }): Promise<ResultadoEscritura> {
+    const fechaCobro = new Date().toISOString();
+    const rec: Recibo = {
+      id: `rec-${uid()}`,
+      studioId: getCurrentStudioId(),
+      socioId: fields.socioId,
+      suscripcionId: null,
+      concepto: fields.concepto,
+      importe: fields.importe,
+      estado: 'COBRADO',
+      fechaVencimiento: fechaCobro,
+      fechaCobro,
+      fechaDevolucion: null,
+      intentosReintento: 0,
+    };
+    const res = await dbInsertRecibo(rec);
+    if (!res.ok) return res;
+    setRecibos(prev => [...prev, rec]);
+    // Mismo patrón que marcarCobrado: construir con el snapshot ya conocido
+    // (`rec`, no el `recibos` del closure, que todavía no lo tiene) y sellar
+    // fuera del updater.
+    const fac = construirFacturaCobro(rec, facturas);
+    if (fac) {
+      setFacturas(prev => [...prev, fac]);
+      void sellarFacturaYActualizar(fac);
+    }
+    const socio = socios.find(s => s.id === fields.socioId);
+    addActividadReciente(
+      'COBRO_MANUAL',
+      `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`,
+      fields.socioId,
+      `/socios/${fields.socioId}`
+    );
+    return res;
+  }
+
   // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes
   // NO dupliquen el refill de bono / extensión mensual ni el build+sellado de
   // factura (antes copiados en ambas, con riesgo de divergencia — p. ej. el guard
@@ -3496,6 +3588,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     liberarSpot,
     asignarSpot,
     addRecibo,
+    crearFacturaDirecta,
     marcarCobrado,
     marcarDevuelto,
     reintentar,

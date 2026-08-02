@@ -835,13 +835,26 @@ export default function Calendario() {
 
     const semanaDeLaClase = weekStart(new Date(`${form.fecha}T12:00:00`));
     const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
-    if (otraSemana) setSemana(semanaDeLaClase);
+    if (otraSemana) {
+      // NO llamar aquí a refrescarVista(): sigue cerrado sobre el `rango` de
+      // ANTES de este setSemana (React no re-renderiza síncronamente), así que
+      // pediría la semana vieja — que no tiene la clase nueva — y esa
+      // respuesta podía llegar DESPUÉS del refetch correcto disparado por el
+      // efecto de claveVista, pisando la rejilla con datos obsoletos (bug: la
+      // clase aparece, desaparece y vuelve a aparecer). Solo hace falta
+      // invalidar la caché de la semana destino (por si ya se había visitado
+      // antes de crear la clase) — el cambio de `semana` de abajo ya dispara
+      // el fetch correcto vía el efecto de claveVista.
+      cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaClase)));
+      setSemana(semanaDeLaClase);
+    } else {
+      void refrescarVista();
+    }
     setDiaSeleccionado(new Date(`${form.fecha}T12:00:00`));
 
     const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
     showToast(otraSemana ? `${cuantas} — te llevo a esa semana` : cuantas);
     setShowForm(null);
-    void refrescarVista();
   }
 
   function cuantasApuntadas(id: string): number {
@@ -1157,6 +1170,12 @@ export default function Calendario() {
   // ── Rediseño: datos de vista (rejilla/métricas/franja/panel) por rango+rol ──
   const [datosVista, setDatosVista] = useState<DatosVista | null>(null);
   const cacheVistaRef = useRef<Map<string, DatosVista>>(new Map());
+  // Guarda contra la carrera entre dos fetches de rangos distintos en vuelo a
+  // la vez (p. ej. refrescarVista() del rango viejo + el efecto de claveVista
+  // para el rango nuevo, disparados casi a la vez al crear una clase que cae
+  // en otra semana): solo se aplica la respuesta si su rango sigue siendo el
+  // último que se pidió — si no, quien responda último no debería "ganar".
+  const ultimaClaveSolicitadaRef = useRef<string>('');
 
   const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado)
     : vista === 'mes' ? rangoMes(mesVisto)
@@ -1165,6 +1184,7 @@ export default function Calendario() {
 
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
     const clave = claveRango(r);
+    ultimaClaveSolicitadaRef.current = clave;
     const cacheado = cacheVistaRef.current.get(clave);
     if (cacheado) { setDatosVista(cacheado); return; }
     try {
@@ -1178,6 +1198,7 @@ export default function Calendario() {
       // reventaría al leer `horaApertura.slice(...)`. Mejor seguir "Cargando…".
       if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') return;
       cacheVistaRef.current.set(clave, data);
+      if (ultimaClaveSolicitadaRef.current !== clave) return; // respuesta obsoleta, se descarta
       setDatosVista(data);
     } catch {
       // Silencioso: la rejilla se queda con lo último cargado en vez de romper la pantalla.
