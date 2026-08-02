@@ -157,7 +157,7 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
-import type { TabBarStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
@@ -251,6 +251,8 @@ interface StudioContextValue {
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
+  // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
+  redesSociales: Record<RedSocialId, string>;
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -576,6 +578,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
+  const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -760,6 +763,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setNavPortal(resolveNavConfig(pub.navPortal));
+      setRedesSociales({
+        instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
+        facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
+        whatsapp: typeof pub.redesSociales?.whatsapp === 'string' ? pub.redesSociales.whatsapp : '',
+      });
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -3511,6 +3519,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesBonos,
     tabBarStyle,
     navPortal,
+    redesSociales,
     favoritos,
     toggleFavorito,
     updateMensajeDestacado,
@@ -3714,7 +3723,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, redesSociales, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

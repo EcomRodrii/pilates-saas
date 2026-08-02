@@ -417,6 +417,7 @@ export async function fetchPublicStudioData(
       bloquesBonos: layout.bloques.bonos.publicado,
       tabBarStyle: temaPublicado.tabBarStyle,
       navPortal: temaPublicado.navPortal,
+      redesSociales: temaPublicado.redesSociales,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),

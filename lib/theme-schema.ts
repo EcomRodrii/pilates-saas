@@ -95,6 +95,22 @@ export const ESTILOS_TAB_BAR = [
 
 export type TabBarStyleId = (typeof ESTILOS_TAB_BAR)[number]['id'];
 
+/**
+ * Redes sociales del pie de página público (Fase 3 del Theme Builder) — ver
+ * app/reservar/[slug]/page.tsx. Set curado (no un enlace libre "otro"): cada
+ * campo se guarda TAL CUAL lo escribe el estudio, sin validar como URL
+ * estricta aquí — mismo criterio que los `href` de banner/CTA en
+ * layout-schema.ts. El filtro real de enlaces peligrosos vive en el RENDER
+ * (resolverHrefBloque, lib/portal-home-bloques.ts), no en el guardado.
+ */
+export const REDES_SOCIALES_IDS = ['instagram', 'facebook', 'whatsapp'] as const;
+export type RedSocialId = (typeof REDES_SOCIALES_IDS)[number];
+
+const redesSocialesSchema = z
+  .object({ instagram: z.string(), facebook: z.string(), whatsapp: z.string() })
+  .strict()
+  .default({ instagram: '', facebook: '', whatsapp: '' });
+
 const navSegIdSchema = z.enum(NAV_SEG_IDS);
 const navIconoSchema = z.enum(NAV_ICONOS_DISPONIBLES);
 
@@ -158,6 +174,8 @@ export const themeConfigSchema = z
     // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
     // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
     navPortal: navConfigSchema,
+    // Redes sociales del pie de página público (Fase 3) — ver REDES_SOCIALES_IDS arriba.
+    redesSociales: redesSocialesSchema,
     // Galería de temas (lib/theme-definitions.ts): de qué ThemeDefinition (y
     // qué versión) partió este tema, y si el estudio lo ha tocado a mano
     // después de elegirlo. Metadato de procedencia — no gobierna el render
@@ -190,6 +208,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   navPortal: DEFAULT_NAV_CONFIG,
+  redesSociales: { instagram: '', facebook: '', whatsapp: '' },
   themeId: 'classic',
   themeVersion: 1,
   themeCustomized: false,
@@ -220,6 +239,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     navPortal: pick('navPortal', navConfigSchema),
+    redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),
     themeVersion: pick('themeVersion', themeVersionSchema),
     themeCustomized: pick('themeCustomized', themeCustomizedSchema),
