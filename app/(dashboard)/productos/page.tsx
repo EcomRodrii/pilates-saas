@@ -400,7 +400,7 @@ export default function Productos() {
                   <div>
                     <p className="text-2xl font-extrabold text-foreground">{fmt(plan.precio)} €</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {plan.tipo === 'MENSUAL' ? 'al mes' : plan.sesiones ? `${plan.sesiones} sesiones` : 'por sesión'}
+                      {plan.tipo === 'MENSUAL' ? 'al mes' : plan.sesiones ? `${plan.sesiones} ${plan.sesiones > 1 ? 'sesiones' : 'sesión'}` : 'por sesión'}
                     </p>
                     {/* La caducidad no se veía en ningún sitio: había que abrir el
                         plan para saber si el bono expira, y hasta ahora ni eso. */}
