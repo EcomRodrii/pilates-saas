@@ -61,6 +61,8 @@ import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCob
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
 import { rangoDia, rangoSemana, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
+import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
+import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -1687,6 +1689,11 @@ export default function Calendario() {
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const esPropiaClase = sesionActual ? (!esInstructor || (!!yo && sesionActual.instructorId === yo.id)) : false;
 
+  // Piloto de validación de captura por voz (ver lib/piloto-ficha-viva.ts) —
+  // gateado a las instructoras del piloto, no visible al resto.
+  const enPiloto = enPilotoVoz(yo?.id);
+  const [notaVozSocioId, setNotaVozSocioId] = useState<string | null>(null);
+
   const hoyRef = useMemo(() => new Date(), [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const condicionesPorSocio = useMemo(() => {
@@ -2065,6 +2072,17 @@ export default function Calendario() {
                     </button>
                   );
                 })}
+                {enPiloto && esPropiaClase && (
+                  <button
+                    onClick={() => setNotaVozSocioId(r.socioId)}
+                    title="Nota de voz (piloto)"
+                    aria-label="Nota de voz"
+                    className="w-6 h-6 rounded-md text-xs flex items-center justify-center opacity-45 hover:opacity-100 transition-all"
+                    style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))' }}
+                  >
+                    🎙
+                  </button>
+                )}
               </div>
             ) : null) : undefined,
           }}
@@ -2178,6 +2196,16 @@ export default function Calendario() {
       )}
 
       {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} action={toastAction} />}
+
+      {notaVozSocioId && sesionActual && yo && (
+        <ModalNotaVoz
+          socioId={notaVozSocioId}
+          nombreSocia={nombreClientaResolver(notaVozSocioId)}
+          instructorId={yo.id}
+          sesionId={sesionActual.id}
+          onClose={() => setNotaVozSocioId(null)}
+        />
+      )}
 
       <CoberturaDialog
         open={showCobertura}
