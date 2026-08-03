@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { useAuth } from '@/lib/auth-context';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
+import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
+import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
 import { authHeader, enviarEmailCampana } from '@/lib/api-client';
@@ -281,6 +283,19 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     planProximaSesion: string | null;
     ejerciciosCasa: string | null;
   } | null>(null);
+  // Piloto de validación de captura por voz (ver lib/piloto-ficha-viva.ts) —
+  // dicta directo sobre el textarea existente, en vez del teclado del móvil.
+  const speech = useSpeechToText();
+  const aiNoteBaseRef = useRef('');
+  useEffect(() => {
+    if (!speech.grabando) return;
+    setAiNoteText(aiNoteBaseRef.current + (aiNoteBaseRef.current && speech.transcripcion ? ' ' : '') + speech.transcripcion);
+  }, [speech.transcripcion, speech.grabando]);
+  function handleMicToggle() {
+    if (speech.grabando) { speech.detener(); return; }
+    aiNoteBaseRef.current = aiNoteText;
+    speech.iniciar();
+  }
   const [msgForm, setMsgForm] = useState({ asunto: '', cuerpo: '' });
   const [enviandoMsg, setEnviandoMsg] = useState(false);
   const [editForm, setEditForm] = useState<{
@@ -869,6 +884,19 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       />
                     </div>
                     <div className="flex gap-2 mb-4">
+                      {enPilotoVoz(yo?.id) && speech.disponible && (
+                        <button
+                          onClick={handleMicToggle}
+                          title={speech.grabando ? 'Parar dictado' : 'Dictar por voz (piloto)'}
+                          className={cn(
+                            'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors',
+                            speech.grabando ? 'bg-destructive text-white border-destructive' : 'border-border text-foreground hover:bg-muted',
+                          )}
+                        >
+                          <Mic size={12} />
+                          {speech.grabando ? 'Escuchando…' : 'Dictar'}
+                        </button>
+                      )}
                       <button
                         onClick={handleAiNote}
                         disabled={aiLoading || !aiNoteText.trim()}
@@ -878,6 +906,9 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         {aiLoading ? 'Procesando...' : 'Generar nota IA'}
                       </button>
                     </div>
+                    {enPilotoVoz(yo?.id) && speech.error && (
+                      <p className="text-xs text-destructive -mt-2 mb-3">No se ha podido grabar ({speech.error}). Usa el teclado.</p>
+                    )}
                     {aiResult && (
                       <div className="rounded-xl border border-border bg-brand/10 p-4 space-y-3">
                         <p className="text-xs font-bold text-brand-secondary uppercase tracking-wide mb-2">Nota estructurada</p>
