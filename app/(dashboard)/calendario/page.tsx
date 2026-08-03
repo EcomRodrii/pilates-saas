@@ -2042,7 +2042,7 @@ export default function Calendario() {
                     </button>
                   );
                 })}
-                {enPiloto && (
+                {enPiloto && esPropiaClase && (
                   <button
                     onClick={() => setNotaVozSocioId(r.socioId)}
                     title="Nota de voz (piloto)"

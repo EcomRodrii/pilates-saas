@@ -83,12 +83,14 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
             )}
             <div className="flex gap-2">
               {!grabando ? (
+                !resultado && (
                 <button
                   onClick={iniciar}
                   className="flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-bold hover:brightness-95 transition-colors"
                 >
                   <Mic size={13} /> Grabar
                 </button>
+                )
               ) : (
                 <button
                   onClick={detener}
