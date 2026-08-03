@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Check, X, Clock3, MessageCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { severidad, SEVERIDAD_INFO } from './severidad';
 import type { VeredictoAPI } from './use-decisiones';
 
 // El Umbral (lib/decision/umbral.ts), en pantalla: el elemento principal de
@@ -71,11 +72,34 @@ export function VeredictoDelDia({ veredicto, onHecho, onYaLoSe, onPosponer, proc
   }
 
   const r = veredicto.recomendacion;
-  if (!r) return null; // MENSAJE sin recomendación viva (ya gestionada por otra vía) — no se pinta
+  // MENSAJE cuya recomendación ya se resolvió por otra vía (p.ej. aprobada
+  // desde "Recomendaciones de hoy" antes de recargar) — antes esto devolvía
+  // null y dejaba el hueco del titular del día vacío, justo donde más se
+  // nota (arriba del todo, antes de Seguimiento). Mismo tratamiento visual
+  // que SILENCIO, pero reconociendo que sí hubo algo y ya se gestionó.
+  if (!r) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-2 py-8 text-center">
+          <div aria-hidden className="h-8 w-8 rounded-full" style={{ border: '2.5px solid var(--success)' }} />
+          <h2 className="font-heading text-[18px] font-semibold text-foreground">Ya te ocupaste de lo de hoy.</h2>
+          <p className="max-w-sm text-[13.5px] text-muted-foreground">Nada más necesita tu criterio por ahora.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const sev = SEVERIDAD_INFO[severidad(r.prioridad, r.riesgo, r.confianza.nivel)];
 
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
+        <span
+          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{ color: sev.color, backgroundColor: sev.bg }}
+        >
+          {sev.emoji} {sev.label}
+        </span>
         <h2 className="font-heading text-[20px] leading-snug font-semibold text-foreground">{r.titulo}</h2>
         <p className="text-[14.5px] leading-relaxed text-muted-foreground">{r.motivo}</p>
 

@@ -99,15 +99,9 @@ export default function CentroDeControlPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-10">
-      <div className="flex items-center justify-between">
-        <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
-          {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
-          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
-          Analizar ahora
-        </Button>
-      </div>
+      <p className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
+        {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+      </p>
 
       <ContratoDecisionOS />
 
@@ -133,63 +127,78 @@ export default function CentroDeControlPage() {
 
       {detalleAbierto && (
       <>
+      {/* Sin encabezado de grupo aquí a propósito: PilotoAutomatico y
+          BandejaHoy ya se etiquetan solos ("Piloto automático" / "Para hoy"),
+          y BandejaHoy ni siquiera es del Decision OS (lee recuperaciones/
+          recibos/plazasFijas/bloqueosMaquina, lib/bandeja-logic.ts) — un
+          título de grupo compartido las etiquetaría mal a las dos. */}
+      <div className="flex justify-end">
+        <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
+          <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
+          Analizar ahora
+        </Button>
+      </div>
       <PilotoAutomatico />
-
       <BandejaHoy />
 
-      {modoAprendizaje ? (
-        <EmptyState />
-      ) : (
-        <>
-          <ExecutiveSummary resumen={data.resumen!} />
+      <div className="flex flex-col gap-6">
+        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Recomendaciones de hoy
+        </h2>
+        {modoAprendizaje ? (
+          <EmptyState />
+        ) : (
+          <>
+            <ExecutiveSummary resumen={data.resumen!} />
 
-          <div id="recomendaciones" className="flex flex-col gap-6">
-            {data.prioridades.length > 0 && (
-              <div id="prioridades" className="flex flex-col gap-3">
-                <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Prioridades
-                </h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {data.prioridades.map(r => (
-                    <RecommendationCard
-                      key={r.id}
-                      recomendacion={r}
-                      onAprobar={() => handleAprobar(r.id)}
-                      onRechazar={() => handleRechazar(r.id)}
-                      procesando={procesandoId === r.id}
-                      whatsappHref={whatsappHref(r)}
-                    />
-                  ))}
+            <div id="recomendaciones" className="flex flex-col gap-6">
+              {data.prioridades.length > 0 && (
+                <div id="prioridades" className="flex flex-col gap-3">
+                  <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Prioridades
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {data.prioridades.map(r => (
+                      <RecommendationCard
+                        key={r.id}
+                        recomendacion={r}
+                        onAprobar={() => handleAprobar(r.id)}
+                        onRechazar={() => handleRechazar(r.id)}
+                        procesando={procesandoId === r.id}
+                        whatsappHref={whatsappHref(r)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Todas las demás situaciones detectadas (MEDIA/BAJA) — también
-                accionables, no solo un número en "Mi Equipo". */}
-            {data.masSituaciones.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {data.prioridades.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
-                </h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  {data.masSituaciones.map(r => (
-                    <RecommendationCard
-                      key={r.id}
-                      recomendacion={r}
-                      onAprobar={() => handleAprobar(r.id)}
-                      onRechazar={() => handleRechazar(r.id)}
-                      procesando={procesandoId === r.id}
-                      whatsappHref={whatsappHref(r)}
-                    />
-                  ))}
+              {/* Todas las demás situaciones detectadas (MEDIA/BAJA) — también
+                  accionables, no solo un número en "Mi Equipo". */}
+              {data.masSituaciones.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {data.prioridades.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    {data.masSituaciones.map(r => (
+                      <RecommendationCard
+                        key={r.id}
+                        recomendacion={r}
+                        onAprobar={() => handleAprobar(r.id)}
+                        onRechazar={() => handleRechazar(r.id)}
+                        procesando={procesandoId === r.id}
+                        whatsappHref={whatsappHref(r)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
 
-          <WhileYouSlept items={data.resumen!.mientrasDormias} />
-        </>
-      )}
+            <WhileYouSlept items={data.resumen!.mientrasDormias} />
+          </>
+        )}
+      </div>
 
       {/* En MODO APRENDIZAJE no se pintan los especialistas.
           Este bloque estaba fuera del ternario de arriba, y su guarda es siempre
@@ -203,22 +212,26 @@ export default function CentroDeControlPage() {
       {((!modoAprendizaje && data.porEspecialista.length > 0) || hayCartera) && (
         <div className="flex flex-col gap-3">
           <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Mi Equipo
+            Tu equipo y tu cartera
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {!modoAprendizaje && data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
             <EspecialistaCartera />
           </div>
+          <RiesgoPlanton />
         </div>
       )}
 
-      <RiesgoPlanton />
+      <div className="flex flex-col gap-3">
+        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Accesos rápidos
+        </h2>
+        <CodigosDescuento />
+        <QuickActions />
+      </div>
 
-      <CodigosDescuento />
-
+      {/* Sin encabezado de grupo: ActivityList ya se etiqueta sola ("Actividad"). */}
       <ActivityList items={data.actividad} />
-
-      <QuickActions />
       </>
       )}
     </div>
