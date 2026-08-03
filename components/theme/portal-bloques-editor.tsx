@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
-  GripVertical, Eye, EyeOff, RotateCcw, Check, AlertTriangle, Plus, Trash2, ChevronDown,
+  GripVertical, Eye, EyeOff, Plus, Trash2,
   Image as ImageIcon, Type, MousePointerClick, HelpCircle, type LucideIcon,
 } from 'lucide-react';
 import {
@@ -23,29 +23,26 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
-import { useStudio } from '@/lib/studio-context';
 import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
-  BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, PANTALLA_LABEL, getBlockCatalogEntry,
+  BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
 } from '@/lib/portal-home-bloques';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
-import { HomePreview } from './home-preview';
 
-// Fase 3 del editor de temas: generaliza el reordenar/ocultar de Fase 2 (los 4
-// módulos `sistema` del Inicio) a un constructor de bloques tipo Shopify
-// Sections — el estudio también puede AÑADIR banner/texto/cta/faq del
-// catálogo (BLOCK_CATALOG), configurarlos y reordenarlos junto a los de
-// siempre. La Fase 1 del Theme Builder generaliza esto a Clases y Bonos: el
-// mismo editor, con un selector de pantalla arriba — DEFAULT_BLOQUES_POR_PANTALLA
-// y PANTALLA_IDS (lib/portal-home-bloques.ts) son la única lista a tocar para
-// dar de alta una pantalla nueva en este constructor.
+// Constructor de bloques tipo Shopify Sections para el portal de clientas
+// (Inicio/Clases/Bonos) — el estudio añade banner/texto/cta/faq del catálogo
+// (BLOCK_CATALOG), los configura y los reordena junto a los del sistema.
+// Borrador/publicar propio POR PANTALLA — hay contenido editorial real
+// (texto, imagen, preguntas) que un cambio a medias no debe publicar solo, y
+// cada pantalla puede ir a su ritmo (terminar Clases sin publicar Bonos a
+// medias).
 //
-// A diferencia de Fase 2 (que guardaba en vivo), esto tiene borrador/publicar
-// propio POR PANTALLA — hay contenido editorial real (texto, imagen,
-// preguntas) que un cambio a medias no debe publicar solo, y cada pantalla
-// puede ir a su ritmo (terminar Clases sin que eso publique Bonos a medias).
+// Separado en hook (estado/persistencia) + lista (columna Secciones) + panel
+// (columna derecha) para montarse dentro del workspace único de Apariencia
+// (theme-workspace.tsx) — la selección de fila ya no abre un acordeón
+// inline, abre su `ConfigForm` en el panel derecho.
 
 const ICONOS: Record<string, LucideIcon> = {
   Image: ImageIcon, Type, MousePointerClick, HelpCircle,
@@ -126,74 +123,50 @@ function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: Bl
 }
 
 function Fila({
-  bloque, onToggle, onDelete, onChange, expandido, onExpandir,
+  bloque, activa, onSeleccionar, onToggle, onDelete,
 }: {
-  bloque: BloqueHome; onToggle: () => void; onDelete?: () => void; onChange: (b: BloqueHome) => void;
-  expandido: boolean; onExpandir: () => void;
+  bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void; onDelete?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloque.id });
-  const configurable = bloque.kind !== 'sistema';
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      className="rounded-xl border border-border bg-card overflow-hidden"
+      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${activa ? 'border-brand bg-brand/5' : 'border-border bg-card'}`}
     >
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <button {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground" aria-label={`Reordenar ${labelDe(bloque)}`}>
-          <GripVertical size={16} />
-        </button>
-        <span className={`flex-1 text-[13px] font-medium ${bloque.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
+      <button {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground" aria-label={`Reordenar ${labelDe(bloque)}`}>
+        <GripVertical size={16} />
+      </button>
+      <button type="button" onClick={onSeleccionar} className="flex-1 text-left">
+        <span className={`text-[13px] font-medium ${bloque.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
           {labelDe(bloque)}
         </span>
-        {configurable && (
-          <button onClick={onExpandir} className="text-muted-foreground hover:text-foreground" aria-label="Configurar">
-            <ChevronDown size={16} className={`transition-transform ${expandido ? 'rotate-180' : ''}`} />
-          </button>
-        )}
-        <button onClick={onToggle} title={bloque.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={bloque.oculto ? `Mostrar ${labelDe(bloque)}` : `Ocultar ${labelDe(bloque)}`}>
-          {bloque.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+      <button onClick={onToggle} title={bloque.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={bloque.oculto ? `Mostrar ${labelDe(bloque)}` : `Ocultar ${labelDe(bloque)}`}>
+        {bloque.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+      {onDelete && (
+        <button onClick={onDelete} title="Eliminar" className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${labelDe(bloque)}`}>
+          <Trash2 size={16} />
         </button>
-        {onDelete && (
-          <button onClick={onDelete} title="Eliminar" className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${labelDe(bloque)}`}>
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
-      {configurable && expandido && (
-        <div className="px-3 pb-3 pt-1 border-t border-border">
-          <ConfigForm bloque={bloque} onChange={onChange} />
-        </div>
       )}
     </div>
   );
 }
 
-export function PortalBloquesEditor() {
+// Estado + persistencia de los bloques de UNA pantalla del portal
+// (home/clases/bonos). `pantalla` es controlada por el padre (el selector de
+// página del workspace) — el hook carga las TRES pantallas de una vez (así
+// el preview de la derecha enseña el borrador correcto sea cual sea la
+// pantalla que se mire) pero opera sobre la que le pasen.
+export function useBloquesEditor(pantalla: PantallaId) {
   const { rol } = usePermisos();
-  const { studio } = useStudio();
-  const [pantalla, setPantalla] = useState<PantallaId>('home');
   const [bloquesPorPantalla, setBloquesPorPantalla] = useState<Record<PantallaId, BloqueHome[]>>(DEFAULT_BLOQUES_POR_PANTALLA);
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [expandidoId, setExpandidoId] = useState<string | null>(null);
-  const [picker, setPicker] = useState(false);
 
-  const bloques = bloquesPorPantalla[pantalla];
-  function setBloques(actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
-    setBloquesPorPantalla((prev) => ({ ...prev, [pantalla]: actualizar(prev[pantalla]) }));
-  }
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  // Carga las tres pantallas de una vez: así el preview de la derecha enseña
-  // el borrador correcto sea cual sea la pantalla que se mire, aunque el
-  // editor tenga otra pestaña activa.
   useEffect(() => {
     let vivo = true;
     Promise.all(PANTALLA_IDS.map((p) => fetchBloquesBorrador(p).catch(() => null)))
@@ -212,11 +185,9 @@ export function PortalBloquesEditor() {
     return () => { vivo = false; };
   }, []);
 
-  if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
-    return <p className="text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden configurar los bloques del portal.</p>;
-  }
-  if (estado === 'cargando') {
-    return <p className="text-sm text-muted-foreground">Cargando bloques del portal…</p>;
+  const bloques = bloquesPorPantalla[pantalla];
+  function setBloques(actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
+    setBloquesPorPantalla((prev) => ({ ...prev, [pantalla]: actualizar(prev[pantalla]) }));
   }
 
   function onDragEnd(e: DragEndEvent) {
@@ -234,7 +205,6 @@ export function PortalBloquesEditor() {
 
   function eliminar(id: string) {
     setBloques((prev) => prev.filter((b) => b.id !== id));
-    if (expandidoId === id) setExpandidoId(null);
     setAviso(null);
   }
 
@@ -243,21 +213,13 @@ export function PortalBloquesEditor() {
     setAviso(null);
   }
 
-  function anadir(kind: (typeof BLOCK_CATALOG)[number]['kind']) {
+  function anadir(kind: (typeof BLOCK_CATALOG)[number]['kind']): string | null {
     const entry = getBlockCatalogEntry(kind);
-    if (!entry) return;
+    if (!entry) return null;
     const nuevo = { id: uid(), kind, config: entry.defaultConfig } as BloqueHome;
     setBloques((prev) => [...prev, nuevo]);
-    setExpandidoId(nuevo.id);
-    setPicker(false);
     setAviso(null);
-  }
-
-  function cambiarPantalla(p: PantallaId) {
-    setPantalla(p);
-    setExpandidoId(null);
-    setPicker(false);
-    setAviso(null);
+    return nuevo.id;
   }
 
   async function guardar() {
@@ -289,44 +251,46 @@ export function PortalBloquesEditor() {
 
   function restaurar() {
     setBloques(() => DEFAULT_BLOQUES_POR_PANTALLA[pantalla]);
-    setExpandidoId(null);
     setAviso(null);
   }
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
-    <div className="space-y-4">
-      <div className="flex gap-1.5" role="tablist" aria-label="Pantalla a editar">
-        {PANTALLA_IDS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            role="tab"
-            aria-selected={pantalla === p}
-            onClick={() => cambiarPantalla(p)}
-            className={`px-3 py-1.5 rounded-full text-[12.5px] font-semibold border ${pantalla === p ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
-          >
-            {PANTALLA_LABEL[p]}
-          </button>
-        ))}
-      </div>
+  return {
+    rol, bloquesPorPantalla, bloques, estado, guardando, publicando, aviso,
+    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar,
+  };
+}
 
-      <p className="text-[13px] text-muted-foreground">
-        Arrastra para reordenar los bloques de {PANTALLA_LABEL[pantalla]}, usa el ojo para ocultar los que no uses, y añade bloques nuevos del catálogo. {DESCRIPCION_PANTALLA[pantalla]}
+export function BloquesSeccionesList({
+  hook, pantalla, seleccionId, onSeleccionar,
+}: {
+  hook: ReturnType<typeof useBloquesEditor>;
+  pantalla: PantallaId;
+  seleccionId: string | null;
+  onSeleccionar: (id: string) => void;
+}) {
+  const [picker, setPicker] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-muted-foreground">
+        Arrastra para reordenar, usa el ojo para ocultar, y añade bloques nuevos del catálogo. {DESCRIPCION_PANTALLA[pantalla]}
       </p>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-        <SortableContext items={bloques.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={hook.onDragEnd}>
+        <SortableContext items={hook.bloques.map((b) => b.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1.5">
-            {bloques.map((b) => (
+            {hook.bloques.map((b) => (
               <Fila
                 key={b.id}
                 bloque={b}
-                onToggle={() => toggle(b.id)}
-                onDelete={b.kind === 'sistema' ? undefined : () => eliminar(b.id)}
-                onChange={cambiar}
-                expandido={expandidoId === b.id}
-                onExpandir={() => setExpandidoId((prev) => (prev === b.id ? null : b.id))}
+                activa={seleccionId === b.id}
+                onSeleccionar={() => onSeleccionar(b.id)}
+                onToggle={() => hook.toggle(b.id)}
+                onDelete={b.kind === 'sistema' ? undefined : () => hook.eliminar(b.id)}
               />
             ))}
           </div>
@@ -349,7 +313,7 @@ export function PortalBloquesEditor() {
                 return (
                   <button
                     key={entry.kind}
-                    onClick={() => anadir(entry.kind)}
+                    onClick={() => { const id = hook.anadir(entry.kind); setPicker(false); if (id) onSeleccionar(id); }}
                     className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border hover:bg-muted text-left"
                   >
                     <Icono size={16} className="text-brand-medio" />
@@ -363,41 +327,23 @@ export function PortalBloquesEditor() {
         )}
       </div>
 
-      {aviso && (
-        <div className={`flex items-center gap-2 text-[12.5px] font-medium ${aviso.tipo === 'ok' ? 'text-green-700' : 'text-destructive'}`}>
-          {aviso.tipo === 'ok' ? <Check size={15} /> : <AlertTriangle size={15} />}
-          <span>{aviso.texto}</span>
+      {hook.aviso && (
+        <div className={`flex items-center gap-2 text-[12.5px] font-medium ${hook.aviso.tipo === 'ok' ? 'text-green-700' : 'text-destructive'}`}>
+          <span>{hook.aviso.texto}</span>
         </div>
       )}
-
-      <div className="flex items-center gap-2 border-t border-border pt-4">
-        <button onClick={restaurar} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border text-muted-foreground">
-          <RotateCcw size={14} /> Restaurar
-        </button>
-        <div className="flex-1" />
-        <button onClick={guardar} disabled={guardando} className="text-[13px] font-semibold px-4 py-2 rounded-xl border border-border disabled:opacity-50">
-          {guardando ? 'Guardando…' : 'Guardar borrador'}
-        </button>
-        <button onClick={publicar} disabled={publicando} className="text-[13px] font-bold px-4 py-2 rounded-xl bg-brand text-brand-foreground disabled:opacity-50">
-          {publicando ? 'Publicando…' : 'Publicar'}
-        </button>
-      </div>
-      <p className="text-[11.5px] text-muted-foreground">
-        El borrador solo lo ves tú. Al publicar, {PANTALLA_LABEL[pantalla]} pasa a la app de clientas.
-      </p>
-    </div>
-
-    {/* Preview en vivo (mismo mecanismo que "Marca y colores": iframe real,
-        aquí de /portal-preview/[slug], sincronizado por postMessage con el
-        borrador de bloques de las tres pantallas). Cambiar de pestaña arriba
-        también cambia la pantalla que se ve en el móvil. */}
-    <div className="lg:sticky lg:top-4 space-y-2">
-      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Vista previa en vivo</p>
-      <HomePreview bloquesPorPantalla={bloquesPorPantalla} pantalla={pantalla} onPantallaChange={cambiarPantalla} slug={studio?.slug} />
-      <p className="text-[11px] text-muted-foreground">
-        Con una socia de muestra (sin reservas propias) — el resto es tu estudio real.
-      </p>
-    </div>
     </div>
   );
+}
+
+export function BloquesConfigPanel({
+  hook, seleccionId,
+}: {
+  hook: ReturnType<typeof useBloquesEditor>;
+  seleccionId: string | null;
+}) {
+  const bloque = hook.bloques.find((b) => b.id === seleccionId);
+  if (!bloque) return <p className="text-[13px] text-muted-foreground">Selecciona un bloque de la izquierda para configurarlo.</p>;
+  if (bloque.kind === 'sistema') return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} no tiene ajustes propios — solo se puede reordenar u ocultar.</p>;
+  return <ConfigForm bloque={bloque} onChange={hook.cambiar} />;
 }
