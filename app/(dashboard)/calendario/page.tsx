@@ -1115,8 +1115,25 @@ export default function Calendario() {
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
     const res = await addSesionesSerie(sesionesFields);
     if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
-    showToast(`Serie creada · ${sesionesFields.length} clases`);
     setShowRecurrentes(false);
+    // Mismo fix que crearSesion() (comentario ahí explica el porqué): llamar
+    // a refrescarVista() sin más pide el rango de la semana vista ANTES de
+    // este cierre de modal (React no re-renderiza síncronamente) — si la
+    // serie cae en otra semana, esa respuesta obsoleta podía pisar la que sí
+    // trae las clases nuevas (bug: aparece/desaparece/reaparece). Antes esto
+    // solo se cubría al crear UNA clase, no una serie recurrente.
+    const primera = sesionesFields[0];
+    if (primera) {
+      const semanaDeLaSerie = weekStart(new Date(primera.inicio));
+      const otraSemana = localDate(semanaDeLaSerie) !== localDate(semana);
+      if (otraSemana) {
+        cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaSerie)));
+        setSemana(semanaDeLaSerie);
+        showToast(`Serie creada · ${sesionesFields.length} clases — te llevo a esa semana`);
+        return;
+      }
+    }
+    showToast(`Serie creada · ${sesionesFields.length} clases`);
     void refrescarVista();
   }
 
@@ -1687,7 +1704,6 @@ export default function Calendario() {
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const esPropiaClase = sesionActual ? (!esInstructor || (!!yo && sesionActual.instructorId === yo.id)) : false;
 
-  const hoyRef = useMemo(() => new Date(), [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -1723,10 +1739,14 @@ export default function Calendario() {
       .map(r => {
         const conds = condicionesPorSocio.get(r.socioId);
         if (!conds || !r.socio) return null;
-        return alertaPreClase(r.socio.nombre, conds, hoyRef);
+        return alertaPreClase(r.socio.nombre, conds, now);
       })
       .filter((a): a is string => a !== null);
-  }, [reservasActuales, condicionesPorSocio, verFichaClinica, hoyRef]);
+    // now (no hoyRef, ver comentario abajo) entra por su string de día: pasar
+    // el objeto Date entero recalcularía esto en cada render sin motivo, ya
+    // que `now` es una instancia nueva cada vez aunque sea el mismo día.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservasActuales, condicionesPorSocio, verFichaClinica, todayStr]);
 
   const respuestaPorSocio = useMemo(() => {
     const m = new Map<string, (typeof respuestasSesion)[number]>();

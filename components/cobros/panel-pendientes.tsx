@@ -271,13 +271,20 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
       importe: total,
     });
     setGenerandoFactura(false);
-    if (!res.ok) {
+    // `cobroRegistrado` distingue el fallo del SELLADO fiscal (el recibo ya
+    // se cobró) de un fallo al insertar el recibo en sí (nada se ha
+    // registrado todavía). Solo en el primer caso se cierra el formulario:
+    // reenviarlo tras un fallo de recibo real es seguro (nada se duplica);
+    // reenviarlo tras un cobro ya registrado duplicaría el cobro.
+    if (!res.ok && !('cobroRegistrado' in res)) {
       setStripeToast({ tipo: 'error', msg: `No se ha podido generar la factura: ${res.error}` });
       return;
     }
     setShowFactura(false);
     setFacturaForm({ socioId: '', concepto: '', importe: '' });
-    setStripeToast({ tipo: 'ok', msg: 'Factura generada.' });
+    setStripeToast(res.ok
+      ? { tipo: 'ok', msg: 'Factura generada.' }
+      : { tipo: 'error', msg: `Cobro registrado, pero la factura no se pudo sellar: ${res.error}. Contacta con soporte si no se resuelve sola.` });
   }
 
   // ── Historial state ─────────────────────────────────────────────────────────

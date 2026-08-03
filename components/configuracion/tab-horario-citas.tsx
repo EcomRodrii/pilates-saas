@@ -28,6 +28,13 @@ function mergeFranjas(list: Franja[]): Franja[] {
   return out;
 }
 
+// 'HH:MM' + 1 hora, saturado a '23:00' (no cruza medianoche).
+function sumaUnaHora(hora: string): string {
+  const [h, m] = hora.split(':').map(Number);
+  const total = Math.min(23 * 60, h * 60 + m + 60);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function draftFromDisponibilidad(disp: DisponibilidadCita[], instructorId: string): Draft {
   const byDow: Draft = {};
   for (const d of disp) {
@@ -74,8 +81,22 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
+  // Antes se insertaba SIEMPRE 09:00-10:00 y se pasaba por mergeFranjas: si ya
+  // había una franja que cubría o tocaba ese rango (muy común, ej. "09:00-14:00"),
+  // la nueva se fusionaba en silencio con la existente y no aparecía ningún
+  // campo nuevo — el botón "+ Franja" parecía no hacer nada. Ahora se propone
+  // un rango libre después de la última franja del día (o 09:00-10:00 si el
+  // día está vacío), y se añade sin pasar por el merge — el merge solo se
+  // aplica al guardar, no al insertar.
   const addFranja = useCallback((dow: number) => {
-    setDraft(prev => ({ ...prev, [dow]: mergeFranjas([...(prev[dow] ?? []), { horaInicio: '09:00', horaFin: '10:00' }]) }));
+    setDraft(prev => {
+      const actuales = prev[dow] ?? [];
+      const ultima = [...actuales].sort((a, b) => a.horaFin.localeCompare(b.horaFin)).pop();
+      const nueva = ultima && ultima.horaFin < '23:00'
+        ? { horaInicio: ultima.horaFin, horaFin: sumaUnaHora(ultima.horaFin) }
+        : { horaInicio: '09:00', horaFin: '10:00' };
+      return { ...prev, [dow]: [...actuales, nueva] };
+    });
     setDirty(true);
   }, []);
 

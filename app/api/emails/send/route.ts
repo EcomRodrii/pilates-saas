@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { errorInterno } from '@/lib/errores-servidor';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { uid } from '@/lib/utils';
 import { render } from '@react-email/render';
 import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
@@ -11,7 +13,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, resolverMarcaEstudio, resolverSlugEstudio } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 
@@ -32,6 +34,9 @@ export async function POST(req: NextRequest) {
     to: string;
     toName: string;
     data: Record<string, unknown>;
+    // Si se manda, se deja un registro duradero del envío en
+    // `comunicaciones_socio` (ver enviarEmailCampana en lib/api-client.ts).
+    socioId?: string;
   };
 
   // Direcciones de ejemplo (RFC 2606): se cortan ANTES de llamar a Resend, igual
@@ -78,7 +83,11 @@ export async function POST(req: NextRequest) {
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    // Enlace de acceso al portal: sin slug (estudio recién creado, o vista
+    // previa) se omite el botón en vez de enlazar a una URL rota.
+    const slug = await resolverSlugEstudio(sesion.studioId);
+    const url = slug ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001'}/portal/${slug}/acceso` : undefined;
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, url, ...marca, ...d }));
     subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
@@ -136,6 +145,29 @@ export async function POST(req: NextRequest) {
     subject,
     html,
   });
+
+  // Registro duradero del envío (si el llamador pasó socioId) — best-effort:
+  // un fallo al REGISTRAR el envío no debe ocultar que el email SÍ se mandó
+  // (o hacer perder el error real si falló), así que no se deja que rompa la
+  // respuesta.
+  if (body.socioId) {
+    const admin = getSupabaseAdmin();
+    if (admin) {
+      const { error: errIns } = await admin.from('comunicaciones_socio').insert({
+        id: `com-${uid()}`,
+        studio_id: sesion.studioId,
+        socio_id: body.socioId,
+        tipo: body.tipo,
+        asunto: subject,
+        estado: error ? 'FALLIDO' : 'ENVIADO',
+        error: error?.message ?? null,
+        resend_id: data?.id ?? null,
+        creado_por: sesion.userId,
+        creado_por_nombre: sesion.nombre ?? null,
+      });
+      if (errIns) console.error('[emails:send:comunicaciones_socio]', errIns);
+    }
+  }
 
   if (error) {
     return errorInterno('emails:send', error,

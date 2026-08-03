@@ -946,6 +946,13 @@ export async function enviarEmailCampana(params: {
   toName: string;
   asunto: string;
   contenido: string;
+  // Si se pasa, el servidor deja un registro DURADERO del envío en
+  // `comunicaciones_socio` (antes el "historial de comunicaciones" de la
+  // ficha de una clienta era un useState local: el email SÍ se enviaba, pero
+  // el registro de "enviado" solo vivía en memoria del navegador y
+  // desaparecía en cualquier remount/recarga — parecía que el mensaje "se
+  // esfumaba" aunque hubiera llegado de verdad).
+  socioId?: string;
 }): Promise<boolean> {
   try {
     const res = await fetch('/api/emails/send', {
@@ -956,12 +963,30 @@ export async function enviarEmailCampana(params: {
         to: params.to,
         toName: params.toName,
         data: { titulo: params.asunto, mensaje: params.contenido },
+        socioId: params.socioId,
       }),
     });
     return res.ok;
   } catch {
     return false;
   }
+}
+
+export interface ComunicacionSocio {
+  id: string;
+  tipo: string;
+  asunto: string;
+  estado: 'ENVIADO' | 'FALLIDO';
+  error: string | null;
+  creadoEn: string;
+  creadoPorNombre: string | null;
+}
+
+export async function fetchComunicaciones(socioId: string): Promise<ComunicacionSocio[]> {
+  const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
+  if (!res.ok) return [];
+  const { items } = await res.json();
+  return items ?? [];
 }
 
 // Envía un mensaje de campaña por WhatsApp/SMS (Twilio) a una destinataria.

@@ -43,6 +43,19 @@ export function interpolar(texto: string, vars: { nombre?: string; estudio?: str
     .replace(/\{clase\}/gi, vars.clase ?? '');
 }
 
+// El slug del estudio, para construir el enlace de acceso al portal en el
+// email de bienvenida — antes ese email no llevaba NINGÚN enlace ("ya puedes
+// reservar" sin decir dónde), así que la socia nueva no tenía forma de saber
+// a qué URL ir. Se resuelve en servidor (no se confía en lo que mande el
+// cliente) con el mismo criterio que resolverMarcaEstudio.
+export async function resolverSlugEstudio(studioId: string | null | undefined): Promise<string | null> {
+  if (!studioId) return null;
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data } = await admin.from('studios').select('slug').eq('id', studioId).maybeSingle();
+  return (data?.slug as string | null) ?? null;
+}
+
 export type MarcaEstudio = { colorPrimario?: string | null; logoUrl?: string | null };
 
 // Resuelve el logo + color de marca de un estudio para pintarlos en la

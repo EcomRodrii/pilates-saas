@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
-import { authHeader, enviarEmailCampana } from '@/lib/api-client';
+import { authHeader, enviarEmailCampana, fetchComunicaciones, type ComunicacionSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -289,10 +289,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', camposExtra: {} });
   const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
 
-  // ── Fake communications log (stored locally per clienta) ─────────────────────
-  const [comunicaciones, setComunicaciones] = useState<Array<{
-    id: string; asunto: string; cuerpo: string; fecha: string; tipo: 'EMAIL';
-  }>>([]);
+  // ── Historial de comunicaciones (persistido en `comunicaciones_socio`) ───────
+  const [comunicaciones, setComunicaciones] = useState<ComunicacionSocio[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    fetchComunicaciones(id).then(items => { if (vivo) setComunicaciones(items); });
+    return () => { vivo = false; };
+  }, [id]);
 
   const socio = socios.find(s => s.id === id);
 
@@ -511,16 +514,10 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
     // Ahora manda el email de verdad por Resend (/api/emails/send).
     setEnviandoMsg(true);
-    const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim() });
+    const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim(), socioId: id });
     setEnviandoMsg(false);
     if (!ok) { setToast('No se pudo enviar el email'); return; }
-    setComunicaciones(prev => [{
-      id: `msg-${Date.now()}`,
-      asunto: msgForm.asunto,
-      cuerpo: msgForm.cuerpo,
-      fecha: new Date().toISOString(),
-      tipo: 'EMAIL' as const,
-    }, ...prev]);
+    fetchComunicaciones(id).then(setComunicaciones);
     setMsgForm({ asunto: '', cuerpo: '' });
     setShowSendMessage(false);
     setToast('Email enviado');
@@ -1167,14 +1164,21 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </div>
                               <div>
                                 <p className="font-semibold text-foreground text-sm">{c.asunto}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.cuerpo}</p>
+                                {c.estado === 'FALLIDO' && c.error && (
+                                  <p className="text-xs text-destructive mt-0.5 line-clamp-2">{c.error}</p>
+                                )}
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}>
-                                Enviado
+                              <span
+                                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                                style={c.estado === 'FALLIDO'
+                                  ? { backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }
+                                  : { backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
+                              >
+                                {c.estado === 'FALLIDO' ? 'No se pudo enviar' : 'Enviado'}
                               </span>
-                              <p className="text-[10px] text-muted-foreground mt-1">{fecha(c.fecha)}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{fecha(c.creadoEn)}</p>
                             </div>
                           </div>
                         </div>
