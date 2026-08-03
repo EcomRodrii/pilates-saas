@@ -147,6 +147,13 @@ export function ReservaCalendario({
   // empezada, tope de reservas...). Antes ese "no" no llegaba nunca a la hoja y
   // se pintaba «¡Reserva confirmada!» encima de una reserva que no existía.
   const [errorReserva, setErrorReserva] = useState<string | null>(null);
+  // El botón se quedaba con el mismo texto ("Reservar"/"Cancelar reserva")
+  // durante toda la espera al servidor, sin deshabilitarse — nada indicaba que
+  // el toque hubiera hecho algo, y un segundo toque antes de la respuesta podía
+  // disparar dos peticiones para la misma plaza. Mismo criterio que el portal
+  // privado (components/portal/hoja-reserva.tsx): botón deshabilitado + spinner
+  // mientras se envía.
+  const [enviando, setEnviando] = useState(false);
 
   const semana = useMemo(() => diasSemana(weekAnchor), [weekAnchor]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
@@ -184,6 +191,7 @@ export function ReservaCalendario({
     setSelectedSpot(null);
     setResultado(null);
     setErrorReserva(null);
+    setEnviando(false);
   }
 
   const microLabel: CSSProperties = {
@@ -318,13 +326,17 @@ export function ReservaCalendario({
           onSelectSpot={setSelectedSpot}
           resultado={resultado}
           errorReserva={errorReserva}
+          enviando={enviando}
           cancelacionVentanaHoras={cancelacionVentanaHoras}
           ventanaPorTipo={ventanaPorTipo}
           fontFamily={fontFamily}
           onClose={cerrarHoja}
           onReservar={async () => {
+            if (enviando) return;
             setErrorReserva(null);
+            setEnviando(true);
             const r = await onReservar(openSlot, selectedSpot);
+            setEnviando(false);
             // Sin resultado → el flujo se ha derivado a otra superficie (modal de
             // acceso del widget público): cerramos la hoja para que no quede
             // apilada detrás de ese modal.
@@ -335,9 +347,11 @@ export function ReservaCalendario({
             setResultado(r.estado);
           }}
           onCancelar={async () => {
-            if (!openSlot.miReservaId) return;
+            if (!openSlot.miReservaId || enviando) return;
             setErrorReserva(null);
+            setEnviando(true);
             const r = await onCancelar(openSlot.miReservaId);
+            setEnviando(false);
             // `void` = quien lo pasa no informa (vía panel, que se corrige sola).
             if (r && !r.ok) { setErrorReserva(r.error); return; }
             setResultado('CANCELADA');
@@ -431,7 +445,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 
 function BookingSheet({
-  t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, cancelacionVentanaHoras, ventanaPorTipo,
+  t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
   fontFamily, onClose, onReservar, onCancelar,
 }: {
   t: ModoTokens;
@@ -440,6 +454,7 @@ function BookingSheet({
   onSelectSpot: (id: string | null) => void;
   resultado: EstadoReserva | 'CANCELADA' | null;
   errorReserva: string | null;
+  enviando: boolean;
   cancelacionVentanaHoras?: number;
   ventanaPorTipo?: Record<string, number>;
   fontFamily: string;
@@ -565,17 +580,23 @@ function BookingSheet({
         <button
           type="button"
           onClick={esCancelar ? onCancelar : onReservar}
-          disabled={resultado === 'CANCELADA'}
+          disabled={resultado === 'CANCELADA' || enviando}
+          aria-busy={enviando}
           style={{
             width: '100%', height: 52, borderRadius: 14, fontSize: 14.5, fontWeight: 800,
-            textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none', cursor: 'pointer',
-            marginTop: 2, opacity: resultado === 'CANCELADA' ? 0.4 : 1,
+            textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
+            cursor: resultado === 'CANCELADA' || enviando ? 'default' : 'pointer',
+            marginTop: 2, opacity: resultado === 'CANCELADA' ? 0.4 : enviando ? 0.7 : 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
             ...(esCancelar
               ? { background: semantic.danger.soft, color: semantic.danger.text }
               : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
           }}
         >
-          {resultado === 'CANCELADA' ? 'Cancelada' : label}
+          {enviando && (
+            <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+          )}
+          {resultado === 'CANCELADA' ? 'Cancelada' : enviando ? 'Un momento…' : label}
         </button>
       </div>
     </div>
