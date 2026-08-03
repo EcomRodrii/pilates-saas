@@ -26,7 +26,7 @@ import {
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
   dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbListMensajesRecientes, dbUpsertMensajeDia,
-  dbListFeatureFlagRows,
+  dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
 import type { Recomendacion, EspecialistaId } from '@/lib/decision/tipos';
@@ -196,9 +196,16 @@ export const analizarEstudio = inngest.createFunction(
       );
       const historialReciente = (await dbListMensajesRecientes(studioId, now, 5))
         .map(m => ({ dedupeKey: m.dedupeKey, motivoMotor: m.motivoMotor }));
+      // Fase 2 del Umbral: calibra las puertas de urgencia/impacto por tipo
+      // con el historial real de seguimiento de ESTE estudio (90d). No es un
+      // Map devuelto por step.run — se construye aquí dentro, así que no
+      // aplica el gotcha de serialización de Maps en Inngest (ver flags/memoria).
+      const tasasPorTipo = new Map(
+        (await dbCalcularSeguimientoPorTipo(studioId, now)).map(t => [t.tipo, { total: t.total, seguidas: t.seguidas }])
+      );
 
       const veredicto = elegirMensajeDelDia(
-        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas
+        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas, tasasPorTipo
       );
 
       if (veredicto.tipo === 'SILENCIO') {

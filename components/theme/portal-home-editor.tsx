@@ -23,6 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
+import { useStudio } from '@/lib/studio-context';
 import { fetchHomeBloquesBorrador, guardarHomeBloquesBorradorApi, publicarHomeBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_HOME_BLOQUES, BLOQUE_SISTEMA_LABEL, getBlockCatalogEntry,
@@ -30,6 +31,7 @@ import {
 } from '@/lib/portal-home-bloques';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
+import { HomePreview } from './home-preview';
 
 // Fase 3 del editor de temas: generaliza el reordenar/ocultar de Fase 2 (los 4
 // módulos `sistema`) a un constructor de bloques tipo Shopify Sections — el
@@ -158,6 +160,7 @@ function Fila({
 
 export function PortalHomeEditor() {
   const { rol } = usePermisos();
+  const { studio } = useStudio();
   const [bloques, setBloques] = useState<BloqueHome[]>(DEFAULT_HOME_BLOQUES);
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
@@ -255,7 +258,8 @@ export function PortalHomeEditor() {
   }
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start">
+    <div className="space-y-4">
       <p className="text-[13px] text-muted-foreground">
         Arrastra para reordenar los bloques del Inicio del portal, usa el ojo para ocultar los que no uses, y añade bloques nuevos del catálogo. El saludo y tu próxima clase se mantienen siempre arriba.
       </p>
@@ -330,6 +334,18 @@ export function PortalHomeEditor() {
       <p className="text-[11.5px] text-muted-foreground">
         El borrador solo lo ves tú. Al publicar, el nuevo Inicio pasa a la app de clientas.
       </p>
+    </div>
+
+    {/* Preview en vivo (mismo mecanismo que "Marca y colores": iframe real,
+        aquí de /portal-preview/[slug], sincronizado por postMessage con el
+        borrador de bloques en vez de con CSS vars). */}
+    <div className="lg:sticky lg:top-4 space-y-2">
+      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Vista previa en vivo</p>
+      <HomePreview bloques={bloques} slug={studio?.slug} />
+      <p className="text-[11px] text-muted-foreground">
+        Con una socia de muestra (sin reservas propias) — el resto es tu estudio real.
+      </p>
+    </div>
     </div>
   );
 }
