@@ -113,6 +113,43 @@ test('layoutConfigSchema: acepta un bloque de cada tipo del catálogo, por panta
   assert.equal(r.success, true);
 });
 
+test('layoutConfigSchema: acepta `estilo` por bloque (fondo/color/alineación/espaciado) y lo conserva tal cual', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: {
+        draft: [
+          {
+            id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' },
+            estilo: { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' },
+          },
+        ],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+  if (r.success) {
+    const bloque = r.data.bloques.home.draft[0];
+    assert.equal(bloque.kind, 'texto');
+    if (bloque.kind === 'texto') {
+      assert.deepEqual(bloque.estilo, { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' });
+    }
+  }
+});
+
+test('layoutConfigSchema: `estilo` ausente sigue validando (compatibilidad con bloques guardados antes de esta fase)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: { draft: [{ id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' } }], publicado: [] },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
 test('layoutConfigSchema: rechaza un bloque de kind desconocido', () => {
   const r = layoutConfigSchema.safeParse({
     ...DEFAULT_LAYOUT,
