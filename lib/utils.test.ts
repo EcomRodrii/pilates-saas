@@ -12,7 +12,26 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones } from './utils.ts';
+
+test('compararVersiones: doble cifra no se ordena como texto', () => {
+  assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
+  assert.ok(compararVersiones('0.10', '0.2') > 0, '0.10 es mayor que 0.2, aunque "1" < "2" como texto');
+});
+
+test('compararVersiones: mayor/menor entre distintas versiones mayores', () => {
+  assert.ok(compararVersiones('1.0', '0.99') > 0);
+  assert.ok(compararVersiones('0.92', '0.93') < 0);
+});
+
+test('compararVersiones: iguales da 0', () => {
+  assert.equal(compararVersiones('1.0.3', '1.0.3'), 0);
+});
+
+test('compararVersiones: componentes de más se tratan como 0', () => {
+  assert.equal(compararVersiones('1.0.0', '1.0'), 0);
+  assert.ok(compararVersiones('1.0.1', '1.0') > 0);
+});
 
 test('la zona del estudio es la peninsular', () => {
   assert.equal(TZ_ESTUDIO, 'Europe/Madrid');

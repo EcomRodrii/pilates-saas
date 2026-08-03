@@ -12,7 +12,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, CreditCard, LayoutDashboard, ScrollText, ShieldAlert, Sprout, Users } from 'lucide-react';
+import { Building2, CreditCard, LayoutDashboard, Megaphone, ScrollText, ShieldAlert, Sprout, Users } from 'lucide-react';
 import { fetchSesionInterna, SinAcceso, type SesionInterna } from '@/lib/interno/client';
 import { useAuth } from '@/lib/auth-context';
 import { tieneAlguno, type Permiso } from '@/lib/interno/permisos';
@@ -29,6 +29,7 @@ const SECCIONES: Array<{ href: string; etiqueta: string; icono: typeof Building2
   { href: '/interno/estudios', etiqueta: 'Estudios', icono: Building2, permisos: ['studios.read'] },
   { href: '/interno/facturacion', etiqueta: 'Facturación', icono: CreditCard, permisos: ['billing.read'] },
   { href: '/interno/crecimiento', etiqueta: 'Crecimiento', icono: Sprout, permisos: ['crm.update'] },
+  { href: '/interno/actualizaciones', etiqueta: 'Actualizaciones', icono: Megaphone, permisos: ['content.write'] },
   { href: '/interno/auditoria', etiqueta: 'Auditoría', icono: ScrollText, permisos: ['logs.read'] },
   { href: '/interno/equipo', etiqueta: 'Equipo', icono: Users, permisos: ['users.create', 'users.delete'] },
 ];

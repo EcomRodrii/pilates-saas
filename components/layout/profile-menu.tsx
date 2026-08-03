@@ -11,7 +11,7 @@ import { fetchMisEstudios, cambiarSedeActiva, type SedeSeleccionable } from '@/l
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { HelpWidget } from '@/components/layout/help-widget';
 import { AppearancePanel } from '@/components/layout/appearance-panel';
-import { NovedadesWidget } from '@/components/layout/novedades-widget';
+import { ActualizacionesWidget } from '@/components/layout/actualizaciones-widget';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
@@ -24,7 +24,7 @@ export function ProfileMenu() {
   const [open, setOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
-  const [novedadesOpen, setNovedadesOpen] = useState(false);
+  const [actualizacionesOpen, setActualizacionesOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Propietaria sin ficha propia (yo === null): usa el nombre que haya
@@ -144,11 +144,11 @@ export function ProfileMenu() {
               Apariencia
             </button>
             <button
-              onClick={() => { setNovedadesOpen(true); setOpen(false); }}
+              onClick={() => { setActualizacionesOpen(true); setOpen(false); }}
               className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
             >
               <Sparkles size={15} className="text-muted-foreground" />
-              Novedades
+              Actualizaciones
             </button>
             <div className="border-t border-muted mt-1 pt-1">
               <button
@@ -165,7 +165,7 @@ export function ProfileMenu() {
 
       <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
       <AppearancePanel open={appearanceOpen} onClose={() => setAppearanceOpen(false)} />
-      <NovedadesWidget open={novedadesOpen} onClose={() => setNovedadesOpen(false)} />
+      <ActualizacionesWidget open={actualizacionesOpen} onClose={() => setActualizacionesOpen(false)} />
     </>
   );
 }
