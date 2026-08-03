@@ -814,6 +814,32 @@ export default function Calendario() {
     setShowForm('nueva');
   }
 
+  // Compartido por crearSesion() y crearClasesRecurrentes(): invalida el
+  // caché de TODAS las semanas que toque una serie (no solo la primera —
+  // una serie de varias semanas dejaba el resto con datos obsoletos si ya
+  // se habían visitado antes) y navega a la semana de la primera clase si
+  // no es la que se está viendo ahora mismo. Llamar a refrescarVista() aquí
+  // mismo pediría el rango ANTERIOR a este cambio de semana (React no
+  // re-renderiza síncronamente) — por eso solo se invalida caché y se deja
+  // que el efecto de claveVista dispare el fetch correcto tras el
+  // setSemana; si no navegamos, el caller es responsable de refrescar la
+  // vista actual.
+  function invalidarCacheSerieYNavegarSiHaceFalta(fechas: Date[]): { navego: boolean } {
+    if (fechas.length === 0) return { navego: false };
+    const semanasUnicas = new Map<string, Date>();
+    for (const f of fechas) {
+      const ws = weekStart(f);
+      semanasUnicas.set(localDate(ws), ws);
+    }
+    for (const ws of semanasUnicas.values()) {
+      cacheVistaRef.current.delete(claveRango(rangoSemana(ws)));
+    }
+    const primeraSemana = weekStart(fechas[0]);
+    const otraSemana = localDate(primeraSemana) !== localDate(semana);
+    if (otraSemana) setSemana(primeraSemana);
+    return { navego: otraSemana };
+  }
+
   async function crearSesion() {
     if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
@@ -847,23 +873,8 @@ export default function Calendario() {
     const creadas = semanas;
     setGuardandoSesion(false);
 
-    const semanaDeLaClase = weekStart(new Date(`${form.fecha}T12:00:00`));
-    const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
-    if (otraSemana) {
-      // NO llamar aquí a refrescarVista(): sigue cerrado sobre el `rango` de
-      // ANTES de este setSemana (React no re-renderiza síncronamente), así que
-      // pediría la semana vieja — que no tiene la clase nueva — y esa
-      // respuesta podía llegar DESPUÉS del refetch correcto disparado por el
-      // efecto de claveVista, pisando la rejilla con datos obsoletos (bug: la
-      // clase aparece, desaparece y vuelve a aparecer). Solo hace falta
-      // invalidar la caché de la semana destino (por si ya se había visitado
-      // antes de crear la clase) — el cambio de `semana` de abajo ya dispara
-      // el fetch correcto vía el efecto de claveVista.
-      cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaClase)));
-      setSemana(semanaDeLaClase);
-    } else {
-      void refrescarVista();
-    }
+    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(aCrear.map(s => new Date(s.inicio)));
+    if (!otraSemana) void refrescarVista();
     setDiaSeleccionado(new Date(`${form.fecha}T12:00:00`));
 
     const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
@@ -1118,25 +1129,11 @@ export default function Calendario() {
     const res = await addSesionesSerie(sesionesFields);
     if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
     setShowRecurrentes(false);
-    // Mismo fix que crearSesion() (comentario ahí explica el porqué): llamar
-    // a refrescarVista() sin más pide el rango de la semana vista ANTES de
-    // este cierre de modal (React no re-renderiza síncronamente) — si la
-    // serie cae en otra semana, esa respuesta obsoleta podía pisar la que sí
-    // trae las clases nuevas (bug: aparece/desaparece/reaparece). Antes esto
-    // solo se cubría al crear UNA clase, no una serie recurrente.
-    const primera = sesionesFields[0];
-    if (primera) {
-      const semanaDeLaSerie = weekStart(new Date(primera.inicio));
-      const otraSemana = localDate(semanaDeLaSerie) !== localDate(semana);
-      if (otraSemana) {
-        cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaSerie)));
-        setSemana(semanaDeLaSerie);
-        showToast(`Serie creada · ${sesionesFields.length} clases — te llevo a esa semana`);
-        return;
-      }
-    }
-    showToast(`Serie creada · ${sesionesFields.length} clases`);
-    void refrescarVista();
+    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
+    if (!otraSemana) void refrescarVista();
+    showToast(otraSemana
+      ? `Serie creada · ${sesionesFields.length} clases — te llevo a esa semana`
+      : `Serie creada · ${sesionesFields.length} clases`);
   }
 
   function handleAddReserva(sesionId: string, socioId: string) {

@@ -35,6 +35,13 @@ function sumaUnaHora(hora: string): string {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// 'HH:MM' - 1 hora, saturado a '00:00' (no cruza al día anterior).
+function restaUnaHora(hora: string): string {
+  const [h, m] = hora.split(':').map(Number);
+  const total = Math.max(0, h * 60 + m - 60);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function draftFromDisponibilidad(disp: DisponibilidadCita[], instructorId: string): Draft {
   const byDow: Draft = {};
   for (const d of disp) {
@@ -87,18 +94,33 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
   // campo nuevo — el botón "+ Franja" parecía no hacer nada. Ahora se propone
   // un rango libre después de la última franja del día (o 09:00-10:00 si el
   // día está vacío), y se añade sin pasar por el merge — el merge solo se
-  // aplica al guardar, no al insertar.
+  // aplica al guardar, no al insertar. Si el día ya llega hasta las 23:00 (sin
+  // hueco después), se prueba antes de la primera franja; si tampoco hay
+  // hueco ahí (día completo de 00:00 a 23:00), se avisa en vez de repetir el
+  // mismo bug con un 09:00-10:00 que vuelve a solaparse en silencio.
   const addFranja = useCallback((dow: number) => {
-    setDraft(prev => {
-      const actuales = prev[dow] ?? [];
-      const ultima = [...actuales].sort((a, b) => a.horaFin.localeCompare(b.horaFin)).pop();
-      const nueva = ultima && ultima.horaFin < '23:00'
-        ? { horaInicio: ultima.horaFin, horaFin: sumaUnaHora(ultima.horaFin) }
-        : { horaInicio: '09:00', horaFin: '10:00' };
-      return { ...prev, [dow]: [...actuales, nueva] };
-    });
-    setDirty(true);
-  }, []);
+    const actuales = draft[dow] ?? [];
+    if (actuales.length === 0) {
+      setDraft(prev => ({ ...prev, [dow]: [{ horaInicio: '09:00', horaFin: '10:00' }] }));
+      setDirty(true);
+      return;
+    }
+    const ultima = [...actuales].sort((a, b) => a.horaFin.localeCompare(b.horaFin)).pop()!;
+    if (ultima.horaFin < '23:00') {
+      const nueva = { horaInicio: ultima.horaFin, horaFin: sumaUnaHora(ultima.horaFin) };
+      setDraft(prev => ({ ...prev, [dow]: [...(prev[dow] ?? []), nueva] }));
+      setDirty(true);
+      return;
+    }
+    const primera = [...actuales].sort((a, b) => a.horaInicio.localeCompare(b.horaInicio))[0];
+    if (primera.horaInicio > '00:00') {
+      const nueva = { horaInicio: restaUnaHora(primera.horaInicio), horaFin: primera.horaInicio };
+      setDraft(prev => ({ ...prev, [dow]: [...(prev[dow] ?? []), nueva] }));
+      setDirty(true);
+      return;
+    }
+    showToast('Este día ya está completo (00:00-23:00) — no hay hueco libre para una franja nueva.');
+  }, [draft, showToast]);
 
   const updateFranja = useCallback((dow: number, idx: number, campo: 'horaInicio' | 'horaFin', valor: string) => {
     setDraft(prev => {
