@@ -46,49 +46,124 @@ interface UseSpeechToTextResult {
   reiniciar: () => void;
 }
 
+// Cada cuánto se vuelca `transcripcion` al estado durante el dictado — evita
+// re-renderizar la página entera (a veces grande, con toda la ficha de la
+// socia) en cada fragmento parcial que dispara `onresult`.
+const THROTTLE_MS = 200;
+
 export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
   const [grabando, setGrabando] = useState(false);
   const [transcripcion, setTranscripcion] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // `SpeechRecognition.results` reinicia su índice a 0 en cada sesión nueva
+  // (cada `.start()`), así que un reinicio automático tras 'no-speech' vería
+  // solo lo dicho DESPUÉS del reinicio si no se guarda aparte lo ya cerrado.
+  const confirmadoRef = useRef('');
+  const pendingRef = useRef('');
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paradaManualRef = useRef(false);
+  // Token de la sesión de reconocimiento activa — si se para y se vuelve a
+  // grabar muy rápido, los callbacks de la instancia vieja (que llegan
+  // async) se identifican por este número y se ignoran en vez de tocar el
+  // estado de la instancia nueva o reiniciarse ellos mismos por error.
+  const sesionRef = useRef(0);
+  // Referencia estable a la función de arranque, para poder llamarla desde
+  // dentro de su propio `onend` (reinicio tras 'no-speech') sin depender de
+  // que el closure se autorreferencie antes de estar declarado.
+  const arrancarSesionRef = useRef<() => void>(() => {});
 
   const disponible =
     typeof window !== 'undefined' &&
     !!((window as WindowConSpeech).SpeechRecognition || (window as WindowConSpeech).webkitSpeechRecognition);
 
-  const iniciar = useCallback(() => {
-    if (typeof window === 'undefined') return;
+  const arrancarSesion = useCallback(() => {
     const win = window as WindowConSpeech;
     const Ctor = win.SpeechRecognition ?? win.webkitSpeechRecognition;
     if (!Ctor) {
       setError('not-supported');
       return;
     }
-    setError(null);
-    setTranscripcion('');
 
+    const miSesion = ++sesionRef.current;
     const recognition = new Ctor();
     recognition.lang = idioma;
     recognition.continuous = true;
     recognition.interimResults = true;
 
+    const volcarInmediato = () => {
+      if (throttleTimerRef.current) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      setTranscripcion(pendingRef.current);
+    };
+
     recognition.onresult = (event) => {
+      if (sesionRef.current !== miSesion) return;
       let texto = '';
       for (let i = 0; i < event.results.length; i++) texto += event.results[i][0].transcript;
-      setTranscripcion(texto);
+      pendingRef.current = confirmadoRef.current + texto;
+      if (throttleTimerRef.current) return;
+      throttleTimerRef.current = setTimeout(() => {
+        throttleTimerRef.current = null;
+        setTranscripcion(pendingRef.current);
+      }, THROTTLE_MS);
     };
     recognition.onerror = (event) => {
+      if (sesionRef.current !== miSesion) return;
+      // 'no-speech' es un corte normal del navegador tras una pausa al
+      // hablar (le pasa incluso con continuous=true) — no es un fallo real,
+      // se reinicia solo en onend sin que la instructora lo note.
+      if (event.error === 'no-speech') return;
+      volcarInmediato();
       setError(event.error ?? 'unknown');
+      paradaManualRef.current = true;
       setGrabando(false);
     };
-    recognition.onend = () => setGrabando(false);
+    recognition.onend = () => {
+      if (sesionRef.current !== miSesion) return;
+      volcarInmediato();
+      if (paradaManualRef.current) {
+        setGrabando(false);
+        return;
+      }
+      // Reinicio automático tras 'no-speech': lo ya dicho pasa a ser
+      // prefijo confirmado antes de arrancar una sesión nueva, que
+      // empezará su propio `results` desde cero.
+      confirmadoRef.current = pendingRef.current ? pendingRef.current + ' ' : '';
+      pendingRef.current = confirmadoRef.current;
+      try {
+        arrancarSesionRef.current();
+      } catch {
+        setGrabando(false);
+      }
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
     setGrabando(true);
   }, [idioma]);
 
+  useEffect(() => { arrancarSesionRef.current = arrancarSesion; }, [arrancarSesion]);
+
+  const iniciar = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const win = window as WindowConSpeech;
+    if (!(win.SpeechRecognition || win.webkitSpeechRecognition)) {
+      setError('not-supported');
+      return;
+    }
+    setError(null);
+    setTranscripcion('');
+    confirmadoRef.current = '';
+    pendingRef.current = '';
+    paradaManualRef.current = false;
+    arrancarSesion();
+  }, [arrancarSesion]);
+
   const detener = useCallback(() => {
+    paradaManualRef.current = true;
     recognitionRef.current?.stop();
     setGrabando(false);
   }, []);
@@ -98,7 +173,12 @@ export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
     setError(null);
   }, []);
 
-  useEffect(() => () => { recognitionRef.current?.stop(); }, []);
+  useEffect(() => () => {
+    paradaManualRef.current = true;
+    sesionRef.current++;
+    recognitionRef.current?.stop();
+    if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
+  }, []);
 
   return { disponible, grabando, transcripcion, error, iniciar, detener, reiniciar };
 }

@@ -8,9 +8,10 @@ import { useAuth } from '@/lib/auth-context';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
+import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
-import { authHeader, enviarEmailCampana, obtenerComunicacionesSocio } from '@/lib/api-client';
+import { enviarEmailCampana, obtenerComunicacionesSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -288,9 +289,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const speech = useSpeechToText();
   const aiNoteBaseRef = useRef('');
   useEffect(() => {
-    if (!speech.grabando) return;
+    // Sin comprobar `speech.grabando`: al parar, `detener()` lo pone a
+    // false de forma síncrona, pero el volcado final de la transcripción
+    // llega después (async, vía onend) — con esa comprobación, esas
+    // últimas palabras dictadas justo antes de parar se perdían en
+    // silencio. `speech.transcripcion` solo cambia durante una sesión de
+    // dictado real, nunca por escritura manual, así que no hace falta el
+    // guardia para no pisar el texto del teclado.
     setAiNoteText(aiNoteBaseRef.current + (aiNoteBaseRef.current && speech.transcripcion ? ' ' : '') + speech.transcripcion);
-  }, [speech.transcripcion, speech.grabando]);
+  }, [speech.transcripcion]);
   function handleMicToggle() {
     if (speech.grabando) { speech.detener(); return; }
     aiNoteBaseRef.current = aiNoteText;
@@ -497,23 +504,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     setAiLoading(true);
     setAiResult(null);
     try {
-      const res = await fetch('/api/ai/instructor-note', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({
-          texto: aiNoteText,
-          socioId: id,
-          instructorId: yo?.id ?? instructores[0]?.id ?? '',
-        }),
+      const resultado = await estructurarNotaIA({
+        texto: aiNoteText,
+        socioId: id,
+        instructorId: yo?.id ?? instructores[0]?.id ?? '',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Error');
-      setAiResult({
-        progreso: data.progreso,
-        alertas: data.alertas,
-        planProximaSesion: data.planProximaSesion,
-        ejerciciosCasa: data.ejerciciosCasa,
-      });
+      setAiResult(resultado);
     } catch (err) {
       setToast('Error al procesar con IA');
     } finally {
@@ -905,7 +901,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         placeholder='Ej: "Laura estuvo bien hoy, mejoró la alineación en el rollup. Sigue con tensión cervical. La próxima sesión trabajaremos la movilidad torácica. Le mando ejercicios de respiración para casa."'
                         value={aiNoteText}
                         onChange={e => setAiNoteText(e.target.value)}
-                        className="w-full px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none bg-transparent"
+                        disabled={speech.grabando}
+                        className="w-full px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none bg-transparent disabled:opacity-60"
                       />
                     </div>
                     <div className="flex gap-2 mb-4">
@@ -924,7 +921,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       )}
                       <button
                         onClick={handleAiNote}
-                        disabled={aiLoading || !aiNoteText.trim()}
+                        disabled={aiLoading || speech.grabando || !aiNoteText.trim()}
                         className="flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-bold hover:brightness-95 disabled:opacity-40 transition-colors"
                       >
                         {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}

@@ -1693,6 +1693,10 @@ export default function Calendario() {
   // gateado a las instructoras del piloto, no visible al resto.
   const enPiloto = enPilotoVoz(yo?.id);
   const [notaVozSocioId, setNotaVozSocioId] = useState<string | null>(null);
+  // Si la sesión activa cambia (o se cierra el drawer) sin pasar por el
+  // onClose del propio modal, no dejar el socio de la nota de voz colgado
+  // — al reabrir cualquier sesión, no debe reaparecer atado a la anterior.
+  useEffect(() => { setNotaVozSocioId(null); }, [sesionId]);
 
   const hoyRef = useMemo(() => new Date(), [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
