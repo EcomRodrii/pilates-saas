@@ -409,7 +409,7 @@ export default function Socios() {
   function handleEnviarEmail() {
     const recipients = socios.filter((s) => selected.has(s.id) && s.email);
     recipients.forEach((s) => {
-      enviarEmailBienvenida({ to: s.email, toName: `${s.nombre} ${s.apellidos}` });
+      enviarEmailBienvenida({ to: s.email, toName: `${s.nombre} ${s.apellidos}`, socioId: s.id });
     });
     setSelected(new Set());
   }
@@ -506,6 +506,7 @@ export default function Socios() {
         to: form.email.trim(),
         toName: `${form.nombre.trim()} ${form.apellidos.trim()}`,
         planNombre: plan?.nombre,
+        socioId: res.id,
       });
     }
     resetModal();

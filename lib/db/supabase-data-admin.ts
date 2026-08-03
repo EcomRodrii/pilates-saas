@@ -249,6 +249,81 @@ export async function dbSetTerminalReader(studioId: string, readerId: string | n
   if (error) reportDbError('[dbSetTerminalReader]', error);
 }
 
+export type ComunicacionSocio = {
+  id: string;
+  tipo: string;
+  asunto: string;
+  estado: 'ENVIADO' | 'FALLIDO';
+  error: string | null;
+  creadoEn: string;
+  creadoPorNombre: string | null;
+};
+
+// Registra el resultado REAL de un envío (éxito o fallo) a `comunicaciones_socio`
+// — antes, la ficha de clienta llevaba un historial "fake" en memoria de React
+// que se perdía al recargar y nunca reflejaba si el email había salido de
+// verdad. Best-effort: si el INSERT falla, solo se loguea — un problema de
+// auditoría no puede tumbar la respuesta al cliente de que el email SÍ salió.
+export async function registrarComunicacion(params: {
+  studioId: string;
+  socioId: string;
+  tipo: string;
+  asunto: string;
+  estado: 'ENVIADO' | 'FALLIDO';
+  error?: string | null;
+  resendId?: string | null;
+  creadoPor?: string | null;
+  creadoPorNombre?: string | null;
+}) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  // Este INSERT va con service-role (bypasa RLS), así que la comprobación de
+  // que socioId es de verdad de este estudio se hace aquí en TS — igual que
+  // el resto de escrituras admin-client de este fichero. Sin esto, un
+  // socioId de OTRO estudio en el body dejaría un registro de auditoría con
+  // studio_id/socio_id inconsistentes entre sí.
+  const { data: socio } = await admin.from('socios').select('id').eq('id', params.socioId).eq('studio_id', params.studioId).maybeSingle();
+  if (!socio) { reportDbError('[registrarComunicacion]', new Error('socioId no pertenece a studioId')); return; }
+  const { error } = await admin.from('comunicaciones_socio').insert({
+    id: uid(),
+    studio_id: params.studioId,
+    socio_id: params.socioId,
+    tipo: params.tipo,
+    asunto: params.asunto,
+    estado: params.estado,
+    error: params.error ?? null,
+    resend_id: params.resendId ?? null,
+    creado_por: params.creadoPor ?? null,
+    creado_por_nombre: params.creadoPorNombre ?? null,
+  });
+  if (error) reportDbError('[registrarComunicacion]', error);
+}
+
+// Historial de comunicaciones de una socia concreta, para la ficha de
+// clienta. Filtrado explícito por studio_id + socio_id aunque se use
+// service-role (bypasa RLS) — el caller (API route) ya comprueba el rol.
+export async function dbListComunicacionesSocio(studioId: string, socioId: string): Promise<ComunicacionSocio[]> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from('comunicaciones_socio')
+    .select('id, tipo, asunto, estado, error, creado_en, creado_por_nombre')
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId)
+    .order('creado_en', { ascending: false })
+    .limit(50);
+  if (error) { reportDbError('[dbListComunicacionesSocio]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id as string,
+    tipo: r.tipo as string,
+    asunto: r.asunto as string,
+    estado: r.estado as 'ENVIADO' | 'FALLIDO',
+    error: r.error as string | null,
+    creadoEn: r.creado_en as string,
+    creadoPorNombre: r.creado_por_nombre as string | null,
+  }));
+}
+
 
 function mapInstructorPublico(r: RowInstructores): Instructor {
   return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };

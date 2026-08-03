@@ -1,5 +1,5 @@
 import { Text, Section, Hr } from '@react-email/components';
-import { EmailLayout } from '@/lib/emails/layout';
+import { EmailLayout, EmailButton } from '@/lib/emails/layout';
 
 interface Props {
   socioNombre: string;
@@ -8,6 +8,10 @@ interface Props {
   logoUrl?: string | null;
   colorPrimario?: string | null;
   intro?: string; // texto de introducción personalizado por el estudio
+  // Enlace de acceso directo al portal (magic link de Supabase, generado en
+  // app/api/emails/send). Sin él (Resend/Supabase Admin no disponibles), el
+  // email se manda igual, solo sin el botón — ver generarEnlaceAccesoSocia.
+  url?: string;
 }
 
 export function BienvenidaEmail({
@@ -17,6 +21,7 @@ export function BienvenidaEmail({
   logoUrl,
   colorPrimario,
   intro,
+  url,
 }: Props) {
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="¡Bienvenida! 🎉" preview={`Ya eres parte de ${estudioNombre}`}>
@@ -39,7 +44,18 @@ export function BienvenidaEmail({
         Ya puedes reservar tus clases. Si tienes alguna duda, no dudes en escribirnos.
       </Text>
 
-      <Hr style={{ borderColor: '#E5E1DA', margin: '0 0 20px' }} />
+      {url && (
+        <>
+          <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '16px 20px', marginBottom: 24 }}>
+            <Text style={{ color: '#6B7280', fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+              Este enlace es tuyo: entra directamente y pon tu contraseña, sin buscar nada más.
+            </Text>
+          </Section>
+          <EmailButton href={url} colorPrimario={colorPrimario}>Activar mi acceso</EmailButton>
+        </>
+      )}
+
+      <Hr style={{ borderColor: '#E5E1DA', margin: '20px 0' }} />
 
       <Text style={{ color: '#9C9C94', fontSize: 13, margin: 0 }}>
         Con cariño, el equipo de {estudioNombre}

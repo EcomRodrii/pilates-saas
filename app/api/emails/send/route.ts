@@ -11,9 +11,10 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { registrarComunicacion } from '@/lib/db/supabase-data-admin';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     to: string;
     toName: string;
     data: Record<string, unknown>;
+    socioId?: string;
   };
 
   // Direcciones de ejemplo (RFC 2606): se cortan ANTES de llamar a Resend, igual
@@ -78,7 +80,13 @@ export async function POST(req: NextRequest) {
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    // Enlace de acceso directo al portal: antes la bienvenida no decía cómo
+    // entrar y la socia se quedaba sin saber que existía /portal/{slug}. Es el
+    // mismo magic link que ya usa el login sin contraseña del portal, solo que
+    // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
+    // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
+    const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, body.to) : null;
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, url: urlAcceso ?? undefined, ...marca, ...d }));
     subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
@@ -136,6 +144,24 @@ export async function POST(req: NextRequest) {
     subject,
     html,
   });
+
+  // Historial real de comunicaciones — best-effort (registrarComunicacion ya
+  // captura sus propios errores internamente y nunca lanza): si el email SÍ
+  // salió (o SÍ falló), eso ya es el resultado que importa; un problema al
+  // loguearlo no debe convertir un envío correcto en un error 500.
+  if (body.socioId) {
+    await registrarComunicacion({
+      studioId: sesion.studioId,
+      socioId: body.socioId,
+      tipo: body.tipo,
+      asunto: subject,
+      estado: error ? 'FALLIDO' : 'ENVIADO',
+      error: error?.message ?? null,
+      resendId: data?.id ?? null,
+      creadoPor: sesion.userId,
+      creadoPorNombre: sesion.nombre,
+    });
+  }
 
   if (error) {
     return errorInterno('emails:send', error,
