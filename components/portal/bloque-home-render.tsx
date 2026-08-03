@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import { display, texto, radio, altura, sombra, transicion, dur } from '@/lib/portal-design';
-import { resolverHrefBloque, type BloqueHome, type EstiloBloque } from '@/lib/portal-home-bloques';
+import { resolverHrefBloque, resolverVideoEmbed, type BloqueHome, type EstiloBloque } from '@/lib/portal-home-bloques';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
 // Los bloques `sistema` NO pasan por aquí: siguen siendo el JSX ya existente
@@ -22,10 +22,47 @@ const ESPACIADO_PADDING: Record<NonNullable<EstiloBloque['espaciado']>, number> 
 const ALINEACION_TEXT_ALIGN: Record<NonNullable<EstiloBloque['alineacion']>, React.CSSProperties['textAlign']> = {
   izquierda: 'left', centro: 'center', derecha: 'right',
 };
+// Escala de tamaño de texto — multiplica el `fontSize` de los tokens de
+// portal-design.ts en vez de inventar tallas nuevas sueltas.
+const TAMANO_TEXTO_ESCALA: Record<NonNullable<EstiloBloque['tamanoTexto']>, number> = {
+  pequeno: 0.85, normal: 1, grande: 1.25,
+};
+// Esquinas: `redondeada`/`pill` indexan radio.* ya existente; `ninguna`/`suave`
+// son la granularidad extra que faltaba entre "recto" y "tarjeta".
+const ESQUINAS_RADIO: Record<NonNullable<EstiloBloque['esquinas']>, number> = {
+  ninguna: 0, suave: 12, redondeada: radio.card, pill: radio.pill,
+};
+const SOMBRA_VALOR: Record<NonNullable<EstiloBloque['sombra']>, string> = {
+  ninguna: 'none', suave: sombra.cardSemana, marcada: sombra.cardInterna,
+};
 
 /** Padding vertical del bloque según su `espaciado` (normal = el de siempre). */
 function paddingDe(estilo: EstiloBloque | undefined): number {
   return ESPACIADO_PADDING[estilo?.espaciado ?? 'normal'];
+}
+
+/** Escala un estilo con `fontSize` numérico según `tamanoTexto` (normal = sin cambios). */
+function escalar(estilo: EstiloBloque | undefined, base: React.CSSProperties): React.CSSProperties {
+  const factor = TAMANO_TEXTO_ESCALA[estilo?.tamanoTexto ?? 'normal'];
+  if (factor === 1 || typeof base.fontSize !== 'number') return base;
+  return { ...base, fontSize: base.fontSize * factor };
+}
+
+/**
+ * Estilo común del "contenedor tarjeta" que comparten texto/cta/faq/galería/
+ * vídeo/testimonios: padding por espaciado, ancho completo (full-bleed,
+ * `margin: 0 -16px`, el de siempre) o contenido, fondo/esquinas/sombra
+ * propios. Banner no lo usa: ya tiene su propia geometría fija de imagen.
+ */
+function contenedorDe(estilo: EstiloBloque | undefined): React.CSSProperties {
+  const completo = (estilo?.ancho ?? 'completo') === 'completo';
+  return {
+    padding: `${paddingDe(estilo)}px 16px`,
+    margin: completo ? '0 -16px' : '0',
+    borderRadius: estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : (estilo?.fondo ? radio.card : undefined),
+    background: estilo?.fondo ?? undefined,
+    boxShadow: estilo?.sombra ? SOMBRA_VALOR[estilo.sombra] : undefined,
+  };
 }
 
 function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'banner' }>; slug: string }) {
@@ -35,10 +72,12 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
   const resuelto = href ? resolverHrefBloque(href) : null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   const estiloBanner: React.CSSProperties = {
-    position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
+    position: 'relative', display: 'block', height: altura.banner,
+    borderRadius: estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.banner,
     // El fondo propio solo tiene sentido SIN imagen — con foto, la imagen ya
     // ocupa todo el bloque y un color detrás nunca se vería.
-    overflow: 'hidden', background: !imagenUrl && estilo?.fondo ? estilo.fondo : t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
+    overflow: 'hidden', background: !imagenUrl && estilo?.fondo ? estilo.fondo : t.surface2,
+    boxShadow: estilo?.sombra ? SOMBRA_VALOR[estilo.sombra] : sombra.banner, textDecoration: 'none',
     transition: transicion(['transform'], dur.card),
   };
   const contenido = (
@@ -60,8 +99,8 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
         justifyContent: 'flex-end', alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : undefined,
         textAlign: alineacion, pointerEvents: 'none',
       }}>
-        {titulo && <div style={{ ...display(29, true, 1.12), color: estilo?.color ?? t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
-        {cuerpo && <div style={{ ...texto.nota, color: estilo?.color ?? t.muted, marginTop: 12 }}>{cuerpo}</div>}
+        {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: estilo?.color ?? t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
+        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: estilo?.color ?? t.muted, marginTop: 12 }}>{cuerpo}</div>}
       </div>
     </>
   );
@@ -86,12 +125,9 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   if (!cuerpo && !titulo) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
-    <div style={{
-      padding: `${paddingDe(estilo)}px 16px`, margin: '0 -16px', borderRadius: estilo?.fondo ? radio.card : undefined,
-      background: estilo?.fondo ?? undefined, textAlign: alineacion,
-    }}>
-      {titulo && <div style={{ ...display(24), color: estilo?.color ?? t.ink, marginBottom: 8 }}>{titulo}</div>}
-      {cuerpo && <p style={{ ...texto.meta, color: estilo?.color ?? t.muted2, lineHeight: 1.55 }}>{cuerpo}</p>}
+    <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 8 }}>{titulo}</div>}
+      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: estilo?.color ?? t.muted2, lineHeight: 1.55 }}>{cuerpo}</p>}
     </div>
   );
 }
@@ -110,13 +146,12 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
   };
   return (
     <div style={{
-      padding: `${paddingDe(estilo)}px 16px`, margin: '0 -16px', borderRadius: estilo?.fondo ? radio.card : undefined,
-      background: estilo?.fondo ?? undefined,
+      ...contenedorDe(estilo),
       display: 'flex', flexDirection: 'column',
       alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : 'flex-start',
       textAlign: alineacion, gap: 12,
     }}>
-      {titulo && <div style={{ ...display(24), color: estilo?.color ?? t.ink }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink }}>{titulo}</div>}
       {resuelto.interno ? (
         <Link href={`/portal/${slug}${resuelto.valor}`} style={estiloBoton}>{textoBoton}</Link>
       ) : (
@@ -150,12 +185,75 @@ function FaqBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'faq' }> })
   if (preguntas.length === 0) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
-    <div style={{
-      padding: `${paddingDe(estilo)}px 16px`, margin: '0 -16px', borderRadius: estilo?.fondo ? radio.card : undefined,
-      background: estilo?.fondo ?? undefined, textAlign: alineacion,
-    }}>
-      {titulo && <div style={{ ...display(24), color: estilo?.color ?? t.ink, marginBottom: 4 }}>{titulo}</div>}
+    <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 4 }}>{titulo}</div>}
       {preguntas.map((p, i) => <FilaFaq key={i} pregunta={p.pregunta} respuesta={p.respuesta} color={estilo?.color} />)}
+    </div>
+  );
+}
+
+function GaleriaBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'galeria' }> }) {
+  const { t } = useModo();
+  const { imagenes } = bloque.config;
+  const { estilo } = bloque;
+  if (imagenes.length === 0) return null;
+  const radioImagen = estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.card;
+  return (
+    <div style={contenedorDe(estilo)}>
+      {/* Mismo patrón que "Esta semana" en portal-home-view.tsx: flex +
+          overflow-x + gap, SIN scroll-snap (se come la sangría inicial). */}
+      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -16px', padding: '0 16px', scrollbarWidth: 'none' } as React.CSSProperties}>
+        {imagenes.map((img, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i} src={img.url} alt={img.alt}
+            style={{ flex: '0 0 220px', height: 160, objectFit: 'cover', borderRadius: radioImagen, background: t.surface2 }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VideoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'video' }> }) {
+  const { t } = useModo();
+  const { titulo, url } = bloque.config;
+  const { estilo } = bloque;
+  const embed = resolverVideoEmbed(url);
+  if (!embed) return null;
+  const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
+  return (
+    <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 12 }}>{titulo}</div>}
+      <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.card, overflow: 'hidden' }}>
+        <iframe
+          src={embed} title={titulo || 'Vídeo'} allowFullScreen
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'testimonios' }> }) {
+  const { t } = useModo();
+  const { titulo, testimonios } = bloque.config;
+  const { estilo } = bloque;
+  if (testimonios.length === 0) return null;
+  const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
+  return (
+    <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 12 }}>{titulo}</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {testimonios.map((te, i) => (
+          <div key={i} style={{ borderTop: i > 0 ? `1px solid ${t.line}` : undefined, paddingTop: i > 0 ? 18 : 0 }}>
+            <p style={{ ...escalar(estilo, display(19, true, 1.2)), color: estilo?.color ?? t.ink, textWrap: 'pretty' } as React.CSSProperties}>“{te.cita}”</p>
+            <p style={{ ...escalar(estilo, texto.nota), color: estilo?.color ?? t.muted, marginTop: 8 }}>
+              {te.autor}{te.rol ? ` · ${te.rol}` : ''}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -164,5 +262,8 @@ export function BloqueHomeRender({ bloque, slug }: { bloque: Exclude<BloqueHome,
   if (bloque.kind === 'banner') return <BannerBloque bloque={bloque} slug={slug} />;
   if (bloque.kind === 'texto') return <TextoBloque bloque={bloque} />;
   if (bloque.kind === 'cta') return <CtaBloque bloque={bloque} slug={slug} />;
-  return <FaqBloque bloque={bloque} />;
+  if (bloque.kind === 'faq') return <FaqBloque bloque={bloque} />;
+  if (bloque.kind === 'galeria') return <GaleriaBloque bloque={bloque} />;
+  if (bloque.kind === 'video') return <VideoBloque bloque={bloque} />;
+  return <TestimoniosBloque bloque={bloque} />;
 }

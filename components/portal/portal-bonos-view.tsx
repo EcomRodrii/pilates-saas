@@ -198,7 +198,7 @@ export function PortalBonosView({
           saldo/plan en el mismo contenedor flex, con el `order` que les toque
           para intercalarse antes o después de él. */}
       {bloquesPersonalizados.map(({ b, orden }) => (
-        <div key={b.id} style={{ order: orden, padding: '0 24px' }}>
+        <div key={b.id} data-bloque-id={b.id} style={{ order: orden, padding: '0 24px' }}>
           <BloqueHomeRender bloque={b} slug={slug} />
         </div>
       ))}

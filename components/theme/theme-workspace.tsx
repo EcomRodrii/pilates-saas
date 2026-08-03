@@ -154,6 +154,7 @@ export function ThemeWorkspace() {
           <PreviewCentral
             panelIzq={panelIzq} pagina={pagina} pantalla={pantallaPortal} dispositivo={dispositivo}
             bloquesHook={bloquesHook} ajustesHook={ajustesHook}
+            seleccionId={seleccionId} onSeleccionar={setSeleccionId}
           />
         </div>
 
@@ -205,7 +206,7 @@ function PanelDerechoSecciones({
 }
 
 function PreviewCentral({
-  panelIzq, pagina, pantalla, dispositivo, bloquesHook, ajustesHook,
+  panelIzq, pagina, pantalla, dispositivo, bloquesHook, ajustesHook, seleccionId, onSeleccionar,
 }: {
   panelIzq: PanelIzq;
   pagina: Pagina;
@@ -213,6 +214,8 @@ function PreviewCentral({
   dispositivo: 'desktop' | 'mobile';
   bloquesHook: ReturnType<typeof useBloquesEditor>;
   ajustesHook: ReturnType<typeof useThemeEditor>;
+  seleccionId: string | null;
+  onSeleccionar: (id: string) => void;
 }) {
   if (panelIzq === 'ajustes') {
     return (
@@ -230,7 +233,12 @@ function PreviewCentral({
       </div>
     );
   }
-  return <HomePreview bloquesPorPantalla={bloquesHook.bloquesPorPantalla} pantalla={pantalla} onPantallaChange={() => {}} slug={ajustesHook.studio?.slug} />;
+  return (
+    <HomePreview
+      bloquesPorPantalla={bloquesHook.bloquesPorPantalla} pantalla={pantalla} onPantallaChange={() => {}} slug={ajustesHook.studio?.slug}
+      seleccionId={seleccionId} onBloqueSeleccionado={onSeleccionar}
+    />
+  );
 }
 
 function BarraGuardar({

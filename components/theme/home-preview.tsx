@@ -41,12 +41,20 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // propietaria también puede navegar libremente a Reservas/Perfil desde aquí
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
-  bloquesPorPantalla, pantalla, onPantallaChange, slug,
+  bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
   onPantallaChange: (p: PantallaId) => void;
   slug?: string | null;
+  // Click directo sobre el preview (Fase C del "constructor totalmente
+  // libre"): `seleccionId` se manda AL iframe para que resalte el bloque
+  // activo; `onBloqueSeleccionado` recibe el aviso EN SENTIDO CONTRARIO
+  // cuando la propietaria clica un bloque dentro del iframe, para sincronizar
+  // la fila seleccionada en el panel izquierdo del editor. Ambos opcionales:
+  // el preview de "Ajustes" (ThemePreview) no los usa.
+  seleccionId?: string | null;
+  onBloqueSeleccionado?: (id: string) => void;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -78,7 +86,10 @@ export function HomePreview({
   function enviar() {
     for (const p of PANTALLAS) {
       ref.current?.contentWindow?.postMessage(
-        { type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id] },
+        {
+          type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id],
+          seleccionId: p.id === pantalla ? (seleccionId ?? null) : null,
+        },
         window.location.origin,
       );
     }
@@ -88,6 +99,25 @@ export function HomePreview({
   useEffect(() => {
     enviar();
   });
+
+  // Canal inverso: clicar un bloque DENTRO del iframe manda su id aquí (ver
+  // components/portal/portal-preview-bridge.ts, usePreviewClickToSelect). Se
+  // valida origin (mismo criterio que el resto de listeners de este puente) Y
+  // source (que el mensaje venga REALMENTE de este iframe, no de otro
+  // same-origin) — el canal padre→hijo de arriba solo validaba origin; este,
+  // al ser nuevo, cierra ese hueco menor de paso.
+  useEffect(() => {
+    if (!onBloqueSeleccionado) return;
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.source !== ref.current?.contentWindow) return;
+      const d = e.data as { type?: string; bloqueId?: string } | null;
+      if (!d || d.type !== 'tentare-bloques-preview-click' || !d.bloqueId) return;
+      onBloqueSeleccionado?.(d.bloqueId);
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [onBloqueSeleccionado]);
 
   if (!slug || !token) {
     return (

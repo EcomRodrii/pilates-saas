@@ -157,3 +157,49 @@ test('layoutConfigSchema: rechaza un bloque de kind desconocido', () => {
   });
   assert.equal(r.success, false);
 });
+
+test('layoutConfigSchema: acepta los 3 tipos de bloque nuevos (galería/vídeo/testimonios)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      clases: {
+        draft: [
+          { id: 'g', kind: 'galeria', config: { imagenes: [{ url: 'https://x.com/i.png', alt: 'x' }] } },
+          { id: 'v', kind: 'video', config: { titulo: 'T', url: 'https://youtube.com/watch?v=abc' } },
+          { id: 't', kind: 'testimonios', config: { titulo: 'T', testimonios: [{ cita: 'x', autor: 'Ana', rol: 'Socia' }] } },
+        ],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: acepta un bloque con el estilo ampliado (tamanoTexto/esquinas/sombra/ancho)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: {
+        draft: [{
+          id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' },
+          estilo: { fondo: '#FFFFFF', color: '#000000', alineacion: 'centro', espaciado: 'amplio', tamanoTexto: 'grande', esquinas: 'pill', sombra: 'marcada', ancho: 'contenido' },
+        }],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: rechaza un valor de estilo fuera del enum', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: { draft: [{ id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' }, estilo: { tamanoTexto: 'enorme' } }], publicado: [] },
+    },
+  });
+  assert.equal(r.success, false);
+});

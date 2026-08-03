@@ -639,7 +639,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               que les toque para intercalarse de verdad en la posición
               elegida en el editor. */}
           {bloquesPersonalizados.map(({ b, orden }) => (
-            <div key={b.id} style={{ order: orden }}>
+            <div key={b.id} data-bloque-id={b.id} style={{ order: orden }}>
               <BloqueHomeRender bloque={b} slug={slug} />
             </div>
           ))}
