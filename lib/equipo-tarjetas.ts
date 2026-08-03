@@ -14,13 +14,34 @@
 
 import type { Rol } from './types';
 
-export type Situacion = 'clase' | 'mostrador' | 'flojo' | 'libre' | 'direccion';
+export type Situacion = 'clase' | 'mostrador' | 'flojo' | 'libre' | 'direccion' | 'inactiva';
 
 export const DIAS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 export const DIAS_LARGOS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as const;
 
 /** Umbral de "se están quedando vacías" — mismo criterio que `lib/ocupacion.ts` (I-13). */
 export const OCUPACION_ATENCION = 60;
+
+/**
+ * Semanas sin dar ninguna clase (sin próxima programada) para avisar de que
+ * puede que ya no esté trabajando de verdad. No es una desactivación
+ * automática — solo una señal para que la propietaria decida, igual que el
+ * distintivo de ausencia. El caso real que lo motiva: instructoras que dan un
+ * par de clases sueltas y no vuelven, y se quedan "activas" indefinidamente
+ * en todos los desplegables porque nadie se acuerda de desactivarlas a mano.
+ */
+export const SEMANAS_SIN_CLASE_AVISO = 8;
+
+/** Semanas desde la última clase pasada, o null si no aplica el aviso (nunca
+ * dio clase, o tiene una próxima programada). */
+export function semanasSinClase(
+  m: Pick<MiembroCompleto, 'ultimaClaseIso' | 'proximaClaseIso'>,
+  ahora: Date,
+): number | null {
+  if (m.proximaClaseIso || !m.ultimaClaseIso) return null;
+  const dias = (ahora.getTime() - new Date(m.ultimaClaseIso).getTime()) / 86400000;
+  return Math.floor(dias / 7);
+}
 
 /**
  * Todo lo que el SERVIDOR puede llegar a saber de una persona del equipo.
@@ -48,6 +69,8 @@ export interface MiembroCompleto {
   claseHoyLabel: string | null;
   /** ISO de su próxima sesión futura, o null. */
   proximaClaseIso: string | null;
+  /** ISO de su última clase PASADA (no cancelada), o null si nunca dio ninguna. */
+  ultimaClaseIso: string | null;
   /** Clases programadas esta semana (L-D), reales. */
   semana: number[];
   /** Horario de cada día (p.ej. "10:00 · 19:30"), o null si libre ese día. */
@@ -68,10 +91,15 @@ function gestiona(rolViewer: Rol): boolean {
 }
 
 /** Qué situación describe a esta persona, en el orden en que se decide. */
-export function situacionDe(m: Pick<MiembroCompleto, 'esYo' | 'rol' | 'enClaseAhora' | 'ocupacionPct'>): Situacion {
+export function situacionDe(
+  m: Pick<MiembroCompleto, 'esYo' | 'rol' | 'enClaseAhora' | 'ocupacionPct' | 'ultimaClaseIso' | 'proximaClaseIso'>,
+  ahora: Date,
+): Situacion {
   if (m.esYo) return 'direccion';
   if (m.rol === 'RECEPCION') return 'mostrador';
   if (m.enClaseAhora) return 'clase';
+  const semanas = semanasSinClase(m, ahora);
+  if (semanas != null && semanas >= SEMANAS_SIN_CLASE_AVISO) return 'inactiva';
   if (m.ocupacionPct != null && m.ocupacionPct < OCUPACION_ATENCION) return 'flojo';
   return 'libre';
 }
@@ -84,8 +112,8 @@ export interface EstadoTarjeta {
 }
 
 /** La franja de color + su frase, según quién mira. */
-export function estado(m: MiembroCompleto, rolViewer: Rol): EstadoTarjeta {
-  const situacion = situacionDe(m);
+export function estado(m: MiembroCompleto, rolViewer: Rol, ahora: Date): EstadoTarjeta {
+  const situacion = situacionDe(m, ahora);
 
   // Vista de compañeras (instructora mirando a otra persona): solo lo de hoy.
   if (!gestiona(rolViewer) && !m.esYo) {
@@ -112,6 +140,14 @@ export function estado(m: MiembroCompleto, rolViewer: Rol): EstadoTarjeta {
       situacion, etiqueta: 'Ahora mismo',
       titulo: m.claseHoyLabel ?? 'Dando clase',
       pie: `${clases(m)} clase${clases(m) === 1 ? '' : 's'} esta semana`,
+    };
+  }
+  if (situacion === 'inactiva') {
+    const semanas = semanasSinClase(m, ahora) ?? 0;
+    return {
+      situacion, etiqueta: 'Sin actividad',
+      titulo: `Sin clases desde hace ${semanas} semana${semanas === 1 ? '' : 's'}`,
+      pie: '¿Sigue en el equipo? Revisa si hay que desactivarla.',
     };
   }
   if (situacion === 'flojo') {
@@ -164,8 +200,8 @@ export interface CifrasTarjeta {
 }
 
 /** Las cifras de la tarjeta, ya recortadas al rol de quien mira. */
-export function cifras(m: MiembroCompleto, rolViewer: Rol): CifrasTarjeta {
-  const situacion = situacionDe(m);
+export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasTarjeta {
+  const situacion = situacionDe(m, ahora);
   const puedeVer = gestiona(rolViewer) || m.esYo;
   // Recepción no da clases: no hay ocupación/horas de clase que enseñar.
   const verCifras = puedeVer && situacion !== 'mostrador';

@@ -2,15 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
+  semanasSinClase, SEMANAS_SIN_CLASE_AVISO,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
+
+const AHORA = new Date('2026-08-03T12:00:00Z');
 
 function m(overrides: Partial<MiembroCompleto> = {}): MiembroCompleto {
   return {
     id: 'i1', nombre: 'Julia Ramos', rol: 'INSTRUCTOR', color: '#F7A6C4',
     avatar: null, fotoUrl: null, activo: true, conAcceso: true, esYo: false,
     email: 'julia@x.es', telefono: null,
-    enClaseAhora: false, claseHoyLabel: null, proximaClaseIso: null,
+    enClaseAhora: false, claseHoyLabel: null, proximaClaseIso: null, ultimaClaseIso: null,
     semana: [1, 0, 1, 0, 1, 0, 0], horasDia: [null, null, null, null, null, null, null],
     ocupacionPct: 80, valoracion: { media: 4.8, total: 34 },
     horasMes: 20, costeMes: 400, coincideContigo: null,
@@ -18,48 +21,91 @@ function m(overrides: Partial<MiembroCompleto> = {}): MiembroCompleto {
   };
 }
 
+function situacion(overrides: Partial<MiembroCompleto> = {}, ahora: Date = AHORA) {
+  return situacionDe(m(overrides), ahora);
+}
+
 // ── situacionDe / precedencia ───────────────────────────────────────────────
 
 test('esYo manda sobre cualquier otra situación', () => {
-  assert.equal(situacionDe(m({ esYo: true, rol: 'RECEPCION', enClaseAhora: true, ocupacionPct: 10 })), 'direccion');
+  assert.equal(situacion({ esYo: true, rol: 'RECEPCION', enClaseAhora: true, ocupacionPct: 10 }), 'direccion');
 });
 
 test('recepción es "mostrador" aunque tenga ocupación baja', () => {
-  assert.equal(situacionDe(m({ rol: 'RECEPCION', ocupacionPct: 10 })), 'mostrador');
+  assert.equal(situacion({ rol: 'RECEPCION', ocupacionPct: 10 }), 'mostrador');
 });
 
 test('dando clase ahora mismo prevalece sobre ocupación baja', () => {
-  assert.equal(situacionDe(m({ enClaseAhora: true, ocupacionPct: 10 })), 'clase');
+  assert.equal(situacion({ enClaseAhora: true, ocupacionPct: 10 }), 'clase');
 });
 
 test('ocupación por debajo del 60% es "flojo" (atención)', () => {
-  assert.equal(situacionDe(m({ ocupacionPct: 59 })), 'flojo');
+  assert.equal(situacion({ ocupacionPct: 59 }), 'flojo');
 });
 
 test('60% exacto ya NO es atención', () => {
-  assert.equal(situacionDe(m({ ocupacionPct: 60 })), 'libre');
+  assert.equal(situacion({ ocupacionPct: 60 }), 'libre');
 });
 
 test('sin datos de ocupación (null) no dispara atención', () => {
-  assert.equal(situacionDe(m({ ocupacionPct: null })), 'libre');
+  assert.equal(situacion({ ocupacionPct: null }), 'libre');
+});
+
+// ── situacionDe / inactividad ───────────────────────────────────────────────
+
+test(`sin clases desde hace ${SEMANAS_SIN_CLASE_AVISO} semanas y sin próxima programada → "inactiva"`, () => {
+  const hace8semanas = new Date(AHORA.getTime() - SEMANAS_SIN_CLASE_AVISO * 7 * 86400000).toISOString();
+  assert.equal(situacion({ ultimaClaseIso: hace8semanas, proximaClaseIso: null }), 'inactiva');
+});
+
+test('sin clases desde hace poco (1 semana) no dispara el aviso de inactividad', () => {
+  const haceUnaSemana = new Date(AHORA.getTime() - 7 * 86400000).toISOString();
+  assert.equal(situacion({ ultimaClaseIso: haceUnaSemana, proximaClaseIso: null }), 'libre');
+});
+
+test('con una próxima clase programada, no es "inactiva" aunque hayan pasado meses', () => {
+  const haceMeses = new Date(AHORA.getTime() - 20 * 7 * 86400000).toISOString();
+  assert.equal(situacion({ ultimaClaseIso: haceMeses, proximaClaseIso: '2026-09-01T10:00:00Z' }), 'libre');
+});
+
+test('nunca dio clase (ultimaClaseIso null) no dispara el aviso de inactividad', () => {
+  assert.equal(situacion({ ultimaClaseIso: null, proximaClaseIso: null }), 'libre');
+});
+
+test('dando clase ahora mismo prevalece sobre la inactividad', () => {
+  const haceMeses = new Date(AHORA.getTime() - 20 * 7 * 86400000).toISOString();
+  assert.equal(situacion({ enClaseAhora: true, ultimaClaseIso: haceMeses, proximaClaseIso: null }), 'clase');
+});
+
+test('semanasSinClase: null si tiene próxima clase', () => {
+  assert.equal(semanasSinClase({ ultimaClaseIso: '2026-01-01T10:00:00Z', proximaClaseIso: '2026-09-01T10:00:00Z' }, AHORA), null);
+});
+
+test('semanasSinClase: null si nunca dio clase', () => {
+  assert.equal(semanasSinClase({ ultimaClaseIso: null, proximaClaseIso: null }, AHORA), null);
+});
+
+test('semanasSinClase: cuenta semanas completas desde la última clase pasada', () => {
+  const hace15dias = new Date(AHORA.getTime() - 15 * 86400000).toISOString();
+  assert.equal(semanasSinClase({ ultimaClaseIso: hace15dias, proximaClaseIso: null }, AHORA), 2);
 });
 
 // ── estado(): vista de compañeras vs vista de quien gestiona ───────────────
 
 test('instructora mirando a una compañera solo ve "hoy" y con quién coincide', () => {
-  const e = estado(m({ claseHoyLabel: 'Mat · 10:00', coincideContigo: 'sábado' }), 'INSTRUCTOR');
+  const e = estado(m({ claseHoyLabel: 'Mat · 10:00', coincideContigo: 'sábado' }), 'INSTRUCTOR', AHORA);
   assert.equal(e.etiqueta, 'Hoy');
   assert.equal(e.titulo, 'Mat · 10:00');
   assert.match(e.pie, /Coincidís: sábado/);
 });
 
 test('instructora mirando su propia ficha SÍ ve el detalle de gestión (tu cuenta)', () => {
-  const e = estado(m({ esYo: true }), 'INSTRUCTOR');
+  const e = estado(m({ esYo: true }), 'INSTRUCTOR', AHORA);
   assert.equal(e.etiqueta, 'Tu cuenta');
 });
 
 test('propietaria ve el detalle real de una compañera con ocupación baja', () => {
-  const e = estado(m({ ocupacionPct: 55 }), 'PROPIETARIO');
+  const e = estado(m({ ocupacionPct: 55 }), 'PROPIETARIO', AHORA);
   assert.equal(e.etiqueta, 'Atención');
   assert.match(e.pie, /55%/);
 });
@@ -67,35 +113,35 @@ test('propietaria ve el detalle real de una compañera con ocupación baja', () 
 // ── cifras(): el contrato de permisos ───────────────────────────────────────
 
 test('propietaria ve coste en euros', () => {
-  const c = cifras(m({ costeMes: 742 }), 'PROPIETARIO');
+  const c = cifras(m({ costeMes: 742 }), 'PROPIETARIO', AHORA);
   assert.equal(c.segundaEtiqueta, 'Coste del mes');
   assert.equal(c.segundaValor, '742,00 €');
 });
 
 test('responsable de sede ve horas, nunca euros — aunque el dato llegue relleno', () => {
-  const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER');
+  const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER', AHORA);
   assert.equal(c.segundaEtiqueta, 'Horas del mes');
   assert.equal(c.segundaValor, '18.5 h');
 });
 
 test('responsable de sede: el texto de horas no contiene el símbolo de euro', () => {
-  const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER');
+  const c = cifras(m({ costeMes: 742, horasMes: 18.5 }), 'MANAGER', AHORA);
   assert.ok(!c.segundaValor.includes('€'));
 });
 
 test('instructora mirando a una compañera no ve cifras ni barras', () => {
-  const c = cifras(m(), 'INSTRUCTOR');
+  const c = cifras(m(), 'INSTRUCTOR', AHORA);
   assert.equal(c.verCifras, false);
   assert.equal(c.verBarras, false);
 });
 
 test('instructora mirando SU PROPIA ficha sí ve sus cifras', () => {
-  const c = cifras(m({ esYo: true }), 'INSTRUCTOR');
+  const c = cifras(m({ esYo: true }), 'INSTRUCTOR', AHORA);
   assert.equal(c.verCifras, true);
 });
 
 test('recepción (situación mostrador) no muestra cifras de clase a nadie', () => {
-  const c = cifras(m({ rol: 'RECEPCION', ocupacionPct: null, horasMes: null }), 'PROPIETARIO');
+  const c = cifras(m({ rol: 'RECEPCION', ocupacionPct: null, horasMes: null }), 'PROPIETARIO', AHORA);
   assert.equal(c.verCifras, false);
   assert.equal(c.verBarras, false);
 });
