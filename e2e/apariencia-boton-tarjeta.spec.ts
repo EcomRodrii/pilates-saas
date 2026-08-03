@@ -50,32 +50,45 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia');
+  // El editor único (theme-workspace.tsx): "Botón principal"/"Tarjetas" viven
+  // en "Ajustes", cada una como categoría propia (panel derecho, una a la
+  // vez) — ya no las dos a la vista simultáneamente en un formulario largo.
+  await page.getByRole('tab', { name: 'Ajustes' }).click();
 }
 
 test.describe('Editor de temas — Fase 1: estilo de botón y tarjetas', () => {
   test('un tema sin buttonStyle/cardStyle (guardado antes de esta fase) muestra Sólido/Plana seleccionados', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('Botón principal')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Tarjetas')).toBeVisible();
 
-    // Las 3 opciones de cada grupo están, y el default (Sólido/Plana) se ve
-    // resaltado — comprobado por color de fondo, ya que no hay aria-pressed.
+    // Categorías propias, una a la vez en el panel derecho — no las dos
+    // familias de botones a la vista simultáneamente.
+    await page.getByRole('button', { name: 'Botón principal' }).click();
     const solido = page.getByRole('button', { name: 'Sólido' });
-    const plana = page.getByRole('button', { name: 'Plana' });
-    await expect(solido).toBeVisible();
-    await expect(plana).toBeVisible();
+    await expect(solido).toBeVisible({ timeout: 30_000 });
     await expect(solido).toHaveClass(/bg-brand/);
-    await expect(plana).toHaveClass(/bg-brand/);
     await expect(page.getByRole('button', { name: 'Contorno' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Tarjetas' }).click();
+    const plana = page.getByRole('button', { name: 'Plana' });
+    await expect(plana).toBeVisible();
+    await expect(plana).toHaveClass(/bg-brand/);
     await expect(page.getByRole('button', { name: 'Elevada' })).toBeVisible();
   });
 
   test('elegir Contorno + Elevada y guardar manda el patch correcto a /api/theme', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('Botón principal')).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: 'Contorno' }).click();
-    await page.getByRole('button', { name: 'Elevada' }).click();
+    await page.getByRole('button', { name: 'Botón principal' }).click();
+    const contorno = page.getByRole('button', { name: 'Contorno' });
+    await expect(contorno).toBeVisible({ timeout: 30_000 });
+    await contorno.click();
+    await expect(contorno).toHaveClass(/bg-brand/);
+
+    await page.getByRole('button', { name: 'Tarjetas' }).click();
+    const elevada = page.getByRole('button', { name: 'Elevada' });
+    await expect(elevada).toBeVisible();
+    await elevada.click();
+    await expect(elevada).toHaveClass(/bg-brand/);
 
     const [req] = await Promise.all([
       page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
@@ -84,9 +97,5 @@ test.describe('Editor de temas — Fase 1: estilo de botón y tarjetas', () => {
     const body = req.postDataJSON() as Record<string, unknown>;
     expect(body.buttonStyle).toBe('outline');
     expect(body.cardStyle).toBe('elevated');
-
-    // La opción elegida pasa a ser la resaltada.
-    await expect(page.getByRole('button', { name: 'Contorno' })).toHaveClass(/bg-brand/);
-    await expect(page.getByRole('button', { name: 'Elevada' })).toHaveClass(/bg-brand/);
   });
 });

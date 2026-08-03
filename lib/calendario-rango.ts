@@ -40,6 +40,20 @@ export function rangoSemana(fecha: Date): RangoFechas {
   return { desde: desde.toISOString(), hasta: addDays(desde, 7).toISOString() };
 }
 
+export function inicioMes(fecha: Date): Date {
+  const d = new Date(fecha);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function rangoMes(fecha: Date): RangoFechas {
+  const desde = inicioMes(fecha);
+  const hasta = new Date(desde);
+  hasta.setMonth(hasta.getMonth() + 1);
+  return { desde: desde.toISOString(), hasta: hasta.toISOString() };
+}
+
 export function claveRango(r: RangoFechas): string {
   return `${r.desde}_${r.hasta}`;
 }

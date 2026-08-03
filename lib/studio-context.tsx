@@ -4,8 +4,10 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, type R
 import { usePathname } from 'next/navigation';
 import { fijarEtiqueta, capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { CoreProvider } from '@/lib/core-context';
+import { supabase } from '@/lib/db/supabase';
+import type { RowInstructores } from '@/lib/db-types';
 import {
-  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData,
+  fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
@@ -155,7 +157,8 @@ import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
-import type { TabBarStyleId } from '@/lib/theme-schema';
+import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
+import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -231,17 +234,25 @@ interface StudioContextValue {
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
   // de temas). Solo lectura aquí — se edita desde el dashboard
-  // (components/theme/portal-home-editor.tsx), que llama a fetchLayout()/
+  // (components/theme/portal-bloques-editor.tsx), que llama a fetchLayout()/
   // guardarLayoutApi() directamente, no a través de este contexto.
   portalHome: OrdenVisibilidad;
-  // Constructor de bloques del Inicio del portal (Fase 3) — ya PUBLICADO
-  // (nunca el borrador, ver lib/db/supabase-data-admin.ts). Se edita desde
-  // components/theme/portal-home-editor.tsx igual que portalHome.
+  // Constructor de bloques del portal (Fase 3, generalizado a Clases/Bonos en
+  // la Fase 1 del Theme Builder) — ya PUBLICADO (nunca el borrador, ver
+  // lib/db/supabase-data-admin.ts). Se edita desde
+  // components/theme/portal-bloques-editor.tsx igual que portalHome.
   homeBloques: BloqueHome[];
+  bloquesClases: BloqueHome[];
+  bloquesBonos: BloqueHome[];
   // Comportamiento de la barra inferior del portal (galería de temas,
   // "Editorial") — único campo del tema expuesto como valor JS, no solo CSS:
   // portal-shell.tsx decide con esto si pinta iconos/pestaña expandible.
   tabBarStyle: TabBarStyleId;
+  // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
+  // Builder) — ver lib/portal-nav.ts.
+  navPortal: NavConfigShape;
+  // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
+  redesSociales: Record<RedSocialId, string>;
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -328,6 +339,7 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura>;
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => void;
@@ -512,6 +524,18 @@ interface StudioContextValue {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
+// Fase 3 del rediseño del portal (feedback de 49 propietarias: "no funciona
+// en tiempo real"). Evaluado con tentare-arquitecto: un Realtime de verdad
+// (canal Postgres directo desde el navegador de la socia) exigiría dar a
+// `anon`/`authenticated` lectura ampliada sobre `reservas`/`sesiones` — la
+// migración 0091 CERRÓ justo ese acceso tras el pentest (fuga cross-tenant),
+// y `socios` ni siquiera tiene `auth_user_id` para acotar RLS por fila. Abrir
+// esa vía de nuevo es un cambio de seguridad genuino, no una mejora de UX, y
+// queda fuera de esta fase a propósito. En su lugar: acortar el intervalo de
+// refresco activo (ya introducido en Fase 1 a 20s) a algo que cierre el caso
+// real —dos socias reservando la misma clase casi a la vez— sin tocar RLS.
+export const REFRESCO_ACTIVO_MS = 5_000;
+
 const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function useStudio(): StudioContextValue {
@@ -561,8 +585,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [contenidoPortal, setContenidoPortal] = useState<ContenidoPortal | null>(null);
   const [bannersPortal, setBannersPortal] = useState<BannerPortal[]>([]);
   const [portalHome, setPortalHome] = useState<OrdenVisibilidad>(DEFAULT_LAYOUT.portalHome);
-  const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.homeBloques.publicado);
+  const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
+  const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
+  const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
+  const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
+  const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
@@ -644,6 +672,52 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     fijarEtiqueta('studio_id', studio?.id ?? undefined);
   }, [studio?.id]);
 
+  // El self-claim de una instructora (confirmar el correo de invitación) pasa
+  // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
+  // service-role, ajeno por completo a la pestaña de la propietaria. Sin esto,
+  // `instructores` solo se cargaba una vez al montar (más abajo) y no había
+  // forma de que ese cambio llegara sin recargar: ni polling, ni revalidate al
+  // recuperar el foco (eso solo existe para el portal público, `publicSlug`,
+  // más abajo). Mismo patrón que ya usa el chat de equipo
+  // (`lib/stores/use-team-chat-store.ts`) para `mensajes_equipo`. Solo para el
+  // dashboard autenticado — el portal público no necesita ver altas de equipo.
+  useEffect(() => {
+    if (publicSlug || shadowedByPublicRoute || !studio?.id) return;
+    const studioId = studio.id;
+    let vivo = true;
+    let canal: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!vivo) return;
+      await supabase.realtime.setAuth(data.session?.access_token ?? null);
+      if (!vivo) return;
+      canal = supabase
+        .channel(`instructores:${studioId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'instructores', filter: `studio_id=eq.${studioId}` },
+          payload => {
+            if (payload.eventType === 'DELETE') {
+              const old = payload.old as { id?: string };
+              if (old.id) setInstructores(prev => prev.filter(i => i.id !== old.id));
+              return;
+            }
+            const fila = mapInstructor(payload.new as RowInstructores);
+            setInstructores(prev =>
+              prev.some(i => i.id === fila.id)
+                ? prev.map(i => (i.id === fila.id ? fila : i))
+                : [...prev, fila],
+            );
+          },
+        )
+        .subscribe();
+    })();
+    return () => {
+      vivo = false;
+      if (canal) supabase.removeChannel(canal);
+    };
+  }, [publicSlug, shadowedByPublicRoute, studio?.id]);
+
   // ── Fetch all data from Supabase whenever the auth session changes ──────────
   // (mount, login, logout) — RLS now returns different rows to anon vs.
   // authenticated requests, so a stale pre-login fetch would leave every
@@ -696,8 +770,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setContenidoPortal(pub.contenidoPortal ?? null);
       setBannersPortal(pub.bannersPortal ?? []);
       setPortalHome(pub.portalHome ?? DEFAULT_LAYOUT.portalHome);
-      setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.homeBloques.publicado);
+      setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
+      setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
+      setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
+      setNavPortal(resolveNavConfig(pub.navPortal));
+      setRedesSociales({
+        instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
+        facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
+        whatsapp: typeof pub.redesSociales?.whatsapp === 'string' ? pub.redesSociales.whatsapp : '',
+      });
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -938,6 +1020,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         cuotaIVA: s.cuotaIVA ?? f.cuotaIVA,
         total: s.total ?? f.total,
       } : f));
+    } else {
+      // El sellado en servidor falló (NIF inválido, red, RLS...): la factura
+      // optimista nunca se llegó a persistir en `facturas`, así que hay que
+      // quitarla del estado local o el usuario la ve en pantalla hasta el
+      // próximo refresco desde el servidor, sin saber que nunca se guardó.
+      setFacturas(prev => prev.filter(f => f.id !== fac.id));
+      setDbError({ msg: r.error ?? 'No se ha podido generar la factura', key: Date.now() });
     }
   }
 
@@ -2411,6 +2500,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dbInsertRecibo(nuevo);
   }
 
+  // Factura al contado desde el modal "Nueva factura" (cobros/panel-pendientes):
+  // a diferencia de addRecibo (PENDIENTE, se cobra más tarde), aquí el cobro es
+  // inmediato — no hay fecha de vencimiento en el formulario porque no hay nada
+  // que esperar. Se ESCRIBE PRIMERO y se espera confirmación (mismo criterio que
+  // marcarCobrado/addSala): antes este botón era un placeholder sin cablear que
+  // cerraba el modal sin llamar a ninguna API — "se genera" pero nunca existió
+  // ni en BD ni en el estado local.
+  async function crearFacturaDirecta(fields: { socioId: string; concepto: string; importe: number }): Promise<ResultadoEscritura> {
+    const fechaCobro = new Date().toISOString();
+    const rec: Recibo = {
+      id: `rec-${uid()}`,
+      studioId: getCurrentStudioId(),
+      socioId: fields.socioId,
+      suscripcionId: null,
+      concepto: fields.concepto,
+      importe: fields.importe,
+      estado: 'COBRADO',
+      fechaVencimiento: fechaCobro,
+      fechaCobro,
+      fechaDevolucion: null,
+      intentosReintento: 0,
+    };
+    const res = await dbInsertRecibo(rec);
+    if (!res.ok) return res;
+    setRecibos(prev => [...prev, rec]);
+    // Mismo patrón que marcarCobrado: construir con el snapshot ya conocido
+    // (`rec`, no el `recibos` del closure, que todavía no lo tiene) y sellar
+    // fuera del updater.
+    const fac = construirFacturaCobro(rec, facturas);
+    if (fac) {
+      setFacturas(prev => [...prev, fac]);
+      void sellarFacturaYActualizar(fac);
+    }
+    const socio = socios.find(s => s.id === fields.socioId);
+    addActividadReciente(
+      'COBRO_MANUAL',
+      `${actorNombre ?? 'Alguien'} generó una factura de "${fields.concepto}" (${fields.importe} €) para ${socio?.nombre ?? 'una socia'}`,
+      fields.socioId,
+      `/socios/${fields.socioId}`
+    );
+    return res;
+  }
+
   // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes
   // NO dupliquen el refill de bono / extensión mensual ni el build+sellado de
   // factura (antes copiados en ambas, con riesgo de divergencia — p. ej. el guard
@@ -3395,7 +3527,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bannersPortal,
     portalHome,
     homeBloques,
+    bloquesClases,
+    bloquesBonos,
     tabBarStyle,
+    navPortal,
+    redesSociales,
     favoritos,
     toggleFavorito,
     updateMensajeDestacado,
@@ -3480,6 +3616,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     liberarSpot,
     asignarSpot,
     addRecibo,
+    crearFacturaDirecta,
     marcarCobrado,
     marcarDevuelto,
     reintentar,
@@ -3598,7 +3735,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, tabBarStyle, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, redesSociales, favoritos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

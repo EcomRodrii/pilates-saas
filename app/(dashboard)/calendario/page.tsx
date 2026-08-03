@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ChevronLeft, ChevronRight, Plus, X, AlertTriangle, RefreshCw,
   CalendarDays, ChevronDown,
-  UserPlus, UserCheck, Pencil, Trash2,
+  UserPlus, UserCheck, Pencil, Trash2, Copy,
   Bot, Loader2, Upload, QrCode, LayoutGrid, Rows3,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -47,14 +47,19 @@ import { FranjaDecisiones, type DecisionResumen } from '@/components/calendario/
 import { DialogoDecision } from '@/components/calendario/dialogo-decision';
 import { VistaDiaSalas, type DatoSesion } from '@/components/calendario/vista-dia-salas';
 import { VistaSemana } from '@/components/calendario/vista-semana';
+import { VistaMes } from '@/components/calendario/vista-mes';
+import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
-import { metricasDia, metricasSemana } from '@/lib/calendario-metricas';
+import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
+import { type SesionBuscable } from '@/lib/calendario-busqueda';
+import { metricasDia, metricasSemana, mmA } from '@/lib/calendario-metricas';
+import { minutosDesdeOffset, nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
-import { rangoDia, rangoSemana, claveRango, type RangoFechas } from '@/lib/calendario-rango';
+import { rangoDia, rangoSemana, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
@@ -489,16 +494,18 @@ export default function Calendario() {
   const [mounted, setMounted] = useState(false);
   const FALLBACK = new Date('2026-01-01T12:00:00');
 
-  // ── Vista: Día (por sala) / Semana (7 columnas) — punto 2 del rediseño ──────
-  const [vista, setVista] = useState<'dia' | 'semana'>('semana');
+  // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
+  const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
+  const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
   useEffect(() => {
     const today = new Date();
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
+    setMesVisto(today);
   }, []);
 
   const now = mounted ? new Date() : FALLBACK;
@@ -645,6 +652,34 @@ export default function Calendario() {
     inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
   })), [sesiones]);
 
+  // ── Buscador rápido (Fase 2): sobre TODO el estudio, no solo `datosVista` —
+  // misma regla de visibilidad que filtrarSesionesPorRol (lib/calendario-datos.ts),
+  // replicada aquí porque estos datos vienen del contexto completo, no del
+  // endpoint ya filtrado por rol.
+  const candidatasBusqueda = useMemo<SesionBuscable[]>(() => {
+    const tiposById = new Map(tiposClase.map(t => [t.id, t]));
+    const salasById = new Map(salas.map(s => [s.id, s]));
+    const instrById = new Map(instructores.map(i => [i.id, i]));
+    const visibles = esInstructorTop && yoTop ? sesiones.filter(s => s.instructorId === yoTop.id) : sesiones;
+    return visibles.map(s => ({
+      id: s.id, inicio: s.inicio, cancelada: s.cancelada,
+      tipoClaseNombre: tiposById.get(s.tipoClaseId)?.nombre ?? '?',
+      salaNombre: salasById.get(s.salaId)?.nombre ?? '?',
+      instructorNombre: instrById.get(s.instructorId)?.nombre ?? '?',
+    }));
+  }, [sesiones, tiposClase, salas, instructores, esInstructorTop, yoTop]);
+
+  function saltarAClase(id: string) {
+    const s = sesiones.find(x => x.id === id);
+    if (!s) return;
+    const inicio = new Date(s.inicio);
+    setDiaSeleccionado(inicio);
+    setSemana(weekStart(inicio));
+    setVista('dia');
+    setSesionId(id);
+    setPestanaPanel('clientas');
+  }
+
   const conflictosForm = useMemo(() => {
     if (!showForm || !form.fecha || !form.horaInicio || !form.horaFin) return null;
     const inicio = toISO(form.fecha, form.horaInicio);
@@ -674,9 +709,22 @@ export default function Calendario() {
     const hoy = new Date();
     setSemana(weekStart(hoy));
     setDiaSeleccionado(hoy);
+    setMesVisto(hoy);
   }
   function cambiarDia(delta: number) {
     setDiaSeleccionado(prev => addDays(prev, delta));
+  }
+  function cambiarMes(delta: number) {
+    setMesVisto(prev => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + delta);
+      return d;
+    });
+  }
+  function onSeleccionarDia(fecha: string) {
+    setDiaSeleccionado(new Date(`${fecha}T12:00:00`));
+    setSemana(weekStart(new Date(`${fecha}T12:00:00`)));
+    setVista('dia');
   }
 
   // ── Session actions (creación/edición/cancelación — sin cambios de fondo) ───
@@ -729,6 +777,29 @@ export default function Calendario() {
     setShowForm('editar');
   }
 
+  // Duplicar: mismo tipo/sala/instructora/aforo, +7 días (nunca el mismo
+  // instante — chocaría consigo misma). Nace como clase suelta: sin notas
+  // (son de la instancia de origen, no de la plantilla) y sin precio puntual
+  // ni serie (emptyForm/crearSesion no llevan esos campos).
+  function openDuplicar(origen: SesionEnr) {
+    const ini = new Date(origen.inicio);
+    const fin = new Date(origen.fin);
+    setForm({
+      tipoClaseId: origen.tipoClaseId,
+      salaId: origen.salaId,
+      instructorId: origen.instructorId,
+      fecha: localDate(addDays(ini, 7)),
+      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      horaFin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`,
+      aforoMaximo: origen.aforoMaximo,
+      notas: '',
+      repetir: false,
+      repetirSemanas: 4,
+    });
+    setErrorSesion(null);
+    setShowForm('nueva');
+  }
+
   async function crearSesion() {
     if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
@@ -764,13 +835,26 @@ export default function Calendario() {
 
     const semanaDeLaClase = weekStart(new Date(`${form.fecha}T12:00:00`));
     const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
-    if (otraSemana) setSemana(semanaDeLaClase);
+    if (otraSemana) {
+      // NO llamar aquí a refrescarVista(): sigue cerrado sobre el `rango` de
+      // ANTES de este setSemana (React no re-renderiza síncronamente), así que
+      // pediría la semana vieja — que no tiene la clase nueva — y esa
+      // respuesta podía llegar DESPUÉS del refetch correcto disparado por el
+      // efecto de claveVista, pisando la rejilla con datos obsoletos (bug: la
+      // clase aparece, desaparece y vuelve a aparecer). Solo hace falta
+      // invalidar la caché de la semana destino (por si ya se había visitado
+      // antes de crear la clase) — el cambio de `semana` de abajo ya dispara
+      // el fetch correcto vía el efecto de claveVista.
+      cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaClase)));
+      setSemana(semanaDeLaClase);
+    } else {
+      void refrescarVista();
+    }
     setDiaSeleccionado(new Date(`${form.fecha}T12:00:00`));
 
     const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
     showToast(otraSemana ? `${cuantas} — te llevo a esa semana` : cuantas);
     setShowForm(null);
-    void refrescarVista();
   }
 
   function cuantasApuntadas(id: string): number {
@@ -1086,12 +1170,21 @@ export default function Calendario() {
   // ── Rediseño: datos de vista (rejilla/métricas/franja/panel) por rango+rol ──
   const [datosVista, setDatosVista] = useState<DatosVista | null>(null);
   const cacheVistaRef = useRef<Map<string, DatosVista>>(new Map());
+  // Guarda contra la carrera entre dos fetches de rangos distintos en vuelo a
+  // la vez (p. ej. refrescarVista() del rango viejo + el efecto de claveVista
+  // para el rango nuevo, disparados casi a la vez al crear una clase que cae
+  // en otra semana): solo se aplica la respuesta si su rango sigue siendo el
+  // último que se pidió — si no, quien responda último no debería "ganar".
+  const ultimaClaveSolicitadaRef = useRef<string>('');
 
-  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado) : rangoSemana(semana);
+  const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado)
+    : vista === 'mes' ? rangoMes(mesVisto)
+    : rangoSemana(semana);
   const claveVista = claveRango(rango);
 
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
     const clave = claveRango(r);
+    ultimaClaveSolicitadaRef.current = clave;
     const cacheado = cacheVistaRef.current.get(clave);
     if (cacheado) { setDatosVista(cacheado); return; }
     try {
@@ -1105,6 +1198,7 @@ export default function Calendario() {
       // reventaría al leer `horaApertura.slice(...)`. Mejor seguir "Cargando…".
       if (!Array.isArray(data?.sesiones) || typeof data?.horaApertura !== 'string') return;
       cacheVistaRef.current.set(clave, data);
+      if (ultimaClaveSolicitadaRef.current !== clave) return; // respuesta obsoleta, se descarta
       setDatosVista(data);
     } catch {
       // Silencioso: la rejilla se queda con lo último cargado en vez de romper la pantalla.
@@ -1232,6 +1326,30 @@ export default function Calendario() {
     });
     return prepararColumnasDiaSemana(cols);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
+
+  // ── Vista de Mes: agregación por día, no por hora (Fase 2) ─────────────────
+  const diasMes = useMemo(() => {
+    if (!datosVista) return new Map<string, DiaMes>();
+    const salasById = new Map(datosVista.salas.map(s => [s.id, s]));
+    const sesiones: SesionMes[] = sesionesVistaFiltradas.map(s => {
+      const r = reservasPorSesion.get(s.id) ?? [];
+      const confirmadas = r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length;
+      const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
+      const estado = estadoPorSesion.get(s.id) ?? 'PROGRAMADA';
+      const sala = salasById.get(s.salaId);
+      const sobreaforo = sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0;
+      const huecosLibres = Math.max(0, s.aforoMaximo - confirmadas);
+      return {
+        id: s.id,
+        fecha: localDate(s.inicio),
+        confirmadas,
+        aforoMaximo: s.aforoMaximo,
+        cancelada: s.cancelada,
+        pideAtencion: pideDecision(estado, { enEspera, sobreaforo, huecosLibres }),
+      };
+    });
+    return agregarPorDiaMes(sesiones);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion]);
 
   // ── Métricas (punto 8: hablan de lo que se está mirando) ────────────────────
   const tarjetas = useMemo(() => {
@@ -1436,9 +1554,92 @@ export default function Calendario() {
     setPestanaPanel('clientas');
   }
 
+  // ── Arrastrar y soltar (Fase 2) ──────────────────────────────────────────────
+  const [confirmarArrastre, setConfirmarArrastre] = useState<{
+    sesionId: string; nuevoSalaId: string; nuevoInicio: string; nuevoFin: string;
+    apuntadas: number; horaTexto: string;
+  } | null>(null);
+
+  const arrastrableSesion = useCallback((d: DatoSesion) =>
+    !d.sesion.cancelada && (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
+  [esInstructorTop, yoTop]);
+
+  async function ejecutarMoverSesion(sesionId: string, nuevoSalaId: string, nuevoInicio: string, nuevoFin: string) {
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (!sesion) return;
+    const cambioHora = new Date(sesion.inicio).getTime() !== new Date(nuevoInicio).getTime();
+    const cambioSala = sesion.salaId !== nuevoSalaId;
+    const guardado = await updateSesion(sesionId, { salaId: nuevoSalaId, inicio: nuevoInicio, fin: nuevoFin });
+    if (!guardado.ok) { showToast(guardado.error); return; }
+    if (cambioHora || cambioSala) {
+      const d = new Date(nuevoInicio);
+      void avisarCambioHorarioSala(
+        sesionId,
+        {
+          clase: sesion.tipoClase.nombre, cuando: cuandoEstudio(d), d, sala: nombreSala(nuevoSalaId),
+          instructora: nombreInstructor(sesion.instructorId), instructorActual: nombreInstructor(sesion.instructorId),
+        },
+        { cambioHora, cambioSala },
+      );
+    }
+    showToast('Clase movida');
+    void refrescarVista();
+  }
+
+  // Reutiliza detectarConflictos/hayConflicto — los mismos imports que ya usa
+  // conflictosForm para el formulario de editar (page.tsx arriba), no una
+  // comprobación nueva.
+  function moverSesionArrastrada(
+    sesionId: string,
+    destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number },
+  ) {
+    if (guardandoSesion || !datosVista) return;
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    if (!sesion || sesion.cancelada) return;
+    if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
+
+    const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
+    const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
+    const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
+    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaAperturaMin);
+    const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, nuevoInicioMin);
+    if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
+      showToast('Fuera del horario del estudio');
+      return;
+    }
+
+    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : new Date(sesion.inicio);
+    if (!baseDate) return;
+    const nuevoInicio = toISO(localDate(baseDate), mmA(inicioMin));
+    const nuevoFin = toISO(localDate(baseDate), mmA(finMin));
+    const nuevoSalaId = destino.salaId ?? sesion.salaId;
+    if (nuevoInicio === sesion.inicio && nuevoSalaId === sesion.salaId) return;
+
+    const conflicto = detectarConflictos(
+      { salaId: nuevoSalaId, instructorId: sesion.instructorId, inicio: nuevoInicio, fin: nuevoFin },
+      existentesSlot, sesionId,
+    );
+    if (hayConflicto(conflicto)) {
+      showToast(`No se puede: ${nombreSala(nuevoSalaId)} o ${nombreInstructor(sesion.instructorId)} ya tienen clase a esa hora`);
+      return;
+    }
+
+    const apuntadas = cuantasApuntadas(sesionId);
+    if (apuntadas > 0) {
+      // Un desliz en un iPad no debe reprogramar una clase con gente apuntada
+      // y avisarla por email sin confirmación previa — a diferencia del
+      // formulario de editar (que ya tiene su propia pausa: el botón Guardar).
+      setConfirmarArrastre({ sesionId, nuevoSalaId, nuevoInicio, nuevoFin, apuntadas, horaTexto: mmA(inicioMin) });
+      return;
+    }
+    void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
+  }
+
   // ── Label ────────────────────────────────────────────────────────────────────
   const mesLabel = vista === 'semana'
     ? `${semana.toLocaleDateString('es-ES', { day: 'numeric' })} – ${addDays(semana, 6).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}`
+    : vista === 'mes'
+    ? mesVisto.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
     : diaSeleccionado.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   // ── Panel lateral: sesión seleccionada, vista de rol ────────────────────────
@@ -1571,6 +1772,7 @@ export default function Calendario() {
         description={<span className="capitalize">{mesLabel}</span>}
         actions={
         <div className="flex items-center gap-2 flex-wrap">
+          <BuscadorRapido candidatas={candidatasBusqueda} onSeleccionar={saltarAClase} />
           {gestionaClientas && (
             <Link
               href="/calendario/importar"
@@ -1596,12 +1798,18 @@ export default function Calendario() {
             >
               <LayoutGrid size={13} />Semana
             </button>
+            <button
+              onClick={() => setVista('mes')}
+              className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors', vista === 'mes' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}
+            >
+              <CalendarDays size={13} />Mes
+            </button>
           </div>
 
           <div className="flex items-center gap-1 bg-card border border-border rounded-xl p-1">
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(-1) : cambiarDia(-1)}
-              aria-label={vista === 'semana' ? 'Semana anterior' : 'Día anterior'}
+              onClick={() => vista === 'semana' ? cambiarSemana(-1) : vista === 'mes' ? cambiarMes(-1) : cambiarDia(-1)}
+              aria-label={vista === 'semana' ? 'Semana anterior' : vista === 'mes' ? 'Mes anterior' : 'Día anterior'}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronLeft size={16} />
@@ -1610,8 +1818,8 @@ export default function Calendario() {
               Hoy
             </button>
             <button
-              onClick={() => vista === 'semana' ? cambiarSemana(1) : cambiarDia(1)}
-              aria-label={vista === 'semana' ? 'Semana siguiente' : 'Día siguiente'}
+              onClick={() => vista === 'semana' ? cambiarSemana(1) : vista === 'mes' ? cambiarMes(1) : cambiarDia(1)}
+              aria-label={vista === 'semana' ? 'Semana siguiente' : vista === 'mes' ? 'Mes siguiente' : 'Día siguiente'}
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors"
             >
               <ChevronRight size={16} />
@@ -1672,9 +1880,13 @@ export default function Calendario() {
           agregados secundarios frente a "qué clase tengo ahora", y en una
           pantalla de 375px las 3 tarjetas apiladas se comían media pantalla
           antes de llegar a una sola clase. */}
-      <div className="hidden lg:block px-6 pb-3 shrink-0">
-        <TarjetasMetricas tarjetas={tarjetas} />
-      </div>
+      {/* Sin sentido en Mes: son agregados de la ventana de Día/Semana visible
+          (metricasDia/metricasSemana), no del mes entero. */}
+      {vista !== 'mes' && (
+        <div className="hidden lg:block px-6 pb-3 shrink-0">
+          <TarjetasMetricas tarjetas={tarjetas} />
+        </div>
+      )}
 
       {/* ── Filtros (punto 9) ──────────────────────────────────────────────────── */}
       <div className="px-4 lg:px-6 pb-3 shrink-0">
@@ -1691,7 +1903,9 @@ export default function Calendario() {
       </div>
 
       {/* ── Franja de decisiones (punto 3) ─────────────────────────────────────── */}
-      {decisionesResumen.length > 0 && (
+      {/* Sin sentido en Mes: listaría cada clase pendiente del mes entero, no
+          "lo de hoy/esta semana" que la franja está pensada para resumir. */}
+      {vista !== 'mes' && decisionesResumen.length > 0 && (
         <div className="px-4 lg:px-6 pb-3 shrink-0">
           <FranjaDecisiones
             decisiones={decisionesResumen}
@@ -1703,7 +1917,7 @@ export default function Calendario() {
         </div>
       )}
 
-      {/* ── Día por salas / Semana 7 columnas ──────────────────────────────────── */}
+      {/* ── Día por salas / Semana 7 columnas / Mes ────────────────────────────── */}
       <div className="flex-1 min-h-0 px-4 lg:px-6 pb-4 lg:pb-6">
         {!datosVista ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Cargando…</div>
@@ -1719,6 +1933,15 @@ export default function Calendario() {
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             accionPara={accionParaBloque}
+            arrastrable={arrastrableSesion}
+            onMoverSesion={moverSesionArrastrada}
+          />
+        ) : vista === 'mes' ? (
+          <VistaMes
+            mesVisto={mesVisto}
+            datos={diasMes}
+            hoyStr={todayStr}
+            onSeleccionarDia={onSeleccionarDia}
           />
         ) : (
           <VistaSemana
@@ -1733,6 +1956,8 @@ export default function Calendario() {
             seleccionadaId={sesionId}
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
+            arrastrable={arrastrableSesion}
+            onMoverSesion={moverSesionArrastrada}
           />
         )}
       </div>
@@ -1754,6 +1979,9 @@ export default function Calendario() {
             <>
               <button onClick={openEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                 <Pencil size={12} />Editar
+              </button>
+              <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                <Copy size={12} />Duplicar
               </button>
               {esInstructor ? (
                 <button onClick={() => setShowNoPuedoAsistir(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
@@ -2272,6 +2500,40 @@ export default function Calendario() {
               }}
             >
               Sí, avisar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Fase 2: confirmación al arrastrar una clase con clientas apuntadas ──── */}
+      <Dialog open={confirmarArrastre !== null} onOpenChange={open => !open && setConfirmarArrastre(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              ¿Mover a las {confirmarArrastre?.horaTexto} y avisar a{' '}
+              {confirmarArrastre?.apuntadas === 1 ? 'la clienta' : `las ${confirmarArrastre?.apuntadas} clientas`}?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-muted-foreground mt-2">
+            Hay reservas confirmadas en esta clase — al moverla les avisamos por email del nuevo horario.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarArrastre(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                const c = confirmarArrastre;
+                setConfirmarArrastre(null);
+                if (!c) return;
+                void ejecutarMoverSesion(c.sesionId, c.nuevoSalaId, c.nuevoInicio, c.nuevoFin);
+              }}
+            >
+              Mover y avisar
             </button>
           </div>
         </DialogContent>

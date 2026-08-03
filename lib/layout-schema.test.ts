@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad } from './layout-schema.ts';
-import { DEFAULT_HOME_BLOQUES_SHAPE } from './portal-home-bloques.ts';
+import { DEFAULT_BLOQUES_SHAPE } from './portal-home-bloques.ts';
 
 test('resolveLayout: null/garbage → default', () => {
   assert.deepEqual(resolveLayout(null), DEFAULT_LAYOUT);
@@ -22,14 +22,29 @@ test('resolveLayout: config válida se respeta', () => {
     orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
     home: { orden: [], ocultos: [] },
     portalHome: { orden: [], ocultos: [] },
-    homeBloques: DEFAULT_HOME_BLOQUES_SHAPE,
+    bloques: DEFAULT_BLOQUES_SHAPE,
   });
 });
 
-test('resolveLayout: resuelve homeBloques (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveHomeBloques', () => {
+test('resolveLayout: resuelve bloques.home (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveBloquesPantalla', () => {
+  const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
+  const r = resolveLayout({ bloques: { home: guardado } });
+  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+});
+
+test('resolveLayout: homeBloques legacy (antes de la Fase 1 del Theme Builder) se sigue leyendo como bloques.home', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveLayout({ homeBloques: guardado });
-  assert.deepEqual(r.homeBloques.publicado, guardado.publicado);
+  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+});
+
+test('resolveLayout: resuelve bloques.clases/bonos de forma independiente', () => {
+  const guardadoClases = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Promo', texto: 'x' } }] };
+  const r = resolveLayout({ bloques: { clases: guardadoClases } });
+  assert.deepEqual(r.bloques.clases.publicado, guardadoClases.publicado);
+  // Home y Bonos, no tocados, siguen en su default.
+  assert.deepEqual(r.bloques.home, DEFAULT_BLOQUES_SHAPE.home);
+  assert.deepEqual(r.bloques.bonos, DEFAULT_BLOQUES_SHAPE.bonos);
 });
 
 test('resolveLayout: resuelve la config de la home', () => {
@@ -70,26 +85,66 @@ test('aplicarLayout: reordenar + ocultar a la vez', () => {
   assert.deepEqual(aplicarLayout(TODOS, cfg), ['/pos', '/socios', '/calendario', '/pagos']);
 });
 
-test('layoutConfigSchema: homeBloques ausente → default (config guardada antes de esta fase)', () => {
+test('layoutConfigSchema: bloques ausente → default (config guardada antes de esta fase)', () => {
   const sinBloques = { ...DEFAULT_LAYOUT };
   const objSinBloques = sinBloques as Record<string, unknown>;
-  delete objSinBloques.homeBloques;
+  delete objSinBloques.bloques;
   const r = layoutConfigSchema.safeParse(objSinBloques);
   assert.equal(r.success, true);
-  if (r.success) assert.deepEqual(r.data.homeBloques, DEFAULT_HOME_BLOQUES_SHAPE);
+  if (r.success) assert.deepEqual(r.data.bloques, DEFAULT_BLOQUES_SHAPE);
 });
 
-test('layoutConfigSchema: acepta un bloque de cada tipo del catálogo', () => {
+test('layoutConfigSchema: acepta un bloque de cada tipo del catálogo, por pantalla', () => {
   const r = layoutConfigSchema.safeParse({
     ...DEFAULT_LAYOUT,
-    homeBloques: {
-      draft: [
-        { id: 'a', kind: 'banner', config: { imagenUrl: 'https://x.com/i.png', titulo: 'T', texto: 'x', href: '/reservar' } },
-        { id: 'b', kind: 'texto', config: { titulo: 'T', texto: 'x' } },
-        { id: 'c', kind: 'cta', config: { titulo: 'T', textoBoton: 'Ir', href: '/reservar' } },
-        { id: 'd', kind: 'faq', config: { titulo: 'T', preguntas: [{ pregunta: '¿?', respuesta: '.' }] } },
-      ],
-      publicado: [],
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: {
+        draft: [
+          { id: 'a', kind: 'banner', config: { imagenUrl: 'https://x.com/i.png', titulo: 'T', texto: 'x', href: '/reservar' } },
+          { id: 'b', kind: 'texto', config: { titulo: 'T', texto: 'x' } },
+          { id: 'c', kind: 'cta', config: { titulo: 'T', textoBoton: 'Ir', href: '/reservar' } },
+          { id: 'd', kind: 'faq', config: { titulo: 'T', preguntas: [{ pregunta: '¿?', respuesta: '.' }] } },
+        ],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: acepta `estilo` por bloque (fondo/color/alineación/espaciado) y lo conserva tal cual', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: {
+        draft: [
+          {
+            id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' },
+            estilo: { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' },
+          },
+        ],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+  if (r.success) {
+    const bloque = r.data.bloques.home.draft[0];
+    assert.equal(bloque.kind, 'texto');
+    if (bloque.kind === 'texto') {
+      assert.deepEqual(bloque.estilo, { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' });
+    }
+  }
+});
+
+test('layoutConfigSchema: `estilo` ausente sigue validando (compatibilidad con bloques guardados antes de esta fase)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: { draft: [{ id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' } }], publicado: [] },
     },
   });
   assert.equal(r.success, true);
@@ -98,7 +153,53 @@ test('layoutConfigSchema: acepta un bloque de cada tipo del catálogo', () => {
 test('layoutConfigSchema: rechaza un bloque de kind desconocido', () => {
   const r = layoutConfigSchema.safeParse({
     ...DEFAULT_LAYOUT,
-    homeBloques: { draft: [{ id: 'a', kind: 'carrusel', config: {} }], publicado: [] },
+    bloques: { ...DEFAULT_BLOQUES_SHAPE, home: { draft: [{ id: 'a', kind: 'carrusel', config: {} }], publicado: [] } },
+  });
+  assert.equal(r.success, false);
+});
+
+test('layoutConfigSchema: acepta los 3 tipos de bloque nuevos (galería/vídeo/testimonios)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      clases: {
+        draft: [
+          { id: 'g', kind: 'galeria', config: { imagenes: [{ url: 'https://x.com/i.png', alt: 'x' }] } },
+          { id: 'v', kind: 'video', config: { titulo: 'T', url: 'https://youtube.com/watch?v=abc' } },
+          { id: 't', kind: 'testimonios', config: { titulo: 'T', testimonios: [{ cita: 'x', autor: 'Ana', rol: 'Socia' }] } },
+        ],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: acepta un bloque con el estilo ampliado (tamanoTexto/esquinas/sombra/ancho)', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: {
+        draft: [{
+          id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' },
+          estilo: { fondo: '#FFFFFF', color: '#000000', alineacion: 'centro', espaciado: 'amplio', tamanoTexto: 'grande', esquinas: 'pill', sombra: 'marcada', ancho: 'contenido' },
+        }],
+        publicado: [],
+      },
+    },
+  });
+  assert.equal(r.success, true);
+});
+
+test('layoutConfigSchema: rechaza un valor de estilo fuera del enum', () => {
+  const r = layoutConfigSchema.safeParse({
+    ...DEFAULT_LAYOUT,
+    bloques: {
+      ...DEFAULT_BLOQUES_SHAPE,
+      home: { draft: [{ id: 'a', kind: 'texto', config: { titulo: 'T', texto: 'x' }, estilo: { tamanoTexto: 'enorme' } }], publicado: [] },
+    },
   });
   assert.equal(r.success, false);
 });

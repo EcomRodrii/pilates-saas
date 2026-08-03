@@ -37,12 +37,24 @@ const EQUIPO = [
 
 // Un recibo cobrado con un importe reconocible: si el número aparece en
 // pantalla, es que se le está enseñando la caja.
+//
+// La fecha de cobro NO puede ser un literal fijo: "Ingresos cobrados este
+// mes" (dashboard/page.tsx:509-547) agrupa por mes contra `new Date()` real
+// del reloj del sistema, no contra nada mockeable por `page.route`. Un
+// literal de un mes concreto deja de caer en "este mes" en cuanto el
+// calendario avanza — ya pasó una vez (ver memoria `e2e-fecha-fija-cruza-de-mes`).
+function fechaCobroEsteMes() {
+  const hoy = new Date();
+  return new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 2, 10, 0, 0)).toISOString();
+}
+
 const IMPORTE = 1234;
+const FECHA_COBRO = fechaCobroEsteMes();
 const RECIBOS = [
   {
     id: 'rec-1', studio_id: STUDIO_ID, socio_id: 'soc-1', suscripcion_id: null,
     concepto: 'Bono 10', importe: IMPORTE, estado: 'COBRADO',
-    fecha_vencimiento: '2026-07-01', fecha_cobro: '2026-07-02T10:00:00+00:00',
+    fecha_vencimiento: FECHA_COBRO.slice(0, 10), fecha_cobro: FECHA_COBRO,
     fecha_devolucion: null, intentos_reintento: 0, metodo_cobro: 'TARJETA',
   },
 ];

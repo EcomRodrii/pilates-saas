@@ -86,7 +86,10 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
     const menu = page.getByRole('navigation', { name: 'Secciones' });
     await expect(menu).toBeVisible({ timeout: 30_000 });
 
-    const etiquetas = await menu.getByRole('link').allInnerTexts();
+    // Solo la pestaña activa muestra el texto visible (las demás van solo con
+    // icono, ver components/portal/portal-nav.tsx) — el nombre de cada una se
+    // comprueba por `aria-label`, no por texto visible en pantalla.
+    const etiquetas = await menu.getByRole('link').evaluateAll(els => els.map(el => el.getAttribute('aria-label')));
     // «Mi plan» pasó a ser «Bonos» al partir esa ruta en /bonos + /compras:
     // la pestaña lleva a mirar el saldo, no a pasar por caja.
     expect(etiquetas).toEqual(['Inicio', 'Clases', 'Bonos', 'Perfil']);

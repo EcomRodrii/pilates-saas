@@ -9,3 +9,6 @@ export type { TabItem } from './Tabs';
 export { Input } from './Input';
 export { EmptyState } from './EmptyState';
 export { BottomSheet } from './BottomSheet';
+export { Toast } from './Toast';
+export type { AvisoToast } from './Toast';
+export { AforoIndicator } from './AforoIndicator';
