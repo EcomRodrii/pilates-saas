@@ -33,12 +33,19 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
     setEditando(true);
   }
 
-  function guardar() {
+  async function guardar() {
     if (!validarIBAN(iban)) { setErr('IBAN no válido.'); return; }
     if (!ref.trim() || !firma) { setErr('Falta la referencia del mandato o la fecha de firma.'); return; }
-    ponerMandato(socioId, iban, ref.trim(), firma);
+    const res = await ponerMandato(socioId, iban, ref.trim(), firma);
+    if (!res.ok) { setErr(res.error); return; }
     setEditando(false);
     setErr(null);
+  }
+
+  async function quitar() {
+    if (!mandato) return;
+    const res = await quitarMandato(mandato.id);
+    if (!res.ok) setErr(res.error);
   }
 
   return (
@@ -53,9 +60,10 @@ export function FichaMandatoSepa({ socioId }: { socioId: string }) {
             IBAN ····{mandato.iban.slice(-4)} · mandato <span className="font-mono">{mandato.refMandato}</span> · firmado {mandato.fechaFirma.slice(0, 10).split('-').reverse().join('/')}
           </p>
           <p className="text-[11px] text-success mt-1">Entra en la remesa del banco (cuaderno 19.14).</p>
+          {err && <p className="text-xs font-medium text-destructive mt-1">{err}</p>}
           <div className="flex gap-2 mt-3">
             <button onClick={abrir} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground">Editar</button>
-            <button onClick={() => quitarMandato(mandato.id)} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive">Quitar</button>
+            <button onClick={quitar} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive">Quitar</button>
           </div>
         </>
       ) : editando ? (

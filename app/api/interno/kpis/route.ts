@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
 import { calcularPasosOnboarding, type PasoOnboarding } from '@/lib/onboarding';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 export const runtime = 'nodejs';
 
@@ -33,15 +34,19 @@ export async function GET(req: NextRequest) {
   const hace7 = new Date(ahora.getTime() - 7 * 864e5).toISOString();
   const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).toISOString();
 
+  // catalogo() (no un select a secas) para las tablas que agregan TODOS los
+  // estudios: sin paginar, PostgREST corta en 1000 filas — con la plataforma
+  // creciendo, socios/sesiones/instructores/tipos_clase de todos los estudios
+  // juntos ya pueden superar ese corte y dar conteos/última actividad falsos.
   const [studios, socios, sesiones, reservas7, reservas30, reservasHoy, instructores, tiposClase] = await Promise.all([
     db.from('studios').select('id, slug, nombre, plan, creado_en, stripe_customer_id, subscription_status, suspendido_en, nif, stripe_account_id'),
-    db.from('socios').select('studio_id'),
-    db.from('sesiones').select('studio_id, creado_en'),
+    catalogo<{ studio_id: string }>((d, h) => db.from('socios').select('studio_id').range(d, h)),
+    catalogo<{ studio_id: string; creado_en: string | null }>((d, h) => db.from('sesiones').select('studio_id, creado_en').range(d, h)),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace7),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', hace30),
     db.from('reservas').select('id', { count: 'exact', head: true }).gte('creado_en', inicioHoy),
-    db.from('instructores').select('studio_id, activo'),
-    db.from('tipos_clase').select('studio_id'),
+    catalogo<{ studio_id: string; activo: boolean }>((d, h) => db.from('instructores').select('studio_id, activo').range(d, h)),
+    catalogo<{ studio_id: string }>((d, h) => db.from('tipos_clase').select('studio_id').range(d, h)),
   ]);
 
   const filas = studios.data ?? [];

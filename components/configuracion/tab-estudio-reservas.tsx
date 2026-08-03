@@ -63,9 +63,9 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
     setPol(studioToPolitica(studio));
   }
 
-  function guardarPolitica() {
-    updateStudio(pol);
-    showToast('Política de reservas guardada');
+  async function guardarPolitica() {
+    const res = await updateStudio(pol);
+    showToast(res.ok ? 'Política de reservas guardada' : res.error);
   }
 
   return (

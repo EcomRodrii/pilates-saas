@@ -29,7 +29,7 @@ export function ContratoDecisionOS() {
         <Button
           size="sm"
           className="w-fit"
-          onClick={() => updateStudio({ decisionContratoVistoEn: new Date().toISOString() })}
+          onClick={async () => { await updateStudio({ decisionContratoVistoEn: new Date().toISOString() }); }}
         >
           Entendido
         </Button>

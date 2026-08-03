@@ -104,7 +104,7 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
     setDirty(true);
   }, []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     const franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }> = [];
     for (const dowStr of Object.keys(draft)) {
       const dow = Number(dowStr);
@@ -112,7 +112,8 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
         franjas.push({ diaSemana: dow, horaInicio: f.horaInicio, horaFin: f.horaFin });
       }
     }
-    setDisponibilidadCitas(selected, franjas);
+    const res = await setDisponibilidadCitas(selected, franjas);
+    if (!res.ok) { showToast(res.error); return; }
     setDraft(prev => {
       const norm: Draft = {};
       for (const dowStr of Object.keys(prev)) { const d = Number(dowStr); const m = mergeFranjas(prev[d]); if (m.length) norm[d] = m; }

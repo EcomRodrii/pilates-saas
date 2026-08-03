@@ -22,6 +22,7 @@ import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
 import { Seguimiento } from '@/components/decision/seguimiento';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Toast, useToast } from '@/components/ui/toast';
 
 // Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
 // nunca cambia (doc 5 §17): Resumen Ejecutivo → Prioridades → Mientras
@@ -35,6 +36,7 @@ export default function CentroDeControlPage() {
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const toast = useToast();
 
   // Enlace de WhatsApp con el mensaje ORIENTADO A LA SOCIA prerrellenado, para
   // que el propietario pueda escribirle con un clic (además del email que se
@@ -49,19 +51,22 @@ export default function CentroDeControlPage() {
 
   async function handleAprobar(id: string) {
     setProcesandoId(id);
-    await aprobar(id);
+    const ok = await aprobar(id);
+    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
     setProcesandoId(null);
   }
 
   async function handleRechazar(id: string) {
     setProcesandoId(id);
-    await rechazar(id);
+    const ok = await rechazar(id);
+    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
     setProcesandoId(null);
   }
 
   async function handlePosponer(id: string) {
     setProcesandoId(id);
-    await posponer(id);
+    const ok = await posponer(id);
+    if (!ok) toast.show('No se pudo confirmar. Comprueba tu conexión e inténtalo de nuevo.');
     setProcesandoId(null);
   }
 
@@ -234,6 +239,7 @@ export default function CentroDeControlPage() {
       <ActivityList items={data.actividad} />
       </>
       )}
+      {toast.message && <Toast message={toast.message} onDismiss={toast.dismiss} />}
     </div>
   );
 }

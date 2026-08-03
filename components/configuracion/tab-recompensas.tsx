@@ -127,10 +127,10 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
     setEditId(item.id);
     setModal('editar');
   }
-  function guardar() {
+  async function guardar() {
     if (!form.nombre.trim() || form.costeCreditos <= 0) return;
-    if (modal === 'nuevo') addRewardCatalogItem(form);
-    else if (editId) updateRewardCatalogItem(editId, form);
+    const res = modal === 'nuevo' ? await addRewardCatalogItem(form) : editId ? await updateRewardCatalogItem(editId, form) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
     setModal(null);
     showToast(modal === 'nuevo' ? 'Recompensa creada' : 'Recompensa actualizada');
   }
@@ -314,7 +314,13 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className={btnSecondary}>Cancelar</button>
             <button
-              onClick={() => { if (confirmDel) deleteRewardCatalogItem(confirmDel.id); setConfirmDel(null); }}
+              onClick={async () => {
+                if (confirmDel) {
+                  const res = await deleteRewardCatalogItem(confirmDel.id);
+                  if (!res.ok) showToast(res.error);
+                }
+                setConfirmDel(null);
+              }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500 text-white text-[13px] font-medium hover:bg-red-600"
             >
               <Trash2 size={14} /> Eliminar

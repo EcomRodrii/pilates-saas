@@ -92,8 +92,12 @@ export async function POST(req: NextRequest) {
 
   // Reservas activas ya existentes: el índice único uq_reserva_activa_socio_sesion
   // ya impide duplicar, pero filtrarlas aquí evita errores de lote enteros.
-  const { data: yaReservado } = await admin
-    .from('reservas').select('sesion_id, socio_id, estado').eq('studio_id', studioId);
+  // catalogo() (no un select a secas): sin paginar, PostgREST corta en 1000
+  // filas — un estudio con histórico de reservas real dejaría de detectar
+  // duplicados pasado ese corte.
+  const { data: yaReservado } = await catalogo<{ sesion_id: string | null; socio_id: string; estado: string }>(
+    (d, h) => admin.from('reservas').select('sesion_id, socio_id, estado').eq('studio_id', studioId).range(d, h),
+  );
   const activas = new Set(
     (yaReservado ?? [])
       .filter(r => ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA'].includes(r.estado as string))

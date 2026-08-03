@@ -37,24 +37,29 @@ export function TabNiveles({ showToast }: { showToast: (m: string) => void }) {
     setEditId(l.id);
     setModal('editar');
   }
-  function guardar() {
+  async function guardar() {
     if (!form.nombre.trim() || form.umbralCreditos < 0) return;
-    if (modal === 'nuevo') addLevelDefinition(form);
-    else if (editId) updateLevelDefinition(editId, form);
+    const res = modal === 'nuevo' ? await addLevelDefinition(form) : editId ? await updateLevelDefinition(editId, form) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
     setModal(null);
     showToast(modal === 'nuevo' ? 'Nivel creado' : 'Nivel actualizado');
   }
-  function cargarSugeridos() {
+  async function cargarSugeridos() {
     const existentes = new Set(levelDefinitions.map(l => l.nombre));
     const nuevos = NIVELES_SUGERIDOS.filter(l => !existentes.has(l.nombre));
-    nuevos.forEach(addLevelDefinition);
-    showToast(nuevos.length > 0 ? `${nuevos.length} niveles añadidos` : 'Ya tienes todos los niveles sugeridos');
+    const resultados = await Promise.all(nuevos.map(addLevelDefinition));
+    const fallos = resultados.filter(r => !r.ok).length;
+    showToast(
+      nuevos.length === 0 ? 'Ya tienes todos los niveles sugeridos'
+        : fallos > 0 ? `${nuevos.length - fallos} de ${nuevos.length} niveles añadidos — reintenta los que faltan`
+          : `${nuevos.length} niveles añadidos`,
+    );
   }
-  function confirmarBorrar() {
+  async function confirmarBorrar() {
     if (!borrarId) return;
-    deleteLevelDefinition(borrarId);
+    const res = await deleteLevelDefinition(borrarId);
     setBorrarId(null);
-    showToast('Nivel eliminado');
+    showToast(res.ok ? 'Nivel eliminado' : res.error);
   }
 
   return (

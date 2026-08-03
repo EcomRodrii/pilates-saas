@@ -39,6 +39,8 @@ export function TabEstudioSedes({
       showToast(`Sede "${nuevaSede.nombre}" creada — ya aparece en "Tus sedes"`);
       setNuevaSede({ nombre: '', ciudad: '', telefono: '' });
       refrescarSedes();
+    } catch {
+      showToast('No se pudo conectar con el servidor. La sede no se ha creado.');
     } finally {
       setCreandoSede(false);
     }

@@ -47,19 +47,19 @@ export function TabRetos({ showToast }: { showToast: (m: string) => void }) {
     setEditId(c.id);
     setModal('editar');
   }
-  function guardar() {
+  async function guardar() {
     if (!form.nombre.trim() || form.objetivo <= 0) return;
     if (new Date(form.fechaFin) <= new Date(form.fechaInicio)) return;
-    if (modal === 'nuevo') addChallengeDefinition(form);
-    else if (editId) updateChallengeDefinition(editId, form);
+    const res = modal === 'nuevo' ? await addChallengeDefinition(form) : editId ? await updateChallengeDefinition(editId, form) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
     setModal(null);
     showToast(modal === 'nuevo' ? 'Reto creado' : 'Reto actualizado');
   }
-  function confirmarBorrar() {
+  async function confirmarBorrar() {
     if (!borrarId) return;
-    deleteChallengeDefinition(borrarId);
+    const res = await deleteChallengeDefinition(borrarId);
     setBorrarId(null);
-    showToast('Reto eliminado');
+    showToast(res.ok ? 'Reto eliminado' : res.error);
   }
 
   const metricLabel = (m: AchievementMetric) => ACHIEVEMENT_METRICS.find(x => x.metric === m)?.nombre ?? m;

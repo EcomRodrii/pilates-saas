@@ -55,22 +55,22 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
     showToast('Datos recargados');
   }, [resetDatosPilates, showToast]);
 
-  function guardarEstudio() {
+  async function guardarEstudio() {
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     const anio = form.anioFundacion.trim();
     if (anio && !/^\d{4}$/.test(anio)) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
     const { anioFundacion, descripcion, ...resto } = form;
-    updateStudio({
+    const res = await updateStudio({
       ...resto,
       descripcion: descripcion.trim() || null,
       anioFundacion: anio ? Number(anio) : null,
     });
-    showToast('Datos del estudio guardados');
+    showToast(res.ok ? 'Datos del estudio guardados' : res.error);
   }
 
-  function guardarIva(tipo: number) {
-    updateStudio({ ivaPorDefecto: tipo });
-    showToast(`IVA general fijado en ${tipo}%`);
+  async function guardarIva(tipo: number) {
+    const res = await updateStudio({ ivaPorDefecto: tipo });
+    showToast(res.ok ? `IVA general fijado en ${tipo}%` : res.error);
   }
 
   return (

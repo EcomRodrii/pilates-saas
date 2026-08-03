@@ -208,7 +208,13 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
         descripcion="Deja de generar reservas automáticas. Las reservas ya creadas no se tocan."
         textoConfirmar="Quitar"
         destructivo
-        onConfirm={() => { if (aBorrar) quitarPlazaFija(aBorrar.id); setABorrar(null); }}
+        onConfirm={async () => {
+          if (aBorrar) {
+            const res = await quitarPlazaFija(aBorrar.id);
+            if (!res.ok) { window.alert(res.error); return; }
+          }
+          setABorrar(null);
+        }}
       />
     </div>
   );

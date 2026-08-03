@@ -92,6 +92,7 @@ export function FlowBuilder({
     return [{ id: nuevoPasoId(), accion: 'EMAIL', config: {} }]
   })
   const [guardando, setGuardando] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
 
   function addPaso(accion: AccionFlujo) {
     setPasos(prev => [...prev, { id: nuevoPasoId(), accion, config: {} }])
@@ -116,9 +117,10 @@ export function FlowBuilder({
     })
   }
 
-  function guardar() {
+  async function guardar() {
     if (!nombre.trim() || pasos.length === 0) return
     setGuardando(true)
+    setErrorGuardar(null)
     const primerEmail = pasos.find(p => p.accion === 'EMAIL')
     const payload = {
       nombre: nombre.trim(),
@@ -129,9 +131,9 @@ export function FlowBuilder({
       activa: automatizacion?.activa ?? true,
       pasos,
     }
-    if (automatizacion) updateAutomatizacion(automatizacion.id, payload)
-    else addAutomatizacion(payload)
+    const res = automatizacion ? await updateAutomatizacion(automatizacion.id, payload) : await addAutomatizacion(payload)
     setGuardando(false)
+    if (!res.ok) { setErrorGuardar(res.error); return }
     onClose()
   }
 
@@ -251,6 +253,7 @@ export function FlowBuilder({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
+          {errorGuardar && <p className="text-sm text-destructive mr-auto">{errorGuardar}</p>}
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button onClick={guardar} disabled={!nombre.trim() || pasos.length === 0 || guardando} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-40 transition-colors font-medium">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}

@@ -551,15 +551,20 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     }
   }
 
-  function crearNuevoCobro() {
+  async function crearNuevoCobro() {
     const sus = suscripciones.find(s => s.socioId === nuevoForm.socioId && s.estado === 'ACTIVA');
-    addRecibo({
+    const res = await addRecibo({
       socioId: nuevoForm.socioId,
       suscripcionId: sus?.id ?? null,
       concepto: nuevoForm.concepto.trim(),
       importe: parseFloat(nuevoForm.importe),
       fechaVencimiento: nuevoForm.fechaVencimiento,
     });
+    // No hay canal de toast en este panel; se deja el modal abierto en vez de
+    // cerrarlo — antes se cerraba y limpiaba el formulario aunque la escritura
+    // hubiera fallado, y la propietaria no tenía forma de saber que el cobro
+    // nunca se guardó ni de reintentarlo sin rellenar todo otra vez.
+    if (!res.ok) { window.alert(res.error); return; }
     setShowNuevoCobro(false);
     setNuevoForm({
       socioId: socios[0]?.id ?? '',
@@ -945,7 +950,10 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           )}
                           {r.estado === 'DEVUELTO' && (
                             <button
-                              onClick={() => reintentar(r.id)}
+                              onClick={async () => {
+                                const res = await reintentar(r.id);
+                                if (!res.ok) window.alert(res.error);
+                              }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-info/10 text-brand-medio hover:bg-info/10 transition-colors"
                             >
                               <RefreshCw size={12} />
@@ -1667,11 +1675,11 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  if (confirmEliminar) {
-                    deleteRecibo(confirmEliminar);
-                    setConfirmEliminar(null);
-                  }
+                onClick={async () => {
+                  if (!confirmEliminar) return;
+                  const res = await deleteRecibo(confirmEliminar);
+                  setConfirmEliminar(null);
+                  if (!res.ok) window.alert(res.error);
                 }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-destructive hover:bg-red-700 transition-colors"
               >

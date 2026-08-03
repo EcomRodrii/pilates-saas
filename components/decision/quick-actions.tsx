@@ -8,7 +8,7 @@ import { buttonVariants } from '@/components/ui/button';
 // CONGELADO (feature-freeze PMF): se quitó el acceso "Nueva venta" → /pos.
 const ACCESOS = [
   { href: '/calendario', label: 'Nueva reserva', icon: CalendarPlus },
-  { href: '/clientas', label: 'Nueva clienta', icon: UserPlus },
+  { href: '/clientas?nuevo=1', label: 'Nueva clienta', icon: UserPlus },
   { href: '/cobros?tab=facturas', label: 'Nueva factura', icon: FileText },
   { href: '/calendario', label: 'Nueva clase', icon: Calendar },
 ];

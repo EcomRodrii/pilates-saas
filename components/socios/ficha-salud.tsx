@@ -372,7 +372,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
     setDialogOpen(true);
   }
 
-  function guardar(f: FormState) {
+  async function guardar(f: FormState) {
     const payload = {
       socioId,
       categoria: f.categoria,
@@ -387,11 +387,10 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
       notas: f.notas.trim() || null,
       creadoPor: null,
     };
-    if (editando) {
-      updateCondicion(editando.id, { ...payload, estado: editando.estado, fin: editando.fin });
-    } else {
-      addCondicion(payload);
-    }
+    const res = editando
+      ? await updateCondicion(editando.id, { ...payload, estado: editando.estado, fin: editando.fin })
+      : await addCondicion(payload);
+    if (!res.ok) { window.alert(res.error); return; }
     setDialogOpen(false);
     setEditando(null);
   }
@@ -468,7 +467,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
           {condiciones.map(c => (
             <CondicionCard key={c.id} c={c} now={now}
               onEdit={() => abrirEditar(c)}
-              onAlta={() => updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) })}
+              onAlta={async () => { const res = await updateCondicion(c.id, { estado: 'RESUELTA', fin: isoHoy(now) }); if (!res.ok) window.alert(res.error); }}
               onDelete={() => setABorrar(c)}
             />
           ))}
@@ -492,7 +491,13 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
         descripcion="Se borra de la línea de tiempo clínica de la clienta. No se puede deshacer."
         textoConfirmar="Eliminar"
         destructivo
-        onConfirm={() => { if (aBorrar) deleteCondicion(aBorrar.id); setABorrar(null); }}
+        onConfirm={async () => {
+          if (aBorrar) {
+            const res = await deleteCondicion(aBorrar.id);
+            if (!res.ok) { window.alert(res.error); return; }
+          }
+          setABorrar(null);
+        }}
       />
     </div>
   );

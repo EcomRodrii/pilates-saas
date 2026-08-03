@@ -436,22 +436,24 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     }
   }
 
-  function handleAddRecibo() {
-    addRecibo({
+  async function handleAddRecibo() {
+    const res = await addRecibo({
       socioId: id,
       suscripcionId: suscripcion?.id ?? null,
       concepto: reciboForm.concepto.trim(),
       importe: parseFloat(reciboForm.importe),
       fechaVencimiento: reciboForm.fechaVencimiento,
     });
+    if (!res.ok) { setToast(res.error); return; }
     setReciboForm({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
     setShowAddRecibo(false);
     setToast('Cobro creado');
   }
 
-  function handleAddNota() {
+  async function handleAddNota() {
     if (!notaText.trim()) return;
-    addNota(id, notaText);
+    const res = await addNota(id, notaText);
+    if (!res.ok) { setToast(res.error); return; }
     setNotaText('');
   }
 
@@ -668,14 +670,20 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           <div className="mt-4 flex gap-2">
                             {suscripcion.estado === 'ACTIVA' ? (
                               <button
-                                onClick={() => pausarSuscripcion(suscripcion.id)}
+                                onClick={async () => {
+                                  const res = await pausarSuscripcion(suscripcion.id);
+                                  if (!res.ok) setToast(res.error);
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border hover:bg-muted transition-colors text-muted-foreground"
                               >
                                 <Pause size={12} />Pausar
                               </button>
                             ) : (
                               <button
-                                onClick={() => reanudarSuscripcion(suscripcion.id)}
+                                onClick={async () => {
+                                  const res = await reanudarSuscripcion(suscripcion.id);
+                                  if (!res.ok) setToast(res.error);
+                                }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
                                 style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                               >
@@ -834,7 +842,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               <p className="text-sm mt-0.5" style={{ color: nota.tipo === 'SISTEMA' ? 'var(--muted-foreground)' : 'var(--foreground)' }}>{nota.texto}</p>
                             </div>
                             {nota.tipo === 'NOTA' && (
-                              <button onClick={() => deleteNota(nota.id)} aria-label="Eliminar nota" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/10 transition-colors mt-0.5">
+                              <button onClick={async () => { const res = await deleteNota(nota.id); if (!res.ok) setToast(res.error); }} aria-label="Eliminar nota" className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/10 transition-colors mt-0.5">
                                 <X size={11} className="text-red-400" />
                               </button>
                             )}
@@ -1274,7 +1282,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   return (
                     <span key={tag} className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: style.bg, color: style.text }}>
                       {tag}
-                      <button onClick={() => removeTagSocio(id, tag)} aria-label={`Quitar etiqueta ${tag}`} className="hover:opacity-60 transition-opacity">
+                      <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToast(res.error); }} aria-label={`Quitar etiqueta ${tag}`} className="hover:opacity-60 transition-opacity">
                         <X size={9} />
                       </button>
                     </span>
@@ -1445,7 +1453,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             {tagsDisponibles.map(t => (
               <button
                 key={t.label}
-                onClick={() => { addTagSocio(id, t.label); setShowAddTag(false); }}
+                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToast(res.error); return; } setShowAddTag(false); }}
                 className="px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105"
                 style={{ backgroundColor: t.bg, color: t.text }}
               >

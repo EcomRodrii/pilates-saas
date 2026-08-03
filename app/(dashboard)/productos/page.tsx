@@ -306,29 +306,26 @@ export default function Productos() {
   // Count active suscripciones per plan
   const susCount = (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length;
 
-  function savePlan(f: FormularioPlan) {
+  async function savePlan(f: FormularioPlan) {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con el formulario de Configuración.
     const datos = formularioAPlan(f);
     const editando = planModal && planModal !== 'new';
-    if (editando) updatePlan(planModal.id, datos);
-    else addPlan(datos);
+    const res = editando ? await updatePlan(planModal.id, datos) : await addPlan(datos);
+    if (!res.ok) { setAviso(res.error); return; }
     setPlanModal(null);
     setAviso(editando ? 'Tarifa actualizada' : `"${datos.nombre}" ya está a la venta`);
   }
 
-  function savePos(d: { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean }) {
+  async function savePos(d: { nombre: string; precio: string; categoria: ProductoPOS['categoria']; activo: boolean }) {
     const fields = {
       nombre: d.nombre.trim(),
       precio: parseFloat(d.precio) || 0,
       categoria: d.categoria,
       activo: d.activo,
     };
-    if (posModal && posModal !== 'new') {
-      updateProductoPOS(posModal.id, fields);
-    } else {
-      addProductoPOS(fields);
-    }
+    const res = posModal && posModal !== 'new' ? await updateProductoPOS(posModal.id, fields) : await addProductoPOS(fields);
+    if (!res.ok) { setAviso(res.error); return; }
     setPosModal(null);
   }
 
@@ -567,8 +564,11 @@ export default function Productos() {
               : `"${borrando.nombre}" dejará de estar a la venta. No la tiene contratada nadie.`)
           : ''}
         textoConfirmar="Eliminar"
-        onConfirm={() => {
-          if (borrando) { deletePlan(borrando.id); setAviso(`"${borrando.nombre}" ya no está a la venta`); }
+        onConfirm={async () => {
+          if (borrando) {
+            const res = await deletePlan(borrando.id);
+            setAviso(res.ok ? `"${borrando.nombre}" ya no está a la venta` : res.error);
+          }
           setBorrando(null);
         }}
       />
@@ -583,7 +583,11 @@ export default function Productos() {
           initial={posModal !== 'new' ? posModal : undefined}
           onSave={savePos}
           onClose={() => setPosModal(null)}
-          onDelete={posModal !== 'new' && posModal ? () => { deleteProductoPOS(posModal.id); setPosModal(null); } : undefined}
+          onDelete={posModal !== 'new' && posModal ? async () => {
+            const res = await deleteProductoPOS(posModal.id);
+            if (!res.ok) { setAviso(res.error); return; }
+            setPosModal(null);
+          } : undefined}
         />
       )}
     </div>

@@ -426,9 +426,13 @@ export async function fetchPublicStudioData(
   });
 
   // Fuera del caché a propósito (ver comentario arriba): disponibilidad real.
+  // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
+  // 1000 filas — un estudio con histórico real perdía en silencio las
+  // sesiones futuras (incluida la semana siguiente) en el portal de la
+  // clienta, aunque el panel interno (fetchCriticalStudioData) sí paginaba.
   const [{ data: sesionesData }, { data: reservasAforo }] = await Promise.all([
-    admin.from('sesiones').select('*').eq('studio_id', studioId),
-    admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId),
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('*').eq('studio_id', studioId).range(from, to)),
+    fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
   const base = {
@@ -1012,7 +1016,12 @@ export async function crearReservaPublica(params: {
       admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
       admin.from('reservas').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId),
-      admin.from('sesiones').select('id, inicio').eq('studio_id', params.studioId),
+      // Solo futuras: contarReservasActivasFuturas() de abajo solo mira sesiones
+      // por venir. Sin este filtro, select('*') sin paginar traía TODO el
+      // histórico del estudio y PostgREST lo cortaba en 1000 filas — un estudio
+      // con meses de uso podía perder sesiones futuras del corte y contar mal
+      // el máximo de reservas simultáneas.
+      admin.from('sesiones').select('id, inicio').eq('studio_id', params.studioId).gte('inicio', new Date().toISOString()),
     ]);
     const hoyISO = new Date().toISOString().slice(0, 10);
     // El tipo de la clase importa: un bono acotado a Reformer no da derecho a

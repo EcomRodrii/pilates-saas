@@ -129,8 +129,8 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     const result = yo ? await subirFotoInstructor(yo.id, file) : await subirFotoAdmin(studio!.id, file);
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
-    if (yo) updateInstructor(yo.id, { fotoUrl: result.url });
-    else updateStudio({ fotoUrl: result.url });
+    const res = yo ? await updateInstructor(yo.id, { fotoUrl: result.url }) : await updateStudio({ fotoUrl: result.url });
+    if (!res.ok) { setErrorFoto(res.error); return; }
     showToast('Foto actualizada');
   }
 
@@ -140,8 +140,8 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     const result = yo ? await eliminarFotoInstructor(yo.id) : await eliminarFotoAdmin(studio!.id);
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
-    if (yo) updateInstructor(yo.id, { fotoUrl: null });
-    else updateStudio({ fotoUrl: null });
+    const res = yo ? await updateInstructor(yo.id, { fotoUrl: null }) : await updateStudio({ fotoUrl: null });
+    if (!res.ok) setErrorFoto(res.error);
   }
 
   const now = new Date();
@@ -157,15 +157,15 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   // useCallback: AvatarPicker está memoizado (memo) y se re-renderiza en cada
   // tecleo de los inputs de abajo (viven en el mismo componente que `form`) si
   // esta prop no es estable entre renders.
-  const onAvatarChange = useCallback((id: string | null) => {
-    if (yo) updateInstructor(yo.id, { avatar: id });
-    else updateAvatarAdmin(id);
-    showToast('Avatar actualizado');
+  const onAvatarChange = useCallback(async (id: string | null) => {
+    const res = yo ? await updateInstructor(yo.id, { avatar: id }) : await updateAvatarAdmin(id);
+    showToast(res.ok ? 'Avatar actualizado' : res.error);
   }, [yo, updateInstructor, updateAvatarAdmin, showToast]);
 
-  function guardar() {
+  async function guardar() {
     if (!yo) return;
-    updateInstructor(yo.id, { nombre: form.nombre.trim(), email: form.email.trim() || null, telefono: form.telefono.trim() || null });
+    const res = await updateInstructor(yo.id, { nombre: form.nombre.trim(), email: form.email.trim() || null, telefono: form.telefono.trim() || null });
+    if (!res.ok) { showToast(res.error); return; }
     setGuardado(true);
     showToast('Perfil actualizado');
     setTimeout(() => setGuardado(false), 2000);

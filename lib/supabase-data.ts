@@ -1638,13 +1638,12 @@ export async function dbFetchCamposPersonalizados(): Promise<CampoPersonalizado[
   return (data ?? []).map(r => mapCampoPersonalizado(r as RowCamposPersonalizados));
 }
 
-export async function dbInsertCampoPersonalizado(campo: CampoPersonalizado) {
+export async function dbInsertCampoPersonalizado(campo: CampoPersonalizado): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').insert(campoToDb(campo));
-  if (error) reportDbError('[dbInsertCampoPersonalizado]', error);
-  return !error;
+  return error ? falloEscritura('[dbInsertCampoPersonalizado]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<CampoPersonalizado>) {
+export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<CampoPersonalizado>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('etiqueta' in changes) db.etiqueta = changes.etiqueta;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -1653,12 +1652,12 @@ export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<Ca
   if ('orden' in changes) db.orden = changes.orden;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('campos_personalizados').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateCampoPersonalizado]', error);
+  return error ? falloEscritura('[dbUpdateCampoPersonalizado]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteCampoPersonalizado(id: string) {
+export async function dbDeleteCampoPersonalizado(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteCampoPersonalizado]', error);
+  return error ? falloEscritura('[dbDeleteCampoPersonalizado]', error) : ESCRITURA_OK;
 }
 
 // ── Riesgo de concentración por instructor ──────────────────────────────────
@@ -1708,7 +1707,7 @@ export async function dbFetchPlantillasEmail(): Promise<PlantillaEmail[]> {
 }
 
 // Upsert por (studio_id, tipo): un override por estudio y tipo de email.
-export async function dbUpsertPlantillaEmail(p: PlantillaEmail) {
+export async function dbUpsertPlantillaEmail(p: PlantillaEmail): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('plantillas_email').upsert({
     id: p.id,
     studio_id: p.studioId ?? STUDIO_ID,
@@ -1718,7 +1717,7 @@ export async function dbUpsertPlantillaEmail(p: PlantillaEmail) {
     activa: p.activa,
     actualizado_en: new Date().toISOString(),
   }, { onConflict: 'studio_id,tipo' });
-  if (error) reportDbError('[dbUpsertPlantillaEmail]', error);
+  return error ? falloEscritura('[dbUpsertPlantillaEmail]', error) : ESCRITURA_OK;
 }
 
 // ── Comentarios de Comunidad ────────────────────────────────────────────────
@@ -1773,13 +1772,14 @@ async function sincronizarTiposDePlan(planId: string, studioId: string, tipos: s
   if (error) reportDbError('[sincronizarTiposDePlan:insert]', error);
 }
 
-export async function dbInsertPlanTarifa(plan: PlanTarifa) {
+export async function dbInsertPlanTarifa(plan: PlanTarifa): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('planes_tarifa').insert(planTarifaToDb(plan));
-  if (error) { reportDbError('[dbInsertPlanTarifa]', error); return; }
+  if (error) return falloEscritura('[dbInsertPlanTarifa]', error);
   await sincronizarTiposDePlan(plan.id, plan.studioId ?? STUDIO_ID, plan.tiposClaseIds);
+  return ESCRITURA_OK;
 }
 
-export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>) {
+export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
@@ -1790,16 +1790,17 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   if ('limiteSemanal' in changes) db.limite_semanal = changes.limiteSemanal;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('planes_tarifa').update(db).eq('id', id);
-  if (error) { reportDbError('[dbUpdatePlanTarifa]', error); return; }
+  if (error) return falloEscritura('[dbUpdatePlanTarifa]', error);
   if ('tiposClaseIds' in changes) {
     const { data: fila } = await supabase.from('planes_tarifa').select('studio_id').eq('id', id).maybeSingle();
     if (fila?.studio_id) await sincronizarTiposDePlan(id, fila.studio_id as string, changes.tiposClaseIds);
   }
+  return ESCRITURA_OK;
 }
 
-export async function dbDeletePlanTarifa(id: string) {
+export async function dbDeletePlanTarifa(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('planes_tarifa').delete().eq('id', id);
-  if (error) reportDbError('[dbDeletePlanTarifa]', error);
+  return error ? falloEscritura('[dbDeletePlanTarifa]', error) : ESCRITURA_OK;
 }
 
 // ─── Citas: catálogo de servicios (0046) — escritura del panel (anon + RLS) ───
@@ -1820,12 +1821,12 @@ function servicioCitaToDb(s: ServicioCita) {
   };
 }
 
-export async function dbInsertServicioCita(s: ServicioCita) {
+export async function dbInsertServicioCita(s: ServicioCita): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas_servicios').insert(servicioCitaToDb(s));
-  if (error) reportDbError('[dbInsertServicioCita]', error);
+  return error ? falloEscritura('[dbInsertServicioCita]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateServicioCita(id: string, changes: Partial<ServicioCita>) {
+export async function dbUpdateServicioCita(id: string, changes: Partial<ServicioCita>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -1837,12 +1838,12 @@ export async function dbUpdateServicioCita(id: string, changes: Partial<Servicio
   if ('activo' in changes) db.activo = changes.activo;
   if ('orden' in changes) db.orden = changes.orden;
   const { error } = await supabase.from('citas_servicios').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateServicioCita]', error);
+  return error ? falloEscritura('[dbUpdateServicioCita]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteServicioCita(id: string) {
+export async function dbDeleteServicioCita(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas_servicios').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteServicioCita]', error);
+  return error ? falloEscritura('[dbDeleteServicioCita]', error) : ESCRITURA_OK;
 }
 
 // ─── Citas: horario fino por instructora (0046) — reemplazo atómico de franjas ─
@@ -1850,11 +1851,11 @@ export async function dbDeleteServicioCita(id: string) {
 // suyas y reinsertamos las nuevas. Scopeado por studio+instructor (RLS refuerza).
 export async function dbReplaceDisponibilidadCitas(
   studioId: string, instructorId: string, franjas: DisponibilidadCita[],
-) {
+): Promise<ResultadoEscritura> {
   const { error: delErr } = await supabase.from('citas_disponibilidad')
     .delete().eq('studio_id', studioId).eq('instructor_id', instructorId);
-  if (delErr) { reportDbError('[dbReplaceDisponibilidadCitas:del]', delErr); return; }
-  if (franjas.length === 0) return;
+  if (delErr) return falloEscritura('[dbReplaceDisponibilidadCitas:del]', delErr);
+  if (franjas.length === 0) return ESCRITURA_OK;
   const rows = franjas.map((f) => ({
     id: f.id,
     studio_id: f.studioId ?? studioId,
@@ -1865,11 +1866,11 @@ export async function dbReplaceDisponibilidadCitas(
     creado_en: f.creadoEn || new Date().toISOString(),
   }));
   const { error: insErr } = await supabase.from('citas_disponibilidad').insert(rows);
-  if (insErr) reportDbError('[dbReplaceDisponibilidadCitas:ins]', insErr);
+  return insErr ? falloEscritura('[dbReplaceDisponibilidadCitas:ins]', insErr) : ESCRITURA_OK;
 }
 
 // ── Productos POS ──────────────────────────────────────────────────────────────
-export async function dbInsertProductoPOS(prod: ProductoPOS) {
+export async function dbInsertProductoPOS(prod: ProductoPOS): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('productos_pos').insert({
     id: prod.id,
     studio_id: prod.studioId ?? STUDIO_ID,
@@ -1878,20 +1879,20 @@ export async function dbInsertProductoPOS(prod: ProductoPOS) {
     precio: prod.precio,
     activo: prod.activo,
   });
-  if (error) reportDbError('[dbInsertProductoPOS]', error);
+  return error ? falloEscritura('[dbInsertProductoPOS]', error) : ESCRITURA_OK;
 }
-export async function dbUpdateProductoPOS(id: string, changes: Partial<ProductoPOS>) {
+export async function dbUpdateProductoPOS(id: string, changes: Partial<ProductoPOS>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('categoria' in changes) db.categoria = changes.categoria;
   if ('precio' in changes) db.precio = changes.precio;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('productos_pos').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateProductoPOS]', error);
+  return error ? falloEscritura('[dbUpdateProductoPOS]', error) : ESCRITURA_OK;
 }
-export async function dbDeleteProductoPOS(id: string) {
+export async function dbDeleteProductoPOS(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('productos_pos').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteProductoPOS]', error);
+  return error ? falloEscritura('[dbDeleteProductoPOS]', error) : ESCRITURA_OK;
 }
 
 // B0.2: reintento acotado ante una violación de FK TRANSITORIA (23503). El alta
@@ -1935,25 +1936,32 @@ export async function dbUpdateSuscripcion(id: string, changes: Partial<Suscripci
 }
 
 // F2 (B2.8): congelar = ventana + estado PAUSADA, atómico en el servidor.
-export async function dbCongelarSuscripcion(susId: string, studioId: string, motivo: string | null) {
+export async function dbCongelarSuscripcion(susId: string, studioId: string, motivo: string | null): Promise<ResultadoEscritura> {
   const { error } = await supabase.rpc('congelar_suscripcion', {
     p_id: `cong-${uid()}`,
     p_suscripcion_id: susId,
     p_studio_id: studioId,
     p_motivo: motivo,
   });
-  if (error) reportDbError('[dbCongelarSuscripcion]', error);
+  return error ? falloEscritura('[dbCongelarSuscripcion]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.8): descongelar = cierra ventana + empuja fecha_fin + ACTIVA. Devuelve
-// la nueva fecha_fin (o null) para repintar sin recargar.
-export async function dbDescongelarSuscripcion(susId: string, studioId: string): Promise<string | null> {
+// la nueva fecha_fin junto con el resultado — antes colapsaba "sin fecha porque
+// no aplica" y "falló la RPC" en el mismo `null`, así que quien llamaba nunca
+// podía deshacer el estado ACTIVA optimista si la RPC fallaba de verdad.
+export async function dbDescongelarSuscripcion(
+  susId: string, studioId: string,
+): Promise<{ ok: true; fechaFin: string | null } | { ok: false; error: string }> {
   const { data, error } = await supabase.rpc('descongelar_suscripcion', {
     p_suscripcion_id: susId,
     p_studio_id: studioId,
   });
-  if (error) { reportDbError('[dbDescongelarSuscripcion]', error); return null; }
-  return (data as string | null) ?? null;
+  if (error) {
+    reportDbError('[dbDescongelarSuscripcion]', error);
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  return { ok: true, fechaFin: (data as string | null) ?? null };
 }
 
 // F2 (B2.7): averías de máquina. Carga las del estudio (recientes/abiertas).
@@ -1965,15 +1973,15 @@ export async function dbListBloqueosMaquina(studioId: string): Promise<BloqueoMa
   return (data ?? []).map(mapBloqueoMaquina);
 }
 
-export async function dbInsertBloqueoMaquina(b: BloqueoMaquina) {
+export async function dbInsertBloqueoMaquina(b: BloqueoMaquina): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('bloqueos_maquina').insert(bloqueoMaquinaToDb(b));
-  if (error) reportDbError('[dbInsertBloqueoMaquina]', error);
+  return error ? falloEscritura('[dbInsertBloqueoMaquina]', error) : ESCRITURA_OK;
 }
 
 // Cerrar una avería = fijar `hasta` (por defecto ahora → la máquina vuelve al aforo).
-export async function dbCerrarBloqueoMaquina(id: string, hastaISO: string) {
+export async function dbCerrarBloqueoMaquina(id: string, hastaISO: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('bloqueos_maquina').update({ hasta: hastaISO }).eq('id', id);
-  if (error) reportDbError('[dbCerrarBloqueoMaquina]', error);
+  return error ? falloEscritura('[dbCerrarBloqueoMaquina]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.2): plazas fijas. Capa de datos (la materialización + UI llegan en 4b/4c).
@@ -1998,7 +2006,7 @@ export async function dbInsertPlazaFija(p: PlazaFija): Promise<{ ok: true } | { 
   return { ok: true };
 }
 
-export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>) {
+export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('diaSemana' in changes) db.dia_semana = changes.diaSemana;
   if ('horaInicio' in changes) db.hora_inicio = changes.horaInicio;
@@ -2009,7 +2017,7 @@ export async function dbUpdatePlazaFija(id: string, changes: Partial<PlazaFija>)
   if ('vigenciaHasta' in changes) db.vigencia_hasta = changes.vigenciaHasta;
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('plazas_fijas').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdatePlazaFija]', error);
+  return error ? falloEscritura('[dbUpdatePlazaFija]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.3): recuperaciones. La caducidad + el tope (4) los resuelve la RPC.
@@ -2035,9 +2043,9 @@ export async function dbListRecuperaciones(studioId: string): Promise<Recuperaci
   return (data ?? []).map(mapRecuperacion);
 }
 
-export async function dbAnularRecuperacion(id: string) {
+export async function dbAnularRecuperacion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('recuperaciones').update({ estado: 'ANULADA' }).eq('id', id);
-  if (error) reportDbError('[dbAnularRecuperacion]', error);
+  return error ? falloEscritura('[dbAnularRecuperacion]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.9): excepciones por socia. El toggle = poner (upsert) / quitar (delete).
@@ -2052,18 +2060,18 @@ export function mapSocioExcepcion(r: RowSocioExcepciones): SocioExcepcion {
   };
 }
 
-export async function dbPonerExcepcion(studioId: string, socioId: string, tipo: string, motivo: string | null) {
+export async function dbPonerExcepcion(studioId: string, socioId: string, tipo: string, motivo: string | null): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('socio_excepciones').upsert(
     { id: `exc-${uid()}`, studio_id: studioId, socio_id: socioId, tipo, motivo },
     { onConflict: 'studio_id,socio_id,tipo' },
   );
-  if (error) reportDbError('[dbPonerExcepcion]', error);
+  return error ? falloEscritura('[dbPonerExcepcion]', error) : ESCRITURA_OK;
 }
 
-export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo: string) {
+export async function dbQuitarExcepcion(studioId: string, socioId: string, tipo: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('socio_excepciones')
     .delete().eq('studio_id', studioId).eq('socio_id', socioId).eq('tipo', tipo);
-  if (error) reportDbError('[dbQuitarExcepcion]', error);
+  return error ? falloEscritura('[dbQuitarExcepcion]', error) : ESCRITURA_OK;
 }
 
 // F2 (B2.10): mandatos SEPA (cuaderno 19.14). El toggle es upsert por (studio,socio).
@@ -2075,17 +2083,17 @@ export function mapMandatoSepa(r: RowMandatosSepa): MandatoSEPA {
   };
 }
 
-export async function dbUpsertMandatoSepa(m: MandatoSEPA) {
+export async function dbUpsertMandatoSepa(m: MandatoSEPA): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('mandatos_sepa').upsert({
     id: m.id, studio_id: m.studioId, socio_id: m.socioId, iban: m.iban,
     ref_mandato: m.refMandato, fecha_firma: m.fechaFirma, estado: m.estado,
   }, { onConflict: 'id' });
-  if (error) reportDbError('[dbUpsertMandatoSepa]', error);
+  return error ? falloEscritura('[dbUpsertMandatoSepa]', error) : ESCRITURA_OK;
 }
 
-export async function dbCancelarMandatoSepa(id: string) {
+export async function dbCancelarMandatoSepa(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('mandatos_sepa').update({ estado: 'CANCELADO' }).eq('id', id);
-  if (error) reportDbError('[dbCancelarMandatoSepa]', error);
+  return error ? falloEscritura('[dbCancelarMandatoSepa]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertSesion(ses: Sesion): Promise<ResultadoEscritura> {
@@ -2172,9 +2180,9 @@ export async function dbUpdateSerieDesde(
   return error ? falloEscritura('[dbUpdateSerieDesde]', error) : { ...ESCRITURA_OK, count: data as number };
 }
 
-export async function dbDeleteSesion(id: string) {
+export async function dbDeleteSesion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('sesiones').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteSesion]', error);
+  return error ? falloEscritura('[dbDeleteSesion]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertReserva(res: Reserva) {
@@ -2256,7 +2264,7 @@ export async function dbCancelarReservasPorSesiones(sesionIds: string[]): Promis
   return { ok: true, ids: (data ?? []).map(r => r.id as string) };
 }
 
-export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
+export async function dbUpdateReserva(id: string, changes: Partial<Reserva>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('sesionId' in changes) db.sesion_id = changes.sesionId;
   if ('socioId' in changes) db.socio_id = changes.socioId;
@@ -2265,7 +2273,7 @@ export async function dbUpdateReserva(id: string, changes: Partial<Reserva>) {
   if ('posicionEspera' in changes) db.posicion_espera = changes.posicionEspera;
   if ('checkInEn' in changes) db.check_in_en = changes.checkInEn;
   const { error } = await supabase.from('reservas').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateReserva]', error);
+  return error ? falloEscritura('[dbUpdateReserva]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertRecibo(rec: Recibo): Promise<ResultadoEscritura> {
@@ -2358,9 +2366,9 @@ export async function dbUpdateRecibosBatch(
   return { ...ESCRITURA_OK, idsActualizados: (data ?? []).map(r => r.id as string) };
 }
 
-export async function dbDeleteRecibo(id: string) {
+export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('recibos').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteRecibo]', error);
+  return error ? falloEscritura('[dbDeleteRecibo]', error) : ESCRITURA_OK;
 }
 
 // NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
@@ -2387,9 +2395,9 @@ export async function dbUpdateCita(id: string, changes: Partial<Cita>): Promise<
   return error ? falloEscritura('[dbUpdateCita]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertVentaPOS(venta: VentaPOS) {
+export async function dbInsertVentaPOS(venta: VentaPOS): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('ventas_pos').insert(ventaPOSToDb(venta));
-  if (error) reportDbError('[dbInsertVentaPOS]', error);
+  return error ? falloEscritura('[dbInsertVentaPOS]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertActividadReciente(act: ActividadReciente) {
@@ -2687,16 +2695,16 @@ export async function dbRecibosCobradosParaExport(
   return out;
 }
 
-export async function dbInsertRewardCatalogItem(c: RewardCatalogItem) {
+export async function dbInsertRewardCatalogItem(c: RewardCatalogItem): Promise<ResultadoEscritura> {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     coste_creditos: c.costeCreditos, icono: c.icono, activo: c.activo, stock: c.stock ?? null, creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('reward_catalog').insert(row);
-  if (error) reportDbError('[dbInsertRewardCatalogItem]', error);
+  return error ? falloEscritura('[dbInsertRewardCatalogItem]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<RewardCatalogItem>) {
+export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<RewardCatalogItem>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
@@ -2705,12 +2713,12 @@ export async function dbUpdateRewardCatalogItem(id: string, changes: Partial<Rew
   if ('activo' in changes) db.activo = changes.activo;
   if ('stock' in changes) db.stock = changes.stock;
   const { error } = await supabase.from('reward_catalog').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateRewardCatalogItem]', error);
+  return error ? falloEscritura('[dbUpdateRewardCatalogItem]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteRewardCatalogItem(id: string) {
+export async function dbDeleteRewardCatalogItem(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('reward_catalog').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteRewardCatalogItem]', error);
+  return error ? falloEscritura('[dbDeleteRewardCatalogItem]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertRewardRedemption(r: RewardRedemption) {
@@ -2722,26 +2730,26 @@ export async function dbInsertRewardRedemption(r: RewardRedemption) {
   if (error) reportDbError('[dbInsertRewardRedemption]', error);
 }
 
-export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>) {
+export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('estado' in changes) db.estado = changes.estado;
   const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateRewardRedemption]', error);
+  return error ? falloEscritura('[dbUpdateRewardRedemption]', error) : ESCRITURA_OK;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
 
-export async function dbInsertAchievementDefinition(a: AchievementDefinition) {
+export async function dbInsertAchievementDefinition(a: AchievementDefinition): Promise<ResultadoEscritura> {
   const row = {
     id: a.id, studio_id: a.studioId ?? STUDIO_ID, metric: a.metric, nombre: a.nombre,
     descripcion: a.descripcion ?? null, umbral: a.umbral, icono: a.icono,
     creditos_recompensa: a.creditosRecompensa, activo: a.activo, creado_en: a.creadoEn,
   };
   const { error } = await supabase.from('achievement_definitions').insert(row);
-  if (error) reportDbError('[dbInsertAchievementDefinition]', error);
+  return error ? falloEscritura('[dbInsertAchievementDefinition]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateAchievementDefinition(id: string, changes: Partial<AchievementDefinition>) {
+export async function dbUpdateAchievementDefinition(id: string, changes: Partial<AchievementDefinition>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
@@ -2750,7 +2758,7 @@ export async function dbUpdateAchievementDefinition(id: string, changes: Partial
   if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('achievement_definitions').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateAchievementDefinition]', error);
+  return error ? falloEscritura('[dbUpdateAchievementDefinition]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpsertAchievementProgress(p: AchievementProgress) {
@@ -2784,17 +2792,17 @@ export async function dbInsertSoporteSolicitud(s: { id: string; tipo: string; me
   if (error) reportDbError('[dbInsertSoporteSolicitud]', error);
 }
 
-export async function dbInsertLevelDefinition(l: LevelDefinition) {
+export async function dbInsertLevelDefinition(l: LevelDefinition): Promise<ResultadoEscritura> {
   const row = {
     id: l.id, studio_id: l.studioId ?? STUDIO_ID, nombre: l.nombre, orden: l.orden,
     umbral_creditos: l.umbralCreditos, color: l.color, icono: l.icono,
     beneficios: l.beneficios ?? null, activo: l.activo, creado_en: l.creadoEn,
   };
   const { error } = await supabase.from('level_definitions').insert(row);
-  if (error) reportDbError('[dbInsertLevelDefinition]', error);
+  return error ? falloEscritura('[dbInsertLevelDefinition]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateLevelDefinition(id: string, changes: Partial<LevelDefinition>) {
+export async function dbUpdateLevelDefinition(id: string, changes: Partial<LevelDefinition>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('orden' in changes) db.orden = changes.orden;
@@ -2804,27 +2812,27 @@ export async function dbUpdateLevelDefinition(id: string, changes: Partial<Level
   if ('beneficios' in changes) db.beneficios = changes.beneficios;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('level_definitions').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateLevelDefinition]', error);
+  return error ? falloEscritura('[dbUpdateLevelDefinition]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteLevelDefinition(id: string) {
+export async function dbDeleteLevelDefinition(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('level_definitions').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteLevelDefinition]', error);
+  return error ? falloEscritura('[dbDeleteLevelDefinition]', error) : ESCRITURA_OK;
 }
 
 // ─── Gamificación: retos ────────────────────────────────────────────────────────
 
-export async function dbInsertChallengeDefinition(c: ChallengeDefinition) {
+export async function dbInsertChallengeDefinition(c: ChallengeDefinition): Promise<ResultadoEscritura> {
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
     creditos_recompensa: c.creditosRecompensa, activo: c.activo, creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('challenge_definitions').insert(row);
-  if (error) reportDbError('[dbInsertChallengeDefinition]', error);
+  return error ? falloEscritura('[dbInsertChallengeDefinition]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateChallengeDefinition(id: string, changes: Partial<ChallengeDefinition>) {
+export async function dbUpdateChallengeDefinition(id: string, changes: Partial<ChallengeDefinition>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
@@ -2836,12 +2844,12 @@ export async function dbUpdateChallengeDefinition(id: string, changes: Partial<C
   if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
   if ('activo' in changes) db.activo = changes.activo;
   const { error } = await supabase.from('challenge_definitions').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateChallengeDefinition]', error);
+  return error ? falloEscritura('[dbUpdateChallengeDefinition]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteChallengeDefinition(id: string) {
+export async function dbDeleteChallengeDefinition(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('challenge_definitions').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteChallengeDefinition]', error);
+  return error ? falloEscritura('[dbDeleteChallengeDefinition]', error) : ESCRITURA_OK;
 }
 
 export async function dbUpsertChallengeProgress(p: ChallengeProgress) {
@@ -2905,7 +2913,7 @@ export async function dbInsertAutomationLog(log: AutomationLog) {
 // cola durable (Inngest): si un step se reintenta tras un fallo transitorio, el
 // log se reescribe en vez de duplicarse. Requiere un id DETERMINISTA por
 // candidato (no uid() aleatorio) para que el on-conflict funcione.
-export async function dbInsertAutomationRule(r: AutomationRule) {
+export async function dbInsertAutomationRule(r: AutomationRule): Promise<ResultadoEscritura> {
   const row = {
     id: r.id, studio_id: r.studioId ?? STUDIO_ID, nombre: r.nombre, descripcion: r.descripcion,
     icono: r.icono, trigger: r.trigger, condicion: r.condicion ?? {}, pasos: r.pasos ?? [],
@@ -2913,7 +2921,7 @@ export async function dbInsertAutomationRule(r: AutomationRule) {
     creada_en: r.creadaEn,
   };
   const { error } = await supabase.from('automation_rules').insert(row);
-  if (error) reportDbError('[dbInsertAutomationRule]', error);
+  return error ? falloEscritura('[dbInsertAutomationRule]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertNotaProgreso(nota: NotaProgreso): Promise<ResultadoEscritura> {
@@ -2951,19 +2959,19 @@ export async function dbDeleteCodigoDescuento(id: string) {
   if (error) reportDbError('[dbDeleteCodigoDescuento]', error);
 }
 
-export async function dbInsertNotaInterna(nota: NotaInterna) {
+export async function dbInsertNotaInterna(nota: NotaInterna): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('notas_internas').insert(notaInternaToDb(nota));
-  if (error) reportDbError('[dbInsertNotaInterna]', error);
+  return error ? falloEscritura('[dbInsertNotaInterna]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteNotaInterna(id: string) {
+export async function dbDeleteNotaInterna(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('notas_internas').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteNotaInterna]', error);
+  return error ? falloEscritura('[dbDeleteNotaInterna]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertCondicion(c: CondicionSalud) {
+export async function dbInsertCondicion(c: CondicionSalud): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('condiciones_salud').insert(condicionSaludToDb(c));
-  if (error) reportDbError('[dbInsertCondicion]', error);
+  return error ? falloEscritura('[dbInsertCondicion]', error) : ESCRITURA_OK;
 }
 
 // Auditoría de LECTURA de la ficha de salud (RGPD art. 5.2/24, trazabilidad de
@@ -2984,7 +2992,7 @@ export async function dbRegistrarLecturaFichaSalud(p: {
   if (error) console.error('[dbRegistrarLecturaFichaSalud]', error);
 }
 
-export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSalud>) {
+export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSalud>): Promise<ResultadoEscritura> {
   const parcial = condicionSaludToDb({ id, ...changes } as CondicionSalud);
   // Solo enviamos las columnas realmente presentes en `changes` (+ actualizado_en).
   const patch: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
@@ -2998,12 +3006,12 @@ export async function dbUpdateCondicion(id: string, changes: Partial<CondicionSa
     patch[clave[k]] = (parcial as Record<string, unknown>)[clave[k]];
   }
   const { error } = await supabase.from('condiciones_salud').update(patch).eq('id', id);
-  if (error) reportDbError('[dbUpdateCondicion]', error);
+  return error ? falloEscritura('[dbUpdateCondicion]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteCondicion(id: string) {
+export async function dbDeleteCondicion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('condiciones_salud').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteCondicion]', error);
+  return error ? falloEscritura('[dbDeleteCondicion]', error) : ESCRITURA_OK;
 }
 
 // RECEPCIÓN ve el semáforo de salud (solo el color) pero la RLS de
@@ -3021,22 +3029,22 @@ export async function dbSemaforoSaludEstudio(studioId: string): Promise<Map<stri
   return m;
 }
 
-export async function dbInsertRespuestaSesion(r: RespuestaSesionRow) {
+export async function dbInsertRespuestaSesion(r: RespuestaSesionRow): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('respuestas_sesion').insert(respuestaSesionToDb(r));
-  if (error) reportDbError('[dbInsertRespuestaSesion]', error);
+  return error ? falloEscritura('[dbInsertRespuestaSesion]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateRespuestaSesion(id: string, changes: Partial<Pick<RespuestaSesionRow, 'respuesta' | 'nota'>>) {
+export async function dbUpdateRespuestaSesion(id: string, changes: Partial<Pick<RespuestaSesionRow, 'respuesta' | 'nota'>>): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('respuestas_sesion').update(changes).eq('id', id);
-  if (error) reportDbError('[dbUpdateRespuestaSesion]', error);
+  return error ? falloEscritura('[dbUpdateRespuestaSesion]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertCampana(c: Campana) {
+export async function dbInsertCampana(c: Campana): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campanas').insert(campanaToDb(c));
-  if (error) reportDbError('[dbInsertCampana]', error);
+  return error ? falloEscritura('[dbInsertCampana]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
+export async function dbUpdateCampana(id: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -3053,22 +3061,22 @@ export async function dbUpdateCampana(id: string, changes: Partial<Campana>) {
   if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
   if ('publicaciones' in changes) db.publicaciones = changes.publicaciones;
   const { error } = await supabase.from('campanas').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateCampana]', error);
+  return error ? falloEscritura('[dbUpdateCampana]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteCampana(id: string) {
+export async function dbDeleteCampana(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campanas').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteCampana]', error);
+  return error ? falloEscritura('[dbDeleteCampana]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertAutomatizacion(a: Automatizacion) {
+export async function dbInsertAutomatizacion(a: Automatizacion): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('automatizaciones').insert(automatizacionToDb(a));
-  if (error) reportDbError('[dbInsertAutomatizacion]', error);
+  return error ? falloEscritura('[dbInsertAutomatizacion]', error) : ESCRITURA_OK;
 }
 
-export async function dbDeleteAutomatizacion(id: string) {
+export async function dbDeleteAutomatizacion(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('automatizaciones').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteAutomatizacion]', error);
+  return error ? falloEscritura('[dbDeleteAutomatizacion]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertVideoOnDemand(v: VideoOnDemand) {
@@ -3175,7 +3183,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>) {
+export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('color' in changes) db.color = changes.color;
@@ -3193,7 +3201,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateTipoClase]', error);
+  return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }
 
 export async function dbDeleteTipoClase(id: string): Promise<ResultadoEscritura> {
@@ -3355,16 +3363,20 @@ export async function dbInsertInstructor(i: Instructor): Promise<ResultadoEscrit
   }
 }
 
-export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>) {
+export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>): Promise<ResultadoEscritura> {
   try {
     const res = await fetch('/api/equipo', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ id, changes }),
     });
-    if (!res.ok) reportDbError('[dbUpdateInstructor]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) {
+      const cuerpo = await res.json().catch(() => ({ status: res.status }));
+      return falloEscritura('[dbUpdateInstructor]', cuerpo);
+    }
+    return ESCRITURA_OK;
   } catch (e) {
-    reportDbError('[dbUpdateInstructor]', e);
+    return falloEscritura('[dbUpdateInstructor]', e);
   }
 }
 
@@ -3411,7 +3423,7 @@ export async function dbUpdateStudioConfig(changes: { politicaPrivacidad?: strin
   return error ? falloEscritura('[dbUpdateStudioConfig]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateStudio(changes: Partial<Studio>) {
+export async function dbUpdateStudio(changes: Partial<Studio>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('nif' in changes) db.nif = changes.nif;
@@ -3430,6 +3442,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('depVentanaDias' in changes) db.dep_ventana_dias = changes.depVentanaDias;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
   if ('cancelacionDevolverBonoTardia' in changes) db.cancelacion_devolver_bono_tardia = changes.cancelacionDevolverBonoTardia;
   if ('reservaExigirPlan' in changes) db.reserva_exigir_plan = changes.reservaExigirPlan;
@@ -3464,7 +3478,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>) {
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
-  if (error) reportDbError('[dbUpdateStudio]', error);
+  return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
 
 // Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
@@ -3610,16 +3624,20 @@ export async function dbUpdateStudioAvatar(avatarId: string | null) {
   return dbUpdateStudio({ avatarAdmin: avatarId });
 }
 
-export async function dbDeleteInstructor(id: string) {
+export async function dbDeleteInstructor(id: string): Promise<ResultadoEscritura> {
   try {
     const res = await fetch('/api/equipo', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ id }),
     });
-    if (!res.ok) reportDbError('[dbDeleteInstructor]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ status: res.status }));
+      return falloEscritura('[dbDeleteInstructor]', body);
+    }
+    return ESCRITURA_OK;
   } catch (e) {
-    reportDbError('[dbDeleteInstructor]', e);
+    return falloEscritura('[dbDeleteInstructor]', e);
   }
 }
 
@@ -4060,18 +4078,18 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
 
 
 
-export async function dbUpdateAutomationRule(id: string, studioId: string, changes: Partial<AutomationRule>) {
+export async function dbUpdateAutomationRule(id: string, studioId: string, changes: Partial<AutomationRule>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('activa' in changes) db.activa = changes.activa;
   if ('ejecutadaVeces' in changes) db.ejecutada_veces = changes.ejecutadaVeces;
   if ('ultimaEjecucion' in changes) db.ultima_ejecucion = changes.ultimaEjecucion;
   const { error } = await dbEscritura().from('automation_rules').update(db).eq('id', id).eq('studio_id', studioId);
-  if (error) reportDbError('[dbUpdateAutomationRule]', error);
+  return error ? falloEscritura('[dbUpdateAutomationRule]', error) : ESCRITURA_OK;
 }
 
 
 
-export async function dbUpdateAutomatizacion(id: string, studioId: string, changes: Partial<Automatizacion>) {
+export async function dbUpdateAutomatizacion(id: string, studioId: string, changes: Partial<Automatizacion>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('trigger' in changes) db.trigger = changes.trigger;
@@ -4082,7 +4100,7 @@ export async function dbUpdateAutomatizacion(id: string, studioId: string, chang
   if ('ejecutadas' in changes) db.ejecutadas = changes.ejecutadas;
   if ('pasos' in changes) db.pasos = changes.pasos;
   const { error } = await dbEscritura().from('automatizaciones').update(db).eq('id', id).eq('studio_id', studioId);
-  if (error) reportDbError('[dbUpdateAutomatizacion]', error);
+  return error ? falloEscritura('[dbUpdateAutomatizacion]', error) : ESCRITURA_OK;
 }
 
 // Fase 3: penalizaciones pendientes de aprobación manual (studios con

@@ -174,14 +174,15 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
     setAveriaModal(true);
   }, [salas]);
 
-  const guardarAveria = useCallback(() => {
+  const guardarAveria = useCallback(async () => {
     if (!averiaForm.salaId) return;
-    marcarAveria(
+    const res = await marcarAveria(
       averiaForm.salaId,
       null,
       averiaForm.motivo.trim() || null,
       averiaForm.hasta ? new Date(averiaForm.hasta).toISOString() : null,
     );
+    if (!res.ok) { showToast(res.error); return; }
     showToast('Avería registrada — baja el aforo de esa sala');
     setAveriaModal(false);
   }, [averiaForm, marcarAveria, showToast]);
@@ -313,7 +314,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                       </p>
                     </div>
                     <button
-                      onClick={() => { quitarAveria(b.id); showToast('Máquina marcada como arreglada'); }}
+                      onClick={async () => {
+                        const res = await quitarAveria(b.id);
+                        showToast(res.ok ? 'Máquina marcada como arreglada' : res.error);
+                      }}
                       className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:bg-muted transition-colors shrink-0"
                     >
                       Marcar arreglada
