@@ -16,7 +16,7 @@ const suscripcion = (socioId: string): Suscripcion =>
 function snap(socios: Socio[], suscripciones: Suscripcion[] = []): SnapshotEstudio {
   return {
     studioId: 'e1', socios, reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones, planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones, planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
 }
 const detectar = (s: SnapshotEstudio) => captacion.detectar(s, new Map() as MemoriaEstudio, NOW);

@@ -31,7 +31,7 @@ const recibo = (socioId: string, p: Partial<Recibo> = {}): Recibo =>
   ({ id: `rec-${++n}`, studioId: 'e1', socioId, suscripcionId: null, concepto: 'cuota', importe: 60, estado: 'PENDIENTE', fechaVencimiento: diasAntes(10), fechaCobro: null, fechaDevolucion: null, intentosReintento: 0, ...p });
 
 function snap(p: Partial<SnapshotEstudio>): SnapshotEstudio {
-  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
+  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
 }
 const M = new Map() as MemoriaEstudio;
 

@@ -34,7 +34,7 @@ test('AGENDA A2: muchas clases pasadas casi vacías (sin franja recurrente) → 
 
   const snap: SnapshotEstudio = {
     studioId: 'e1', socios, reservas, sesiones, salas: [{ id: 's1', studioId: 'e1', nombre: 'Sala', capacidad: 8, color: '#000' } as Sala],
-    recibos: [], suscripciones, planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    recibos: [], suscripciones, planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const c = agenda.detectar(snap, new Map() as MemoriaEstudio, NOW);
   const a2 = c.find(x => x.dedupeKey.startsWith('AGENDA:OCUPACION_BAJA'));
@@ -52,7 +52,7 @@ test('AGENDA A2: estudio con MUCHAS clases pero LLENAS no dispara (no falso posi
   const reservas = sesiones.flatMap(se => socios.slice(0, 7).map(so => reserva(so.id, se.id)));
   const snap: SnapshotEstudio = {
     studioId: 'e1', socios, reservas, sesiones, salas: [{ id: 's1', studioId: 'e1', nombre: 'Sala', capacidad: 8, color: '#000' } as Sala],
-    recibos: [], suscripciones, planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    recibos: [], suscripciones, planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const c = agenda.detectar(snap, new Map() as MemoriaEstudio, NOW);
   assert.equal(c.filter(x => x.dedupeKey.startsWith('AGENDA:OCUPACION_BAJA')).length, 0);
@@ -62,7 +62,7 @@ test('AGENDA A2: estudio recién arrancado (pocas clases) NO dispara ruido', () 
   const sesiones = Array.from({ length: 4 }, (_, i) => clasePasada(i, 2 + i * 2)); // < A2_MIN_CLASES
   const snap: SnapshotEstudio = {
     studioId: 'e1', socios: [], reservas: [], sesiones, salas: [{ id: 's1', studioId: 'e1', nombre: 'Sala', capacidad: 8, color: '#000' } as Sala],
-    recibos: [], suscripciones: [], planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    recibos: [], suscripciones: [], planesTarifa: [plan()], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
   const c = agenda.detectar(snap, new Map() as MemoriaEstudio, NOW);
   assert.equal(c.filter(x => x.dedupeKey.startsWith('AGENDA:OCUPACION_BAJA')).length, 0);

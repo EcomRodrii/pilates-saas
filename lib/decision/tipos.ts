@@ -272,5 +272,9 @@ export interface SnapshotEstudio {
   automationLogs: AutomationLog[]; // 90d
   campanas: Campana[];
   sustituciones: SustitucionSnapshot[]; // 90d
+  // Tarifa/hora por instructora (null = sin fijar) — para margen de
+  // contribución por clase. No confundir con datos de `instructores`: esta
+  // tabla vive aparte por RLS (ver migr 20260731110000).
+  instructorTarifas: Map<string, number | null>;
   contexto: ContextoEstudio;
 }

@@ -29,7 +29,7 @@ function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa {
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }

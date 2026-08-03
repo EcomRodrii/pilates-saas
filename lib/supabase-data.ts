@@ -4027,6 +4027,20 @@ export async function fetchSustitucionesRecientes(studioId: string, desdeISO: st
   }));
 }
 
+// Margen de contribución por clase (Decision OS/Informes): tarifa/hora por
+// instructora. Server-only con service-role (bypasa la RLS de gestión, que
+// solo deja leer la propia fila a la instructora) — igual que el resto del
+// snapshot, que necesita ver todo el estudio para calcular, no solo lo suyo.
+export async function fetchInstructorTarifas(studioId: string): Promise<Map<string, number | null>> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructor_tarifas')
+    .select('instructor_id, tarifa_hora')
+    .eq('studio_id', studioId) as { data: { instructor_id: string; tarifa_hora: number | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchInstructorTarifas]', error); return new Map(); }
+  return new Map((data ?? []).map(r => [r.instructor_id, r.tarifa_hora]));
+}
+
 // Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
 // estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
 // pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.

@@ -28,7 +28,7 @@ const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la 
  * Ingresos §2.2). Se usa para valorar las plazas vacías que se están dejando sin
  * vender en la franja infrautilizada.
  */
-function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
+export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
   const precios: number[] = [];
   for (const socio of s.socios) {
     if (!socio.activo) continue;
