@@ -133,29 +133,47 @@ export function useDecisiones() {
   // se recarga de verdad para reflejar el estado real.
   const aprobar = useCallback(async (id: string): Promise<boolean> => {
     setData(prev => prev ? quitarRecomendacion(prev, id) : prev);
-    const res = await fetch(`/api/decisiones/${id}/aprobar`, { method: 'POST', headers: { ...(await authHeader()) } });
-    if (!res.ok) { await cargar(); return false; }
-    return true;
+    try {
+      const res = await fetch(`/api/decisiones/${id}/aprobar`, { method: 'POST', headers: { ...(await authHeader()) } });
+      if (!res.ok) { await cargar(); return false; }
+      return true;
+    } catch {
+      // Fallo de red (no un rechazo del servidor): la tarjeta ya se quitó
+      // optimistamente sin que la aprobación llegara a confirmarse — recargar
+      // para que vuelva a aparecer, igual que en el caso !res.ok de arriba.
+      await cargar();
+      return false;
+    }
   }, [cargar]);
 
   const rechazar = useCallback(async (id: string, motivo?: string): Promise<boolean> => {
     setData(prev => prev ? quitarRecomendacion(prev, id) : prev);
-    const res = await fetch(`/api/decisiones/${id}/rechazar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ motivo }),
-    });
-    if (!res.ok) { await cargar(); return false; }
-    return true;
+    try {
+      const res = await fetch(`/api/decisiones/${id}/rechazar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ motivo }),
+      });
+      if (!res.ok) { await cargar(); return false; }
+      return true;
+    } catch {
+      await cargar();
+      return false;
+    }
   }, [cargar]);
 
   // "Recuérdamelo": nunca Aprobar/Rechazar — la recomendación se aplaza, no se
   // resuelve. Optimista igual que aprobar/rechazar.
   const posponer = useCallback(async (id: string): Promise<boolean> => {
     setData(prev => prev ? quitarRecomendacion(prev, id) : prev);
-    const res = await fetch(`/api/decisiones/${id}/posponer`, { method: 'POST', headers: { ...(await authHeader()) } });
-    if (!res.ok) { await cargar(); return false; }
-    return true;
+    try {
+      const res = await fetch(`/api/decisiones/${id}/posponer`, { method: 'POST', headers: { ...(await authHeader()) } });
+      if (!res.ok) { await cargar(); return false; }
+      return true;
+    } catch {
+      await cargar();
+      return false;
+    }
   }, [cargar]);
 
   const analizarAhora = useCallback(async (): Promise<boolean> => {

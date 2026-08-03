@@ -2712,11 +2712,15 @@ export default function Calendario() {
                   </select>
                 </FormField>
               </div>
-              {/* Una instructora crea su PROPIA clase: no se le ofrece elegir
-                  (la RLS 20260731100000 la rechazaría si lo intentara). Solo
-                  aplica al alta — al editar su clase ya existente el campo
-                  no es relevante porque tampoco puede reasignarla. */}
-              {!(esInstructorTop && showForm === 'nueva') && (
+              {/* Una instructora crea y edita solo su PROPIA clase: no se le
+                  ofrece elegir instructora (la RLS 20260730109000/
+                  20260731100000 rechazaría el UPDATE/INSERT si lo intentara).
+                  Aplica también al EDITAR, no solo al alta — antes solo se
+                  ocultaba en 'nueva', así que al editar su propia clase veía
+                  el desplegable completo, podía tocarlo sin querer y recibía
+                  un error crudo de la BD al guardar en vez de no ver la
+                  opción siquiera. */}
+              {!esInstructorTop && (
               <FormField label="Instructora">
                 <select className={selectCls} value={form.instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
                   {!form.instructorId && (

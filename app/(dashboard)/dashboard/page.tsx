@@ -729,6 +729,8 @@ export default function Dashboard() {
       const data = await res.json();
       if (!res.ok) { showToast(`Error: ${data.error ?? 'no se pudo avisar'}`); return; }
       showToast(`Aviso enviado a ${data.enviados} socia${data.enviados === 1 ? '' : 's'}${data.sinTelefono ? ` (${data.sinTelefono} sin teléfono)` : ''}`);
+    } catch {
+      showToast('No se pudo conectar con el servidor. El aviso no se ha enviado.');
     } finally {
       setAvisandoSesion(null);
     }
