@@ -71,8 +71,13 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
 
     await page.evaluate(() => {
       const iframe = document.getElementById('prev') as HTMLIFrameElement;
+      // Protocolo generalizado en la Fase 1 del Theme Builder (antes
+      // "tentare-home-preview"): HomePreview manda el borrador de LAS TRES
+      // pantallas en cada mensaje, con `pantalla` para distinguirlas — cada
+      // vista solo se queda con el suyo (ver home-preview.tsx).
       iframe.contentWindow?.postMessage({
-        type: 'tentare-home-preview',
+        type: 'tentare-bloques-preview',
+        pantalla: 'home',
         bloques: [
           { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
           { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },

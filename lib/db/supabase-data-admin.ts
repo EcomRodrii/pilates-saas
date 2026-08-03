@@ -410,9 +410,14 @@ export async function fetchPublicStudioData(
       contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       portalHome: layout.portalHome,
-      // Fase 3: nunca el borrador — solo lo publicado llega al portal en vivo.
-      homeBloques: layout.homeBloques.publicado,
+      // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
+      // borrador — solo lo publicado llega al portal en vivo.
+      homeBloques: layout.bloques.home.publicado,
+      bloquesClases: layout.bloques.clases.publicado,
+      bloquesBonos: layout.bloques.bonos.publicado,
       tabBarStyle: temaPublicado.tabBarStyle,
+      navPortal: temaPublicado.navPortal,
+      redesSociales: temaPublicado.redesSociales,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -1163,6 +1168,64 @@ export async function resolverReservaPendiente(params: {
   }
 
   return { ok: true, estado };
+}
+
+// Rediseño del Calendario — punto 4, acción "Ofrecer plaza" de la franja de
+// decisiones. `promocionar_siguiente_espera` (usada hoy solo dentro de
+// cancelar_reserva_plaza/expirar_oferta_lista_espera) NO comprueba aforo por
+// su cuenta — asume que quien la llama ya sabe que hay un hueco libre. Esta
+// función es la que añade esa comprobación real contra la BD (nunca confiar
+// en un recuento de cliente) antes de invocarla, para un disparo MANUAL desde
+// el panel (a diferencia de los otros dos callers, que solo llegan aquí justo
+// después de liberarse un hueco de verdad).
+export async function ofrecerPlazaLibre(params: {
+  studioId: string; sesionId: string;
+}): Promise<{ ok: true; resultado: 'confirmada' | 'oferta' } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const { data: ses } = await admin.from('sesiones')
+    .select('aforo_maximo, tipo_clase_id, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+  if (!ses || ses.cancelada) return { error: 'Esta clase no está disponible' };
+
+  const { count: confirmadas } = await admin.from('reservas')
+    .select('id', { count: 'exact', head: true })
+    .eq('sesion_id', params.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']);
+  if ((confirmadas ?? 0) >= (ses.aforo_maximo as number)) {
+    return { error: 'No hay ningún hueco libre en esta clase ahora mismo' };
+  }
+
+  // Mismo patrón "hereda" que el resto de reglas de reserva (heredaOverride):
+  // el tipo de clase manda si tiene su propio plazo, si no el del estudio.
+  const [{ data: studioRow }, { data: tipoRow }] = await Promise.all([
+    admin.from('studios').select('lista_espera_plazo_aceptacion_minutos').eq('id', params.studioId).maybeSingle(),
+    ses.tipo_clase_id
+      ? admin.from('tipos_clase').select('lista_espera_plazo_aceptacion_minutos').eq('id', ses.tipo_clase_id as string).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const plazoMinutos = (tipoRow?.lista_espera_plazo_aceptacion_minutos as number | null)
+    ?? (studioRow?.lista_espera_plazo_aceptacion_minutos as number | null) ?? 0;
+
+  const { data, error } = await admin.rpc('promocionar_siguiente_espera', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId, p_plazo_minutos: plazoMinutos,
+  });
+  if (error) return { error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.promovida_socio_id && !row?.oferta_socio_id) return { error: 'No hay nadie en lista de espera para esta clase' };
+
+  if (row.promovida_socio_id) {
+    const socioId = row.promovida_socio_id as string;
+    await consumirBonoServidor(admin, params.studioId, socioId, params.sesionId);
+    const { emitirReserva } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId, estado: 'CONFIRMADA' });
+    return { ok: true, resultado: 'confirmada' };
+  }
+  const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
+  await emitirOfertaListaEspera(admin, {
+    studioId: params.studioId, sesionId: params.sesionId,
+    socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+  });
+  return { ok: true, resultado: 'oferta' };
 }
 
 // Expira una reserva PENDIENTE_APROBACION cuya sesión ya empezó — llamado por

@@ -1,7 +1,7 @@
 // Módulos reordenables/ocultables de Inicio del PORTAL cliente (Fase 2 del
 // editor de temas). Fuente única compartida por la home
 // (app/portal/[slug]/home/page.tsx) y el editor
-// (components/theme/portal-home-editor.tsx). El id se usa como clave de orden
+// (components/theme/portal-bloques-editor.tsx). El id se usa como clave de orden
 // y visibilidad en studio_layout.config.portalHome.
 //
 // El saludo y la tarjeta grande de "próxima clase" quedan siempre fijos

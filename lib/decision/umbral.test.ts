@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CandidataPriorizada } from './prioridad.ts';
 import type { ContextoEstudio } from './tipos.ts';
-import { elegirMensajeDelDia, impactoCompensa, esNovedad } from './umbral.ts';
+import { elegirMensajeDelDia, impactoCompensa, esNovedad, calibrarUmbral, type TasaSeguimiento } from './umbral.ts';
+import type { TipoRecomendacion } from './tipos.ts';
 
 function candidata(p: Partial<CandidataPriorizada> = {}): CandidataPriorizada {
   return {
@@ -94,4 +95,60 @@ test('elegirMensajeDelDia: impacto insuficiente para el tamaño del estudio → 
   const c = candidata({ impacto: { valor: 4, unidad: 'EUR_MES', formula: 'x' } });
   const r = elegirMensajeDelDia([c], contextoCadenaGrande, []);
   assert.equal(r.tipo, 'SILENCIO');
+});
+
+// ── Fase 2: Umbral adaptativo por tipo ──────────────────────────────────────
+
+test('calibrarUmbral: sin historial (Map vacío) → sin cambios respecto a Fase 1', () => {
+  const r = calibrarUmbral('RECUPERAR_SOCIA', new Map());
+  assert.equal(r.urgenciaMin, 0.45);
+  assert.equal(r.impactoFactor, 1);
+});
+
+test('calibrarUmbral: pocas muestras (< 5) → sin cambios, aunque la tasa sea extrema', () => {
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['RECUPERAR_SOCIA', { total: 3, seguidas: 3 }]]);
+  const r = calibrarUmbral('RECUPERAR_SOCIA', tasas);
+  assert.equal(r.urgenciaMin, 0.45);
+  assert.equal(r.impactoFactor, 1);
+});
+
+test('calibrarUmbral: tasa de seguimiento alta (≥80%, ≥5 muestras) → exige menos', () => {
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['RECUPERAR_SOCIA', { total: 10, seguidas: 9 }]]);
+  const r = calibrarUmbral('RECUPERAR_SOCIA', tasas);
+  assert.equal(r.urgenciaMin, 0.35);
+  assert.equal(r.impactoFactor, 0.6);
+});
+
+test('calibrarUmbral: tasa de seguimiento baja (≤30%, ≥5 muestras) → exige más', () => {
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['ABRIR_SESION', { total: 10, seguidas: 2 }]]);
+  const r = calibrarUmbral('ABRIR_SESION', tasas);
+  assert.equal(r.urgenciaMin, 0.60);
+  assert.equal(r.impactoFactor, 2);
+});
+
+test('calibrarUmbral: tasa intermedia → sin cambios', () => {
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['ABRIR_SESION', { total: 10, seguidas: 5 }]]);
+  const r = calibrarUmbral('ABRIR_SESION', tasas);
+  assert.equal(r.urgenciaMin, 0.45);
+  assert.equal(r.impactoFactor, 1);
+});
+
+test('elegirMensajeDelDia: con tasa de seguimiento alta, una urgencia que antes no pasaba ahora sí', () => {
+  const c = candidata({ urgencia: 0.4, impacto: { valor: 79, unidad: 'EUR_MES', formula: 'x' } });
+  const sinCalibrar = elegirMensajeDelDia([c], contextoEstudioPequeno, []);
+  assert.equal(sinCalibrar.tipo, 'SILENCIO');
+
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['RECUPERAR_SOCIA', { total: 8, seguidas: 8 }]]);
+  const conCalibrar = elegirMensajeDelDia([c], contextoEstudioPequeno, [], new Set(), tasas);
+  assert.equal(conCalibrar.tipo, 'MENSAJE');
+});
+
+test('elegirMensajeDelDia: con tasa de seguimiento baja, el impacto ya no compensa', () => {
+  const c = candidata({ tipo: 'ABRIR_SESION', impacto: { valor: 4, unidad: 'EUR_MES', formula: 'x' } });
+  const sinCalibrar = elegirMensajeDelDia([c], contextoEstudioPequeno, []);
+  assert.equal(sinCalibrar.tipo, 'MENSAJE'); // 4€ sí compensa en un estudio pequeño sin calibrar
+
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['ABRIR_SESION', { total: 8, seguidas: 1 }]]);
+  const conCalibrar = elegirMensajeDelDia([c], contextoEstudioPequeno, [], new Set(), tasas);
+  assert.equal(conCalibrar.tipo, 'SILENCIO');
 });

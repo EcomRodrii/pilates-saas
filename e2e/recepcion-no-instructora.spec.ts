@@ -38,6 +38,17 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email ?? null, telefono: r.telefono ?? null,
+    color: r.color, activo: r.activo, avatar: r.avatar ?? null, fotoUrl: r.foto_url ?? null,
+    rol: r.rol ?? 'INSTRUCTOR', authUserId: r.auth_user_id ?? null,
+  };
+}
+
 async function seedSesionDeDuena(page: Page) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -66,6 +77,11 @@ async function mockBackend(page: Page) {
   await page.route('**/rest/v1/instructores**', route => json(route, EQUIPO));
   await page.route('**/rest/v1/tipos_clase**', route => json(route, [TIPO_CLASE]));
   await page.route('**/rest/v1/salas**', route => json(route, [SALA]));
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: [], reservas: [], sustituciones: [],
+    salas: [SALA].map(salaApi), instructores: EQUIPO.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
+  }));
 }
 
 test.describe('Recepción no es instructora', () => {

@@ -19,38 +19,23 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
-import { Home, CalendarDays, Ticket, Video, User } from 'lucide-react';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { portalThemeStyle } from '@/lib/portal-theme';
 import { useModo } from '@/lib/portal-modo';
-import { PORTAL_VIDEOS_CONGELADO } from '@/lib/frozen-features';
-import { EASE, dur, sans, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
+import { sans, altura, radio } from '@/lib/portal-design';
+import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
-
-const ALL_NAV = [
-  { seg: 'home', label: 'Inicio', Icon: Home },
-  { seg: 'clases', label: 'Clases', Icon: CalendarDays },
-  { seg: 'bonos', label: 'Bonos', Icon: Ticket },
-  { seg: 'videos', label: 'Vídeos', Icon: Video },
-  { seg: 'perfil', label: 'Perfil', Icon: User },
-];
-
-// VOD congelado (feature-freeze PMF, independiente del flag de marketing): sin
-// "Vídeos" en el portal de socias. Reactivar = PORTAL_VIDEOS_CONGELADO=false, y
-// el menú se reparte solo — la pastilla mide `100/NAV.length`.
-const NAV = PORTAL_VIDEOS_CONGELADO ? ALL_NAV.filter((n) => n.seg !== 'videos') : ALL_NAV;
+import { PortalNav } from './portal-nav';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { studio, dataLoaded, tabBarStyle } = useStudio();
+  const { dataLoaded, navPortal } = useStudio();
+  const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
-  const themeStyle = portalThemeStyle(studio?.temaPortal);
-  const { t, noche } = useModo();
+  const { t } = useModo();
 
   const isLoginPage = pathname === `/portal/${slug}` || pathname === `/portal/${slug}/login` || pathname === `/portal/${slug}/acceso`;
   // /clave-nueva llega recién autenticada por magic link (o sin sesión válida
@@ -92,7 +77,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isClaveNueva) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={{ ...FRAME, ...themeStyle }}>{children}</div>
+        <div style={FRAME}>{children}</div>
       </div>
     );
   }
@@ -105,8 +90,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // datos del estudio) en vez de en cada página, para no repetirlo.
   if (isLoading || (session && !isLoginPage && !isClaveNueva && !dataLoaded)) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ background: t.bg }}>
-        <div className="w-8 h-8 rounded-full animate-spin" style={{ border: `3px solid ${t.line}`, borderTopColor: t.ink }} />
+      <div className="fixed inset-0" style={{ background: t.bg }}>
+        <div style={{ ...FRAME, padding: '28px 20px 0' }}>
+          {/* Esqueleto genérico (no sabe qué pantalla se está cargando): un
+              spinner solo, varios segundos, se lee como que la app se ha
+              colgado — esto da la sensación de que ya hay algo ahí debajo. */}
+          <div className="animate-pulse" style={{ height: 15, width: '55%', borderRadius: 7, background: t.surface2 }} />
+          <div className="animate-pulse" style={{ height: 26, width: '75%', borderRadius: 8, background: t.surface2, marginTop: 10 }} />
+          <div className="animate-pulse" style={{ height: 150, borderRadius: radio.card, background: t.surface2, marginTop: 22 }} />
+          <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+            <div className="animate-pulse" style={{ flex: 1, height: 96, borderRadius: radio.card, background: t.surface2 }} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -116,7 +113,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isLoginPage) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={{ ...FRAME, ...themeStyle }}>{children}</div>
+        <div style={FRAME}>{children}</div>
       </div>
     );
   }
@@ -131,7 +128,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     <div className="fixed inset-0" style={{ background: t.bg }}>
       <div
         className="flex flex-col overflow-hidden"
-        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg, ...themeStyle }}
+        style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)', background: t.bg }}
       >
         <main className="flex-1 overflow-y-auto relative" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
           {leaving && (
@@ -152,90 +149,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             solo si procede. */}
         <PushPrompt />
 
-        <nav
-          aria-label="Secciones"
-          style={{
-            position: 'absolute', left: 18, right: 18,
-            bottom: 'calc(22px + env(safe-area-inset-bottom))',
-            height: altura.tabbar, zIndex: 14, borderRadius: radio.tabbar,
-            background: t.tabbar,
-            ...cristal(desenfoque.tabbar, 170),
-            border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
-            boxShadow: sombra.tabbar,
-            display: 'flex', alignItems: 'center', padding: 6,
-          }}
-        >
-          {tabBarStyle === 'pestanaActiva' ? (
-            // Tema "Editorial": sin pastilla deslizante de fondo — cada
-            // pestaña lleva su propio icono siempre, y solo la activa se
-            // ensancha (flex-grow animado) y muestra su nombre junto al
-            // icono. Icono nuevo en esta barra a propósito — la decisión
-            // "sin iconos" (comentario de arriba) sigue siendo el
-            // comportamiento por defecto ('clasica'); esto es una variante
-            // dentro de un tema opt-in, no un cambio de ese default.
-            NAV.map(({ seg, label, Icon }, i) => {
-              const active = i === activeIndex;
-              return (
-                <Link
-                  key={seg}
-                  href={`/portal/${slug}/${seg}`}
-                  aria-current={active ? 'page' : undefined}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    flex: active ? '2.4 1 0%' : '1 1 0%',
-                    height: altura.tabbar - 12, borderRadius: radio.pastilla,
-                    background: active ? (noche ? t.surface2 : '#FFFFFF') : 'transparent',
-                    boxShadow: active ? sombra.pastilla : 'none',
-                    color: active ? t.ink : t.muted, textDecoration: 'none', overflow: 'hidden',
-                    transition: `flex-grow ${dur.tab}ms ${EASE}, background ${dur.tab}ms ${EASE}, color 350ms ease`,
-                  }}
-                >
-                  <Icon size={18} strokeWidth={active ? 2.25 : 2} style={{ flexShrink: 0 }} />
-                  {active && <span style={{ ...texto.tab, whiteSpace: 'nowrap' }}>{label}</span>}
-                </Link>
-              );
-            })
-          ) : (
-            <>
-              {/* La pastilla. Se mueve solo con `transform` — nunca con `left`, que
-                  obliga a recalcular disposición en cada frame y en Safari de iOS se
-                  nota. El ancho sale del número de secciones, así que si vuelve
-                  "Vídeos" no hay que tocar nada. */}
-              {activeIndex >= 0 && (
-                <span
-                  aria-hidden
-                  style={{
-                    position: 'absolute', left: 6, top: 6, bottom: 6,
-                    width: `calc((100% - 12px) / ${NAV.length})`,
-                    borderRadius: radio.pastilla, background: noche ? t.surface2 : '#FFFFFF',
-                    boxShadow: sombra.pastilla, pointerEvents: 'none',
-                    transform: `translateX(${activeIndex * 100}%)`,
-                    transition: `transform ${dur.tab}ms ${EASE}`,
-                    willChange: 'transform',
-                  }}
-                />
-              )}
-
-              {NAV.map(({ seg, label }, i) => {
-                const active = i === activeIndex;
-                return (
-                  <Link
-                    key={seg}
-                    href={`/portal/${slug}/${seg}`}
-                    aria-current={active ? 'page' : undefined}
-                    style={{
-                      position: 'relative', flex: 1, textAlign: 'center', ...texto.tab,
-                      color: active ? t.ink : t.muted, textDecoration: 'none',
-                      transition: 'color 350ms ease',
-                    }}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-            </>
-          )}
-        </nav>
+        <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} />
       </div>
     </div>
   );

@@ -43,6 +43,7 @@ import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
+import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
@@ -131,7 +132,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
   // contenedor flex, con su `order` calculado en el mismo espacio de índices
   // — así se intercalan de verdad con los módulos fijos, no solo se apilan
   // detrás. `homeBloques` ya viene resuelto del servidor (con fallback a
-  // portalHome legacy si el estudio nunca tocó esto, ver resolveHomeBloques).
+  // portalHome legacy si el estudio nunca tocó esto, ver resolveBloquesPantalla).
   const bloquesOrdenados = useMemo(() => bloquesVisibles(homeBloques), [homeBloques]);
   const wrap = (sistemaId: BloqueSistemaId) => {
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
@@ -495,8 +496,9 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                         <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
                           {tipo?.nombre ?? 'Clase'}
                         </span>
-                        <span style={{ ...texto.nota, color: t.muted }}>
-                          {hora(s.inicio)} · {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completa'}
+                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                          <span style={{ ...texto.nota, color: t.muted }}>{hora(s.inicio)} ·</span>
+                          <AforoIndicator libres={libres} />
                         </span>
                       </Link>
                     );

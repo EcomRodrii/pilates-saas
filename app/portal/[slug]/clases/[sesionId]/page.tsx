@@ -1,15 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { useStudio } from '@/lib/studio-context';
+import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button, BottomSheet } from '@/components/portal/ui';
-import { semantic } from '@/lib/portal-tokens';
-import { HojaReserva, type ClaseParaReservar } from '@/components/portal/hoja-reserva';
+import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
+import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 
 // Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
 // plaza numerada, mientras que reservar desde la Agenda (HojaReserva) sí —
@@ -26,11 +25,21 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, recargarPublico } = useStudio();
   const { t } = useModo();
+
+  // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
+  // studio-context.tsx): esta pantalla también deja reservar, así que
+  // también necesita el aforo fresco mientras está abierta.
+  const recargarRef = useRef(recargarPublico);
+  useEffect(() => { recargarRef.current = recargarPublico; });
+  useEffect(() => {
+    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    return () => clearInterval(id);
+  }, []);
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
   // Sin esto, pulsar «Reservar» no hacía nada visible y la reserva no existía.
-  const [aviso, setAviso] = useState<{ texto: string; error: boolean } | null>(null);
+  const [aviso, setAviso] = useState<AvisoToast | null>(null);
   // "Cancelar reserva" cancelaba directo en el onClick, sin confirmar — un
   // toque accidental con el pulgar (scrolleando en móvil) perdía la plaza sin
   // poder deshacerlo. Mismo patrón de confirmación que /reservas.
@@ -88,17 +97,15 @@ export default function ClaseDetallePage() {
     };
   }, [ses, tipo, sala, instr, reservas, spotsDeLaSala, spotsOcupados, cubierta, precioClaseSuelta, activeSus]);
 
-  async function confirmar(spotId: string | null) {
-    if (!ses || !session?.socioId) return;
+  async function confirmar(spotId: string | null): Promise<ResultadoConfirmar> {
+    if (!ses || !session?.socioId) return { ok: false, error: 'No se ha podido confirmar la reserva.' };
     const r = await addReserva(ses.id, session.socioId, spotId);
-    setReservando(false);
-    setAviso(
-      !r.ok ? { texto: r.error, error: true }
-        : {
-          texto: r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.' : 'Reservada. Te esperamos.',
-          error: false,
-        },
-    );
+    if (!r.ok) return { ok: false, error: r.error };
+    setAviso({
+      texto: r.estado === 'LISTA_ESPERA' ? 'Estás en la lista de espera. Te avisaremos si se libera una plaza.' : 'Reservada. Te esperamos.',
+      error: false,
+    });
+    return { ok: true, estado: r.estado };
   }
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -192,9 +199,7 @@ export default function ClaseDetallePage() {
                 <Users size={13} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plazas</span>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 800, color: libres <= 2 && libres > 0 ? '#8F6215' : libres === 0 ? '#B85436' : t.ink }}>
-                {libres > 0 ? `${libres} libre${libres !== 1 ? 's' : ''}` : 'Completo'}
-              </p>
+              <AforoIndicator libres={libres} style={{ fontSize: 14, fontWeight: 800 }} />
             </div>
           </div>
 
@@ -230,19 +235,6 @@ export default function ClaseDetallePage() {
             descripción media la página no llega a hacer scroll (el root es
             minHeight:100%) y el botón "Reservar" quedaba tapado por el menú. */}
         <div style={{ marginTop: 20, paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
-          {aviso && (
-            // El error de una reserva/cancelación revertida se veía IGUAL que
-            // el aviso de éxito — mismo fondo neutro. El error usa el token
-            // semántico de "danger" (ya calibrado por contraste).
-            <p style={{
-              fontSize: 13, fontWeight: aviso.error ? 700 : 400,
-              color: aviso.error ? semantic.danger.text : t.ink,
-              background: aviso.error ? semantic.danger.soft : t.surface2,
-              borderRadius: 12, padding: '10px 12px', marginBottom: 10,
-            }}>
-              {aviso.texto}
-            </p>
-          )}
           {miReserva ? (
             <Button
               variant="danger"
@@ -284,6 +276,8 @@ export default function ClaseDetallePage() {
           </Button>
         </div>
       </BottomSheet>
+
+      <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
 
       <HojaReserva
         clase={reservando ? claseParaReservar : null}

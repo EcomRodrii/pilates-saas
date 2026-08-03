@@ -10,13 +10,25 @@
 //
 // Elegir plaza es OPCIONAL a propósito: hay salas sin plazas numeradas, y
 // obligar a elegir en una sala de mat sería inventarse un paso.
+//
+// El morph de confirmación (2026-08, feedback de 49 propietarias: "no
+// transmite que esté haciendo nada"): antes, el padre cerraba la hoja en
+// cuanto llegaba la respuesta del servidor, éxito o error. Ahora la hoja
+// posee su propio ciclo — `onConfirmar` devuelve el resultado REAL en vez de
+// nada — y el mismo botón muta en su sitio: spinner mientras espera,
+// "Reservado · …" ~1.2s antes de cerrarse sola en éxito, o el motivo dentro
+// de la hoja (sin cerrarla) en error. Sigue sin haber optimismo: no se dice
+// nada hasta que el servidor responde (bug #500).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import {
   EASE, dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
-import type { Spot } from '@/lib/types';
+import { AforoIndicator } from '@/components/portal/ui';
+import { semantic } from '@/lib/portal-tokens';
+import type { EstadoReserva, Spot } from '@/lib/types';
 
 export interface ClaseParaReservar {
   id: string;
@@ -26,6 +38,8 @@ export interface ClaseParaReservar {
   nivel: string | null;
   salaNombre: string | null;
   instructorNombre: string | null;
+  /** null/undefined = sin foto, se pinta la inicial (mismo criterio que la lista). */
+  instructorFotoUrl?: string | null;
   aforoMaximo: number;
   ocupadas: number;
   spots: Spot[];
@@ -36,22 +50,42 @@ export interface ClaseParaReservar {
   sesionesTrasReservar: number | null;
 }
 
+export type ResultadoConfirmar =
+  | { ok: true; estado: EstadoReserva }
+  | { ok: false; error: string };
+
+const ETIQUETA_ESTADO: Partial<Record<EstadoReserva, string>> = {
+  LISTA_ESPERA: 'En lista de espera',
+  PENDIENTE_APROBACION: 'Pendiente de aprobación',
+};
+
 export function HojaReserva({
   clase, onClose, onConfirmar,
 }: {
   clase: ClaseParaReservar | null;
   onClose: () => void;
-  onConfirmar: (spotId: string | null) => void;
+  onConfirmar: (spotId: string | null) => Promise<ResultadoConfirmar>;
 }) {
   const { t, noche } = useModo();
   const [spotElegido, setSpotElegido] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  const [estado, setEstado] = useState<'reposo' | 'enviando' | 'exito' | 'error'>('reposo');
+  const [resultadoExito, setResultadoExito] = useState<EstadoReserva | null>(null);
+  const [mensajeError, setMensajeError] = useState<string | null>(null);
 
   // Nota: quien monta esta hoja le pasa `key={clase.id}`, así que al cambiar de
-  // clase React la remonta y estos dos estados vuelven solos a su valor
-  // inicial. Sincronizarlos con un efecto era la otra opción, y sobra: la 7 de
-  // la Sala Norte no es la 7 de la Sala Sur, y lo que hace falta es empezar de
-  // cero, no ir corrigiendo después.
+  // clase React la remonta y estos estados vuelven solos a su valor inicial.
+  // Sincronizarlos con un efecto era la otra opción, y sobra: la 7 de la Sala
+  // Norte no es la 7 de la Sala Sur, y lo que hace falta es empezar de cero,
+  // no ir corrigiendo después.
+
+  // Tras el morph de éxito, cierra sola pasado un momento — pero si la hoja
+  // se remonta antes (otra clase, o el usuario ya la cerró) el timeout no
+  // debe disparar sobre una instancia que ya no está.
+  useEffect(() => {
+    if (estado !== 'exito') return;
+    const id = setTimeout(onClose, 1200);
+    return () => clearTimeout(id);
+  }, [estado, onClose]);
 
   const abierta = clase != null;
   const libres = clase ? Math.max(0, clase.aforoMaximo - clase.ocupadas) : 0;
@@ -63,12 +97,51 @@ export function HojaReserva({
   const fecha = clase
     ? new Date(clase.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' })
     : '';
+  const diaCorto = clase
+    ? new Date(clase.inicio).toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')
+    : '';
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  async function confirmarClick() {
+    if (!clase || estado === 'enviando') return;
+    setEstado('enviando');
+    const r = await onConfirmar(spotElegido);
+    if (r.ok) {
+      setResultadoExito(r.estado);
+      setEstado('exito');
+    } else {
+      setMensajeError(r.error);
+      setEstado('error');
+    }
+  }
+
+  // Cerrar mientras se envía (backdrop, arrastre) no cancela la petición en
+  // curso — `onConfirmar` sigue viva de fondo y el padre puede acabar
+  // anunciando "Reservada" segundos después de que la socia creyera haber
+  // cerrado sin más. Ya que no se puede abortar la petición desde aquí, se
+  // bloquea el cierre mientras está en vuelo: la socia ve el spinner hasta
+  // que el servidor responde, igual que ya pasa con el propio botón.
+  function cerrar() {
+    if (estado === 'enviando') return;
+    onClose();
+  }
+
+  // `semantic.danger.text` no pasa AA en modo noche (ver comentario en
+  // portal-tokens.ts) — usa la variante calibrada para ese modo.
+  const dangerColor = noche ? semantic.danger.textNoche : semantic.danger.text;
+
+  const etiquetaBoton = clase
+    ? estado === 'enviando'
+      ? 'Un momento…'
+      : estado === 'exito'
+        ? `${resultadoExito ? (ETIQUETA_ESTADO[resultadoExito] ?? 'Reservado') : 'Reservado'} · ${clase.nombre} ${diaCorto} ${hora(clase.inicio)}`
+        : 'Confirmar reserva'
+    : 'Confirmar reserva';
 
   return (
     <>
       <div
-        onClick={onClose}
+        onClick={cerrar}
         aria-hidden
         style={{
           position: 'fixed', inset: 0, zIndex: 40,
@@ -97,7 +170,7 @@ export function HojaReserva({
         }}
       >
         <button
-          type="button" onClick={onClose} aria-label="Cerrar"
+          type="button" onClick={cerrar} aria-label="Cerrar" disabled={estado === 'enviando'}
           style={{ display: 'block', width: 40, height: 4, borderRadius: 4, margin: '0 auto', background: noche ? '#3A3F33' : '#D8D4C9', border: 'none', padding: 0 }}
         />
 
@@ -109,9 +182,27 @@ export function HojaReserva({
             <h2 style={{ ...display(32, false, 1.05), color: t.ink, marginTop: 10, textWrap: 'pretty' } as React.CSSProperties}>
               {clase.nombre}
             </h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
-              {[clase.instructorNombre, clase.nivel, clase.salaNombre].filter(Boolean).map((v, i) => (
-                <span key={v as string} style={{ ...(i === 0 ? texto.metaFuerte : texto.meta), color: i === 0 ? t.ink : t.muted }}>{v}</span>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 12 }}>
+              {clase.instructorNombre && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {clase.instructorFotoUrl ? (
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={clase.instructorFotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </div>
+                  ) : (
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: t.surface2,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, color: t.ink,
+                    }}>
+                      {clase.instructorNombre.trim()[0]?.toUpperCase()}
+                    </span>
+                  )}
+                  <span style={{ ...texto.metaFuerte, color: t.ink }}>{clase.instructorNombre}</span>
+                </div>
+              )}
+              {[clase.nivel, clase.salaNombre].filter(Boolean).map(v => (
+                <span key={v as string} style={{ ...texto.meta, color: t.muted }}>{v}</span>
               ))}
             </div>
 
@@ -119,7 +210,7 @@ export function HojaReserva({
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 26 }}>
                   <span style={{ ...display(22), color: t.ink }}>Elige tu plaza</span>
-                  <span style={{ ...texto.nota, color: t.muted }}>{libres} libres de {clase.aforoMaximo}</span>
+                  <AforoIndicator libres={libres} umbralUrgencia={2} style={{ fontSize: 11.5, fontWeight: 500 }} />
                 </div>
                 {/* Siete columnas como en el diseño. Con `auto-fit` una sala de
                     cuatro plazas quedaría con cuatro celdas anchísimas; fijar la
@@ -175,19 +266,36 @@ export function HojaReserva({
               )}
             </div>
 
+            {estado === 'error' && mensajeError && (
+              <div role="alert" style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginTop: 16,
+                borderRadius: 14, padding: '11px 14px', background: semantic.danger.soft,
+              }}>
+                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+              </div>
+            )}
+
             <button
               type="button"
-              disabled={enviando}
-              onClick={() => { setEnviando(true); onConfirmar(spotElegido); }}
+              disabled={estado === 'enviando' || estado === 'exito'}
+              aria-busy={estado === 'enviando'}
+              aria-live="polite"
+              onClick={confirmarClick}
               style={{
                 width: '100%', height: altura.botonCta, borderRadius: radio.botonCta, marginTop: 18,
                 background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                ...texto.botonCta, border: 'none', cursor: 'pointer',
-                boxShadow: sombra.cta, opacity: enviando ? 0.6 : 1,
-                transition: transicion(['transform', 'opacity']),
+                ...texto.botonCta, border: 'none', cursor: estado === 'reposo' || estado === 'error' ? 'pointer' : 'default',
+                boxShadow: sombra.cta, opacity: estado === 'enviando' ? 0.6 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: transicion(['transform', 'opacity', 'background']),
               }}
             >
-              {enviando ? 'Un momento…' : 'Confirmar reserva'}
+              {estado === 'enviando' && (
+                <span aria-hidden className="animate-spin" style={{ width: 14, height: 14, borderRadius: 999, border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.85, flexShrink: 0 }} />
+              )}
+              {estado === 'exito' && <CheckCircle2 size={16} style={{ flexShrink: 0 }} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{etiquetaBoton}</span>
             </button>
           </>
         )}

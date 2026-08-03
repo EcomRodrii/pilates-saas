@@ -19,10 +19,19 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
+import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
+
+// Redes sociales del pie de página (Fase 3 del Theme Builder, lib/theme-schema.ts
+// → RedSocialId) — orden y etiqueta de cada icono del pie.
+const REDES_SOCIALES: { id: 'instagram' | 'facebook' | 'whatsapp'; label: string }[] = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -189,7 +198,7 @@ const RT = RESERVAR_TOKENS;
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
-    planesTarifa, suscripciones, studioConfig, studio,
+    planesTarifa, suscripciones, studioConfig, studio, redesSociales,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -1090,26 +1099,65 @@ export default function ReservarPage() {
                 </div>
               )}
             </div>
-
-            {/* Legal links */}
-            <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 26, paddingTop: 40, fontSize: 11, color: 'var(--portal-muted)' }}>
-              {[
-                { label: 'Política de privacidad', text: studioConfig.politicaPrivacidad },
-                { label: 'Términos de servicio', text: studioConfig.terminosServicio },
-              ].map(({ label, text }, i) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
-                  {i > 0 && <span style={{ width: 1, height: 11, background: 'var(--portal-line)' }} />}
-                  <button
-                    onClick={() => setLegalDoc({ label, text })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--portal-muted)', cursor: 'pointer', fontSize: 11 }}>
-                    <FileText size={12} />{label}
-                  </button>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
+
+      {/* ── FOOTER ──────────────────────────────────────────────────────────────
+          Fase 3 del Theme Builder: antes los enlaces legales solo vivían dentro
+          de la pestaña "El estudio" — quien reservaba desde "Clases" nunca los
+          veía. Ahora es un pie de página de verdad, visible en las cuatro
+          pestañas, con redes sociales (si el estudio las configuró en "Marca y
+          colores") y los mismos enlaces legales de siempre. */}
+      <footer style={{ borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
+        <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--portal-muted-2)' }}>
+            {estudioLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={estudioLogo} alt={estudioNombre} style={{ width: 22, height: 22, borderRadius: 7, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
+            ) : null}
+            <span style={{ fontFamily: serif, fontSize: 14 }}>{estudioNombre}</span>
+            <span aria-hidden>·</span>
+            <span>{estudioDireccion}</span>
+          </div>
+
+          {REDES_SOCIALES.some(({ id }) => resolverHrefBloque(redesSociales[id])) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              {REDES_SOCIALES.map(({ id, label }) => {
+                const resuelto = resolverHrefBloque(redesSociales[id]);
+                if (!resuelto) return null;
+                return (
+                  <a
+                    key={id}
+                    href={resuelto.valor}
+                    target={resuelto.interno ? undefined : '_blank'}
+                    rel={resuelto.interno ? undefined : 'noopener noreferrer'}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--portal-muted)', textDecoration: 'none', fontSize: 12 }}
+                  >
+                    <ExternalLink size={12} />{label}
+                  </a>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 26, fontSize: 11, color: 'var(--portal-muted)' }}>
+            {[
+              { label: 'Política de privacidad', text: studioConfig.politicaPrivacidad },
+              { label: 'Términos de servicio', text: studioConfig.terminosServicio },
+            ].map(({ label, text }, i) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 26 }}>
+                {i > 0 && <span style={{ width: 1, height: 11, background: 'var(--portal-line)' }} />}
+                <button
+                  onClick={() => setLegalDoc({ label, text })}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--portal-muted)', cursor: 'pointer', fontSize: 11 }}>
+                  <FileText size={12} />{label}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </footer>
 
       {/* ── MODAL ───────────────────────────────────────────────────────────── */}
       <PublicSheet

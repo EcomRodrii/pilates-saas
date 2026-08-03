@@ -42,6 +42,35 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Rediseño del Calendario: la rejilla pinta desde /api/calendario (payload por
+// rol), no desde sesiones/reservas del contexto — mismo mapeo que
+// mapSesion/mapReserva/mapSala/mapInstructor (lib/supabase-data.ts).
+function sesionApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, tipoClaseId: r.tipo_clase_id, salaId: r.sala_id,
+    instructorId: r.instructor_id, inicio: r.inicio, fin: r.fin, aforoMaximo: r.aforo_maximo,
+    cancelada: r.cancelada, notas: r.notas, precioPuntual: r.precio_puntual, serieId: r.serie_id ?? null,
+    incidenciaTexto: null, sustitucionAbierta: false, motivoBaja: null, sustitucionId: null,
+  };
+}
+function reservaApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, sesionId: r.sesion_id, socioId: r.socio_id, estado: r.estado,
+    spotId: r.spot_id ?? null, posicionEspera: r.posicion_espera ?? null, ofertaExpiraEn: null,
+    checkInEn: null, creadoEn: r.creada_en,
+  };
+}
+function salaApi(r: any) {
+  return { id: r.id, studioId: r.studio_id, nombre: r.nombre, capacidad: r.capacidad, color: r.color };
+}
+function instructorApi(r: any) {
+  return {
+    id: r.id, studioId: r.studio_id, nombre: r.nombre, email: r.email, telefono: r.telefono,
+    color: r.color, activo: r.activo, avatar: r.avatar, fotoUrl: r.foto_url, rol: r.rol ?? 'INSTRUCTOR',
+    authUserId: r.auth_user_id,
+  };
+}
+
 /**
  * Devuelve las llamadas a `reservar_plaza`: la inserción real pasa por esa
  * función de Postgres (atómica, decide aforo bajo bloqueo), NO por un POST a la
@@ -81,6 +110,15 @@ async function montarCalendario(page: Page) {
   await page.route('**/rest/v1/socios**', route => json(route, [socia('s1', 'Ana'), socia('s2', 'Bea')]));
   await page.route('**/rest/v1/sesiones**', route => json(route, [SESION]));
   await page.route('**/rest/v1/reservas**', route => json(route, RESERVAS));
+  // Rediseño del Calendario: sin este mock no aparece ningún bloque de clase.
+  await page.route('**/api/calendario**', route => json(route, {
+    sesiones: [SESION].map(sesionApi),
+    reservas: RESERVAS.map(reservaApi),
+    sustituciones: [],
+    salas: SALAS.map(salaApi),
+    instructores: INSTRUCTORES.map(instructorApi),
+    horaApertura: '08:00:00', horaCierre: '22:00:00', rol: 'PROPIETARIO',
+  }));
   await page.route('**/rest/v1/rpc/reservar_plaza', route => {
     altas.push(route.request().postData() ?? '');
     return json(route, [{ estado: 'LISTA_ESPERA', posicion_espera: 1 }]);

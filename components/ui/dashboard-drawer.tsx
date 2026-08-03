@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a DashboardSheet (components/ui/dashboard-sheet.tsx) para los
@@ -30,11 +31,25 @@ export function DashboardDrawer({
 }) {
   const { sheetRef } = useDialogA11y({ open, onClose });
 
-  if (!open) return null;
+  // Se queda montado un instante más al cerrar, para que la animación de
+  // salida se vea — con `if (!open) return null` a secas, el panel
+  // desaparecía de golpe en vez de deslizarse. prefers-reduced-motion ya
+  // acorta estas animaciones a ~0 vía globals.css, así que no hace falta
+  // duplicar esa comprobación aquí.
+  const [rendered, setRendered] = useState(open);
+  const [cerrando, setCerrando] = useState(false);
+
+  useEffect(() => {
+    if (open) { setRendered(true); setCerrando(false); }
+    else if (rendered) setCerrando(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  if (!rendered) return null;
 
   return (
     <div
-      className={backdropClassName}
+      className={`${backdropClassName} ${cerrando ? 'animate-drawer-backdrop-out' : 'animate-drawer-backdrop-in'}`}
       style={backdropStyle}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
@@ -44,9 +59,10 @@ export function DashboardDrawer({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={sheetClassName}
+        className={`${sheetClassName} ${cerrando ? 'animate-drawer-sheet-out' : 'animate-drawer-sheet-in'}`}
         style={sheetStyle}
         onClick={e => e.stopPropagation()}
+        onAnimationEnd={() => { if (cerrando) setRendered(false); }}
       >
         {children}
       </div>

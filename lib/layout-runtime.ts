@@ -7,9 +7,12 @@
 // arrastrar zod a su bundle de cliente. Cero dependencias de validación
 // (`portal-home-bloques.ts` es igual de puro, así que importarlo no rompe eso).
 
-import { resolveHomeBloques, DEFAULT_HOME_BLOQUES_SHAPE, type HomeBloquesShape } from './portal-home-bloques.ts';
-export type { HomeBloquesShape };
-export { resolveHomeBloques };
+import {
+  resolveBloquesPantalla, DEFAULT_BLOQUES_SHAPE, PANTALLA_IDS,
+  type HomeBloquesShape, type BloquesPorPantallaShape,
+} from './portal-home-bloques.ts';
+export type { HomeBloquesShape, BloquesPorPantallaShape };
+export { resolveBloquesPantalla };
 
 export const MENU_POSICIONES = ['lateral', 'superior'] as const;
 export type MenuPosicion = (typeof MENU_POSICIONES)[number];
@@ -27,13 +30,14 @@ export interface LayoutConfigShape {
   home: OrdenVisibilidad;
   // Orden/visibilidad de los módulos de Inicio del PORTAL cliente (Fase 2 del
   // editor de temas) — distinto de `home`, que es la home del DASHBOARD.
-  // Legacy desde Fase 3: ver homeBloques/resolveHomeBloques.
+  // Legacy desde Fase 3: ver bloques.home/resolveBloquesPantalla.
   portalHome: OrdenVisibilidad;
-  // Constructor de bloques del Inicio del portal (Fase 3). Sustituye a
-  // `portalHome` como fuente de verdad en cuanto el estudio guarda un
-  // borrador aquí — hasta entonces, `resolveHomeBloques` sintetiza esto a
-  // partir de `portalHome`.
-  homeBloques: HomeBloquesShape;
+  // Constructor de bloques (Fase 3, generalizado a Clases/Bonos en la Fase 1
+  // del Theme Builder). El de Home sustituye a `portalHome` como fuente de
+  // verdad en cuanto el estudio guarda un borrador ahí — hasta entonces,
+  // `resolveBloquesPantalla` sintetiza `bloques.home` a partir de
+  // `portalHome`. Clases/Bonos no tienen ese legado.
+  bloques: BloquesPorPantallaShape;
 }
 
 export const DEFAULT_LAYOUT: LayoutConfigShape = {
@@ -42,7 +46,7 @@ export const DEFAULT_LAYOUT: LayoutConfigShape = {
   menuPosition: 'lateral',
   home: { orden: [], ocultos: [] },
   portalHome: { orden: [], ocultos: [] },
-  homeBloques: DEFAULT_HOME_BLOQUES_SHAPE,
+  bloques: DEFAULT_BLOQUES_SHAPE,
 };
 
 function resolveOrdenVis(raw: unknown): OrdenVisibilidad {
@@ -61,11 +65,20 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
     ? (obj.menuPosition as MenuPosicion)
     : 'lateral';
   const portalHome = resolveOrdenVis(obj.portalHome);
+  const bloquesRaw = obj.bloques && typeof obj.bloques === 'object' ? (obj.bloques as Record<string, unknown>) : {};
+  const bloques = Object.fromEntries(
+    PANTALLA_IDS.map((id) => [
+      id,
+      // `home` legacy: antes de esta fase se guardaba suelto en `homeBloques`,
+      // no dentro de `bloques.home` — se sigue leyendo por compatibilidad.
+      resolveBloquesPantalla(id === 'home' ? (bloquesRaw.home ?? obj.homeBloques) : bloquesRaw[id], id, id === 'home' ? portalHome : undefined),
+    ]),
+  ) as BloquesPorPantallaShape;
   return {
     orden, ocultos, menuPosition,
     home: resolveOrdenVis(obj.home),
     portalHome,
-    homeBloques: resolveHomeBloques(obj.homeBloques, portalHome),
+    bloques,
   };
 }
 

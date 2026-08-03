@@ -2,8 +2,11 @@
 // Motor de aplicación del tema en runtime (Fase 1 · backbone)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Generaliza `lib/portal-theme.tsx` (que solo aceptaba un id de preset) para
-// aceptar un tema arbitrario. Produce el conjunto de CSS variables que ya
+// Sustituye al antiguo `lib/portal-theme.tsx` (que solo aceptaba un id de
+// preset y se aplicaba con un `style` inline en PortalShell, pisando por
+// especificidad el `:root` que ya inyecta ThemeStyle — el bug real que hizo
+// que la app de socias ignorara el tema publicado del estudio). Este módulo
+// acepta un tema arbitrario. Produce el conjunto de CSS variables que ya
 // consume el resto de la app (`--portal-brand*`, `--brand*`, `--background`,
 // `--foreground`, `--accent`, `--radius`, `--font-*`), así que NO hay que tocar
 // componentes: solo se sobreescriben los valores de las variables.

@@ -167,6 +167,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     deleteRecibo,
     cobrarTodosPendientes,
     addRecibo,
+    crearFacturaDirecta,
     resetDatosPilates,
   } = useStudio();
 
@@ -256,6 +257,28 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     concepto: '',
     importe: '',
   });
+  const [generandoFactura, setGenerandoFactura] = useState(false);
+
+  async function generarFacturaDirecta() {
+    const baseImponible = parseFloat(facturaForm.importe);
+    if (isNaN(baseImponible) || baseImponible <= 0) return;
+    const iva = studio?.ivaPorDefecto ?? 21;
+    const total = Math.round(baseImponible * (1 + iva / 100) * 100) / 100;
+    setGenerandoFactura(true);
+    const res = await crearFacturaDirecta({
+      socioId: facturaForm.socioId,
+      concepto: facturaForm.concepto.trim(),
+      importe: total,
+    });
+    setGenerandoFactura(false);
+    if (!res.ok) {
+      setStripeToast({ tipo: 'error', msg: `No se ha podido generar la factura: ${res.error}` });
+      return;
+    }
+    setShowFactura(false);
+    setFacturaForm({ socioId: '', concepto: '', importe: '' });
+    setStripeToast({ tipo: 'ok', msg: 'Factura generada.' });
+  }
 
   // ── Historial state ─────────────────────────────────────────────────────────
   const [histSearch, setHistSearch]   = useState('');
@@ -1532,14 +1555,11 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
               Cancelar
             </button>
             <button
-              disabled={!facturaForm.socioId || !facturaForm.concepto.trim() || !facturaForm.importe}
-              onClick={() => {
-                // generarFactura would be called here when available in context
-                setShowFactura(false);
-              }}
+              disabled={!facturaForm.socioId || !facturaForm.concepto.trim() || !facturaForm.importe || generandoFactura}
+              onClick={generarFacturaDirecta}
               className="flex-1 py-2.5 rounded-xl text-sm font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              <FileText size={14} />
+              {generandoFactura ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
               Generar factura
             </button>
           </div>
