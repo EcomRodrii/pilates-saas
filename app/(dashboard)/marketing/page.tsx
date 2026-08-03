@@ -650,11 +650,12 @@ export default function MarketingPage() {
       presupuesto: newCampana.presupuesto ? parseFloat(newCampana.presupuesto) : null,
       publicaciones: newCampana.publicaciones.length ? newCampana.publicaciones : null,
     }
-    if (editCampanaId) {
-      updateCampana(editCampanaId, campos)
-    } else {
-      addCampana({ ...campos, estado: 'BORRADOR', enviadaEn: null, programadaEn: null })
-    }
+    ;(async () => {
+      const res = editCampanaId
+        ? await updateCampana(editCampanaId, campos)
+        : await addCampana({ ...campos, estado: 'BORRADOR', enviadaEn: null, programadaEn: null })
+      if (!res.ok) window.alert(res.error)
+    })()
     setNewCampana(CAMPANA_VACIA)
     setEditCampanaId(null)
     setSelectedTemplate(null)
@@ -899,7 +900,7 @@ export default function MarketingPage() {
                       )}
                       {(c.estado === 'BORRADOR' || c.estado === 'PROGRAMADA') && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Activar como campaña en curso"
                         >
@@ -908,7 +909,7 @@ export default function MarketingPage() {
                       )}
                       {c.estado === 'ACTIVA' && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' })}
+                          onClick={() => updateCampana(c.id, { estado: 'PAUSADA' }).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Pausar campaña"
                         >
@@ -917,7 +918,7 @@ export default function MarketingPage() {
                       )}
                       {c.estado === 'PAUSADA' && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' })}
+                          onClick={() => updateCampana(c.id, { estado: 'ACTIVA' }).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Reanudar campaña"
                         >
@@ -926,7 +927,7 @@ export default function MarketingPage() {
                       )}
                       {(c.estado === 'ACTIVA' || c.estado === 'PAUSADA') && (
                         <button
-                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() })}
+                          onClick={() => updateCampana(c.id, { estado: 'ENVIADA', enviadaEn: c.enviadaEn ?? new Date().toISOString() }).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground text-xs font-medium hover:bg-muted transition-colors"
                           title="Finalizar campaña"
                         >
@@ -943,14 +944,14 @@ export default function MarketingPage() {
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => duplicateCampana(c)}
+                          onClick={() => duplicateCampana(c).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                           title="Duplicar"
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => deleteCampana(c.id)}
+                          onClick={() => deleteCampana(c.id).then(res => { if (!res.ok) window.alert(res.error) })}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           title="Eliminar"
                         >
@@ -1015,9 +1016,9 @@ export default function MarketingPage() {
                     <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => deleteAutomatizacion(a.id)} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
-                        onClick={() => toggleAutomatizacion(a.id)}
+                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
@@ -1118,7 +1119,7 @@ export default function MarketingPage() {
                         </td>
                         <td className="px-4 py-4">
                           <button
-                            onClick={() => toggleAutomatizacion(a.id)}
+                            onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
                             className={cn(
                               'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
                               a.activa ? 'bg-primary' : 'bg-muted-foreground/40'
@@ -1146,7 +1147,7 @@ export default function MarketingPage() {
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                       <button
-                        onClick={() => toggleAutomatizacion(a.id)}
+                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >

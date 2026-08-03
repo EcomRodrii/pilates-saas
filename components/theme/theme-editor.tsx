@@ -169,7 +169,8 @@ export function ThemeEditor() {
     const r = await subirLogoEstudio(studio.id, file);
     setSubiendo(null);
     if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
-    await updateStudio({ logoUrl: r.url });
+    const res = await updateStudio({ logoUrl: r.url });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
   }
 
   async function handleQuitarLogo() {
@@ -177,7 +178,8 @@ export function ThemeEditor() {
     setSubiendo('logo');
     await eliminarLogoEstudio(studio.id);
     setSubiendo(null);
-    await updateStudio({ logoUrl: null });
+    const res = await updateStudio({ logoUrl: null });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
   }
 
   async function handleFavicon(e: React.ChangeEvent<HTMLInputElement>) {

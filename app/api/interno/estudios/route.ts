@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
+import { catalogo } from '@/lib/migracion/catalogo';
 
 export const runtime = 'nodejs';
 
@@ -19,11 +20,15 @@ export async function GET(req: NextRequest) {
 
   const busqueda = (req.nextUrl.searchParams.get('q') ?? '').trim().toLowerCase();
 
+  // catalogo() (no un select a secas) para las tablas que agregan TODOS los
+  // estudios: sin paginar, PostgREST corta en 1000 filas — con la plataforma
+  // creciendo, socios/sesiones/instructores de todos los estudios juntos ya
+  // pueden superar ese corte y dar conteos/"última clase" falsos.
   const [studios, socios, sesiones, staff] = await Promise.all([
     db.from('studios').select('id, slug, nombre, plan, email, telefono, creado_en, stripe_customer_id'),
-    db.from('socios').select('studio_id'),
-    db.from('sesiones').select('studio_id, inicio'),
-    db.from('instructores').select('studio_id, auth_user_id, activo'),
+    catalogo<{ studio_id: string }>((d, h) => db.from('socios').select('studio_id').range(d, h)),
+    catalogo<{ studio_id: string; inicio: string | null }>((d, h) => db.from('sesiones').select('studio_id, inicio').range(d, h)),
+    catalogo<{ studio_id: string; auth_user_id: string | null; activo: boolean }>((d, h) => db.from('instructores').select('studio_id, auth_user_id, activo').range(d, h)),
   ]);
 
   const cuenta = (filas: Array<Record<string, unknown>> | null, clave = 'studio_id') => {

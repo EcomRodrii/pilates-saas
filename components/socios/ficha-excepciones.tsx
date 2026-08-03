@@ -10,9 +10,9 @@ import { ShieldOff } from 'lucide-react';
 export function FichaExcepciones({ socioId }: { socioId: string }) {
   const { socioExcepciones, ponerExcepcion, quitarExcepcion } = useStudio();
 
-  function toggle(tipo: TipoExcepcion, on: boolean) {
-    if (on) ponerExcepcion(socioId, tipo, null);
-    else quitarExcepcion(socioId, tipo);
+  async function toggle(tipo: TipoExcepcion, on: boolean) {
+    const res = on ? await ponerExcepcion(socioId, tipo, null) : await quitarExcepcion(socioId, tipo);
+    if (!res.ok) window.alert(res.error);
   }
 
   return (

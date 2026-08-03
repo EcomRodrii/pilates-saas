@@ -356,7 +356,7 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
   const finalizar = useCallback(async (ans: Respuestas) => {
     if (guardadoRef.current) return;
     guardadoRef.current = true;
-    updateStudio({
+    await updateStudio({
       bienvenidaVistaEn: new Date().toISOString(),
       onbCentros: ans.centros ?? null,
       onbSoftwareAnterior: ans.software ?? null,

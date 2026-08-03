@@ -108,7 +108,8 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     const result = await subirFotoClase(editId, file);
     setSubiendoFoto(false);
     if ('error' in result) { showToast(result.error); return; }
-    updateTipoClase(editId, { fotoUrl: result.url });
+    const res = await updateTipoClase(editId, { fotoUrl: result.url });
+    if (!res.ok) showToast(res.error);
   }
 
   async function handleEliminarFoto() {
@@ -117,7 +118,8 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     const result = await eliminarFotoClase(editId);
     setSubiendoFoto(false);
     if ('error' in result) { showToast(result.error); return; }
-    updateTipoClase(editId, { fotoUrl: null });
+    const res = await updateTipoClase(editId, { fotoUrl: null });
+    if (!res.ok) showToast(res.error);
   }
 
   const openNueva = useCallback(() => {
@@ -161,8 +163,8 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       if (!res.ok) { setErrorGuardar(res.error); return; }
       showToast(`"${fields.nombre}" ya está guardado`);
     } else if (editId) {
-      updateTipoClase(editId, fields);
-      showToast('Tipo de clase actualizado');
+      const res = await updateTipoClase(editId, fields);
+      showToast(res.ok ? 'Tipo de clase actualizado' : res.error);
     }
     setModal(null);
   }, [modal, editId, form, addTipoClase, updateTipoClase, showToast]);

@@ -30,8 +30,8 @@ export function OnboardingChecklist() {
   const pendientes = pasos.filter(p => !p.done).length;
   if (pendientes === 0) return null;
 
-  function handleDismiss() {
-    updateStudio({ onboardingDescartadoEn: new Date().toISOString() });
+  async function handleDismiss() {
+    await updateStudio({ onboardingDescartadoEn: new Date().toISOString() });
   }
 
   return (

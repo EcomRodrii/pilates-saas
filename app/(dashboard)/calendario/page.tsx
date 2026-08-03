@@ -877,7 +877,10 @@ function SessionSidebar({
                             return (
                               <button
                                 key={resp}
-                                onClick={() => registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesion?.id ?? null, respuesta: resp })}
+                                onClick={async () => {
+                                  const res = await registrarRespuestaSesion({ socioId: r.socioId, sesionId: sesion?.id ?? null, respuesta: resp });
+                                  if (!res.ok) window.alert(res.error);
+                                }}
                                 title={rm.label}
                                 aria-label={rm.label}
                                 aria-pressed={activa}
@@ -1802,6 +1805,15 @@ export default function Calendario() {
     return hayConflicto(c) ? c : null;
   }, [showForm, form.fecha, form.horaInicio, form.horaFin, form.salaId, form.instructorId, existentesSlot, sesionId]);
 
+  // Instructora con ausencia vigente ese día (I-1 no lo cubre: una ausencia no
+  // es un solape de horario que la BD rechace, así que antes solo se veía
+  // como un sufijo de texto en el desplegable, fácil de no ver). Avisa, no
+  // bloquea: puede ser una sustitución deliberada.
+  const ausenciaInstructorForm = useMemo(() => {
+    if (!showForm || !form.fecha || !form.instructorId) return null;
+    return ausenciaEnFecha(ausencias, form.instructorId, form.fecha);
+  }, [showForm, form.fecha, form.instructorId, ausencias]);
+
   // I-2: al editar, cuántas confirmadas quedarían fuera si se baja el aforo.
   const aforoSobrante = useMemo(() => {
     if (showForm !== 'editar' || !sesionActual) return 0;
@@ -1852,7 +1864,7 @@ export default function Calendario() {
       salaId,
       // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
       // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
-      instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+      instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot, ausencias),
       aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
     });
     setErrorSesion(null);
@@ -2272,9 +2284,15 @@ export default function Calendario() {
     setToast(`Serie cancelada · ${n} clases · clientas avisadas`);
   }
 
-  function eliminarSesion() {
+  async function eliminarSesion() {
     if (!sesionId) return;
-    deleteSesion(sesionId);
+    // Espera a que deleteSesion() termine de verdad (incluye avisar a las
+    // socias antes de borrar, y el DELETE real) antes de cerrar el panel y
+    // anunciar éxito — antes esto no se esperaba, y con el aviso tardando
+    // varios segundos la clase seguía visible en el calendario aunque el
+    // toast ya dijera "eliminada".
+    const res = await deleteSesion(sesionId);
+    if (!res.ok) { setToast(res.error); return; }
     setSesionId(null);
     setToast('Clase eliminada');
   }
@@ -2348,18 +2366,25 @@ export default function Calendario() {
     return sesion?.precioPuntual ?? planesTarifa.find(p => p.tipo === 'PUNTUAL')?.precio ?? null;
   };
 
-  function handleCobrarSuelta() {
+  async function handleCobrarSuelta() {
     if (!avisoSinBono) return;
     const { sesionId, socioId } = avisoSinBono;
     const precio = precioSueltaDe(sesionId);
+    let reciboOk = true;
     if (precio != null && precio > 0) {
-      addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
+      const res = await addRecibo({ socioId, suscripcionId: null, concepto: 'Clase suelta', importe: precio, fechaVencimiento: new Date().toISOString().slice(0, 10) });
+      reciboOk = res.ok;
     }
     // También por aquí: cobrarle una clase suelta y dejarla en espera sin decirlo
-    // sería peor todavía, porque ya ha pagado.
+    // sería peor todavía, porque ya ha pagado. La reserva se añade igual aunque
+    // el recibo haya fallado — son dos cosas distintas, y sin la reserva la
+    // socia se queda además sin plaza.
     anadirOPreguntarEspera(sesionId, socioId);
     setAvisoSinBono(null);
-    setToast(precio ? 'Clase suelta cobrada (recibo pendiente) y socia añadida' : 'Socia añadida');
+    setToast(
+      !reciboOk ? 'Socia añadida, pero no se pudo crear el recibo — créalo a mano en Cobros'
+        : precio ? 'Clase suelta cobrada (recibo pendiente) y socia añadida' : 'Socia añadida',
+    );
   }
 
   function handleCortesiaSinBono() {
@@ -2579,7 +2604,7 @@ export default function Calendario() {
                 ...base,
                 fecha, horaInicio: hora, horaFin,
                 salaId,
-                instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot),
+                instructorId: esInstructorTop && yoTop ? yoTop.id : elegirLibre(instructoresActivos.map(i => i.id), 'instructorId', inicio, fin, existentesSlot, ausencias),
                 aforoMaximo: salas.find(s => s.id === salaId)?.capacidad ?? base.aforoMaximo,
               });
               setErrorSesion(null);
@@ -2843,8 +2868,14 @@ export default function Calendario() {
                 rechazaría igualmente (sesiones_sala_sin_solape, 0071, y
                 sesiones_instructor_sin_solape, 0048); con escrituras optimistas
                 dejarlo pasar significaría un fallo silencioso. Aforo (I-2) solo informa. */}
-            {(conflictosForm || aforoSobrante > 0) && (
+            {(conflictosForm || aforoSobrante > 0 || ausenciaInstructorForm) && (
               <div className="px-6 pb-1 shrink-0 space-y-2">
+                {ausenciaInstructorForm && (
+                  <div className="rounded-xl px-3.5 py-2.5 text-xs bg-warning/10 border border-warning/30 text-warning flex gap-2">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5 text-warning" />
+                    <p><span className="font-bold">{nombreInstructor(form.instructorId)}</span>{sufijoAusencia(ausenciaInstructorForm) ? sufijoAusencia(ausenciaInstructorForm).replace(' · ', ' está ') : ' está ausente'} ese día. Comprueba que sea una sustitución deliberada antes de guardar.</p>
+                  </div>
+                )}
                 {conflictosForm && (
                   <div className="rounded-xl px-3.5 py-2.5 text-xs bg-destructive/10 border border-destructive/30 text-destructive flex gap-2">
                     <AlertTriangle size={14} className="shrink-0 mt-0.5 text-destructive" />

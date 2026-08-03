@@ -24,18 +24,28 @@ export function StudioSlugGate({
   initialStudioId?: string | null;
   initialResuelto?: boolean;
 }) {
-  const [state, setState] = useState<{ studioId: string | null; checked: boolean }>(
-    initialResuelto ? { studioId: initialStudioId ?? null, checked: true } : { studioId: null, checked: false },
+  // Cuando el servidor ya resolvió el estudio (initialResuelto), no hace
+  // falta estado en absoluto: se deriva directo de los props en cada render.
+  // Antes vivía en un useState inicializado UNA vez — al navegar de cliente
+  // entre dos slugs distintos sin recarga completa, ese estado se quedaba
+  // pegado al primer estudio visitado aunque el servidor ya hubiera resuelto
+  // el nuevo. Derivarlo en cada render lo hace imposible por construcción.
+  const [clienteState, setClienteState] = useState<{ slug: string; studioId: string | null; checked: boolean }>(
+    { slug, studioId: null, checked: false },
   );
 
   useEffect(() => {
-    if (initialResuelto) return; // ya resuelto en el servidor
+    if (initialResuelto) return; // ya resuelto en el servidor, ver derivación abajo
     let cancelled = false;
     resolveStudioIdBySlug(slug).then(id => {
-      if (!cancelled) setState({ studioId: id, checked: true });
+      if (!cancelled) setClienteState({ slug, studioId: id, checked: true });
     });
     return () => { cancelled = true; };
   }, [slug, initialResuelto]);
+
+  const state = initialResuelto
+    ? { slug, studioId: initialStudioId ?? null, checked: true }
+    : (clienteState.slug === slug ? clienteState : { slug, studioId: null, checked: false });
 
   if (!state.checked) return null;
 

@@ -32,19 +32,16 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
     return s.split(',').map(o => o.trim()).filter(Boolean);
   }
 
-  function guardar() {
+  async function guardar() {
     const etiqueta = form.etiqueta.trim();
     if (!etiqueta) { showToast('Ponle un nombre al campo'); return; }
     const opciones = form.tipo === 'seleccion' ? parseOpciones(form.opciones) : [];
     if (form.tipo === 'seleccion' && opciones.length === 0) { showToast('Añade al menos una opción'); return; }
-    if (editId) {
-      updateCampoPersonalizado(editId, { etiqueta, tipo: form.tipo, opciones, requerido: form.requerido });
-      showToast('Campo actualizado');
-    } else {
-      const orden = ordenados.length ? Math.max(...ordenados.map(c => c.orden)) + 1 : 0;
-      addCampoPersonalizado({ etiqueta, tipo: form.tipo, opciones, requerido: form.requerido, orden, activo: true });
-      showToast('Campo añadido');
-    }
+    const res = editId
+      ? await updateCampoPersonalizado(editId, { etiqueta, tipo: form.tipo, opciones, requerido: form.requerido })
+      : await addCampoPersonalizado({ etiqueta, tipo: form.tipo, opciones, requerido: form.requerido, orden: ordenados.length ? Math.max(...ordenados.map(c => c.orden)) + 1 : 0, activo: true });
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(editId ? 'Campo actualizado' : 'Campo añadido');
     setForm(emptyCampoForm());
     setEditId(null);
   }
@@ -54,13 +51,16 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
     setForm({ etiqueta: c.etiqueta, tipo: c.tipo, opciones: c.opciones.join(', '), requerido: c.requerido });
   }
 
-  function mover(id: string, dir: -1 | 1) {
+  async function mover(id: string, dir: -1 | 1) {
     const i = ordenados.findIndex(c => c.id === id);
     const j = i + dir;
     if (j < 0 || j >= ordenados.length) return;
     const a = ordenados[i], b = ordenados[j];
-    updateCampoPersonalizado(a.id, { orden: b.orden });
-    updateCampoPersonalizado(b.id, { orden: a.orden });
+    const [r1, r2] = await Promise.all([
+      updateCampoPersonalizado(a.id, { orden: b.orden }),
+      updateCampoPersonalizado(b.id, { orden: a.orden }),
+    ]);
+    if (!r1.ok) showToast(r1.error); else if (!r2.ok) showToast(r2.error);
   }
 
   return (
@@ -139,7 +139,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
                   </p>
                 </div>
                 <label className="flex items-center gap-1.5 cursor-pointer shrink-0" title="Activo">
-                  <Toggle on={c.activo} onChange={v => updateCampoPersonalizado(c.id, { activo: v })} />
+                  <Toggle on={c.activo} onChange={async v => { const res = await updateCampoPersonalizado(c.id, { activo: v }); if (!res.ok) showToast(res.error); }} />
                 </label>
                 <button onClick={() => editar(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground shrink-0" title="Editar">
                   <Pencil size={14} />
@@ -158,8 +158,11 @@ export function TabCamposPersonalizados({ showToast }: { showToast: (m: string) 
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
         title="Eliminar campo"
         description="Se quitará de las altas y fichas. Los valores ya guardados en las clientas no se muestran, pero no se borran."
-        onConfirm={() => {
-          if (confirmDel) { deleteCampoPersonalizado(confirmDel); showToast('Campo eliminado'); }
+        onConfirm={async () => {
+          if (confirmDel) {
+            const res = await deleteCampoPersonalizado(confirmDel);
+            showToast(res.ok ? 'Campo eliminado' : res.error);
+          }
           setConfirmDel(null);
         }}
       />

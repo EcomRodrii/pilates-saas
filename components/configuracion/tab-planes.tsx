@@ -80,33 +80,28 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
 
   const closeModal = useCallback(() => setModal(null), []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     // La derivación (qué caduca, qué se descarta, qué es null) vive en
     // lib/planes/formulario.ts y la comparte con la pantalla de Productos.
     const datos = formularioAPlan(form);
-    if (modal === 'nuevo') {
-      addPlan(datos);
-      showToast('Plan creado correctamente');
-    } else if (editId) {
-      updatePlan(editId, datos);
-      showToast('Plan actualizado');
-    }
+    const res = modal === 'nuevo' ? await addPlan(datos) : editId ? await updatePlan(editId, datos) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(modal === 'nuevo' ? 'Plan creado correctamente' : 'Plan actualizado');
     setModal(null);
   }, [modal, editId, form, addPlan, updatePlan, showToast]);
 
   const toggleActivo = useCallback(
-    (id: string, current: boolean) => {
-      updatePlan(id, { activo: !current });
-      showToast(!current ? 'Plan activado' : 'Plan desactivado');
+    async (id: string, current: boolean) => {
+      const res = await updatePlan(id, { activo: !current });
+      showToast(res.ok ? (!current ? 'Plan activado' : 'Plan desactivado') : res.error);
     },
     [updatePlan, showToast]
   );
 
-  const handleDelete = useCallback(() => {
-    if (confirmDel) {
-      deletePlan(confirmDel);
-      showToast('Plan eliminado');
-    }
+  const handleDelete = useCallback(async () => {
+    if (!confirmDel) return;
+    const res = await deletePlan(confirmDel);
+    showToast(res.ok ? 'Plan eliminado' : res.error);
   }, [confirmDel, deletePlan, showToast]);
 
   const sesionesRequeridas = form.tipo === 'BONO' || form.tipo === 'PUNTUAL';

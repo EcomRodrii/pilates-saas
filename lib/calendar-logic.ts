@@ -5,6 +5,8 @@
 // La usa el calendario para avisar antes de crear/editar una clase que solaparía
 // una sala o una instructora, o que dejaría la clase sobreaforada.
 // ─────────────────────────────────────────────────────────────────────────────
+import { ausenciaEnFecha } from './ausencias.ts';
+import type { AusenciaInstructora } from './api-client.ts';
 
 export interface SlotSesion {
   id?: string;
@@ -56,17 +58,25 @@ export function hayConflicto(c: { sala: SlotSesion[]; instructor: SlotSesion[] }
 // la primera que esté libre en ese hueco; si todas están ocupadas, la primera
 // de todas igualmente (mismo comportamiento que antes: el aviso de conflicto
 // ya explica el motivo, no se deja el desplegable vacío).
+//
+// `ausencias` (opcional, solo aplica a campo='instructorId'): antes esta
+// función solo miraba solapes con OTRAS clases — podía preseleccionar a una
+// instructora de vacaciones sin más aviso que un sufijo de texto en el
+// desplegable (fácil de no ver). Ahora una instructora con ausencia vigente
+// en `inicio` cuenta como "no libre" igual que un solape de horario.
 export function elegirLibre(
   candidatas: string[],
   campo: 'salaId' | 'instructorId',
   inicio: string,
   fin: string,
   existentes: SlotSesion[],
+  ausencias: AusenciaInstructora[] = [],
 ): string {
   if (candidatas.length === 0) return '';
-  const libre = candidatas.find(id => !existentes.some(s =>
-    !s.cancelada && s[campo] === id && solapan(inicio, fin, s.inicio, s.fin),
-  ));
+  const libre = candidatas.find(id =>
+    !existentes.some(s => !s.cancelada && s[campo] === id && solapan(inicio, fin, s.inicio, s.fin)) &&
+    (campo !== 'instructorId' || !ausenciaEnFecha(ausencias, id, inicio)),
+  );
   return libre ?? candidatas[0];
 }
 

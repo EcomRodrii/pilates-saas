@@ -104,6 +104,24 @@ test('elegirLibre: ignora canceladas al buscar hueco libre', () => {
   assert.equal(r, 'sala-1');
 });
 
+test('elegirLibre: no propone una instructora de vacaciones ese día', () => {
+  const ausencias = [{ id: 'a1', instructorId: 'ins-1', tipo: 'VACACIONES' as const, desde: '2026-07-10', hasta: '2026-07-20', motivo: null }];
+  const r = elegirLibre(['ins-1', 'ins-2'], 'instructorId', cand.inicio, cand.fin, [], ausencias);
+  assert.equal(r, 'ins-2');
+});
+
+test('elegirLibre: ausencia fuera del rango no afecta', () => {
+  const ausencias = [{ id: 'a1', instructorId: 'ins-1', tipo: 'VACACIONES' as const, desde: '2026-08-01', hasta: '2026-08-10', motivo: null }];
+  const r = elegirLibre(['ins-1', 'ins-2'], 'instructorId', cand.inicio, cand.fin, [], ausencias);
+  assert.equal(r, 'ins-1');
+});
+
+test('elegirLibre: la ausencia no filtra el campo salaId', () => {
+  const ausencias = [{ id: 'a1', instructorId: 'sala-1', tipo: 'VACACIONES' as const, desde: '2026-07-10', hasta: '2026-07-20', motivo: null }];
+  const r = elegirLibre(['sala-1', 'sala-2'], 'salaId', cand.inicio, cand.fin, [], ausencias);
+  assert.equal(r, 'sala-1');
+});
+
 // ── plazasSobrantesTrasAforo ──────────────────────────────────────────────────
 test('plazasSobrantesTrasAforo: confirmadas por encima del nuevo aforo', () => {
   assert.equal(plazasSobrantesTrasAforo(8, 4), 4);

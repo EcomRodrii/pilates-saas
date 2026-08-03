@@ -75,7 +75,7 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
 
   const closeModal = useCallback(() => setModal(null), []);
 
-  const guardar = useCallback(() => {
+  const guardar = useCallback(async () => {
     const precioNum = form.precio.trim() === '' ? null : Number(form.precio.replace(',', '.'));
     const fields = {
       nombre: form.nombre.trim(),
@@ -88,21 +88,18 @@ export function TabServiciosCita({ showToast }: { showToast: (m: string) => void
       activo: form.activo,
       orden: 0,
     };
-    if (modal === 'nueva') {
-      addServicioCita(fields);
-      showToast('Servicio creado');
-    } else if (editId) {
-      updateServicioCita(editId, fields);
-      showToast('Servicio actualizado');
-    }
+    const res = modal === 'nueva'
+      ? await addServicioCita(fields)
+      : editId ? await updateServicioCita(editId, fields) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
+    showToast(modal === 'nueva' ? 'Servicio creado' : 'Servicio actualizado');
     setModal(null);
   }, [modal, editId, form, addServicioCita, updateServicioCita, showToast]);
 
-  const handleDelete = useCallback(() => {
-    if (confirmDel) {
-      deleteServicioCita(confirmDel);
-      showToast('Servicio eliminado');
-    }
+  const handleDelete = useCallback(async () => {
+    if (!confirmDel) return;
+    const res = await deleteServicioCita(confirmDel);
+    showToast(res.ok ? 'Servicio eliminado' : res.error);
   }, [confirmDel, deleteServicioCita, showToast]);
 
   const canGuardar = form.nombre.trim() && form.duracionMin;

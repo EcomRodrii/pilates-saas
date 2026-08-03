@@ -26,13 +26,13 @@ export function TabEstudioCobros({ showToast }: { showToast: (m: string) => void
     setForm(studioToSepa(studio));
   }
 
-  function guardarSepa() {
-    updateStudio({
+  async function guardarSepa() {
+    const res = await updateStudio({
       sepaAcreedorId: form.sepaAcreedorId.trim() || null,
       sepaIban: form.sepaIban.replace(/\s+/g, '').toUpperCase() || null,
       sepaTitular: form.sepaTitular.trim() || null,
     });
-    showToast('Datos SEPA guardados');
+    showToast(res.ok ? 'Datos SEPA guardados' : res.error);
   }
 
   return (

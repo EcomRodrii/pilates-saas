@@ -330,7 +330,8 @@ export default function EquipoPage() {
         showToast(`${fields.nombre} ya está en tu equipo`);
       }
     } else if (editId) {
-      updateInstructor(editId, fields);
+      const res = await updateInstructor(editId, fields);
+      if (!res.ok) { showToast(res.error); setModal(null); return; }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
       let mensaje = 'Cambios guardados';
@@ -356,7 +357,7 @@ export default function EquipoPage() {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     setForm(f => ({ ...f, fotoUrl: result.url }));
-    if (editId) updateInstructor(editId, { fotoUrl: result.url });
+    if (editId) { const res = await updateInstructor(editId, { fotoUrl: result.url }); if (!res.ok) setErrorFoto(res.error); }
   }
 
   async function handleEliminarFoto() {
@@ -365,7 +366,7 @@ export default function EquipoPage() {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     setForm(f => ({ ...f, fotoUrl: null }));
-    if (editId) updateInstructor(editId, { fotoUrl: null });
+    if (editId) { const res = await updateInstructor(editId, { fotoUrl: null }); if (!res.ok) setErrorFoto(res.error); }
   }
 
   const activos = tarjetas.filter(m => m.activo).length;
@@ -706,7 +707,12 @@ export default function EquipoPage() {
           </p>
           <div className="flex justify-end gap-2 pt-4">
             <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-            <button onClick={() => { if (confirmDel) deleteInstructor(confirmDel.id); setConfirmDel(null); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
+            <button onClick={async () => {
+              if (!confirmDel) return;
+              const res = await deleteInstructor(confirmDel.id);
+              setConfirmDel(null);
+              if (!res.ok) showToast(res.error);
+            }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
               <X size={14} /> Eliminar
             </button>
           </div>

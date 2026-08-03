@@ -178,7 +178,10 @@ export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => vo
           key={meta.tipo}
           meta={meta}
           plantilla={plantillasEmail.find(p => p.tipo === meta.tipo)}
-          onSave={changes => { upsertPlantillaEmail(meta.tipo, changes); showToast('Plantilla guardada'); }}
+          onSave={async changes => {
+            const res = await upsertPlantillaEmail(meta.tipo, changes);
+            showToast(res.ok ? 'Plantilla guardada' : res.error);
+          }}
           showToast={showToast}
         />
       ))}

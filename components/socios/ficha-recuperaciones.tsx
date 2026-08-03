@@ -94,7 +94,11 @@ export function FichaRecuperaciones({ socioId }: { socioId: string }) {
                   <p className="text-xs text-muted-foreground mt-0.5">{r.motivo || 'Sin motivo'} · concedida {fechaCorta(r.creadaEn)}</p>
                 </div>
                 {puedeTocar && st.viva && (
-                  <button onClick={() => anularRecuperacion(r.id)} title="Anular recuperación" className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0">
+                  <button
+                    onClick={async () => { const res = await anularRecuperacion(r.id); if (!res.ok) window.alert(res.error); }}
+                    title="Anular recuperación"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted shrink-0"
+                  >
                     <X size={14} />
                   </button>
                 )}

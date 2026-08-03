@@ -263,9 +263,9 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const desconectarStripe = () => {
-    updateStudio({ stripeAccountId: null });
-    showToast('Stripe desconectado');
+  const desconectarStripe = async () => {
+    const res = await updateStudio({ stripeAccountId: null });
+    showToast(res.ok ? 'Stripe desconectado' : res.error);
   };
 
   // Google Calendar: OAuth real (ver lib/google-calendar.ts). A diferencia de
@@ -307,8 +307,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const desconectarGoogle = async () => {
     const res = await fetch('/api/integrations/google-calendar/disconnect', { method: 'POST', headers: await authHeader() });
     if (res.ok) {
-      updateStudio({ googleCalendarEmail: null });
-      showToast('Google Calendar desconectado');
+      const upd = await updateStudio({ googleCalendarEmail: null });
+      showToast(upd.ok ? 'Google Calendar desconectado' : upd.error);
     } else {
       const data = await res.json().catch(() => null);
       showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
@@ -360,8 +360,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const desconectarGmail = async () => {
     const res = await fetch('/api/integrations/gmail/disconnect', { method: 'POST', headers: await authHeader() });
     if (res.ok) {
-      updateStudio({ gmailEmail: null });
-      showToast('Gmail desconectado');
+      const upd = await updateStudio({ gmailEmail: null });
+      showToast(upd.ok ? 'Gmail desconectado' : upd.error);
     } else {
       const data = await res.json().catch(() => null);
       showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
@@ -426,8 +426,8 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const desconectarZoom = async () => {
     const res = await fetch('/api/integrations/zoom/disconnect', { method: 'POST', headers: await authHeader() });
     if (res.ok) {
-      updateStudio({ zoomEmail: null });
-      showToast('Zoom desconectado');
+      const upd = await updateStudio({ zoomEmail: null });
+      showToast(upd.ok ? 'Zoom desconectado' : upd.error);
     } else {
       const data = await res.json().catch(() => null);
       showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);

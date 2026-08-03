@@ -249,20 +249,20 @@ interface StudioContextValue {
   // F2 (B2.2): asignar devuelve el resultado para que la UI muestre el choque de
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
-  quitarPlazaFija: (id: string) => void;
+  quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
   recuperaciones: Recuperacion[];
   // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
   socioExcepciones: SocioExcepcion[];
   // F2 (B2.10) cuaderno 19.14: mandatos SEPA. ponerMandato reutiliza el vigente de
   // la socia (uno por socia); quitarMandato = cancelar.
   mandatosSepa: MandatoSEPA[];
-  ponerMandato: (socioId: string, iban: string, refMandato: string, fechaFirma: string) => void;
-  quitarMandato: (id: string) => void;
-  ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => void;
-  quitarExcepcion: (socioId: string, tipo: string) => void;
+  ponerMandato: (socioId: string, iban: string, refMandato: string, fechaFirma: string) => Promise<ResultadoEscritura>;
+  quitarMandato: (id: string) => Promise<ResultadoEscritura>;
+  ponerExcepcion: (socioId: string, tipo: string, motivo: string | null) => Promise<ResultadoEscritura>;
+  quitarExcepcion: (socioId: string, tipo: string) => Promise<ResultadoEscritura>;
   // F2 (B2.3): dueña concede una recuperación. Devuelve TOPE si ya tiene 4 vivas.
   darRecuperacion: (socioId: string, motivo: string | null) => Promise<'CREADA' | 'TOPE' | 'ERROR'>;
-  anularRecuperacion: (id: string) => void;
+  anularRecuperacion: (id: string) => Promise<ResultadoEscritura>;
 
   // Mutable state
   socios: Socio[];
@@ -278,32 +278,32 @@ interface StudioContextValue {
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
-  addTagSocio: (socioId: string, tag: string) => void;
-  removeTagSocio: (socioId: string, tag: string) => void;
+  addTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
+  removeTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
 
   // Suscripciones
   assignPlan: (socioId: string, planId: string | null) => Promise<void>;
-  pausarSuscripcion: (susId: string, motivo?: string) => void;
-  reanudarSuscripcion: (susId: string) => void;
+  pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
+  reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
 
   // Notas internas
-  addNota: (socioId: string, texto: string) => void;
-  deleteNota: (notaId: string) => void;
+  addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
+  deleteNota: (notaId: string) => Promise<ResultadoEscritura>;
 
   // Ficha clínica — condiciones de salud (FICHA-CLINICA.md)
   condicionesSalud: CondicionSalud[];
-  addCondicion: (fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) => void;
-  updateCondicion: (id: string, changes: Partial<CondicionSalud>) => void;
-  deleteCondicion: (id: string) => void;
+  addCondicion: (fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) => Promise<ResultadoEscritura>;
+  updateCondicion: (id: string, changes: Partial<CondicionSalud>) => Promise<ResultadoEscritura>;
+  deleteCondicion: (id: string) => Promise<ResultadoEscritura>;
 
   // Ficha clínica — evolución post-clase (Fase 2)
   respuestasSesion: RespuestaSesionRow[];
-  registrarRespuestaSesion: (params: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) => void;
+  registrarRespuestaSesion: (params: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) => Promise<ResultadoEscritura>;
 
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSesion: (id: string, changes: Partial<Sesion>) => Promise<ResultadoEscritura>;
-  deleteSesion: (id: string) => void;
+  deleteSesion: (id: string) => Promise<ResultadoEscritura>;
   // Series de clases recurrentes (I-3)
   addSesionesSerie: (fields: Omit<Sesion, 'id' | 'studioId' | 'serieId'>[]) => Promise<ResultadoEscritura>;
   editarSerieDesde: (sesionId: string, changes: { tipoClaseId: string; salaId: string; instructorId: string; aforoMaximo: number; notas: string | null; horaInicio: string; horaFin: string }) => Promise<ResultadoEscritura & { count?: number }>;
@@ -320,18 +320,18 @@ interface StudioContextValue {
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
   checkin: (reservaId: string) => void;
-  deshacerCheckin: (reservaId: string) => void;
-  marcarNoShow: (reservaId: string) => void;
-  revertirNoShow: (reservaId: string) => void;
+  deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
+  marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
+  revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   liberarSpot: (reservaId: string) => void;
   asignarSpot: (sesionId: string, socioId: string, spotId: string) => void;
 
   // Recibos
-  addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => void;
+  addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
-  reintentar: (reciboId: string) => void;
-  deleteRecibo: (id: string) => void;
+  reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
+  deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
   cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
   marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
 
@@ -344,35 +344,35 @@ interface StudioContextValue {
 
   // Citas — catálogo de servicios + horario fino por instructora (0046)
   citasServicios: ServicioCita[];
-  addServicioCita: (fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateServicioCita: (id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>) => void;
-  deleteServicioCita: (id: string) => void;
+  addServicioCita: (fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateServicioCita: (id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteServicioCita: (id: string) => Promise<ResultadoEscritura>;
   citasDisponibilidad: DisponibilidadCita[];
-  setDisponibilidadCitas: (instructorId: string, franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>) => void;
+  setDisponibilidadCitas: (instructorId: string, franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>) => Promise<ResultadoEscritura>;
   reservarCitaPublica: (args: { servicioId: string; instructorId: string; inicioISO: string }) => Promise<{ ok: true; inicio: string; fin: string } | { error: string }>;
 
   // POS
   productosPOS: ProductoPOS[];
   ventasPOS: VentaPOS[];
-  addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>) => void;
-  updateProductoPOS: (id: string, changes: Partial<ProductoPOS>) => void;
-  deleteProductoPOS: (id: string) => void;
-  addVentaPOS: (fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) => void;
+  addProductoPOS: (fields: Omit<ProductoPOS, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateProductoPOS: (id: string, changes: Partial<ProductoPOS>) => Promise<ResultadoEscritura>;
+  deleteProductoPOS: (id: string) => Promise<ResultadoEscritura>;
+  addVentaPOS: (fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) => Promise<ResultadoEscritura>;
 
   // Campañas
   campanas: Campana[];
-  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => void;
-  deleteCampana: (id: string) => void;
-  duplicateCampana: (campana: Campana) => void;
-  updateCampana: (id: string, patch: Partial<Campana>) => void;
+  addCampana: (fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) => Promise<ResultadoEscritura>;
+  deleteCampana: (id: string) => Promise<ResultadoEscritura>;
+  duplicateCampana: (campana: Campana) => Promise<ResultadoEscritura>;
+  updateCampana: (id: string, patch: Partial<Campana>) => Promise<ResultadoEscritura>;
   enviarCampana: (campana: Campana) => Promise<{ enviados: number; total: number }>;
 
   // Automatizaciones
   automatizaciones: Automatizacion[];
-  addAutomatizacion: (fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) => void;
-  updateAutomatizacion: (id: string, patch: Partial<Automatizacion>) => void;
-  deleteAutomatizacion: (id: string) => void;
-  toggleAutomatizacion: (autoId: string) => void;
+  addAutomatizacion: (fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) => Promise<ResultadoEscritura>;
+  updateAutomatizacion: (id: string, patch: Partial<Automatizacion>) => Promise<ResultadoEscritura>;
+  deleteAutomatizacion: (id: string) => Promise<ResultadoEscritura>;
+  toggleAutomatizacion: (autoId: string) => Promise<ResultadoEscritura>;
 
   // Códigos de descuento
   codigosDescuento: CodigoDescuento[];
@@ -415,28 +415,28 @@ interface StudioContextValue {
   rachaSocio: (socioId: string) => RachaInfo;
   addRewardRule: (fields: Omit<RewardRule, 'id' | 'studioId' | 'creadoEn' | 'topeMensual'> & { topeMensual?: number | null }) => Promise<ResultadoEscritura>;
   updateRewardRule: (id: string, changes: Partial<Omit<RewardRule, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
-  addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => void;
-  deleteRewardCatalogItem: (id: string) => void;
+  addRewardCatalogItem: (fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteRewardCatalogItem: (id: string) => Promise<ResultadoEscritura>;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
-  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => void;
+  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => Promise<ResultadoEscritura>;
   achievementDefinitions: AchievementDefinition[];
   achievementProgress: AchievementProgress[];
   achievementHistory: AchievementHistory[];
-  addAchievementDefinition: (fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateAchievementDefinition: (id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) => void;
+  addAchievementDefinition: (fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateAchievementDefinition: (id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   evaluarLogrosSocio: (socioId: string) => void;
   levelDefinitions: LevelDefinition[];
   nivelSocio: (socioId: string) => NivelInfo;
-  addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => void;
-  deleteLevelDefinition: (id: string) => void;
+  addLevelDefinition: (fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateLevelDefinition: (id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteLevelDefinition: (id: string) => Promise<ResultadoEscritura>;
   challengeDefinitions: ChallengeDefinition[];
   challengeProgress: ChallengeProgress[];
   challengeHistory: ChallengeHistory[];
-  addChallengeDefinition: (fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) => void;
-  updateChallengeDefinition: (id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) => void;
-  deleteChallengeDefinition: (id: string) => void;
+  addChallengeDefinition: (fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  updateChallengeDefinition: (id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteChallengeDefinition: (id: string) => Promise<ResultadoEscritura>;
   evaluarRetosSocio: (socioId: string) => void;
   dashboardCharts: DashboardChart[];
   addDashboardChart: (fields: Omit<DashboardChart, 'id' | 'studioId' | 'creadoEn'>) => void;
@@ -444,32 +444,32 @@ interface StudioContextValue {
   backups: BackupMeta[];
   marcarTodasLeidas: () => void;
   // Planes (mutable)
-  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => void;
-  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => void;
-  deletePlan: (id: string) => void;
+  addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deletePlan: (id: string) => Promise<ResultadoEscritura>;
 
   // Salas (mutable)
   addSala: (fields: Omit<Sala, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateSala: (id: string, changes: Partial<Omit<Sala, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteSala: (id: string) => Promise<ResultadoEscritura>;
   // F2 (B2.7): averías de máquina. hasta=null → avería abierta.
-  marcarAveria: (salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) => void;
-  quitarAveria: (id: string) => void;
+  marcarAveria: (salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) => Promise<ResultadoEscritura>;
+  quitarAveria: (id: string) => Promise<ResultadoEscritura>;
 
   // Tipos de clase (mutable)
   addTipoClase: (fields: Omit<TipoClase, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
-  updateTipoClase: (id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) => void;
+  updateTipoClase: (id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteTipoClase: (id: string) => Promise<ResultadoEscritura>;
 
   // Campos personalizados de socia
   camposPersonalizados: CampoPersonalizado[];
-  addCampoPersonalizado: (fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) => void;
-  updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => void;
-  deleteCampoPersonalizado: (id: string) => void;
+  addCampoPersonalizado: (fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteCampoPersonalizado: (id: string) => Promise<ResultadoEscritura>;
 
   // Plantillas de email transaccional
   plantillasEmail: PlantillaEmail[];
-  upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => void;
+  upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => Promise<ResultadoEscritura>;
 
   // Riesgo de concentración por instructor
   dependencySnapshots: InstructorDependencySnapshot[];
@@ -477,8 +477,8 @@ interface StudioContextValue {
 
   // Instructores (mutable)
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => Promise<ResultadoEscritura>;
-  updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
-  deleteInstructor: (id: string) => void;
+  updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deleteInstructor: (id: string) => Promise<ResultadoEscritura>;
 
   // Studio config (policy, terms)
   studioConfig: StudioConfig;
@@ -488,8 +488,8 @@ interface StudioContextValue {
   automationRules: AutomationRule[];
   automationLogs: AutomationLog[];
   notasProgreso: NotaProgreso[];
-  toggleAutomationRule: (id: string) => void;
-  addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => void;
+  toggleAutomationRule: (id: string) => Promise<ResultadoEscritura>;
+  addAutomationRule: (fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) => Promise<ResultadoEscritura>;
   addAutomationLog: (log: Omit<AutomationLog, 'id' | 'studioId'>) => void;
   runAutomation: () => Promise<AutomationLog[]>;
   addNotaProgreso: (nota: Omit<NotaProgreso, 'id' | 'studioId' | 'creadaEn'>) => Promise<ResultadoEscritura>;
@@ -506,8 +506,8 @@ interface StudioContextValue {
   studio: Studio | null;
   /** Id del plan más contratado del estudio, calculado en servidor. null = no destacar. */
   planMasElegidoId: string | null;
-  updateAvatarAdmin: (avatarId: string | null) => void;
-  updateStudio: (changes: Partial<Studio>) => Promise<void>;
+  updateAvatarAdmin: (avatarId: string | null) => Promise<ResultadoEscritura>;
+  updateStudio: (changes: Partial<Studio>) => Promise<ResultadoEscritura>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -945,28 +945,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Planes ────────────────────────────────────────────────────────────────────
 
-  function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>) {
+  async function addPlan(fields: Omit<PlanTarifa, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nuevo: PlanTarifa = { ...fields, id: `plan-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertPlanTarifa(nuevo);
+    if (!res.ok) return res;
     setPlanesTarifa(prev => [...prev, nuevo]);
-    dbInsertPlanTarifa(nuevo);
     addActividadReciente('PLAN_CREADO', `${actorNombre ?? 'Alguien'} creó el plan "${fields.nombre}" — ${fields.precio} €`);
+    return res;
   }
-  function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) {
+  async function updatePlan(id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const anterior = planesTarifa.find(p => p.id === id);
+    const res = await dbUpdatePlanTarifa(id, changes);
+    if (!res.ok) return res;
     setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
-    dbUpdatePlanTarifa(id, changes);
     if (anterior) {
       const detalle = 'precio' in changes && changes.precio !== anterior.precio
         ? `precio ${anterior.precio}€ → ${changes.precio}€`
         : 'datos actualizados';
       addActividadReciente('PLAN_EDITADO', `${actorNombre ?? 'Alguien'} editó el plan "${anterior.nombre}" (${detalle})`);
     }
+    return res;
   }
-  function deletePlan(id: string) {
+  async function deletePlan(id: string): Promise<ResultadoEscritura> {
     const plan = planesTarifa.find(p => p.id === id);
+    const res = await dbDeletePlanTarifa(id);
+    if (!res.ok) return res;
     setPlanesTarifa(prev => prev.filter(p => p.id !== id));
-    dbDeletePlanTarifa(id);
     if (plan) addActividadReciente('PLAN_ELIMINADO', `${actorNombre ?? 'Alguien'} eliminó el plan "${plan.nombre}"`);
+    return res;
   }
 
   // ── Salas ─────────────────────────────────────────────────────────────────────
@@ -999,19 +1005,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // F2 (B2.7): marcar/quitar avería de máquina. El aforo real lo calcula
   // reservar_plaza server-side sobre estas filas, así que tienen que estar
   // guardadas para que el bloqueo sea efectivo.
-  function marcarAveria(salaId: string, spotId: string | null, motivo: string | null, hasta: string | null) {
+  async function marcarAveria(salaId: string, spotId: string | null, motivo: string | null, hasta: string | null): Promise<ResultadoEscritura> {
     const ahora = new Date().toISOString();
     const b: BloqueoMaquina = {
       id: `avr-${uid()}`, studioId: getCurrentStudioId(), salaId, spotId,
       desde: ahora, hasta, motivo, creadoEn: ahora,
     };
+    const res = await dbInsertBloqueoMaquina(b);
+    if (!res.ok) return res;
     setBloqueosMaquina(prev => [b, ...prev]);
-    dbInsertBloqueoMaquina(b);
+    return res;
   }
-  function quitarAveria(id: string) {
+  async function quitarAveria(id: string): Promise<ResultadoEscritura> {
     const ahora = new Date().toISOString();
+    const res = await dbCerrarBloqueoMaquina(id, ahora);
+    if (!res.ok) return res;
     setBloqueosMaquina(prev => prev.map(b => b.id === id ? { ...b, hasta: ahora } : b));
-    dbCerrarBloqueoMaquina(id, ahora);
+    return res;
   }
 
   // F2 (B2.2): asignar plaza fija. NO optimista: puede fallar por la exclusión
@@ -1028,9 +1038,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   // Baja lógica (estado BAJA): deja de materializar; conserva el histórico.
-  function quitarPlazaFija(id: string) {
+  async function quitarPlazaFija(id: string): Promise<ResultadoEscritura> {
+    const res = await dbUpdatePlazaFija(id, { estado: 'BAJA' });
+    if (!res.ok) return res;
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
-    dbUpdatePlazaFija(id, { estado: 'BAJA' });
+    return res;
   }
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
@@ -1041,39 +1053,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return r;
   }
 
-  function anularRecuperacion(id: string) {
+  async function anularRecuperacion(id: string): Promise<ResultadoEscritura> {
+    const res = await dbAnularRecuperacion(id);
+    if (!res.ok) return res;
     setRecuperaciones(prev => prev.map(r => r.id === id ? { ...r, estado: 'ANULADA' as const } : r));
-    dbAnularRecuperacion(id);
+    return res;
   }
 
   // F2 (B2.9): poner/quitar una excepción de una socia (toggle "porque lo digo yo").
-  function ponerExcepcion(socioId: string, tipo: string, motivo: string | null) {
+  async function ponerExcepcion(socioId: string, tipo: string, motivo: string | null): Promise<ResultadoEscritura> {
     const nueva: SocioExcepcion = {
       id: `exc-${uid()}`, studioId: getCurrentStudioId(), socioId, tipo, motivo, creadaEn: new Date().toISOString(),
     };
+    const res = await dbPonerExcepcion(getCurrentStudioId(), socioId, tipo, motivo);
+    if (!res.ok) return res;
     setSocioExcepciones(prev => prev.some(e => e.socioId === socioId && e.tipo === tipo) ? prev : [...prev, nueva]);
-    dbPonerExcepcion(getCurrentStudioId(), socioId, tipo, motivo);
+    return res;
   }
-  function quitarExcepcion(socioId: string, tipo: string) {
+  async function quitarExcepcion(socioId: string, tipo: string): Promise<ResultadoEscritura> {
+    const res = await dbQuitarExcepcion(getCurrentStudioId(), socioId, tipo);
+    if (!res.ok) return res;
     setSocioExcepciones(prev => prev.filter(e => !(e.socioId === socioId && e.tipo === tipo)));
-    dbQuitarExcepcion(getCurrentStudioId(), socioId, tipo);
+    return res;
   }
 
   // F2 (B2.10): mandato SEPA de una socia (uno vigente por socia). Reutiliza el id
   // del vigente si ya lo tiene (así el índice único no salta al editar el IBAN).
-  function ponerMandato(socioId: string, iban: string, refMandato: string, fechaFirma: string) {
+  async function ponerMandato(socioId: string, iban: string, refMandato: string, fechaFirma: string): Promise<ResultadoEscritura> {
     const existente = mandatosSepa.find(m => m.socioId === socioId && m.estado === 'VIGENTE');
     const m: MandatoSEPA = {
       id: existente?.id ?? `mnd-${uid()}`, studioId: getCurrentStudioId(), socioId,
       iban: iban.replace(/\s+/g, '').toUpperCase(), refMandato, fechaFirma, estado: 'VIGENTE',
       creadaEn: existente?.creadaEn ?? new Date().toISOString(),
     };
+    const res = await dbUpsertMandatoSepa(m);
+    if (!res.ok) return res;
     setMandatosSepa(prev => [...prev.filter(x => x.id !== m.id), m]);
-    dbUpsertMandatoSepa(m);
+    return res;
   }
-  function quitarMandato(id: string) {
+  async function quitarMandato(id: string): Promise<ResultadoEscritura> {
+    const res = await dbCancelarMandatoSepa(id);
+    if (!res.ok) return res;
     setMandatosSepa(prev => prev.map(m => m.id === id ? { ...m, estado: 'CANCELADO' as const } : m));
-    dbCancelarMandatoSepa(id);
+    return res;
   }
 
   // F2 (B2.4) dueña-first: "no puede venir". Da de baja una reserva y le concede una
@@ -1113,36 +1135,48 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Citas: servicios y horario fino (0046) ─────────────────────────────────────
 
-  function addServicioCita(fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>) {
+  // No optimista, mismo patrón que addSala/updateSala/deleteSala: se escribe
+  // primero y solo se pinta si la base de datos lo acepta — antes esto era
+  // fire-and-forget (sin await, sin comprobar el resultado) y la propietaria
+  // veía "servicio creado" aunque la escritura hubiera fallado en el servidor.
+  async function addServicioCita(fields: Omit<ServicioCita, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nuevo: ServicioCita = {
       ...fields, id: `csrv-${uid()}`, studioId: getCurrentStudioId(),
       creadoEn: new Date().toISOString(),
     };
+    const res = await dbInsertServicioCita(nuevo);
+    if (!res.ok) return res;
     setCitasServicios(prev => [...prev, nuevo]);
-    dbInsertServicioCita(nuevo);
+    return res;
   }
-  function updateServicioCita(id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>) {
+  async function updateServicioCita(id: string, changes: Partial<Omit<ServicioCita, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateServicioCita(id, changes);
+    if (!res.ok) return res;
     setCitasServicios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
-    dbUpdateServicioCita(id, changes);
+    return res;
   }
-  function deleteServicioCita(id: string) {
+  async function deleteServicioCita(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteServicioCita(id);
+    if (!res.ok) return res;
     setCitasServicios(prev => prev.filter(s => s.id !== id));
-    dbDeleteServicioCita(id);
+    return res;
   }
 
   // Reemplaza TODAS las franjas de una instructora (el editor guarda de golpe).
-  function setDisponibilidadCitas(
+  async function setDisponibilidadCitas(
     instructorId: string,
     franjas: Array<{ diaSemana: number; horaInicio: string; horaFin: string }>,
-  ) {
+  ): Promise<ResultadoEscritura> {
     const studioId = getCurrentStudioId();
     const nuevas: DisponibilidadCita[] = franjas.map(f => ({
       id: `cdisp-${uid()}`, studioId, instructorId,
       diaSemana: f.diaSemana, horaInicio: f.horaInicio, horaFin: f.horaFin,
       creadoEn: new Date().toISOString(),
     }));
+    const res = await dbReplaceDisponibilidadCitas(studioId, instructorId, nuevas);
+    if (!res.ok) return res;
     setCitasDisponibilidad(prev => [...prev.filter(d => d.instructorId !== instructorId), ...nuevas]);
-    dbReplaceDisponibilidadCitas(studioId, instructorId, nuevas);
+    return res;
   }
 
   // ── Tipos de clase ────────────────────────────────────────────────────────────
@@ -1154,9 +1188,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setTiposClase(prev => [...prev, nuevo]);
     return res;
   }
-  function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>) {
+  async function updateTipoClase(id: string, changes: Partial<Omit<TipoClase, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateTipoClase(id, changes);
+    if (!res.ok) return res;
     setTiposClase(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
-    dbUpdateTipoClase(id, changes);
+    return res;
   }
   // Escribe primero y solo quita de pantalla si la BD lo acepta (igual que
   // deleteSala): borrar un tipo con clases programadas lo rechaza la FK
@@ -1205,32 +1241,40 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Campos personalizados de socia ──────────────────────────────────────────
 
-  function addCampoPersonalizado(fields: Omit<CampoPersonalizado, 'id' | 'studioId'>) {
+  async function addCampoPersonalizado(fields: Omit<CampoPersonalizado, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nuevo: CampoPersonalizado = { ...fields, id: `campo-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertCampoPersonalizado(nuevo);
+    if (!res.ok) return res;
     setCamposPersonalizados(prev => [...prev, nuevo]);
-    dbInsertCampoPersonalizado(nuevo);
+    return res;
   }
-  function updateCampoPersonalizado(id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) {
+  async function updateCampoPersonalizado(id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateCampoPersonalizado(id, changes);
+    if (!res.ok) return res;
     setCamposPersonalizados(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
-    dbUpdateCampoPersonalizado(id, changes);
+    return res;
   }
-  function deleteCampoPersonalizado(id: string) {
+  async function deleteCampoPersonalizado(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteCampoPersonalizado(id);
+    if (!res.ok) return res;
     setCamposPersonalizados(prev => prev.filter(c => c.id !== id));
-    dbDeleteCampoPersonalizado(id);
+    return res;
   }
 
   // ── Plantillas de email ─────────────────────────────────────────────────────
 
-  function upsertPlantillaEmail(tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) {
+  async function upsertPlantillaEmail(tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }): Promise<ResultadoEscritura> {
     const existente = plantillasEmail.find(p => p.tipo === tipo);
     const merged: PlantillaEmail = existente
       ? { ...existente, ...changes }
       : { id: `pl-${uid()}`, studioId: getCurrentStudioId(), tipo, asunto: null, intro: null, activa: true, ...changes };
+    const res = await dbUpsertPlantillaEmail(merged);
+    if (!res.ok) return res;
     setPlantillasEmail(prev => {
       const rest = prev.filter(p => p.tipo !== tipo);
       return [...rest, merged];
     });
-    dbUpsertPlantillaEmail(merged);
+    return res;
   }
 
   // ── Riesgo de concentración por instructor ──────────────────────────────────
@@ -1265,34 +1309,47 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addActividadReciente('EQUIPO_ALTA', `${actorNombre ?? 'Alguien'} añadió a ${nuevo.nombre} al equipo (${nuevo.rol})`);
     return res;
   }
-  function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) {
+  async function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const anterior = instructores.find(i => i.id === id);
+    const res = await dbUpdateInstructor(id, changes);
+    if (!res.ok) return res;
     setInstructores(prev => prev.map(i => i.id === id ? { ...i, ...changes } : i));
-    dbUpdateInstructor(id, changes);
     if (anterior) {
       const detalle = 'rol' in changes && changes.rol !== anterior.rol
         ? `rol ${anterior.rol} → ${changes.rol}`
         : 'datos actualizados';
       addActividadReciente('EQUIPO_EDITADO', `${actorNombre ?? 'Alguien'} editó a ${anterior.nombre} del equipo (${detalle})`);
     }
+    return res;
   }
-  function deleteInstructor(id: string) {
+  // No optimista (antes sí lo era): la tarjeta de Equipo se pinta desde un
+  // `tarjetasEquipo()` que se recarga cuando cambia `instructores`. Si el
+  // array local se vaciaba ANTES de que el DELETE llegara a comprometerse en
+  // BD, ese recarga podía ganar la carrera y devolver a la instructora
+  // borrada — la propietaria la veía desaparecer y reaparecer sola.
+  async function deleteInstructor(id: string): Promise<ResultadoEscritura> {
     const instructor = instructores.find(i => i.id === id);
+    const res = await dbDeleteInstructor(id);
+    if (!res.ok) return res;
     setInstructores(prev => prev.filter(i => i.id !== id));
-    dbDeleteInstructor(id);
     if (instructor) addActividadReciente('EQUIPO_BAJA', `${actorNombre ?? 'Alguien'} eliminó a ${instructor.nombre} del equipo`);
+    return res;
   }
 
   // ── Datos del estudio ──────────────────────────────────────────────────────────
 
-  function updateAvatarAdmin(avatarId: string | null) {
+  async function updateAvatarAdmin(avatarId: string | null): Promise<ResultadoEscritura> {
+    const res = await dbUpdateStudio({ avatarAdmin: avatarId });
+    if (!res.ok) return res;
     setStudio(prev => prev ? { ...prev, avatarAdmin: avatarId } : prev);
-    dbUpdateStudio({ avatarAdmin: avatarId });
+    return res;
   }
 
-  function updateStudio(changes: Partial<Studio>) {
+  async function updateStudio(changes: Partial<Studio>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateStudio(changes);
+    if (!res.ok) return res;
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
-    return dbUpdateStudio(changes);
+    return res;
   }
 
   // ── Socios ────────────────────────────────────────────────────────────────────
@@ -1530,24 +1587,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (socio) addActividadReciente('SOCIA_ELIMINADA', `${actorNombre ?? 'Alguien'} dio de baja a ${socio.nombre} ${socio.apellidos}`);
   }
 
-  function addTagSocio(socioId: string, tag: string) {
+  async function addTagSocio(socioId: string, tag: string): Promise<ResultadoEscritura> {
     // Antes solo mutaba el estado: la etiqueta aparecía y se perdía al recargar, y
     // el targeting de campañas por segmento (p. ej. VIP) nunca la veía. dbUpdateSocio
     // ya serializa `tags`; solo faltaba llamarlo.
     const nuevos = [...new Set([...(socios.find(s => s.id === socioId)?.tags ?? []), tag])];
+    const res = await dbUpdateSocio(socioId, { tags: nuevos });
+    if (!res.ok) return res;
     setSocios(prev => prev.map(s => s.id === socioId ? { ...s, tags: nuevos } : s));
-    dbUpdateSocio(socioId, { tags: nuevos });
+    return res;
   }
 
-  function removeTagSocio(socioId: string, tag: string) {
+  async function removeTagSocio(socioId: string, tag: string): Promise<ResultadoEscritura> {
     const nuevos = (socios.find(s => s.id === socioId)?.tags ?? []).filter(t => t !== tag);
+    const res = await dbUpdateSocio(socioId, { tags: nuevos });
+    if (!res.ok) return res;
     setSocios(prev => prev.map(s => s.id === socioId ? { ...s, tags: nuevos } : s));
-    dbUpdateSocio(socioId, { tags: nuevos });
+    return res;
   }
 
   // ── Notas internas ───────────────────────────────────────────────────────────
 
-  function addNota(socioId: string, texto: string) {
+  async function addNota(socioId: string, texto: string): Promise<ResultadoEscritura> {
     const nueva: NotaInterna = {
       id: `nota-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -1556,17 +1617,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       tipo: 'NOTA',
       creadoEn: new Date().toISOString(),
     };
+    const res = await dbInsertNotaInterna(nueva);
+    if (!res.ok) return res;
     setNotasInternas(prev => [nueva, ...prev]);
-    dbInsertNotaInterna(nueva);
+    return res;
   }
 
-  function deleteNota(notaId: string) {
+  async function deleteNota(notaId: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteNotaInterna(notaId);
+    if (!res.ok) return res;
     setNotasInternas(prev => prev.filter(n => n.id !== notaId));
-    dbDeleteNotaInterna(notaId);
+    return res;
   }
 
   // ── Ficha clínica: condiciones de salud ──────────────────────────────────────
-  function addCondicion(fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>) {
+  async function addCondicion(fields: Omit<CondicionSalud, 'id' | 'studioId' | 'creadoEn' | 'actualizadoEn'>): Promise<ResultadoEscritura> {
     const ahora = new Date().toISOString();
     const nueva: CondicionSalud = {
       ...fields,
@@ -1575,32 +1640,39 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
+    const res = await dbInsertCondicion(nueva);
+    if (!res.ok) return res;
     setCondicionesSalud(prev => [nueva, ...prev]);
-    dbInsertCondicion(nueva);
     // Sin log al feed de actividad reciente: es visible para RECEPCIÓN y la
     // etiqueta clínica es dato sensible (FICHA-CLINICA.md §11). Un registro de
     // auditoría restringido queda como follow-up.
+    return res;
   }
 
-  function updateCondicion(id: string, changes: Partial<CondicionSalud>) {
+  async function updateCondicion(id: string, changes: Partial<CondicionSalud>): Promise<ResultadoEscritura> {
     const conActualizado = { ...changes, actualizadoEn: new Date().toISOString() };
+    const res = await dbUpdateCondicion(id, changes);
+    if (!res.ok) return res;
     setCondicionesSalud(prev => prev.map(c => c.id === id ? { ...c, ...conActualizado } : c));
-    dbUpdateCondicion(id, changes);
+    return res;
   }
 
-  function deleteCondicion(id: string) {
+  async function deleteCondicion(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteCondicion(id);
+    if (!res.ok) return res;
     setCondicionesSalud(prev => prev.filter(c => c.id !== id));
-    dbDeleteCondicion(id);
+    return res;
   }
 
   // Evolución post-clase (Fase 2): una respuesta por (socia, sesión). Si ya
   // existe para esa combinación, se actualiza; si no, se inserta.
-  function registrarRespuestaSesion({ socioId, sesionId, respuesta, nota = null }: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) {
+  async function registrarRespuestaSesion({ socioId, sesionId, respuesta, nota = null }: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }): Promise<ResultadoEscritura> {
     const existente = respuestasSesion.find(r => r.socioId === socioId && r.sesionId === sesionId);
     if (existente) {
+      const res = await dbUpdateRespuestaSesion(existente.id, { respuesta, nota });
+      if (!res.ok) return res;
       setRespuestasSesion(prev => prev.map(r => r.id === existente.id ? { ...r, respuesta, nota } : r));
-      dbUpdateRespuestaSesion(existente.id, { respuesta, nota });
-      return;
+      return res;
     }
     const nueva: RespuestaSesionRow = {
       id: `resp-${uid()}`,
@@ -1612,8 +1684,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       creadoPor: null,
       creadoEn: new Date().toISOString(),
     };
+    const res = await dbInsertRespuestaSesion(nueva);
+    if (!res.ok) return res;
     setRespuestasSesion(prev => [nueva, ...prev]);
-    dbInsertRespuestaSesion(nueva);
+    return res;
   }
 
   // ── Suscripciones ────────────────────────────────────────────────────────────
@@ -1739,25 +1813,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (fallos.length > 0) throw new Error(fallos.join(' '));
   }
 
-  function pausarSuscripcion(susId: string, motivo?: string) {
-    // I7 + F2 (B2.8): pausar = congelar. La RPC registra la ventana de congelación
-    // y pone PAUSADA de forma atómica; al reanudar, los días congelados se
-    // devuelven a fecha_fin para que no consuman la validez del bono. Optimista.
+  // I7 + F2 (B2.8): pausar = congelar. La RPC registra la ventana de congelación
+  // y pone PAUSADA de forma atómica. No optimista: si la RPC falla, el estado
+  // local no debe adelantarse — antes se pintaba PAUSADA sin esperar respuesta.
+  async function pausarSuscripcion(susId: string, motivo?: string): Promise<ResultadoEscritura> {
     const sus = suscripciones.find(s => s.id === susId);
-    if (!sus || sus.estado !== 'ACTIVA') return;
+    if (!sus || sus.estado !== 'ACTIVA') return { ok: false, error: 'Esta suscripción no está activa.' };
+    const res = await dbCongelarSuscripcion(susId, getCurrentStudioId(), motivo ?? null);
+    if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'PAUSADA' as const } : s));
-    dbCongelarSuscripcion(susId, getCurrentStudioId(), motivo ?? null);
+    return res;
   }
 
-  function reanudarSuscripcion(susId: string) {
-    // I7 + F2 (B2.8): reanudar = descongelar. Cierra la ventana, empuja fecha_fin y
-    // vuelve a ACTIVA en el servidor; repintamos la nueva fecha_fin al volver.
+  // I7 + F2 (B2.8): reanudar = descongelar. Cierra la ventana, empuja fecha_fin y
+  // vuelve a ACTIVA en el servidor. No optimista, mismo motivo que arriba.
+  async function reanudarSuscripcion(susId: string): Promise<ResultadoEscritura> {
     const sus = suscripciones.find(s => s.id === susId);
-    if (!sus || sus.estado !== 'PAUSADA') return;
-    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const } : s));
-    void dbDescongelarSuscripcion(susId, getCurrentStudioId()).then(nuevaFin => {
-      setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, fechaFin: nuevaFin } : s));
-    });
+    if (!sus || sus.estado !== 'PAUSADA') return { ok: false, error: 'Esta suscripción no está pausada.' };
+    const res = await dbDescongelarSuscripcion(susId, getCurrentStudioId());
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const, fechaFin: res.fechaFin } : s));
+    return { ok: true };
   }
 
   // ── Sesiones ─────────────────────────────────────────────────────────────────
@@ -1791,7 +1867,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  async function deleteSesion(id: string) {
+  async function deleteSesion(id: string): Promise<ResultadoEscritura> {
     // Borrar la sesión CASCADE-borra sus reservas en BD (FK on delete cascade) —
     // antes eso pasaba en silencio: ni email ni aviso in-app a las socias con
     // plaza, a diferencia de "Cancelar" (que sí avisa). Se manda el email Y el
@@ -1802,9 +1878,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const sesion = sesiones.find(s => s.id === id);
     if (sesion) notificarCancelacionSesiones([sesion]);
     await avisarClaseCancelada(id);
+    // El DELETE en sí también se espera ahora — antes era fire-and-forget: el
+    // calendario ya la quitaba de pantalla aunque el borrado real en BD
+    // hubiera fallado, así que recargar la traía de vuelta.
+    const res = await dbDeleteSesion(id);
+    if (!res.ok) return res;
     setSesiones(prev => prev.filter(s => s.id !== id));
     setReservas(prev => prev.filter(r => r.sesionId !== id));
-    dbDeleteSesion(id);
+    return res;
   }
 
   // ── Series de clases recurrentes (I-3) ───────────────────────────────────────
@@ -2032,17 +2113,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Mismo motivo que en consumirSesionBono: hay que devolver la sesión AL BONO
   // QUE LA PAGÓ. Sin el tipo de clase se le devolvía al que caducara antes, que
   // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
-  function devolverSesionBono(socioId: string, sesionId?: string | null) {
+  async function devolverSesionBono(socioId: string, sesionId?: string | null) {
     const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
     const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
     if (!consumible) return;
     const { suscripcion: sus, plan, sesionesRestantes } = consumible;
 
     const nuevasRestantes = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
+    // Se espera y se comprueba (antes era fire-and-forget, mismo motivo que
+    // consumirSesionBono más arriba): la cancelación de la reserva que llama a
+    // esto ya se confirmó en servidor, así que un fallo aquí no debe deshacer
+    // nada — pero sí hay que enterarse, o la socia pierde una sesión de bono
+    // sin que quede rastro.
+    const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
+    if (!res.ok) {
+      capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
+        extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
+      });
+      return;
+    }
     setSuscripciones(prev => prev.map(s =>
       s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
     ));
-    dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
   }
 
   async function addReserva(sesionId: string, socioId: string, spotId?: string | null): Promise<ResultadoReserva> {
@@ -2170,7 +2262,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
       // se llega a eso; ahora hay una sola respuesta y esto la obedece.
       if (eraConfirmada && cancelada && devolverBono) {
-        devolverSesionBono(cancelada.socioId, sesionId);
+        void devolverSesionBono(cancelada.socioId, sesionId);
       }
 
       // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
@@ -2311,15 +2403,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // Marca manualmente una reserva como NO_ASISTIO (recepción, cuando la socia no
   // se presenta). No devuelve bono: la sesión ya se consumió al reservar. El
   // barrido automático (cron no-shows) hace lo mismo para las que se olvidan.
-  function marcarNoShow(reservaId: string) {
+  // No optimista: el trigger de penalización por no-show (Fase 3) reacciona al
+  // `estado` real de la fila en BD, no al de la pantalla — si esto se pintaba
+  // antes de que la escritura se confirmara, un fallo silencioso dejaba a la
+  // socia SIN marcar en el sitio que de verdad decide si se le cobra.
+  async function marcarNoShow(reservaId: string): Promise<ResultadoEscritura> {
+    const res = await dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null });
+    if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'NO_ASISTIO' as const, checkInEn: null } : r));
-    dbUpdateReserva(reservaId, { estado: 'NO_ASISTIO', checkInEn: null });
+    return res;
   }
 
-  // Deshacer un NO_ASISTIO (marcado por error) → vuelve a CONFIRMADA.
-  function revertirNoShow(reservaId: string) {
+  // Deshacer un NO_ASISTIO (marcado por error) → vuelve a CONFIRMADA. Mismo
+  // motivo que marcarNoShow: si esto falla en servidor pero la pantalla ya
+  // muestra CONFIRMADA, la propietaria cree haber revertido algo que el
+  // trigger de penalización todavía ve como no-show.
+  async function revertirNoShow(reservaId: string): Promise<ResultadoEscritura> {
+    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
-    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    return res;
   }
 
   // Deshacer un check-in hecho por error (I-4): revierte la asistencia
@@ -2328,10 +2431,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // el dedup UNIQUE(studio_id, trigger, ref_id) evita el doble crédito si se
   // vuelve a hacer check-in de la misma reserva. La reversión del ledger de
   // gamificación (logros/retos/premio de referido) queda fuera de alcance.
-  function deshacerCheckin(reservaId: string) {
+  async function deshacerCheckin(reservaId: string): Promise<ResultadoEscritura> {
+    const res = await dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    if (!res.ok) return res;
     setReservas(prev => prev.map(r => r.id === reservaId && r.estado === 'ASISTIDA'
       ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
-    dbUpdateReserva(reservaId, { estado: 'CONFIRMADA', checkInEn: null });
+    return res;
   }
 
   // Detectar planes MENSUAL caducados al cargar (una vez por sesión)
@@ -2361,21 +2466,32 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         fechaDevolucion: null,
         intentosReintento: 0,
       };
-      setRecibos(prev => {
-        if (prev.some(r => r.id === reciboVencido.id)) return prev;
-        dbInsertRecibo(reciboVencido);
-        return [reciboVencido, ...prev];
-      });
-      setNotificaciones(prev => [{
-        id: `notif-venc-${uid()}`,
-        studioId: getCurrentStudioId(),
-        titulo: 'Plan mensual caducado',
-        texto: `${nombreSocio} — ${plan.nombre} venció el ${sus.fechaFin}. Se ha generado recibo de renovación.`,
-        leida: false,
-        tipo: 'AVISO' as const,
-        enlace: `/socios/${sus.socioId}`,
-        creadaEn: new Date().toISOString(),
-      }, ...prev]);
+      // La escritura vivía DENTRO del updater de setRecibos (los updaters de
+      // React deben ser puros, sin efectos) y sin comprobar el resultado — se
+      // saca fuera, se espera, y solo si la BD lo acepta se pinta el recibo y
+      // se avisa. Si falla, se registra pero no se ancla a nada visible: es
+      // background del efecto de carga, no una acción que la propietaria esté
+      // esperando ver confirmada en pantalla.
+      void (async () => {
+        const res = await dbInsertRecibo(reciboVencido);
+        if (!res.ok) {
+          capturarMensaje('[planes caducados] no se pudo crear el recibo de renovación', 'error', {
+            extra: { socioId: sus.socioId, suscripcionId: sus.id, error: res.error },
+          });
+          return;
+        }
+        setRecibos(prev => prev.some(r => r.id === reciboVencido.id) ? prev : [reciboVencido, ...prev]);
+        setNotificaciones(prev => [{
+          id: `notif-venc-${uid()}`,
+          studioId: getCurrentStudioId(),
+          titulo: 'Plan mensual caducado',
+          texto: `${nombreSocio} — ${plan.nombre} venció el ${sus.fechaFin}. Se ha generado recibo de renovación.`,
+          leida: false,
+          tipo: 'AVISO' as const,
+          enlace: `/socios/${sus.socioId}`,
+          creadaEn: new Date().toISOString(),
+        }, ...prev]);
+      })();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2397,7 +2513,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Recibos ──────────────────────────────────────────────────────────────────
 
-  function addRecibo(fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) {
+  async function addRecibo(fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>): Promise<ResultadoEscritura> {
     const nuevo: Recibo = {
       id: `rec-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -2407,8 +2523,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       intentosReintento: 0,
       ...fields,
     };
+    const res = await dbInsertRecibo(nuevo);
+    if (!res.ok) return res;
     setRecibos(prev => [...prev, nuevo]);
-    dbInsertRecibo(nuevo);
+    return res;
   }
 
   // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes
@@ -2419,25 +2537,50 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // antes, así que el comportamiento es idéntico.
 
   // Refill del bono agotado o extensión del mensual al cobrar su renovación.
-  function aplicarRenovacionSuscripcion(recibo: Recibo) {
+  // Se llama DESPUÉS de que el recibo ya está confirmado como COBRADO — si el
+  // refill del bono / extensión del mensual falla aquí, el cobro en sí ya pasó
+  // de verdad y no hay nada que deshacer. Fingir que no ha pasado nada sería
+  // otra mentira (mismo criterio que asignarPlan, más arriba): se avisa
+  // siempre, para que la propietaria no descubra semanas después que cobró
+  // una renovación que nunca llegó a recargar el bono.
+  async function aplicarRenovacionSuscripcion(recibo: Recibo) {
     if (!recibo.suscripcionId) return;
     const sus = suscripciones.find(s => s.id === recibo.suscripcionId);
     if (!sus) return;
     const plan = planesTarifa.find(p => p.id === sus.planId);
     if (!plan) return;
+    const socio = socios.find(s => s.id === sus.socioId);
+    const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'la socia';
+    const avisarFallo = (error: string) => {
+      capturarMensaje('[aplicarRenovacionSuscripcion] cobro confirmado pero la suscripción no se pudo renovar', 'error', {
+        extra: { socioId: sus.socioId, suscripcionId: sus.id, reciboId: recibo.id, error },
+      });
+      setNotificaciones(prev => [{
+        id: `notif-renov-fallo-${uid()}`,
+        studioId: getCurrentStudioId(),
+        titulo: 'Cobrado, pero sin renovar',
+        texto: `Se cobró la renovación de ${nombreSocio} (${plan.nombre}), pero no se ha podido actualizar su bono/plan. Revísalo a mano.`,
+        leida: false,
+        tipo: 'AVISO' as const,
+        enlace: sus.socioId ? `/socios/${sus.socioId}` : null,
+        creadaEn: new Date().toISOString(),
+      }, ...prev]);
+    };
     if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
+      const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
+      if (!res.ok) { avisarFallo(res.error); return; }
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
       ));
-      dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
     } else if (plan.tipo === 'MENSUAL') {
       const nuevaFin = new Date();
       nuevaFin.setMonth(nuevaFin.getMonth() + 1);
       const fechaFin = nuevaFin.toISOString().slice(0, 10);
+      const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
+      if (!res.ok) { avisarFallo(res.error); return; }
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
       ));
-      dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
     }
   }
 
@@ -2493,7 +2636,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     // Refill bono or extend mensual when renewal payment is collected
     const recibo = recibos.find(r => r.id === reciboId);
-    if (recibo) aplicarRenovacionSuscripcion(recibo);
+    if (recibo) await aplicarRenovacionSuscripcion(recibo);
     if (recibo) {
       const socio = socios.find(s => s.id === recibo.socioId);
       addActividadReciente(
@@ -2525,18 +2668,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function reintentar(reciboId: string) {
-    setRecibos(prev => prev.map(r => {
-      if (r.id !== reciboId) return r;
-      const updated = { ...r, estado: 'EN_CURSO' as const, intentosReintento: r.intentosReintento + 1 };
-      dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento: updated.intentosReintento });
-      return updated;
-    }));
+  // La escritura vivía DENTRO del updater de setRecibos (un antipatrón aparte
+  // del await que faltaba: los updaters de React deben ser puros, sin efectos).
+  // Se saca fuera, se espera y se comprueba antes de tocar pantalla.
+  async function reintentar(reciboId: string): Promise<ResultadoEscritura> {
+    const recibo = recibos.find(r => r.id === reciboId);
+    if (!recibo) return { ok: false, error: 'No se encuentra ese recibo.' };
+    const intentosReintento = recibo.intentosReintento + 1;
+    const res = await dbUpdateRecibo(reciboId, { estado: 'EN_CURSO', intentosReintento });
+    if (!res.ok) return res;
+    setRecibos(prev => prev.map(r =>
+      r.id === reciboId ? { ...r, estado: 'EN_CURSO' as const, intentosReintento } : r
+    ));
+    return res;
   }
 
-  function deleteRecibo(id: string) {
+  async function deleteRecibo(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteRecibo(id);
+    if (!res.ok) return res;
     setRecibos(prev => prev.filter(r => r.id !== id));
-    dbDeleteRecibo(id);
+    return res;
   }
 
   // F2 (B2.10): tras generar el fichero SEPA, los recibos incluidos pasan a
@@ -2679,31 +2830,44 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── POS ──────────────────────────────────────────────────────────────────────
 
-  function addProductoPOS(fields: Omit<ProductoPOS, 'id' | 'studioId'>) {
+  async function addProductoPOS(fields: Omit<ProductoPOS, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
     const nuevo: ProductoPOS = { id: `pos-${uid()}`, studioId: getCurrentStudioId(), ...fields };
+    const res = await dbInsertProductoPOS(nuevo);
+    if (!res.ok) return res;
     setProductosPOS(prev => [...prev, nuevo]);
-    dbInsertProductoPOS(nuevo);
+    return res;
   }
 
-  function updateProductoPOS(id: string, changes: Partial<ProductoPOS>) {
+  async function updateProductoPOS(id: string, changes: Partial<ProductoPOS>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateProductoPOS(id, changes);
+    if (!res.ok) return res;
     setProductosPOS(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
-    dbUpdateProductoPOS(id, changes);
+    return res;
   }
 
-  function deleteProductoPOS(id: string) {
+  async function deleteProductoPOS(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteProductoPOS(id);
+    if (!res.ok) return res;
     setProductosPOS(prev => prev.filter(p => p.id !== id));
-    dbDeleteProductoPOS(id);
+    return res;
   }
 
-  function addVentaPOS(fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>) {
+  // No optimista, y el orden importa: antes se sellaba la factura fiscal
+  // (Veri*Factu/AEAT, irreversible) sin comprobar que la venta y el recibo
+  // hubieran llegado a existir de verdad en BD — si cualquiera de los dos
+  // inserts fallaba, quedaba un documento fiscal firmado y enviado a la AEAT
+  // sin ninguna venta ni recibo real detrás. Ahora se escribe y se comprueba
+  // TODO antes de sellar nada.
+  async function addVentaPOS(fields: Omit<VentaPOS, 'id' | 'studioId' | 'realizadaEn'>): Promise<ResultadoEscritura> {
     const nueva: VentaPOS = {
       id: `vpos-${uid()}`,
       studioId: getCurrentStudioId(),
       realizadaEn: new Date().toISOString(),
       ...fields,
     };
+    const resVenta = await dbInsertVentaPOS(nueva);
+    if (!resVenta.ok) return resVenta;
     setVentasPOS(prev => [...prev, nueva]);
-    dbInsertVentaPOS(nueva);
 
     // Toda venta con importe genera un recibo COBRADO + su factura (aparece en
     // Pagos/Facturas). Sin socia es una venta de mostrador → factura
@@ -2726,18 +2890,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         fechaDevolucion: null,
         intentosReintento: 0,
       };
+      const resRecibo = await dbInsertRecibo(nuevoRecibo);
+      if (!resRecibo.ok) {
+        // La venta ya se guardó (resVenta.ok arriba) — no se deshace, pero
+        // tampoco se sella nada fiscal sin recibo real detrás.
+        capturarMensaje('[addVentaPOS] venta guardada pero el recibo no se pudo crear', 'error', {
+          extra: { ventaId: nueva.id, error: resRecibo.error },
+        });
+        return resRecibo;
+      }
       setRecibos(prev => [nuevoRecibo, ...prev]);
-      dbInsertRecibo(nuevoRecibo);
       // 2.2: sellado fuera del updater (ver comentario en sellarFacturaYActualizar).
+      // Solo llega aquí si la venta Y el recibo ya existen de verdad en BD.
       const fac = buildFactura(nuevoRecibo, facturas);
       setFacturas(prev => [...prev, fac]);
       void sellarFacturaYActualizar(fac);
     }
+    return resVenta;
   }
 
   // ── Campañas ─────────────────────────────────────────────────────────────────
 
-  function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>) {
+  async function addCampana(fields: Omit<Campana, 'id' | 'studioId' | 'creadaEn' | 'enviados' | 'abiertos' | 'clics'>): Promise<ResultadoEscritura> {
     const nueva: Campana = {
       id: `camp-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -2747,16 +2921,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       clics: 0,
       ...fields,
     };
+    const res = await dbInsertCampana(nueva);
+    if (!res.ok) return res;
     setCampanas(prev => [nueva, ...prev]);
-    dbInsertCampana(nueva);
+    return res;
   }
 
-  function deleteCampana(id: string) {
+  async function deleteCampana(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteCampana(id);
+    if (!res.ok) return res;
     setCampanas(prev => prev.filter(c => c.id !== id));
-    dbDeleteCampana(id);
+    return res;
   }
 
-  function duplicateCampana(campana: Campana) {
+  async function duplicateCampana(campana: Campana): Promise<ResultadoEscritura> {
     const copy: Campana = {
       ...campana,
       id: `camp-${uid()}`,
@@ -2769,16 +2947,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       programadaEn: null,
       creadaEn: new Date().toISOString(),
     };
+    const res = await dbInsertCampana(copy);
+    if (!res.ok) return res;
     setCampanas(prev => [copy, ...prev]);
-    dbInsertCampana(copy);
+    return res;
   }
 
   // Actualiza campos de una campaña (usado para el ciclo de vida:
   // pausar/reanudar/finalizar → cambios de `estado`). Persiste en BD con el
   // mismo helper que ya usa el envío.
-  function updateCampana(id: string, patch: Partial<Campana>) {
+  async function updateCampana(id: string, patch: Partial<Campana>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateCampana(id, patch);
+    if (!res.ok) return res;
     setCampanas(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
-    dbUpdateCampana(id, patch);
+    return res;
   }
 
   // Resuelve las destinatarias de una campaña a partir de su segmento.
@@ -2828,13 +3010,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     );
     const enviados = resultados.filter(Boolean).length;
 
+    // Los envíos de arriba ya salieron de verdad (awaited) — si este UPDATE
+    // falla, no hay nada que deshacer, pero si se pinta "ENVIADA" sin que la
+    // base de datos se entere, la campaña queda eternamente en su estado
+    // anterior (ej. "PROGRAMADA") y podría reenviarse por error.
     const enviadaEn = new Date().toISOString();
-    setCampanas(prev => prev.map(c =>
-      c.id === campana.id
-        ? { ...c, estado: 'ENVIADA' as const, enviados, enviadaEn }
-        : c
-    ));
-    dbUpdateCampana(campana.id, { estado: 'ENVIADA', enviados, enviadaEn });
+    const resUpdate = await dbUpdateCampana(campana.id, { estado: 'ENVIADA', enviados, enviadaEn });
+    if (!resUpdate.ok) {
+      capturarMensaje('[enviarCampana] mensajes enviados pero no se pudo marcar la campaña como ENVIADA', 'error', {
+        extra: { campanaId: campana.id, enviados, error: resUpdate.error },
+      });
+    } else {
+      setCampanas(prev => prev.map(c =>
+        c.id === campana.id
+          ? { ...c, estado: 'ENVIADA' as const, enviados, enviadaEn }
+          : c
+      ));
+    }
     addActividadReciente(
       'MENSAJE_ENVIADO',
       `Campaña "${campana.nombre}" (${canal}) enviada a ${enviados} de ${destinatarias.length} destinatarias`,
@@ -2846,7 +3038,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Automatizaciones ─────────────────────────────────────────────────────────
 
-  function addAutomatizacion(fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>) {
+  async function addAutomatizacion(fields: Omit<Automatizacion, 'id' | 'studioId' | 'ejecutadas' | 'creadaEn'>): Promise<ResultadoEscritura> {
     const nueva: Automatizacion = {
       id: `auto-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -2854,26 +3046,35 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       creadaEn: new Date().toISOString(),
       ...fields,
     };
+    const res = await dbInsertAutomatizacion(nueva);
+    if (!res.ok) return res;
     setAutomatizaciones(prev => [nueva, ...prev]);
-    dbInsertAutomatizacion(nueva);
+    return res;
   }
 
-  function updateAutomatizacion(id: string, patch: Partial<Automatizacion>) {
+  async function updateAutomatizacion(id: string, patch: Partial<Automatizacion>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateAutomatizacion(id, getCurrentStudioId(), patch);
+    if (!res.ok) return res;
     setAutomatizaciones(prev => prev.map(a => (a.id === id ? { ...a, ...patch } : a)));
-    dbUpdateAutomatizacion(id, getCurrentStudioId(), patch);
+    return res;
   }
 
-  function deleteAutomatizacion(id: string) {
+  async function deleteAutomatizacion(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteAutomatizacion(id);
+    if (!res.ok) return res;
     setAutomatizaciones(prev => prev.filter(a => a.id !== id));
-    dbDeleteAutomatizacion(id);
+    return res;
   }
 
-  function toggleAutomatizacion(autoId: string) {
+  async function toggleAutomatizacion(autoId: string): Promise<ResultadoEscritura> {
     const actual = automatizaciones.find(a => a.id === autoId);
+    if (!actual) return { ok: true };
+    const res = await dbUpdateAutomatizacion(autoId, getCurrentStudioId(), { activa: !actual.activa });
+    if (!res.ok) return res;
     setAutomatizaciones(prev => prev.map(a =>
       a.id === autoId ? { ...a, activa: !a.activa } : a
     ));
-    if (actual) dbUpdateAutomatizacion(autoId, getCurrentStudioId(), { activa: !actual.activa });
+    return res;
   }
 
   // ── Códigos de descuento ──────────────────────────────────────────────────────
@@ -2989,20 +3190,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
-  function addRewardCatalogItem(fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>) {
+  async function addRewardCatalogItem(fields: Omit<RewardCatalogItem, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nuevo: RewardCatalogItem = { ...fields, id: `rwc-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const res = await dbInsertRewardCatalogItem(nuevo);
+    if (!res.ok) return res;
     setRewardCatalog(prev => [...prev, nuevo]);
-    dbInsertRewardCatalogItem(nuevo);
+    return res;
   }
 
-  function updateRewardCatalogItem(id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) {
+  async function updateRewardCatalogItem(id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateRewardCatalogItem(id, changes);
+    if (!res.ok) return res;
     setRewardCatalog(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
-    dbUpdateRewardCatalogItem(id, changes);
+    return res;
   }
 
-  function deleteRewardCatalogItem(id: string) {
+  async function deleteRewardCatalogItem(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteRewardCatalogItem(id);
+    if (!res.ok) return res;
     setRewardCatalog(prev => prev.filter(c => c.id !== id));
-    dbDeleteRewardCatalogItem(id);
+    return res;
   }
 
   async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
@@ -3073,9 +3280,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
-  function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']) {
+  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+    const res = await dbUpdateRewardRedemption(id, { estado });
+    if (!res.ok) return res;
     setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado } : r));
-    dbUpdateRewardRedemption(id, { estado });
+    return res;
   }
 
   // ── Gamificación: logros ──────────────────────────────────────────────────────
@@ -3083,15 +3292,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // número fijo aquí. Se reevalúa el progreso de una socia tras cualquier
   // acción que pueda mover una métrica (check-in, nueva reserva...).
 
-  function addAchievementDefinition(fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+  async function addAchievementDefinition(fields: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nueva: AchievementDefinition = { ...fields, id: `ach-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const res = await dbInsertAchievementDefinition(nueva);
+    if (!res.ok) return res;
     setAchievementDefinitions(prev => [...prev, nueva]);
-    dbInsertAchievementDefinition(nueva);
+    return res;
   }
 
-  function updateAchievementDefinition(id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>) {
+  async function updateAchievementDefinition(id: string, changes: Partial<Omit<AchievementDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateAchievementDefinition(id, changes);
+    if (!res.ok) return res;
     setAchievementDefinitions(prev => prev.map(a => a.id === id ? { ...a, ...changes } : a));
-    dbUpdateAchievementDefinition(id, changes);
+    return res;
   }
 
   function evaluarLogrosSocio(socioId: string, reservasOverride?: Reserva[]) {
@@ -3171,40 +3384,52 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularNivel(levelDefinitions, totalGanado);
   }
 
-  function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+  async function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nuevo: LevelDefinition = { ...fields, id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const res = await dbInsertLevelDefinition(nuevo);
+    if (!res.ok) return res;
     setLevelDefinitions(prev => [...prev, nuevo]);
-    dbInsertLevelDefinition(nuevo);
+    return res;
   }
 
-  function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>) {
+  async function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateLevelDefinition(id, changes);
+    if (!res.ok) return res;
     setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
-    dbUpdateLevelDefinition(id, changes);
+    return res;
   }
 
-  function deleteLevelDefinition(id: string) {
+  async function deleteLevelDefinition(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteLevelDefinition(id);
+    if (!res.ok) return res;
     setLevelDefinitions(prev => prev.filter(l => l.id !== id));
-    dbDeleteLevelDefinition(id);
+    return res;
   }
 
   // ── Gamificación: retos ────────────────────────────────────────────────────────
   // A diferencia de un logro, un reto tiene fechaInicio/fechaFin — solo cuenta
   // lo ocurrido dentro de esa ventana (ver lib/engines/challenge-engine.ts).
 
-  function addChallengeDefinition(fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>) {
+  async function addChallengeDefinition(fields: Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
     const nuevo: ChallengeDefinition = { ...fields, id: `cha-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const res = await dbInsertChallengeDefinition(nuevo);
+    if (!res.ok) return res;
     setChallengeDefinitions(prev => [...prev, nuevo]);
-    dbInsertChallengeDefinition(nuevo);
+    return res;
   }
 
-  function updateChallengeDefinition(id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>) {
+  async function updateChallengeDefinition(id: string, changes: Partial<Omit<ChallengeDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdateChallengeDefinition(id, changes);
+    if (!res.ok) return res;
     setChallengeDefinitions(prev => prev.map(c => c.id === id ? { ...c, ...changes } : c));
-    dbUpdateChallengeDefinition(id, changes);
+    return res;
   }
 
-  function deleteChallengeDefinition(id: string) {
+  async function deleteChallengeDefinition(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeleteChallengeDefinition(id);
+    if (!res.ok) return res;
     setChallengeDefinitions(prev => prev.filter(c => c.id !== id));
-    dbDeleteChallengeDefinition(id);
+    return res;
   }
 
   function evaluarRetosSocio(socioId: string, reservasOverride?: Reserva[]) {
@@ -3298,17 +3523,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Motor de automatización avanzado ─────────────────────────────────────────
 
-  function toggleAutomationRule(id: string) {
+  async function toggleAutomationRule(id: string): Promise<ResultadoEscritura> {
     const rule = automationRules.find(r => r.id === id);
-    if (!rule) return;
+    if (!rule) return { ok: false, error: 'No se encuentra esa regla.' };
+    const res = await dbUpdateAutomationRule(id, getCurrentStudioId(), { activa: !rule.activa });
+    if (!res.ok) return res;
     setAutomationRules(prev => prev.map(r =>
       r.id === id ? { ...r, activa: !r.activa } : r
     ));
-    dbUpdateAutomationRule(id, getCurrentStudioId(), { activa: !rule.activa });
     addActividadReciente('AUTOMATIZACION_CAMBIO', `${actorNombre ?? 'Alguien'} ${rule.activa ? 'desactivó' : 'activó'} la automatización "${rule.nombre}"`);
+    return res;
   }
 
-  function addAutomationRule(fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>) {
+  async function addAutomationRule(fields: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>): Promise<ResultadoEscritura> {
     const nueva: AutomationRule = {
       ...fields,
       id: `rule-${uid()}`,
@@ -3317,8 +3544,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ultimaEjecucion: null,
       creadaEn: new Date().toISOString(),
     };
+    const res = await dbInsertAutomationRule(nueva);
+    if (!res.ok) return res;
     setAutomationRules(prev => [...prev, nueva]);
-    dbInsertAutomationRule(nueva);
+    return res;
   }
 
   function addAutomationLog(log: Omit<AutomationLog, 'id' | 'studioId'>) {

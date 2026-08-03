@@ -42,18 +42,23 @@ export function TabLogros({ showToast }: { showToast: (m: string) => void }) {
     setEditId(a.id);
     setModal('editar');
   }
-  function guardar() {
+  async function guardar() {
     if (!form.nombre.trim() || form.umbral <= 0) return;
-    if (modal === 'nuevo') addAchievementDefinition(form);
-    else if (editId) updateAchievementDefinition(editId, form);
+    const res = modal === 'nuevo' ? await addAchievementDefinition(form) : editId ? await updateAchievementDefinition(editId, form) : { ok: true as const };
+    if (!res.ok) { showToast(res.error); return; }
     setModal(null);
     showToast(modal === 'nuevo' ? 'Logro creado' : 'Logro actualizado');
   }
-  function cargarSugeridos() {
+  async function cargarSugeridos() {
     const existentes = new Set(achievementDefinitions.map(a => a.nombre));
     const nuevos = LOGROS_SUGERIDOS.filter(l => !existentes.has(l.nombre));
-    nuevos.forEach(addAchievementDefinition);
-    showToast(nuevos.length > 0 ? `${nuevos.length} logros añadidos` : 'Ya tienes todos los logros sugeridos');
+    const resultados = await Promise.all(nuevos.map(addAchievementDefinition));
+    const fallos = resultados.filter(r => !r.ok).length;
+    showToast(
+      nuevos.length === 0 ? 'Ya tienes todos los logros sugeridos'
+        : fallos > 0 ? `${nuevos.length - fallos} de ${nuevos.length} logros añadidos — reintenta los que faltan`
+          : `${nuevos.length} logros añadidos`,
+    );
   }
 
   const metricLabel = (m: AchievementMetric) => ACHIEVEMENT_METRICS.find(x => x.metric === m)?.nombre ?? m;
