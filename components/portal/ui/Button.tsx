@@ -10,14 +10,21 @@ export type ButtonSize = 'default' | 'small';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** Deshabilita y pinta un spinner delante del contenido — el texto se
+   *  mantiene (a diferencia de `disabled` sin más, que solo atenúa). Antes
+   *  cada pantalla gestionaba esto a mano con su propio estado `enviando`
+   *  (ver hoja-reserva.tsx); esta prop lo centraliza para poder mantener el
+   *  botón en su sitio en vez de sustituirlo por un aviso aparte. */
+  loading?: boolean;
 }
 
 // Altura mínima 48px (por debajo de eso, ~44px cumple el mínimo táctil de
 // Apple HIG con algo de margen). `small` (40px) es la única variante que baja
 // de 48, y solo para contextos ya espaciosos — nunca el CTA principal.
-export function Button({ variant = 'primary', size = 'default', style, disabled, children, ...props }: ButtonProps) {
+export function Button({ variant = 'primary', size = 'default', style, disabled, loading, children, ...props }: ButtonProps) {
   const { t } = useModo();
   const small = size === 'small';
+  const inactivo = disabled || loading;
 
   const variants: Record<ButtonVariant, React.CSSProperties> = {
     // Las 3 vars --portal-btn-* las calcula lib/theme-runtime.ts según
@@ -35,7 +42,8 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
 
   return (
     <button
-      disabled={disabled}
+      disabled={inactivo}
+      aria-busy={loading || undefined}
       style={{
         height: small ? 40 : 48,
         padding: small ? '0 16px' : '0 20px',
@@ -49,14 +57,24 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.4 : 1,
+        cursor: inactivo ? 'default' : 'pointer',
+        opacity: disabled ? 0.4 : loading ? 0.75 : 1,
         transition: 'transform .12s ease, opacity .12s ease',
         ...variants[variant],
         ...style,
       }}
       {...props}
     >
+      {loading && (
+        <span
+          aria-hidden
+          className="animate-spin"
+          style={{
+            width: 14, height: 14, borderRadius: 999, display: 'inline-block', flexShrink: 0,
+            border: '2px solid currentColor', borderTopColor: 'transparent', opacity: 0.8,
+          }}
+        />
+      )}
       {children}
     </button>
   );

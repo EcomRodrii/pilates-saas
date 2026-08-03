@@ -524,6 +524,18 @@ interface StudioContextValue {
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
+// Fase 3 del rediseño del portal (feedback de 49 propietarias: "no funciona
+// en tiempo real"). Evaluado con tentare-arquitecto: un Realtime de verdad
+// (canal Postgres directo desde el navegador de la socia) exigiría dar a
+// `anon`/`authenticated` lectura ampliada sobre `reservas`/`sesiones` — la
+// migración 0091 CERRÓ justo ese acceso tras el pentest (fuga cross-tenant),
+// y `socios` ni siquiera tiene `auth_user_id` para acotar RLS por fila. Abrir
+// esa vía de nuevo es un cambio de seguridad genuino, no una mejora de UX, y
+// queda fuera de esta fase a propósito. En su lugar: acortar el intervalo de
+// refresco activo (ya introducido en Fase 1 a 20s) a algo que cierre el caso
+// real —dos socias reservando la misma clase casi a la vez— sin tocar RLS.
+export const REFRESCO_ACTIVO_MS = 5_000;
+
 const StudioContext = createContext<StudioContextValue | null>(null);
 
 export function useStudio(): StudioContextValue {

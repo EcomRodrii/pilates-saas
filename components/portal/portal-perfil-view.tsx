@@ -23,7 +23,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { subirFotoPerfil, eliminarFotoPerfil, validarFotoPerfil } from '@/lib/portal-storage';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { BottomSheet, Input, Button } from '@/components/portal/ui';
+import { BottomSheet, Input, Button, Card, Toast, type AvisoToast } from '@/components/portal/ui';
 import { bonoActivo } from '@/lib/bonos-portal';
 import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -53,7 +53,7 @@ export function PortalPerfilView({
   onLogout: () => void;
 }) {
   const { slug } = useParams<{ slug: string }>();
-  const { studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas } = useStudio();
+  const { studio, socios, updateSocio, suscripciones, planesTarifa, tiposClase, plazasFijas, reservas } = useStudio();
   const { t, noche, toggle } = useModo();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +68,12 @@ export function PortalPerfilView({
     const p = plazasFijas.find(x => x.socioId === socioId && x.estado === 'ACTIVA');
     return p ? DIAS_CORTO[p.diaSemana] ?? null : null;
   }, [plazasFijas, socioId]);
+  // Mismo cálculo que ya usa Inicio para "Mi progreso": clases con estado
+  // ASISTIDA, sin acotar por fecha (es el histórico completo de la socia).
+  const asistidas = useMemo(
+    () => reservas.filter(r => r.socioId === socioId && r.estado === 'ASISTIDA').length,
+    [reservas, socioId],
+  );
 
   const [hoja, setHoja] = useState<null | 'datos' | 'avatar'>(null);
   const [form, setForm] = useState({
@@ -79,7 +85,7 @@ export function PortalPerfilView({
     direccion: socio?.direccion ?? '',
   });
   const [guardando, setGuardando] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
   if (!socio || !session) return null;
@@ -90,7 +96,7 @@ export function PortalPerfilView({
   async function guardarDatos(e?: React.FormEvent) {
     e?.preventDefault();
     if (!socio || guardando) return;
-    if (!escribible) { setAviso('Vista previa: esto no se guarda de verdad.'); setHoja(null); return; }
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     setGuardando(true);
     setAviso(null);
     const r = await updateSocio(socio.id, {
@@ -102,58 +108,59 @@ export function PortalPerfilView({
       direccion: form.direccion.trim() || null,
     });
     setGuardando(false);
-    if (!r.ok) { setAviso(r.error); return; }
+    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
     setHoja(null);
-    setAviso('Datos guardados.');
+    setAviso({ texto: 'Datos guardados.', error: false });
   }
 
   async function subirFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !socio) return;
-    if (!escribible) { setAviso('Vista previa: esto no se guarda de verdad.'); setHoja(null); return; }
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     const invalido = validarFotoPerfil(file);
-    if (invalido) { setAviso(invalido); return; }
+    if (invalido) { setAviso({ texto: invalido, error: true }); return; }
     setAviso(null);
     setSubiendoFoto(true);
     const result = await subirFotoPerfil(socio.id, file);
     setSubiendoFoto(false);
-    if ('error' in result) { setAviso(result.error); return; }
+    if ('error' in result) { setAviso({ texto: result.error, error: true }); return; }
     void updateSocio(socio.id, { fotoUrl: result.url });
     setHoja(null);
   }
 
   async function quitarFoto() {
     if (!socio) return;
-    if (!escribible) { setAviso('Vista previa: esto no se guarda de verdad.'); setHoja(null); return; }
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     setSubiendoFoto(true);
     const result = await eliminarFotoPerfil(socio.id);
     setSubiendoFoto(false);
-    if ('error' in result) { setAviso(result.error); return; }
+    if ('error' in result) { setAviso({ texto: result.error, error: true }); return; }
     void updateSocio(socio.id, { fotoUrl: null });
     setHoja(null);
   }
 
   function elegirAvatar(id: string | null) {
-    if (!escribible) { setAviso('Vista previa: esto no se guarda de verdad.'); setHoja(null); return; }
+    if (!escribible) { setAviso({ texto: 'Vista previa: esto no se guarda de verdad.', error: false }); setHoja(null); return; }
     void updateSocio(socio!.id, { avatar: id });
     setHoja(null);
   }
 
-  const chip = (texto1: string, fuerte: boolean) => (
-    <span
-      key={texto1}
-      style={{
-        ...micro(8.5, 0.2, 600),
-        color: fuerte ? t.ink : t.muted,
-        background: fuerte ? (noche ? t.surface2 : '#EEF0EA') : t.surface,
-        border: `1px solid ${fuerte ? (noche ? t.line : 'rgba(44,53,44,.14)') : t.line}`,
-        borderRadius: 999, padding: '9px 14px', whiteSpace: 'nowrap',
-      }}
-    >
-      {texto1}
-    </span>
-  );
+  // Antes eran chips sueltos ("Plaza fija · lunes", "Bono 10 activo") — se
+  // leían como etiquetas, no como algo que la socia hubiera GANADO. Tres
+  // tarjetas de estadística (Fase 2, feedback de 49 propietarias) dicen lo
+  // mismo con un número grande delante, mismo lenguaje que el resto del
+  // portal usa para "esto importa" (la tarjeta hero de Inicio, el contador
+  // de Clases). Solo se muestran las que tienen dato real detrás.
+  const stats: { etiqueta: string; valor: string }[] = [];
+  if (asistidas > 0) stats.push({ etiqueta: 'Clases asistidas', valor: String(asistidas) });
+  if (bono) {
+    stats.push({
+      etiqueta: bono.esMensual ? 'Tu bono' : 'Sesiones',
+      valor: bono.esMensual ? 'Ilimitado' : `${bono.restantes ?? '–'}/${bono.total ?? '–'}`,
+    });
+  }
+  if (plaza) stats.push({ etiqueta: 'Plaza fija', valor: plaza });
 
   const fila = (
     titulo: string,
@@ -222,20 +229,33 @@ export function PortalPerfilView({
           <p style={{ ...display(17, true), color: t.muted, marginTop: 8 }}>{desdeCuando(socio.fechaAlta)}</p>
         )}
 
-        {(plaza || bono) && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 18 }}>
-            {plaza && chip(`Plaza fija · ${plaza}`, true)}
-            {bono && chip(`${bono.nombre} activo`, false)}
+        {stats.length > 0 && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+            {stats.map(s => {
+              // "Ilimitado" (9 caracteres) al mismo tamaño que un número de 1-2
+              // dígitos, en una tarjeta que puede rondar ~100px de ancho en un
+              // móvil estrecho a tres columnas, es la combinación que primero
+              // trunca — baja un escalón cuando el valor no es puramente
+              // numérico. Con una sola tarjeta (socia sin bono ni plaza fija,
+              // solo asistencias), `flex:1` la estiraba al 100% del ancho con
+              // mucho hueco vacío alrededor de un número pequeño — se limita
+              // el ancho en ese caso en vez de forzarla a llenar la fila.
+              const numerico = /^[\d/]+$/.test(s.valor);
+              return (
+                <Card
+                  key={s.etiqueta}
+                  style={{
+                    flex: stats.length === 1 ? '0 1 auto' : 1,
+                    minWidth: stats.length === 1 ? 140 : 0,
+                    padding: '14px 14px 12px',
+                  }}
+                >
+                  <div style={{ ...display(numerico ? 24 : 18), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.valor}</div>
+                  <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.etiqueta}</div>
+                </Card>
+              );
+            })}
           </div>
-        )}
-
-        {aviso && (
-          <p role="status" style={{
-            fontFamily: sans, fontSize: 12.5, color: t.ink, background: t.surface2,
-            borderRadius: 14, padding: '11px 14px', marginTop: 20,
-          }}>
-            {aviso}
-          </p>
         )}
 
         {/* ── Filas ────────────────────────────────────────────────────────── */}
@@ -313,6 +333,8 @@ export function PortalPerfilView({
           <AvatarPicker value={socio.avatar ?? null} onChange={elegirAvatar} />
         </div>
       </BottomSheet>
+
+      <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>
   );
 }

@@ -20,9 +20,17 @@ test.describe('Portal — Perfil', () => {
     await expect(page.getByRole('button', { name: 'Cambiar tu foto' })).toBeVisible();
   });
 
-  test('los chips resumen lo contratado', async ({ page }) => {
-    await expect(page.getByText('Plaza fija · miércoles')).toBeVisible();
-    await expect(page.getByText('Bono 10 · Reformer Flow activo')).toBeVisible();
+  test('las tarjetas de estadística resumen lo contratado', async ({ page }) => {
+    // Antes eran chips de texto ("Plaza fija · miércoles", "Bono 10 activo");
+    // ahora son tarjetas con el número por delante (Fase 2, feedback de 49
+    // propietarias). El mock trae 12 asistencias, un bono de 10 con 8
+    // restantes y plaza fija los miércoles.
+    await expect(page.getByText('Clases asistidas')).toBeVisible();
+    await expect(page.getByText('12', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sesiones', { exact: true })).toBeVisible();
+    await expect(page.getByText('8/10')).toBeVisible();
+    await expect(page.getByText('Plaza fija', { exact: true })).toBeVisible();
+    await expect(page.getByText('miércoles', { exact: true })).toBeVisible();
   });
 
   test('NO hay ficha de salud', async ({ page }) => {

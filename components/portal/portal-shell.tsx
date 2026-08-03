@@ -29,7 +29,7 @@ import { PortalNav } from './portal-nav';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, tabBarStyle, navPortal } = useStudio();
+  const { dataLoaded, navPortal } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -149,7 +149,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             solo si procede. */}
         <PushPrompt />
 
-        <PortalNav items={NAV} activeIndex={activeIndex} tabBarStyle={tabBarStyle} slug={slug} />
+        <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} />
       </div>
     </div>
   );

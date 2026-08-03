@@ -43,6 +43,7 @@ import { getHomeCardContext } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
+import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
@@ -495,8 +496,9 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                         <span style={{ ...display(25, false, 1.05), color: t.ink, textWrap: 'pretty' } as React.CSSProperties}>
                           {tipo?.nombre ?? 'Clase'}
                         </span>
-                        <span style={{ ...texto.nota, color: t.muted }}>
-                          {hora(s.inicio)} · {libres > 0 ? `${libres} plaza${libres !== 1 ? 's' : ''}` : 'Completa'}
+                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                          <span style={{ ...texto.nota, color: t.muted }}>{hora(s.inicio)} ·</span>
+                          <AforoIndicator libres={libres} />
                         </span>
                       </Link>
                     );

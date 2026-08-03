@@ -11,11 +11,11 @@ export type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral';
 // inline en clases/mi-plan/home...), cada una con su propio diccionario de
 // colores repetido.
 export function Badge({ variant = 'neutral', children }: { variant?: BadgeVariant; children: ReactNode }) {
-  const { t } = useModo();
+  const { t, noche } = useModo();
   const colors: Record<BadgeVariant, { bg: string; fg: string }> = {
-    success: { bg: semantic.success.soft, fg: semantic.success.text },
-    warning: { bg: semantic.warning.soft, fg: semantic.warning.text },
-    danger: { bg: semantic.danger.soft, fg: semantic.danger.text },
+    success: { bg: semantic.success.soft, fg: noche ? semantic.success.textNoche : semantic.success.text },
+    warning: { bg: semantic.warning.soft, fg: noche ? semantic.warning.textNoche : semantic.warning.text },
+    danger: { bg: semantic.danger.soft, fg: noche ? semantic.danger.textNoche : semantic.danger.text },
     neutral: { bg: t.surface2, fg: t.muted },
   };
   const c = colors[variant];

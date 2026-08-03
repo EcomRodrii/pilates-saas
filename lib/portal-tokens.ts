@@ -28,10 +28,22 @@ export const radius = { control: 12, card: 20, sheet: 24, pill: 999 } as const;
 // del modo día/noche (calibrado para pasar 4.5:1 sobre fondos claros y
 // oscuros por igual, a diferencia del verde #3E9B6C usado antes en 16 sitios
 // distintos, que solo pasaba contraste en modo noche).
+//
+// ⚠️ `text` en solitario NO pasa 4.5:1 en modo noche pese al comentario de
+// arriba (verificado: warning ≈3.3-3.6:1, danger ≈3.0-3.4:1 sobre `bg`/
+// `surface` noche) — falso positivo detectado al añadir `AforoIndicator`
+// (components/portal/ui/AforoIndicator.tsx), que multiplicó dónde aparece
+// este color como texto suelto. `textNoche` es el mismo tono AA-seguro en
+// noche, usado por AforoIndicator, el banner de error de HojaReserva Y por
+// `Badge.tsx` (que pinta el texto sobre su propio `.soft`, un fondo aún más
+// bajo de contraste que `bg`/`surface` plano — verificado: `.text` sobre
+// `.soft` compuesto en noche da 2.6-3.3:1, peor que el caso plano;
+// `textNoche` sigue pasando 4.5:1 ahí también porque se calibró contra el
+// caso más exigente de los dos).
 export const semantic = {
-  success: { text: '#2E7D46', soft: 'rgba(46,125,70,0.12)' },
-  warning: { text: '#A65A0A', soft: 'rgba(166,90,10,0.12)' },
-  danger: { text: '#C0362D', soft: 'rgba(192,54,45,0.1)' },
+  success: { text: '#2E7D46', textNoche: '#3CA25B', soft: 'rgba(46,125,70,0.12)' },
+  warning: { text: '#A65A0A', textNoche: '#E0942B', soft: 'rgba(166,90,10,0.12)' },
+  danger: { text: '#C0362D', textNoche: '#E86A5F', soft: 'rgba(192,54,45,0.1)' },
 } as const;
 
 // Padding inferior de cualquier bottom sheet. Además del home indicator
