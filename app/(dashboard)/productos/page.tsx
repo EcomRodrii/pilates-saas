@@ -22,10 +22,10 @@ type Tab = 'planes' | 'pos';
 // "Bajo demanda" = PUNTUAL: se paga sesión a sesión, sin compromiso fijo, que
 // es justo lo que ya significa ese tipo aquí.
 type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
-const TIPO_TABS: { v: TipoPlanTab; label: string; icon: React.ElementType }[] = [
-  { v: 'MENSUAL', label: 'Suscripciones', icon: Repeat },
-  { v: 'BONO', label: 'Paquetes', icon: Zap },
-  { v: 'PUNTUAL', label: 'Bajo demanda', icon: Tag },
+const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
+  { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
+  { v: 'BONO', label: 'Paquetes', singular: 'paquete', icon: Zap },
+  { v: 'PUNTUAL', label: 'Bajo demanda', singular: 'plan bajo demanda', icon: Tag },
 ];
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
@@ -422,7 +422,7 @@ export default function Productos() {
               <p className="text-[13px] mt-1">Crea uno nuevo o cambia de pestaña para ver otro tipo.</p>
               <button onClick={() => setPlanModal('new')}
                 className="mt-4 text-sm font-semibold text-brand-medio hover:underline underline-offset-2">
-                Añadir {TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase().slice(0, -1) || 'plan'}
+                Añadir {TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}
               </button>
             </div>
           ) : planesFiltrados.length === 0 ? (
