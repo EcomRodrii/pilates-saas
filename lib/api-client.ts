@@ -926,6 +926,7 @@ export async function enviarEmailBienvenida(params: {
   to: string;
   toName: string;
   planNombre?: string;
+  socioId?: string;
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
@@ -935,6 +936,7 @@ export async function enviarEmailBienvenida(params: {
       to: params.to,
       toName: params.toName,
       data: { planNombre: params.planNombre },
+      socioId: params.socioId,
     }),
   });
 }
@@ -946,6 +948,7 @@ export async function enviarEmailCampana(params: {
   toName: string;
   asunto: string;
   contenido: string;
+  socioId?: string;
 }): Promise<boolean> {
   try {
     const res = await fetch('/api/emails/send', {
@@ -956,11 +959,30 @@ export async function enviarEmailCampana(params: {
         to: params.to,
         toName: params.toName,
         data: { titulo: params.asunto, mensaje: params.contenido },
+        socioId: params.socioId,
       }),
     });
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+// Historial de comunicaciones (emails) enviados a una socia concreta.
+// `null` en fallo (red/permiso), NO `[]` — un array vacío significa "esta
+// socia no tiene comunicaciones", que es una respuesta distinta de "no se
+// pudo comprobar". El caller decide qué hacer con null (normalmente: no
+// pisar la lista que ya tenía en pantalla).
+export async function obtenerComunicacionesSocio(socioId: string): Promise<Array<{
+  id: string; tipo: string; asunto: string; estado: 'ENVIADO' | 'FALLIDO';
+  error: string | null; creadoEn: string; creadoPorNombre: string | null;
+}> | null> {
+  try {
+    const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
 }
 

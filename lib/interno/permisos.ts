@@ -19,6 +19,7 @@ export const PERMISOS = [
   'logs.read',
   'users.create',
   'users.delete',
+  'content.write',
   'admin.full',
 ] as const;
 
@@ -38,6 +39,7 @@ export const PERMISO_ETIQUETA: Record<Permiso, string> = {
   'logs.read':      'Leer el registro de auditoría',
   'users.create':   'Dar de alta usuarios internos',
   'users.delete':   'Dar de baja usuarios internos',
+  'content.write':  'Publicar el changelog de Actualizaciones',
   'admin.full':     'Todos los permisos, presentes y futuros',
 };
 
@@ -46,6 +48,7 @@ export const PERMISOS_POR_AREA: Array<{ area: string; permisos: Permiso[] }> = [
   { area: 'Estudios',   permisos: ['studios.read', 'studios.update', 'studios.delete'] },
   { area: 'Facturación', permisos: ['billing.read', 'billing.refund', 'plans.update'] },
   { area: 'Crecimiento', permisos: ['marketing.send', 'crm.update'] },
+  { area: 'Contenido',  permisos: ['content.write'] },
   { area: 'Plataforma',  permisos: ['logs.read', 'users.create', 'users.delete', 'admin.full'] },
 ];
 
@@ -71,8 +74,8 @@ export const PRESETS: Record<string, { descripcion: string; permisos: Permiso[] 
     permisos: ['admin.full'],
   },
   Marketing: {
-    descripcion: 'Campañas y CRM. Ve estudios y facturación, pero no los toca',
-    permisos: ['studios.read', 'billing.read', 'marketing.send', 'crm.update', 'logs.read'],
+    descripcion: 'Campañas, CRM y el changelog. Ve estudios y facturación, pero no los toca',
+    permisos: ['studios.read', 'billing.read', 'marketing.send', 'crm.update', 'logs.read', 'content.write'],
   },
   Soporte: {
     descripcion: 'Atiende clientes: los ve y los edita, sin tocar dinero ni borrar',

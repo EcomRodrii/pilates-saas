@@ -10,7 +10,7 @@ import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
-import { authHeader, enviarEmailCampana } from '@/lib/api-client';
+import { authHeader, enviarEmailCampana, obtenerComunicacionesSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -304,10 +304,30 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }>({ nombre: '', apellidos: '', email: '', telefono: '', nif: '', camposExtra: {} });
   const [reciboForm, setReciboForm] = useState({ concepto: '', importe: '', fechaVencimiento: localDate(new Date()) });
 
-  // ── Fake communications log (stored locally per clienta) ─────────────────────
+  // ── Historial real de comunicaciones (comunicaciones_socio) ─────────────────
+  // Antes esto era un useState en memoria que nunca se persistía — se perdía
+  // al navegar fuera de la ficha o recargar la página. Se carga aparte del
+  // resto de datos de la clienta (no viene en el snapshot global de
+  // studio-context): potencialmente mucha fila por estudio con actividad de
+  // campañas, así que solo se pide al entrar en esta ficha.
   const [comunicaciones, setComunicaciones] = useState<Array<{
-    id: string; asunto: string; cuerpo: string; fecha: string; tipo: 'EMAIL';
+    id: string; tipo: string; asunto: string; estado: 'ENVIADO' | 'FALLIDO';
+    error: string | null; creadoEn: string; creadoPorNombre: string | null;
   }>>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    // Se limpia YA, síncrono: cambiar de ficha no debe seguir enseñando el
+    // historial de la clienta anterior mientras carga la nueva.
+    setComunicaciones([]);
+    let ignorar = false;
+    // A partir de aquí, null (fallo de red/permiso) no pisa lo que ya había
+    // en pantalla — solo un resultado real reemplaza el historial. `ignorar`
+    // evita que la respuesta de ESTA MISMA ficha llegue tarde (tras cambiar
+    // otra vez de clienta) y pinte datos de otra persona.
+    obtenerComunicacionesSocio(id).then(data => { if (!ignorar && data) setComunicaciones(data); });
+    return () => { ignorar = true; };
+  }, [id]);
 
   const socio = socios.find(s => s.id === id);
 
@@ -526,16 +546,13 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     // Antes solo actualizaba estado local y decía "Email enviado" sin enviar nada.
     // Ahora manda el email de verdad por Resend (/api/emails/send).
     setEnviandoMsg(true);
-    const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim() });
+    const ok = await enviarEmailCampana({ to: socio.email, toName: socio.nombre, asunto: msgForm.asunto.trim(), contenido: msgForm.cuerpo.trim(), socioId: socio.id });
     setEnviandoMsg(false);
     if (!ok) { setToast('No se pudo enviar el email'); return; }
-    setComunicaciones(prev => [{
-      id: `msg-${Date.now()}`,
-      asunto: msgForm.asunto,
-      cuerpo: msgForm.cuerpo,
-      fecha: new Date().toISOString(),
-      tipo: 'EMAIL' as const,
-    }, ...prev]);
+    // El registro real lo crea el servidor (/api/emails/send); se recarga el
+    // historial en vez de simularlo aquí para reflejar el estado que la BD
+    // acaba de guardar, no una suposición optimista.
+    obtenerComunicacionesSocio(socio.id).then(data => { if (data) setComunicaciones(data); });
     setMsgForm({ asunto: '', cuerpo: '' });
     setShowSendMessage(false);
     setToast('Email enviado');
@@ -1198,14 +1215,24 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </div>
                               <div>
                                 <p className="font-semibold text-foreground text-sm">{c.asunto}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{c.cuerpo}</p>
+                                {c.estado === 'FALLIDO' && c.error ? (
+                                  <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--destructive)' }}>{c.error}</p>
+                                ) : c.creadoPorNombre ? (
+                                  <p className="text-xs text-muted-foreground mt-0.5">Enviado por {c.creadoPorNombre}</p>
+                                ) : null}
                               </div>
                             </div>
                             <div className="shrink-0 text-right">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}>
-                                Enviado
-                              </span>
-                              <p className="text-[10px] text-muted-foreground mt-1">{fecha(c.fecha)}</p>
+                              {c.estado === 'FALLIDO' ? (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
+                                  No entregado
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}>
+                                  Enviado
+                                </span>
+                              )}
+                              <p className="text-[10px] text-muted-foreground mt-1">{fecha(c.creadoEn)}</p>
                             </div>
                           </div>
                         </div>

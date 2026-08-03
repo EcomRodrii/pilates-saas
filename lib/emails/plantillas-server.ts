@@ -43,24 +43,50 @@ export function interpolar(texto: string, vars: { nombre?: string; estudio?: str
     .replace(/\{clase\}/gi, vars.clase ?? '');
 }
 
-export type MarcaEstudio = { colorPrimario?: string | null; logoUrl?: string | null };
+export type MarcaEstudio = { colorPrimario?: string | null; logoUrl?: string | null; slug?: string | null };
 
-// Resuelve el logo + color de marca de un estudio para pintarlos en la
-// plantilla premium compartida (lib/emails/layout.tsx). Sin studioId (emails
-// de plataforma, no de un estudio concreto) devuelve {} y el layout cae al
-// morado por defecto de Tentare.
+// Resuelve el logo + color + slug de un estudio para pintarlos en la
+// plantilla premium compartida (lib/emails/layout.tsx) y, si hace falta,
+// enlazar a su portal (bienvenida). Sin studioId (emails de plataforma, no de
+// un estudio concreto) devuelve {} y el layout cae al morado por defecto de
+// Tentare. Una sola query: antes `slug` vivía en un resolver aparte que
+// repetía la misma consulta a `studios` por el mismo id.
 export async function resolverMarcaEstudio(studioId: string | null | undefined): Promise<MarcaEstudio> {
   if (!studioId) return {};
   const admin = getSupabaseAdmin();
   if (!admin) return {};
   const { data } = await admin
     .from('studios')
-    .select('color_primario, logo_url')
+    .select('color_primario, logo_url, slug')
     .eq('id', studioId)
     .maybeSingle();
   if (!data) return {};
   return {
     colorPrimario: (data.color_primario as string | null) ?? undefined,
     logoUrl: data.logo_url as string | null,
+    slug: data.slug as string | null,
   };
+}
+
+function appUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+}
+
+// Genera un enlace de acceso firmado (magic link de Supabase Auth) para que una
+// socia active su cuenta sin tener que teclear su email en /portal/{slug}/acceso
+// ella misma. Es el MISMO mecanismo que ya usa el login sin contraseña del
+// portal (signInWithOtp) — no un token propio: Supabase ya resuelve firma,
+// expiración y un solo uso. Fallo suave: si Supabase Admin no está disponible o
+// el email no es válido, la bienvenida se manda igual, solo sin el botón de
+// acceso directo (ver bienvenida-template.tsx).
+export async function generarEnlaceAccesoSocia(slug: string, email: string): Promise<string | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo: `${appUrl()}/portal/${slug}/clave-nueva` },
+  });
+  if (error || !data?.properties?.action_link) return null;
+  return data.properties.action_link;
 }
