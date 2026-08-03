@@ -46,6 +46,9 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia');
+  // El editor único (theme-workspace.tsx) arranca en la pestaña "Secciones";
+  // "Tema" vive en "Ajustes" (categoría por defecto al entrar ahí).
+  await page.getByRole('tab', { name: 'Ajustes' }).click();
 }
 
 test.describe('Editor de temas — galería de temas', () => {
@@ -106,8 +109,12 @@ test.describe('Editor de temas — galería de temas', () => {
     await page.getByRole('button', { name: /Geométrico/ }).click();
     await expect(page.getByRole('button', { name: /Geométrico/ })).not.toContainText('personalizado');
 
-    // Cualquier control de "Personalizar" — aquí, el estilo de botón — marca deriva.
+    // Cualquier control de "Personalizar" — aquí, el estilo de botón — marca
+    // deriva. Vive en su propia categoría del panel de Ajustes; se vuelve a
+    // "Tema" después para comprobar que la tarjeta ya dice "(personalizado)".
+    await page.getByRole('button', { name: 'Botón principal' }).click();
     await page.getByRole('button', { name: 'Contorno' }).click();
+    await page.getByRole('button', { name: 'Tema', exact: true }).click();
     await expect(page.getByRole('button', { name: /Geométrico/ })).toContainText('personalizado');
   });
 });

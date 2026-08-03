@@ -69,8 +69,10 @@ async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
+  // El editor único (theme-workspace.tsx) arranca ya en "Secciones" con
+  // "Portal — Inicio" como página por defecto — antes había que entrar a la
+  // pestaña "Bloques del portal" a propósito, ahora es la vista de llegada.
   await page.goto('/configuracion/apariencia');
-  await page.getByRole('tab', { name: 'Bloques del portal' }).click();
   return { peticionesGuardar, publicadasRef: () => publicadas };
 }
 
