@@ -3,11 +3,14 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
-import { TrendingUp, Users, CreditCard, Activity, Download, FileText } from 'lucide-react';
+import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
+import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
+import type { Sesion } from '@/lib/types';
+import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { inicioDeSemana } from '@/lib/utils';
-import { useRol, puedeVerFinanzas } from '@/lib/permisos';
+import { inicioDeSemana, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -133,13 +136,18 @@ type ExportState = 'idle' | 'loading' | 'done';
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Informes() {
-  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa } = useStudio();
+  const { recibos, socios, sesiones, reservas, tiposClase, suscripciones, planesTarifa, instructores } = useStudio();
   // Sin esto, una instructora o un manager veían aquí las tarjetas de
   // ingresos/ticket medio — la RLS real (migración 0114) sí bloquea los datos
   // (ven un 0 € falso, no el número real), pero mostrar la tarjeta igual es
   // peor que ocultarla: miente sobre si hay o no ingresos. Mismo gate que ya
   // tiene el Dashboard de inicio para esta misma info.
   const verFinanzas = puedeVerFinanzas(useRol());
+  // Distinto de verFinanzas (PROPIETARIO/RECEPCIÓN): la tarifa de instructora
+  // es dato salarial, con su propia RLS más estricta (tarifas_gestion,
+  // PROPIETARIO/MANAGER — migr 20260731110000). RECEPCIÓN ve la pestaña de
+  // margen por clase (es finanzas), pero no el coste de instructoras.
+  const verCosteInstructoras = puedeGestionarEquipo(useRol());
 
   const [period, setPeriod] = useState<Period>('month');
   const [tooltipIdx, setTooltipIdx] = useState<number | null>(null);
@@ -158,6 +166,46 @@ export default function Informes() {
 
   // ─── Period bounds ──────────────────────────────────────────────────────────
   const periodStart = useMemo(() => getPeriodStart(period, now), [period, mounted]);
+
+  // ─── Margen por clase: tarifas de instructora (dato salarial aparte) ────────
+  const [tarifasInstructoras, setTarifasInstructoras] = useState<TarifaInstructor[]>([]);
+  useEffect(() => {
+    if (!verCosteInstructoras) return;
+    let cancel = false;
+    void fetchTarifasEquipo().then(items => {
+      if (cancel) return;
+      setTarifasInstructoras(items);
+    });
+    return () => { cancel = true; };
+  }, [verCosteInstructoras]);
+
+  // Margen de contribución real por clase (informe estratégico ago-2026):
+  // cálculo puro sobre lo ya cargado en memoria — mismas sesiones que ya
+  // filtra el resto de esta página por `period`, sin fetch propio. Solo
+  // clases YA ocurridas (una futura no tiene asistentes reales todavía).
+  // Peor margen primero — es lo que la propietaria querría mirar primero.
+  const margenClases = useMemo((): (MargenSesion & { sesion: Sesion })[] => {
+    if (!verFinanzas || !mounted) return [];
+    const pasadas = sesiones.filter(se =>
+      !se.cancelada && new Date(se.inicio).getTime() <= now.getTime() && new Date(se.inicio).getTime() >= periodStart.getTime()
+    );
+    if (pasadas.length === 0) return [];
+    const snapshotParcial = {
+      studioId: '', socios, reservas, sesiones: pasadas, salas: [], recibos, suscripciones, planesTarifa,
+      tiposClase, instructores, automationLogs: [], campanas: [], sustituciones: [],
+      instructorTarifas: tarifasInstructoras,
+      contexto: { nSociasActivas: 0, antiguedadDatosDias: 0, cadenaId: null, nSedesCadena: 1 },
+    };
+    const porSesion = new Map(pasadas.map(se => [se.id, se]));
+    return margenSesiones(pasadas, snapshotParcial)
+      .map(r => ({ ...r, sesion: porSesion.get(r.sesionId)! }))
+      .sort((a, b) => {
+        if (a.margen === null && b.margen === null) return 0;
+        if (a.margen === null) return 1;
+        if (b.margen === null) return -1;
+        return a.margen - b.margen;
+      });
+  }, [verFinanzas, mounted, sesiones, reservas, socios, recibos, suscripciones, planesTarifa, tiposClase, instructores, tarifasInstructoras, periodStart, now]);
 
   // F1: trae los ingresos agregados del servidor al montar y al cambiar de período.
   useEffect(() => {
@@ -879,6 +927,78 @@ export default function Informes() {
           )}
         </div>
       </div>
+
+      {/* ── Section 4b: Margen por clase ─────────────────────────────────────── */}
+      {verFinanzas && (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Scale size={16} style={{ color: 'var(--muted-foreground)' }} />
+          <h2 className="text-base font-extrabold" style={{ color: 'var(--foreground)' }}>Margen por clase</h2>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'var(--muted-foreground)' }}>
+          {verCosteInstructoras
+            ? 'Margen sobre coste de instructora del periodo seleccionado (no incluye coste de sala, que este informe todavía no calcula). Peor margen primero.'
+            : 'Ingreso imputado por clase del periodo seleccionado. El coste y el margen son dato de tarifas de instructora, visible solo para propietaria/gerencia.'}
+        </p>
+        {margenClases.length === 0 ? (
+          <p className="text-sm text-center py-8" style={{ color: 'var(--muted-foreground)' }}>
+            Sin clases ya impartidas en este periodo.
+          </p>
+        ) : (
+        <div className="overflow-x-auto -mx-2">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left" style={{ color: 'var(--muted-foreground)' }}>
+                <th className="px-2 py-2 font-semibold">Fecha</th>
+                <th className="px-2 py-2 font-semibold">Clase</th>
+                <th className="px-2 py-2 font-semibold">Instructora</th>
+                <th className="px-2 py-2 font-semibold text-right">Asist.</th>
+                <th className="px-2 py-2 font-semibold text-right">Ingreso</th>
+                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Coste</th>}
+                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Margen</th>}
+                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Break-even</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {margenClases.map(m => {
+                const tipo = tiposClase.find(t => t.id === m.sesion.tipoClaseId);
+                const instructora = instructores.find(i => i.id === m.sesion.instructorId);
+                return (
+                  <tr key={m.sesionId} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                    <td className="px-2 py-2 whitespace-nowrap" style={{ color: 'var(--foreground)' }}>
+                      {fechaLargaEstudio(m.sesion.inicio)} · {horaEstudio(m.sesion.inicio)}
+                    </td>
+                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }}>{tipo?.nombre ?? '—'}</td>
+                    <td className="px-2 py-2" style={{ color: 'var(--foreground)' }}>{instructora?.nombre ?? '—'}</td>
+                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{m.asistentes}</td>
+                    <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>{fmtEurFull(m.ingresoImputado)}</td>
+                    {verCosteInstructoras && (
+                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>
+                        {m.costeInstructora === null ? '— (sin tarifa)' : fmtEurFull(m.costeInstructora)}
+                      </td>
+                    )}
+                    {verCosteInstructoras && (
+                      <td
+                        className="px-2 py-2 text-right tabular-nums font-bold"
+                        style={{ color: m.margen === null ? 'var(--muted-foreground)' : m.margen < 0 ? 'var(--destructive)' : 'var(--success)' }}
+                      >
+                        {m.margen === null ? '—' : fmtEurFull(m.margen)}
+                      </td>
+                    )}
+                    {verCosteInstructoras && (
+                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>
+                        {m.breakEvenAsistentes === null ? '—' : `${m.breakEvenAsistentes}`}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        )}
+      </div>
+      )}
 
       {/* ── Section 5: Export ────────────────────────────────────────────────── */}
       {verFinanzas && (
