@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   const desde = new Date(Math.min(ahora.getTime() - 30 * MS_DIA, inicioMes.getTime(), lunes.getTime()));
   const hasta = new Date(ahora.getTime() + 21 * MS_DIA);
 
-  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc] = await Promise.all([
+  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc, ultimaClaseRes] = await Promise.all([
     admin.from('instructores')
       .select('id, nombre, rol, color, avatar, foto_url, activo, auth_user_id, email, telefono')
       .eq('studio_id', sesion.studioId),
@@ -71,10 +71,33 @@ export async function GET(req: NextRequest) {
       .gte('inicio', desde.toISOString())
       .lt('inicio', hasta.toISOString()),
     admin.rpc('valoraciones_resumen_estudio', { p_studio_id: sesion.studioId }),
+    // Última clase PASADA de cada instructora, para el aviso de "lleva tiempo
+    // sin dar clase" (I-avisoInactividad) — independiente de la ventana de 30
+    // días de arriba (esa es para ocupación/coste, esto necesita ver más
+    // atrás). Se acota a las 2000 sesiones pasadas más recientes del estudio
+    // en vez de sin límite: de ahí en adelante "hace mucho" ya es aviso
+    // suficiente, no hace falta la fecha exacta — y así no reintroduce el
+    // corte silencioso de 1000 filas de PostgREST con datos imprecisos.
+    admin.from('sesiones')
+      .select('instructor_id, inicio')
+      .eq('studio_id', sesion.studioId)
+      .eq('cancelada', false)
+      .not('instructor_id', 'is', null)
+      .lte('inicio', ahora.toISOString())
+      .order('inicio', { ascending: false })
+      .limit(2000),
   ]);
   if (errInst) return errorInterno('equipo:tarjetas:instructores', errInst, 'No se ha podido cargar el equipo.');
   if (errSes) return errorInterno('equipo:tarjetas:sesiones', errSes, 'No se ha podido cargar el equipo.');
   if (valRpc.error) return errorInterno('equipo:tarjetas:valoraciones', valRpc.error, 'No se ha podido cargar el equipo.');
+  if (ultimaClaseRes.error) return errorInterno('equipo:tarjetas:ultima_clase', ultimaClaseRes.error, 'No se ha podido cargar el equipo.');
+
+  // Primera fila vista de cada instructor_id = su más reciente, porque venimos
+  // ordenados por inicio descendente.
+  const ultimaClasePorInstructor = new Map<string, string>();
+  for (const row of (ultimaClaseRes.data ?? []) as { instructor_id: string; inicio: string }[]) {
+    if (!ultimaClasePorInstructor.has(row.instructor_id)) ultimaClasePorInstructor.set(row.instructor_id, row.inicio);
+  }
 
   const sesionesRows = (sesiones ?? []) as SesionFila[];
   const sesionIds = sesionesRows.map(s => s.id);
@@ -196,6 +219,7 @@ export async function GET(req: NextRequest) {
       conAcceso: !!i.auth_user_id, esYo,
       email: i.email ?? null, telefono: i.telefono ?? null,
       enClaseAhora, claseHoyLabel, proximaClaseIso,
+      ultimaClaseIso: ultimaClasePorInstructor.get(i.id) ?? null,
       semana, horasDia,
       ocupacionPct, valoracion: valoracionPorInstructor.get(i.id) ?? null,
       horasMes: Math.round(horasMes * 10) / 10, costeMes,
@@ -210,6 +234,7 @@ export async function GET(req: NextRequest) {
         email: null, telefono: null,
         ocupacionPct: null, valoracion: null, horasMes: null, costeMes: null,
         semana: [0, 0, 0, 0, 0, 0, 0], horasDia: [null, null, null, null, null, null, null],
+        ultimaClaseIso: null,
       };
     }
     return base;

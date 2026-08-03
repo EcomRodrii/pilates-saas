@@ -89,6 +89,9 @@ const SITUACION_ESTILO: Record<Situacion, { fondo: string; tinta: string; punto:
   clase: { fondo: 'bg-success/10', tinta: 'text-success', punto: 'bg-success' },
   mostrador: { fondo: 'bg-sky-500/10', tinta: 'text-sky-700 dark:text-sky-400', punto: 'bg-sky-600' },
   flojo: { fondo: 'bg-rose-500/10', tinta: 'text-rose-700 dark:text-rose-400', punto: 'bg-rose-600' },
+  // Mismo tono que "flojo" (ámbar/rosa de aviso) pero distinguible: esto no
+  // es "sus clases van mal", es "puede que ya ni trabaje aquí".
+  inactiva: { fondo: 'bg-amber-500/10', tinta: 'text-amber-700 dark:text-amber-400', punto: 'bg-amber-600' },
   libre: { fondo: 'bg-muted', tinta: 'text-muted-foreground', punto: 'bg-muted-foreground/40' },
   direccion: { fondo: 'bg-brand/10', tinta: 'text-brand-secondary', punto: 'bg-brand-secondary' },
 };
@@ -777,9 +780,10 @@ function TarjetaMiembro({
   onAusencias: () => void; onEnlaceBaja: () => void;
   ausente?: AusenciaInstructora | null; invitando?: boolean; onInvitar?: () => void;
 }) {
-  const situacion = situacionDe(m);
-  const est = estadoTarjeta(m, rolViewer);
-  const cif = cifrasTarjeta(m, rolViewer);
+  const ahora = new Date();
+  const situacion = situacionDe(m, ahora);
+  const est = estadoTarjeta(m, rolViewer, ahora);
+  const cif = cifrasTarjeta(m, rolViewer, ahora);
   const acc = accionTarjeta(m, rolViewer, { pedido });
   const estilo = SITUACION_ESTILO[situacion];
   const accEstilo = ACCION_ESTILO[acc.tipo];
