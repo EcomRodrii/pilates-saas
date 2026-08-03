@@ -305,3 +305,14 @@ nextjs-portal { display: none !important; }
     scroll-behavior: auto !important;
   }
 }
+
+/* Editor de Apariencia — click directo sobre el preview (Fase C): resalta el
+   bloque del catálogo cuya fila está seleccionada en el panel izquierdo. Solo
+   se aplica dentro de /portal-preview (ver components/portal/portal-preview-bridge.ts,
+   usePreviewResaltado), pero vive en globals.css porque es una clase, no un
+   selector de ruta. */
+[data-bloque-id].tentare-preview-seleccionado {
+  outline: 2px solid var(--portal-brand, #6D28D9);
+  outline-offset: 2px;
+  border-radius: 8px;
+}

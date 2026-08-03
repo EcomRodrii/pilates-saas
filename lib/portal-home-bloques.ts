@@ -74,6 +74,17 @@ export interface FaqConfig {
   titulo: string;
   preguntas: Array<{ pregunta: string; respuesta: string }>;
 }
+export interface GaleriaConfig {
+  imagenes: Array<{ url: string; alt: string }>;
+}
+export interface VideoConfig {
+  titulo: string;
+  url: string;
+}
+export interface TestimoniosConfig {
+  titulo: string;
+  testimonios: Array<{ cita: string; autor: string; rol: string }>;
+}
 
 // Estilo PROPIO de una sección — pedido explícitamente por el usuario ("no es
 // nada personalizable, tiene que ser un constructor totalmente libre"): antes
@@ -83,11 +94,20 @@ export interface FaqConfig {
 // contenido de la propietaria) puede pisar el tema global para sí mismo.
 // Todo opcional: sin `estilo`, el bloque se ve exactamente como antes
 // (hereda del tema), así que temas ya guardados no cambian de aspecto solos.
+//
+// `tamanoTexto`/`esquinas`/`sombra` son enums que INDEXAN los tokens ya
+// existentes en lib/portal-design.ts (mismo principio que `espaciado` con
+// ESPACIADO_PADDING) — nunca un número libre nuevo, para no fragmentar la
+// escala visual del resto del portal.
 export interface EstiloBloque {
   fondo?: string | null;
   color?: string | null;
   alineacion?: 'izquierda' | 'centro' | 'derecha';
   espaciado?: 'compacto' | 'normal' | 'amplio';
+  tamanoTexto?: 'pequeno' | 'normal' | 'grande';
+  esquinas?: 'ninguna' | 'suave' | 'redondeada' | 'pill';
+  sombra?: 'ninguna' | 'suave' | 'marcada';
+  ancho?: 'completo' | 'contenido';
 }
 
 export type BloqueHome =
@@ -95,7 +115,10 @@ export type BloqueHome =
   | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque }
   | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque }
   | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque };
+  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'galeria'; config: GaleriaConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'video'; config: VideoConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque };
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
@@ -134,6 +157,21 @@ export const BLOCK_CATALOG: BlockCatalogEntry[] = [
     kind: 'faq', label: 'Preguntas frecuentes', icono: 'HelpCircle',
     descripcion: 'Lista de preguntas y respuestas, plegable.',
     defaultConfig: { titulo: '', preguntas: [] } satisfies FaqConfig,
+  },
+  {
+    kind: 'galeria', label: 'Galería de imágenes', icono: 'GalleryHorizontal',
+    descripcion: 'Varias imágenes en un carrusel horizontal.',
+    defaultConfig: { imagenes: [] } satisfies GaleriaConfig,
+  },
+  {
+    kind: 'video', label: 'Vídeo', icono: 'Video',
+    descripcion: 'Un vídeo embebido de YouTube o Vimeo.',
+    defaultConfig: { titulo: '', url: '' } satisfies VideoConfig,
+  },
+  {
+    kind: 'testimonios', label: 'Testimonios', icono: 'Quote',
+    descripcion: 'Citas de socias, con autora y rol opcional.',
+    defaultConfig: { titulo: '', testimonios: [] } satisfies TestimoniosConfig,
   },
 ];
 
@@ -230,4 +268,41 @@ export function resolverHrefBloque(href: string): { interno: true; valor: string
   } catch {
     return null;
   }
+}
+
+/**
+ * Resuelve la URL de un bloque `video` a una URL de EMBED segura, o `null`
+ * si no lo es. El dato viene de jsonb tecleado por el estudio — nunca se
+ * mete crudo en un `<iframe src>`: solo YouTube/Vimeo por whitelist de host,
+ * mismo criterio de "validar en el render, no solo en el editor" que
+ * resolverHrefBloque().
+ */
+export function resolverVideoEmbed(url: string): string | null {
+  const v = url.trim();
+  if (!v) return null;
+  let u: URL;
+  try {
+    u = new URL(v);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const host = u.hostname.replace(/^www\./, '');
+
+  if (host === 'youtube.com' || host === 'm.youtube.com') {
+    const id = u.pathname === '/watch' ? u.searchParams.get('v') : u.pathname.startsWith('/embed/') ? u.pathname.slice('/embed/'.length) : null;
+    return id ? `https://www.youtube.com/embed/${id}` : null;
+  }
+  if (host === 'youtu.be') {
+    const id = u.pathname.slice(1);
+    return id ? `https://www.youtube.com/embed/${id}` : null;
+  }
+  if (host === 'vimeo.com') {
+    const id = u.pathname.slice(1).split('/')[0];
+    return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
+  }
+  if (host === 'player.vimeo.com') {
+    return u.pathname.startsWith('/video/') ? v : null;
+  }
+  return null;
 }

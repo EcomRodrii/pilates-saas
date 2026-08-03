@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
-  Image as ImageIcon, Type, MousePointerClick, HelpCircle, type LucideIcon,
+  Image as ImageIcon, Type, MousePointerClick, HelpCircle,
+  GalleryHorizontal, Video, Quote, type LucideIcon,
 } from 'lucide-react';
 import {
   DndContext,
@@ -26,7 +27,8 @@ import { usePermisos } from '@/lib/permisos';
 import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
-  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig, type EstiloBloque,
+  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
+  type GaleriaConfig, type VideoConfig, type TestimoniosConfig, type EstiloBloque,
 } from '@/lib/portal-home-bloques';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -46,6 +48,7 @@ import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 const ICONOS: Record<string, LucideIcon> = {
   Image: ImageIcon, Type, MousePointerClick, HelpCircle,
+  GalleryHorizontal, Video, Quote,
 };
 
 const inputCls = 'w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background';
@@ -114,12 +117,72 @@ function ConfigFaq({ config, onChange }: { config: FaqConfig; onChange: (c: FaqC
   );
 }
 
+function ConfigGaleria({ config, onChange }: { config: GaleriaConfig; onChange: (c: GaleriaConfig) => void }) {
+  function setImagen(i: number, campo: 'url' | 'alt', valor: string) {
+    const imagenes = config.imagenes.map((img, idx) => (idx === i ? { ...img, [campo]: valor } : img));
+    onChange({ ...config, imagenes });
+  }
+  return (
+    <div className="space-y-2">
+      {config.imagenes.map((img, i) => (
+        <div key={i} className="space-y-1 border-l-2 border-border pl-2.5">
+          <input className={inputCls} value={img.url} onChange={(e) => setImagen(i, 'url', e.target.value)} placeholder="https://…" />
+          <input className={inputCls} value={img.alt} onChange={(e) => setImagen(i, 'alt', e.target.value)} placeholder="Texto alternativo" />
+          <button onClick={() => onChange({ ...config, imagenes: config.imagenes.filter((_, idx) => idx !== i) })} className="text-[11.5px] font-semibold text-destructive">Quitar imagen</button>
+        </div>
+      ))}
+      <button
+        onClick={() => onChange({ ...config, imagenes: [...config.imagenes, { url: '', alt: '' }] })}
+        className="text-[12px] font-semibold text-brand-medio"
+      >
+        + Añadir imagen
+      </button>
+    </div>
+  );
+}
+function ConfigVideo({ config, onChange }: { config: VideoConfig; onChange: (c: VideoConfig) => void }) {
+  return (
+    <div className="space-y-2">
+      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
+      <div><span className={labelCls}>URL de YouTube o Vimeo</span><input className={inputCls} value={config.url} onChange={(e) => onChange({ ...config, url: e.target.value })} placeholder="https://youtube.com/watch?v=…" /></div>
+    </div>
+  );
+}
+function ConfigTestimonios({ config, onChange }: { config: TestimoniosConfig; onChange: (c: TestimoniosConfig) => void }) {
+  function setTestimonio(i: number, campo: 'cita' | 'autor' | 'rol', valor: string) {
+    const testimonios = config.testimonios.map((te, idx) => (idx === i ? { ...te, [campo]: valor } : te));
+    onChange({ ...config, testimonios });
+  }
+  return (
+    <div className="space-y-2">
+      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
+      {config.testimonios.map((te, i) => (
+        <div key={i} className="space-y-1 border-l-2 border-border pl-2.5">
+          <textarea className={`${inputCls} min-h-14`} value={te.cita} onChange={(e) => setTestimonio(i, 'cita', e.target.value)} placeholder="Cita" />
+          <input className={inputCls} value={te.autor} onChange={(e) => setTestimonio(i, 'autor', e.target.value)} placeholder="Autora" />
+          <input className={inputCls} value={te.rol} onChange={(e) => setTestimonio(i, 'rol', e.target.value)} placeholder="Rol (opcional)" />
+          <button onClick={() => onChange({ ...config, testimonios: config.testimonios.filter((_, idx) => idx !== i) })} className="text-[11.5px] font-semibold text-destructive">Quitar testimonio</button>
+        </div>
+      ))}
+      <button
+        onClick={() => onChange({ ...config, testimonios: [...config.testimonios, { cita: '', autor: '', rol: '' }] })}
+        className="text-[12px] font-semibold text-brand-medio"
+      >
+        + Añadir testimonio
+      </button>
+    </div>
+  );
+}
+
 function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: BloqueHome) => void }) {
   if (bloque.kind === 'sistema') return null;
   if (bloque.kind === 'banner') return <ConfigBanner config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
   if (bloque.kind === 'texto') return <ConfigTexto config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
   if (bloque.kind === 'cta') return <ConfigCta config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  return <ConfigFaq config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
+  if (bloque.kind === 'faq') return <ConfigFaq config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
+  if (bloque.kind === 'galeria') return <ConfigGaleria config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
+  if (bloque.kind === 'video') return <ConfigVideo config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
+  return <ConfigTestimonios config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
 }
 
 function ColorFieldMini({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (v: string | null) => void }) {
@@ -159,6 +222,43 @@ const ALINEACION_OPCIONES: { id: NonNullable<EstiloBloque['alineacion']>; label:
 const ESPACIADO_OPCIONES: { id: NonNullable<EstiloBloque['espaciado']>; label: string }[] = [
   { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
 ];
+const TAMANO_TEXTO_OPCIONES: { id: NonNullable<EstiloBloque['tamanoTexto']>; label: string }[] = [
+  { id: 'pequeno', label: 'Pequeño' }, { id: 'normal', label: 'Normal' }, { id: 'grande', label: 'Grande' },
+];
+const ESQUINAS_OPCIONES: { id: NonNullable<EstiloBloque['esquinas']>; label: string }[] = [
+  { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
+];
+const SOMBRA_OPCIONES: { id: NonNullable<EstiloBloque['sombra']>; label: string }[] = [
+  { id: 'ninguna', label: 'Ninguna' }, { id: 'suave', label: 'Suave' }, { id: 'marcada', label: 'Marcada' },
+];
+const ANCHO_OPCIONES: { id: NonNullable<EstiloBloque['ancho']>; label: string }[] = [
+  { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+];
+
+/** Fila de botones reutilizada por cada campo enum de EstiloBloque. */
+function FilaOpciones<T extends string>({
+  etiqueta, opciones, activa, onElegir,
+}: { etiqueta: string; opciones: { id: T; label: string }[]; activa: T; onElegir: (id: T) => void }) {
+  return (
+    <div>
+      <span className="text-[12.5px] font-medium text-foreground block mb-1.5">{etiqueta}</span>
+      <div className="flex gap-2 flex-wrap">
+        {opciones.map((op) => (
+          <button
+            key={op.id}
+            type="button"
+            onClick={() => onElegir(op.id)}
+            className={`flex-1 text-[12px] font-semibold py-1.5 px-2 rounded-lg border transition-colors ${
+              activa === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+            }`}
+          >
+            {op.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // Estilo PROPIO de la sección — pisa el tema global solo para este bloque.
 // Solo aplica a bloques del catálogo (banner/texto/cta/faq): los `sistema`
@@ -175,40 +275,12 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
       <p className="text-[11px] text-muted-foreground -mt-1">Pisa el tema global solo aquí. Vacío = hereda del tema.</p>
       <ColorFieldMini label="Fondo" value={estilo.fondo} onChange={(v) => setEstilo({ fondo: v })} />
       <ColorFieldMini label="Texto" value={estilo.color} onChange={(v) => setEstilo({ color: v })} />
-      <div>
-        <span className="text-[12.5px] font-medium text-foreground block mb-1.5">Alineación</span>
-        <div className="flex gap-2">
-          {ALINEACION_OPCIONES.map((op) => (
-            <button
-              key={op.id}
-              type="button"
-              onClick={() => setEstilo({ alineacion: op.id })}
-              className={`flex-1 text-[12px] font-semibold py-1.5 rounded-lg border transition-colors ${
-                (estilo.alineacion ?? 'izquierda') === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-              }`}
-            >
-              {op.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className="text-[12.5px] font-medium text-foreground block mb-1.5">Espaciado</span>
-        <div className="flex gap-2">
-          {ESPACIADO_OPCIONES.map((op) => (
-            <button
-              key={op.id}
-              type="button"
-              onClick={() => setEstilo({ espaciado: op.id })}
-              className={`flex-1 text-[12px] font-semibold py-1.5 rounded-lg border transition-colors ${
-                (estilo.espaciado ?? 'normal') === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-              }`}
-            >
-              {op.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <FilaOpciones etiqueta="Alineación" opciones={ALINEACION_OPCIONES} activa={estilo.alineacion ?? 'izquierda'} onElegir={(v) => setEstilo({ alineacion: v })} />
+      <FilaOpciones etiqueta="Espaciado" opciones={ESPACIADO_OPCIONES} activa={estilo.espaciado ?? 'normal'} onElegir={(v) => setEstilo({ espaciado: v })} />
+      <FilaOpciones etiqueta="Tamaño del texto" opciones={TAMANO_TEXTO_OPCIONES} activa={estilo.tamanoTexto ?? 'normal'} onElegir={(v) => setEstilo({ tamanoTexto: v })} />
+      <FilaOpciones etiqueta="Esquinas" opciones={ESQUINAS_OPCIONES} activa={estilo.esquinas ?? 'redondeada'} onElegir={(v) => setEstilo({ esquinas: v })} />
+      <FilaOpciones etiqueta="Sombra" opciones={SOMBRA_OPCIONES} activa={estilo.sombra ?? 'ninguna'} onElegir={(v) => setEstilo({ sombra: v })} />
+      <FilaOpciones etiqueta="Ancho" opciones={ANCHO_OPCIONES} activa={estilo.ancho ?? 'completo'} onElegir={(v) => setEstilo({ ancho: v })} />
     </div>
   );
 }
