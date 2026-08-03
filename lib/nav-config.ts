@@ -68,7 +68,7 @@ const allSections: NavSection[] = [
       // usa en el mostrador.
       { href: '/cobros', label: 'Cobros', icon: CreditCard },
       { href: '/pos', label: 'Caja', icon: Store },
-      { href: '/productos', label: 'Productos', icon: Package },
+      { href: '/productos', label: 'Membresías', icon: Package },
     ],
   },
   {
