@@ -54,6 +54,56 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
               /kiosk/[slug]. Ver lib/frozen-features.ts. */}
         </div>
       </div>
+
+      {studio?.slug && <WidgetEmbebible slug={studio.slug} showToast={showToast} />}
+    </div>
+  );
+}
+
+// ─── Widget para la web del estudio ──────────────────────────────────────────
+//
+// Un <iframe> a la página pública de reservas de siempre (/reservar/[slug]),
+// en modo compacto (?embed=1 esconde la cabecera/hero grandes — ya viven en
+// la web del estudio, no hace falta repetirlos). Cero backend nuevo: reutiliza
+// la reserva real, el calendario real, el cobro real — nada de esto es una
+// maqueta. Funciona en CUALQUIER web (WordPress, Squarespace, Wix...) porque
+// un <iframe> no depende del gestor de contenidos.
+function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
+  const [copiado, setCopiado] = useState(false);
+  const src = `${typeof window !== 'undefined' ? window.location.origin : ''}/reservar/${slug}?embed=1`;
+  const codigo = `<iframe src="${src}" style="width:100%;max-width:480px;height:640px;border:0;border-radius:12px;" title="Reservar clase"></iframe>`;
+
+  function copiar() {
+    navigator.clipboard.writeText(codigo);
+    setCopiado(true);
+    showToast('Código copiado');
+    setTimeout(() => setCopiado(false), 2000);
+  }
+
+  return (
+    <div className={cn(cardCls, 'p-6')}>
+      <h3 className="text-[14px] font-semibold text-foreground mb-1">Widget para tu web</h3>
+      <p className="text-[12px] text-muted-foreground mb-4">
+        Pega este código en cualquier sitio web — WordPress, Squarespace, Wix o
+        una web hecha a mano — y tus clientas reservan sin salir de tu página.
+        Es la misma reserva de siempre: sin cuenta nueva, sin sincronizar nada.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
+        <div className="rounded-xl border border-border overflow-hidden bg-muted/30" style={{ aspectRatio: '3/4' }}>
+          <iframe src={src} title="Vista previa del widget" className="w-full h-full" style={{ border: 0 }} />
+        </div>
+        <div className="min-w-0">
+          <p className={labelCls}>Código para pegar en tu web</p>
+          <pre className="text-[11px] font-mono bg-muted rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all text-foreground">{codigo}</pre>
+          <button
+            onClick={copiar}
+            className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            {copiado ? <Check size={13} className="text-success" /> : <Copy size={13} />}
+            {copiado ? 'Copiado' : 'Copiar código'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

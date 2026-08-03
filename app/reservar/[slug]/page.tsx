@@ -212,6 +212,10 @@ export default function ReservarPage() {
   const { socia, usuarioEmail, autenticado, enviarEnlace, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref');
+  // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
+  // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
+  // solo pestañas + contenido. Nunca cambia lógica de negocio, solo layout.
+  const embedMode = searchParams.get('embed') === '1';
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -711,7 +715,8 @@ export default function ReservarPage() {
           usa el mismo degradado de fondo que ya usa el portal privado para su
           hero (lib/portal-modo.tsx → MODO_TOKENS.dia.hero), coherente con el
           resto del producto en vez de un valor nuevo sin respaldo. */}
-      <div style={{ position: 'relative', overflow: 'hidden', background: RT.hero }}>
+      <div style={{ position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
+        {!embedMode && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
             {estudioLogo ? (
@@ -749,7 +754,9 @@ export default function ReservarPage() {
             )}
           </div>
         </div>
+        )}
 
+        {!embedMode && (
         <div style={{ position: 'relative', padding: `${cq(34, 5, 70)} ${cq(20, 3.8, 48)} 0`, textAlign: 'center' }}>
           <div style={eyebrow(9)}>RESERVA TU CLASE</div>
           <h1 style={{ fontFamily: serif, fontSize: cq(38, 6, 76), lineHeight: 1, marginTop: cq(14, 1.8, 22) }}>{estudioNombre}</h1>
@@ -759,9 +766,10 @@ export default function ReservarPage() {
             </p>
           )}
         </div>
+        )}
 
         {/* ── TABS ─────────────────────────────────────────────────────────── */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {tabs.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
