@@ -926,6 +926,7 @@ export async function enviarEmailBienvenida(params: {
   to: string;
   toName: string;
   planNombre?: string;
+  socioId?: string;
 }) {
   await fetch('/api/emails/send', {
     method: 'POST',
@@ -935,6 +936,7 @@ export async function enviarEmailBienvenida(params: {
       to: params.to,
       toName: params.toName,
       data: { planNombre: params.planNombre },
+      socioId: params.socioId,
     }),
   });
 }
@@ -946,12 +948,6 @@ export async function enviarEmailCampana(params: {
   toName: string;
   asunto: string;
   contenido: string;
-  // Si se pasa, el servidor deja un registro DURADERO del envío en
-  // `comunicaciones_socio` (antes el "historial de comunicaciones" de la
-  // ficha de una clienta era un useState local: el email SÍ se enviaba, pero
-  // el registro de "enviado" solo vivía en memoria del navegador y
-  // desaparecía en cualquier remount/recarga — parecía que el mensaje "se
-  // esfumaba" aunque hubiera llegado de verdad).
   socioId?: string;
 }): Promise<boolean> {
   try {
@@ -972,21 +968,22 @@ export async function enviarEmailCampana(params: {
   }
 }
 
-export interface ComunicacionSocio {
-  id: string;
-  tipo: string;
-  asunto: string;
-  estado: 'ENVIADO' | 'FALLIDO';
-  error: string | null;
-  creadoEn: string;
-  creadoPorNombre: string | null;
-}
-
-export async function fetchComunicaciones(socioId: string): Promise<ComunicacionSocio[]> {
-  const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
-  if (!res.ok) return [];
-  const { items } = await res.json();
-  return items ?? [];
+// Historial de comunicaciones (emails) enviados a una socia concreta.
+// `null` en fallo (red/permiso), NO `[]` — un array vacío significa "esta
+// socia no tiene comunicaciones", que es una respuesta distinta de "no se
+// pudo comprobar". El caller decide qué hacer con null (normalmente: no
+// pisar la lista que ya tenía en pantalla).
+export async function obtenerComunicacionesSocio(socioId: string): Promise<Array<{
+  id: string; tipo: string; asunto: string; estado: 'ENVIADO' | 'FALLIDO';
+  error: string | null; creadoEn: string; creadoPorNombre: string | null;
+}> | null> {
+  try {
+    const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 // Envía un mensaje de campaña por WhatsApp/SMS (Twilio) a una destinataria.

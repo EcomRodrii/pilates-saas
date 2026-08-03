@@ -35,6 +35,10 @@ const estiloBloqueSchema = z.object({
   color: z.string().nullable().optional(),
   alineacion: z.enum(['izquierda', 'centro', 'derecha']).optional(),
   espaciado: z.enum(['compacto', 'normal', 'amplio']).optional(),
+  tamanoTexto: z.enum(['pequeno', 'normal', 'grande']).optional(),
+  esquinas: z.enum(['ninguna', 'suave', 'redondeada', 'pill']).optional(),
+  sombra: z.enum(['ninguna', 'suave', 'marcada']).optional(),
+  ancho: z.enum(['completo', 'contenido']).optional(),
 }).optional();
 
 export const bloqueHomeSchema: z.ZodType<BloqueHome> = z.discriminatedUnion('kind', [
@@ -56,6 +60,23 @@ export const bloqueHomeSchema: z.ZodType<BloqueHome> = z.discriminatedUnion('kin
     config: z.object({
       titulo: z.string(),
       preguntas: z.array(z.object({ pregunta: z.string(), respuesta: z.string() })),
+    }),
+  }),
+  z.object({
+    id: z.string(), kind: z.literal('galeria'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
+    config: z.object({
+      imagenes: z.array(z.object({ url: z.string(), alt: z.string() })),
+    }),
+  }),
+  z.object({
+    id: z.string(), kind: z.literal('video'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
+    config: z.object({ titulo: z.string(), url: z.string() }),
+  }),
+  z.object({
+    id: z.string(), kind: z.literal('testimonios'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
+    config: z.object({
+      titulo: z.string(),
+      testimonios: z.array(z.object({ cita: z.string(), autor: z.string(), rol: z.string() })),
     }),
   }),
 ]);

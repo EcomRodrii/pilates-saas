@@ -130,3 +130,32 @@ export const accionEstudio = (id: string, cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; avisoStripe?: boolean }>(`/estudios/${id}/acciones`, {
     method: 'POST', body: JSON.stringify(cuerpo),
   });
+
+// Changelog de "Actualizaciones" — antes lib/novedades.ts hardcodeado.
+export type EtiquetaCambio = 'NUEVA_FUNCIONALIDAD' | 'MEJORA' | 'RENDIMIENTO' | 'ARREGLO';
+
+export interface CambioChangelog {
+  id: string; etiqueta: EtiquetaCambio; texto: string; orden: number;
+}
+
+export interface VersionChangelog {
+  id: string; version: string; titulo: string; fecha_publicacion: string;
+  estado: 'borrador' | 'publicado'; publicado_en: string | null;
+  changelog_cambios: CambioChangelog[];
+}
+
+export const fetchChangelog = () => pedir<{ versiones: VersionChangelog[] }>('/changelog');
+
+export const crearVersionChangelog = (cuerpo: { version: string; titulo: string; fechaPublicacion: string }) =>
+  pedir<{ ok: true; id: string }>('/changelog', { method: 'POST', body: JSON.stringify(cuerpo) });
+
+export const guardarVersionChangelog = (
+  id: string,
+  cuerpo: { version?: string; titulo?: string; fechaPublicacion?: string; cambios?: Array<{ texto: string; etiqueta: EtiquetaCambio }> },
+) => pedir<{ ok: true }>(`/changelog/${id}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
+
+export const publicarVersionChangelog = (id: string) =>
+  pedir<{ ok: true }>(`/changelog/${id}`, { method: 'PATCH', body: JSON.stringify({ publicar: true }) });
+
+export const borrarVersionChangelog = (id: string) =>
+  pedir<{ ok: true }>(`/changelog/${id}`, { method: 'DELETE' });

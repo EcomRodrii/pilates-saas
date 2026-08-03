@@ -86,7 +86,7 @@ function relativeTime(iso: string | null | undefined): string {
   if (days === 1) return 'Ayer';
   if (days < 7) return `Hace ${days} días`;
   if (days < 30) return `Hace ${Math.floor(days / 7)} sem.`;
-  if (days < 365) return `Hace ${Math.floor(days / 30)} meses`;
+  if (days < 365) { const meses = Math.floor(days / 30); return `Hace ${meses} ${meses > 1 ? 'meses' : 'mes'}`; }
   return `Hace ${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? 's' : ''}`;
 }
 
@@ -409,7 +409,7 @@ export default function Socios() {
   function handleEnviarEmail() {
     const recipients = socios.filter((s) => selected.has(s.id) && s.email);
     recipients.forEach((s) => {
-      enviarEmailBienvenida({ to: s.email, toName: `${s.nombre} ${s.apellidos}` });
+      enviarEmailBienvenida({ to: s.email, toName: `${s.nombre} ${s.apellidos}`, socioId: s.id });
     });
     setSelected(new Set());
   }
@@ -506,6 +506,7 @@ export default function Socios() {
         to: form.email.trim(),
         toName: `${form.nombre.trim()} ${form.apellidos.trim()}`,
         planNombre: plan?.nombre,
+        socioId: res.id,
       });
     }
     resetModal();

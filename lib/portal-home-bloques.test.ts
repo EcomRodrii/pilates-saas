@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG, resolverHrefBloque,
+  DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG,
+  resolverHrefBloque, resolverVideoEmbed,
   type BloqueHome,
 } from './portal-home-bloques.ts';
 
@@ -72,7 +73,7 @@ test('bloquesVisibles: filtra los ocultos', () => {
 
 test('BLOCK_CATALOG: no incluye bloques sistema (esos no se "añaden")', () => {
   assert.equal(BLOCK_CATALOG.some((b) => (b.kind as string) === 'sistema'), false);
-  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'cta', 'faq', 'texto']);
+  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
 });
 
 test('getBlockCatalogEntry: id desconocido → undefined', () => {
@@ -93,4 +94,25 @@ test('resolverHrefBloque: externo http(s) se acepta, javascript:/data: se rechaz
 test('resolverHrefBloque: vacío → null (bloque sin enlace)', () => {
   assert.equal(resolverHrefBloque(''), null);
   assert.equal(resolverHrefBloque('   '), null);
+});
+
+test('resolverVideoEmbed: YouTube (watch/youtu.be/embed) se resuelve a la URL de embed', () => {
+  assert.equal(resolverVideoEmbed('https://www.youtube.com/watch?v=abc123'), 'https://www.youtube.com/embed/abc123');
+  assert.equal(resolverVideoEmbed('https://youtube.com/watch?v=abc123&t=10s'), 'https://www.youtube.com/embed/abc123');
+  assert.equal(resolverVideoEmbed('https://youtu.be/abc123'), 'https://www.youtube.com/embed/abc123');
+  assert.equal(resolverVideoEmbed('https://www.youtube.com/embed/abc123'), 'https://www.youtube.com/embed/abc123');
+});
+
+test('resolverVideoEmbed: Vimeo se resuelve a player.vimeo.com', () => {
+  assert.equal(resolverVideoEmbed('https://vimeo.com/123456789'), 'https://player.vimeo.com/video/123456789');
+  assert.equal(resolverVideoEmbed('https://player.vimeo.com/video/123456789'), 'https://player.vimeo.com/video/123456789');
+});
+
+test('resolverVideoEmbed: dominio no permitido, URL rota o vacía → null', () => {
+  assert.equal(resolverVideoEmbed('https://malicioso.com/video.mp4'), null);
+  assert.equal(resolverVideoEmbed('javascript:alert(1)'), null);
+  assert.equal(resolverVideoEmbed('no-es-una-url'), null);
+  assert.equal(resolverVideoEmbed(''), null);
+  assert.equal(resolverVideoEmbed('https://youtube.com/watch?v='), null);
+  assert.equal(resolverVideoEmbed('https://vimeo.com/no-numerico'), null);
 });

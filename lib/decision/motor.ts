@@ -11,6 +11,7 @@ import { coordinarColisiones, construirResumenDiario, construirMientrasDormias }
 import { detectarConflictos } from './conflictos.ts';
 import { priorizar, seleccionarPrioridadesHome, enCooldown, type CandidataPriorizada } from './prioridad.ts';
 import { construirIndices } from './senales.ts';
+import { TZ_ESTUDIO } from '../utils.ts';
 
 export interface RecomendacionAExpirar {
   id: string;
@@ -36,7 +37,10 @@ export function calcularExpiraciones(pendientesActuales: Recomendacion[], candid
 // Simplificación MVP: hora UTC. La zona horaria real del estudio (config de
 // studios) se resuelve en Fase B, igual que hace verifactu.ts con Madrid.
 function momentoDiaDe(now: Date): 'MANANA' | 'TARDE' | 'NOCHE' {
-  const hora = now.getUTCHours();
+  // Hora local del estudio, no UTC — con UTC el saludo del Centro de Control
+  // se desincronizaba del resto de pantallas (que usan la hora del navegador)
+  // hasta 2h en verano (CEST), diciendo "Buenas tardes" cuando ya era de noche.
+  const hora = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: TZ_ESTUDIO }).format(now)) % 24;
   if (hora < 13) return 'MANANA';
   if (hora < 20) return 'TARDE';
   return 'NOCHE';

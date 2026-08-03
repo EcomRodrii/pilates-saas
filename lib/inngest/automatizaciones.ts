@@ -298,6 +298,12 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     }
   } else if (!c.socio.email) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'La socia no tiene email registrado' };
+  } else if (esDominioReservado(c.socio.email)) {
+    // Mismo corte que procesarCandidato (arriba) — sin él, este camino
+    // (marketing) dejaba pasar el email a Resend y devolvía crudo su error
+    // en inglés ("Invalid `to` field...") a la propietaria.
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
+      detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else {
     const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
     // Mismo reintento ante fallos transitorios que en procesarCandidato.

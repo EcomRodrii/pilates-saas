@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { errorInterno } from '@/lib/errores-servidor';
-import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { uid } from '@/lib/utils';
 import { render } from '@react-email/render';
 import { ReciboEmail } from '@/lib/emails/recibo-template';
 import { BienvenidaEmail } from '@/lib/emails/bienvenida-template';
@@ -13,9 +11,10 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { resolverPlantilla, interpolar, resolverMarcaEstudio, resolverSlugEstudio } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { registrarComunicacion } from '@/lib/db/supabase-data-admin';
 
 export async function POST(req: NextRequest) {
   // SEGURIDAD: solo staff autenticado. Evita que cualquiera use la cuenta de
@@ -34,8 +33,6 @@ export async function POST(req: NextRequest) {
     to: string;
     toName: string;
     data: Record<string, unknown>;
-    // Si se manda, se deja un registro duradero del envío en
-    // `comunicaciones_socio` (ver enviarEmailCampana en lib/api-client.ts).
     socioId?: string;
   };
 
@@ -83,11 +80,13 @@ export async function POST(req: NextRequest) {
     subject = `Pago confirmado — ${d.concepto}`;
   } else if (body.tipo === 'bienvenida') {
     const d = body.data as { planNombre?: string; estudioNombre?: string };
-    // Enlace de acceso al portal: sin slug (estudio recién creado, o vista
-    // previa) se omite el botón en vez de enlazar a una URL rota.
-    const slug = await resolverSlugEstudio(sesion.studioId);
-    const url = slug ? `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001'}/portal/${slug}/acceso` : undefined;
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, url, ...marca, ...d }));
+    // Enlace de acceso directo al portal: antes la bienvenida no decía cómo
+    // entrar y la socia se quedaba sin saber que existía /portal/{slug}. Es el
+    // mismo magic link que ya usa el login sin contraseña del portal, solo que
+    // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
+    // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
+    const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, body.to) : null;
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, url: urlAcceso ?? undefined, ...marca, ...d }));
     subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
@@ -146,27 +145,22 @@ export async function POST(req: NextRequest) {
     html,
   });
 
-  // Registro duradero del envío (si el llamador pasó socioId) — best-effort:
-  // un fallo al REGISTRAR el envío no debe ocultar que el email SÍ se mandó
-  // (o hacer perder el error real si falló), así que no se deja que rompa la
-  // respuesta.
+  // Historial real de comunicaciones — best-effort (registrarComunicacion ya
+  // captura sus propios errores internamente y nunca lanza): si el email SÍ
+  // salió (o SÍ falló), eso ya es el resultado que importa; un problema al
+  // loguearlo no debe convertir un envío correcto en un error 500.
   if (body.socioId) {
-    const admin = getSupabaseAdmin();
-    if (admin) {
-      const { error: errIns } = await admin.from('comunicaciones_socio').insert({
-        id: `com-${uid()}`,
-        studio_id: sesion.studioId,
-        socio_id: body.socioId,
-        tipo: body.tipo,
-        asunto: subject,
-        estado: error ? 'FALLIDO' : 'ENVIADO',
-        error: error?.message ?? null,
-        resend_id: data?.id ?? null,
-        creado_por: sesion.userId,
-        creado_por_nombre: sesion.nombre ?? null,
-      });
-      if (errIns) console.error('[emails:send:comunicaciones_socio]', errIns);
-    }
+    await registrarComunicacion({
+      studioId: sesion.studioId,
+      socioId: body.socioId,
+      tipo: body.tipo,
+      asunto: subject,
+      estado: error ? 'FALLIDO' : 'ENVIADO',
+      error: error?.message ?? null,
+      resendId: data?.id ?? null,
+      creadoPor: sesion.userId,
+      creadoPorNombre: sesion.nombre,
+    });
   }
 
   if (error) {

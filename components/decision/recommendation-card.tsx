@@ -1,21 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Check, X, MessageCircle, ChevronDown, TriangleAlert } from 'lucide-react';
+import { Clock, Check, X, Mail, Euro, MessageCircle, ChevronDown, TriangleAlert } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ESPECIALISTA_INFO } from './especialista-info';
+import { fraseConfianza } from '@/lib/decision/copy';
+import { severidad, SEVERIDAD_INFO } from './severidad';
 import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
 
 // Plantilla única de recomendación (Bible doc 5 §14 / doc 3): título → motivo
 // → impacto → confianza → tiempo → acción. Nunca cambia de orden entre
 // especialistas — es lo que hace la interfaz predecible (doc 5 regla de oro 12).
-
-const CONFIANZA_LABEL: Record<string, string> = {
-  ALTA: 'Confianza alta',
-  MEDIA: 'Confianza media',
-  BAJA: 'Confianza baja',
-};
 
 function formatearImpacto(imp: ImpactoAPI | null): string | null {
   if (!imp || imp.valor === 0) return null;
@@ -23,6 +19,17 @@ function formatearImpacto(imp: ImpactoAPI | null): string | null {
   if (imp.unidad === 'EUR_MES') return `${signo}${imp.valor}€/mes`;
   if (imp.unidad === 'EUR') return `${signo}${imp.valor}€`;
   return `${signo}${imp.valor}%`;
+}
+
+// Botón principal específico por tipo, no un "Hecho" genérico siempre —
+// aprobar() ejecuta de verdad (app/api/decisiones/[id]/aprobar/route.ts →
+// DECISION_APPROVED), y para COBRAR_RECIBOS eso es cobrar una tarjeta real:
+// el botón tiene que decir lo que va a pasar, no un genérico que oculte que
+// mueve dinero.
+function botonPrincipal(tipo: string): { label: string; Icon: typeof Check } {
+  if (tipo === 'COBRAR_RECIBOS') return { label: 'Cobrar ahora', Icon: Euro };
+  if (tipo === 'ENVIAR_EMAIL') return { label: 'Enviar email', Icon: Mail };
+  return { label: 'Hecho', Icon: Check };
 }
 
 export function RecommendationCard({ recomendacion, onAprobar, onRechazar, procesando, whatsappHref }: {
@@ -35,6 +42,8 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
   const [porQueAbierto, setPorQueAbierto] = useState(false);
   const impactoTexto = formatearImpacto(recomendacion.impacto);
   const esCritica = recomendacion.prioridad === 'CRITICA';
+  const sev = SEVERIDAD_INFO[severidad(recomendacion.prioridad, recomendacion.riesgo, recomendacion.confianza.nivel)];
+  const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(recomendacion.accion.tipo);
   const especialista = ESPECIALISTA_INFO[recomendacion.especialista];
   // P2-5: cuando detectarConflictos (lib/decision/conflictos.ts) marca dos
   // recomendaciones de especialistas distintos que se contradicen, lo anota
@@ -46,6 +55,13 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
   return (
     <Card style={esCritica ? { boxShadow: '0 0 0 1px #FCA5A5' } : undefined}>
       <CardContent className="flex flex-col gap-3">
+        <span
+          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{ color: sev.color, backgroundColor: sev.bg }}
+        >
+          {sev.emoji} {sev.label}
+        </span>
+
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-heading text-[16px] leading-snug font-semibold text-foreground">
             {recomendacion.titulo}
@@ -82,7 +98,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
             className="inline-flex items-center gap-1 hover:text-foreground"
             aria-expanded={porQueAbierto}
           >
-            {CONFIANZA_LABEL[recomendacion.confianza.nivel]}
+            {fraseConfianza(recomendacion.confianza.nivel)}
             <ChevronDown size={12} className={porQueAbierto ? 'rotate-180' : ''} />
           </button>
         </div>
@@ -95,7 +111,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
 
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button size="sm" onClick={onAprobar} disabled={procesando}>
-            <Check size={14} /> Aprobar
+            <IconPrincipal size={14} /> {labelPrincipal}
           </Button>
           {whatsappHref && (
             <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex">
@@ -105,7 +121,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
             </a>
           )}
           <Button size="sm" variant="outline" onClick={onRechazar} disabled={procesando}>
-            <X size={14} /> Descartar
+            <X size={14} /> Ya lo sé
           </Button>
         </div>
       </CardContent>

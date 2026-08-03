@@ -285,7 +285,7 @@ interface StudioContextValue {
   notasInternas: NotaInterna[];
 
   // Socios
-  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string }) => Promise<ResultadoEscritura>;
+  addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) => Promise<ResultadoEscritura & { id?: string }>;
   addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
@@ -1459,7 +1459,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Socios ────────────────────────────────────────────────────────────────────
 
-  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura> {
+  async function addSocio(fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }): Promise<ResultadoEscritura & { id?: string }> {
     // El insert de más abajo va directo a Supabase desde el navegador (RLS, sin
     // ruta de servidor de por medio) — el tope de socias del plan se comprueba
     // aquí, antes, porque si no el alta manual lo saltaba entero (el importador
@@ -1546,7 +1546,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       }
     }
 
-    return resSocia;
+    return { ...resSocia, id: nuevaSocia.id };
   }
 
   // En ruta pública, las escrituras van por los endpoints de servidor (service-

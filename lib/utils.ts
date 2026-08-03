@@ -15,6 +15,21 @@ export function uid() {
   return `${Date.now().toString(36)}-${uidSeq.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+// Compara dos versiones "0.92"/"1.0.3" numéricamente, no como texto — un
+// ORDER BY version en SQL (o un .sort() de JS por defecto) las trata como
+// texto y ordena mal en cuanto un componente llega a dos cifras: "0.10" sale
+// ANTES que "0.2" porque '1' < '2' como carácter. Compara parte a parte como
+// enteros. Usado por el changelog de Actualizaciones (lista admin + widget).
+export function compararVersiones(a: string, b: string): number {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 // Formatea un importe en euros al estilo español: coma decimal + " €"
 // (p.ej. 22 → "22,00 €"). SOLO para mostrar en pantalla. NO usar para valores
 // de protocolo/QR (Verifactu, PayPal), que exigen punto decimal a propósito.
