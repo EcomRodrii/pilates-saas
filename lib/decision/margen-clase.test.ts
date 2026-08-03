@@ -24,7 +24,7 @@ function plan(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id'>): PlanTarifa {
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: new Map(), contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
@@ -39,7 +39,7 @@ test('PUNTUAL con precioPuntual fijado: ingreso = asistentes × precioPuntual, s
     reserva({ socioId: 'soc1', estado: 'CONFIRMADA', sesionId: 's1' }),
     reserva({ socioId: 'soc2', estado: 'ASISTIDA', sesionId: 's1' }),
   ];
-  const snap = snapshot({ sesiones: [se], reservas, instructorTarifas: new Map([['i1', 30]]) });
+  const snap = snapshot({ sesiones: [se], reservas, instructorTarifas: [{ instructorId: 'i1', tarifaHora: 30 }] });
   const idx = construirIndices(snap);
   const r = margenSesion(se, snap, idx);
   assert.equal(r.asistentes, 2);
@@ -110,6 +110,39 @@ test('Solo cuentan CONFIRMADA/ASISTIDA — lista de espera, pendiente y cancelad
   const r = margenSesion(se, snap, idx);
   assert.equal(r.asistentes, 1);
   assert.equal(r.ingresoImputado, 20);
+});
+
+test('Socia con dos suscripciones ACTIVAS (MENSUAL general + BONO de este tipo de clase): usa la que cubre la clase, no la primera del array', () => {
+  const se = claseUnaHora('s1', { tipoClaseId: 'reformer' });
+  const mensualGeneral = plan({ id: 'mensual-general', tipo: 'MENSUAL', precio: 999 }); // sin tiposClaseIds = cubre todas
+  const bonoReformer = plan({ id: 'bono-reformer', tipo: 'BONO', precio: 100, sesiones: 10, tiposClaseIds: ['reformer'] });
+  const reservas = [reserva({ socioId: 'soc1', estado: 'CONFIRMADA', sesionId: 's1' })];
+  // La MENSUAL general aparece PRIMERO en el array — si se cogiera la
+  // primera suscripción activa sin más (idx.suscripcionActivaPorSocio),
+  // el ingreso saldría de un plan de 999€ sin frecuencia fiable = 0€.
+  const suscripciones = [
+    suscripcion({ socioId: 'soc1', planId: 'mensual-general' }),
+    suscripcion({ socioId: 'soc1', planId: 'bono-reformer' }),
+  ];
+  const snap = snapshot({ sesiones: [se], reservas, suscripciones, planesTarifa: [mensualGeneral, bonoReformer] });
+  const idx = construirIndices(snap);
+  const r = margenSesion(se, snap, idx);
+  assert.equal(r.ingresoImputado, 10); // 100/10 del bono específico, no el mensual general
+});
+
+test('precioPuntual de la sesión NO pisa a quien tiene suscripción activa que cubre la clase', () => {
+  const se = claseUnaHora('s1', { precioPuntual: 20 });
+  const p = plan({ id: 'bono10', tipo: 'BONO', precio: 100, sesiones: 10 });
+  const reservas = [
+    reserva({ socioId: 'conBono', estado: 'CONFIRMADA', sesionId: 's1' }),
+    reserva({ socioId: 'sinPlan', estado: 'CONFIRMADA', sesionId: 's1' }),
+  ];
+  const suscripciones = [suscripcion({ socioId: 'conBono', planId: 'bono10' })];
+  const snap = snapshot({ sesiones: [se], reservas, suscripciones, planesTarifa: [p] });
+  const idx = construirIndices(snap);
+  const r = margenSesion(se, snap, idx);
+  // conBono aporta 10 (su bono real), sinPlan cae al precioPuntual de 20 — no 40 (2×20).
+  assert.equal(r.ingresoImputado, 30);
 });
 
 test('margenSesiones: calcula el índice una sola vez y devuelve un resultado por sesión', () => {

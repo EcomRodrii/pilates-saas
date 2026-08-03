@@ -246,6 +246,19 @@ export interface SustitucionSnapshot {
   creadoEn: string;
 }
 
+// Fila cruda de `instructor_tarifas` (dato salarial, tabla aparte de
+// `instructores` — migr 20260731110000). Array, NO Map: SnapshotEstudio
+// cruza la frontera de un `step.run` de Inngest en lib/inngest/decision.ts,
+// que serializa a JSON entre steps — un Map ahí se convierte en `{}` en el
+// replay (mismo gotcha ya documentado para `memoria`/`flagsRows` en ese
+// fichero). El Map de consulta vive en `IndicesSenal.tarifaHoraPorInstructor`
+// (construirIndices), calculado siempre FUERA de cualquier step, igual que
+// el resto de los índices.
+export interface InstructorTarifaSnapshot {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
 // Contexto de "tamaño" del estudio — pensado para que los especialistas
 // puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
 // umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
@@ -272,9 +285,8 @@ export interface SnapshotEstudio {
   automationLogs: AutomationLog[]; // 90d
   campanas: Campana[];
   sustituciones: SustitucionSnapshot[]; // 90d
-  // Tarifa/hora por instructora (null = sin fijar) — para margen de
-  // contribución por clase. No confundir con datos de `instructores`: esta
-  // tabla vive aparte por RLS (ver migr 20260731110000).
-  instructorTarifas: Map<string, number | null>;
+  // Tarifa/hora por instructora — para margen de contribución por clase.
+  // Ver InstructorTarifaSnapshot arriba (por qué array, no Map, aquí).
+  instructorTarifas: InstructorTarifaSnapshot[];
   contexto: ContextoEstudio;
 }

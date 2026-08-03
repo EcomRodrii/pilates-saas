@@ -24,6 +24,9 @@ export interface IndicesSenal {
   logsPorSocio: Map<string, AutomationLog[]>;
   // Plazas ocupadas (estado != CANCELADA) por sesión.
   ocupadasPorSesion: Map<string, number>;
+  // Tarifa/hora por instructora (null = sin fijar). Construido aquí, no en
+  // SnapshotEstudio (array JSON-safe) — ver InstructorTarifaSnapshot en tipos.ts.
+  tarifaHoraPorInstructor: Map<string, number | null>;
 }
 
 function agrupar<T>(items: T[], claveDe: (item: T) => string | null | undefined): Map<string, T[]> {
@@ -74,6 +77,10 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
   }
 
+  const tarifaHoraPorInstructor = new Map<string, number | null>(
+    s.instructorTarifas.map(t => [t.instructorId, t.tarifaHora])
+  );
+
   return {
     socioPorId: new Map(s.socios.map(soc => [soc.id, soc])),
     planPorId: new Map(s.planesTarifa.map(p => [p.id, p])),
@@ -87,6 +94,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     recibosPendientes: s.recibos.filter(r => r.estado === 'PENDIENTE'),
     logsPorSocio: agrupar(s.automationLogs, l => l.socioId),
     ocupadasPorSesion,
+    tarifaHoraPorInstructor,
   };
 }
 
@@ -347,4 +355,32 @@ export function demandaInsatisfecha(franja: FranjaRecurrente, s: SnapshotEstudio
   const idsSesion = new Set(ultimasN.map(se => se.id));
   const enEspera = s.reservas.filter(r => idsSesion.has(r.sesionId) && r.estado === 'LISTA_ESPERA').length;
   return enEspera / ultimasN.length;
+}
+
+/**
+ * Precio medio por sesión, ponderado por socias activas (mismo criterio que
+ * Ingresos §2.2). Compartido: lo usa Agenda para valorar plazas vacías en una
+ * franja infrautilizada, y margen-clase.ts como precio de referencia del
+ * break-even de una clase suelta — señal genérica de "cuánto vale en
+ * promedio una plaza", no propia de ningún especialista.
+ */
+export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
+  const precios: number[] = [];
+  for (const socio of s.socios) {
+    if (!socio.activo) continue;
+    const sus = idx.suscripcionActivaPorSocio.get(socio.id);
+    if (!sus) continue;
+    const plan = idx.planPorId.get(sus.planId);
+    if (!plan) continue;
+    if (plan.tipo === 'MENSUAL') {
+      const freq = frecuenciaHabitual(socio.id, idx);
+      if (freq !== null && freq > 0) precios.push(plan.precio / (freq * 4.33));
+    } else if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
+      precios.push(plan.precio / plan.sesiones);
+    } else if (plan.tipo === 'PUNTUAL') {
+      precios.push(plan.precio);
+    }
+  }
+  if (precios.length === 0) return 0;
+  return precios.reduce((a, b) => a + b, 0) / precios.length;
 }

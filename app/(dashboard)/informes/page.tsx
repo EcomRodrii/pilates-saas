@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
-import { fetchTarifasEquipo } from '@/lib/api-client';
+import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
 import type { Sesion } from '@/lib/types';
 import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale } from 'lucide-react';
@@ -168,13 +168,13 @@ export default function Informes() {
   const periodStart = useMemo(() => getPeriodStart(period, now), [period, mounted]);
 
   // ─── Margen por clase: tarifas de instructora (dato salarial aparte) ────────
-  const [tarifasInstructoras, setTarifasInstructoras] = useState<Map<string, number | null>>(new Map());
+  const [tarifasInstructoras, setTarifasInstructoras] = useState<TarifaInstructor[]>([]);
   useEffect(() => {
     if (!verCosteInstructoras) return;
     let cancel = false;
     void fetchTarifasEquipo().then(items => {
       if (cancel) return;
-      setTarifasInstructoras(new Map(items.map(t => [t.instructorId, t.tarifaHora])));
+      setTarifasInstructoras(items);
     });
     return () => { cancel = true; };
   }, [verCosteInstructoras]);
@@ -956,6 +956,7 @@ export default function Informes() {
                 <th className="px-2 py-2 font-semibold text-right">Ingreso</th>
                 {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Coste</th>}
                 {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Margen</th>}
+                {verCosteInstructoras && <th className="px-2 py-2 font-semibold text-right">Break-even</th>}
               </tr>
             </thead>
             <tbody>
@@ -982,6 +983,11 @@ export default function Informes() {
                         style={{ color: m.margen === null ? 'var(--muted-foreground)' : m.margen < 0 ? 'var(--destructive)' : 'var(--success)' }}
                       >
                         {m.margen === null ? '—' : fmtEurFull(m.margen)}
+                      </td>
+                    )}
+                    {verCosteInstructoras && (
+                      <td className="px-2 py-2 text-right tabular-nums" style={{ color: 'var(--foreground)' }}>
+                        {m.breakEvenAsistentes === null ? '—' : `${m.breakEvenAsistentes}`}
                       </td>
                     )}
                   </tr>

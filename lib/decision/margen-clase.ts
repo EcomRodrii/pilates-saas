@@ -9,10 +9,9 @@
 // precio MEDIO de estudio a propósito, para decidir sobre franjas
 // recurrentes, no sobre una clase suelta; mezclarlas arriesgaría su
 // contrato ya testeado sin necesidad. Esto vive aparte, para Informes.
-import type { Reserva, Sesion } from '@/lib/types';
+import type { Reserva, Sesion, Suscripcion } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
-import { construirIndices, frecuenciaHabitual, type IndicesSenal } from './senales.ts';
-import { precioMedioSesion } from './especialistas/agenda.ts';
+import { construirIndices, frecuenciaHabitual, precioMedioSesion, type IndicesSenal } from './senales.ts';
 
 export interface MargenSesion {
   sesionId: string;
@@ -32,25 +31,51 @@ export interface MargenSesion {
 const MS_HORA = 3600000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Suscripción ACTIVA de la socia que cubre este tipo de clase. Itera TODAS
+ *  las suscripciones ACTIVAS (no `idx.suscripcionActivaPorSocio`, índice de
+ *  UNA sola por socia) — con `planes_por_tipo_de_clase` una socia puede
+ *  tener un MENSUAL general Y un bono de un tipo de clase concreto a la vez
+ *  (mismo punto ciego ya corregido en finanzas.ts F1). Si más de una cubre,
+ *  prioriza la más específica (con `tiposClaseIds` propio) sobre la genérica. */
+function suscripcionParaClase(socioId: string, tipoClaseId: string, s: SnapshotEstudio, idx: IndicesSenal): Suscripcion | null {
+  const cubren = s.suscripciones.filter(sus => {
+    if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') return false;
+    const plan = idx.planPorId.get(sus.planId);
+    if (!plan) return false;
+    return !plan.tiposClaseIds || plan.tiposClaseIds.length === 0 || plan.tiposClaseIds.includes(tipoClaseId);
+  });
+  if (cubren.length === 0) return null;
+  const especifica = cubren.find(sus => (idx.planPorId.get(sus.planId)?.tiposClaseIds?.length ?? 0) > 0);
+  return especifica ?? cubren[0];
+}
+
 /** Ingreso real imputado a UN asistente de una sesión, por su plan real (no
  *  el promedio de estudio) — MENSUAL por su frecuencia real, BONO por
- *  precio/sesiones de su plan, PUNTUAL por el precio del plan si no hay
- *  `precioPuntual` propio en la sesión. */
-function ingresoAsistente(socioId: string, idx: IndicesSenal): number {
-  const sus = idx.suscripcionActivaPorSocio.get(socioId);
-  if (!sus) return 0;
-  const plan = idx.planPorId.get(sus.planId);
-  if (!plan) return 0;
-  if (plan.tipo === 'MENSUAL') {
-    const freq = frecuenciaHabitual(socioId, idx);
-    if (freq === null || freq <= 0) return 0;
-    return plan.precio / (freq * 4.33);
+ *  precio/sesiones de su plan, PUNTUAL por el precio del plan.
+ *
+ *  Límite v1 conocido, sin resolver: una clase suelta cobrada por el flujo
+ *  "Cobrar clase suelta" (`addRecibo` con `suscripcionId: null`,
+ *  `app/(dashboard)/calendario/page.tsx:handleCobrarSuelta`) no crea
+ *  suscripción ni queda ligada a la sesión — esa asistente no aporta
+ *  ingreso aquí aunque haya pagado de verdad. Casar un Recibo suelto con
+ *  la sesión exigiría una heurística por fecha, frágil para v1; se deja
+ *  documentado en vez de adivinar. */
+function ingresoAsistente(socioId: string, tipoClaseId: string, sesion: Sesion, s: SnapshotEstudio, idx: IndicesSenal): number {
+  const sus = suscripcionParaClase(socioId, tipoClaseId, s, idx);
+  if (sus) {
+    const plan = idx.planPorId.get(sus.planId);
+    if (plan) {
+      if (plan.tipo === 'MENSUAL') {
+        const freq = frecuenciaHabitual(socioId, idx);
+        return freq !== null && freq > 0 ? plan.precio / (freq * 4.33) : 0;
+      }
+      if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) return plan.precio / plan.sesiones;
+      if (plan.tipo === 'PUNTUAL') return plan.precio;
+    }
   }
-  if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
-    return plan.precio / plan.sesiones;
-  }
-  if (plan.tipo === 'PUNTUAL') return plan.precio;
-  return 0;
+  // Sin suscripción que cubra esta clase: si la sesión tiene precio de
+  // clase suelta propio, es la mejor aproximación disponible para v1.
+  return sesion.precioPuntual ?? 0;
 }
 
 /** Asistentes que de verdad ocuparon plaza en la sesión (no lista de espera,
@@ -63,11 +88,11 @@ function asistentesReales(sesionId: string, reservas: Reserva[]): Reserva[] {
 export function margenSesion(sesion: Sesion, s: SnapshotEstudio, idx: IndicesSenal): MargenSesion {
   const reservasSesion = asistentesReales(sesion.id, s.reservas);
 
-  const ingresoImputado = sesion.precioPuntual !== null
-    ? reservasSesion.length * sesion.precioPuntual
-    : reservasSesion.reduce((acc, r) => acc + ingresoAsistente(r.socioId, idx), 0);
+  const ingresoImputado = reservasSesion.reduce(
+    (acc, r) => acc + ingresoAsistente(r.socioId, sesion.tipoClaseId, sesion, s, idx), 0
+  );
 
-  const tarifaHora = s.instructorTarifas.get(sesion.instructorId) ?? null;
+  const tarifaHora = idx.tarifaHoraPorInstructor.get(sesion.instructorId) ?? null;
   const duracionHoras = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / MS_HORA;
   const costeInstructora = tarifaHora === null ? null : redondear2(tarifaHora * duracionHoras);
 

@@ -4031,14 +4031,29 @@ export async function fetchSustitucionesRecientes(studioId: string, desdeISO: st
 // instructora. Server-only con service-role (bypasa la RLS de gestión, que
 // solo deja leer la propia fila a la instructora) — igual que el resto del
 // snapshot, que necesita ver todo el estudio para calcular, no solo lo suyo.
-export async function fetchInstructorTarifas(studioId: string): Promise<Map<string, number | null>> {
+// Devuelve filas crudas, no un Map — SnapshotEstudio.instructorTarifas debe
+// ser JSON-serializable (cruza un step.run de Inngest en decision.ts); el
+// Map de consulta se construye en construirIndices (senales.ts).
+//
+// Vía deliberadamente separada de `fetchTarifasEquipo` (api-client.ts, usada
+// por Informes): esa pasa por `/api/equipo/tarifas` con sesión de staff y la
+// RLS real; esta es server-role para el snapshot del cron. Mismo criterio
+// que ya separa `/api/mi-disponibilidad` de `/api/public/disponibilidad` —
+// mecanismos de auth distintos, no se mezclan en un mismo camino aunque
+// lean la misma tabla.
+export interface InstructorTarifaRow {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
+export async function fetchInstructorTarifas(studioId: string): Promise<InstructorTarifaRow[]> {
   const db = getSupabaseAdmin() ?? supabase;
   const { data, error } = await db
     .from('instructor_tarifas')
     .select('instructor_id, tarifa_hora')
     .eq('studio_id', studioId) as { data: { instructor_id: string; tarifa_hora: number | null }[] | null; error: { message: string } | null };
-  if (error) { reportDbError('[fetchInstructorTarifas]', error); return new Map(); }
-  return new Map((data ?? []).map(r => [r.instructor_id, r.tarifa_hora]));
+  if (error) { reportDbError('[fetchInstructorTarifas]', error); return []; }
+  return (data ?? []).map(r => ({ instructorId: r.instructor_id, tarifaHora: r.tarifa_hora }));
 }
 
 // Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el

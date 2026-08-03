@@ -4,7 +4,7 @@
 // paga sala e instructora para dos personas y nadie se lo estaba diciendo.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
 import {
-  construirIndices, agruparFranjasRecurrentes, frecuenciaHabitual, hayProximaSesionEnFranja,
+  construirIndices, agruparFranjasRecurrentes, hayProximaSesionEnFranja, precioMedioSesion,
   type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural, confianzaMoverHorario } from '../confianza.ts';
@@ -22,32 +22,6 @@ const A2_DIAS = 28;             // ventana de clases pasadas a evaluar
 const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arrancado
 const A2_MIN_VACIAS = 6;        // nº de clases casi vacías para que valga la pena avisar
 const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la confianza
-
-/**
- * Precio medio por sesión, ponderado por socias activas (mismo criterio que
- * Ingresos §2.2). Se usa para valorar las plazas vacías que se están dejando sin
- * vender en la franja infrautilizada.
- */
-export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
-  const precios: number[] = [];
-  for (const socio of s.socios) {
-    if (!socio.activo) continue;
-    const sus = idx.suscripcionActivaPorSocio.get(socio.id);
-    if (!sus) continue;
-    const plan = idx.planPorId.get(sus.planId);
-    if (!plan) continue;
-    if (plan.tipo === 'MENSUAL') {
-      const freq = frecuenciaHabitual(socio.id, idx);
-      if (freq !== null && freq > 0) precios.push(plan.precio / (freq * 4.33));
-    } else if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
-      precios.push(plan.precio / plan.sesiones);
-    } else if (plan.tipo === 'PUNTUAL') {
-      precios.push(plan.precio);
-    }
-  }
-  if (precios.length === 0) return 0;
-  return precios.reduce((a, b) => a + b, 0) / precios.length;
-}
 
 /** Día de la semana + hora de una franja, en formato legible (es-ES, UTC). */
 function etiquetaFranja(referencia: FranjaRecurrente['sesionesOrdenadas'][number]): { diaSemana: string; hora: string } {
