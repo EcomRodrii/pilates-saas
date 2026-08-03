@@ -46,11 +46,19 @@ interface UseSpeechToTextResult {
   reiniciar: () => void;
 }
 
+// Cada cuánto se vuelca `transcripcion` al estado durante el dictado — evita
+// re-renderizar la página entera (a veces grande, con toda la ficha de la
+// socia) en cada fragmento parcial que dispara `onresult`.
+const THROTTLE_MS = 200;
+
 export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
   const [grabando, setGrabando] = useState(false);
   const [transcripcion, setTranscripcion] = useState('');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const pendingRef = useRef('');
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paradaManualRef = useRef(false);
 
   const disponible =
     typeof window !== 'undefined' &&
@@ -66,22 +74,53 @@ export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
     }
     setError(null);
     setTranscripcion('');
+    pendingRef.current = '';
+    paradaManualRef.current = false;
 
     const recognition = new Ctor();
     recognition.lang = idioma;
     recognition.continuous = true;
     recognition.interimResults = true;
 
+    const volcarPendiente = () => {
+      if (throttleTimerRef.current) {
+        clearTimeout(throttleTimerRef.current);
+        throttleTimerRef.current = null;
+      }
+      setTranscripcion(pendingRef.current);
+    };
+
     recognition.onresult = (event) => {
       let texto = '';
       for (let i = 0; i < event.results.length; i++) texto += event.results[i][0].transcript;
-      setTranscripcion(texto);
+      pendingRef.current = texto;
+      if (throttleTimerRef.current) return;
+      throttleTimerRef.current = setTimeout(() => {
+        throttleTimerRef.current = null;
+        setTranscripcion(pendingRef.current);
+      }, THROTTLE_MS);
     };
     recognition.onerror = (event) => {
+      // 'no-speech' es un corte normal del navegador tras una pausa al
+      // hablar (le pasa incluso con continuous=true) — no es un fallo real,
+      // se reinicia solo en onend sin que la instructora lo note.
+      if (event.error === 'no-speech') return;
+      volcarPendiente();
       setError(event.error ?? 'unknown');
-      setGrabando(false);
+      paradaManualRef.current = true;
     };
-    recognition.onend = () => setGrabando(false);
+    recognition.onend = () => {
+      volcarPendiente();
+      if (paradaManualRef.current) {
+        setGrabando(false);
+        return;
+      }
+      try {
+        recognition.start();
+      } catch {
+        setGrabando(false);
+      }
+    };
 
     recognitionRef.current = recognition;
     recognition.start();
@@ -89,6 +128,7 @@ export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
   }, [idioma]);
 
   const detener = useCallback(() => {
+    paradaManualRef.current = true;
     recognitionRef.current?.stop();
     setGrabando(false);
   }, []);
@@ -98,7 +138,11 @@ export function useSpeechToText(idioma = 'es-ES'): UseSpeechToTextResult {
     setError(null);
   }, []);
 
-  useEffect(() => () => { recognitionRef.current?.stop(); }, []);
+  useEffect(() => () => {
+    paradaManualRef.current = true;
+    recognitionRef.current?.stop();
+    if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
+  }, []);
 
   return { disponible, grabando, transcripcion, error, iniciar, detener, reiniciar };
 }
