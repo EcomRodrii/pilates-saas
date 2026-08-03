@@ -289,9 +289,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const speech = useSpeechToText();
   const aiNoteBaseRef = useRef('');
   useEffect(() => {
-    if (!speech.grabando) return;
+    // Sin comprobar `speech.grabando`: al parar, `detener()` lo pone a
+    // false de forma síncrona, pero el volcado final de la transcripción
+    // llega después (async, vía onend) — con esa comprobación, esas
+    // últimas palabras dictadas justo antes de parar se perdían en
+    // silencio. `speech.transcripcion` solo cambia durante una sesión de
+    // dictado real, nunca por escritura manual, así que no hace falta el
+    // guardia para no pisar el texto del teclado.
     setAiNoteText(aiNoteBaseRef.current + (aiNoteBaseRef.current && speech.transcripcion ? ' ' : '') + speech.transcripcion);
-  }, [speech.transcripcion, speech.grabando]);
+  }, [speech.transcripcion]);
   function handleMicToggle() {
     if (speech.grabando) { speech.detener(); return; }
     aiNoteBaseRef.current = aiNoteText;
@@ -915,7 +921,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       )}
                       <button
                         onClick={handleAiNote}
-                        disabled={aiLoading || !aiNoteText.trim()}
+                        disabled={aiLoading || speech.grabando || !aiNoteText.trim()}
                         className="flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-xl text-xs font-bold hover:brightness-95 disabled:opacity-40 transition-colors"
                       >
                         {aiLoading ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
