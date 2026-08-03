@@ -86,7 +86,7 @@ function relativeTime(iso: string | null | undefined): string {
   if (days === 1) return 'Ayer';
   if (days < 7) return `Hace ${days} días`;
   if (days < 30) return `Hace ${Math.floor(days / 7)} sem.`;
-  if (days < 365) return `Hace ${Math.floor(days / 30)} meses`;
+  if (days < 365) { const meses = Math.floor(days / 30); return `Hace ${meses} ${meses > 1 ? 'meses' : 'mes'}`; }
   return `Hace ${Math.floor(days / 365)} año${Math.floor(days / 365) > 1 ? 's' : ''}`;
 }
 
