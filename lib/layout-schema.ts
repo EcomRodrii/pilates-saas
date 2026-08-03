@@ -26,22 +26,33 @@ export type { MenuPosicion, OrdenVisibilidad };
 // (hrefExternoSeguro, app/portal/[slug]/home/page.tsx), no en el guardado:
 // el dato tiene que poder guardarse tal cual lo escribió el estudio para
 // poder editarlo después, aunque todavía no sea válido a medio escribir.
+// Igual que `href` (ver comentario de abajo): `fondo`/`color` no se validan
+// como hex estricto aquí — el estudio tiene que poder guardar mientras
+// escribe, aunque el valor no sea válido a medio teclear todavía. El render
+// (bloque-home-render.tsx) es quien decide si aplica el valor o cae al tema.
+const estiloBloqueSchema = z.object({
+  fondo: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  alineacion: z.enum(['izquierda', 'centro', 'derecha']).optional(),
+  espaciado: z.enum(['compacto', 'normal', 'amplio']).optional(),
+}).optional();
+
 export const bloqueHomeSchema: z.ZodType<BloqueHome> = z.discriminatedUnion('kind', [
   z.object({ id: z.string(), kind: z.literal('sistema'), sistemaId: z.enum(BLOQUES_SISTEMA_IDS), oculto: z.boolean().optional() }),
   z.object({
-    id: z.string(), kind: z.literal('banner'), oculto: z.boolean().optional(),
+    id: z.string(), kind: z.literal('banner'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
     config: z.object({ imagenUrl: z.string(), titulo: z.string(), texto: z.string(), href: z.string() }),
   }),
   z.object({
-    id: z.string(), kind: z.literal('texto'), oculto: z.boolean().optional(),
+    id: z.string(), kind: z.literal('texto'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
     config: z.object({ titulo: z.string(), texto: z.string() }),
   }),
   z.object({
-    id: z.string(), kind: z.literal('cta'), oculto: z.boolean().optional(),
+    id: z.string(), kind: z.literal('cta'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
     config: z.object({ titulo: z.string(), textoBoton: z.string(), href: z.string() }),
   }),
   z.object({
-    id: z.string(), kind: z.literal('faq'), oculto: z.boolean().optional(),
+    id: z.string(), kind: z.literal('faq'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
     config: z.object({
       titulo: z.string(),
       preguntas: z.array(z.object({ pregunta: z.string(), respuesta: z.string() })),

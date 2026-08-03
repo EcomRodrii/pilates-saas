@@ -75,12 +75,27 @@ export interface FaqConfig {
   preguntas: Array<{ pregunta: string; respuesta: string }>;
 }
 
+// Estilo PROPIO de una sección — pedido explícitamente por el usuario ("no es
+// nada personalizable, tiene que ser un constructor totalmente libre"): antes
+// solo existía el tema global (Ajustes), así que un banner y un CTA no podían
+// distinguirse visualmente entre sí por mucho que el estudio quisiera. Cada
+// bloque del CATÁLOGO (no los `sistema` — esos son UI de producto, no
+// contenido de la propietaria) puede pisar el tema global para sí mismo.
+// Todo opcional: sin `estilo`, el bloque se ve exactamente como antes
+// (hereda del tema), así que temas ya guardados no cambian de aspecto solos.
+export interface EstiloBloque {
+  fondo?: string | null;
+  color?: string | null;
+  alineacion?: 'izquierda' | 'centro' | 'derecha';
+  espaciado?: 'compacto' | 'normal' | 'amplio';
+}
+
 export type BloqueHome =
   | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; oculto?: boolean }
-  | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean }
-  | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean }
-  | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean }
-  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean };
+  | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque }
+  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque };
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 

@@ -26,7 +26,7 @@ import { usePermisos } from '@/lib/permisos';
 import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
-  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
+  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig, type EstiloBloque,
 } from '@/lib/portal-home-bloques';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -120,6 +120,97 @@ function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: Bl
   if (bloque.kind === 'texto') return <ConfigTexto config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
   if (bloque.kind === 'cta') return <ConfigCta config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
   return <ConfigFaq config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
+}
+
+function ColorFieldMini({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (v: string | null) => void }) {
+  const hexValido = !!value && /^#([0-9a-fA-F]{6})$/.test(value);
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-[12.5px] font-medium text-foreground">{label}</span>
+      <span className="flex items-center gap-2">
+        <input
+          type="text"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          placeholder="Del tema"
+          className="w-24 text-[12px] font-mono px-2 py-1.5 rounded-lg border border-border bg-background"
+          aria-label={label}
+        />
+        <input
+          type="color"
+          value={hexValido ? value : '#000000'}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-8 h-8 rounded-lg border border-border cursor-pointer bg-transparent"
+          aria-label={`Selector de ${label}`}
+        />
+        {value && (
+          <button type="button" onClick={() => onChange(null)} className="text-[11px] text-muted-foreground hover:text-destructive" aria-label={`Quitar ${label}`}>
+            <Trash2 size={13} />
+          </button>
+        )}
+      </span>
+    </label>
+  );
+}
+
+const ALINEACION_OPCIONES: { id: NonNullable<EstiloBloque['alineacion']>; label: string }[] = [
+  { id: 'izquierda', label: 'Izquierda' }, { id: 'centro', label: 'Centro' }, { id: 'derecha', label: 'Derecha' },
+];
+const ESPACIADO_OPCIONES: { id: NonNullable<EstiloBloque['espaciado']>; label: string }[] = [
+  { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
+];
+
+// Estilo PROPIO de la sección — pisa el tema global solo para este bloque.
+// Solo aplica a bloques del catálogo (banner/texto/cta/faq): los `sistema`
+// son UI de producto, no contenido de la propietaria, y ConfigForm ya los
+// filtra devolviendo null — este panel hace lo mismo por el mismo motivo.
+function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; onChange: (b: BloqueHome) => void }) {
+  const estilo: EstiloBloque = bloque.estilo ?? {};
+  function setEstilo(cambios: Partial<EstiloBloque>) {
+    onChange({ ...bloque, estilo: { ...estilo, ...cambios } });
+  }
+  return (
+    <div className="space-y-3 border-t border-border pt-3 mt-3">
+      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Estilo de esta sección</p>
+      <p className="text-[11px] text-muted-foreground -mt-1">Pisa el tema global solo aquí. Vacío = hereda del tema.</p>
+      <ColorFieldMini label="Fondo" value={estilo.fondo} onChange={(v) => setEstilo({ fondo: v })} />
+      <ColorFieldMini label="Texto" value={estilo.color} onChange={(v) => setEstilo({ color: v })} />
+      <div>
+        <span className="text-[12.5px] font-medium text-foreground block mb-1.5">Alineación</span>
+        <div className="flex gap-2">
+          {ALINEACION_OPCIONES.map((op) => (
+            <button
+              key={op.id}
+              type="button"
+              onClick={() => setEstilo({ alineacion: op.id })}
+              className={`flex-1 text-[12px] font-semibold py-1.5 rounded-lg border transition-colors ${
+                (estilo.alineacion ?? 'izquierda') === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {op.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span className="text-[12.5px] font-medium text-foreground block mb-1.5">Espaciado</span>
+        <div className="flex gap-2">
+          {ESPACIADO_OPCIONES.map((op) => (
+            <button
+              key={op.id}
+              type="button"
+              onClick={() => setEstilo({ espaciado: op.id })}
+              className={`flex-1 text-[12px] font-semibold py-1.5 rounded-lg border transition-colors ${
+                (estilo.espaciado ?? 'normal') === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {op.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Fila({
@@ -345,5 +436,10 @@ export function BloquesConfigPanel({
   const bloque = hook.bloques.find((b) => b.id === seleccionId);
   if (!bloque) return <p className="text-[13px] text-muted-foreground">Selecciona un bloque de la izquierda para configurarlo.</p>;
   if (bloque.kind === 'sistema') return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} no tiene ajustes propios — solo se puede reordenar u ocultar.</p>;
-  return <ConfigForm bloque={bloque} onChange={hook.cambiar} />;
+  return (
+    <div>
+      <ConfigForm bloque={bloque} onChange={hook.cambiar} />
+      <EstiloForm bloque={bloque} onChange={hook.cambiar} />
+    </div>
+  );
 }
