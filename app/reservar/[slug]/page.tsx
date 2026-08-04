@@ -200,6 +200,13 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 const RESERVAR_TOKENS = MODO_TOKENS.dia;
 const RT = RESERVAR_TOKENS;
 
+// Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
+// prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
+// estricto rechazaría números correctos de otros países sin aportar nada.
+function telefonoValido(telefono: string): boolean {
+  return telefono.replace(/[^0-9]/g, '').length >= 9;
+}
+
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
@@ -241,7 +248,7 @@ export default function ReservarPage() {
   // antes de que el primer render se confirme.
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
-  const [loginForm, setLoginForm] = useState({ nombre: '', email: '' });
+  const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -531,7 +538,7 @@ export default function ReservarPage() {
 
   // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
   function handleRegistroNombre() {
-    if (!loginForm.nombre.trim()) return;
+    if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
     setLoginStep('contrato');
   }
 
@@ -582,6 +589,7 @@ export default function ReservarPage() {
         const altaRes = await addSocioFromPortal({
           id: nuevoId,
           nombre: loginForm.nombre.trim(),
+          telefono: loginForm.telefono.trim(),
           email: usuarioEmail ?? '',
           aceptacionContrato: {
             fecha: new Date().toISOString(),
@@ -1326,16 +1334,23 @@ export default function ReservarPage() {
             {loginStep === 'registro' && (
               <>
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
-                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tu nombre para tu primera reserva.</p>
+                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
                 <input type="text"
                   placeholder="Tu nombre completo"
                   value={loginForm.nombre}
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   autoFocus
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-5"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                   style={{ backgroundColor: RT.surface2 }} />
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre}
+                <input type="tel"
+                  placeholder="Tu teléfono (+34 600 000 000)"
+                  value={loginForm.telefono}
+                  onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
+                  style={{ backgroundColor: RT.surface2 }} />
+                <p className="text-[11px] text-[var(--portal-muted)] mb-5">Solo lo usa {estudioNombre} para avisos de tus clases.</p>
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →

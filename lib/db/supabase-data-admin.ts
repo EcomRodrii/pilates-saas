@@ -1943,6 +1943,7 @@ async function contarSociasActivas(admin: SupabaseClient, studioId: string): Pro
 
 export async function registrarSociaPublica(params: {
   studioId: string; id: string; nombre: string; email: string;
+  telefono?: string;
   authUserId?: string;
   aceptacion?: { fecha: string; firma: string; versionTexto: string };
   referidoPor?: string | null;
@@ -1996,6 +1997,9 @@ export async function registrarSociaPublica(params: {
       // nombre real que acaba de escribir en el alta, igual que el alta normal.
       nombre: params.nombre,
       apellidos: '',
+      // Stripe no recoge teléfono; si la fantasma ya tuviera uno de otra vía no
+      // lo pisamos con vacío — solo se escribe si esta alta trae uno.
+      ...(params.telefono ? { telefono: params.telefono } : {}),
       aceptacion_fecha: params.aceptacion?.fecha ?? null,
       aceptacion_firma: params.aceptacion?.firma ?? null,
       aceptacion_version: params.aceptacion?.versionTexto ?? null,
@@ -2022,7 +2026,7 @@ export async function registrarSociaPublica(params: {
 
   const { error } = await admin.from('socios').insert({
     id: params.id, studio_id: params.studioId, nombre: params.nombre, apellidos: '',
-    email: params.email, activo: true, fecha_alta: new Date().toISOString(),
+    email: params.email, telefono: params.telefono || null, activo: true, fecha_alta: new Date().toISOString(),
     auth_user_id: params.authUserId ?? null,
     aceptacion_fecha: params.aceptacion?.fecha ?? null,
     aceptacion_firma: params.aceptacion?.firma ?? null,
