@@ -228,6 +228,18 @@ export default function PortalLogin() {
             {loading ? 'Un momento…' : 'Entrar'}
           </button>
 
+          {/* Antes el botón de abajo decía solo "Entrar con un enlace" sin más
+              contexto — para quien acaba de recibir su cuenta y nunca ha
+              puesto una contraseña, no quedaba claro CUÁNDO usarlo (parecía
+              una alternativa cualquiera, no LA vía para su caso). Se añade
+              esta pista aparte, en vez de tocar el texto del propio enlace:
+              `e2e/ayuda-no-miente.spec.ts` ata a propósito ese texto exacto
+              con lo que la ayuda del panel le dice a la propietaria que
+              busque (`lib/faqs.ts`) — cambiarlo aquí sin tocar allí es
+              justo el bug que ese test existe para atrapar. */}
+          <p style={{ ...texto.pie, color: t.micro, textAlign: 'center', margin: '2px 0 -2px' }}>
+            ¿Aún no tienes contraseña?
+          </p>
           <Link
             href={`/portal/${slug}/acceso`}
             style={{
@@ -238,12 +250,7 @@ export default function PortalLogin() {
               textDecoration: 'none', transition: transicion(['background', 'border-color', 'transform']),
             }}
           >
-            {/* Antes decía solo "Entrar con un enlace" — para quien acaba de
-                recibir su cuenta de la propietaria y nunca ha puesto una
-                contraseña, ese texto no dice CUÁNDO usarlo (parecía una
-                alternativa cualquiera, no LA vía para su caso). Ahora nombra
-                directamente el motivo. */}
-            ¿Sin contraseña todavía? Entra con un enlace
+            Entrar con un enlace
           </Link>
         </form>
 
