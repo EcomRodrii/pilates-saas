@@ -16,9 +16,14 @@ interface CoberturaDialogProps {
   instructores: readonly { id: string; nombre: string; telefono: string | null; activo: boolean }[];
   ausencias?: AusenciaInstructora[];
   onAsignar: (instructorId: string) => void;
+  // Anti doble-submit: mientras una asignación está en curso, se deshabilitan
+  // TODOS los botones "Asignar" (no solo el pulsado), porque dos candidatas
+  // distintas mandarían igualmente dos updateSesion en paralelo sobre la
+  // misma clase.
+  guardando?: boolean;
 }
 
-export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instructores, ausencias = [], onAsignar }: CoberturaDialogProps) {
+export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instructores, ausencias = [], onAsignar, guardando = false }: CoberturaDialogProps) {
   if (!sesion) return null;
 
   // No proponer a quien no puede cubrir esta franja: ausentes ese día (vacaciones/
@@ -78,9 +83,10 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
                     )}
                     <button
                       onClick={() => onAsignar(c.instructorId)}
+                      disabled={guardando}
                       className={cn(
                         'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium',
-                        'bg-brand text-brand-foreground hover:brightness-95 transition-colors'
+                        'bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-50 disabled:pointer-events-none'
                       )}
                     >
                       <UserCheck size={13} />

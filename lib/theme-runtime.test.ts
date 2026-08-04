@@ -94,7 +94,9 @@ test('themeToCssVars: buttonStyle outline/soft cambian fondo y borde del botón'
 
   const soft = themeToCssVars({ ...DEFAULT_THEME, buttonStyle: 'soft' }) as Record<string, string>;
   assert.equal(soft['--portal-btn-border'], 'none');
-  assert.match(soft['--portal-btn-bg'], /color-mix/);
+  // rgba(), no color-mix(): Safari <16.2 no soporta color-mix() y el botón
+  // "soft" se quedaba sin fondo (M-4).
+  assert.match(soft['--portal-btn-bg'], /^rgba\(\d+, \d+, \d+, 0\.15\)$/);
 });
 
 test('themeToCssVars: cardStyle elevated/bordered declaran borde/sombra distintos', () => {

@@ -72,11 +72,15 @@ export default function CentroDeControlPage() {
 
   async function handleAnalizar() {
     setAnalizando(true);
-    const ok = await analizarAhora();
-    // El análisis es asíncrono (Inngest) — un margen antes de refrescar para
-    // darle tiempo a persistir, sin bloquear la pantalla con un spinner largo.
-    if (ok) setTimeout(recargar, 4000);
-    setAnalizando(false);
+    try {
+      const res = await analizarAhora();
+      if (!res.ok) { toast.show(res.error ?? 'No se pudo lanzar el análisis'); return; }
+      // El análisis es asíncrono (Inngest) — un margen antes de refrescar para
+      // darle tiempo a persistir, sin bloquear la pantalla con un spinner largo.
+      setTimeout(recargar, 4000);
+    } finally {
+      setAnalizando(false);
+    }
   }
 
   if (loading) {

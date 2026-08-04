@@ -101,6 +101,38 @@ export async function guardarBorradorTheme(
   return fusionado;
 }
 
+// Bucket público donde vive el favicon (mismo que logo/avatares, ver
+// lib/portal-storage.ts). El editor sube/borra SIEMPRE contra el path de
+// BORRADOR (`favicon-borrador-<studioId>`) — nunca toca el publicado
+// directamente (I-6): sin esto, cambiar el favicon mientras se edita ya lo
+// cambiaba en producción, saltándose "Publicar" por completo.
+const AVATARS_BUCKET = 'avatars';
+
+/**
+ * Copia el favicon de BORRADOR (`favicon-borrador-<studioId>`) al path
+ * PUBLICADO (`favicon-<studioId>`) al publicar el tema — o borra el publicado
+ * si el borrador no tiene favicon (se quitó). Devuelve la URL pública final
+ * (con cache-bust) para dejarla en `config_published.faviconUrl`, o null.
+ * Best-effort: si falla, el tema se publica igual (mismo criterio que ya usa
+ * el resto de subidas de marca — no bloquear una publicación por el storage).
+ */
+async function publicarFavicon(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  studioId: string,
+  faviconBorradorUrl: string | null,
+): Promise<string | null> {
+  const pathPublicado = `favicon-${studioId}`;
+  if (!faviconBorradorUrl) {
+    await admin.storage.from(AVATARS_BUCKET).remove([pathPublicado]);
+    return null;
+  }
+  const pathBorrador = `favicon-borrador-${studioId}`;
+  const { error } = await admin.storage.from(AVATARS_BUCKET).copy(pathBorrador, pathPublicado);
+  if (error) return faviconBorradorUrl; // best-effort: deja la URL de borrador antes que perder la referencia
+  const { data } = admin.storage.from(AVATARS_BUCKET).getPublicUrl(pathPublicado);
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
+
 /**
  * Publica el borrador: copia `config_draft` → `config_published`. El gate de
  * contraste WCAG lo aplica el route handler (validarContrasteTheme) ANTES de
@@ -116,7 +148,9 @@ export async function publicarTheme(studioId: string): Promise<ThemeConfig> {
     .eq('studio_id', studioId)
     .maybeSingle();
 
-  const publicado = resolveTheme(fila?.config_draft ?? null);
+  const borrador = resolveTheme(fila?.config_draft ?? null);
+  const faviconUrl = await publicarFavicon(admin, studioId, borrador.faviconUrl);
+  const publicado: ThemeConfig = { ...borrador, faviconUrl };
   const ahora = new Date().toISOString();
   const { error } = await admin
     .from('studio_theme')

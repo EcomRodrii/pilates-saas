@@ -531,6 +531,9 @@ export default function Calendario() {
   const [busqueda, setBusqueda] = useState('');
 
   const [guardandoSesion, setGuardandoSesion] = useState(false);
+  // No dispara re-render (no hace falta pintar un loading): solo evita que
+  // ejecutarPasarLista se re-entre para la misma sesión mientras ya está en curso.
+  const pasandoListaRef = useRef<Set<string>>(new Set());
   const [avisoInstructora, setAvisoInstructora] = useState<
     {
       sesionId: string; apuntadas: number; instructora: string;
@@ -753,15 +756,24 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function openNueva(prefillFecha?: string) {
+  function openNueva(prefillFecha?: string, prefillHoraInicio?: string, prefillSalaId?: string) {
     const base = emptyForm();
     const fecha = prefillFecha ?? localDate(now);
-    const inicio = toISO(fecha, base.horaInicio);
-    const fin = toISO(fecha, base.horaFin);
-    const salaId = elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
+    // La duración se conserva (misma diferencia que ya traía emptyForm entre
+    // horaInicio/horaFin), solo se desplaza al hueco donde se hizo clic.
+    const duracionMin = (Number(base.horaFin.slice(0, 2)) * 60 + Number(base.horaFin.slice(3, 5)))
+      - (Number(base.horaInicio.slice(0, 2)) * 60 + Number(base.horaInicio.slice(3, 5)));
+    const horaInicio = prefillHoraInicio ?? base.horaInicio;
+    const inicioTotalMin = Number(horaInicio.slice(0, 2)) * 60 + Number(horaInicio.slice(3, 5));
+    const horaFin = `${String(Math.floor((inicioTotalMin + duracionMin) / 60)).padStart(2, '0')}:${String((inicioTotalMin + duracionMin) % 60).padStart(2, '0')}`;
+    const inicio = toISO(fecha, horaInicio);
+    const fin = toISO(fecha, horaFin);
+    const salaId = prefillSalaId ?? elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
     setForm({
       ...base,
       fecha,
+      horaInicio,
+      horaFin,
       salaId,
       // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
       // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
@@ -981,7 +993,13 @@ export default function Calendario() {
   }
 
   async function asignarSustituta(nuevoInstructorId: string) {
-    if (!sesionActual) return;
+    // Mismo guard anti doble-submit que editarSesion/editarSerie: el diálogo
+    // tiene un botón "Asignar" por candidata sin loading propio, así que sin
+    // esto dos clics (o dos candidatas distintas) mandaban dos updateSesion
+    // en paralelo — el segundo en responder ganaba en silencio.
+    if (!sesionActual || guardandoSesion) return;
+    setGuardandoSesion(true);
+    try {
     const anterior = nombreInstructor(sesionActual.instructorId);
     const nueva = nombreInstructor(nuevoInstructorId);
     const guardado = await updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
@@ -1017,6 +1035,9 @@ export default function Calendario() {
     setShowCobertura(false);
     showToast(`Sustituta asignada: ${nueva}`);
     void refrescarVista();
+    } finally {
+      setGuardandoSesion(false);
+    }
   }
 
   async function editarSerie() {
@@ -1073,28 +1094,38 @@ export default function Calendario() {
     const guardado = await updateSesion(sesionId, { cancelada: true });
     if (!guardado.ok) { showToast(guardado.error); return; }
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    let avisadas = 0;
+    let sinAvisar = 0;
     if (sesion) {
       const inicio = new Date(sesion.inicio);
       const fecha = fechaLargaEstudio(inicio);
       const hora = horaEstudio(inicio);
-      reservas
-        .filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-        .forEach(r => {
-          const socia = socios.find(s => s.id === r.socioId);
-          if (!socia?.email) return;
-          enviarEmailCancelacionClase({
-            to: socia.email,
-            toName: socia.nombre,
-            claseNombre: sesion.tipoClase.nombre,
-            fecha, hora,
-            sala: sesion.sala.nombre,
-            instructor: sesion.instructor.nombre,
-          });
+      const apuntadas = reservas.filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'));
+      // Se espera cada envío y se cuenta el resultado real: antes el
+      // `.forEach` disparaba enviarEmailCancelacionClase sin await por cada
+      // clienta y el toast decía "avisadas" pase lo que pase con el envío.
+      const resultados = await Promise.all(apuntadas.map(async r => {
+        const socia = socios.find(s => s.id === r.socioId);
+        if (!socia?.email) return null;
+        return enviarEmailCancelacionClase({
+          to: socia.email,
+          toName: socia.nombre,
+          claseNombre: sesion.tipoClase.nombre,
+          fecha, hora,
+          sala: sesion.sala.nombre,
+          instructor: sesion.instructor.nombre,
         });
+      }));
+      for (const ok of resultados) {
+        if (ok === null) continue; // sin email: no cuenta ni como avisada ni como fallo
+        if (ok) avisadas++; else sinAvisar++;
+      }
     }
     void avisarClaseCancelada(sesionId);
     setSesionId(null);
-    showToast('Clase cancelada · clientas avisadas');
+    showToast(sinAvisar > 0
+      ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
+      : 'Clase cancelada · clientas avisadas');
     void refrescarVista();
   }
 
@@ -1159,17 +1190,23 @@ export default function Calendario() {
       });
       return;
     }
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
   }
 
-  function confirmarAddReserva(sesionId: string, socioId: string) {
-    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+  async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
-    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
-    void addReserva(sesionId, socioId);
-    showToast(estado === 'LISTA_ESPERA'
-      ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
+    // Se espera el resultado AUTORITATIVO de addReserva (la RPC del servidor),
+    // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
+    // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
+    // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
+    const res = await addReserva(sesionId, socioId);
+    if (!res.ok) {
+      showToast(res.error);
+      return;
+    }
+    showToast(res.estado === 'LISTA_ESPERA'
+      ? `Clase llena — ${nombre} va a lista de espera`
       : `${nombre} añadida a la clase`);
     void refrescarVista();
   }
@@ -1205,7 +1242,7 @@ export default function Calendario() {
     const { sesionId, socioId } = avisoSinBono;
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La clienta';
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
     addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
     setAvisoSinBono(null);
   }
@@ -1370,6 +1407,26 @@ export default function Calendario() {
     return prepararColumnasDiaSemana(cols);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
 
+  // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
+  // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
+  // acabara después de esa ventana (excepción puntual, aforo especial) no se
+  // veía — el `overflow-y-auto` del contenedor la cortaba en seco, sin aviso.
+  // Los límites de RENDERIZADO nunca deben ser más estrechos que las clases
+  // reales que hay que mostrar; el horario del estudio sigue siendo el suelo
+  // (nunca se encoge la vista si no hay clases fuera de él).
+  const { horaInicioMinVista, horaFinMinVista } = useMemo(() => {
+    const horaAperturaMin = datosVista ? Number(datosVista.horaApertura.slice(0, 2)) * 60 : 8 * 60;
+    const horaCierreMin = datosVista ? Number(datosVista.horaCierre.slice(0, 2)) * 60 : 22 * 60;
+    const todas = [...columnasDia.flatMap(c => c.sesiones), ...columnasSemana.flatMap(c => c.sesiones)];
+    if (todas.length === 0) return { horaInicioMinVista: horaAperturaMin, horaFinMinVista: horaCierreMin };
+    const minReal = Math.min(...todas.map(s => s.inicioMin));
+    const maxReal = Math.max(...todas.map(s => s.finMin));
+    return {
+      horaInicioMinVista: Math.min(horaAperturaMin, Math.floor(minReal / 60) * 60),
+      horaFinMinVista: Math.max(horaCierreMin, Math.ceil(maxReal / 60) * 60),
+    };
+  }, [datosVista, columnasDia, columnasSemana]);
+
   // ── Vista de Mes: agregación por día, no por hora (Fase 2) ─────────────────
   const diasMes = useMemo(() => {
     if (!datosVista) return new Map<string, DiaMes>();
@@ -1513,15 +1570,35 @@ export default function Calendario() {
   }
 
   async function ejecutarPasarLista(sesionId: string) {
+    // Anti doble-submit: sin esto, dos clics en "Pasar lista" (el botón no
+    // tiene loading propio) mandaban dos rondas de check-in en paralelo sobre
+    // las mismas reservas.
+    if (pasandoListaRef.current.has(sesionId)) return;
+    pasandoListaRef.current.add(sesionId);
+    try {
     const reservasSesion = reservasPorSesion.get(sesionId) ?? [];
     const ids = reservasParaPasarLista(reservasSesion.map(r => ({ id: r.id, estado: r.estado, checkInEn: r.checkInEn })));
     if (ids.length === 0) return;
-    for (const id of ids) checkin(id);
+    // Se espera cada check-in y solo se cuentan/deshacen las que de verdad se
+    // marcaron: antes `checkin(id)` se disparaba sin await por cada reserva,
+    // así que un rechazo del servidor (RLS, red) se perdía en silencio y el
+    // toast decía "marcadas" con reservas que seguían sin check-in real.
+    const resultados = await Promise.all(ids.map(async id => ({ id, res: await checkin(id) })));
+    const marcadas = resultados.filter(r => r.res.ok).map(r => r.id);
+    const fallidas = resultados.length - marcadas.length;
     await refrescarVista();
-    showToast(`Lista pasada · ${ids.length} clienta${ids.length !== 1 ? 's' : ''} marcada${ids.length !== 1 ? 's' : ''}`, {
-      texto: 'Deshacer',
-      onClick: async () => { for (const id of ids) deshacerCheckin(id); await refrescarVista(); },
-    });
+    if (marcadas.length === 0) { showToast('No se ha podido pasar lista — inténtalo de nuevo'); return; }
+    showToast(
+      `Lista pasada · ${marcadas.length} clienta${marcadas.length !== 1 ? 's' : ''} marcada${marcadas.length !== 1 ? 's' : ''}`
+      + (fallidas > 0 ? ` · ${fallidas} sin marcar` : ''),
+      {
+        texto: 'Deshacer',
+        onClick: async () => { for (const id of marcadas) await deshacerCheckin(id); await refrescarVista(); },
+      },
+    );
+    } finally {
+      pasandoListaRef.current.delete(sesionId);
+    }
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -1644,7 +1721,11 @@ export default function Calendario() {
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
     const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
-    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaAperturaMin);
+    // El origen del gesto es horaInicioMinVista (el de la rejilla RENDERIZADA,
+    // que puede ser más amplio que el horario del estudio), no horaAperturaMin
+    // — el límite de negocio ("Fuera del horario del estudio") sigue siendo
+    // horaApertura/horaCierre sin cambios, son dos cosas distintas.
+    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
     const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, nuevoInicioMin);
     if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
       showToast('Fuera del horario del estudio');
@@ -1676,6 +1757,20 @@ export default function Calendario() {
       return;
     }
     void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
+  }
+
+  // Clic en un hueco vacío de la rejilla (Día/Semana): abre "Nueva clase" con
+  // el día/hora (y sala, en Día) ya rellenados en vez de obligar a abrir el
+  // formulario y teclear la hora a mano.
+  function crearDesdeHueco(destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number }) {
+    if (!datosVista) return;
+    // El origen (offsetYPx=0) de la rejilla es horaInicioMinVista, no
+    // horaApertura — puede ser más temprano si hay una clase real antes de
+    // la apertura oficial del estudio (ver el useMemo que lo calcula).
+    const inicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
+    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : diaSeleccionado;
+    if (!baseDate) return;
+    openNueva(localDate(baseDate), mmA(inicioMin), destino.salaId);
   }
 
   // ── Label ────────────────────────────────────────────────────────────────────
@@ -1979,8 +2074,8 @@ export default function Calendario() {
           <VistaDiaSalas
             columnas={columnasDia}
             datos={datosPorSesionId}
-            horaInicioMin={Number(datosVista.horaApertura.slice(0, 2)) * 60}
-            horaFinMin={Number(datosVista.horaCierre.slice(0, 2)) * 60}
+            horaInicioMin={horaInicioMinVista}
+            horaFinMin={horaFinMinVista}
             pxPorHora={96}
             ahoraMin={localDate(diaSeleccionado) === todayStr ? now.getHours() * 60 + now.getMinutes() : null}
             seleccionadaId={sesionId}
@@ -1989,6 +2084,7 @@ export default function Calendario() {
             accionPara={accionParaBloque}
             arrastrable={arrastrableSesion}
             onMoverSesion={moverSesionArrastrada}
+            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         ) : vista === 'mes' ? (
           <VistaMes
@@ -2004,14 +2100,15 @@ export default function Calendario() {
             fechasSemana={dias}
             hoyIndex={dias.some(d => localDate(d) === todayStr) ? dias.findIndex(d => localDate(d) === todayStr) : null}
             ahoraMin={now.getHours() * 60 + now.getMinutes()}
-            horaInicioMin={Number(datosVista.horaApertura.slice(0, 2)) * 60}
-            horaFinMin={Number(datosVista.horaCierre.slice(0, 2)) * 60}
+            horaInicioMin={horaInicioMinVista}
+            horaFinMin={horaFinMinVista}
             pxPorHora={58}
             seleccionadaId={sesionId}
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             arrastrable={arrastrableSesion}
             onMoverSesion={moverSesionArrastrada}
+            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         )}
       </div>
@@ -2235,6 +2332,7 @@ export default function Calendario() {
         instructores={instructoresActivos}
         ausencias={ausencias}
         onAsignar={asignarSustituta}
+        guardando={guardandoSesion}
       />
 
       <NoPuedoAsistirDialog
@@ -2555,7 +2653,7 @@ export default function Calendario() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEspera) confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
+                if (confirmarEspera) void confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
                 setConfirmarEspera(null);
               }}
             >

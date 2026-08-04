@@ -176,9 +176,19 @@ export function useDecisiones() {
     }
   }, [cargar]);
 
-  const analizarAhora = useCallback(async (): Promise<boolean> => {
-    const res = await fetch('/api/decisiones/analizar', { method: 'POST', headers: { ...(await authHeader()) } });
-    return res.ok;
+  // A diferencia de aprobar/rechazar/posponer (optimistas, con una tarjeta que
+  // revertir), aquí no hay nada que revertir — solo hace falta no dejar
+  // colgado el botón si el fetch lanza (offline) y decir POR QUÉ si el
+  // servidor rechaza (p.ej. 429 "ya hay un análisis reciente en curso").
+  const analizarAhora = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/decisiones/analizar', { method: 'POST', headers: { ...(await authHeader()) } });
+      if (res.ok) return { ok: true };
+      const d = await res.json().catch(() => null);
+      return { ok: false, error: d?.error ?? 'No se pudo lanzar el análisis' };
+    } catch {
+      return { ok: false, error: 'Error de conexión' };
+    }
   }, []);
 
   return { data, loading, error, recargar: cargar, aprobar, rechazar, posponer, analizarAhora };

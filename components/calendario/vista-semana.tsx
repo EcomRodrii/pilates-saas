@@ -28,11 +28,14 @@ export interface VistaSemanaProps {
    *  formulario de editar). */
   arrastrable?: (d: DatoSesion) => boolean;
   onMoverSesion?: (sesionId: string, destino: { diaColumna: number; offsetYPx: number; pxPorHora: number }) => void;
+  /** Clic en un hueco vacío de la rejilla (no sobre una clase) — abre "Nueva
+   *  clase" con el día/hora ya rellenados. */
+  onClickVacio?: (destino: { diaColumna: number; offsetYPx: number; pxPorHora: number }) => void;
 }
 
 export function VistaSemana({
   columnas, datos, fechasSemana, hoyIndex, ahoraMin, horaInicioMin, horaFinMin, pxPorHora,
-  seleccionadaId, onSeleccionar, atenuada, arrastrable, onMoverSesion,
+  seleccionadaId, onSeleccionar, atenuada, arrastrable, onMoverSesion, onClickVacio,
 }: VistaSemanaProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -103,6 +106,16 @@ export function VistaSemana({
                 style={{
                   background: hoyIndex === i ? 'color-mix(in srgb, var(--muted) 60%, var(--card))' : undefined,
                   backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
+                  cursor: onClickVacio ? 'pointer' : undefined,
+                }}
+                onClick={!onClickVacio ? undefined : e => {
+                  // Solo si el clic fue en el fondo de la columna, no en una
+                  // clase (BloqueClase no para la propagación): así no hace
+                  // falta tocarlo para que esto conviva con seleccionar/
+                  // arrastrar una clase existente.
+                  if (e.target !== e.currentTarget) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
                 }}
               >
                 {c.vacio && (
