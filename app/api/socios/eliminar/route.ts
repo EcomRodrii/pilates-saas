@@ -79,6 +79,10 @@ export async function POST(req: NextRequest) {
       lead_stage: null,
       activo: false,
       borrado_en: new Date().toISOString(),
+      // Fila 12 del informe estratégico: el consentimiento de datos de salud
+      // deja de estar vigente aquí — condiciones_salud ya se borró por
+      // completo en el paso 1, así que ya no queda ningún dato que ampare.
+      consentimiento_salud_revocado_en: new Date().toISOString(),
     })
     .eq('id', socioId)
     .eq('studio_id', sesion.studioId);
