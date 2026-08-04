@@ -34,11 +34,11 @@ export const PANTALLA_LABEL: Record<PantallaId, string> = {
 
 export const BLOQUES_SISTEMA_IDS = [
   'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
-  // Tema "Oliva"/"Noir" — ver lib/theme-definitions.ts (bloquesHome). Ninguno
-  // aparece en un estudio que no los active a mano o instale uno de esos
-  // temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así que
-  // no cambian el orden por defecto de nadie que ya tenga bloques guardados.
-  'tiraSemana', 'progresoSemanal',
+  // Tema "Oliva"/"Noir"/"Bloom" — ver lib/theme-definitions.ts (bloquesHome).
+  // Ninguno aparece en un estudio que no los active a mano o instale uno de
+  // esos temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así
+  // que no cambian el orden por defecto de nadie que ya tenga bloques guardados.
+  'tiraSemana', 'progresoSemanal', 'retos',
 ] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
@@ -54,15 +54,20 @@ export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
   // "Esta semana" en los e2e existentes (getByText hace match de subcadena
   // sin distinguir mayúsculas por defecto — e2e/apariencia-inicio-portal.spec.ts).
   progresoSemanal: 'Progreso semanal (anillo con tus clases reservadas)',
+  // "Apuntarme" en vez de "Apúntate"/"únete" a propósito: es el texto exacto
+  // del botón, no una paráfrasis — mismo criterio que el resto de labels de
+  // este registro (describen lo que la propietaria ve, no lo reinterpretan).
+  retos: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
 };
 
 // Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
 // pueden reordenar/ocultar como cualquier otro bloque, pero no eliminar: son
 // el contenido funcional de la pantalla, no decorativo. `tiraSemana`/
-// `progresoSemanal` van OCULTOS por defecto (ver bloqueSistema() más abajo)
-// — un estudio que no instale Oliva/Noir ni los active a mano no los ve.
+// `progresoSemanal`/`retos` van OCULTOS por defecto (ver bloqueSistema() más
+// abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
+// no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal'],
+  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
 };
@@ -193,7 +198,7 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
 
 // Ocultos por defecto: los que ningún estudio ve hasta que instala el tema
 // que los pide (lib/theme-definitions.ts, bloquesHome) o los activa a mano.
-const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>(['tiraSemana', 'progresoSemanal']);
+const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>(['tiraSemana', 'progresoSemanal', 'retos']);
 
 function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
   return SISTEMA_OCULTO_POR_DEFECTO.has(sistemaId)

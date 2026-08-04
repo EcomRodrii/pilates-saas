@@ -753,6 +753,14 @@ export interface RowFavoritosClase {
   created_at: string;
 }
 
+export interface RowRetoParticipaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  reto_key: string;
+  created_at: string;
+}
+
 export interface RowContenidoPortal {
   studio_id: string;
   mensaje_destacado: string | null;

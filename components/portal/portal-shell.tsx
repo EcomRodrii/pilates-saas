@@ -43,6 +43,10 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // estados (verificando / error / formulario) — el shell no debe redirigirla
   // ni bloquearla con el spinner genérico.
   const isClaveNueva = pathname === `/portal/${slug}/clave-nueva`;
+  // Sesión guiada: cronómetro a pantalla completa, sin la tab bar flotante
+  // encima. Mismo criterio que isLoginPage/isClaveNueva — un pathname más
+  // en la lista, no una gestión de overlay/z-index nueva.
+  const isFullscreen = pathname.endsWith('/sesion-guiada');
 
   useEffect(() => {
     if (isLoading || isClaveNueva) return;
@@ -141,15 +145,19 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           </div>
           {/* Hueco bajo el contenido para que el menú flotante no tape la
               última fila. Vive aquí y no en cada pantalla porque el menú
-              también vive aquí: si cambia de alto, esto cambia con él. */}
-          <div style={{ height: `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }} />
+              también vive aquí: si cambia de alto, esto cambia con él. Sin
+              menú en pantalla completa, tampoco hace falta el hueco. */}
+          {!isFullscreen && <div style={{ height: `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }} />}
         </main>
 
-        {/* Aviso de un toque para activar notificaciones al entrar. Se pinta
-            solo si procede. */}
-        <PushPrompt />
-
-        <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} />
+        {!isFullscreen && (
+          <>
+            {/* Aviso de un toque para activar notificaciones al entrar. Se
+                pinta solo si procede. */}
+            <PushPrompt />
+            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} />
+          </>
+        )}
       </div>
     </div>
   );

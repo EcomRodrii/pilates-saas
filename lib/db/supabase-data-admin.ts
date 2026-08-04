@@ -27,6 +27,7 @@ import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import { planMasElegido } from '@/lib/estudio-publico';
+import { esRetoKeyValida } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -45,6 +46,7 @@ import type {
   RowCitasServicios,
   RowCitasDisponibilidad,
   RowFavoritosClase,
+  RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
   RowCodigosDescuento,
@@ -217,6 +219,7 @@ import {
   mapRewardRule,
   mapSala,
   mapFavoritoClase,
+  mapRetoParticipacion,
   mapContenidoPortal,
   mapBannerPortal,
   mapServicioCita,
@@ -422,7 +425,7 @@ export async function fetchPublicStudioData(
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
       rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -463,7 +466,17 @@ export async function fetchPublicStudioData(
       // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
       // puede decidir por sí solo.
       getThemePublicado(studioId),
+      // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
+      // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
+      // socia daría un número parcial, no el real.
+      admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
     ]);
+
+    const retoConteos = (retoParticipRes.data ?? []).reduce<Record<string, number>>((acc, r) => {
+      const key = (r as { reto_key: string }).reto_key;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
 
     // Mismo motivo que en el panel: el portal decide con esto si una clase
     // está incluida en el bono o hay que enseñar precio de suelta.
@@ -497,6 +510,7 @@ export async function fetchPublicStudioData(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
       ),
+      retoConteos,
     };
   });
 
@@ -530,7 +544,7 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes] =
+  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -548,6 +562,7 @@ export async function fetchPublicStudioData(
       // contratada y pagada.
       admin.from('plazas_fijas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('favoritos_clase').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      admin.from('reto_participaciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -585,6 +600,7 @@ export async function fetchPublicStudioData(
       citas: (citasRes.data ?? []).map(mapCita),
       plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
       favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
+      retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones).retoKey),
     },
   };
 }
@@ -1921,6 +1937,31 @@ export async function toggleFavoritoPublico(params: {
   const { error } = await admin.from('favoritos_clase').delete()
     .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('tipo_clase_id', params.tipoClaseId);
   if (error) return { error: 'No se ha podido quitar el favorito.' };
+  return { ok: true };
+}
+
+// Apunta/desapunta a la socia autenticada de un reto del carrusel de Inicio
+// (tema Bloom). `retoKey` se valida contra RETOS_PORTAL (contenido fijo de
+// código, no una tabla) — el CHECK de la migración es la segunda barrera.
+// `socioId` sale de `socioAutenticado`, nunca del body, mismo criterio que
+// toggleFavoritoPublico.
+export async function toggleRetoParticipacion(params: {
+  studioId: string; socioId: string; retoKey: string; accion: 'marcar' | 'desmarcar';
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return { error: 'Service role no configurada' };
+  if (!esRetoKeyValida(params.retoKey)) return { error: 'Ese reto no existe.' };
+  if (params.accion === 'marcar') {
+    const { error } = await admin.from('reto_participaciones').upsert(
+      { studio_id: params.studioId, socio_id: params.socioId, reto_key: params.retoKey },
+      { onConflict: 'socio_id,reto_key', ignoreDuplicates: true },
+    );
+    if (error) return { error: 'No se ha podido guardar tu apunte al reto.' };
+    return { ok: true };
+  }
+  const { error } = await admin.from('reto_participaciones').delete()
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
+  if (error) return { error: 'No se ha podido quitar tu apunte al reto.' };
   return { ok: true };
 }
 

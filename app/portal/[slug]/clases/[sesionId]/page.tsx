@@ -228,6 +228,18 @@ export default function ClaseDetallePage() {
               </p>
             </div>
           )}
+
+          {/* Solo con plaza CONFIRMADA — nunca en lista de espera, coherente
+              con lo que este mismo bloque ya distingue arriba. */}
+          {miReserva?.estado === 'CONFIRMADA' && (
+            <button
+              type="button"
+              onClick={() => router.push(`/portal/${slug}/clases/${sesionId}/sesion-guiada`)}
+              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: `1px solid ${t.line}`, background: 'none', color: t.ink, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}
+            >
+              Empezar la sesión guiada
+            </button>
+          )}
         </div>
 
         {/* Acción — con holgura inferior para la tab bar flotante del portal

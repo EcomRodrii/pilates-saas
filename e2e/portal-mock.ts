@@ -159,10 +159,16 @@ export async function montarPortal(page: Page, opciones: {
   /** Comportamiento de la barra inferior del tema (galería de temas,
    *  "Editorial"). Sin esto, `'clasica'` — el de siempre. */
   tabBarStyle?: 'clasica' | 'pestanaActiva';
+  /** Conteo REAL de apuntadas por reto (bloque "retos", tema Bloom), del
+   *  estudio ENTERO. Sin esto, {} — cada reto se ve con 0. */
+  retoConteos?: Record<string, number>;
+  /** Retos a los que YA está apuntada la socia en sesión. Sin esto, ninguno. */
+  retosApuntados?: string[];
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
-          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica' } = opciones;
+          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica',
+          retoConteos = {}, retosApuntados = [] } = opciones;
   const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
 
   if (conSesion) {
@@ -192,6 +198,22 @@ export async function montarPortal(page: Page, opciones: {
     reservaRechazada
       ? json(route, { error: reservaRechazada }, 400)
       : json(route, { estado: 'CONFIRMADA', reservaId: 'res-nueva' }));
+  // Con estado, no siempre `{ ok: true }`: toggleReto (studio-context.tsx)
+  // re-sincroniza con /api/public/studio-data en su `finally` — un mock
+  // estático revertiría el apunte justo tras la respuesta optimista.
+  const retoConteosVivos: Record<string, number> = { ...retoConteos };
+  const retosApuntadosVivos = new Set(retosApuntados);
+  await page.route('**/api/public/retos', route => {
+    const body = route.request().postDataJSON() as { retoKey: string; accion: 'marcar' | 'desmarcar' };
+    if (body.accion === 'marcar' && !retosApuntadosVivos.has(body.retoKey)) {
+      retosApuntadosVivos.add(body.retoKey);
+      retoConteosVivos[body.retoKey] = (retoConteosVivos[body.retoKey] ?? 0) + 1;
+    } else if (body.accion === 'desmarcar' && retosApuntadosVivos.has(body.retoKey)) {
+      retosApuntadosVivos.delete(body.retoKey);
+      retoConteosVivos[body.retoKey] = Math.max(0, (retoConteosVivos[body.retoKey] ?? 0) - 1);
+    }
+    return json(route, { ok: true });
+  });
   await page.route('**/api/notifications', route => {
     const items = sinAvisos ? [] : AVISOS_BASE;
     return json(route, { items, unread: items.filter(a => a.readAt == null).length });
@@ -226,6 +248,7 @@ export async function montarPortal(page: Page, opciones: {
     portalHome,
     homeBloques: bloquesResueltos,
     tabBarStyle,
+    retoConteos: retoConteosVivos,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
     // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.
@@ -241,6 +264,7 @@ export async function montarPortal(page: Page, opciones: {
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
+      favoritos: [], retosApuntados: Array.from(retosApuntadosVivos),
     } : null,
   }));
 }

@@ -13,11 +13,11 @@ test('DEFAULT_BLOQUES_POR_PANTALLA.home: los 4 módulos de siempre, en orden, si
   assert.deepEqual(idsVisibles, ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
 });
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal existen pero OCULTOS (solo Oliva/Noir los activan)', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal/retos existen pero OCULTOS (solo Oliva/Noir/Bloom los activan)', () => {
   const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal']);
+  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal', 'retos']);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -32,10 +32,10 @@ test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de
   assert.deepEqual(r.draft, r.publicado);
 });
 
-test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal llegan OCULTOS incluso sin legacy', () => {
+test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal/retos llegan OCULTOS incluso sin legacy', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal']);
+  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal', 'retos']);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
@@ -44,11 +44,11 @@ test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) �
   assert.deepEqual(visibles, ['contenidoEstudio', 'estaSemana', 'accesosRapidos']);
   const invitar = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'invitarAmiga');
   assert.equal(invitar?.oculto, true);
-  // tiraSemana/progresoSemanal no estaban en el legacy (no existían) → se
-  // añaden al final por el segundo spread de resolveBloquesPantalla, y
+  // tiraSemana/progresoSemanal/retos no estaban en el legacy (no existían) →
+  // se añaden al final por el segundo spread de resolveBloquesPantalla, y
   // bloqueSistema() ya los marca ocultos por defecto.
-  const nuevos = r.publicado.filter((b) => b.kind === 'sistema' && (b.sistemaId === 'tiraSemana' || b.sistemaId === 'progresoSemanal'));
-  assert.equal(nuevos.length, 2);
+  const nuevos = r.publicado.filter((b) => b.kind === 'sistema' && (b.sistemaId === 'tiraSemana' || b.sistemaId === 'progresoSemanal' || b.sistemaId === 'retos'));
+  assert.equal(nuevos.length, 3);
   assert.ok(nuevos.every((b) => b.oculto));
 });
 

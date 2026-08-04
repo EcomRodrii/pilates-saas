@@ -228,6 +228,12 @@ interface StudioContextValue {
   bannersPortal: BannerPortal[];
   favoritos: FavoritoClase[];
   toggleFavorito: (tipoClaseId: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
+  // Retos del carrusel de Inicio (tema Bloom) — retosApuntados es SOLO los de
+  // la socia en sesión; retoConteos es el conteo real del estudio ENTERO
+  // (llega ya agregado del servidor, no se calcula en el cliente).
+  retosApuntados: string[];
+  retoConteos: Record<string, number>;
+  toggleReto: (retoKey: string, accion: 'marcar' | 'desmarcar') => Promise<ResultadoEscritura>;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
   addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
@@ -592,6 +598,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
+  const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
+  const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [dependencySnapshots, setDependencySnapshots] = useState<InstructorDependencySnapshot[]>([]);
@@ -794,6 +802,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
         whatsapp: typeof pub.redesSociales?.whatsapp === 'string' ? pub.redesSociales.whatsapp : '',
       });
+      setRetoConteos(pub.retoConteos ?? {});
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
         estado: r.estado as Reserva['estado'], spotId: r.spot_id ?? null, posicionEspera: null, checkInEn: null, creadoEn: '',
@@ -817,6 +826,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setCreditTransactions(socia?.creditTransactions ?? []);
       setCitas(socia?.citas ?? []);
       setFavoritos(socia?.favoritos ?? []);
+      setRetosApuntados(socia?.retosApuntados ?? []);
       setDataLoaded(true);
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
   }
@@ -2335,6 +2345,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/favoritos', { studioId: cpub.studioId, tipoClaseId, accion });
   }
 
+  // Apuntarse/desapuntarse de un reto del carrusel de Inicio (tema Bloom).
+  // Mismo patrón optimista que toggleFavorito, pero actualiza DOS estados:
+  // la participación de la socia y el conteo agregado del estudio (+1/-1 al
+  // instante; `postPublico` reconcilia ambos desde el servidor en su `finally`).
+  async function toggleReto(retoKey: string, accion: 'marcar' | 'desmarcar'): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No disponible' };
+    const yaApuntada = retosApuntados.includes(retoKey);
+    if (accion === 'marcar' && !yaApuntada) {
+      setRetosApuntados(prev => [...prev, retoKey]);
+      setRetoConteos(prev => ({ ...prev, [retoKey]: (prev[retoKey] ?? 0) + 1 }));
+    } else if (accion === 'desmarcar' && yaApuntada) {
+      setRetosApuntados(prev => prev.filter(k => k !== retoKey));
+      setRetoConteos(prev => ({ ...prev, [retoKey]: Math.max(0, (prev[retoKey] ?? 0) - 1) }));
+    }
+    return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
+  }
+
   async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
@@ -3811,6 +3839,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     redesSociales,
     favoritos,
     toggleFavorito,
+    retosApuntados,
+    retoConteos,
+    toggleReto,
     updateMensajeDestacado,
     addBannerPortal,
     updateBannerPortal,
@@ -4012,7 +4043,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, redesSociales, favoritos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
