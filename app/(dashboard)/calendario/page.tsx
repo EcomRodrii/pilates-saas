@@ -756,15 +756,24 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function openNueva(prefillFecha?: string) {
+  function openNueva(prefillFecha?: string, prefillHoraInicio?: string, prefillSalaId?: string) {
     const base = emptyForm();
     const fecha = prefillFecha ?? localDate(now);
-    const inicio = toISO(fecha, base.horaInicio);
-    const fin = toISO(fecha, base.horaFin);
-    const salaId = elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
+    // La duración se conserva (misma diferencia que ya traía emptyForm entre
+    // horaInicio/horaFin), solo se desplaza al hueco donde se hizo clic.
+    const duracionMin = (Number(base.horaFin.slice(0, 2)) * 60 + Number(base.horaFin.slice(3, 5)))
+      - (Number(base.horaInicio.slice(0, 2)) * 60 + Number(base.horaInicio.slice(3, 5)));
+    const horaInicio = prefillHoraInicio ?? base.horaInicio;
+    const inicioTotalMin = Number(horaInicio.slice(0, 2)) * 60 + Number(horaInicio.slice(3, 5));
+    const horaFin = `${String(Math.floor((inicioTotalMin + duracionMin) / 60)).padStart(2, '0')}:${String((inicioTotalMin + duracionMin) % 60).padStart(2, '0')}`;
+    const inicio = toISO(fecha, horaInicio);
+    const fin = toISO(fecha, horaFin);
+    const salaId = prefillSalaId ?? elegirLibre(salas.map(s => s.id), 'salaId', inicio, fin, existentesSlot);
     setForm({
       ...base,
       fecha,
+      horaInicio,
+      horaFin,
       salaId,
       // Una instructora crea SU clase: fijada a sí misma, no se le ofrece
       // elegir (la RLS de la 20260731100000 la rechazaría igual si lo hiciera).
@@ -1384,6 +1393,26 @@ export default function Calendario() {
     return prepararColumnasDiaSemana(cols);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
 
+  // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
+  // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
+  // acabara después de esa ventana (excepción puntual, aforo especial) no se
+  // veía — el `overflow-y-auto` del contenedor la cortaba en seco, sin aviso.
+  // Los límites de RENDERIZADO nunca deben ser más estrechos que las clases
+  // reales que hay que mostrar; el horario del estudio sigue siendo el suelo
+  // (nunca se encoge la vista si no hay clases fuera de él).
+  const { horaInicioMinVista, horaFinMinVista } = useMemo(() => {
+    const horaAperturaMin = datosVista ? Number(datosVista.horaApertura.slice(0, 2)) * 60 : 8 * 60;
+    const horaCierreMin = datosVista ? Number(datosVista.horaCierre.slice(0, 2)) * 60 : 22 * 60;
+    const todas = [...columnasDia.flatMap(c => c.sesiones), ...columnasSemana.flatMap(c => c.sesiones)];
+    if (todas.length === 0) return { horaInicioMinVista: horaAperturaMin, horaFinMinVista: horaCierreMin };
+    const minReal = Math.min(...todas.map(s => s.inicioMin));
+    const maxReal = Math.max(...todas.map(s => s.finMin));
+    return {
+      horaInicioMinVista: Math.min(horaAperturaMin, Math.floor(minReal / 60) * 60),
+      horaFinMinVista: Math.max(horaCierreMin, Math.ceil(maxReal / 60) * 60),
+    };
+  }, [datosVista, columnasDia, columnasSemana]);
+
   // ── Vista de Mes: agregación por día, no por hora (Fase 2) ─────────────────
   const diasMes = useMemo(() => {
     if (!datosVista) return new Map<string, DiaMes>();
@@ -1678,7 +1707,11 @@ export default function Calendario() {
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
     const duracionMin = (new Date(sesion.fin).getTime() - new Date(sesion.inicio).getTime()) / 60000;
-    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaAperturaMin);
+    // El origen del gesto es horaInicioMinVista (el de la rejilla RENDERIZADA,
+    // que puede ser más amplio que el horario del estudio), no horaAperturaMin
+    // — el límite de negocio ("Fuera del horario del estudio") sigue siendo
+    // horaApertura/horaCierre sin cambios, son dos cosas distintas.
+    const nuevoInicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
     const { inicioMin, finMin } = nuevoHorarioArrastrado(duracionMin, nuevoInicioMin);
     if (inicioMin < horaAperturaMin || finMin > horaCierreMin) {
       showToast('Fuera del horario del estudio');
@@ -1710,6 +1743,20 @@ export default function Calendario() {
       return;
     }
     void ejecutarMoverSesion(sesionId, nuevoSalaId, nuevoInicio, nuevoFin);
+  }
+
+  // Clic en un hueco vacío de la rejilla (Día/Semana): abre "Nueva clase" con
+  // el día/hora (y sala, en Día) ya rellenados en vez de obligar a abrir el
+  // formulario y teclear la hora a mano.
+  function crearDesdeHueco(destino: { salaId?: string; diaColumna?: number; offsetYPx: number; pxPorHora: number }) {
+    if (!datosVista) return;
+    // El origen (offsetYPx=0) de la rejilla es horaInicioMinVista, no
+    // horaApertura — puede ser más temprano si hay una clase real antes de
+    // la apertura oficial del estudio (ver el useMemo que lo calcula).
+    const inicioMin = minutosDesdeOffset(destino.offsetYPx, destino.pxPorHora, horaInicioMinVista);
+    const baseDate = destino.diaColumna != null ? dias[destino.diaColumna] : diaSeleccionado;
+    if (!baseDate) return;
+    openNueva(localDate(baseDate), mmA(inicioMin), destino.salaId);
   }
 
   // ── Label ────────────────────────────────────────────────────────────────────
@@ -2011,8 +2058,8 @@ export default function Calendario() {
           <VistaDiaSalas
             columnas={columnasDia}
             datos={datosPorSesionId}
-            horaInicioMin={Number(datosVista.horaApertura.slice(0, 2)) * 60}
-            horaFinMin={Number(datosVista.horaCierre.slice(0, 2)) * 60}
+            horaInicioMin={horaInicioMinVista}
+            horaFinMin={horaFinMinVista}
             pxPorHora={96}
             ahoraMin={localDate(diaSeleccionado) === todayStr ? now.getHours() * 60 + now.getMinutes() : null}
             seleccionadaId={sesionId}
@@ -2021,6 +2068,7 @@ export default function Calendario() {
             accionPara={accionParaBloque}
             arrastrable={arrastrableSesion}
             onMoverSesion={moverSesionArrastrada}
+            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         ) : vista === 'mes' ? (
           <VistaMes
@@ -2036,14 +2084,15 @@ export default function Calendario() {
             fechasSemana={dias}
             hoyIndex={dias.some(d => localDate(d) === todayStr) ? dias.findIndex(d => localDate(d) === todayStr) : null}
             ahoraMin={now.getHours() * 60 + now.getMinutes()}
-            horaInicioMin={Number(datosVista.horaApertura.slice(0, 2)) * 60}
-            horaFinMin={Number(datosVista.horaCierre.slice(0, 2)) * 60}
+            horaInicioMin={horaInicioMinVista}
+            horaFinMin={horaFinMinVista}
             pxPorHora={58}
             seleccionadaId={sesionId}
             onSeleccionar={id => { setSesionId(prev => prev === id ? null : id); setPestanaPanel('clientas'); }}
             atenuada={atenuada}
             arrastrable={arrastrableSesion}
             onMoverSesion={moverSesionArrastrada}
+            onClickVacio={(gestionaClientas || creaClasesPropias) ? crearDesdeHueco : undefined}
           />
         )}
       </div>

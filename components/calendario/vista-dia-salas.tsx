@@ -38,11 +38,14 @@ export interface VistaDiaSalasProps {
    *  columna de destino con `elementFromPoint`, el caller no necesita saber
    *  de geometría. */
   onMoverSesion?: (sesionId: string, destino: { salaId: string; offsetYPx: number; pxPorHora: number }) => void;
+  /** Clic en un hueco vacío de la rejilla (no sobre una clase) — abre "Nueva
+   *  clase" con la sala/hora ya rellenados. */
+  onClickVacio?: (destino: { salaId: string; offsetYPx: number; pxPorHora: number }) => void;
 }
 
 export function VistaDiaSalas({
   columnas, datos, horaInicioMin, horaFinMin, pxPorHora, ahoraMin,
-  seleccionadaId, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion,
+  seleccionadaId, onSeleccionar, atenuada, accionPara, arrastrable, onMoverSesion, onClickVacio,
 }: VistaDiaSalasProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -112,6 +115,14 @@ export function VistaDiaSalas({
                 className="relative min-w-0 border-l border-border/60"
                 style={{
                   backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
+                  cursor: onClickVacio ? 'pointer' : undefined,
+                }}
+                onClick={!onClickVacio ? undefined : e => {
+                  // Solo si el clic fue en el fondo de la columna, no en una
+                  // clase (BloqueClase no para la propagación).
+                  if (e.target !== e.currentTarget) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  onClickVacio({ salaId: c.sala.id, offsetYPx: e.clientY - rect.top, pxPorHora });
                 }}
               >
                 {c.sesiones.length === 0 && (
