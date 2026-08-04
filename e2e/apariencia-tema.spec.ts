@@ -20,6 +20,18 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+const BLOQUES_HOME_DEFAULT = [
+  { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+  { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
+  { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
+  { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
+  { id: 'sistema-tiraSemana', kind: 'sistema', sistemaId: 'tiraSemana', oculto: true },
+  { id: 'sistema-progresoSemanal', kind: 'sistema', sistemaId: 'progresoSemanal', oculto: true },
+  // Bloque del catálogo ya añadido por la propietaria — tiene que sobrevivir
+  // a instalar un tema nuevo.
+  { id: 'b-texto-1', kind: 'texto', config: { titulo: 'Bienvenidas', texto: 'x' } },
+];
+
 async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -34,6 +46,7 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   }, [STORAGE_KEY, AUTH_UID] as const);
 
   const puts: Record<string, unknown>[] = [];
+  const putsBloquesHome: unknown[][] = [];
 
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
@@ -49,13 +62,25 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     }
     return json(route, themeResuelto);
   });
+  let bloquesHomeActuales: unknown[] = BLOQUES_HOME_DEFAULT;
+  await page.route('**/api/portal-bloques**', route => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get('pantalla') !== 'home') return json(route, []);
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as unknown[];
+      putsBloquesHome.push(body);
+      bloquesHomeActuales = body;
+      return json(route, body);
+    }
+    return json(route, bloquesHomeActuales);
+  });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia');
-  return { puts };
+  return { puts, putsBloquesHome };
 }
 
 /** La fila de un tema dentro de la tarjeta "Biblioteca de temas". */
@@ -101,7 +126,7 @@ test.describe('Biblioteca de temas', () => {
     expect(body.themeCustomized).toBe(false);
   });
 
-  test('"Usar" en Noir manda su paleta y la barra oscura', async ({ page }) => {
+  test('"Usar" en Noir manda su paleta, la barra oscura y el acento destacado', async ({ page }) => {
     const { puts } = await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
@@ -113,8 +138,52 @@ test.describe('Biblioteca de temas', () => {
     const body = puts.at(-1)!;
     expect(body.themeId).toBe('noir');
     expect(body.barraOscura).toBe(true);
-    expect(body.primary).toBe('#1D2A21');
-    expect(body.secondary).toBe('#C9A24D');
+    expect(body.primary).toBe('#1E2B22');
+    expect(body.secondary).toBe('#A9B79B');
+    expect(body.destacado).toBe('#D9B166');
+  });
+
+  test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      filaTema(page, 'bloom').getByRole('button', { name: 'Usar' }).click(),
+    ]);
+
+    const body = puts.at(-1)!;
+    expect(body.themeId).toBe('bloom');
+    expect(body.barraFlotante).toBe(true);
+    expect(body.destacado).toBe('#FF8FB1');
+    expect(body.radioTema).toEqual({ card: 30 });
+  });
+
+  test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {
+    const { putsBloquesHome } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    // waitForResponse, no waitForRequest: el evento "request" puede llegar
+    // ANTES de que nuestro propio handler de page.route (que hace el
+    // putsBloquesHome.push) termine de ejecutarse — carrera real, vista en
+    // vivo (waitForRequest resolvía con el array todavía vacío). La
+    // respuesta solo llega DESPUÉS de que route.fulfill() corra, así que
+    // esperar a la respuesta garantiza que el push ya sucedió.
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques') && r.url().includes('pantalla=home') && r.request().method() === 'PUT'),
+      filaTema(page, 'oliva').getByRole('button', { name: 'Usar' }).click(),
+    ]);
+
+    const body = putsBloquesHome.at(-1) as Array<Record<string, unknown>>;
+    const porId = (id: string) => body.find((b) => b.sistemaId === id);
+    expect(porId('accesosRapidos')?.oculto).toBeFalsy();
+    expect(porId('tiraSemana')?.oculto).toBeFalsy();
+    expect(porId('contenidoEstudio')?.oculto).toBeFalsy();
+    expect(porId('estaSemana')?.oculto).toBe(true);
+    expect(porId('invitarAmiga')?.oculto).toBe(true);
+    expect(porId('progresoSemanal')?.oculto).toBe(true); // Oliva no lo pide
+    // El bloque del catálogo que ya tenía la propietaria sigue ahí.
+    expect(body.some((b) => b.kind === 'texto' && b.id === 'b-texto-1')).toBe(true);
   });
 
   test('"Personalizar" lleva al editor', async ({ page }) => {

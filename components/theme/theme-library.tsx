@@ -21,8 +21,9 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
 import { ThemeThumb } from './theme-thumb';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
-import { fetchThemePublicado, guardarThemeBorrador } from '@/lib/api-client';
+import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
+import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
   DEFAULT_THEME, FUENTES, ESTILOS_TITULAR_PORTAL, type ThemeConfig,
 } from '@/lib/theme-schema';
@@ -33,7 +34,10 @@ const RUTA_EDITOR = '/configuracion/apariencia/editor';
 const CAMPOS_VISIBLES = [
   'primary', 'secondary', 'accent', 'background', 'text',
   'fontId', 'portalHeadingFontId', 'radius', 'buttonStyle', 'cardStyle',
-  'tabBarStyle', 'barraOscura', 'faviconUrl',
+  'tabBarStyle', 'barraOscura', 'barraFlotante', 'destacado', 'faviconUrl',
+  // `radioTema` (objeto) queda fuera a propósito, mismo criterio que
+  // `navPortal`/`redesSociales`: comparar por referencia daría falsos
+  // positivos (el fetch siempre crea un objeto nuevo).
 ] as const satisfies readonly (keyof ThemeConfig)[];
 
 /**
@@ -52,6 +56,29 @@ function nombreFuente(id: ThemeConfig['fontId']): string {
 }
 function nombreTitular(id: ThemeConfig['portalHeadingFontId']): string {
   return ESTILOS_TITULAR_PORTAL.find((f) => f.id === id)?.label ?? id;
+}
+
+/**
+ * Reordena/oculta los bloques `sistema` del Inicio según `bloquesHome` de un
+ * `ThemeDefinition` — los que aparecen en la lista pasan a visibles, en ese
+ * orden; los que no, se ocultan (nunca se borran: un bloque `sistema` no se
+ * puede quitar del todo). Los bloques del CATÁLOGO se preservan tal cual, al
+ * final — "cambiar de tema no debe borrar tu contenido".
+ */
+function sembrarBloquesHome(actuales: BloqueHome[], orden: string[]): BloqueHome[] {
+  const sistema = actuales.filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => b.kind === 'sistema');
+  const catalogo = actuales.filter((b) => b.kind !== 'sistema');
+  const porId = new Map(sistema.map((b) => [b.sistemaId, b]));
+
+  const listados = orden
+    .map((id) => porId.get(id as Extract<BloqueHome, { kind: 'sistema' }>['sistemaId']))
+    .filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => !!b)
+    .map((b) => ({ ...b, oculto: false }));
+  const noListados = sistema
+    .filter((b) => !orden.includes(b.sistemaId))
+    .map((b) => ({ ...b, oculto: true }));
+
+  return [...listados, ...noListados, ...catalogo];
 }
 
 /** La fila de los cinco colores del tema. */
@@ -88,7 +115,8 @@ export function ThemeLibrary() {
   }, []);
 
   /**
-   * Instalar = volcar el tema en el borrador Y guardarlo. Se persiste el objeto
+   * Instalar = volcar el tema en el borrador Y guardarlo (más, si el tema trae
+   * `bloquesHome`, sembrar el Inicio con ese orden). Se persiste el objeto
    * fusionado a mano en vez de `elegirTema` + `handleGuardar` porque el segundo
    * leería el `draft` de ANTES del setState (React no lo actualiza en el acto)
    * y guardaría el tema anterior — un fallo silencioso: la pantalla mostraría
@@ -110,6 +138,10 @@ export function ThemeLibrary() {
     };
     try {
       await guardarThemeBorrador(nuevo);
+      if (def.bloquesHome && def.bloquesHome.length > 0) {
+        const actuales = await fetchBloquesBorrador('home');
+        await guardarBloquesBorradorApi('home', sembrarBloquesHome(actuales, def.bloquesHome));
+      }
       elegirTema(def); // refleja en pantalla lo que ya está guardado
     } catch (e) {
       setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));

@@ -1,6 +1,6 @@
-import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from '@/lib/types';
-import type { RachaInfo } from '@/lib/engines/streak-engine';
-import { planCubreTipoClase } from '@/lib/bono-logic';
+import type { Reserva, Sesion, Suscripcion, PlanTarifa, TipoClase, Sala, Instructor } from './types.ts';
+import type { RachaInfo } from './engines/streak-engine.ts';
+import { planCubreTipoClase } from './bono-logic.ts';
 
 // ¿Esta socia puede reservar sin pagar por clase suelta ahora mismo? — true si
 // tiene una suscripción activa que cubre la sesión: mensual ilimitado, o bono
@@ -96,4 +96,79 @@ export function getHomeCardContext({
 
   // CASO A — nunca ha reservado nada, o no tiene nada pendiente ni activo reciente.
   return { caso: 'SIN_CLASES' };
+}
+
+// ── Bloques de sistema "tiraSemana"/"progresoSemanal" (temas Oliva/Noir) ────
+// Funciones puras — igual que getHomeCardContext() arriba — para que la
+// lógica de negocio no viva enredada en el JSX de portal-home-view.tsx.
+
+export interface DiaTiraSemana {
+  fecha: Date;
+  /** Lunes=0 … domingo=6, para pintar la letra del día sin tirar de Intl en cada render. */
+  indiceSemana: number;
+  esHoy: boolean;
+  tieneClaseReservada: boolean;
+}
+
+/**
+ * Los 7 días de la semana ACTUAL (lunes a domingo), con si la socia tiene una
+ * reserva `CONFIRMADA` ese día. `now` decide qué semana es "esta semana" y
+ * cuál es "hoy" — pasado explícito (no `new Date()` aquí dentro) por el mismo
+ * motivo que ya documenta portal-home-view.tsx: servidor y navegador no
+ * pueden coincidir en "ahora".
+ */
+export function calcularTiraSemana(now: Date, misReservas: Reserva[], sesiones: Sesion[]): DiaTiraSemana[] {
+  const sesionById = new Map(sesiones.map(s => [s.id, s]));
+  // Lunes de esta semana: getDay() es 0=domingo, así que domingo necesita un
+  // salto de 6 días atrás, el resto de -1.
+  const diaSemanaHoy = now.getDay();
+  const offsetLunes = diaSemanaHoy === 0 ? 6 : diaSemanaHoy - 1;
+  const lunes = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offsetLunes);
+
+  const fechasConReserva = new Set(
+    misReservas
+      .filter(r => r.estado === 'CONFIRMADA')
+      .map(r => sesionById.get(r.sesionId))
+      .filter((s): s is Sesion => !!s)
+      .map(s => new Date(s.inicio).toDateString()),
+  );
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const fecha = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + i);
+    return {
+      fecha,
+      indiceSemana: i,
+      esHoy: fecha.toDateString() === now.toDateString(),
+      tieneClaseReservada: fechasConReserva.has(fecha.toDateString()),
+    };
+  });
+}
+
+// Límite de REFERENCIA del anillo, no una "meta" configurable — no existe ese
+// concepto en el esquema del tema hoy y no se inventa uno solo para pintar un
+// anillo (ver harmonic-discovering-kettle.md). 5 clases/semana es un ritmo
+// alto y realista para Pilates — el anillo rara vez se ve completo, que es lo
+// que lo hace legible como "progreso", no como una cuota que hay que cumplir.
+export const META_PROGRESO_SEMANAL = 5;
+
+/**
+ * Nº de reservas `CONFIRMADA` de la socia en la semana de `now`
+ * (lunes-domingo) — cuenta reservas, no días (dos clases el mismo día suman
+ * 2, a diferencia de `calcularTiraSemana`, que solo necesita saber SI hubo
+ * clase ese día para el punto).
+ */
+export function calcularProgresoSemanal(now: Date, misReservas: Reserva[], sesiones: Sesion[]): number {
+  const sesionById = new Map(sesiones.map(s => [s.id, s]));
+  const diaSemanaHoy = now.getDay();
+  const offsetLunes = diaSemanaHoy === 0 ? 6 : diaSemanaHoy - 1;
+  const lunes = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offsetLunes);
+  const domingoFin = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 7);
+
+  return misReservas.filter(r => {
+    if (r.estado !== 'CONFIRMADA') return false;
+    const s = sesionById.get(r.sesionId);
+    if (!s) return false;
+    const inicio = new Date(s.inicio);
+    return inicio >= lunes && inicio < domingoFin;
+  }).length;
 }

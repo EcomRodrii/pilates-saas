@@ -77,6 +77,10 @@ export const ESTILOS_TITULAR_PORTAL = [
   // Reusa la sans ya cargada (--font-ui, Instrument Sans) en negrita — sin
   // fuente nueva. Ver tema "Editorial" en theme-definitions.ts.
   { id: 'instrumentSansBold', label: 'Instrument Sans (negrita)' },
+  // Tema "Bloom" — Poppins ya está en el set curado de FUENTES (cuerpo) y
+  // registrada en next/font (app/layout.tsx); aquí se reusa en negrita para
+  // titulares, sin fuente nueva.
+  { id: 'poppins', label: 'Poppins (negrita)' },
 ] as const;
 
 export type PortalHeadingFontId = (typeof ESTILOS_TITULAR_PORTAL)[number]['id'];
@@ -148,6 +152,29 @@ const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId,
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
 const barraOscuraSchema = z.boolean();
+// Barra flotante (tema "Bloom"): eje INDEPENDIENTE de barraOscura, mismo
+// mecanismo (var() con fallback, ver varsBarraFlotante en theme-runtime.ts) —
+// nunca resucita la rama de render de `tabBarStyle` que portal-nav.tsx ya no
+// lee (rediseño 2026-08, "pestaña activa" como único look). Los dos flags
+// pueden convivir sin pisarse; ningún tema de hoy usa los dos a la vez.
+const barraFlotanteSchema = z.boolean();
+// Acento que NO es la marca (dorado de Noir, rosa de Bloom) — icono activo de
+// la barra, borde de tarjeta reservada, punto de aviso. Antes de este campo,
+// Noir reusaba `secondary` para ese papel (ver #640); con `destacado`
+// explícito, `secondary` vuelve a ser "superficie suave" en los tres temas
+// nuevos, como pide la tabla de valores del encargo.
+const destacadoSchema = hexSchema;
+// Radio por PIEZA, solo para las piezas nuevas de cada tema (tarjeta de
+// próxima clase, tiraSemana, progresoSemanal) — ver varsRadioTema en
+// theme-runtime.ts. Parcial y opcional: sin este campo, esas piezas caen a
+// los números fijos de siempre en lib/portal-design.ts. El resto del portal
+// (~37 usos de `radio.*`) no lee este campo — retrofit completo descartado
+// a propósito, ver harmonic-discovering-kettle.md.
+const radioTemaSchema = z.object({
+  card: z.number().optional(),
+  boton: z.number().optional(),
+  chip: z.number().optional(),
+}).strict();
 const themeIdSchema = z.string();
 const themeVersionSchema = z.number().int();
 const themeCustomizedSchema = z.boolean();
@@ -176,6 +203,19 @@ export const themeConfigSchema = z
     // la FORMA de la pastilla activa, este el CONTRASTE de toda la barra.
     // Default false: un tema guardado antes de esta fase sigue viéndose igual.
     barraOscura: barraOscuraSchema.default(false),
+    // Barra flotante sobre el fondo (tema "Bloom") — ver comentario del
+    // schema arriba. Default false: sin cambios para nadie que no lo pida.
+    barraFlotante: barraFlotanteSchema.default(false),
+    // Acento fuera de la marca (dorado/rosa) — ver comentario del schema
+    // arriba. Sin default explícito con valor propio: si el estudio no lo
+    // toca, cae a `secondary` en el render (mismo criterio de "hereda del
+    // tema" que ya usa `EstiloBloque` en portal-home-bloques.ts) — por eso es
+    // `.nullable().default(null)`, no un hex fijo que fingiría una elección.
+    destacado: destacadoSchema.nullable().default(null),
+    // Radio por pieza de las secciones nuevas — ver comentario del schema
+    // arriba. Ausente = las piezas nuevas caen a los números fijos de
+    // portal-design.ts, como si el campo no existiera.
+    radioTema: radioTemaSchema.optional(),
     // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
     // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
     // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
@@ -214,6 +254,9 @@ export const DEFAULT_THEME: ThemeConfig = {
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   barraOscura: false,
+  barraFlotante: false,
+  destacado: null,
+  radioTema: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
   redesSociales: { instagram: '', facebook: '', whatsapp: '' },
   themeId: 'classic',
@@ -246,6 +289,9 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),
+    barraFlotante: pick('barraFlotante', barraFlotanteSchema),
+    destacado: pick('destacado', destacadoSchema.nullable()),
+    radioTema: pick('radioTema', radioTemaSchema.optional()),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),

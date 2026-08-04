@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -48,6 +48,18 @@ const outfit = Outfit({
   display: 'swap',
 });
 
+// Tema "Bloom" (lib/theme-definitions.ts, FUENTES en lib/theme-schema.ts) —
+// `fontId: 'poppins'` ya estaba en el set curado desde antes, pero sin este
+// registro `--font-poppins` no existía y el fallback silencioso a system-ui
+// se aplicaba siempre. Mismo criterio que `outfit`: coste fijo, se carga
+// siempre, no condicional por tenant.
+const poppins = Poppins({
+  subsets: ['latin'],
+  variable: '--font-poppins',
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://tentare.app'),
   title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
@@ -72,7 +84,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>

@@ -39,7 +39,7 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL } from '@/lib/portal-home-logic';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
@@ -231,6 +231,13 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
       .map(s => ({ s, libres: libres(s.id, s.aforoMaximo) }));
   }, [sesiones, reservas, now]);
 
+  // Bloques de sistema "tiraSemana"/"progresoSemanal" (temas Oliva/Noir,
+  // ocultos por defecto — ver SISTEMA_OCULTO_POR_DEFECTO en
+  // lib/portal-home-bloques.ts). Lógica pura en lib/portal-home-logic.ts,
+  // mismo criterio que getHomeCardContext arriba.
+  const tiraSemana = useMemo(() => calcularTiraSemana(now, misReservas, sesiones), [now, misReservas, sesiones]);
+  const progresoSemanal = useMemo(() => calcularProgresoSemanal(now, misReservas, sesiones), [now, misReservas, sesiones]);
+
   const nombre = socio?.nombre ?? session?.nombre?.split(' ')[0] ?? '';
   const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   const diaCorto = (iso: string) =>
@@ -379,7 +386,10 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             position: 'relative',
             height: conFoto ? altura.heroCard : undefined,
             padding: conFoto ? 0 : 14,
-            borderRadius: radio.heroCard, overflow: 'hidden',
+            // var() con el valor de hoy como fallback: sin `radioTema.card` el
+            // tema no declara esta var (varsRadioTema, lib/theme-runtime.ts) y
+            // la tarjeta se ve exactamente igual que antes.
+            borderRadius: `var(--portal-radius-card, ${radio.heroCard}px)`, overflow: 'hidden',
             background: conFoto ? t.surface2 : t.hero,
             boxShadow: sombra.heroCard,
           }}
@@ -632,6 +642,63 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 </div>
               );
             })}
+          </div>
+
+          {/* Tira de los 7 días (tema "Oliva") — el día de hoy resaltado, con
+              un punto si esa fecha tiene una clase CONFIRMADA. Oculto por
+              defecto: solo lo ve quien instala Oliva o lo activa a mano. */}
+          <div {...wrap('tiraSemana')}>
+            <div style={{ height: 34 }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+              {tiraSemana.map((dia) => (
+                <div key={dia.fecha.toDateString()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ ...micro(9, 0.18, 600), color: t.micro }}>
+                    {['L', 'M', 'X', 'J', 'V', 'S', 'D'][dia.indiceSemana]}
+                  </span>
+                  <span style={{
+                    width: 34, height: 34, borderRadius: `var(--portal-radius-chip, ${radio.pill}px)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: dia.esHoy ? 'var(--portal-brand)' : 'transparent',
+                    border: dia.esHoy ? 'none' : `1px solid ${t.line}`,
+                    ...texto.metaFuerte, color: dia.esHoy ? 'var(--portal-brand-foreground)' : t.ink,
+                  }}>
+                    {dia.fecha.getDate()}
+                  </span>
+                  <span aria-hidden style={{
+                    width: 5, height: 5, borderRadius: '50%',
+                    background: dia.tieneClaseReservada ? 'var(--portal-brand)' : 'transparent',
+                  }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Anillo de progreso semanal (tema "Noir") — reservas CONFIRMADA de
+              esta semana sobre META_PROGRESO_SEMANAL (un número de
+              referencia, no una meta configurable). Oculto por defecto. */}
+          <div {...wrap('progresoSemanal')}>
+            <div style={{ height: 34 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+                background: `conic-gradient(var(--portal-brand) ${Math.min(progresoSemanal, META_PROGRESO_SEMANAL) / META_PROGRESO_SEMANAL * 360}deg, ${t.line} 0deg)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: transicion(['background'], dur.card),
+              }}>
+                <div style={{
+                  width: 50, height: 50, borderRadius: '50%', background: t.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <span style={{ ...display(20), color: t.ink }}>{progresoSemanal}</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ ...display(22), color: t.ink }}>Tu semana</div>
+                <div style={{ ...texto.meta, color: t.muted2, marginTop: 4 }}>
+                  {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Bloques del catálogo (banner/texto/cta/faq) — hermanos de los 4

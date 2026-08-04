@@ -147,6 +147,34 @@ test('resolveTheme: barraOscura no booleana cae a false; true se respeta', () =>
   assert.equal(resolveTheme({ barraOscura: true }).barraOscura, true);
 });
 
+test('themeConfigSchema: barraFlotante/destacado/radioTema ausentes → false/null/undefined (tema guardado antes de esta fase)', () => {
+  const sinCampos: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinCampos.barraFlotante;
+  delete sinCampos.destacado;
+  delete sinCampos.radioTema;
+  const r = themeConfigSchema.safeParse(sinCampos);
+  assert.equal(r.success, true);
+  if (r.success) {
+    assert.equal(r.data.barraFlotante, false);
+    assert.equal(r.data.destacado, null);
+    assert.equal(r.data.radioTema, undefined);
+  }
+});
+
+test('resolveTheme: barraFlotante/destacado/radioTema — inválidos caen al default, válidos se respetan', () => {
+  assert.equal(resolveTheme({ barraFlotante: 'si' }).barraFlotante, false);
+  assert.equal(resolveTheme({ barraFlotante: true }).barraFlotante, true);
+  assert.equal(resolveTheme({ destacado: 'no-es-hex' }).destacado, null);
+  assert.equal(resolveTheme({ destacado: '#D9B166' }).destacado, '#D9B166');
+  assert.deepEqual(resolveTheme({ radioTema: 'nope' }).radioTema, undefined);
+  assert.deepEqual(resolveTheme({ radioTema: { card: 30 } }).radioTema, { card: 30 });
+});
+
+test('themeConfigSchema: portalHeadingFontId acepta "poppins" (tema Bloom)', () => {
+  const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME, portalHeadingFontId: 'poppins' });
+  assert.equal(r.success, true);
+});
+
 test('themeConfigSchema: navPortal ausente → default sin ocultos/etiquetas/iconos (tema guardado antes de la Fase 2)', () => {
   const sinNav: Record<string, unknown> = { ...DEFAULT_THEME };
   delete sinNav.navPortal;

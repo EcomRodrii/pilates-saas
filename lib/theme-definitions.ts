@@ -23,9 +23,16 @@
 // theme-definitions.test.ts recorriendo TODO el registro, así que ningún tema
 // futuro puede entrar roto.
 //
-// `barraOscura` es el eje nuevo que pide Noir (barra inferior sobre fondo
-// oscuro, icono activo en el color secundario), añadido a `ThemeConfig` una
-// sola vez — mismo patrón que `buttonStyle`/`cardStyle` en su día.
+// `barraOscura` (Noir) fue el primer eje nuevo que pidió esta tanda; en la
+// v2 se añadieron `destacado` (acento fuera de la marca), `barraFlotante`
+// (Bloom, eje independiente de `barraOscura`) y `radioTema` (radio por pieza
+// SOLO en las secciones nuevas) — mismo patrón mecánico de 4 pasos en
+// theme-schema.ts que ya usó `barraOscura`. `bloquesHome` (ver la interfaz
+// de abajo) siembra el Inicio con los bloques `sistema` nuevos
+// (`tiraSemana`, `progresoSemanal`) al instalar el tema. "Retos" (Bloom) y
+// "Sesión guiada" quedan fuera: el primero es una feature de producto nueva
+// con persistencia sin diseñar; el segundo toca Vídeos/VOD, en feature-freeze
+// deliberado (lib/frozen-features.ts) — ninguno se construye a medias.
 
 import type { ThemeConfig } from './theme-schema.ts';
 
@@ -40,6 +47,19 @@ export interface ThemeDefinition {
    *  modifica: ✓ Tipografía"), no una lista exhaustiva de TODO ThemeConfig. */
   capabilities: ThemeCapability[];
   defaults: Partial<ThemeConfig>;
+  /**
+   * Orden Y PRESENCIA de los bloques `sistema` del Inicio al INSTALAR este
+   * tema (ver `instalar()` en components/theme/theme-library.tsx) — ids de
+   * `BLOQUES_SISTEMA_IDS` (lib/portal-home-bloques.ts). Los que no aparezcan
+   * aquí se ocultan (`oculto: true`), nunca se borran — un bloque `sistema`
+   * nunca se puede quitar del todo, y la propietaria los puede reactivar
+   * después. Los bloques del CATÁLOGO que la propietaria ya haya añadido se
+   * preservan siempre, al final, tal cual — cambiar de tema no borra
+   * contenido. Sin este campo, instalar el tema no toca los bloques del
+   * Inicio en absoluto (mismo comportamiento que `classic`/`geometric`/
+   * `editorial` hoy).
+   */
+  bloquesHome?: string[];
 }
 
 export const THEME_DEFINITIONS: ThemeDefinition[] = [
@@ -77,73 +97,96 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'oliva',
-    version: 1,
+    version: 2,
     label: 'Oliva',
     description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
     capabilities: ['colors', 'typography', 'buttons', 'cards'],
     defaults: {
-      primary: '#3E4A2B',
-      secondary: '#8B9472',
+      primary: '#3D4A2F',
+      secondary: '#A8B394',
       accent: '#E9E4D4',
-      background: '#F6F3EC',
+      // Oliva no tiene tercer color: su carácter es el contraste oliva/crema y
+      // el aire, no un acento — `destacado` es la marca otra vez.
+      destacado: '#3D4A2F',
+      background: '#F5F3ED',
       text: '#2A2E22',
       fontId: 'jakarta',
-      // La sans ya cargada en negrita: el titular pesa sin meter otra fuente.
-      portalHeadingFontId: 'instrumentSansBold',
+      portalHeadingFontId: 'outfit',
       radius: 'rounded',
       buttonStyle: 'solid',
       // Plana a propósito: el aire y el contraste del oliva ya separan las
       // tarjetas del fondo crema. Una sombra encima las ensucia.
       cardStyle: 'flat',
-      tabBarStyle: 'clasica',
-      barraOscura: false,
     },
+    // La tarjeta de "próxima clase" está siempre arriba, fuera de este
+    // sistema — no es un bloque `sistema` reordenable, ver
+    // portal-home-view.tsx. Esto ordena lo que SÍ lo es: accesos rápidos, la
+    // tira de los 7 días, luego lo del estudio. `estaSemana`/`invitarAmiga`
+    // no están en la lista → se instalan OCULTOS, no borrados (el encargo no
+    // los pide en el Inicio de Oliva; la propietaria los puede reactivar).
+    bloquesHome: ['accesosRapidos', 'tiraSemana', 'contenidoEstudio'],
   },
   {
     id: 'bloom',
-    version: 1,
+    version: 2,
     label: 'Bloom',
-    description: 'Lila y rosa, esquinas de píldora y contenido que flota. Energía y comunidad, para público joven.',
+    description: 'Lila y rosa, esquinas de píldora y una barra que flota. Energía y comunidad, para público joven.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
     defaults: {
-      primary: '#7C6BF5',
-      secondary: '#F26D8A',
+      primary: '#7C5CFC',
+      secondary: '#EFEAFF',
       accent: '#F1EEFE',
+      // El rosa NO es la marca: es el acento. Como fondo de botón se pierde
+      // contra el lila; como icono activo de la barra flotante es la firma
+      // del tema.
+      destacado: '#FF8FB1',
       background: '#FFFFFF',
-      text: '#221B33',
+      text: '#1B1430',
       fontId: 'poppins',
-      portalHeadingFontId: 'outfit',
+      portalHeadingFontId: 'poppins',
       radius: 'pill',
       buttonStyle: 'solid',
       cardStyle: 'elevated',
-      // Pestaña activa expandida: la barra es parte del carácter del tema.
-      tabBarStyle: 'pestanaActiva',
-      barraOscura: false,
+      // Barra flotante — eje independiente de tabBarStyle (que ya no se lee
+      // en render, ver comentario de barraFlotanteSchema en theme-schema.ts).
+      barraFlotante: true,
+      // Solo la tarjeta de próxima clase pisa el radio fijo del portal — el
+      // resto (botones, chips) sigue con los números de siempre; retrofit
+      // completo descartado a propósito, ver harmonic-discovering-kettle.md.
+      radioTema: { card: 30 },
     },
+    // Retos queda fuera de esta ronda (feature de producto nueva, con
+    // persistencia — no se construye a medias): Bloom instala solo con
+    // accesos rápidos + lo del estudio, `estaSemana`/`invitarAmiga` ocultos.
+    bloquesHome: ['accesosRapidos', 'contenidoEstudio'],
   },
   {
     id: 'noir',
-    version: 1,
+    version: 2,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
     defaults: {
-      primary: '#1D2A21',
-      // El dorado NO es el color de marca: es el acento. Como relleno de botón
-      // daría 1,9:1 con texto claro; como icono activo y detalle sobre el verde
-      // oscuro es exactamente lo que hace que el tema se lea como premium.
-      secondary: '#C9A24D',
+      primary: '#1E2B22',
+      // Superficie suave, no el acento — ver `destacado` abajo.
+      secondary: '#A9B79B',
       accent: '#EFE8D5',
-      background: '#F4F2EA',
+      // El dorado NO es el color de marca: es el acento. Como relleno de botón
+      // daría bajo contraste con texto claro; como icono activo y detalle
+      // sobre el verde oscuro es exactamente lo que hace que el tema se lea
+      // como premium.
+      destacado: '#D9B166',
+      background: '#F6F5F0',
       text: '#17201A',
       fontId: 'jakarta',
-      portalHeadingFontId: 'instrumentSerif',
+      portalHeadingFontId: 'instrumentSansBold',
       radius: 'rounded',
       buttonStyle: 'solid',
       cardStyle: 'elevated',
-      tabBarStyle: 'clasica',
       barraOscura: true,
     },
+    // El anillo de progreso semanal primero, luego accesos rápidos.
+    bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
   },
 ];
 

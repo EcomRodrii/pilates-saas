@@ -111,7 +111,23 @@ function varsTitularPortal(t: ThemeConfig): Record<string, string> {
       '--portal-heading-weight': '700',
     };
   }
+  if (t.portalHeadingFontId === 'poppins') {
+    // Tema "Bloom" — reusa --font-poppins (ya cargada para el cuerpo del
+    // mismo tema) en negrita para el titular, sin fuente nueva.
+    return {
+      '--portal-heading-font': "var(--font-poppins), 'Poppins', system-ui, sans-serif",
+      '--portal-heading-weight': '700',
+    };
+  }
   return {};
+}
+
+// El color del icono activo de la barra cuando pisa el tema global (oscura o
+// flotante): `destacado` si el tema lo trae, si no `secondary` — así un tema
+// guardado antes de que existiera `destacado` (Noir en #640) sigue viéndose
+// igual sin tocar nada.
+function colorDestacado(t: ThemeConfig): string {
+  return t.destacado ?? t.secondary;
 }
 
 // Barra inferior oscura (tema "Noir"). Como varsTarjeta('flat'): si el tema no
@@ -124,9 +140,38 @@ function varsBarra(t: ThemeConfig): Record<string, string> {
     '--portal-tabbar-bg': t.primary,
     '--portal-tabbar-active-bg': 'transparent',
     '--portal-tabbar-active-shadow': 'none',
-    '--portal-tabbar-active-fg': t.secondary,
+    '--portal-tabbar-active-fg': colorDestacado(t),
     '--portal-tabbar-idle-fg': 'rgba(255,255,255,.55)',
   };
+}
+
+// Barra flotante sobre el fondo (tema "Bloom") — eje INDEPENDIENTE de
+// barraOscura (ver comentario de `barraFlotanteSchema` en theme-schema.ts).
+// La barra YA es una cápsula que flota sobre el contenido para TODOS los
+// temas desde el rediseño 2026-08 (position:absolute, inset con margen) —
+// esto solo cambia altura/radio/sombra/icono activo, que es lo que de
+// verdad distingue a Bloom. Sin `barraFlotante`, ninguna var.
+function varsBarraFlotante(t: ThemeConfig): Record<string, string> {
+  if (!t.barraFlotante) return {};
+  return {
+    '--portal-tabbar-height': '66px',
+    '--portal-tabbar-radius': '999px',
+    '--portal-tabbar-shadow': '0 16px 40px -18px rgba(60,40,90,.4)',
+    '--portal-tabbar-active-fg': colorDestacado(t),
+  };
+}
+
+// Radio por pieza de las secciones NUEVAS de cada tema (tarjeta de próxima
+// clase, tiraSemana, progresoSemanal) — nunca del resto del portal, que sigue
+// leyendo los números fijos de lib/portal-design.ts. Sin `radioTema`, ninguna
+// var — mismo mecanismo que el resto de esta fase.
+function varsRadioTema(t: ThemeConfig): Record<string, string> {
+  if (!t.radioTema) return {};
+  const vars: Record<string, string> = {};
+  if (t.radioTema.card !== undefined) vars['--portal-radius-card'] = `${t.radioTema.card}px`;
+  if (t.radioTema.boton !== undefined) vars['--portal-radius-boton'] = `${t.radioTema.boton}px`;
+  if (t.radioTema.chip !== undefined) vars['--portal-radius-chip'] = `${t.radioTema.chip}px`;
+  return vars;
 }
 
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
@@ -161,6 +206,10 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsTitularPortal(t),
     // Barra inferior oscura (tema "Noir")
     ...varsBarra(t),
+    // Barra flotante (tema "Bloom")
+    ...varsBarraFlotante(t),
+    // Radio por pieza de las secciones nuevas
+    ...varsRadioTema(t),
   };
 }
 
@@ -203,9 +252,12 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // como enlaces/botones fantasma que pintan `--portal-brand` sobre `--background`.
   if (!cumpleContraste(t.primary, t.background, { grande: true }))
     errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
-  // Par que solo estrena la barra oscura: el icono activo va en el color
-  // secundario SOBRE la marca, una combinación que ningún otro tema pinta.
-  if (t.barraOscura && !cumpleContraste(t.secondary, t.primary, { grande: true }))
-    errores.push('Con la barra oscura, el color secundario no contrasta con la marca (mínimo 3:1).');
+  // Par que solo estrena la barra oscura: SOLO ahí `--portal-tabbar-bg` pasa
+  // a ser `primary` (varsBarra en theme-runtime.ts) — la barra flotante deja
+  // el fondo de la pastilla activa en su valor claro de siempre
+  // (`--portal-tabbar-active-bg` no lo toca `varsBarraFlotante`), así que
+  // `destacado` ahí nunca se pinta sobre la marca y este par no aplica.
+  if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
+    errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
   return { ok: errores.length === 0, errores };
 }
