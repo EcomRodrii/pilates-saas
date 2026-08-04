@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { Instructor, Rol, Sesion, TipoClase } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,7 +24,7 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
 import { useRol } from '@/lib/permisos';
-import { rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { rolesQuePuedeAsignar, puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import {
   DIAS, DIAS_LARGOS, estado as estadoTarjeta, cifras as cifrasTarjeta, accion as accionTarjeta,
   filtrar as filtrarMiembros, ordenar as ordenarMiembros, ordenesDisponibles, situacionDe,
@@ -393,9 +394,16 @@ export default function EquipoPage() {
         title="Equipo"
         description="Instructoras y personal del estudio"
         actions={tab === 'equipo' && gestiona && (
-          <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
-            <Plus size={16} /> Nuevo miembro
-          </button>
+          <div className="flex items-center gap-2">
+            {puedeGestionarEquipo(miRol) && (
+              <Link href="/equipo/liquidaciones" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                <Euro size={16} /> Liquidaciones
+              </Link>
+            )}
+            <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
+              <Plus size={16} /> Nuevo miembro
+            </button>
+          </div>
         )}
       />
 

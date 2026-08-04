@@ -45,26 +45,31 @@ export async function GET(req: NextRequest) {
     if (!instructorId) return NextResponse.json({ items: [] });
     const { data } = await admin
       .from('instructor_tarifas')
-      .select('instructor_id, tarifa_hora, moneda')
+      .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct')
       .eq('studio_id', sesion.studioId)
       .eq('instructor_id', instructorId);
-    return NextResponse.json({
-      items: (data ?? []).map(r => ({
-        instructorId: r.instructor_id, tarifaHora: r.tarifa_hora == null ? null : Number(r.tarifa_hora), moneda: r.moneda,
-      })),
-    });
+    return NextResponse.json({ items: (data ?? []).map(mapTarifaRow) });
   }
 
   // PROPIETARIO/MANAGER: todas las tarifas del estudio.
   const { data } = await admin
     .from('instructor_tarifas')
-    .select('instructor_id, tarifa_hora, moneda')
+    .select('instructor_id, tarifa_hora, moneda, base_mensual_eur, recargo_sustitucion_pct')
     .eq('studio_id', sesion.studioId);
-  return NextResponse.json({
-    items: (data ?? []).map(r => ({
-      instructorId: r.instructor_id, tarifaHora: r.tarifa_hora == null ? null : Number(r.tarifa_hora), moneda: r.moneda,
-    })),
-  });
+  return NextResponse.json({ items: (data ?? []).map(mapTarifaRow) });
+}
+
+function mapTarifaRow(r: {
+  instructor_id: string; tarifa_hora: number | null; moneda: string;
+  base_mensual_eur: number | null; recargo_sustitucion_pct: number | null;
+}) {
+  return {
+    instructorId: r.instructor_id,
+    tarifaHora: r.tarifa_hora == null ? null : Number(r.tarifa_hora),
+    moneda: r.moneda,
+    baseMensualEur: r.base_mensual_eur == null ? null : Number(r.base_mensual_eur),
+    recargoSustitucionPct: r.recargo_sustitucion_pct == null ? null : Number(r.recargo_sustitucion_pct),
+  };
 }
 
 export async function PATCH(req: NextRequest) {
@@ -77,18 +82,53 @@ export async function PATCH(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
   const body = (await req.json().catch(() => null)) as
-    | { instructorId?: unknown; tarifaHora?: unknown }
+    | { instructorId?: unknown; tarifaHora?: unknown; baseMensualEur?: unknown; recargoSustitucionPct?: unknown }
     | null;
   const instructorId = typeof body?.instructorId === 'string' ? body.instructorId : null;
   if (!instructorId) return NextResponse.json({ error: 'Falta instructorId' }, { status: 400 });
 
-  let tarifaHora: number | null = null;
-  if (body?.tarifaHora !== null && body?.tarifaHora !== undefined) {
-    const n = Number(body.tarifaHora);
-    if (!Number.isFinite(n) || n < 0 || n > TARIFA_MAX) {
-      return NextResponse.json({ error: `La tarifa debe estar entre 0 y ${TARIFA_MAX} €/h` }, { status: 400 });
+  // Cada campo es independiente: `undefined` (ausente del body) = no tocarlo,
+  // `null` = borrarlo explícitamente. El formulario de tarifa por hora ya
+  // existente en /equipo solo manda `tarifaHora` — sin esta distinción, ese
+  // PATCH pondría a NULL la base/recargo que ya se hubieran fijado desde la
+  // pantalla de liquidaciones.
+  let tarifaHora: number | null | undefined;
+  if (body?.tarifaHora !== undefined) {
+    if (body.tarifaHora === null) {
+      tarifaHora = null;
+    } else {
+      const n = Number(body.tarifaHora);
+      if (!Number.isFinite(n) || n < 0 || n > TARIFA_MAX) {
+        return NextResponse.json({ error: `La tarifa debe estar entre 0 y ${TARIFA_MAX} €/h` }, { status: 400 });
+      }
+      tarifaHora = Math.round(n * 100) / 100;
     }
-    tarifaHora = Math.round(n * 100) / 100;
+  }
+
+  let baseMensualEur: number | null | undefined;
+  if (body?.baseMensualEur !== undefined) {
+    if (body.baseMensualEur === null) {
+      baseMensualEur = null;
+    } else {
+      const n = Number(body.baseMensualEur);
+      if (!Number.isFinite(n) || n < 0 || n > 99999.99) {
+        return NextResponse.json({ error: 'La base mensual debe estar entre 0 y 99999,99 €' }, { status: 400 });
+      }
+      baseMensualEur = Math.round(n * 100) / 100;
+    }
+  }
+
+  let recargoSustitucionPct: number | null | undefined;
+  if (body?.recargoSustitucionPct !== undefined) {
+    if (body.recargoSustitucionPct === null) {
+      recargoSustitucionPct = null;
+    } else {
+      const n = Number(body.recargoSustitucionPct);
+      if (!Number.isFinite(n) || n < 0 || n > 999.99) {
+        return NextResponse.json({ error: 'El recargo por sustitución debe estar entre 0 y 999,99%' }, { status: 400 });
+      }
+      recargoSustitucionPct = Math.round(n * 100) / 100;
+    }
   }
 
   // La ficha destino debe existir y pertenecer al estudio de la sesión.
@@ -103,7 +143,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { error } = await admin.from('instructor_tarifas').upsert({
-    instructor_id: instructorId, studio_id: sesion.studioId, tarifa_hora: tarifaHora,
+    instructor_id: instructorId, studio_id: sesion.studioId,
+    ...(tarifaHora !== undefined && { tarifa_hora: tarifaHora }),
+    ...(baseMensualEur !== undefined && { base_mensual_eur: baseMensualEur }),
+    ...(recargoSustitucionPct !== undefined && { recargo_sustitucion_pct: recargoSustitucionPct }),
     actualizado_en: new Date().toISOString(), actualizado_por: sesion.userId,
   }, { onConflict: 'instructor_id' });
   if (error) {
