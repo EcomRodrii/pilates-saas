@@ -72,7 +72,7 @@ async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
   // El editor único (theme-workspace.tsx) arranca ya en "Secciones" con
   // "Portal — Inicio" como página por defecto — antes había que entrar a la
   // pestaña "Bloques del portal" a propósito, ahora es la vista de llegada.
-  await page.goto('/configuracion/apariencia');
+  await page.goto('/configuracion/apariencia/editor');
   return { peticionesGuardar, publicadasRef: () => publicadas };
 }
 

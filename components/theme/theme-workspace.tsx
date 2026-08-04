@@ -43,7 +43,7 @@ export function ThemeWorkspace() {
   const [pagina, setPagina] = useState<Pagina>('portal-home');
   const [panelIzq, setPanelIzq] = useState<PanelIzq>('secciones');
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
-  const [categoria, setCategoria] = useState<AjustesCategoriaId>('tema');
+  const [categoria, setCategoria] = useState<AjustesCategoriaId>('paleta');
   const [dispositivo, setDispositivo] = useState<'desktop' | 'mobile'>('mobile');
 
   // Los 4 hooks se llaman siempre, sin condicionar por `pagina` (reglas de
