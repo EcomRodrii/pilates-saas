@@ -1209,7 +1209,7 @@ export default function ReservarPage() {
 
             {/* ── DONE ── */}
             {loginStep === 'done' && bookingSesion && (
-              <div className="flex flex-col items-center text-center gap-4">
+              <div className="flex flex-col items-center text-center gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
                   <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
@@ -1253,7 +1253,7 @@ export default function ReservarPage() {
 
             {/* ── ESPERA ── */}
             {loginStep === 'espera' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4">
+              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -1273,7 +1273,7 @@ export default function ReservarPage() {
 
             {/* ── PENDIENTE DE APROBACIÓN (Fase 2a) ── */}
             {loginStep === 'pendiente' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4">
+              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -1290,7 +1290,7 @@ export default function ReservarPage() {
 
             {/* ── LOGIN (magic link) ── */}
             {loginStep === 'login' && (
-              <>
+              <div className="contenido-anim">
                 {!enlaceEnviado ? (
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
@@ -1327,12 +1327,12 @@ export default function ReservarPage() {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}
             {loginStep === 'registro' && (
-              <>
+              <div className="contenido-anim">
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
                 <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
                 <input type="text"
@@ -1355,12 +1355,12 @@ export default function ReservarPage() {
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
                 </button>
-              </>
+              </div>
             )}
 
             {/* ── CONTRATO (aceptación clickwrap) ── */}
             {loginStep === 'contrato' && (
-              <>
+              <div className="contenido-anim">
                 <div className="flex items-center gap-2 mb-1">
                   <FileText size={16} style={{ color: PRIMARY }} className="shrink-0" />
                   <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Acepta los términos</h2>
@@ -1397,12 +1397,12 @@ export default function ReservarPage() {
                     Aceptar y continuar →
                   </button>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
-              <>
+              <div className="contenido-anim">
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-4">Confirmar reserva</h2>
                 <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1473,7 +1473,7 @@ export default function ReservarPage() {
                   style={{ backgroundColor: PRIMARY }}>
                   {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
                 </button>
-              </>
+              </div>
             )}
           </>
         )}

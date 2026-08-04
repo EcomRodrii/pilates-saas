@@ -36,7 +36,7 @@ export function PublicSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6 animate-sheet-backdrop-in"
       style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)' }}
       onClick={closeOnBackdropClick ? onClose : undefined}
     >
@@ -46,7 +46,7 @@ export function PublicSheet({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={sheetClassName}
+        className={`${sheetClassName} animate-sheet-pop-in`}
         style={sheetStyle}
         onClick={e => e.stopPropagation()}
       >
