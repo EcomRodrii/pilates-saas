@@ -50,7 +50,10 @@ export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
   listadoClases: 'Calendario de clases',
   listadoBonos: 'Tu bono y accesos rápidos',
   tiraSemana: 'Tira de la semana (7 días, con punto si hay clase reservada)',
-  progresoSemanal: 'Progreso semanal (anillo con tus reservas de esta semana)',
+  // Sin la frase "esta semana" a propósito: colisionaba con el bloque
+  // "Esta semana" en los e2e existentes (getByText hace match de subcadena
+  // sin distinguir mayúsculas por defecto — e2e/apariencia-inicio-portal.spec.ts).
+  progresoSemanal: 'Progreso semanal (anillo con tus clases reservadas)',
 };
 
 // Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
