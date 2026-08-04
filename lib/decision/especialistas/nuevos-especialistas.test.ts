@@ -68,6 +68,78 @@ test('FINANZAS: dos socias distintas con bonos casi agotados → una candidata p
   assert.equal(c.length, 2);
 });
 
+// F2 (informe fila 16): bono repetido más caro por sesión que el mensual
+// equivalente, con frecuencia real que lo demuestra.
+const asistida = (socioId: string, hace: number): Reserva =>
+  ({ id: `r-${++n}`, studioId: 'e1', socioId, sesionId: 's', estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(hace) });
+
+test('FINANZAS F2: bono repetido (2+) más caro por sesión que la mensual equivalente, con frecuencia alta → PROPONER_SUSCRIPCION_MENSUAL', () => {
+  // Bono 4 sesiones/40€ = 10€/sesión. Mensual 60€/mes. ~3x/semana → mensual sale a
+  // 60/(3*4.33) ≈ 4,62€/sesión — ahorro de sobra por encima del 20%.
+  const asistencias = Array.from({ length: 24 }, (_, i) => asistida('1', i * 2.3));
+  const s = snap({
+    socios: [socio({ id: '1', nombre: 'Carla' })],
+    reservas: asistencias,
+    planesTarifa: [
+      plan({ id: 'b', tipo: 'BONO', nombre: 'Bono 4', precio: 40, sesiones: 4 }),
+      plan({ id: 'm', tipo: 'MENSUAL', nombre: 'Mensual libre', precio: 60, sesiones: null }),
+    ],
+    suscripciones: [
+      sus('1', 'b', { fechaInicio: diasAntes(20), sesionesRestantes: 3 }),
+      sus('1', 'b', { fechaInicio: diasAntes(50), estado: 'CANCELADA', sesionesRestantes: 0 }),
+    ],
+  });
+  const c = finanzas.detectar(s, M, NOW);
+  const f2 = c.filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL');
+  assert.equal(f2.length, 1);
+  assert.equal(f2[0].socioId, '1');
+  assert.equal(f2[0].riesgo, 'OPORTUNIDAD');
+});
+
+test('FINANZAS F2: un solo bono (sin renovación previa) no dispara — falta el patrón sostenido', () => {
+  const asistencias = Array.from({ length: 24 }, (_, i) => asistida('1', i * 2.3));
+  const s = snap({
+    socios: [socio({ id: '1' })],
+    reservas: asistencias,
+    planesTarifa: [
+      plan({ id: 'b', tipo: 'BONO', nombre: 'Bono 4', precio: 40, sesiones: 4 }),
+      plan({ id: 'm', tipo: 'MENSUAL', nombre: 'Mensual libre', precio: 60, sesiones: null }),
+    ],
+    suscripciones: [sus('1', 'b', { fechaInicio: diasAntes(20), sesionesRestantes: 3 })],
+  });
+  assert.equal(finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL').length, 0);
+});
+
+test('FINANZAS F2: sin plan MENSUAL en el estudio → no dispara (no hay nada real que ofrecer)', () => {
+  const asistencias = Array.from({ length: 24 }, (_, i) => asistida('1', i * 2.3));
+  const s = snap({
+    socios: [socio({ id: '1' })],
+    reservas: asistencias,
+    planesTarifa: [plan({ id: 'b', tipo: 'BONO', nombre: 'Bono 4', precio: 40, sesiones: 4 })],
+    suscripciones: [
+      sus('1', 'b', { fechaInicio: diasAntes(20), sesionesRestantes: 3 }),
+      sus('1', 'b', { fechaInicio: diasAntes(50), estado: 'CANCELADA', sesionesRestantes: 0 }),
+    ],
+  });
+  assert.equal(finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL').length, 0);
+});
+
+test('FINANZAS F2: frecuencia insuficiente (menos de 4 asistencias recientes) → sin dato fiable, no dispara', () => {
+  const s = snap({
+    socios: [socio({ id: '1' })],
+    reservas: [asistida('1', 1), asistida('1', 8)],
+    planesTarifa: [
+      plan({ id: 'b', tipo: 'BONO', nombre: 'Bono 4', precio: 40, sesiones: 4 }),
+      plan({ id: 'm', tipo: 'MENSUAL', nombre: 'Mensual libre', precio: 60, sesiones: null }),
+    ],
+    suscripciones: [
+      sus('1', 'b', { fechaInicio: diasAntes(20), sesionesRestantes: 3 }),
+      sus('1', 'b', { fechaInicio: diasAntes(50), estado: 'CANCELADA', sesionesRestantes: 0 }),
+    ],
+  });
+  assert.equal(finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL').length, 0);
+});
+
 test('MARKETING: 5+ inactivas (asistieron y pararon 30d+) → PREPARAR_CAMPANA; menos → nada', () => {
   const inactivas = Array.from({ length: 5 }, (_, i) => socio({ id: `i${i}` }));
   const reserva = (socioId: string): Reserva =>

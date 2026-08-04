@@ -34,7 +34,9 @@ export type TipoRecomendacion =
   // Onboarding (primeros 30 días de una socia nueva)
   | 'IMPULSAR_ONBOARDING'
   // Riesgo por intentos de reserva fallidos (informe fila 14)
-  | 'RIESGO_RESERVA_FALLIDA';
+  | 'RIESGO_RESERVA_FALLIDA'
+  // Conversión bono→suscripción según frecuencia real (informe fila 16)
+  | 'PROPONER_SUSCRIPCION_MENSUAL';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';

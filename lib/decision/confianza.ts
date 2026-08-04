@@ -275,6 +275,28 @@ export function confianzaRenovarBono(c: {
   return evaluarNivel(criterios, a && b, a, b);
 }
 
+// PROPONER_SUSCRIPCION_MENSUAL (Finanzas F2, informe fila 16) — el coste real
+// de sus bonos repetidos supera lo que pagaría con el plan mensual
+// equivalente. `patronSostenido` es el criterio base, no uno más: sin
+// repetición, un ahorro que se ve bien en un solo bono es ruido de una
+// socia que acaba de empezar (su frecuencia todavía no es un hábito) — nunca
+// dispara sola. Techo deliberado en MEDIA aunque se cumplan ambos criterios:
+// es una predicción sobre gasto futuro (depende de que la frecuencia se
+// mantenga), no un hecho verificable como "sesiones restantes = 0" — mismo
+// criterio que confianzaOcupacionBajaEstructural techa por debajo del máximo
+// teórico.
+export function confianzaProponerSuscripcionMensual(c: {
+  ahorroClaro: boolean;      // ahorraría ≥20% pasándose a mensual
+  patronSostenido: boolean;  // ≥2 bonos del mismo plan/tipo en 90 días
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.ahorroClaro, etiqueta: 'ahorraría un 20% o más pasándose a mensual' },
+    { valor: c.patronSostenido, etiqueta: 'lleva comprando bonos seguidos del mismo tipo' },
+  ];
+  const { ahorroClaro: a, patronSostenido: b } = c;
+  return evaluarNivel(criterios, false, a && b, b && !a);
+}
+
 // PREPARAR_CAMPANA (Marketing M1) — hay volumen suficiente de socias inactivas /
 // leads para que merezca la pena una campaña. ALTA: a+b · MEDIA: solo a · sin BAJA.
 export function confianzaPrepararCampana(c: {
