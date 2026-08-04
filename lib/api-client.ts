@@ -1449,6 +1449,8 @@ export async function enviarPruebaPlantilla(datos: BorradorPlantilla): Promise<{
 export interface TarifaInstructor {
   instructorId: string;
   tarifaHora: number | null;
+  baseMensualEur: number | null;
+  recargoSustitucionPct: number | null;
 }
 
 export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
@@ -1464,17 +1466,90 @@ export async function fetchTarifasEquipo(): Promise<TarifaInstructor[]> {
 
 export async function actualizarTarifaInstructor(
   instructorId: string, tarifaHora: number | null,
+  extra?: { baseMensualEur?: number | null; recargoSustitucionPct?: number | null },
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const res = await fetch('/api/equipo/tarifas', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ instructorId, tarifaHora }),
+      body: JSON.stringify({ instructorId, tarifaHora, ...extra }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo guardar la tarifa' };
+  }
+}
+
+// Liquidación de instructoras (fila 11 del informe estratégico): desglose
+// transparente de base + variable por clase + sustituciones + reparto de
+// penalizaciones, persistido con estado BORRADOR→CONFIRMADA→PAGADA. Sin
+// pago real — ver migración 20260804150000_liquidaciones_instructoras.sql.
+export interface Liquidacion {
+  id: string;
+  instructorId: string;
+  periodoAnio: number;
+  periodoMes: number;
+  baseEur: number;
+  nClasesPropias: number;
+  variablePropiasEur: number;
+  nClasesSustitucion: number;
+  variableSustitucionEur: number;
+  nPenalizaciones: number;
+  repartoPenalizacionesEur: number;
+  nClasesSinTarifa: number;
+  totalEur: number;
+  estado: 'BORRADOR' | 'CONFIRMADA' | 'PAGADA';
+  confirmadaEn: string | null;
+  pagadaEn: string | null;
+  referenciaPago: string | null;
+  generadaEn: string;
+}
+
+export async function fetchLiquidaciones(
+  anio: number, mes: number, instructorId?: string,
+): Promise<Liquidacion[]> {
+  try {
+    const qs = new URLSearchParams({ anio: String(anio), mes: String(mes) });
+    if (instructorId) qs.set('instructorId', instructorId);
+    const res = await fetch(`/api/equipo/liquidaciones?${qs.toString()}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: Liquidacion[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function generarLiquidacion(
+  instructorId: string, anio: number, mes: number,
+): Promise<{ ok: boolean; item?: Liquidacion; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/liquidaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ instructorId, anio, mes }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { item?: Liquidacion; error?: string };
+    return res.ok ? { ok: true, item: data.item } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo generar la liquidación' };
+  }
+}
+
+export async function transicionarLiquidacion(
+  id: string, accion: 'confirmar' | 'marcar_pagada', referenciaPago?: string,
+): Promise<{ ok: boolean; item?: Liquidacion; error?: string }> {
+  try {
+    const res = await fetch('/api/equipo/liquidaciones', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, accion, referenciaPago }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { item?: Liquidacion; error?: string };
+    return res.ok ? { ok: true, item: data.item } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo actualizar la liquidación' };
   }
 }
 
