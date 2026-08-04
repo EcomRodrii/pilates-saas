@@ -106,6 +106,10 @@ interface CitaCardProps {
   onToggleFisio: (id: string) => void;
   verPrecio: boolean;
   puedeCobrar: boolean;
+  // Ya se creó un recibo/factura para esta cita en esta sesión, aunque
+  // `cita.pagada` siga en false porque el guardado posterior falló — no
+  // ofrecer cobrar otra vez (ver comentario de recibosGenerados).
+  yaGenerado: boolean;
   gestionaCitas: boolean;
 }
 
@@ -122,6 +126,7 @@ function CitaCard({
   onToggleFisio,
   verPrecio,
   puedeCobrar,
+  yaGenerado,
   gestionaCitas,
 }: CitaCardProps) {
   const [hovered, setHovered] = useState(false);
@@ -206,8 +211,16 @@ function CitaCard({
           )}
           {cita.precio != null && cita.tipo !== 'FISIOTERAPIA' && (
             cita.pagada ? (
-              <span title="Cobrada — factura generada" aria-label="Cobrada">
+              // Sin "factura generada" en el texto: citas marcadas pagada
+              // ANTES de este cambio no tienen ninguna factura real detrás,
+              // y no hay forma de distinguirlas de las nuevas sin un vínculo
+              // en el esquema — mejor un texto que valga para ambas.
+              <span title="Cobrada" aria-label="Cobrada">
                 <CheckCircle2 size={16} className="text-success" />
+              </span>
+            ) : yaGenerado ? (
+              <span title="Cobro ya registrado, actualiza la página — no vuelvas a pulsar cobrar" aria-label="Cobro registrado, pendiente de confirmar">
+                <Loader2 size={16} className="text-warning animate-spin" />
               </span>
             ) : puedeCobrar ? (
               <button
@@ -289,11 +302,22 @@ export default function CitasPage() {
   // el del modal para el alta, el de la lista para las acciones de cada fila.
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [errorLista, setErrorLista] = useState<string | null>(null);
+  // El banner de errorLista dice "No se ha guardado" por defecto — falso si
+  // el aviso es sobre un cobro que SÍ se registró (ver handleConfirmarCobro).
+  const [avisoDineroMovido, setAvisoDineroMovido] = useState(false);
   const [guardando, setGuardando] = useState(false);
   // Cita pendiente de confirmar cobro (genera factura real, así que pide
   // confirmación explícita — no es un toggle de un clic como antes).
   const [cobrandoId, setCobrandoId] = useState<string | null>(null);
   const [procesandoCobro, setProcesandoCobro] = useState(false);
+  // Guarda de re-intento dentro de esta sesión de navegador: en cuanto
+  // crearFacturaDirecta confirma que el recibo/factura YA se creó (éxito o
+  // fallo parcial tras el cobro), esta cita deja de poder volver a cobrarse
+  // aunque el updateCita posterior falle y cita.pagada se quede en false —
+  // sin esto, un fallo de red justo ahí permitiría un doble cobro con un
+  // segundo clic. No sobrevive a un recargo de página (para eso haría falta
+  // persistir el vínculo cita→recibo, fuera de alcance de este cambio).
+  const [recibosGenerados, setRecibosGenerados] = useState<Set<string>>(new Set());
 
   // Form state
   const [form, setForm] = useState({
@@ -406,12 +430,14 @@ export default function CitasPage() {
 
   async function handleCompletar(id: string) {
     setErrorLista(null);
+    setAvisoDineroMovido(false);
     const r = await completarCita(id);
     if (!r.ok) setErrorLista(r.error);
   }
 
   async function handleCancelar(id: string) {
     setErrorLista(null);
+    setAvisoDineroMovido(false);
     const r = await cancelarCita(id);
     if (!r.ok) setErrorLista(r.error);
   }
@@ -425,6 +451,7 @@ export default function CitasPage() {
     const cita = citas.find((c) => c.id === id);
     if (!cita) return;
     setErrorLista(null);
+    setAvisoDineroMovido(false);
     const r = await updateCita(id, { pagada: !cita.pagada });
     if (!r.ok) setErrorLista(r.error);
   }
@@ -435,29 +462,50 @@ export default function CitasPage() {
   // "pagada" sin ningún rastro fiscal detrás).
   async function handleConfirmarCobro() {
     const cita = citas.find((c) => c.id === cobrandoId);
-    if (!cita || cita.precio == null || procesandoCobro) return;
+    if (!cita || procesandoCobro || recibosGenerados.has(cita.id)) return;
+    if (cita.precio == null) {
+      // Puede pasar si el precio se quitó/editó mientras el diálogo estaba
+      // abierto — antes esto no daba ningún aviso y el botón "Confirmar
+      // cobro" simplemente no hacía nada, sin explicar por qué.
+      setErrorLista('Esta cita ya no tiene precio fijado. Ciérralo y edítala antes de cobrar.');
+      setAvisoDineroMovido(false);
+      return;
+    }
     setProcesandoCobro(true);
     setErrorLista(null);
+    setAvisoDineroMovido(false);
     const tipoLabel = TIPO_BADGE[cita.tipo].label;
     const res = await crearFacturaDirecta({
       socioId: cita.socioId,
       concepto: `Cita — ${tipoLabel} (${formatFecha(cita.inicio)})`,
       importe: cita.precio,
     });
-    if (!res.ok) {
-      // cobroRegistrado=true: el recibo/factura ya se creó y solo falló un
-      // paso posterior (ver crearFacturaDirecta) — no reintentar a ciegas,
-      // avisar y dejar que quien lo vea decida desde Cobros.
-      setErrorLista('cobroRegistrado' in res
-        ? 'El cobro se registró, pero hubo un problema al sellar la factura. Revísalo en Cobros.'
-        : res.error);
+    if (!res.ok && !('cobroRegistrado' in res)) {
+      // Nada se llegó a crear (fallo antes de tocar `recibos`) — seguro
+      // reintentar, el diálogo se queda abierto.
+      setErrorLista(res.error);
       setProcesandoCobro(false);
-      if (!('cobroRegistrado' in res)) return;
+      return;
     }
+    // A partir de aquí el recibo YA EXISTE (éxito, o fallo parcial con
+    // cobroRegistrado=true al sellar la factura) — se bloquea el reintento
+    // de esta cita en esta sesión pase lo que pase con el updateCita de
+    // abajo, para no arriesgar un segundo recibo/factura con otro clic.
+    setRecibosGenerados((prev) => new Set(prev).add(cita.id));
     const rCita = await updateCita(cita.id, { pagada: true });
-    if (!rCita.ok) setErrorLista(rCita.error);
     setProcesandoCobro(false);
     setCobrandoId(null);
+    if (!res.ok) {
+      setAvisoDineroMovido(true);
+      setErrorLista(rCita.ok
+        ? 'El cobro se registró, pero hubo un problema al sellar la factura. Revísalo en Cobros.'
+        : `El cobro se registró, pero hubo un problema al sellar la factura Y al guardar el estado de la cita. Revísalo en Cobros — no vuelvas a pulsar "Confirmar cobro" para esta cita. (${rCita.error})`);
+      return;
+    }
+    if (!rCita.ok) {
+      setAvisoDineroMovido(true);
+      setErrorLista(`Se generó la factura, pero no se pudo marcar la cita como cobrada. La cita seguirá viéndose "pendiente" — no la vuelvas a cobrar, ya tiene factura. ${rCita.error}`);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -639,6 +687,7 @@ export default function CitasPage() {
                 onToggleFisio={handleToggleFisio}
                 verPrecio={verPrecio}
                 puedeCobrar={puedeCobrar}
+                yaGenerado={recibosGenerados.has(cita.id)}
                 gestionaCitas={gestionaCitas}
               />
             );
@@ -648,7 +697,11 @@ export default function CitasPage() {
 
       {errorLista && (
         <div role="alert" className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          <span className="font-medium">No se ha guardado.</span> {errorLista}
+          {/* "No se ha guardado" es falso cuando el cobro SÍ se registró y solo
+              falló un paso posterior (sellado de factura / marcar la cita) —
+              decirlo igual sería justo el tipo de mensaje engañoso sobre dinero
+              que este cambio intenta evitar. */}
+          <span className="font-medium">{avisoDineroMovido ? 'Atención.' : 'No se ha guardado.'}</span> {errorLista}
         </div>
       )}
 
