@@ -42,7 +42,7 @@ const CAMPOS_VISIBLES = [
  * "3 cambios sin publicar" en vez de un "hay cambios" sin cuerpo — y porque
  * metadatos como `themeCustomized` cambian sin que la socia note nada.
  */
-function contarCambios(borrador: ThemeConfig, publicado: ThemeConfig | null): number {
+export function contarCambios(borrador: ThemeConfig, publicado: ThemeConfig | null): number {
   if (!publicado) return 0;
   return CAMPOS_VISIBLES.filter((k) => borrador[k] !== publicado[k]).length;
 }

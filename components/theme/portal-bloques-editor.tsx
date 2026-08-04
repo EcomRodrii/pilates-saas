@@ -60,7 +60,7 @@ const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
   bonos: 'Tu bono y accesos rápidos se mantienen siempre visibles; los bloques que añadas van antes o después.',
 };
 
-function labelDe(b: BloqueHome): string {
+export function labelDe(b: BloqueHome): string {
   if (b.kind === 'sistema') return BLOQUE_SISTEMA_LABEL[b.sistemaId];
   return getBlockCatalogEntry(b.kind)?.label ?? b.kind;
 }
@@ -417,9 +417,17 @@ export function useBloquesEditor(pantalla: PantallaId) {
     setAviso(null);
   }
 
+  // "Deshacer" del editor a pantalla completa: relee el borrador de ESTA
+  // pantalla desde el servidor, descartando ediciones locales — distinto de
+  // `restaurar()`, que vacía a los bloques `sistema` de fábrica.
+  function recargar() {
+    fetchBloquesBorrador(pantalla).then((r) => setBloques(() => r)).catch(() => {});
+    setAviso(null);
+  }
+
   return {
     rol, bloquesPorPantalla, bloques, estado, guardando, publicando, aviso,
-    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar,
+    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar, recargar,
   };
 }
 

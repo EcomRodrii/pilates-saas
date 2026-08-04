@@ -100,7 +100,20 @@ export function useHomeSeccionesEditor() {
     setAviso(null);
   }
 
-  return { rol, items, ocultos, estado, guardando, aviso, onDragEnd, toggle, guardar, restaurar };
+  // "Deshacer" del editor a pantalla completa: relee desde el servidor,
+  // descartando el reordenado/ocultado sin guardar — distinto de
+  // `restaurar()`, que vuelve al orden de fábrica.
+  function recargar() {
+    fetchLayout().then((l) => {
+      const todos = SECCIONES_EDITABLES.map((s) => s.id);
+      const orden = [...l.home.orden.filter((h) => todos.includes(h)), ...todos.filter((h) => !l.home.orden.includes(h))];
+      setItems(orden);
+      setOcultos(new Set(l.home.ocultos));
+    }).catch(() => {});
+    setAviso(null);
+  }
+
+  return { rol, items, ocultos, estado, guardando, aviso, onDragEnd, toggle, guardar, restaurar, recargar };
 }
 
 function Fila({ seccion, oculto, onToggle }: { seccion: HomeSeccion; oculto: boolean; onToggle: () => void }) {
