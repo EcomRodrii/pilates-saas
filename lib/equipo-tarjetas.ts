@@ -44,6 +44,21 @@ export function semanasSinClase(
 }
 
 /**
+ * Clases/mes de media (sobre los últimos 90 días), o null sin datos. El
+ * aviso "Sin actividad" (8 semanas sin clase Y sin próxima) solo detecta
+ * abandono total — una instructora freelance que da religiosamente 2
+ * clases/mes SIEMPRE tiene una próxima programada, así que ese aviso nunca
+ * se dispara para ella. Esta cifra es lo que permite a la propietaria
+ * distinguir "plantilla" (muchas clases/semana) de "colaboradora ocasional"
+ * (pocas/mes) de un vistazo, sin inventar un campo "es freelance" que
+ * habría que mantener a mano y que quedaría desactualizado.
+ */
+export function frecuenciaMensual(clasesUltimos90Dias: number | null): number | null {
+  if (clasesUltimos90Dias == null) return null;
+  return Math.round((clasesUltimos90Dias / 90) * 30 * 10) / 10;
+}
+
+/**
  * Todo lo que el SERVIDOR puede llegar a saber de una persona del equipo.
  * Nunca se manda tal cual por HTTP: `GET /api/equipo/tarjetas` decide, por
  * rol de quien mira, qué campos rellena con el dato real y cuáles pone a
@@ -71,6 +86,10 @@ export interface MiembroCompleto {
   proximaClaseIso: string | null;
   /** ISO de su última clase PASADA (no cancelada), o null si nunca dio ninguna. */
   ultimaClaseIso: string | null;
+  /** Clases (no canceladas) en los últimos 90 días, o null sin datos — base
+   * de frecuenciaMensual(), para distinguir plantilla de colaboradora
+   * ocasional. */
+  clasesUltimos90Dias: number | null;
   /** Clases programadas esta semana (L-D), reales. */
   semana: number[];
   /** Horario de cada día (p.ej. "10:00 · 19:30"), o null si libre ese día. */
@@ -197,6 +216,8 @@ export interface CifrasTarjeta {
   segundaEtiqueta: string;
   valoracionTexto: string;
   conValoracion: boolean;
+  /** "≈2 clases/mes", o null sin datos suficientes — ver frecuenciaMensual(). */
+  frecuenciaTexto: string | null;
 }
 
 /** Las cifras de la tarjeta, ya recortadas al rol de quien mira. */
@@ -209,6 +230,7 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
   const dueña = rolViewer === 'PROPIETARIO';
 
   const coste = dueña ? m.costeMes : null;
+  const frecuencia = frecuenciaMensual(m.clasesUltimos90Dias);
   return {
     verBarras,
     verCifras,
@@ -221,6 +243,7 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
       ? `${m.valoracion.media.toFixed(1)} de ${m.valoracion.total} clientas`
       : 'sin valoraciones aún',
     conValoracion: !!(m.valoracion && m.valoracion.total > 0),
+    frecuenciaTexto: frecuencia == null ? null : `≈${frecuencia % 1 === 0 ? frecuencia : frecuencia.toFixed(1)} clase${frecuencia === 1 ? '' : 's'}/mes`,
   };
 }
 

@@ -928,6 +928,13 @@ function TarjetaMiembro({
         </div>
       )}
 
+      {/* Frecuencia media (90 días): distingue de un vistazo "plantilla" de
+          "colaboradora ocasional/freelance" sin necesitar un campo aparte que
+          alguien tenga que marcar a mano. */}
+      {cif.verCifras && cif.frecuenciaTexto && (
+        <p className="text-[11px] text-muted-foreground/70 -mt-1">{cif.frecuenciaTexto} de media</p>
+      )}
+
       {!m.conAcceso && m.email && gestiona && (
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px] text-warning font-medium flex items-center gap-1.5"><AlertTriangle size={12} />Todavía sin acceso</span>

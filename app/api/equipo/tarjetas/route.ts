@@ -95,8 +95,16 @@ export async function GET(req: NextRequest) {
   // Primera fila vista de cada instructor_id = su más reciente, porque venimos
   // ordenados por inicio descendente.
   const ultimaClasePorInstructor = new Map<string, string>();
+  // Mismo dataset, sin otra query: cuántas de esas hasta 2000 sesiones caen en
+  // los últimos 90 días, por instructora — base de frecuenciaMensual() en
+  // lib/equipo-tarjetas.ts (ver ese comentario para el porqué).
+  const hace90dias = new Date(ahora.getTime() - 90 * MS_DIA).toISOString();
+  const clasesUltimos90DiasPorInstructor = new Map<string, number>();
   for (const row of (ultimaClaseRes.data ?? []) as { instructor_id: string; inicio: string }[]) {
     if (!ultimaClasePorInstructor.has(row.instructor_id)) ultimaClasePorInstructor.set(row.instructor_id, row.inicio);
+    if (row.inicio >= hace90dias) {
+      clasesUltimos90DiasPorInstructor.set(row.instructor_id, (clasesUltimos90DiasPorInstructor.get(row.instructor_id) ?? 0) + 1);
+    }
   }
 
   const sesionesRows = (sesiones ?? []) as SesionFila[];
@@ -220,6 +228,7 @@ export async function GET(req: NextRequest) {
       email: i.email ?? null, telefono: i.telefono ?? null,
       enClaseAhora, claseHoyLabel, proximaClaseIso,
       ultimaClaseIso: ultimaClasePorInstructor.get(i.id) ?? null,
+      clasesUltimos90Dias: clasesUltimos90DiasPorInstructor.get(i.id) ?? (ultimaClasePorInstructor.has(i.id) ? 0 : null),
       semana, horasDia,
       ocupacionPct, valoracion: valoracionPorInstructor.get(i.id) ?? null,
       horasMes: Math.round(horasMes * 10) / 10, costeMes,
@@ -234,7 +243,7 @@ export async function GET(req: NextRequest) {
         email: null, telefono: null,
         ocupacionPct: null, valoracion: null, horasMes: null, costeMes: null,
         semana: [0, 0, 0, 0, 0, 0, 0], horasDia: [null, null, null, null, null, null, null],
-        ultimaClaseIso: null,
+        ultimaClaseIso: null, clasesUltimos90Dias: null,
       };
     }
     return base;

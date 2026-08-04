@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   situacionDe, estado, cifras, accion, filtrar, ordenar, pistaSemana, diaLibre, clases,
-  semanasSinClase, SEMANAS_SIN_CLASE_AVISO,
+  semanasSinClase, SEMANAS_SIN_CLASE_AVISO, frecuenciaMensual,
   type MiembroCompleto,
 } from './equipo-tarjetas.ts';
 
@@ -14,6 +14,7 @@ function m(overrides: Partial<MiembroCompleto> = {}): MiembroCompleto {
     avatar: null, fotoUrl: null, activo: true, conAcceso: true, esYo: false,
     email: 'julia@x.es', telefono: null,
     enClaseAhora: false, claseHoyLabel: null, proximaClaseIso: null, ultimaClaseIso: null,
+    clasesUltimos90Dias: null,
     semana: [1, 0, 1, 0, 1, 0, 0], horasDia: [null, null, null, null, null, null, null],
     ocupacionPct: 80, valoracion: { media: 4.8, total: 34 },
     horasMes: 20, costeMes: 400, coincideContigo: null,
@@ -144,6 +145,35 @@ test('recepción (situación mostrador) no muestra cifras de clase a nadie', () 
   const c = cifras(m({ rol: 'RECEPCION', ocupacionPct: null, horasMes: null }), 'PROPIETARIO', AHORA);
   assert.equal(c.verCifras, false);
   assert.equal(c.verBarras, false);
+});
+
+// ── frecuenciaMensual() / cifras().frecuenciaTexto ──────────────────────────
+
+test('frecuenciaMensual: null sin datos', () => {
+  assert.equal(frecuenciaMensual(null), null);
+});
+
+test('frecuenciaMensual: 6 clases en 90 días ≈ 2/mes', () => {
+  assert.equal(frecuenciaMensual(6), 2);
+});
+
+test('frecuenciaMensual: 0 clases en 90 días es un dato real (0), no "sin datos"', () => {
+  assert.equal(frecuenciaMensual(0), 0);
+});
+
+test('cifras().frecuenciaTexto: freelance de 2 clases/mes lo dice explícitamente', () => {
+  const c = cifras(m({ clasesUltimos90Dias: 6 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.frecuenciaTexto, '≈2 clases/mes');
+});
+
+test('cifras().frecuenciaTexto: singular correcto para 1 clase/mes', () => {
+  const c = cifras(m({ clasesUltimos90Dias: 3 }), 'PROPIETARIO', AHORA);
+  assert.equal(c.frecuenciaTexto, '≈1 clase/mes');
+});
+
+test('cifras().frecuenciaTexto: null sin datos suficientes', () => {
+  const c = cifras(m({ clasesUltimos90Dias: null }), 'PROPIETARIO', AHORA);
+  assert.equal(c.frecuenciaTexto, null);
 });
 
 // ── accion(): una acción con nombre propio ──────────────────────────────────
