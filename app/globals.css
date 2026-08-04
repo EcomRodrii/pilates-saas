@@ -293,6 +293,15 @@ nextjs-portal { display: none !important; }
 .animate-drawer-sheet-in { animation: drawer-sheet-in .22s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-drawer-sheet-out { animation: drawer-sheet-out .18s ease both; }
 
+/* PublicSheet (components/ui/public-sheet.tsx) — el modal de reserva/citas
+   públicas aparecía de golpe, sin transición alguna. Mismo espíritu que el
+   drawer de arriba pero centrado/abajo en vez de lateral: la hoja entra con
+   un pop sutil (fade + alzado), no un deslizamiento desde un borde. */
+@keyframes sheet-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-pop-in { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+.animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
+.animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
 /* Rediseño del Calendario, punto 10 — respeta prefers-reduced-motion. Global
    a propósito (no solo el módulo de calendario): ninguna otra pantalla lo
    comprobaba todavía, y es una preferencia de accesibilidad del sistema, no

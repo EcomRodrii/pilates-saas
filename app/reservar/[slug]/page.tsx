@@ -200,6 +200,13 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 const RESERVAR_TOKENS = MODO_TOKENS.dia;
 const RT = RESERVAR_TOKENS;
 
+// Mínimo razonable de dígitos para un teléfono real (España: 9). No se valida
+// prefijo — el estudio contacta por WhatsApp/llamada, un formato demasiado
+// estricto rechazaría números correctos de otros países sin aportar nada.
+function telefonoValido(telefono: string): boolean {
+  return telefono.replace(/[^0-9]/g, '').length >= 9;
+}
+
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
@@ -241,7 +248,7 @@ export default function ReservarPage() {
   // antes de que el primer render se confirme.
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
-  const [loginForm, setLoginForm] = useState({ nombre: '', email: '' });
+  const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -531,7 +538,7 @@ export default function ReservarPage() {
 
   // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
   function handleRegistroNombre() {
-    if (!loginForm.nombre.trim()) return;
+    if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
     setLoginStep('contrato');
   }
 
@@ -582,6 +589,7 @@ export default function ReservarPage() {
         const altaRes = await addSocioFromPortal({
           id: nuevoId,
           nombre: loginForm.nombre.trim(),
+          telefono: loginForm.telefono.trim(),
           email: usuarioEmail ?? '',
           aceptacionContrato: {
             fecha: new Date().toISOString(),
@@ -1201,7 +1209,7 @@ export default function ReservarPage() {
 
             {/* ── DONE ── */}
             {loginStep === 'done' && bookingSesion && (
-              <div className="flex flex-col items-center text-center gap-4">
+              <div className="flex flex-col items-center text-center gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#D1FAE5' }}>
                   <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
@@ -1245,7 +1253,7 @@ export default function ReservarPage() {
 
             {/* ── ESPERA ── */}
             {loginStep === 'espera' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4">
+              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -1265,7 +1273,7 @@ export default function ReservarPage() {
 
             {/* ── PENDIENTE DE APROBACIÓN (Fase 2a) ── */}
             {loginStep === 'pendiente' && (
-              <div className="flex flex-col items-center text-center py-4 gap-4">
+              <div className="flex flex-col items-center text-center py-4 gap-4 contenido-anim">
                 <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FEF3C7' }}>
                   <CheckCircle2 size={30} style={{ color: '#8F6215' }} />
                 </div>
@@ -1282,7 +1290,7 @@ export default function ReservarPage() {
 
             {/* ── LOGIN (magic link) ── */}
             {loginStep === 'login' && (
-              <>
+              <div className="contenido-anim">
                 {!enlaceEnviado ? (
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
@@ -1319,33 +1327,40 @@ export default function ReservarPage() {
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* ── REGISTRO (walk-in ya autenticado: nombre) ── */}
             {loginStep === 'registro' && (
-              <>
+              <div className="contenido-anim">
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">¿Cómo te llamas?</h2>
-                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tu nombre para tu primera reserva.</p>
+                <p className="text-[var(--portal-muted-2)] text-sm mb-5">Completa tus datos para tu primera reserva — el estudio los usará para avisarte de cualquier cambio en tus clases.</p>
                 <input type="text"
                   placeholder="Tu nombre completo"
                   value={loginForm.nombre}
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   autoFocus
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-5"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                   style={{ backgroundColor: RT.surface2 }} />
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre}
+                <input type="tel"
+                  placeholder="Tu teléfono (+34 600 000 000)"
+                  value={loginForm.telefono}
+                  onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
+                  style={{ backgroundColor: RT.surface2 }} />
+                <p className="text-[11px] text-[var(--portal-muted)] mb-5">Solo lo usa {estudioNombre} para avisos de tus clases.</p>
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
                 </button>
-              </>
+              </div>
             )}
 
             {/* ── CONTRATO (aceptación clickwrap) ── */}
             {loginStep === 'contrato' && (
-              <>
+              <div className="contenido-anim">
                 <div className="flex items-center gap-2 mb-1">
                   <FileText size={16} style={{ color: PRIMARY }} className="shrink-0" />
                   <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg">Acepta los términos</h2>
@@ -1382,12 +1397,12 @@ export default function ReservarPage() {
                     Aceptar y continuar →
                   </button>
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── CONFIRM ── */}
             {loginStep === 'confirm' && bookingSesion && (
-              <>
+              <div className="contenido-anim">
                 <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-4">Confirmar reserva</h2>
                 <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1458,7 +1473,7 @@ export default function ReservarPage() {
                   style={{ backgroundColor: PRIMARY }}>
                   {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
                 </button>
-              </>
+              </div>
             )}
           </>
         )}

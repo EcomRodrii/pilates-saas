@@ -796,19 +796,23 @@ export default function Dashboard() {
 
         {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
         <div {...wrap('resumen')}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
-            { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
             ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
             { href: '/clientas', Icon: Clock, value: statsClientas.inactivas30d, label: 'Sin venir 30d', alert: statsClientas.inactivas30d > 0, privada: false },
-            ...(verFinanzas ? [{ href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true }] : []),
+            // Ocupación semana e Ingresos del mes ya NO van aquí: se repetían
+            // tal cual (mismo número, mismo enlace a /informes) en la tarjeta
+            // de Ingresos y en la fila de KPIs de más abajo, sin aportar nada
+            // que esas dos no mostraran ya con más detalle (sparkline, barra,
+            // comparación con el mes anterior). Carmen: "2ª fila del dashboard
+            // duplica ocupación e ingresos".
           ].map(({ href, Icon, value, label, alert, privada }) => {
-            // "Ocupación semana" enlazaba a /informes también para una
-            // instructora, que no puede verlo: el guardia del layout la rebotaba
-            // al dashboard. Un enlace que te devuelve donde estabas no es un
-            // enlace. Si no puede ir, se pinta la cifra sin enlace.
+            // Enlazaba a /informes también para una instructora, que no puede
+            // verlo: el guardia del layout la rebotaba al dashboard. Un enlace
+            // que te devuelve donde estabas no es un enlace. Si no puede ir,
+            // se pinta la cifra sin enlace.
             const puedeIr = puedeVer(rolActual, href);
             const estilo = {
               backgroundColor: alert ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--card)',
@@ -942,16 +946,35 @@ export default function Dashboard() {
               ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
               : `${statsClientas.inactivas30d} sin venir en 30 días`}
             Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
-          <Card size="sm" className="gap-2.5">
-            <CardContent className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
-            </CardContent>
-            <CardContent>
-              <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
-              <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
-            </CardContent>
-          </Card>
+          {/* Único KPI de esta fila con click-through a /informes: era la única
+              función que perdía la fila "Hoy de un vistazo" al quitar de ahí
+              el pill duplicado de Ocupación semana. Igual que aquel pill, sin
+              enlace para quien no puede ver /informes (instructora). */}
+          {puedeVer(rolActual, '/informes') ? (
+            <Link href="/informes" className="block rounded-2xl transition-colors hover:bg-muted">
+              <Card size="sm" className="gap-2.5 pointer-events-none">
+                <CardContent className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
+                </CardContent>
+                <CardContent>
+                  <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
+                  <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
+                </CardContent>
+              </Card>
+            </Link>
+          ) : (
+            <Card size="sm" className="gap-2.5">
+              <CardContent className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
+                <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
+              </CardContent>
+              <CardContent>
+                <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
+                <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
+              </CardContent>
+            </Card>
+          )}
           <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-brand-secondary" tintBg="bg-brand/10" />
           {verFinanzas && (
           <KpiCard
@@ -1029,7 +1052,12 @@ export default function Dashboard() {
                   </div>
                   {pendientes.length > 1 && (
                     <button
-                      onClick={() => cobrarTodosPendientes()}
+                      onClick={() => {
+                        const n = pendientes.length;
+                        void cobrarTodosPendientes().then(res => {
+                          showToast(res.ok ? `${n} recibo(s) cobrados` : res.error);
+                        });
+                      }}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors"
                     >
                       <Zap size={11} /> Cobrar todos

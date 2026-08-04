@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     studioId?: string;
     id?: string;
     nombre?: string;
+    telefono?: string;
     aceptacion?: { fecha: string; firma: string; versionTexto: string };
     referidoPor?: string | null;
     cambios?: Record<string, unknown>;
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
       // bloqueo sin ir a crear nada.
       const r = await registrarSociaPublica({
         studioId: body.studioId, id: body.id, nombre: body.nombre, email: user.email,
-        authUserId: user.userId, aceptacion: body.aceptacion, referidoPor: body.referidoPor ?? null,
+        telefono: body.telefono, authUserId: user.userId, aceptacion: body.aceptacion, referidoPor: body.referidoPor ?? null,
       });
       if ('error' in r) {
         // 403 para el tope de plan (lo distingue el portal), 400 para el resto.

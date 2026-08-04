@@ -149,6 +149,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
 
     // Paso registro: nombre → Continuar.
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
+    await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
     await page.getByRole('button', { name: /^continuar/i }).click();
 
     // Contrato (clickwrap, ya no hay firma en canvas): aceptar términos → continuar.
@@ -170,6 +171,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.goto(`/reservar/${SLUG}`);
     await abrirYReservar(page);
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
+    await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
     await page.getByRole('button', { name: /^continuar/i }).click();
 
     // La casilla nombra los dos documentos…
@@ -191,6 +193,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.goto(`/reservar/${SLUG}`);
     await abrirYReservar(page);
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
+    await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
     await page.getByRole('button', { name: /^continuar/i }).click();
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: /aceptar y continuar/i }).click();

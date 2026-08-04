@@ -286,7 +286,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) => Promise<ResultadoEscritura & { id?: string }>;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
@@ -1607,7 +1607,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
   }
 
-  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
@@ -1617,6 +1617,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // socia que no existía y se quedaba colgado sin ningún aviso.
       return postPublico('/api/public/socio', {
         accion: 'registrar', studioId: cpub.studioId, id: fields.id, nombre: fields.nombre, email: fields.email,
+        telefono: fields.telefono || undefined,
         aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
       });
     }
@@ -1626,7 +1627,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       nombre: fields.nombre,
       apellidos: '',
       email: fields.email,
-      telefono: null,
+      telefono: fields.telefono || null,
       nif: null,
       fechaAlta: new Date().toISOString(),
       activo: true,
