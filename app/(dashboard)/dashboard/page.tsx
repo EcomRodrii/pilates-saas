@@ -946,16 +946,35 @@ export default function Dashboard() {
               ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
               : `${statsClientas.inactivas30d} sin venir en 30 días`}
             Icon={Users} tint="text-brand-secondary" tintBg="bg-brand/10" />
-          <Card size="sm" className="gap-2.5">
-            <CardContent className="flex items-center justify-between">
-              <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
-            </CardContent>
-            <CardContent>
-              <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
-              <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
-            </CardContent>
-          </Card>
+          {/* Único KPI de esta fila con click-through a /informes: era la única
+              función que perdía la fila "Hoy de un vistazo" al quitar de ahí
+              el pill duplicado de Ocupación semana. Igual que aquel pill, sin
+              enlace para quien no puede ver /informes (instructora). */}
+          {puedeVer(rolActual, '/informes') ? (
+            <Link href="/informes" className="block rounded-2xl transition-colors hover:bg-muted">
+              <Card size="sm" className="gap-2.5 pointer-events-none">
+                <CardContent className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
+                </CardContent>
+                <CardContent>
+                  <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
+                  <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
+                </CardContent>
+              </Card>
+            </Link>
+          ) : (
+            <Card size="sm" className="gap-2.5">
+              <CardContent className="flex items-center justify-between">
+                <span className="text-[11px] font-medium text-muted-foreground">Ocupación semana</span>
+                <span className="flex size-7 items-center justify-center rounded-lg bg-brand/10"><Activity className="size-3.5 text-brand-secondary" /></span>
+              </CardContent>
+              <CardContent>
+                <p className="text-3xl font-semibold leading-none tracking-tight" style={{ color: ocupacionMedia >= 85 ? 'var(--destructive)' : ocupacionMedia >= 60 ? 'var(--warning)' : 'var(--success)' }}>{ocupacionMedia}%</p>
+                <div className="mt-2"><OcupacionBar pct={ocupacionMedia} /></div>
+              </CardContent>
+            </Card>
+          )}
           <KpiCard label="Reservas hoy" value={reservasHoy} sub={`${clasesHoy.length} clase${clasesHoy.length !== 1 ? 's' : ''} programada${clasesHoy.length !== 1 ? 's' : ''}`} Icon={Calendar} tint="text-brand-secondary" tintBg="bg-brand/10" />
           {verFinanzas && (
           <KpiCard
