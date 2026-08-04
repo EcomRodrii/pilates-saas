@@ -8,6 +8,13 @@ import type { ColumnaSala } from '@/lib/calendario-columnas';
 import type { EstadoSesion } from '@/lib/calendario-estado';
 import type { Sesion, TipoClase, Instructor, Reserva } from '@/lib/types';
 
+// Ancho mínimo de cada columna-sala — mismo motivo que ANCHO_MIN_COLUMNA_PX
+// en VistaSemana: sin suelo, muchas salas en poco ancho (móvil) las encogía
+// hasta que "Sin clases" (centrado, sin overflow-hidden) se solapaba entre
+// columnas vecinas.
+const ANCHO_MIN_COLUMNA_PX = 92;
+const ANCHO_GUTTER_PX = 56; // w-14
+
 export interface DatoSesion {
   sesion: Sesion;
   tipo: TipoClase;
@@ -64,72 +71,79 @@ export function VistaDiaSalas({
     horas.push({ label: `${String(h).padStart(2, '0')}:00`, topPx: ((m - horaInicioMin) / 60) * pxPorHora });
   }
 
+  const anchoMinTotal = ANCHO_GUTTER_PX + columnas.length * ANCHO_MIN_COLUMNA_PX;
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-      {/* Cabeceras: una por sala, con capacidad y ocupación media (punto 2). */}
-      <div className="flex flex-none border-b border-border">
-        <div className="w-14 flex-none" />
-        {columnas.map(c => (
-          <div key={c.sala.id} className="min-w-0 flex-1 border-l border-border/60 px-2 py-2 text-center">
-            <p className="flex items-center justify-center gap-1.5 min-w-0">
-              {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
-              <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground">{c.sala.nombre}</span>
-            </p>
-            {/* Columnas estrechas (móvil, varias salas) no caben las 4 piezas
-                de info en una línea sin truncar a "50…" — versión corta ahí,
-                completa desde `lg`. */}
-            <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground lg:hidden">
-              {c.sesiones.length > 0
-                ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${Math.round(c.ocupacionMedia * 100)}%`
-                : 'Sin clases'}
-            </p>
-            <p className="mt-0.5 hidden truncate text-[10.5px] text-muted-foreground lg:block">
-              {c.sesiones.length > 0
-                ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${c.sala.capacidad} plazas · ${Math.round(c.ocupacionMedia * 100)}% · ${etiquetaOcupacion(c.ocupacionMedia)}`
-                : `${c.sala.capacidad} plazas · sin clases`}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Rejilla: scrollea ELLA, no la página (punto 10). */}
-      <div ref={scrollRef} data-testid="grid-dia-scroll" className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex" style={{ height: altoTotal }}>
-          <div className="relative w-14 flex-none">
-            {horas.map(h => (
-              <span
-                key={h.label}
-                className="absolute right-2 -translate-y-1.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground"
-                style={{ top: h.topPx }}
-              >
-                {h.label}
-              </span>
+      {/* Un único contenedor con scroll en las dos direcciones — mismo
+          criterio que VistaSemana: la cabecera va `sticky top-0` y el
+          gutter de horas `sticky left-0` DENTRO de este contenedor, para
+          que scroll horizontal y vertical se muevan solidarios (dos
+          contenedores de scroll separados no se sincronizan solos). */}
+      <div ref={scrollRef} data-testid="grid-dia-scroll" className="min-h-0 flex-1 overflow-auto">
+        <div style={{ minWidth: anchoMinTotal }}>
+          {/* Cabeceras: una por sala, con capacidad y ocupación media (punto 2). */}
+          <div className="sticky top-0 z-10 flex border-b border-border bg-card">
+            <div className="sticky left-0 z-10 w-14 flex-none bg-card" />
+            {columnas.map(c => (
+              <div key={c.sala.id} className="min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center" style={{ minWidth: ANCHO_MIN_COLUMNA_PX }}>
+                <p className="flex items-center justify-center gap-1.5 min-w-0">
+                  {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
+                  <span className="truncate text-[11px] font-bold uppercase tracking-wide text-foreground">{c.sala.nombre}</span>
+                </p>
+                {/* Columnas estrechas (móvil, varias salas) no caben las 4 piezas
+                    de info en una línea sin truncar a "50…" — versión corta ahí,
+                    completa desde `lg`. */}
+                <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground lg:hidden">
+                  {c.sesiones.length > 0
+                    ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${Math.round(c.ocupacionMedia * 100)}%`
+                    : 'Sin clases'}
+                </p>
+                <p className="mt-0.5 hidden truncate text-[10.5px] text-muted-foreground lg:block">
+                  {c.sesiones.length > 0
+                    ? `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'} · ${c.sala.capacidad} plazas · ${Math.round(c.ocupacionMedia * 100)}% · ${etiquetaOcupacion(c.ocupacionMedia)}`
+                    : `${c.sala.capacidad} plazas · sin clases`}
+                </p>
+              </div>
             ))}
           </div>
 
-          <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length || 1},minmax(0,1fr))` }}>
-            {columnas.map(c => (
-              <div
-                key={c.sala.id}
-                data-sala-id={c.sala.id}
-                className="relative min-w-0 border-l border-border/60"
-                style={{
-                  backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
-                  cursor: onClickVacio ? 'pointer' : undefined,
-                }}
-                onClick={!onClickVacio ? undefined : e => {
-                  // Solo si el clic fue en el fondo de la columna, no en una
-                  // clase (BloqueClase no para la propagación).
-                  if (e.target !== e.currentTarget) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onClickVacio({ salaId: c.sala.id, offsetYPx: e.clientY - rect.top, pxPorHora });
-                }}
-              >
-                {c.sesiones.length === 0 && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
-                    Sin clases
-                  </span>
-                )}
+          <div className="flex" style={{ height: altoTotal }}>
+            <div className="sticky left-0 z-[5] w-14 flex-none bg-card">
+              {horas.map(h => (
+                <span
+                  key={h.label}
+                  className="absolute right-2 -translate-y-1.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground"
+                  style={{ top: h.topPx }}
+                >
+                  {h.label}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length || 1}, minmax(${ANCHO_MIN_COLUMNA_PX}px, 1fr))` }}>
+              {columnas.map(c => (
+                <div
+                  key={c.sala.id}
+                  data-sala-id={c.sala.id}
+                  className="relative min-w-0 overflow-hidden border-l border-border/60"
+                  style={{
+                    backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
+                    cursor: onClickVacio ? 'pointer' : undefined,
+                  }}
+                  onClick={!onClickVacio ? undefined : e => {
+                    // Solo si el clic fue en el fondo de la columna, no en una
+                    // clase (BloqueClase no para la propagación).
+                    if (e.target !== e.currentTarget) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onClickVacio({ salaId: c.sala.id, offsetYPx: e.clientY - rect.top, pxPorHora });
+                  }}
+                >
+                  {c.sesiones.length === 0 && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                      Sin clases
+                    </span>
+                  )}
 
                 {c.sesiones.map(s => {
                   const d = datos.get(s.id);
@@ -180,6 +194,7 @@ export function VistaDiaSalas({
                 )}
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>
