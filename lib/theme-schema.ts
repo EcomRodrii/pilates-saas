@@ -147,6 +147,7 @@ const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleI
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
+const barraOscuraSchema = z.boolean();
 const themeIdSchema = z.string();
 const themeVersionSchema = z.number().int();
 const themeCustomizedSchema = z.boolean();
@@ -170,6 +171,11 @@ export const themeConfigSchema = z
     portalHeadingFontId: portalHeadingFontSchema.default('instrumentSerif'),
     // Barra inferior del portal cliente — ver ESTILOS_TAB_BAR arriba.
     tabBarStyle: tabBarStyleSchema.default('clasica'),
+    // Barra inferior del portal sobre fondo oscuro, con el icono activo en el
+    // color secundario (tema "Noir"). Eje aparte de tabBarStyle: aquel decide
+    // la FORMA de la pastilla activa, este el CONTRASTE de toda la barra.
+    // Default false: un tema guardado antes de esta fase sigue viéndose igual.
+    barraOscura: barraOscuraSchema.default(false),
     // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
     // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
     // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
@@ -207,6 +213,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
+  barraOscura: false,
   navPortal: DEFAULT_NAV_CONFIG,
   redesSociales: { instagram: '', facebook: '', whatsapp: '' },
   themeId: 'classic',
@@ -238,6 +245,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
+    barraOscura: pick('barraOscura', barraOscuraSchema),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),

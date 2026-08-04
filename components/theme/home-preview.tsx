@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { fetchHomePreviewToken } from '@/lib/api-client';
+import { themeToCssVars } from '@/lib/theme-runtime';
+import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
@@ -41,7 +43,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // propietaria también puede navegar libremente a Reservas/Perfil desde aquí
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
-  bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado,
+  bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -55,6 +57,13 @@ export function HomePreview({
   // el preview de "Ajustes" (ThemePreview) no los usa.
   seleccionId?: string | null;
   onBloqueSeleccionado?: (id: string) => void;
+  // Tema en BORRADOR. Los bloques ya viajaban en vivo por postMessage, pero el
+  // color/tipografía solo llegaba ya aplicado en el HTML que sirve la ruta, así
+  // que tocar un color en "Ajustes" no se veía aquí hasta recargar. Se manda por
+  // el MISMO canal que ya usa ThemePreview en /reservar
+  // (`tentare-theme-preview`), que ThemePreviewListener ya escucha en esta ruta
+  // — no hay listener ni whitelist nuevos, solo un emisor más.
+  temaBorrador?: ThemeConfig | null;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -90,6 +99,12 @@ export function HomePreview({
           type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id],
           seleccionId: p.id === pantalla ? (seleccionId ?? null) : null,
         },
+        window.location.origin,
+      );
+    }
+    if (temaBorrador) {
+      ref.current?.contentWindow?.postMessage(
+        { type: 'tentare-theme-preview', vars: themeToCssVars(temaBorrador) as Record<string, string> },
         window.location.origin,
       );
     }

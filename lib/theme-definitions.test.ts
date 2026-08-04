@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
-import { themeDraftSchema } from './theme-schema.ts';
+import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
+import { validarContrasteTheme } from './theme-runtime.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
   const ids = THEME_DEFINITIONS.map((d) => d.id);
@@ -38,4 +39,52 @@ test('getThemeDefinition: "editorial" fija tipografía negrita, botón/tarjeta y
   assert.equal(ed!.defaults.cardStyle, 'elevated');
   assert.equal(ed!.defaults.tabBarStyle, 'pestanaActiva');
   assert.deepEqual(ed!.capabilities.sort(), ['buttons', 'cards', 'nav', 'typography']);
+});
+
+// ── Tanda Oliva/Bloom/Noir ──────────────────────────────────────────────────
+// Estas dos guardias recorren el registro ENTERO, no los temas que hay hoy:
+// cualquier tema futuro tiene que pasar por aquí. Un tema que no valide contra
+// el schema completo, o que no pase el gate de contraste, sería imposible de
+// publicar desde el editor — mejor que falle en CI que en la cara de la
+// propietaria.
+
+test('THEME_DEFINITIONS: cada tema aplicado sobre DEFAULT_THEME es un ThemeConfig completo válido', () => {
+  for (const def of THEME_DEFINITIONS) {
+    const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME, ...def.defaults });
+    assert.equal(r.success, true, `El tema "${def.id}" no valida contra themeConfigSchema`);
+  }
+});
+
+test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar colores', () => {
+  for (const def of THEME_DEFINITIONS) {
+    const chequeo = validarContrasteTheme({ ...DEFAULT_THEME, ...def.defaults });
+    assert.equal(chequeo.ok, true, `El tema "${def.id}" no pasa el contraste: ${chequeo.errores.join(' / ')}`);
+  }
+});
+
+test('THEME_DEFINITIONS: siguen estando los temas anteriores a esta tanda', () => {
+  // Un estudio que ya eligió `geometric`/`editorial` tiene ese id guardado en su
+  // ThemeConfig; borrarlos del registro dejaría su tema sin nombre en la galería.
+  for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
+    assert.ok(getThemeDefinition(id), `Falta el tema "${id}" en el registro`);
+  }
+});
+
+test('Noir es el único que pide barra oscura', () => {
+  assert.equal(getThemeDefinition('noir')!.defaults.barraOscura, true);
+  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraOscura).length, 1);
+});
+
+test('validarContrasteTheme: con barra oscura, un secundario ilegible sobre la marca se rechaza', () => {
+  const malo = validarContrasteTheme({
+    ...DEFAULT_THEME, ...getThemeDefinition('noir')!.defaults,
+    secondary: '#1E2B22', // casi el mismo verde que la marca: invisible como icono activo
+  });
+  assert.equal(malo.ok, false);
+  assert.ok(malo.errores.some((e) => e.includes('barra oscura')));
+});
+
+test('validarContrasteTheme: sin barra oscura ese par no se comprueba (solo se pinta en la barra)', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, secondary: DEFAULT_THEME.primary, barraOscura: false });
+  assert.equal(r.ok, true);
 });
