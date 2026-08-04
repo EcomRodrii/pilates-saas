@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback } f
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
+import { mensajeSeguro } from '@/lib/errores';
 
 export interface PortalSession {
   socioId: string;
@@ -96,7 +97,10 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
       options: { emailRedirectTo: `${window.location.origin}/portal/${slug}/clave-nueva`, captchaToken },
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: error.message } : { ok: true };
+    // Supabase a veces devuelve un `message` que no es texto para una persona
+    // (p. ej. un `{}` en crudo cuando el token de captcha ha caducado entre
+    // verificarlo y enviar) — mismo filtro que ya usa el resto del panel.
+    return error ? { error: mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
   }, [slug]);
 
   const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
@@ -106,7 +110,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     const msg = error.message.toLowerCase();
     if (msg.includes('invalid login credentials')) return { error: 'Email o contraseña incorrectos.' };
     if (msg.includes('rate limit') || msg.includes('too many')) return { error: 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.' };
-    return { error: error.message };
+    return { error: mensajeSeguro(error.message, 'No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.') };
   }, []);
 
   // Requiere una sesión de Supabase ya autenticada (por magic link). No sirve
@@ -114,7 +118,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   // al verificar el enlace, esto solo fija el nuevo valor sobre esa sesión.
   const establecerPassword = useCallback(async (password: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.updateUser({ password });
-    return error ? { error: error.message } : { ok: true };
+    return error ? { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') } : { ok: true };
   }, []);
 
   const logout = useCallback(async () => {
