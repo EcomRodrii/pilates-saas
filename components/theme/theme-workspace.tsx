@@ -237,6 +237,7 @@ function PreviewCentral({
     <HomePreview
       bloquesPorPantalla={bloquesHook.bloquesPorPantalla} pantalla={pantalla} onPantallaChange={() => {}} slug={ajustesHook.studio?.slug}
       seleccionId={seleccionId} onBloqueSeleccionado={onSeleccionar}
+      temaBorrador={ajustesHook.draft}
     />
   );
 }

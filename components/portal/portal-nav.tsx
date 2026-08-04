@@ -49,7 +49,10 @@ export function PortalNav({
         left: interactive ? 18 : undefined, right: interactive ? 18 : undefined,
         bottom: interactive ? 'calc(22px + env(safe-area-inset-bottom))' : undefined,
         height: altura.tabbar, zIndex: interactive ? 14 : undefined, borderRadius: radio.tabbar,
-        background: t.tabbar,
+        // var() con el valor de hoy como fallback: sin `barraOscura` el tema no
+        // declara estas vars (ver varsBarra en lib/theme-runtime.ts) y la barra
+        // se ve exactamente igual que antes, en claro y en oscuro.
+        background: `var(--portal-tabbar-bg, ${t.tabbar})`,
         ...cristal(desenfoque.tabbar, 170),
         border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
         boxShadow: sombra.tabbar,
@@ -68,9 +71,10 @@ export function PortalNav({
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           flex: active ? '2.4 1 0%' : '1 1 0%',
           height: altura.tabbar - 12, borderRadius: radio.pastilla,
-          background: active ? (noche ? t.surface2 : '#FFFFFF') : 'transparent',
-          boxShadow: active ? sombra.pastilla : 'none',
-          color: active ? t.ink : t.muted, textDecoration: 'none',
+          background: active ? `var(--portal-tabbar-active-bg, ${noche ? t.surface2 : '#FFFFFF'})` : 'transparent',
+          boxShadow: active ? `var(--portal-tabbar-active-shadow, ${sombra.pastilla})` : 'none',
+          color: active ? `var(--portal-tabbar-active-fg, ${t.ink})` : `var(--portal-tabbar-idle-fg, ${t.muted})`,
+          textDecoration: 'none',
           transition: `flex-grow ${dur.tab}ms ${EASE}, background ${dur.tab}ms ${EASE}, color 350ms ease`,
           outlineOffset: 2,
         };

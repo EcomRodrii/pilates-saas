@@ -14,6 +14,18 @@
 // `defaults` son los valores que el tema fija — el estudio parte de ahí y su
 // propio `ThemeConfig` guarda lo que decide sobrescribir encima (mismo modelo
 // mental que `resolveTheme()` ya usa con `DEFAULT_THEME`, un nivel más).
+//
+// ── Tanda de 3 temas con identidad propia (Oliva · Bloom · Noir) ────────────
+// A diferencia de `geometric`/`editorial`, que solo tocaban tipografía y
+// componentes, estos tres SÍ fijan paleta: son los tres puntos de partida que
+// cubren los tres tipos de estudio (boutique, joven, premium). Los tres pasan
+// el gate de `validarContrasteTheme()` sin tocar nada — lo verifica
+// theme-definitions.test.ts recorriendo TODO el registro, así que ningún tema
+// futuro puede entrar roto.
+//
+// `barraOscura` es el eje nuevo que pide Noir (barra inferior sobre fondo
+// oscuro, icono activo en el color secundario), añadido a `ThemeConfig` una
+// sola vez — mismo patrón que `buttonStyle`/`cardStyle` en su día.
 
 import type { ThemeConfig } from './theme-schema.ts';
 
@@ -61,6 +73,76 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       buttonStyle: 'solid',
       cardStyle: 'elevated',
       tabBarStyle: 'pestanaActiva',
+    },
+  },
+  {
+    id: 'oliva',
+    version: 1,
+    label: 'Oliva',
+    description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
+    capabilities: ['colors', 'typography', 'buttons', 'cards'],
+    defaults: {
+      primary: '#3E4A2B',
+      secondary: '#8B9472',
+      accent: '#E9E4D4',
+      background: '#F6F3EC',
+      text: '#2A2E22',
+      fontId: 'jakarta',
+      // La sans ya cargada en negrita: el titular pesa sin meter otra fuente.
+      portalHeadingFontId: 'instrumentSansBold',
+      radius: 'rounded',
+      buttonStyle: 'solid',
+      // Plana a propósito: el aire y el contraste del oliva ya separan las
+      // tarjetas del fondo crema. Una sombra encima las ensucia.
+      cardStyle: 'flat',
+      tabBarStyle: 'clasica',
+      barraOscura: false,
+    },
+  },
+  {
+    id: 'bloom',
+    version: 1,
+    label: 'Bloom',
+    description: 'Lila y rosa, esquinas de píldora y contenido que flota. Energía y comunidad, para público joven.',
+    capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
+    defaults: {
+      primary: '#7C6BF5',
+      secondary: '#F26D8A',
+      accent: '#F1EEFE',
+      background: '#FFFFFF',
+      text: '#221B33',
+      fontId: 'poppins',
+      portalHeadingFontId: 'outfit',
+      radius: 'pill',
+      buttonStyle: 'solid',
+      cardStyle: 'elevated',
+      // Pestaña activa expandida: la barra es parte del carácter del tema.
+      tabBarStyle: 'pestanaActiva',
+      barraOscura: false,
+    },
+  },
+  {
+    id: 'noir',
+    version: 1,
+    label: 'Noir',
+    description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
+    capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
+    defaults: {
+      primary: '#1D2A21',
+      // El dorado NO es el color de marca: es el acento. Como relleno de botón
+      // daría 1,9:1 con texto claro; como icono activo y detalle sobre el verde
+      // oscuro es exactamente lo que hace que el tema se lea como premium.
+      secondary: '#C9A24D',
+      accent: '#EFE8D5',
+      background: '#F4F2EA',
+      text: '#17201A',
+      fontId: 'jakarta',
+      portalHeadingFontId: 'instrumentSerif',
+      radius: 'rounded',
+      buttonStyle: 'solid',
+      cardStyle: 'elevated',
+      tabBarStyle: 'clasica',
+      barraOscura: true,
     },
   },
 ];
