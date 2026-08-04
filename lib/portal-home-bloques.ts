@@ -306,3 +306,22 @@ export function resolverVideoEmbed(url: string): string | null {
   }
   return null;
 }
+
+/**
+ * Si un bloque del catálogo tiene contenido suficiente para pintarse de
+ * verdad. Espeja EXACTAMENTE las condiciones de "return null" de cada
+ * componente en components/portal/bloque-home-render.tsx — misma fuente de
+ * verdad para el render y para el gate de "antes de publicar" del editor
+ * (lib/portal-home-bloques.test.ts prueba que un bloque incompleto aquí es
+ * el mismo que se pinta vacío allí; no duplicar la lógica en el editor).
+ * `banner` nunca está incompleto: se pinta con o sin imagen/enlace.
+ */
+export function bloqueEstaCompleto(b: Exclude<BloqueHome, { kind: 'sistema' }>): boolean {
+  if (b.kind === 'banner') return true;
+  if (b.kind === 'texto') return !!(b.config.titulo || b.config.texto);
+  if (b.kind === 'cta') return resolverHrefBloque(b.config.href) !== null && !!b.config.textoBoton;
+  if (b.kind === 'faq') return b.config.preguntas.length > 0;
+  if (b.kind === 'galeria') return b.config.imagenes.length > 0;
+  if (b.kind === 'video') return resolverVideoEmbed(b.config.url) !== null;
+  return b.config.testimonios.length > 0;
+}

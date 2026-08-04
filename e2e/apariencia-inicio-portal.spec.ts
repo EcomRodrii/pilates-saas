@@ -1,13 +1,15 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fase 3 del editor de temas: constructor de bloques del Inicio del portal
-// (pestaña "Bloques del portal" del dashboard, con Home como pantalla activa
-// por defecto). Generaliza Fase 2 (reordenar/ocultar 4 módulos fijos) a
-// añadir/quitar/configurar bloques del catálogo (banner/texto/cta/faq), con
-// borrador/publicar propio — ver lib/portal-home-bloques.ts y
-// lib/layout-data.ts. La Fase 1 del Theme Builder generalizó el mismo editor
-// a Clases y Bonos (selector de pantalla arriba); este spec cubre solo Home.
+// Constructor de bloques del portal, dentro del editor a pantalla completa
+// (PR 4 — components/theme/theme-editor-fullscreen.tsx). Antes vivía en su
+// propia pestaña ("Bloques del portal" → "Secciones", con un selector de
+// página); ahora es el grupo "Pantallas" del rail izquierdo, con Inicio
+// desplegado por defecto (mismo motivo que antes: es la vista de llegada).
+// Guardar borrador/Publicar por pantalla desaparecen — todo pasa por el
+// botón único "Publicar" de la barra superior + el diálogo "Antes de
+// publicar", que guarda y publica tema + bloques de Inicio/Clases/Bonos
+// juntos.
 //
 // Verifica el lado del EDITOR — el lado del consumo (portal cliente) se
 // verifica en e2e/portal-home-modulos.spec.ts (legacy) y
@@ -22,16 +24,19 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-const BLOQUES_DEFAULT = [
+const BLOQUES_HOME_DEFAULT = [
   { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
   { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
   { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
   { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
 ];
+const BLOQUES_CLASES_DEFAULT = [{ id: 'sistema-listadoClases', kind: 'sistema', sistemaId: 'listadoClases' }];
+const BLOQUES_BONOS_DEFAULT = [{ id: 'sistema-listadoBonos', kind: 'sistema', sistemaId: 'listadoBonos' }];
 
-async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
-  const peticionesGuardar: unknown[][] = [];
-  let publicadas = 0;
+async function montar(page: Page, opts: { bloquesHomeGuardar?: unknown[] } = {}) {
+  const putsPorPantalla: Record<string, unknown[][]> = { home: [], clases: [], bonos: [] };
+  const publicadasPorPantalla: Record<string, number> = { home: 0, clases: 0, bonos: 0 };
+  let temaPublicaciones = 0;
 
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
@@ -48,36 +53,51 @@ async function montar(page: Page, opts: { bloquesGuardar?: unknown[] } = {}) {
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
-  await page.route('**/api/theme**', route => json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
   await page.route('**/api/layout**', route => json(route, {
     orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] }, portalHome: { orden: [], ocultos: [] },
   }));
-  let bloquesActuales = opts.bloquesGuardar ?? BLOQUES_DEFAULT;
+  await page.route('**/api/theme**', route => {
+    if (route.request().url().endsWith('/publish')) { temaPublicaciones++; return json(route, { primary: '#6D28D9', secondary: '#7C3AED' }); }
+    return json(route, { primary: '#6D28D9', secondary: '#7C3AED' });
+  });
+
+  const bloques: Record<string, unknown[]> = {
+    home: opts.bloquesHomeGuardar ?? BLOQUES_HOME_DEFAULT,
+    clases: BLOQUES_CLASES_DEFAULT,
+    bonos: BLOQUES_BONOS_DEFAULT,
+  };
   await page.route('**/api/portal-bloques**', route => {
-    const url = route.request().url();
-    if (url.includes('/publish')) { publicadas++; return json(route, bloquesActuales); }
+    const url = new URL(route.request().url());
+    const pantalla = url.searchParams.get('pantalla') ?? 'home';
+    if (url.pathname.endsWith('/publish')) { publicadasPorPantalla[pantalla]++; return json(route, bloques[pantalla]); }
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];
-      peticionesGuardar.push(body);
-      bloquesActuales = body;
+      putsPorPantalla[pantalla].push(body);
+      bloques[pantalla] = body;
       return json(route, body);
     }
-    return json(route, bloquesActuales);
+    return json(route, bloques[pantalla]);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
-  // El editor único (theme-workspace.tsx) arranca ya en "Secciones" con
-  // "Portal — Inicio" como página por defecto — antes había que entrar a la
-  // pestaña "Bloques del portal" a propósito, ahora es la vista de llegada.
+  // El editor a pantalla completa arranca con "Inicio" ya desplegado en el
+  // grupo Pantallas del rail — es la vista de llegada, no hace falta
+  // clicar nada para ver sus bloques.
   await page.goto('/configuracion/apariencia/editor');
-  return { peticionesGuardar, publicadasRef: () => publicadas };
+  return { putsPorPantalla, publicadasPorPantalla, temaPublicacionesRef: () => temaPublicaciones };
 }
 
-test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del portal', () => {
-  test('los 4 módulos de siempre se listan, con la opción de ocultar cada uno', async ({ page }) => {
+/** Publica desde el botón único de la barra superior + el diálogo "Antes de publicar". */
+async function publicar(page: Page) {
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
+}
+
+test.describe('Editor a pantalla completa — constructor de bloques del portal', () => {
+  test('Inicio llega desplegado, con los 4 módulos de siempre listados', async ({ page }) => {
     await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Accesos rápidos/)).toBeVisible();
@@ -85,49 +105,54 @@ test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del
     await expect(page.getByText(/Contenido del estudio/)).toBeVisible();
   });
 
-  test('ocultar "Invita a una amiga" y guardar borrador manda el patch correcto, sin publicar', async ({ page }) => {
-    const { peticionesGuardar, publicadasRef } = await montar(page);
+  test('ocultar "Invita a una amiga" es local hasta publicar — no manda nada al servidor solo', async ({ page }) => {
+    const { putsPorPantalla } = await montar(page);
     await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Ocultar Invita a una amiga' }).click();
-
-    const [req] = await Promise.all([
-      page.waitForRequest(r => r.url().includes('/api/portal-bloques?') && r.method() === 'PUT'),
-      page.getByRole('button', { name: /Guardar borrador/ }).click(),
-    ]);
-    const body = req.postDataJSON() as Array<{ sistemaId?: string; oculto?: boolean }>;
-    const invitar = body.find((b) => b.sistemaId === 'invitarAmiga');
-    expect(invitar?.oculto).toBe(true);
-    expect(body).toHaveLength(4);
-    expect(peticionesGuardar).toHaveLength(1);
-    expect(publicadasRef()).toBe(0); // "guardar borrador" no publica
-
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
+
+    // Nada de "guardar borrador" suelto en el editor a pantalla completa: sin
+    // pulsar Publicar, no hay ningún PUT.
+    await page.waitForTimeout(300);
+    expect(putsPorPantalla.home).toHaveLength(0);
   });
 
-  test('añadir un bloque de texto desde el catálogo, configurarlo y publicar', async ({ page }) => {
-    const { publicadasRef } = await montar(page);
+  test('añadir un bloque de texto, configurarlo y publicar manda el borrador y publica las 3 pantallas', async ({ page }) => {
+    const { putsPorPantalla, publicadasPorPantalla, temaPublicacionesRef } = await montar(page);
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Añadir bloque' }).click();
     await page.getByRole('button', { name: /^Texto/ }).click();
-
-    // El bloque nuevo se añade expandido, listo para configurar.
-    const textos = page.locator('textarea');
-    await textos.first().fill('Bienvenidas al estudio');
+    await page.locator('textarea').first().fill('Bienvenidas al estudio');
 
     await Promise.all([
-      page.waitForResponse(r => r.url().includes('/api/portal-bloques/publish') && r.request().method() === 'POST'),
-      page.getByRole('button', { name: /Publicar/ }).click(),
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques/publish') && r.url().includes('pantalla=home')),
+      publicar(page),
     ]);
-    expect(publicadasRef()).toBe(1);
+
+    expect(putsPorPantalla.home.at(-1)).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'texto' })]));
+    expect(publicadasPorPantalla.home).toBe(1);
+    expect(publicadasPorPantalla.clases).toBe(1);
+    expect(publicadasPorPantalla.bonos).toBe(1);
+    expect(temaPublicacionesRef()).toBe(1);
     await expect(page.getByText('¡Publicado!')).toBeVisible();
+  });
+
+  test('un bloque de texto vacío bloquea Publicar con "está incompleto"', async ({ page }) => {
+    await montar(page, { bloquesHomeGuardar: [...BLOQUES_HOME_DEFAULT, { id: 'b-vacio', kind: 'texto', config: { titulo: '', texto: '' } }] });
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByText(/está incompleto/)).toBeVisible();
+    await expect(dialogo.getByRole('button', { name: /Publicar/ })).toBeDisabled();
   });
 
   test('eliminar un bloque del catálogo (no un bloque sistema) lo quita de la lista', async ({ page }) => {
     await montar(page, {
-      bloquesGuardar: [
-        ...BLOQUES_DEFAULT,
+      bloquesHomeGuardar: [
+        ...BLOQUES_HOME_DEFAULT,
         { id: 'b-1', kind: 'texto', config: { titulo: 'Aviso', texto: 'x' } },
       ],
     });
@@ -138,5 +163,12 @@ test.describe('Editor de temas — Fase 3: constructor de bloques del Inicio del
     await expect(eliminar).toBeVisible();
     await eliminar.click();
     await expect(eliminar).toHaveCount(0);
+  });
+
+  test('desplegar Clases muestra su bloque sistema propio', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Desplegar Clases' }).click();
+    await expect(page.getByText('Calendario de clases', { exact: true })).toBeVisible();
   });
 });

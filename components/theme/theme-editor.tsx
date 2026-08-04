@@ -295,11 +295,20 @@ export function useThemeEditor() {
     setAviso(null);
   }
 
+  // "Deshacer" del editor a pantalla completa: descarta ediciones locales sin
+  // guardar releyendo el borrador tal como está en el servidor — distinto de
+  // `restaurar()`, que resetea al tema del SISTEMA (DEFAULT_THEME), no al
+  // último guardado.
+  function recargar() {
+    fetchThemeBorrador().then(setDraft).catch(() => {});
+    setAviso(null);
+  }
+
   return {
     rol, studio, draft, estado, guardando, publicando, aviso, subiendo, contraste,
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
-    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar,
+    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar, recargar,
   };
 }
 
