@@ -7,8 +7,8 @@
 // embudo pre-conversión (LEAD/INTERESADA/PRUEBA) — una socia recién dada de
 // alta ya convirtió y no encaja en ninguno de los dos.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
-import { construirIndices, diasDesdeAlta, visitasEnOnboarding, conocidasEnOnboarding, type IndicesSenal } from '../senales.ts';
-import { confianzaImpulsarOnboarding } from '../confianza.ts';
+import { construirIndices, diasDesdeAlta, visitasEnOnboarding, conocidasEnOnboarding, intentosFallidosRecientes, type IndicesSenal } from '../senales.ts';
+import { confianzaImpulsarOnboarding, confianzaRiesgoReservaFallida } from '../confianza.ts';
 
 const OBJETIVO_VISITAS = 4;
 const OBJETIVO_CONOCIDAS = 2;
@@ -61,6 +61,45 @@ function reglaO1(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
   };
 }
 
+/**
+ * O2 · Intentos de reserva fallidos repetidos, socia < 30 días (informe fila
+ * 14) — mismo criterio que RETENCION R7, pero para la franja de onboarding:
+ * una socia recién llegada que ya se topa con fricción real al reservar
+ * corre más riesgo aún de no volver, y R7 no la ve (esElegible de RETENCION
+ * exige ≥30 días de antigüedad).
+ */
+const VENTANA_DIAS_INTENTOS_FALLIDOS = 14;
+
+function reglaO2(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, now: Date): Candidata | null {
+  if (!socio.activo) return null;
+  if (socio.leadStage && LEAD_STAGES_PRE_CONVERSION.has(socio.leadStage)) return null;
+  const dias = diasDesdeAlta(socio.id, idx, now);
+  if (dias === null || dias < 0 || dias >= VENTANA_DIAS) return null;
+
+  const nIntentos = intentosFallidosRecientes(socio.id, idx, now, VENTANA_DIAS_INTENTOS_FALLIDOS);
+  const confianza = confianzaRiesgoReservaFallida({ nIntentos });
+  if (!confianza) return null;
+
+  const motivoMotor = `${socio.nombre} lleva solo ${dias} días desde el alta y ya ha intentado reservar ${nIntentos} veces sin conseguirlo. Es la peor señal en esta fase — quería empezar y no la dejaron.`;
+
+  return {
+    especialista: 'ONBOARDING',
+    tipo: 'RIESGO_RESERVA_FALLIDA',
+    dedupeKey: `ONBOARDING:RIESGO_RESERVA_FALLIDA:${socio.id}`,
+    tituloMotor: `${socio.nombre} no consigue reservar desde que se dio de alta`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, diasDesdeAlta: dias, intentosFallidos: nIntentos, ventanaDias: VENTANA_DIAS_INTENTOS_FALLIDOS },
+    riesgo: 'PERDIDA',
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId: socio.id,
+    tiempoEstimadoMin: 2,
+    expiraEnDias: 7,
+    urgencia: Math.min(1, nIntentos / 5),
+    esfuerzo: 0.2,
+  };
+}
+
 export const onboarding: Especialista = {
   id: 'ONBOARDING',
   pregunta: '¿Está encaminada una socia nueva en sus primeros 30 días?',
@@ -68,7 +107,7 @@ export const onboarding: Especialista = {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
-      const c = reglaO1(socio, idx, now);
+      const c = reglaO1(socio, idx, now) ?? reglaO2(socio, idx, now);
       if (c) candidatas.push(c);
     }
     return candidatas;

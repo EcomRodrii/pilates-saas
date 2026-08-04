@@ -194,6 +194,7 @@ export default function Informes() {
       studioId: '', socios, reservas, sesiones: pasadas, salas: [], recibos, suscripciones, planesTarifa,
       tiposClase, instructores, automationLogs: [], campanas: [], sustituciones: [],
       instructorTarifas: tarifasInstructoras,
+      intentosFallidos: [],
       contexto: { nSociasActivas: 0, antiguedadDatosDias: 0, cadenaId: null, nSedesCadena: 1 },
     };
     const porSesion = new Map(pasadas.map(se => [se.id, se]));

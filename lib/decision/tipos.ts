@@ -32,7 +32,9 @@ export type TipoRecomendacion =
   // Equipo
   | 'REVISAR_CARGA_EQUIPO'
   // Onboarding (primeros 30 días de una socia nueva)
-  | 'IMPULSAR_ONBOARDING';
+  | 'IMPULSAR_ONBOARDING'
+  // Riesgo por intentos de reserva fallidos (informe fila 14)
+  | 'RIESGO_RESERVA_FALLIDA';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';
@@ -261,6 +263,20 @@ export interface InstructorTarifaSnapshot {
   tarifaHora: number | null;
 }
 
+// Fila cruda de `intentos_reserva_fallidos` (informe fila 14 — "la alumna que
+// quería pagar y no pudo"). Array, NO Map: mismo motivo que
+// InstructorTarifaSnapshot arriba — SnapshotEstudio cruza la frontera de un
+// step.run de Inngest, que serializa a JSON entre steps. El índice de
+// consulta vive en `IndicesSenal.intentosFallidosPorSocio` (construirIndices).
+export interface IntentoFallidoSnapshot {
+  id: string;
+  socioId: string;
+  sesionId: string | null;
+  tipoClaseId: string | null;
+  motivo: string;
+  creadoEn: string;
+}
+
 // Contexto de "tamaño" del estudio — pensado para que los especialistas
 // puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
 // umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
@@ -290,5 +306,6 @@ export interface SnapshotEstudio {
   // Tarifa/hora por instructora — para margen de contribución por clase.
   // Ver InstructorTarifaSnapshot arriba (por qué array, no Map, aquí).
   instructorTarifas: InstructorTarifaSnapshot[];
+  intentosFallidos: IntentoFallidoSnapshot[]; // 90d, ver IntentoFallidoSnapshot arriba
   contexto: ContextoEstudio;
 }

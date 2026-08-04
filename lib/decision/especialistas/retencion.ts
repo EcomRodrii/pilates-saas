@@ -6,10 +6,10 @@ import type { Socio } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
-  diasDesdeVencimientoSinRenovar, totalAsistencias,
+  diasDesdeVencimientoSinRenovar, totalAsistencias, intentosFallidosRecientes,
   type IndicesSenal,
 } from '../senales.ts';
-import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida, confianzaCongelarMembresia } from '../confianza.ts';
+import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida, confianzaCongelarMembresia, confianzaRiesgoReservaFallida } from '../confianza.ts';
 import { tieneHechoActivo } from '../memoria.ts';
 
 const MS_DIA = 86400000;
@@ -314,6 +314,40 @@ function reglaR6(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   };
 }
 
+/**
+ * R7 · Intentos de reserva fallidos repetidos → CONTACTO_MANUAL (informe fila
+ * 14, "quería pagar y no pudo"). Solo para ≥30d de antigüedad (esElegible) —
+ * el mismo caso en socias nuevas lo cubre onboarding.ts, que ya conoce su
+ * ventana de 30 días. Va última del `??`: es la señal más nueva y débil de
+ * las siete, no debe tapar un riesgo ya más asentado (impago, ausencia...).
+ */
+const VENTANA_DIAS_INTENTOS_FALLIDOS = 14;
+
+function reglaR7(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
+  const nIntentos = intentosFallidosRecientes(socio.id, idx, now, VENTANA_DIAS_INTENTOS_FALLIDOS);
+  const confianza = confianzaRiesgoReservaFallida({ nIntentos });
+  if (!confianza) return null;
+
+  const motivoMotor = `${socio.nombre} ha intentado reservar ${nIntentos} veces en los últimos ${VENTANA_DIAS_INTENTOS_FALLIDOS} días sin conseguirlo. Quería venir y algo se lo ha impedido — merece una llamada antes de que se canse de intentarlo.`;
+
+  return {
+    especialista: 'RETENCION',
+    tipo: 'RIESGO_RESERVA_FALLIDA',
+    dedupeKey: `RETENCION:RIESGO_RESERVA_FALLIDA:${socio.id}`,
+    tituloMotor: `${socio.nombre} lleva varios intentos de reserva sin conseguirlo`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, intentosFallidos: nIntentos, ventanaDias: VENTANA_DIAS_INTENTOS_FALLIDOS },
+    riesgo: 'PERDIDA',
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId: socio.id,
+    tiempoEstimadoMin: 2,
+    expiraEnDias: 7,
+    urgencia: Math.min(1, nIntentos / 5),
+    esfuerzo: 0.2,
+  };
+}
+
 export const retencion: Especialista = {
   id: 'RETENCION',
   pregunta: '¿Quién corre riesgo de abandonar?',
@@ -336,7 +370,8 @@ export const retencion: Especialista = {
         reglaR2(socio, idx, m, now) ??
         reglaR1(socio, idx, now) ??
         reglaR4(socio, idx, now) ??
-        reglaR6(socio, idx, now);
+        reglaR6(socio, idx, now) ??
+        reglaR7(socio, idx, now);
       if (candidata) candidatas.push(candidata);
     }
     return candidatas;

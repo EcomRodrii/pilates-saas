@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Socio, Reserva } from '@/lib/types';
-import type { SnapshotEstudio, MemoriaEstudio } from '../tipos.ts';
+import type { SnapshotEstudio, MemoriaEstudio, IntentoFallidoSnapshot } from '../tipos.ts';
 import { onboarding } from './onboarding.ts';
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
@@ -13,10 +13,10 @@ const socio = (p: Partial<Socio> & Pick<Socio, 'id'>): Socio =>
 const reserva = (p: Partial<Reserva> & Pick<Reserva, 'socioId' | 'sesionId' | 'creadoEn'>): Reserva =>
   ({ id: `res-${++n}`, studioId: 'e1', estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, ...p });
 
-function snap(socios: Socio[], reservas: Reserva[] = []): SnapshotEstudio {
+function snap(socios: Socio[], reservas: Reserva[] = [], intentosFallidos: IntentoFallidoSnapshot[] = []): SnapshotEstudio {
   return {
     studioId: 'e1', socios, reservas, sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [],
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos,
     contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
   };
 }
@@ -84,4 +84,26 @@ test('ONBOARDING: nunca sube a confianza ALTA (autonomía máxima 1)', () => {
   assert.equal(c.length, 1);
   assert.notEqual(c[0].confianza.nivel, 'ALTA');
   assert.ok(c[0].confianza.autonomiaMaxima <= 1);
+});
+
+test('O2: socia nueva (día 5) con 2 intentos de reserva fallidos → RIESGO_RESERVA_FALLIDA', () => {
+  const s1 = socio({ id: 's1', fechaAlta: diasAntes(5) });
+  const intentos: IntentoFallidoSnapshot[] = [
+    { id: 'if-1', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'PLAN_NO_INCLUYE_TIPO', creadoEn: diasAntes(2) },
+  ];
+  const c = detectar(snap([s1], [], intentos));
+  assert.equal(c.length, 1);
+  assert.equal(c[0].tipo, 'RIESGO_RESERVA_FALLIDA');
+  assert.equal(c[0].datosUsados.intentosFallidos, 2);
+});
+
+test('O2: pasados los 30 días, los intentos fallidos ya no son cosa de onboarding (los cubre RETENCION)', () => {
+  const s1 = socio({ id: 's1', fechaAlta: diasAntes(35) });
+  const intentos: IntentoFallidoSnapshot[] = [
+    { id: 'if-1', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  const c = detectar(snap([s1], [], intentos));
+  assert.equal(c.length, 0);
 });

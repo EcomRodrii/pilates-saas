@@ -1032,6 +1032,31 @@ async function resolverVentanaCancelacion(
   return override ?? ventanaEstudio;
 }
 
+// Fila 14 del informe estratégico: "es la alumna que quería pagar y no
+// pudo" — captura el intento self-service que el servidor rechazó de
+// verdad (nunca lista de espera, que sí se persiste como reserva propia).
+// Fire-and-forget: un fallo AL REGISTRAR el intento nunca debe tapar ni
+// retrasar el mensaje de error real que ya se le va a devolver a la socia.
+type MotivoIntentoFallido =
+  | 'AFORO_LLENO_SIN_ESPERA' | 'SIN_PLAN' | 'PLAN_NO_INCLUYE_TIPO'
+  | 'FUERA_VENTANA_MINIMA' | 'FUERA_VENTANA_MAXIMA'
+  | 'LIMITE_SEMANAL' | 'MAX_SIMULTANEAS';
+
+function registrarIntentoFallido(admin: SupabaseClient, params: {
+  studioId: string; socioId: string; sesionId?: string | null; tipoClaseId?: string | null; motivo: MotivoIntentoFallido;
+}): void {
+  void admin.from('intentos_reserva_fallidos').insert({
+    id: `irf-${uid()}`,
+    studio_id: params.studioId,
+    socio_id: params.socioId,
+    sesion_id: params.sesionId ?? null,
+    tipo_clase_id: params.tipoClaseId ?? null,
+    motivo: params.motivo,
+  }).then(({ error }) => {
+    if (error) capturarExcepcion(new Error(`registrarIntentoFallido: ${error.message}`), { tags: { area: 'reservas' } });
+  });
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
@@ -1078,10 +1103,12 @@ export async function crearReservaPublica(params: {
   {
     const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
     if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MINIMA' });
       return { error: 'Ya no se puede reservar esta clase: hace falta reservar con más antelación' as const };
     }
     const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
     if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'FUERA_VENTANA_MAXIMA' });
       return { error: 'Todavía no se puede reservar esta clase' as const };
     }
   }
@@ -1115,6 +1142,7 @@ export async function crearReservaPublica(params: {
       const tieneAlgunPlan = tieneEntitlementActivo(
         params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyISO,
       );
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
       return tieneAlgunPlan
         ? { error: 'Tu bono no incluye este tipo de clase' as const }
         : { error: 'Necesitas un plan o bono activo para reservar' as const };
@@ -1127,6 +1155,7 @@ export async function crearReservaPublica(params: {
         new Date(),
       );
       if (activas >= pol.maxSimultaneas) {
+        registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_SIMULTANEAS' });
         return { error: `Has alcanzado el máximo de ${pol.maxSimultaneas} reservas activas` as const };
       }
     }
@@ -1147,8 +1176,14 @@ export async function crearReservaPublica(params: {
   if (error) {
     if (error.message.includes('YA_RESERVADA')) return { error: 'Ya tienes una reserva en esta clase' as const };
     if (error.message.includes('SESION_NO_ENCONTRADA')) return { error: 'Sesión no encontrada' as const };
-    if (error.message.includes('LIMITE_SEMANAL')) return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const };
-    if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { error: 'Esta clase está completa' as const };
+    if (error.message.includes('LIMITE_SEMANAL')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'LIMITE_SEMANAL' });
+      return { error: 'Has alcanzado el máximo de clases por semana de tu plan' as const };
+    }
+    if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'AFORO_LLENO_SIN_ESPERA' });
+      return { error: 'Esta clase está completa' as const };
+    }
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;

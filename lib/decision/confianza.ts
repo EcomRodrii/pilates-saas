@@ -229,6 +229,20 @@ export function confianzaImpulsarOnboarding(c: {
   return evaluarNivel(criterios, false, base && c.plazoInminente, base);
 }
 
+/**
+ * RIESGO_RESERVA_FALLIDA (informe fila 14) — nunca ALTA a propósito: son
+ * intentos rechazados, no un impago confirmado ni una baja real, sigue
+ * siendo una predicción de frustración/riesgo, mismo criterio que ONBOARDING.
+ * BAJA con 2+ intentos en la ventana, MEDIA con 3+ (racha, no un despiste).
+ */
+export function confianzaRiesgoReservaFallida(c: { nIntentos: number }): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.nIntentos >= 2, etiqueta: `${c.nIntentos} intentos de reserva rechazados en la ventana reciente` },
+    { valor: c.nIntentos >= 3, etiqueta: 'racha de 3 o más intentos rechazados' },
+  ];
+  return evaluarNivel(criterios, false, c.nIntentos >= 3, c.nIntentos >= 2);
+}
+
 // Ocupación estructuralmente baja (Agenda A2) — un nº relevante de clases van
 // casi vacías aunque no formen una franja recurrente única. El criterio primario
 // es que HAYA clases casi vacías (a); la proporción alta (b) solo eleva la
