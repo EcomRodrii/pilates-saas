@@ -28,10 +28,18 @@ const TIPO_CLASE = { id: 'tc-1', studio_id: STUDIO_ID, nombre: 'Reformer', durac
 const SALA = { id: 'sala-1', studio_id: STUDIO_ID, nombre: 'Sala Reformer', capacidad: 10, color: '#F7A6C4' };
 
 // La clase que SÍ es suya (hoy, para que salga en "Clases de hoy" del dashboard).
-const HOY = new Date().toISOString().slice(0, 10);
+const AHORA = new Date();
+const HOY = AHORA.toISOString().slice(0, 10);
+// Hora fija lejos de la hora real de ejecución: si coincidiera con "ahora",
+// ClaseHoyCard (app/(dashboard)/dashboard/page.tsx) la abre por defecto
+// (isNow) y el test, que espera partir de la tarjeta colapsada, la
+// colapsaría al hacer click en vez de expandirla — pasó de verdad en CI dos
+// veces porque el job cayó dentro de la ventana fija de 18:00-18:50 UTC.
+const HORA_SEGURA = AHORA.getUTCHours() < 12 ? 20 : 4;
+const HORA_SEGURA_STR = String(HORA_SEGURA).padStart(2, '0');
 const SESION_PROPIA = {
   id: 'ses-propia', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1',
-  instructor_id: 'ins-marta', inicio: `${HOY}T18:00:00+00:00`, fin: `${HOY}T18:50:00+00:00`,
+  instructor_id: 'ins-marta', inicio: `${HOY}T${HORA_SEGURA_STR}:00:00+00:00`, fin: `${HOY}T${HORA_SEGURA_STR}:50:00+00:00`,
   aforo_maximo: 10, cancelada: false,
 };
 // La clase de una compañera: no debe ofrecerle "No puedo asistir" ni "Buscar sustituta".
