@@ -50,7 +50,7 @@ import {
   dbUpsertContenidoPortal, dbInsertBannerPortal, dbUpdateBannerPortal, dbDeleteBannerPortal,
   dbInsertSala, dbUpdateSala, dbDeleteSala,
   dbInsertInstructor, dbUpdateInstructor, dbDeleteInstructor,
-  dbUpdateStudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
+  dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolveStudioId, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
@@ -71,6 +71,7 @@ import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
 import type {
   Studio,
+  DiaHorario,
   Socio,
   CampoPersonalizado,
   PlantillaEmail,
@@ -526,6 +527,7 @@ interface StudioContextValue {
   planMasElegidoId: string | null;
   updateAvatarAdmin: (avatarId: string | null) => Promise<ResultadoEscritura>;
   updateStudio: (changes: Partial<Studio>) => Promise<ResultadoEscritura>;
+  updateHorarioEstudio: (dias: DiaHorario[]) => Promise<ResultadoEscritura>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -1466,6 +1468,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbUpdateStudio(changes);
     if (!res.ok) return res;
     setStudio(prev => prev ? { ...prev, ...changes } : prev);
+    return res;
+  }
+
+  async function updateHorarioEstudio(dias: DiaHorario[]): Promise<ResultadoEscritura> {
+    const res = await dbUpdateHorarioEstudio(dias);
+    if (!res.ok) return res;
+    setStudio(prev => prev ? { ...prev, horarioSemana: dias } : prev);
     return res;
   }
 
@@ -4039,6 +4048,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     studio,
     updateAvatarAdmin,
     updateStudio,
+    updateHorarioEstudio,
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deps deliberately cover only state read by
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.

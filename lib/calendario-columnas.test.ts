@@ -104,10 +104,32 @@ test('siempre devuelve las 7 columnas, aunque no haya clases', () => {
   assert.deepEqual(cols.map(c => c.dia), [0, 1, 2, 3, 4, 5, 6]);
 });
 
-test('un día sin clases se marca "vacío" — el componente decide si eso es "Cerrado"', () => {
+test('un día sin clases se marca "vacío" — no implica "cerrado"', () => {
   const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })]);
   assert.equal(cols[0].vacio, false);
   assert.equal(cols[6].vacio, true); // domingo, sin nada en el fixture
+  assert.equal(cols[6].cerrado, false); // sin horarioSemana, nunca se afirma "cerrado" sin dato real
+});
+
+test('sin horarioSemana ningún día se marca "cerrado", tenga o no clases', () => {
+  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })]);
+  assert.ok(cols.every(c => c.cerrado === false));
+});
+
+test('horarioSemana marca "cerrado" solo los días que el estudio no abre, independientemente de vacio', () => {
+  const cols = prepararColumnasDiaSemana(
+    [sesSemana({ id: 'a', dia: 6 })], // domingo, con una clase igualmente
+    [
+      { dia: 0, abierto: true }, { dia: 1, abierto: true }, { dia: 2, abierto: true },
+      { dia: 3, abierto: true }, { dia: 4, abierto: true }, { dia: 5, abierto: false },
+      { dia: 6, abierto: false },
+    ],
+  );
+  assert.equal(cols[5].vacio, true);
+  assert.equal(cols[5].cerrado, true); // sábado: cerrado y sin clases
+  assert.equal(cols[6].vacio, false);
+  assert.equal(cols[6].cerrado, true); // domingo: cerrado PERO con una clase — dos señales independientes
+  assert.equal(cols[0].cerrado, false); // lunes: abierto
 });
 
 test('las sesiones de distintos días no se mezclan en los carriles', () => {
