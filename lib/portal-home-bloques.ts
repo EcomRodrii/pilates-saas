@@ -34,6 +34,11 @@ export const PANTALLA_LABEL: Record<PantallaId, string> = {
 
 export const BLOQUES_SISTEMA_IDS = [
   'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
+  // Tema "Oliva"/"Noir" — ver lib/theme-definitions.ts (bloquesHome). Ninguno
+  // aparece en un estudio que no los active a mano o instale uno de esos
+  // temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así que
+  // no cambian el orden por defecto de nadie que ya tenga bloques guardados.
+  'tiraSemana', 'progresoSemanal',
 ] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
@@ -44,13 +49,17 @@ export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
   contenidoEstudio: 'Contenido del estudio (mensaje destacado y banners)',
   listadoClases: 'Calendario de clases',
   listadoBonos: 'Tu bono y accesos rápidos',
+  tiraSemana: 'Tira de la semana (7 días, con punto si hay clase reservada)',
+  progresoSemanal: 'Progreso semanal (anillo con tus reservas de esta semana)',
 };
 
 // Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
 // pueden reordenar/ocultar como cualquier otro bloque, pero no eliminar: son
-// el contenido funcional de la pantalla, no decorativo.
+// el contenido funcional de la pantalla, no decorativo. `tiraSemana`/
+// `progresoSemanal` van OCULTOS por defecto (ver bloqueSistema() más abajo)
+// — un estudio que no instale Oliva/Noir ni los active a mano no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio'],
+  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
 };
@@ -179,12 +188,19 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
   return BLOCK_CATALOG.find((b) => b.kind === kind);
 }
 
+// Ocultos por defecto: los que ningún estudio ve hasta que instala el tema
+// que los pide (lib/theme-definitions.ts, bloquesHome) o los activa a mano.
+const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>(['tiraSemana', 'progresoSemanal']);
+
 function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
-  return { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
+  return SISTEMA_OCULTO_POR_DEFECTO.has(sistemaId)
+    ? { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId, oculto: true }
+    : { id: `sistema-${sistemaId}`, kind: 'sistema', sistemaId };
 }
 
 // Por defecto (ningún estudio ha tocado esto todavía): los bloques `sistema`
-// de cada pantalla, en su orden por defecto, visibles.
+// de cada pantalla, en su orden por defecto, visibles salvo los que se
+// activan por tema (ver SISTEMA_OCULTO_POR_DEFECTO arriba).
 export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
   home: BLOQUES_SISTEMA_POR_PANTALLA.home.map(bloqueSistema),
   clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map(bloqueSistema),

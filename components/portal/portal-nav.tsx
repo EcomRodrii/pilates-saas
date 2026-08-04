@@ -48,14 +48,17 @@ export function PortalNav({
         position: interactive ? 'absolute' : 'relative',
         left: interactive ? 18 : undefined, right: interactive ? 18 : undefined,
         bottom: interactive ? 'calc(22px + env(safe-area-inset-bottom))' : undefined,
-        height: altura.tabbar, zIndex: interactive ? 14 : undefined, borderRadius: radio.tabbar,
-        // var() con el valor de hoy como fallback: sin `barraOscura` el tema no
-        // declara estas vars (ver varsBarra en lib/theme-runtime.ts) y la barra
-        // se ve exactamente igual que antes, en claro y en oscuro.
+        // var() con el valor de hoy como fallback en las 3: sin `barraOscura`/
+        // `barraFlotante` el tema no declara estas vars (ver varsBarra/
+        // varsBarraFlotante en lib/theme-runtime.ts) y la barra se ve
+        // exactamente igual que antes, en claro y en oscuro.
+        height: `var(--portal-tabbar-height, ${altura.tabbar}px)`,
+        zIndex: interactive ? 14 : undefined,
+        borderRadius: `var(--portal-tabbar-radius, ${radio.tabbar}px)`,
         background: `var(--portal-tabbar-bg, ${t.tabbar})`,
         ...cristal(desenfoque.tabbar, 170),
         border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
-        boxShadow: sombra.tabbar,
+        boxShadow: `var(--portal-tabbar-shadow, ${sombra.tabbar})`,
         display: 'flex', alignItems: 'center', padding: 6,
       }}
     >

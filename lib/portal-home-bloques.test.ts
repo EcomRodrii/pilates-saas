@@ -7,11 +7,17 @@ import {
 } from './portal-home-bloques.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los 4 módulos de siempre, en orden, sin ocultar', () => {
-  assert.deepEqual(
-    DEFAULT_BLOQUES_POR_PANTALLA.home.map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind)),
-    ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio'],
-  );
-  assert.ok(DEFAULT_BLOQUES_POR_PANTALLA.home.every((b) => !b.oculto));
+  const idsVisibles = DEFAULT_BLOQUES_POR_PANTALLA.home
+    .filter((b) => !b.oculto)
+    .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(idsVisibles, ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+});
+
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal existen pero OCULTOS (solo Oliva/Noir los activan)', () => {
+  const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
+    .filter((b) => b.oculto)
+    .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal']);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -21,16 +27,29 @@ test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque siste
 
 test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de siempre', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
-  assert.deepEqual(r.publicado.map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind)), ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(visibles, ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
   assert.deepEqual(r.draft, r.publicado);
+});
+
+test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal llegan OCULTOS incluso sin legacy', () => {
+  const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
+  const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal']);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: ['contenidoEstudio', 'estaSemana'], ocultos: ['invitarAmiga'] });
-  const ids = r.publicado.map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ids, ['contenidoEstudio', 'estaSemana', 'accesosRapidos', 'invitarAmiga']);
+  const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(visibles, ['contenidoEstudio', 'estaSemana', 'accesosRapidos']);
   const invitar = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'invitarAmiga');
   assert.equal(invitar?.oculto, true);
+  // tiraSemana/progresoSemanal no estaban en el legacy (no existían) → se
+  // añaden al final por el segundo spread de resolveBloquesPantalla, y
+  // bloqueSistema() ya los marca ocultos por defecto.
+  const nuevos = r.publicado.filter((b) => b.kind === 'sistema' && (b.sistemaId === 'tiraSemana' || b.sistemaId === 'progresoSemanal'));
+  assert.equal(nuevos.length, 2);
+  assert.ok(nuevos.every((b) => b.oculto));
 });
 
 test('resolveBloquesPantalla: Home, una vez hay bloques guardado, YA NO mira portalHome (es la fuente de verdad)', () => {

@@ -70,21 +70,52 @@ test('THEME_DEFINITIONS: siguen estando los temas anteriores a esta tanda', () =
   }
 });
 
-test('Noir es el único que pide barra oscura', () => {
+test('Noir es el único que pide barra oscura; Bloom el único que pide barra flotante', () => {
   assert.equal(getThemeDefinition('noir')!.defaults.barraOscura, true);
   assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraOscura).length, 1);
+  assert.equal(getThemeDefinition('bloom')!.defaults.barraFlotante, true);
+  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).length, 1);
 });
 
-test('validarContrasteTheme: con barra oscura, un secundario ilegible sobre la marca se rechaza', () => {
+test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la marca se rechaza', () => {
   const malo = validarContrasteTheme({
     ...DEFAULT_THEME, ...getThemeDefinition('noir')!.defaults,
-    secondary: '#1E2B22', // casi el mismo verde que la marca: invisible como icono activo
+    destacado: '#1E2B22', // casi el mismo verde que la marca: invisible como icono activo
   });
   assert.equal(malo.ok, false);
-  assert.ok(malo.errores.some((e) => e.includes('barra oscura')));
+  assert.ok(malo.errores.some((e) => e.includes('destacado')));
 });
 
-test('validarContrasteTheme: sin barra oscura ese par no se comprueba (solo se pinta en la barra)', () => {
-  const r = validarContrasteTheme({ ...DEFAULT_THEME, secondary: DEFAULT_THEME.primary, barraOscura: false });
+test('validarContrasteTheme: con barra flotante (sin oscura), el par destacado/marca NO se comprueba', () => {
+  // Solo `barraOscura` pinta `--portal-tabbar-bg` como la marca (varsBarra);
+  // la barra flotante deja el fondo de la pastilla activa en su claro de
+  // siempre — `destacado` nunca se pinta sobre `primary` ahí.
+  const r = validarContrasteTheme({
+    ...DEFAULT_THEME, ...getThemeDefinition('bloom')!.defaults,
+    destacado: getThemeDefinition('bloom')!.defaults.primary, // a propósito, ilegible SI se comprobara
+  });
   assert.equal(r.ok, true);
+});
+
+test('validarContrasteTheme: sin barra oscura, ese par no se comprueba', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, destacado: DEFAULT_THEME.primary, barraOscura: false });
+  assert.equal(r.ok, true);
+});
+
+test('validarContrasteTheme: sin `destacado`, el gate cae a `secondary` (tema guardado antes de esta fase)', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, barraOscura: true, secondary: '#FFFFFF', destacado: null });
+  assert.equal(r.ok, true); // blanco sobre el primary por defecto (oliva oscuro) sí contrasta
+});
+
+test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids reales de bloques sistema', () => {
+  const idsValidos = new Set(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal']);
+  for (const id of ['oliva', 'bloom', 'noir']) {
+    const def = getThemeDefinition(id)!;
+    assert.ok(def.bloquesHome && def.bloquesHome.length > 0, `"${id}" no trae bloquesHome`);
+    for (const b of def.bloquesHome!) {
+      assert.ok(idsValidos.has(b), `"${id}" referencia un id de bloque desconocido: "${b}"`);
+    }
+  }
+  // Retos queda fuera de esta ronda a propósito — Bloom no lo referencia.
+  assert.ok(!getThemeDefinition('bloom')!.bloquesHome!.includes('retos'));
 });
