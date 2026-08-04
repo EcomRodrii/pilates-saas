@@ -7,7 +7,7 @@ import type {
   Instructor, Campana, AutomationLog,
 } from '@/lib/types';
 
-export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO';
+export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO' | 'ONBOARDING';
 
 // Catálogo único de tipos de recomendación — todo tipo nuevo de cualquier fase
 // se añade aquí (DECISION-OS-ARQUITECTURA.md §3).
@@ -30,7 +30,9 @@ export type TipoRecomendacion =
   | 'CONTACTAR_LEAD'
   | 'CONVERTIR_PRUEBA'
   // Equipo
-  | 'REVISAR_CARGA_EQUIPO';
+  | 'REVISAR_CARGA_EQUIPO'
+  // Onboarding (primeros 30 días de una socia nueva)
+  | 'IMPULSAR_ONBOARDING';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';
@@ -224,7 +226,7 @@ export interface MensajeDia {
 // P2-5: faltaba CAPTACION — hueco del catálogo (EspecialistaId ya la tenía),
 // no una reapertura de nada. Necesario para que el filtro por especialista
 // de motor.ts pueda apagar/encender los 7 especialistas, no solo 6.
-export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION';
+export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION' | 'ONBOARDING';
 export interface DecisionFeatureFlag {
   id: string;
   studioId: string;

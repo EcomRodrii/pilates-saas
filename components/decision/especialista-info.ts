@@ -1,4 +1,4 @@
-import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, UserPlus, type LucideIcon } from 'lucide-react';
+import { Heart, TrendingUp, Calendar, Megaphone, Wallet, UsersRound, UserPlus, Rocket, type LucideIcon } from 'lucide-react';
 
 // Nombre corto + icono por especialista — única fuente de verdad, usada por
 // SpecialistCard ("Mi Equipo") y por RecommendationCard (atribución de cada
@@ -13,4 +13,5 @@ export const ESPECIALISTA_INFO: Record<string, { nombre: string; icon: LucideIco
   MARKETING: { nombre: 'Marketing', icon: Megaphone },
   FINANZAS: { nombre: 'Finanzas', icon: Wallet },
   EQUIPO: { nombre: 'Equipo', icon: UsersRound },
+  ONBOARDING: { nombre: 'Onboarding', icon: Rocket },
 };

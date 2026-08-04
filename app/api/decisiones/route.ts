@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
   // igual muestra su tarjeta ("todo en orden"), no desaparece de Mi Equipo.
   const porEspecialistaMap = new Map<EspecialistaId, Recomendacion[]>([
     ['RETENCION', []], ['INGRESOS', []], ['AGENDA', []], ['CAPTACION', []],
-    ['FINANZAS', []], ['MARKETING', []], ['EQUIPO', []],
+    ['FINANZAS', []], ['MARKETING', []], ['EQUIPO', []], ['ONBOARDING', []],
   ]);
   for (const r of pendientes) {
     const arr = porEspecialistaMap.get(r.especialista) ?? [];
