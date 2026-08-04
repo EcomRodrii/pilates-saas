@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
-import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Clock, User, Calendar, Filter, AlertTriangle, CircleDashed, Upload, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
-import { useRol, puedeGestionarClientas } from '@/lib/permisos';
+import { useRol, puedeGestionarClientas, puedeMoverDinero } from '@/lib/permisos';
 import { detectarConflictos, hayConflicto, type SlotSesion } from '@/lib/calendar-logic';
 import type { Cita, TipoCita, EstadoCita } from '@/lib/types';
 import { cn, formatEuro, formatFechaCorta, formatHoraCorta } from '@/lib/utils';
@@ -102,8 +102,10 @@ interface CitaCardProps {
   esNuevo: boolean;
   onCompletar: (id: string) => void;
   onCancelar: (id: string) => void;
-  onTogglePagada: (id: string) => void;
+  onCobrar: (id: string) => void;
+  onToggleFisio: (id: string) => void;
   verPrecio: boolean;
+  puedeCobrar: boolean;
   gestionaCitas: boolean;
 }
 
@@ -116,8 +118,10 @@ function CitaCard({
   esNuevo,
   onCompletar,
   onCancelar,
-  onTogglePagada,
+  onCobrar,
+  onToggleFisio,
   verPrecio,
+  puedeCobrar,
   gestionaCitas,
 }: CitaCardProps) {
   const [hovered, setHovered] = useState(false);
@@ -183,10 +187,15 @@ function CitaCard({
           <span className="text-sm font-medium text-foreground text-right tabular-nums">
             {cita.precio != null ? formatEuro(cita.precio) : '—'}
           </span>
-          {cita.precio != null && (
+          {cita.precio != null && cita.tipo === 'FISIOTERAPIA' && (
+            // Fisioterapia queda fuera del cobro con factura real a propósito
+            // (ver comentario más abajo, junto a handleToggleFisio): el motor
+            // de facturación no soporta hoy la exención de IVA del art.
+            // 20.Uno.3º LIVA, y facturarla al tipo general del estudio sería
+            // un documento fiscal INCORRECTO, no solo un hueco de trazabilidad.
             <button
-              onClick={() => onTogglePagada(cita.id)}
-              title={cita.pagada ? 'Pagado — clic para marcar como pendiente' : 'Pendiente de cobro — clic para marcar como pagado'}
+              onClick={() => onToggleFisio(cita.id)}
+              title={cita.pagada ? 'Pagado (marca simple, sin factura) — clic para desmarcar' : 'Pendiente de cobro — clic para marcar como pagado (sin factura, ver nota)'}
               aria-label={cita.pagada ? 'Pagado' : 'Pendiente de cobro'}
               className="shrink-0 rounded-full hover:opacity-80 transition-opacity"
             >
@@ -194,6 +203,26 @@ function CitaCard({
                 ? <CheckCircle2 size={16} className="text-success" />
                 : <CircleDashed size={16} className="text-warning" />}
             </button>
+          )}
+          {cita.precio != null && cita.tipo !== 'FISIOTERAPIA' && (
+            cita.pagada ? (
+              <span title="Cobrada — factura generada" aria-label="Cobrada">
+                <CheckCircle2 size={16} className="text-success" />
+              </span>
+            ) : puedeCobrar ? (
+              <button
+                onClick={() => onCobrar(cita.id)}
+                title="Pendiente de cobro — clic para registrar el cobro y generar la factura"
+                aria-label="Registrar cobro"
+                className="shrink-0 rounded-full hover:opacity-80 transition-opacity"
+              >
+                <CircleDashed size={16} className="text-warning" />
+              </button>
+            ) : (
+              <span title="Pendiente de cobro — solo quien puede mover dinero puede registrarlo" aria-label="Pendiente de cobro">
+                <CircleDashed size={16} className="text-warning" />
+              </span>
+            )
           )}
         </div>
       )}
@@ -235,19 +264,24 @@ function CitaCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CitasPage() {
-  const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita } = useStudio();
+  const { socios, instructores, citas, sesiones, addCita, updateCita, completarCita, cancelarCita, crearFacturaDirecta } = useStudio();
   const rol = useRol();
   // Todo lo de esta pantalla escribe en `citas`, y su RLS exige
-  // `puede_gestionar_clientas()` — que incluye al MANAGER. Así que el helper que
-  // toca es ese, también para el precio y el estado de cobro: marcar una cita
-  // como pagada es una MARCA en la propia cita, no un recibo (los recibos sí
-  // exigen `puede_mover_dinero()`, y por eso cobrar vive en otra pantalla).
+  // `puede_gestionar_clientas()` — eso sigue valiendo para gestionar la cita
+  // en sí (crear/completar/cancelar) y para VER el precio/estado de cobro.
   //
   // Se escribía `rol !== 'INSTRUCTOR'` a mano, que resulta ser exactamente este
   // helper; el valor de cambiarlo no es corregir el reparto de hoy sino que no
   // se descuadre solo al añadir el siguiente rol.
   const gestionaCitas = puedeGestionarClientas(rol);
   const verPrecio = gestionaCitas;
+  // Registrar el COBRO ya no es una marca suelta — genera un recibo COBRADO
+  // + factura sellada de verdad (crearFacturaDirecta, motor ya usado por
+  // "Nueva factura" en Cobros), así que exige el mismo permiso que mover
+  // dinero real en cualquier otro sitio del producto (puedeMoverDinero,
+  // PROPIETARIO/RECEPCIÓN) — antes bastaba con gestionar clientas
+  // (incluía MANAGER) porque solo tocaba la fila `citas`, nunca `recibos`.
+  const puedeCobrar = puedeMoverDinero(rol);
   const [tab, setTab] = useState<'proximas' | 'historial'>('proximas');
   const [filterInstructor, setFilterInstructor] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
@@ -256,6 +290,10 @@ export default function CitasPage() {
   const [errorModal, setErrorModal] = useState<string | null>(null);
   const [errorLista, setErrorLista] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // Cita pendiente de confirmar cobro (genera factura real, así que pide
+  // confirmación explícita — no es un toggle de un clic como antes).
+  const [cobrandoId, setCobrandoId] = useState<string | null>(null);
+  const [procesandoCobro, setProcesandoCobro] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -378,14 +416,48 @@ export default function CitasPage() {
     if (!r.ok) setErrorLista(r.error);
   }
 
-  async function handleTogglePagada(id: string) {
+  // Fisioterapia se queda con la marca simple de antes (sin factura real) —
+  // ver el comentario junto al botón en CitaCard: el motor de facturación no
+  // soporta hoy la exención de IVA del art. 20.Uno.3º LIVA, y generar una
+  // factura al tipo general del estudio sería fiscalmente incorrecta, no
+  // solo un hueco de trazabilidad. Queda pendiente como pieza aparte.
+  async function handleToggleFisio(id: string) {
     const cita = citas.find((c) => c.id === id);
     if (!cita) return;
     setErrorLista(null);
-    // La que más duele: dar por cobrada una cita que no se guardó como cobrada
-    // significa que nadie va a reclamar ese dinero.
     const r = await updateCita(id, { pagada: !cita.pagada });
     if (!r.ok) setErrorLista(r.error);
+  }
+
+  // Cobro real: crea Recibo COBRADO + factura sellada (mismo motor que
+  // "Nueva factura" en Cobros) y solo entonces marca la cita como pagada —
+  // nunca al revés, para no repetir el bug que este cambio corrige (una cita
+  // "pagada" sin ningún rastro fiscal detrás).
+  async function handleConfirmarCobro() {
+    const cita = citas.find((c) => c.id === cobrandoId);
+    if (!cita || cita.precio == null || procesandoCobro) return;
+    setProcesandoCobro(true);
+    setErrorLista(null);
+    const tipoLabel = TIPO_BADGE[cita.tipo].label;
+    const res = await crearFacturaDirecta({
+      socioId: cita.socioId,
+      concepto: `Cita — ${tipoLabel} (${formatFecha(cita.inicio)})`,
+      importe: cita.precio,
+    });
+    if (!res.ok) {
+      // cobroRegistrado=true: el recibo/factura ya se creó y solo falló un
+      // paso posterior (ver crearFacturaDirecta) — no reintentar a ciegas,
+      // avisar y dejar que quien lo vea decida desde Cobros.
+      setErrorLista('cobroRegistrado' in res
+        ? 'El cobro se registró, pero hubo un problema al sellar la factura. Revísalo en Cobros.'
+        : res.error);
+      setProcesandoCobro(false);
+      if (!('cobroRegistrado' in res)) return;
+    }
+    const rCita = await updateCita(cita.id, { pagada: true });
+    if (!rCita.ok) setErrorLista(rCita.error);
+    setProcesandoCobro(false);
+    setCobrandoId(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -563,8 +635,10 @@ export default function CitasPage() {
                 esNuevo={(sociosConVariasCitas.get(cita.socioId) ?? 0) <= 1}
                 onCompletar={handleCompletar}
                 onCancelar={handleCancelar}
-                onTogglePagada={handleTogglePagada}
+                onCobrar={setCobrandoId}
+                onToggleFisio={handleToggleFisio}
                 verPrecio={verPrecio}
+                puedeCobrar={puedeCobrar}
                 gestionaCitas={gestionaCitas}
               />
             );
@@ -725,6 +799,51 @@ export default function CitasPage() {
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación de cobro: genera Recibo COBRADO + factura sellada de
+          verdad, así que no puede ser un clic sin más — a diferencia del
+          resto de acciones de esta pantalla, esto sí mueve dinero real. */}
+      <Dialog open={cobrandoId !== null} onOpenChange={(open) => { if (!open && !procesandoCobro) setCobrandoId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar cobro</DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const cita = citas.find((c) => c.id === cobrandoId);
+            if (!cita) return null;
+            const socio = getSocio(cita.socioId);
+            return (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Se generará un recibo cobrado y una factura al contado por{' '}
+                  <span className="font-semibold text-foreground">{cita.precio != null ? formatEuro(cita.precio) : ''}</span>
+                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta socia'}</span>.
+                  No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCobrandoId(null)}
+                    disabled={procesandoCobro}
+                    className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmarCobro}
+                    disabled={procesandoCobro}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-sm font-medium hover:brightness-95 transition-colors disabled:opacity-60"
+                  >
+                    {procesandoCobro && <Loader2 size={14} className="animate-spin" />}
+                    {procesandoCobro ? 'Registrando…' : 'Confirmar cobro'}
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
