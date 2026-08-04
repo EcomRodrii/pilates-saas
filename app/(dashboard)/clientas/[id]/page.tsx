@@ -1255,7 +1255,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </button>
               {showAvatarPicker && (
                 <div className="w-full text-left mb-3 p-3 rounded-xl border border-border bg-[#F8F9FB]">
-                  <AvatarPicker value={socio.avatar ?? null} onChange={id => updateSocio(socio.id, { avatar: id })} />
+                  <AvatarPicker value={socio.avatar ?? null} onChange={id => { void updateSocio(socio.id, { avatar: id }).then(res => { if (!res.ok) setToast(res.error); }); }} />
                 </div>
               )}
               <h2 className="text-base font-bold text-foreground leading-tight">
@@ -1313,7 +1313,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <Filter size={13} className="text-muted-foreground shrink-0" />
                 <select
                   value={socio.leadStage ?? ''}
-                  onChange={(e) => updateSocio(id, { leadStage: (e.target.value || undefined) as LeadStage | undefined })}
+                  onChange={(e) => { void updateSocio(id, { leadStage: (e.target.value || undefined) as LeadStage | undefined }).then(res => { if (!res.ok) setToast(res.error); }); }}
                   className="text-xs font-medium bg-transparent text-foreground border border-border rounded-lg px-1.5 py-1 focus:outline-none focus:border-brand"
                   title="Etapa en el embudo de captación"
                 >
@@ -1368,7 +1368,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <Pencil size={14} />Editar clienta
               </button>
               <button
-                onClick={() => updateSocio(id, { activo: !socio.activo })}
+                onClick={() => { void updateSocio(id, { activo: !socio.activo }).then(res => { if (!res.ok) setToast(res.error); }); }}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors"
               >
                 {socio.activo ? 'Desactivar' : 'Activar'}

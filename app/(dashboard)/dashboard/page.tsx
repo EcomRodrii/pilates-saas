@@ -796,19 +796,23 @@ export default function Dashboard() {
 
         {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
         <div {...wrap('resumen')}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
             { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientas hoy', alert: false, privada: false },
-            { href: '/informes', Icon: Activity, value: `${ocupacionMedia}%`, label: 'Ocupación semana', alert: ocupacionMedia >= 85, privada: false },
             ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
             { href: '/clientas', Icon: Clock, value: statsClientas.inactivas30d, label: 'Sin venir 30d', alert: statsClientas.inactivas30d > 0, privada: false },
-            ...(verFinanzas ? [{ href: '/informes', Icon: TrendingUp, value: `${ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €`, label: 'Ingresos del mes', alert: false, privada: true }] : []),
+            // Ocupación semana e Ingresos del mes ya NO van aquí: se repetían
+            // tal cual (mismo número, mismo enlace a /informes) en la tarjeta
+            // de Ingresos y en la fila de KPIs de más abajo, sin aportar nada
+            // que esas dos no mostraran ya con más detalle (sparkline, barra,
+            // comparación con el mes anterior). Carmen: "2ª fila del dashboard
+            // duplica ocupación e ingresos".
           ].map(({ href, Icon, value, label, alert, privada }) => {
-            // "Ocupación semana" enlazaba a /informes también para una
-            // instructora, que no puede verlo: el guardia del layout la rebotaba
-            // al dashboard. Un enlace que te devuelve donde estabas no es un
-            // enlace. Si no puede ir, se pinta la cifra sin enlace.
+            // Enlazaba a /informes también para una instructora, que no puede
+            // verlo: el guardia del layout la rebotaba al dashboard. Un enlace
+            // que te devuelve donde estabas no es un enlace. Si no puede ir,
+            // se pinta la cifra sin enlace.
             const puedeIr = puedeVer(rolActual, href);
             const estilo = {
               backgroundColor: alert ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : 'var(--card)',
@@ -1029,7 +1033,12 @@ export default function Dashboard() {
                   </div>
                   {pendientes.length > 1 && (
                     <button
-                      onClick={() => cobrarTodosPendientes()}
+                      onClick={() => {
+                        const n = pendientes.length;
+                        void cobrarTodosPendientes().then(res => {
+                          showToast(res.ok ? `${n} recibo(s) cobrados` : res.error);
+                        });
+                      }}
                       className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/10 transition-colors"
                     >
                       <Zap size={11} /> Cobrar todos
