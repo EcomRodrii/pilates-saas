@@ -207,6 +207,28 @@ export function confianzaConvertirPrueba(c: {
   return evaluarNivel(criterios, a && b, a, b);
 }
 
+// IMPULSAR_ONBOARDING — a diferencia del resto de reglas de captación/retención,
+// "no llega a 4 visitas + 2 conocidas en 30 días" es una predicción social
+// (correlación con permanencia), no una comprobación de saldo o de fecha
+// vencida — nunca ALTA (nunca autonomiaMaxima=2): esAlta siempre false.
+// Dispara solo si AMBAS: ventana casi cerrada Y ritmo insuficiente — ninguna
+// sola basta (ventanaCasiCerrada sola con ritmo YA cumplido no tiene sentido
+// avisar; ritmoInsuficiente sola en el día 2 tampoco, es demasiado pronto
+// para saber nada). MEDIA solo si además quedan ≤3 días (última oportunidad).
+export function confianzaImpulsarOnboarding(c: {
+  ventanaCasiCerrada: boolean;
+  ritmoInsuficiente: boolean;
+  plazoInminente: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.ventanaCasiCerrada, etiqueta: 'quedan 7 días o menos de la ventana de onboarding' },
+    { valor: c.ritmoInsuficiente, etiqueta: 'no llega al ritmo de 4 visitas + 2 conocidas en 30 días' },
+    { valor: c.plazoInminente, etiqueta: 'quedan 3 días o menos' },
+  ];
+  const base = c.ventanaCasiCerrada && c.ritmoInsuficiente;
+  return evaluarNivel(criterios, false, base && c.plazoInminente, base);
+}
+
 // Ocupación estructuralmente baja (Agenda A2) — un nº relevante de clases van
 // casi vacías aunque no formen una franja recurrente única. El criterio primario
 // es que HAYA clases casi vacías (a); la proporción alta (b) solo eleva la

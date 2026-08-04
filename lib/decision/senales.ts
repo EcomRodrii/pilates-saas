@@ -27,6 +27,8 @@ export interface IndicesSenal {
   // Tarifa/hora por instructora (null = sin fijar). Construido aquí, no en
   // SnapshotEstudio (array JSON-safe) — ver InstructorTarifaSnapshot en tipos.ts.
   tarifaHoraPorInstructor: Map<string, number | null>;
+  // Socios que cada socio ha REFERIDO (Socio.referidoPor), para onboarding.ts.
+  referidosPorSocio: Map<string, Socio[]>;
 }
 
 function agrupar<T>(items: T[], claveDe: (item: T) => string | null | undefined): Map<string, T[]> {
@@ -81,6 +83,8 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     s.instructorTarifas.map(t => [t.instructorId, t.tarifaHora])
   );
 
+  const referidosPorSocio = agrupar(s.socios, soc => soc.referidoPor);
+
   return {
     socioPorId: new Map(s.socios.map(soc => [soc.id, soc])),
     planPorId: new Map(s.planesTarifa.map(p => [p.id, p])),
@@ -95,6 +99,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     logsPorSocio: agrupar(s.automationLogs, l => l.socioId),
     ocupadasPorSesion,
     tarifaHoraPorInstructor,
+    referidosPorSocio,
   };
 }
 
@@ -184,6 +189,51 @@ export function diasDesdeUltimoContacto(socioId: string, idx: IndicesSenal, now:
   if (logs.length === 0) return null;
   const masReciente = logs.reduce((max, l) => (l.ejecutadoEn > max.ejecutadoEn ? l : max));
   return Math.floor((now.getTime() - new Date(masReciente.ejecutadoEn).getTime()) / MS_DIA);
+}
+
+/** Días desde el alta de la socia. null si no se encuentra en el índice. */
+export function diasDesdeAlta(socioId: string, idx: IndicesSenal, now: Date): number | null {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return null;
+  return Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
+}
+
+/** Asistencias (ASISTIDA) dentro de los primeros 30 días desde el alta. */
+export function visitasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return 0;
+  const desde = new Date(socio.fechaAlta).getTime();
+  const hasta = desde + 30 * MS_DIA;
+  const asistidas = idx.asistidasPorSocio.get(socioId) ?? [];
+  return asistidas.filter(r => {
+    const t = new Date(r.creadoEn).getTime();
+    return t >= desde && t < hasta;
+  }).length;
+}
+
+/**
+ * Socias que ESTA socia trajo (Socio.referidoPor) y que ya hicieron su
+ * primera clase dentro de los 30 días de onboarding de la referidora —
+ * "conocidas" del informe estratégico. La primera asistencia de un referido
+ * es la más antigua de `asistidasPorSocio` (ordenado desc), mismo criterio
+ * que `esPrimeraAsistencia` (lib/booking-logic.ts) usa para el premio de
+ * referidos — no se reinventa el criterio, solo se consulta con fecha.
+ */
+export function conocidasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return 0;
+  const desde = new Date(socio.fechaAlta).getTime();
+  const hasta = desde + 30 * MS_DIA;
+  const referidos = idx.referidosPorSocio.get(socioId) ?? [];
+  let n = 0;
+  for (const referido of referidos) {
+    const asistidas = idx.asistidasPorSocio.get(referido.id) ?? [];
+    if (asistidas.length === 0) continue;
+    const primera = asistidas[asistidas.length - 1];
+    const t = new Date(primera.creadoEn).getTime();
+    if (t >= desde && t < hasta) n++;
+  }
+  return n;
 }
 
 /**
