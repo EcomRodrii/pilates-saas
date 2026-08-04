@@ -124,6 +124,44 @@ test('FINANZAS F2: sin plan MENSUAL en el estudio → no dispara (no hay nada re
   assert.equal(finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL').length, 0);
 });
 
+test('FINANZAS F2: no infla la frecuencia con asistencias de OTRA disciplina (P2-5)', () => {
+  // Bono de Reformer: solo 2x/semana en Reformer (8 asistencias en 8 semanas,
+  // justo en el límite de 4 mínimas — frecuencia real 1x/semana en la
+  // disciplina del bono). Además asiste 3x/semana a Mat con otro plan — si la
+  // frecuencia no estuviera acotada por disciplina, se contarían también esas
+  // y el ahorro estimado del mensual de Reformer saldría inflado.
+  const sesionReformer = (i: number): Sesion =>
+    ({ id: `se-ref-${i}`, studioId: 'e1', tipoClaseId: 'reformer', salaId: 's1', instructorId: 'i1', inicio: diasAntes(i), fin: diasAntes(i), aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null });
+  const sesionMat = (i: number): Sesion =>
+    ({ id: `se-mat-${i}`, studioId: 'e1', tipoClaseId: 'mat', salaId: 's1', instructorId: 'i1', inicio: diasAntes(i), fin: diasAntes(i), aforoMaximo: 8, cancelada: false, notas: null, precioPuntual: null });
+  const asistidaEn = (sesionId: string, hace: number): Reserva =>
+    ({ id: `r-${++n}`, studioId: 'e1', socioId: '1', sesionId, estado: 'ASISTIDA', spotId: null, posicionEspera: null, ofertaExpiraEn: null, checkInEn: null, creadoEn: diasAntes(hace) });
+
+  const diasReformer = Array.from({ length: 8 }, (_, i) => i * 7);
+  const diasMat = Array.from({ length: 24 }, (_, i) => i * 2.3);
+  const sesionesReformer = diasReformer.map(d => sesionReformer(d));
+  const sesionesMat = diasMat.map(d => sesionMat(d));
+  const s = snap({
+    socios: [socio({ id: '1' })],
+    sesiones: [...sesionesReformer, ...sesionesMat],
+    reservas: [
+      ...sesionesReformer.map((se, i) => asistidaEn(se.id, diasReformer[i])),
+      ...sesionesMat.map((se, i) => asistidaEn(se.id, diasMat[i])),
+    ],
+    planesTarifa: [
+      plan({ id: 'b', tipo: 'BONO', nombre: 'Bono 4 Reformer', precio: 40, sesiones: 4, tiposClaseIds: ['reformer'] }),
+      // Mensual carísimo: a la frecuencia REAL de Reformer (1x/semana) no compensaría.
+      plan({ id: 'm', tipo: 'MENSUAL', nombre: 'Mensual Reformer', precio: 90, sesiones: null, tiposClaseIds: ['reformer'] }),
+    ],
+    suscripciones: [
+      sus('1', 'b', { fechaInicio: diasAntes(20), sesionesRestantes: 3 }),
+      sus('1', 'b', { fechaInicio: diasAntes(50), estado: 'CANCELADA', sesionesRestantes: 0 }),
+    ],
+  });
+  // A 1x/semana real en Reformer: 90/(1*4.33) ≈ 20,8€/sesión > 10€/sesión del bono — no ahorra, no dispara.
+  assert.equal(finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_SUSCRIPCION_MENSUAL').length, 0);
+});
+
 test('FINANZAS F2: frecuencia insuficiente (menos de 4 asistencias recientes) → sin dato fiable, no dispara', () => {
   const s = snap({
     socios: [socio({ id: '1' })],

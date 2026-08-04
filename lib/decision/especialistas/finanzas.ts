@@ -6,7 +6,7 @@
 // plan mensual equivalente → PROPONER_SUSCRIPCION_MENSUAL.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
 import type { Suscripcion } from '@/lib/types';
-import { construirIndices, frecuenciaHabitual, type IndicesSenal } from '../senales.ts';
+import { construirIndices, frecuenciaHabitualPorTipoClase, type IndicesSenal } from '../senales.ts';
 import { confianzaRenovarBono, confianzaProponerSuscripcionMensual } from '../confianza.ts';
 import { planCubreTipoClase } from '../../bono-logic.ts';
 
@@ -73,15 +73,19 @@ function reglaF2(sus: Suscripcion, idx: IndicesSenal, s: SnapshotEstudio, now: D
   const socio = idx.socioPorId.get(sus.socioId);
   if (!socio || !socio.activo) return null;
 
-  const freq = frecuenciaHabitual(sus.socioId, idx);
-  if (freq === null || freq <= 0) return null;
-
   const tipoClaseId = plan.tiposClaseIds?.[0] ?? null;
   const planMensual = s.planesTarifa.find(p =>
     p.studioId === plan.studioId && p.tipo === 'MENSUAL' && p.activo && p.precio > 0
     && planCubreTipoClase(p, tipoClaseId)
   );
   if (!planMensual) return null;
+
+  // Acotada al tipo de clase del bono, no la frecuencia TOTAL de la socia —
+  // si no, una socia que también asiste a otra disciplina con otro plan
+  // (planes_por_tipo_de_clase) infla la frecuencia y abarata artificialmente
+  // el coste estimado del mensual (mismo punto ciego que P2-5 ya corrigió en F1).
+  const freq = frecuenciaHabitualPorTipoClase(sus.socioId, tipoClaseId, idx);
+  if (freq === null || freq <= 0) return null;
 
   const costeEfectivoPorSesion = plan.precio / plan.sesiones;
   const costeMensualPorSesion = planMensual.precio / (freq * 4.33);
