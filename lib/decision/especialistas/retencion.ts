@@ -6,10 +6,10 @@ import type { Socio } from '@/lib/types';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
-  diasDesdeVencimientoSinRenovar, totalAsistencias,
+  diasDesdeVencimientoSinRenovar, totalAsistencias, intentosFallidosRecientes,
   type IndicesSenal,
 } from '../senales.ts';
-import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida, confianzaCongelarMembresia } from '../confianza.ts';
+import { confianzaRecuperarSocia, confianzaRecuperarSociaPorNoShow, confianzaEnviarReactivacion, confianzaRecuperarSociaVencida, confianzaCongelarMembresia, confianzaRiesgoReservaFallida } from '../confianza.ts';
 import { tieneHechoActivo } from '../memoria.ts';
 
 const MS_DIA = 86400000;
@@ -314,6 +314,47 @@ function reglaR6(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
   };
 }
 
+/**
+ * R7 · Intentos de reserva fallidos repetidos → CONTACTO_MANUAL (informe fila
+ * 14, "quería pagar y no pudo"). Solo para ≥30d de antigüedad — el mismo caso
+ * en socias nuevas lo cubre onboarding.ts, que ya conoce su ventana de 30
+ * días. Comprueba la antigüedad ella misma (no delega en `esElegible`) porque
+ * se llama desde AMBAS ramas de `detectar`: el motivo SIN_PLAN, el más común
+ * de `intentos_reserva_fallidos`, se dispara precisamente cuando la socia NO
+ * tiene suscripción activa — justo la rama que `esElegible` (exige
+ * suscripción ACTIVA) nunca alcanza. Sin esta comprobación propia, esa
+ * fracción de socias frustradas quedaría siempre invisible.
+ */
+const VENTANA_DIAS_INTENTOS_FALLIDOS = 14;
+
+function reglaR7(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
+  if (!socio.activo) return null;
+  const antiguedadDias = Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
+  if (antiguedadDias < 30) return null;
+  const nIntentos = intentosFallidosRecientes(socio.id, idx, now, VENTANA_DIAS_INTENTOS_FALLIDOS);
+  const confianza = confianzaRiesgoReservaFallida({ nIntentos });
+  if (!confianza) return null;
+
+  const motivoMotor = `${socio.nombre} ha intentado reservar ${nIntentos} veces en los últimos ${VENTANA_DIAS_INTENTOS_FALLIDOS} días sin conseguirlo. Quería venir y algo se lo ha impedido — merece una llamada antes de que se canse de intentarlo.`;
+
+  return {
+    especialista: 'RETENCION',
+    tipo: 'RIESGO_RESERVA_FALLIDA',
+    dedupeKey: `RETENCION:RIESGO_RESERVA_FALLIDA:${socio.id}`,
+    tituloMotor: `${socio.nombre} lleva varios intentos de reserva sin conseguirlo`,
+    motivoMotor,
+    datosUsados: { nombre: socio.nombre, intentosFallidos: nIntentos, ventanaDias: VENTANA_DIAS_INTENTOS_FALLIDOS },
+    riesgo: 'PERDIDA',
+    confianza,
+    accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },
+    socioId: socio.id,
+    tiempoEstimadoMin: 2,
+    expiraEnDias: 7,
+    urgencia: Math.min(1, nIntentos / 5),
+    esfuerzo: 0.2,
+  };
+}
+
 export const retencion: Especialista = {
   id: 'RETENCION',
   pregunta: '¿Quién corre riesgo de abandonar?',
@@ -321,10 +362,11 @@ export const retencion: Especialista = {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
-      // Rama sin suscripción ACTIVA: la socia que no renovó. Antes se descartaba
-      // aquí y quedaba invisible; ahora R5 la recupera.
+      // Rama sin suscripción ACTIVA: la socia que no renovó, o que nunca llegó
+      // a tener plan (el caso SIN_PLAN de R7 — ver comentario de reglaR7).
+      // Antes se descartaba aquí y quedaba invisible; ahora R5/R7 la recuperan.
       if (!idx.suscripcionActivaPorSocio.has(socio.id)) {
-        const c = reglaR5(socio, idx, now);
+        const c = reglaR5(socio, idx, now) ?? reglaR7(socio, idx, now);
         if (c) candidatas.push(c);
         continue;
       }
@@ -336,7 +378,8 @@ export const retencion: Especialista = {
         reglaR2(socio, idx, m, now) ??
         reglaR1(socio, idx, now) ??
         reglaR4(socio, idx, now) ??
-        reglaR6(socio, idx, now);
+        reglaR6(socio, idx, now) ??
+        reglaR7(socio, idx, now);
       if (candidata) candidatas.push(candidata);
     }
     return candidatas;

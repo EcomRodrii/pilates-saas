@@ -29,6 +29,13 @@ const CLAVES_PERMITIDAS = new Set([
   // ninguna de las dos, mismo motivo que buttonStyle/cardStyle arriba.
   '--portal-heading-font',
   '--portal-heading-weight',
+  // Barra inferior oscura (tema "Noir") — mismo motivo otra vez: sin
+  // `barraOscura` el tema no declara ninguna de las cinco.
+  '--portal-tabbar-bg',
+  '--portal-tabbar-active-bg',
+  '--portal-tabbar-active-shadow',
+  '--portal-tabbar-active-fg',
+  '--portal-tabbar-idle-fg',
 ]);
 
 // Se monta en las superficies previsualizables (reservas). Cuando la página se

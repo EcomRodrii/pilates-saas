@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import { display, texto, radio, altura, sombra, transicion, dur } from '@/lib/portal-design';
-import { resolverHrefBloque, resolverVideoEmbed, type BloqueHome, type EstiloBloque } from '@/lib/portal-home-bloques';
+import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type EstiloBloque } from '@/lib/portal-home-bloques';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
 // Los bloques `sistema` NO pasan por aquí: siguen siendo el JSX ya existente
@@ -122,7 +122,7 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   const { t } = useModo();
   const { titulo, texto: cuerpo } = bloque.config;
   const { estilo } = bloque;
-  if (!cuerpo && !titulo) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -136,8 +136,8 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
   const { t } = useModo();
   const { titulo, textoBoton, href } = bloque.config;
   const { estilo } = bloque;
-  const resuelto = resolverHrefBloque(href);
-  if (!resuelto || !textoBoton) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
+  const resuelto = resolverHrefBloque(href)!; // bloqueEstaCompleto ya lo comprobó
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   const estiloBoton: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: altura.botonCta,
@@ -182,7 +182,7 @@ function FaqBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'faq' }> })
   const { t } = useModo();
   const { titulo, preguntas } = bloque.config;
   const { estilo } = bloque;
-  if (preguntas.length === 0) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -196,7 +196,7 @@ function GaleriaBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'galeri
   const { t } = useModo();
   const { imagenes } = bloque.config;
   const { estilo } = bloque;
-  if (imagenes.length === 0) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
   const radioImagen = estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.card;
   return (
     <div style={contenedorDe(estilo)}>
@@ -219,8 +219,8 @@ function VideoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'video' }
   const { t } = useModo();
   const { titulo, url } = bloque.config;
   const { estilo } = bloque;
-  const embed = resolverVideoEmbed(url);
-  if (!embed) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
+  const embed = resolverVideoEmbed(url)!; // bloqueEstaCompleto ya lo comprobó
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -239,7 +239,7 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
   const { t } = useModo();
   const { titulo, testimonios } = bloque.config;
   const { estilo } = bloque;
-  if (testimonios.length === 0) return null;
+  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>

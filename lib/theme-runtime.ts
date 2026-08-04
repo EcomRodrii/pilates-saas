@@ -114,6 +114,21 @@ function varsTitularPortal(t: ThemeConfig): Record<string, string> {
   return {};
 }
 
+// Barra inferior oscura (tema "Noir"). Como varsTarjeta('flat'): si el tema no
+// la pide, NO declara ninguna var y portal-nav.tsx se queda con su fallback de
+// siempre (t.tabbar, que depende del modo claro/oscuro y que este módulo no
+// conoce).
+function varsBarra(t: ThemeConfig): Record<string, string> {
+  if (!t.barraOscura) return {};
+  return {
+    '--portal-tabbar-bg': t.primary,
+    '--portal-tabbar-active-bg': 'transparent',
+    '--portal-tabbar-active-shadow': 'none',
+    '--portal-tabbar-active-fg': t.secondary,
+    '--portal-tabbar-idle-fg': 'rgba(255,255,255,.55)',
+  };
+}
+
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
 function themeToVarMap(raw: unknown): Record<string, string> {
   const t = resolveTheme(raw);
@@ -144,6 +159,8 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsTarjeta(t),
     // Titular del portal (galería de temas)
     ...varsTitularPortal(t),
+    // Barra inferior oscura (tema "Noir")
+    ...varsBarra(t),
   };
 }
 
@@ -186,5 +203,9 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // como enlaces/botones fantasma que pintan `--portal-brand` sobre `--background`.
   if (!cumpleContraste(t.primary, t.background, { grande: true }))
     errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
+  // Par que solo estrena la barra oscura: el icono activo va en el color
+  // secundario SOBRE la marca, una combinación que ningún otro tema pinta.
+  if (t.barraOscura && !cumpleContraste(t.secondary, t.primary, { grande: true }))
+    errores.push('Con la barra oscura, el color secundario no contrasta con la marca (mínimo 3:1).');
   return { ok: errores.length === 0, errores };
 }

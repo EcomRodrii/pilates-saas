@@ -26,7 +26,7 @@ const sustitucion = (p: Partial<SustitucionSnapshot> & Pick<SustitucionSnapshot,
   ({ id: `sub-${++n}`, studioId: 'e1', instructorOriginalId: null, estado: 'contactando', creadoEn: diasAntes(1), ...p });
 
 function snap(p: Partial<SnapshotEstudio>): SnapshotEstudio {
-  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
+  return { studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [], suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 }, ...p };
 }
 const M = new Map() as MemoriaEstudio;
 

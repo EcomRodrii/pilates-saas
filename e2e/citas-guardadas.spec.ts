@@ -70,10 +70,12 @@ function json(route: Route, body: unknown, status = 200) {
 async function mockBackend(page: Page, opts: {
   fallaInsert?: { status: number; body: unknown };
   fallaUpdate?: { status: number; body: unknown };
+  fallaRecibo?: { status: number; body: unknown };
   citasIniciales?: Record<string, unknown>[];
 } = {}) {
   const citasGuardadas: Record<string, unknown>[] = [...(opts.citasIniciales ?? [])];
   const parches: Record<string, unknown>[] = [];
+  const recibosCreados: Record<string, unknown>[] = [];
 
   // Playwright resuelve las rutas en orden INVERSO al de registro: comodines
   // primero, específicas después.
@@ -83,11 +85,27 @@ async function mockBackend(page: Page, opts: {
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/theme**', route =>
     json(route, { primary: '#6D28D9', secondary: '#7C3AED', logoUrl: null, radius: 12 }));
+  // Cobrar una cita sella factura de verdad (crearFacturaDirecta): sin este
+  // mock, sellarFactura recibe `{}` del comodín `**/api/**` de arriba, que se
+  // lee como sellado fallido (r.ok/r.factura ambos undefined) — el camino
+  // "cobroRegistrado" se probaría siempre, nunca el de éxito limpio.
+  await page.route('**/api/facturas/sellar', route => json(route, { ok: true, sellada: true, factura: {} }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route => json(route, STUDIO_ROW));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
   await page.route('**/rest/v1/socios**', route => json(route, [SOCIO_ROW]));
   await page.route('**/rest/v1/instructores**', route => json(route, [INSTRUCTOR_ROW]));
+
+  await page.route('**/rest/v1/recibos**', async route => {
+    const req = route.request();
+    if (req.method() === 'POST') {
+      if (opts.fallaRecibo) return json(route, opts.fallaRecibo.body, opts.fallaRecibo.status);
+      const payload = JSON.parse(req.postData() || '{}');
+      recibosCreados.push(...(Array.isArray(payload) ? payload : [payload]));
+      return json(route, [], 201);
+    }
+    return json(route, []);
+  });
 
   await page.route('**/rest/v1/citas**', async route => {
     const req = route.request();
@@ -105,7 +123,7 @@ async function mockBackend(page: Page, opts: {
     return json(route, citasGuardadas);
   });
 
-  return { citasGuardadas, parches };
+  return { citasGuardadas, parches, recibosCreados };
 }
 
 /** Una cita futura ya guardada, para probar las acciones de la fila. */
@@ -174,36 +192,57 @@ test.describe('Crear una cita', () => {
   });
 });
 
-test.describe('Marcar una cita como pagada', () => {
-  test('si el cobro no se guarda, no se pinta como pagada', async ({ page }) => {
+// Cobrar una cita (PRIVADA/EVALUACION/ONLINE) ya no es un flip de un booleano:
+// abre un diálogo de confirmación y, al confirmar, crea un Recibo real +
+// sella una Factura (crearFacturaDirecta) antes de marcar la cita como
+// pagada. Fisioterapia sigue con el flip simple de antes (fuera de esta
+// suite — sin cambios de comportamiento para ese tipo).
+test.describe('Cobrar una cita (genera recibo y factura reales)', () => {
+  test('si el recibo no se puede crear, no se cobra ni se pinta como pagada', async ({ page }) => {
     // El peor de los silencios: el estudio da por cobrados 45 € que nunca se
     // registraron, así que nadie va a reclamarlos.
     await mockBackend(page, {
       citasIniciales: [citaRow('cita-1', false)],
-      fallaUpdate: { status: 403, body: { code: '42501', message: 'permission denied for table citas' } },
+      fallaRecibo: { status: 403, body: { code: '42501', message: 'permission denied for table recibos' } },
     });
     await seedSesionDeDuena(page);
     await abrirCitas(page);
 
     await expect(page.getByText('marta@example.com')).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Pendiente de cobro' }).first().click();
+    await page.getByRole('button', { name: 'Registrar cobro' }).first().click();
+    await page.getByRole('button', { name: 'Confirmar cobro' }).click();
 
-    const aviso = page.getByRole('alert').filter({ hasText: 'No se ha guardado' });
+    // El diálogo se queda abierto (nada se ha creado, es seguro reintentar) —
+    // el aviso vive DENTRO del diálogo, no en el banner de fondo: con el
+    // diálogo abierto el fondo queda `inert` y un aviso ahí sería invisible.
+    const aviso = page.getByRole('dialog').getByRole('alert');
     await expect(aviso).toContainText('permiso');
-    // Y sigue sin constar como pagada, que es lo que evita el agujero.
-    await expect(page.getByRole('button', { name: 'Pendiente de cobro' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByRole('button', { name: 'Registrar cobro' }).first()).toBeVisible();
   });
 
-  test('si se guarda, el cambio queda registrado', async ({ page }) => {
-    const { parches } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)] });
+  test('si el recibo se crea y la factura se sella, la cita queda cobrada', async ({ page }) => {
+    const { parches, recibosCreados } = await mockBackend(page, { citasIniciales: [citaRow('cita-1', false)] });
     await seedSesionDeDuena(page);
     await abrirCitas(page);
 
     await expect(page.getByText('marta@example.com')).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Pendiente de cobro' }).first().click();
+    await page.getByRole('button', { name: 'Registrar cobro' }).first().click();
+    // El diálogo dice a nombre de quién y por cuánto, antes de dejar confirmar.
+    await expect(page.getByRole('dialog').getByText('45,00 €')).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar cobro' }).click();
 
+    await expect.poll(() => recibosCreados.length, { timeout: 15_000 }).toBe(1);
+    expect(recibosCreados[0]).toMatchObject({ socio_id: 'soc-1', importe: 45, estado: 'COBRADO' });
     await expect.poll(() => parches.length, { timeout: 15_000 }).toBe(1);
     expect(parches[0]).toMatchObject({ pagada: true });
-    await expect(page.getByRole('alert').filter({ hasText: 'No se ha guardado' })).toHaveCount(0);
+    // Sin texto de error visible. (No se filtra por "ningún role=alert en el
+    // DOM": base-ui deja una región de anuncio de accesibilidad vacía tras
+    // cerrar el diálogo, que también resuelve como role=alert sin ser un
+    // error de verdad.)
+    await expect(page.getByText(/no se ha guardado/i)).toHaveCount(0);
+    await expect(page.getByText(/problema al sellar/i)).toHaveCount(0);
+    // La fila deja de ofrecer "Registrar cobro" — ya está cobrada.
+    await expect(page.getByRole('button', { name: 'Registrar cobro' })).toHaveCount(0);
   });
 });

@@ -20,7 +20,7 @@ import {
   type ThemeConfig, type RedSocialId,
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
-import { THEME_DEFINITIONS, type ThemeDefinition } from '@/lib/theme-definitions';
+import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
 import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
 import { PortalNav } from '@/components/portal/portal-nav';
@@ -35,8 +35,11 @@ import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 // (columna izquierda) + panel por categoría (columna derecha) para montarse
 // dentro del workspace único.
 
+// "Tema" ya NO es una categoría de aquí: elegir tema pasó a ser su propia
+// pantalla (components/theme/theme-library.tsx), donde cada uno se ve pintado
+// antes de instalarlo. Este panel es solo el ajuste fino de lo ya instalado —
+// tenerlo en dos sitios dejaba dos galerías distintas para lo mismo.
 export const AJUSTES_CATEGORIAS = [
-  { id: 'tema', label: 'Tema' },
   { id: 'paleta', label: 'Empieza con una paleta' },
   { id: 'color-marca', label: 'Color de marca' },
   { id: 'tipografia', label: 'Tipografía' },
@@ -292,11 +295,20 @@ export function useThemeEditor() {
     setAviso(null);
   }
 
+  // "Deshacer" del editor a pantalla completa: descarta ediciones locales sin
+  // guardar releyendo el borrador tal como está en el servidor — distinto de
+  // `restaurar()`, que resetea al tema del SISTEMA (DEFAULT_THEME), no al
+  // último guardado.
+  function recargar() {
+    fetchThemeBorrador().then(setDraft).catch(() => {});
+    setAviso(null);
+  }
+
   return {
     rol, studio, draft, estado, guardando, publicando, aviso, subiendo, contraste,
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
-    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar,
+    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar, recargar,
   };
 }
 
@@ -306,40 +318,12 @@ export function AjustesCategoriaPanel({
   hook: ReturnType<typeof useThemeEditor>;
   categoriaId: AjustesCategoriaId;
 }) {
-  const { draft, setCampo, aplicarPaleta, elegirTema, contraste, studio, subiendo, navPortalResuelto, redesSocialesResueltas } = hook;
+  const { draft, setCampo, aplicarPaleta, contraste, studio, subiendo, navPortalResuelto, redesSocialesResueltas } = hook;
   // Los <input type="file"> ocultos necesitan un ref por instancia del panel
   // — declarados aquí arriba (nunca tras un `return` condicional) para no
   // romper las reglas de hooks, aunque solo se usen en la rama 'logo-favicon'.
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
-
-  if (categoriaId === 'tema') {
-    return (
-      <div className="grid grid-cols-2 gap-2.5">
-        {THEME_DEFINITIONS.map((def) => {
-          const activo = draft.themeId === def.id;
-          return (
-            <button
-              key={def.id}
-              onClick={() => elegirTema(def)}
-              className={`text-left p-3 rounded-xl border-2 transition-colors ${
-                activo ? 'border-brand bg-brand/5' : 'border-border'
-              }`}
-            >
-              <span className="flex items-center gap-1.5 text-[13px] font-bold text-foreground">
-                {def.label}
-                {activo && draft.themeCustomized && (
-                  <span className="text-[10.5px] font-medium text-muted-foreground">(personalizado)</span>
-                )}
-                {activo && <Check size={13} className="text-brand ml-auto" strokeWidth={3} />}
-              </span>
-              <span className="text-[11.5px] text-muted-foreground">{def.description}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
 
   if (categoriaId === 'paleta') {
     return (

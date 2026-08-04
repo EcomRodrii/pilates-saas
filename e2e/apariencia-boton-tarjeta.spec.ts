@@ -2,11 +2,14 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolveTheme } from '../lib/theme-schema.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fase 1 del editor de temas (roadmap Shopify/Webflow): estilo de botón
-// principal y de tarjetas, por estudio. No se puede verificar en el preview de
-// Vercel de la PR (Turnstile bloquea el login en *.vercel.app — ver README),
-// así que la verificación de la pantalla real pasa por aquí, mockeando red con
-// page.route (mismo patrón que e2e/vocabulario-clientas.spec.ts).
+// Estilo de botón principal y de tarjetas, por estudio — dentro del editor a
+// pantalla completa (PR 4). Antes vivían en la pestaña "Ajustes" del
+// workspace, cada una como categoría propia; ahora esas mismas categorías
+// están siempre visibles en el grupo "Tema" del rail izquierdo — no hace
+// falta clicar una pestaña "Ajustes" para llegar a ellas. No se puede
+// verificar en el preview de Vercel de la PR (Turnstile bloquea el login en
+// *.vercel.app — ver README), así que la verificación pasa por aquí,
+// mockeando red con page.route.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -18,6 +21,7 @@ function json(route: Route, body: unknown, status = 200) {
 }
 
 async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
+  const puts: Record<string, unknown>[] = [];
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -37,36 +41,44 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
   // El servidor real SIEMPRE pasa el tema por resolveTheme() antes de
   // responder (lib/theme-data.ts) — nunca manda un JSON parcial al cliente.
-  // Se simula aquí lo mismo: un tema guardado ANTES de esta fase llega ya
-  // resuelto a solid/flat, que es el caso que motivó ese default.
   const themeResuelto = resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED', ...themeGuardado });
   await page.route('**/api/theme**', route => {
-    if (route.request().method() === 'PUT') return json(route, resolveTheme(themeGuardado));
+    if (route.request().url().endsWith('/publish')) return json(route, themeResuelto);
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      puts.push(body);
+      return json(route, resolveTheme(body));
+    }
     return json(route, themeResuelto);
+  });
+  await page.route('**/api/portal-bloques**', route => {
+    if (route.request().url().endsWith('/publish')) return json(route, []);
+    if (route.request().method() === 'PUT') return json(route, route.request().postDataJSON());
+    return json(route, []);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
-  await page.goto('/configuracion/apariencia');
-  // El editor único (theme-workspace.tsx): "Botón principal"/"Tarjetas" viven
-  // en "Ajustes", cada una como categoría propia (panel derecho, una a la
-  // vez) — ya no las dos a la vista simultáneamente en un formulario largo.
-  await page.getByRole('tab', { name: 'Ajustes' }).click();
+  await page.goto('/configuracion/apariencia/editor');
+  return { puts };
 }
 
-test.describe('Editor de temas — Fase 1: estilo de botón y tarjetas', () => {
+async function publicar(page: Page) {
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
+}
+
+test.describe('Editor a pantalla completa — estilo de botón y tarjetas', () => {
   test('un tema sin buttonStyle/cardStyle (guardado antes de esta fase) muestra Sólido/Plana seleccionados', async ({ page }) => {
     await montar(page);
 
-    // Categorías propias, una a la vez en el panel derecho — no las dos
-    // familias de botones a la vista simultáneamente.
     await page.getByRole('button', { name: 'Botón principal' }).click();
     const solido = page.getByRole('button', { name: 'Sólido' });
     await expect(solido).toBeVisible({ timeout: 30_000 });
     await expect(solido).toHaveClass(/bg-brand/);
-    await expect(page.getByRole('button', { name: 'Contorno' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Contorno', exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Tarjetas' }).click();
     const plana = page.getByRole('button', { name: 'Plana' });
@@ -75,11 +87,11 @@ test.describe('Editor de temas — Fase 1: estilo de botón y tarjetas', () => {
     await expect(page.getByRole('button', { name: 'Elevada' })).toBeVisible();
   });
 
-  test('elegir Contorno + Elevada y guardar manda el patch correcto a /api/theme', async ({ page }) => {
-    await montar(page);
+  test('elegir Contorno + Elevada y publicar manda el patch correcto a /api/theme', async ({ page }) => {
+    const { puts } = await montar(page);
 
     await page.getByRole('button', { name: 'Botón principal' }).click();
-    const contorno = page.getByRole('button', { name: 'Contorno' });
+    const contorno = page.getByRole('button', { name: 'Contorno', exact: true });
     await expect(contorno).toBeVisible({ timeout: 30_000 });
     await contorno.click();
     await expect(contorno).toHaveClass(/bg-brand/);
@@ -90,11 +102,11 @@ test.describe('Editor de temas — Fase 1: estilo de botón y tarjetas', () => {
     await elevada.click();
     await expect(elevada).toHaveClass(/bg-brand/);
 
-    const [req] = await Promise.all([
-      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
-      page.getByRole('button', { name: /Guardar borrador/ }).click(),
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && !r.url().includes('/publish') && r.method() === 'PUT'),
+      publicar(page),
     ]);
-    const body = req.postDataJSON() as Record<string, unknown>;
+    const body = puts.at(-1)!;
     expect(body.buttonStyle).toBe('outline');
     expect(body.cardStyle).toBe('elevated');
   });

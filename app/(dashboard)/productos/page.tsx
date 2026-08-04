@@ -4,7 +4,7 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check, Search } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -15,6 +15,18 @@ import {
 } from '@/lib/planes/formulario';
 
 type Tab = 'planes' | 'pos';
+
+// Membresías (antes "Productos"): los 3 tipos de plan ya existentes
+// (MENSUAL/BONO/PUNTUAL) se navegan como 3 pestañas por nombre de negocio en
+// vez de una rejilla única sin filtrar — mismo dato, mejor organizado.
+// "Bajo demanda" = PUNTUAL: se paga sesión a sesión, sin compromiso fijo, que
+// es justo lo que ya significa ese tipo aquí.
+type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
+const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
+  { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
+  { v: 'BONO', label: 'Paquetes', singular: 'paquete', icon: Zap },
+  { v: 'PUNTUAL', label: 'Bajo demanda', singular: 'plan bajo demanda', icon: Tag },
+];
 
 const TIPO_LABEL: Record<string, string> = { MENSUAL: 'Mensual', BONO: 'Bono sesiones', PUNTUAL: 'Puntual' };
 const TIPO_COLOR: Record<string, { bg: string; text: string }> = {
@@ -39,14 +51,20 @@ function fmt(n: number) { return n.toLocaleString('es-ES', { minimumFractionDigi
 // recibo y no caducaba nunca. Los campos se pintan donde toque; lo que se
 // GUARDA se decide en un solo sitio y está cubierto por tests.
 
-function PlanModal({ initial, tiposClase, onSave, onClose }: {
+function PlanModal({ initial, tiposClase, tipoInicial, onSave, onClose }: {
   initial?: PlanTarifa;
   tiposClase: { id: string; nombre: string }[];
+  // Al crear desde una pestaña concreta (Suscripciones/Paquetes/Bajo demanda),
+  // el formulario arranca con ese tipo ya puesto en vez de MENSUAL siempre —
+  // si no, "Añadir" desde "Paquetes" abría un formulario que decía Mensual.
+  tipoInicial?: PlanTarifa['tipo'];
   onSave: (f: FormularioPlan) => void;
   onClose: () => void;
 }) {
   const uid = useId();
-  const [form, setForm] = useState<FormularioPlan>(initial ? planAFormulario(initial) : planVacio());
+  const [form, setForm] = useState<FormularioPlan>(
+    initial ? planAFormulario(initial) : { ...planVacio(), tipo: tipoInicial ?? 'MENSUAL' },
+  );
   const set = (k: keyof FormularioPlan, v: string | boolean | string[]) => setForm(f => ({ ...f, [k]: v }));
   // Decir POR QUÉ no se puede guardar, no solo apagar el botón: un botón gris
   // sin explicación es de las cosas que más desesperan.
@@ -274,6 +292,8 @@ function PosModal({ initial, onSave, onClose, onDelete }: {
 export default function Productos() {
   const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
+  const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
+  const [busqueda, setBusqueda] = useState('');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
   // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
@@ -331,11 +351,15 @@ export default function Productos() {
 
   const PLAN_ICONS: Record<string, React.ElementType> = { MENSUAL: Repeat, BONO: Zap, PUNTUAL: Tag };
 
+  const planesFiltrados = planesTarifa
+    .filter(p => p.tipo === tipoTab)
+    .filter(p => p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase()));
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Productos"
-        description={posCongelado ? 'Planes de suscripción y bonos' : 'Planes de suscripción y catálogo de productos POS'}
+        title="Membresías"
+        description={posCongelado ? 'Suscripciones, paquetes y clases sueltas' : 'Suscripciones, paquetes y catálogo de productos POS'}
         actions={
           <button
             onClick={() => tab === 'planes' ? setPlanModal('new') : setPosModal('new')}
@@ -343,7 +367,7 @@ export default function Productos() {
             style={{ backgroundColor: 'var(--brand)' }}
           >
             <Plus size={15} />
-            {tab === 'planes' ? 'Nuevo plan' : 'Nuevo producto'}
+            {tab === 'planes' ? 'Crear' : 'Nuevo producto'}
           </button>
         }
       />
@@ -362,10 +386,50 @@ export default function Productos() {
         </div>
       )}
 
-      {/* ── PLANES ── */}
+      {/* ── PLANES: Suscripciones / Paquetes / Bajo demanda ── */}
       {tab === 'planes' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {planesTarifa.map(plan => {
+        <>
+          <div className="flex items-center gap-2 flex-wrap">
+            {TIPO_TABS.map(t => {
+              const activo = tipoTab === t.v;
+              const Icon = t.icon;
+              return (
+                <button key={t.v} onClick={() => setTipoTab(t.v)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all border"
+                  style={activo
+                    ? { backgroundColor: 'color-mix(in srgb, var(--brand) 10%, var(--card))', color: 'var(--brand-secondary)', borderColor: 'var(--brand)' }
+                    : { borderColor: 'transparent', color: 'var(--muted-foreground)' }}>
+                  <Icon size={14} />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="relative max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busqueda}
+              onChange={e => setBusqueda(e.target.value)}
+              placeholder={`Buscar en ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}...`}
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border text-sm text-foreground outline-none focus:border-brand bg-card"
+            />
+          </div>
+
+          {planesTarifa.filter(p => p.tipo === tipoTab).length === 0 ? (
+            <div className="bg-card rounded-2xl border-2 border-dashed border-border px-5 py-12 text-center text-muted-foreground">
+              <p className="text-sm font-semibold text-foreground">Aún no tienes {TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}</p>
+              <p className="text-[13px] mt-1">Crea uno nuevo o cambia de pestaña para ver otro tipo.</p>
+              <button onClick={() => setPlanModal('new')}
+                className="mt-4 text-sm font-semibold text-brand-medio hover:underline underline-offset-2">
+                Añadir {TIPO_TABS.find(t => t.v === tipoTab)?.singular ?? 'plan'}
+              </button>
+            </div>
+          ) : planesFiltrados.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Sin resultados para &quot;{busqueda}&quot;.</p>
+          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {planesFiltrados.map(plan => {
             const c = TIPO_COLOR[plan.tipo] ?? TIPO_COLOR.MENSUAL;
             const Icon = PLAN_ICONS[plan.tipo] ?? Tag;
             const count = susCount(plan.id);
@@ -437,9 +501,11 @@ export default function Productos() {
           <button onClick={() => setPlanModal('new')}
             className="bg-card rounded-2xl border-2 border-dashed border-border p-5 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-brand hover:text-brand-medio transition-colors min-h-[160px]">
             <Plus size={20} />
-            <span className="text-sm font-semibold">Añadir plan</span>
+            <span className="text-sm font-semibold">Añadir</span>
           </button>
-        </div>
+          </div>
+          )}
+        </>
       )}
 
       {/* ── PRODUCTOS POS ── */}
@@ -542,6 +608,7 @@ export default function Productos() {
       {planModal && (
         <PlanModal
           initial={planModal !== 'new' ? planModal : undefined}
+          tipoInicial={tipoTab}
           tiposClase={tiposClase}
           // Sin cast: el `as Parameters<...>` que había aquí silenciaba
           // cualquier desajuste futuro entre el formulario y el guardado —

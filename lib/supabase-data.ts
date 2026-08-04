@@ -4039,6 +4039,62 @@ export async function fetchSustitucionesRecientes(studioId: string, desdeISO: st
   }));
 }
 
+// Margen de contribución por clase (Decision OS/Informes): tarifa/hora por
+// instructora. Server-only con service-role (bypasa la RLS de gestión, que
+// solo deja leer la propia fila a la instructora) — igual que el resto del
+// snapshot, que necesita ver todo el estudio para calcular, no solo lo suyo.
+// Devuelve filas crudas, no un Map — SnapshotEstudio.instructorTarifas debe
+// ser JSON-serializable (cruza un step.run de Inngest en decision.ts); el
+// Map de consulta se construye en construirIndices (senales.ts).
+//
+// Vía deliberadamente separada de `fetchTarifasEquipo` (api-client.ts, usada
+// por Informes): esa pasa por `/api/equipo/tarifas` con sesión de staff y la
+// RLS real; esta es server-role para el snapshot del cron. Mismo criterio
+// que ya separa `/api/mi-disponibilidad` de `/api/public/disponibilidad` —
+// mecanismos de auth distintos, no se mezclan en un mismo camino aunque
+// lean la misma tabla.
+export interface InstructorTarifaRow {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
+export async function fetchInstructorTarifas(studioId: string): Promise<InstructorTarifaRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructor_tarifas')
+    .select('instructor_id, tarifa_hora')
+    .eq('studio_id', studioId) as { data: { instructor_id: string; tarifa_hora: number | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchInstructorTarifas]', error); return []; }
+  return (data ?? []).map(r => ({ instructorId: r.instructor_id, tarifaHora: r.tarifa_hora }));
+}
+
+// Informe fila 14 (Decision OS): intentos de reserva self-service que el
+// servidor rechazó de verdad — "es la alumna que quería pagar y no pudo".
+// Mismo criterio service-role que fetchInstructorTarifas/fetchSustitucionesRecientes.
+// Devuelve filas crudas (array, no Map) — mismo motivo de siempre.
+export interface IntentoFallidoRow {
+  id: string;
+  socioId: string;
+  sesionId: string | null;
+  tipoClaseId: string | null;
+  motivo: string;
+  creadoEn: string;
+}
+
+export async function fetchIntentosFallidosRecientes(studioId: string, desdeISO: string): Promise<IntentoFallidoRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('intentos_reserva_fallidos')
+    .select('id, socio_id, sesion_id, tipo_clase_id, motivo, creado_en')
+    .eq('studio_id', studioId)
+    .gte('creado_en', desdeISO) as { data: { id: string; socio_id: string; sesion_id: string | null; tipo_clase_id: string | null; motivo: string; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchIntentosFallidosRecientes]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, socioId: r.socio_id, sesionId: r.sesion_id,
+    tipoClaseId: r.tipo_clase_id, motivo: r.motivo, creadoEn: r.creado_en,
+  }));
+}
+
 // Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
 // estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
 // pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.

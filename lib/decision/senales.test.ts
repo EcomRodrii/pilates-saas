@@ -5,7 +5,7 @@ import type { SnapshotEstudio } from './tipos.ts';
 import {
   construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
-  pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha,
+  pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
 } from './senales.ts';
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
@@ -36,7 +36,7 @@ function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId' | 'result
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
@@ -263,4 +263,30 @@ test('demandaInsatisfecha: media de socias en lista de espera en las ultimas N o
   const grupos = agruparFranjasRecurrentes(idx, snap, NOW, 2);
   const franja = [...grupos.values()][0];
   assert.equal(demandaInsatisfecha(franja, snap, 2), 1.5);
+});
+
+// ── intentosFallidosRecientes ───────────────────────────────────────────────
+
+test('intentosFallidosRecientes: cuenta intentos dentro de la ventana, sin importar el motivo', () => {
+  const snap = snapshot({
+    intentosFallidos: [
+      { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+      { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'AFORO_LLENO_SIN_ESPERA', creadoEn: diasAntes(5) },
+      { id: 'if-3', socioId: 'b', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+    ],
+  });
+  const idx = construirIndices(snap);
+  assert.equal(intentosFallidosRecientes('a', idx, NOW, 14), 2);
+  assert.equal(intentosFallidosRecientes('b', idx, NOW, 14), 1);
+  assert.equal(intentosFallidosRecientes('c', idx, NOW, 14), 0);
+});
+
+test('intentosFallidosRecientes: fuera de la ventana no cuenta', () => {
+  const snap = snapshot({
+    intentosFallidos: [
+      { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(20) },
+    ],
+  });
+  const idx = construirIndices(snap);
+  assert.equal(intentosFallidosRecientes('a', idx, NOW, 14), 0);
 });

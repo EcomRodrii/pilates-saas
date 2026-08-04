@@ -826,6 +826,32 @@ export default function Calendario() {
     setShowForm('nueva');
   }
 
+  // Compartido por crearSesion() y crearClasesRecurrentes(): invalida el
+  // caché de TODAS las semanas que toque una serie (no solo la primera —
+  // una serie de varias semanas dejaba el resto con datos obsoletos si ya
+  // se habían visitado antes) y navega a la semana de la primera clase si
+  // no es la que se está viendo ahora mismo. Llamar a refrescarVista() aquí
+  // mismo pediría el rango ANTERIOR a este cambio de semana (React no
+  // re-renderiza síncronamente) — por eso solo se invalida caché y se deja
+  // que el efecto de claveVista dispare el fetch correcto tras el
+  // setSemana; si no navegamos, el caller es responsable de refrescar la
+  // vista actual.
+  function invalidarCacheSerieYNavegarSiHaceFalta(fechas: Date[]): { navego: boolean } {
+    if (fechas.length === 0) return { navego: false };
+    const semanasUnicas = new Map<string, Date>();
+    for (const f of fechas) {
+      const ws = weekStart(f);
+      semanasUnicas.set(localDate(ws), ws);
+    }
+    for (const ws of semanasUnicas.values()) {
+      cacheVistaRef.current.delete(claveRango(rangoSemana(ws)));
+    }
+    const primeraSemana = weekStart(fechas[0]);
+    const otraSemana = localDate(primeraSemana) !== localDate(semana);
+    if (otraSemana) setSemana(primeraSemana);
+    return { navego: otraSemana };
+  }
+
   async function crearSesion() {
     if (horaInvalida || faltaConfigurar || repetirInvalido || guardandoSesion) return;
     const semanas = form.repetir ? form.repetirSemanas : 1;
@@ -859,23 +885,8 @@ export default function Calendario() {
     const creadas = semanas;
     setGuardandoSesion(false);
 
-    const semanaDeLaClase = weekStart(new Date(`${form.fecha}T12:00:00`));
-    const otraSemana = localDate(semanaDeLaClase) !== localDate(semana);
-    if (otraSemana) {
-      // NO llamar aquí a refrescarVista(): sigue cerrado sobre el `rango` de
-      // ANTES de este setSemana (React no re-renderiza síncronamente), así que
-      // pediría la semana vieja — que no tiene la clase nueva — y esa
-      // respuesta podía llegar DESPUÉS del refetch correcto disparado por el
-      // efecto de claveVista, pisando la rejilla con datos obsoletos (bug: la
-      // clase aparece, desaparece y vuelve a aparecer). Solo hace falta
-      // invalidar la caché de la semana destino (por si ya se había visitado
-      // antes de crear la clase) — el cambio de `semana` de abajo ya dispara
-      // el fetch correcto vía el efecto de claveVista.
-      cacheVistaRef.current.delete(claveRango(rangoSemana(semanaDeLaClase)));
-      setSemana(semanaDeLaClase);
-    } else {
-      void refrescarVista();
-    }
+    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(aCrear.map(s => new Date(s.inicio)));
+    if (!otraSemana) void refrescarVista();
     setDiaSeleccionado(new Date(`${form.fecha}T12:00:00`));
 
     const cuantas = semanas > 1 ? `Serie creada · ${creadas} clases` : 'Clase creada';
@@ -1148,9 +1159,12 @@ export default function Calendario() {
   async function crearClasesRecurrentes(sesionesFields: Omit<Sesion, 'id' | 'studioId'>[]) {
     const res = await addSesionesSerie(sesionesFields);
     if (!res.ok) { showToast(`No se ha creado la serie. ${res.error}`); return; }
-    showToast(`Serie creada · ${sesionesFields.length} clases`);
     setShowRecurrentes(false);
-    void refrescarVista();
+    const { navego: otraSemana } = invalidarCacheSerieYNavegarSiHaceFalta(sesionesFields.map(s => new Date(s.inicio)));
+    if (!otraSemana) void refrescarVista();
+    showToast(otraSemana
+      ? `Serie creada · ${sesionesFields.length} clases — te llevo a esa semana`
+      : `Serie creada · ${sesionesFields.length} clases`);
   }
 
   function handleAddReserva(sesionId: string, socioId: string) {
@@ -1793,8 +1807,6 @@ export default function Calendario() {
   // — al reabrir cualquier sesión, no debe reaparecer atado a la anterior.
   useEffect(() => { setNotaVozSocioId(null); }, [sesionId]);
 
-  const hoyRef = useMemo(() => new Date(), [mounted]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
     if (!verFichaClinica) return m;
@@ -1829,10 +1841,14 @@ export default function Calendario() {
       .map(r => {
         const conds = condicionesPorSocio.get(r.socioId);
         if (!conds || !r.socio) return null;
-        return alertaPreClase(r.socio.nombre, conds, hoyRef);
+        return alertaPreClase(r.socio.nombre, conds, now);
       })
       .filter((a): a is string => a !== null);
-  }, [reservasActuales, condicionesPorSocio, verFichaClinica, hoyRef]);
+    // now (no hoyRef, ver comentario abajo) entra por su string de día: pasar
+    // el objeto Date entero recalcularía esto en cada render sin motivo, ya
+    // que `now` es una instancia nueva cada vez aunque sea el mismo día.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reservasActuales, condicionesPorSocio, verFichaClinica, todayStr]);
 
   const respuestaPorSocio = useMemo(() => {
     const m = new Map<string, (typeof respuestasSesion)[number]>();

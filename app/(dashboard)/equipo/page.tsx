@@ -143,6 +143,16 @@ export default function EquipoPage() {
   }, []);
   useEffect(() => { recargarTarjetas(); }, [recargarTarjetas, instructores]);
 
+  // Red de seguridad además de Realtime (studio-context.tsx): si por lo que
+  // sea (token rotado, conexión que se cayó un instante) el canal se pierde
+  // algún evento, volver a esta pestaña ya refresca la rejilla sin necesidad
+  // de recargar la página entera.
+  useEffect(() => {
+    function onVisible() { if (document.visibilityState === 'visible') recargarTarjetas(); }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [recargarTarjetas]);
+
   // Ausencias vigentes del estudio → distintivo "De vacaciones/De baja" en la lista.
   const [ausencias, setAusencias] = useState<AusenciaInstructora[]>([]);
   // Tarifa por hora — solo se usa para prefilling el formulario de edición

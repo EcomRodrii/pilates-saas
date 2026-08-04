@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { fetchHomePreviewToken } from '@/lib/api-client';
+import { themeToCssVars } from '@/lib/theme-runtime';
+import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
@@ -15,11 +17,11 @@ const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
 // `pantalla`/`onPantallaChange` que controla el padre (PortalBloquesEditor),
 // solo de la navegación interna de este widget. Compras queda fuera a
 // propósito (dinero real) — ver PortalPreviewReservasClient/PerfilClient.
-const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas'; ruta: string; etiqueta: string }[] = [
+export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas'; ruta: string; etiqueta: string }[] = [
   { id: 'reservas', ruta: 'reservas', etiqueta: 'Reservas' },
   { id: 'perfil', ruta: 'perfil', etiqueta: 'Perfil' },
 ];
-type VistaId = PantallaId | (typeof PANTALLAS_SOLO_NAVEGABLES)[number]['id'];
+export type VistaId = PantallaId | (typeof PANTALLAS_SOLO_NAVEGABLES)[number]['id'];
 const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...PANTALLAS, ...PANTALLAS_SOLO_NAVEGABLES];
 
 // Preview en vivo REAL de la app de socias (Fase 4 del editor de temas, su
@@ -41,7 +43,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // propietaria también puede navegar libremente a Reservas/Perfil desde aquí
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
-  bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado,
+  bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador, irA,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -55,6 +57,19 @@ export function HomePreview({
   // el preview de "Ajustes" (ThemePreview) no los usa.
   seleccionId?: string | null;
   onBloqueSeleccionado?: (id: string) => void;
+  // Tema en BORRADOR. Los bloques ya viajaban en vivo por postMessage, pero el
+  // color/tipografía solo llegaba ya aplicado en el HTML que sirve la ruta, así
+  // que tocar un color en "Ajustes" no se veía aquí hasta recargar. Se manda por
+  // el MISMO canal que ya usa ThemePreview en /reservar
+  // (`tentare-theme-preview`), que ThemePreviewListener ya escucha en esta ruta
+  // — no hay listener ni whitelist nuevos, solo un emisor más.
+  temaBorrador?: ThemeConfig | null;
+  // Comando imperativo para saltar a una vista concreta, incluidas Reservas/
+  // Perfil — que `pantalla` no cubre (ver comentario de `PANTALLAS_SOLO_NAVEGABLES`
+  // arriba: no forman parte de ese prop). Cambiar `nonce` dispara el salto
+  // aunque `vista` sea la misma string que la última vez (ej. volver a pedir
+  // Reservas tras haber navegado a Perfil a mano dentro del propio widget).
+  irA?: { vista: VistaId; nonce: number } | null;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -77,6 +92,16 @@ export function HomePreview({
     if (id === 'home' || id === 'clases' || id === 'bonos') onPantallaChange(id);
   }
 
+  // Mismo patrón que `pantallaVista` arriba (ajuste de estado DURANTE el
+  // render, no en un efecto): un `nonce` nuevo es "cambió la prop", aunque
+  // `irA.vista` sea el mismo string que la última vez.
+  const [nonceVisto, setNonceVisto] = useState(irA?.nonce ?? 0);
+  if (irA && irA.nonce !== nonceVisto) {
+    setNonceVisto(irA.nonce);
+    setVista(irA.vista);
+    if (irA.vista === 'home' || irA.vista === 'clases' || irA.vista === 'bonos') onPantallaChange(irA.vista);
+  }
+
   useEffect(() => {
     let vivo = true;
     fetchHomePreviewToken().then((t) => { if (vivo) setToken(t); }).catch(() => {});
@@ -90,6 +115,12 @@ export function HomePreview({
           type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id],
           seleccionId: p.id === pantalla ? (seleccionId ?? null) : null,
         },
+        window.location.origin,
+      );
+    }
+    if (temaBorrador) {
+      ref.current?.contentWindow?.postMessage(
+        { type: 'tentare-theme-preview', vars: themeToCssVars(temaBorrador) as Record<string, string> },
         window.location.origin,
       );
     }

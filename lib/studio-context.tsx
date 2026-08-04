@@ -339,7 +339,7 @@ interface StudioContextValue {
 
   // Recibos
   addRecibo: (fields: Omit<Recibo, 'id' | 'studioId' | 'estado' | 'fechaCobro' | 'fechaDevolucion' | 'intentosReintento'>) => Promise<ResultadoEscritura>;
-  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura>;
+  crearFacturaDirecta: (fields: { socioId: string; concepto: string; importe: number }) => Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }>;
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
@@ -712,8 +712,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         )
         .subscribe();
     })();
+    // El token de autorización del canal se fijaba solo una vez, al montar.
+    // Supabase rota el JWT de sesión cada ~1h (TOKEN_REFRESHED); sin
+    // reenviarlo al canal, la RLS de `postgres_changes` deja de autorizar la
+    // suscripción EN SILENCIO — la propietaria seguía viendo la pantalla con
+    // normalidad, solo dejaba de recibir altas/cambios de instructoras hasta
+    // que recargaba la página (justo el síntoma reportado: "tarda un rato en
+    // aparecer activa"). Con la pestaña abierta un buen rato es el caso
+    // normal, no el raro.
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && vivo) {
+        void supabase.realtime.setAuth(session?.access_token ?? null);
+      }
+    });
     return () => {
       vivo = false;
+      authSub.subscription.unsubscribe();
       if (canal) supabase.removeChannel(canal);
     };
   }, [publicSlug, shadowedByPublicRoute, studio?.id]);
@@ -1000,7 +1014,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // dedupea por reciboId pero solo hasta que la primera inserción commitea —
   // hay ventana de carrera. Llamar siempre desde el cuerpo de la función, una
   // sola vez, con el resultado ya calculado).
-  async function sellarFacturaYActualizar(fac: Factura) {
+  async function sellarFacturaYActualizar(fac: Factura): Promise<ResultadoEscritura> {
     const r = await sellarFactura(fac);
     if (r.ok && r.factura) {
       const s = r.factura;
@@ -1027,7 +1041,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // próximo refresco desde el servidor, sin saber que nunca se guardó.
       setFacturas(prev => prev.filter(f => f.id !== fac.id));
       setDbError({ msg: r.error ?? 'No se ha podido generar la factura', key: Date.now() });
+      return { ok: false, error: r.error ?? 'No se ha podido generar la factura' };
     }
+    return { ok: true };
   }
 
   // ── Socios ───────────────────────────────────────────────────────────────────
@@ -2643,7 +2659,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // marcarCobrado/addSala): antes este botón era un placeholder sin cablear que
   // cerraba el modal sin llamar a ninguna API — "se genera" pero nunca existió
   // ni en BD ni en el estado local.
-  async function crearFacturaDirecta(fields: { socioId: string; concepto: string; importe: number }): Promise<ResultadoEscritura> {
+  async function crearFacturaDirecta(
+    fields: { socioId: string; concepto: string; importe: number },
+  ): Promise<ResultadoEscritura | { ok: false; error: string; cobroRegistrado: true }> {
     const fechaCobro = new Date().toISOString();
     const rec: Recibo = {
       id: `rec-${uid()}`,
@@ -2663,11 +2681,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setRecibos(prev => [...prev, rec]);
     // Mismo patrón que marcarCobrado: construir con el snapshot ya conocido
     // (`rec`, no el `recibos` del closure, que todavía no lo tiene) y sellar
-    // fuera del updater.
+    // fuera del updater. A diferencia de marcarCobrado (que puede correr en un
+    // cobro masivo y no debe bloquearse por cada sellado), esta es una acción
+    // manual de un solo recibo: SÍ se espera el sellado antes de decir
+    // "factura generada" — antes el toast de éxito llegaba en cuanto se
+    // guardaba el recibo, y si el sellado fallaba después (NIF inválido, red),
+    // la factura desaparecía de la lista sin que el mensaje de éxito ya
+    // mostrado se corrigiera.
     const fac = construirFacturaCobro(rec, facturas);
+    let resSellado: ResultadoEscritura = { ok: true };
     if (fac) {
       setFacturas(prev => [...prev, fac]);
-      void sellarFacturaYActualizar(fac);
+      resSellado = await sellarFacturaYActualizar(fac);
     }
     const socio = socios.find(s => s.id === fields.socioId);
     addActividadReciente(
@@ -2676,7 +2701,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       fields.socioId,
       `/socios/${fields.socioId}`
     );
-    return res;
+    // El recibo (dinero) ya está confirmado en este punto — un fallo de aquí
+    // en adelante es del sellado fiscal, no del cobro. Se marca con
+    // `cobroRegistrado` para que el llamador nunca lo trate como "nada pasó,
+    // reintenta": reenviar el mismo formulario duplicaría el cobro.
+    return resSellado.ok ? resSellado : { ...resSellado, cobroRegistrado: true };
   }
 
   // I15: lógica de cobro extraída para que marcarCobrado y cobrarTodosPendientes

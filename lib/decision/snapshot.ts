@@ -4,7 +4,7 @@
 // NO se importa desde ningún archivo de lib/decision cubierto por node --test:
 // usa imports de valor (`@/lib/supabase-data`) que solo resuelven bajo el
 // bundler de Next.js, nunca bajo el runner de tests bare-node.
-import { fetchAllStudioData, fetchSustitucionesRecientes, contarSedesCadena } from '@/lib/supabase-data';
+import { fetchAllStudioData, fetchSustitucionesRecientes, contarSedesCadena, fetchInstructorTarifas, fetchIntentosFallidosRecientes } from '@/lib/supabase-data';
 import type { SnapshotEstudio } from './tipos.ts';
 
 const MS_DIA = 86400000;
@@ -18,9 +18,11 @@ export async function construirSnapshot(studioId: string, now: Date): Promise<Sn
   const hastaSesiones = now.getTime() + 90 * MS_DIA;
 
   const cadenaId = data.studio?.cadenaId ?? null;
-  const [sustituciones, nSedesCadena] = await Promise.all([
+  const [sustituciones, nSedesCadena, instructorTarifas, intentosFallidos] = await Promise.all([
     fetchSustitucionesRecientes(studioId, new Date(desde90).toISOString()),
     cadenaId ? contarSedesCadena(cadenaId) : Promise.resolve(1),
+    fetchInstructorTarifas(studioId),
+    fetchIntentosFallidosRecientes(studioId, new Date(desde90).toISOString()),
   ]);
   const antiguedadDatosDias = data.studio?.creadoEn
     ? Math.max(0, Math.floor((now.getTime() - new Date(data.studio.creadoEn).getTime()) / MS_DIA))
@@ -50,6 +52,8 @@ export async function construirSnapshot(studioId: string, now: Date): Promise<Sn
     automationLogs: data.automationLogs.filter(l => new Date(l.ejecutadoEn).getTime() >= desde90),
     campanas: data.campanas,
     sustituciones,
+    instructorTarifas,
+    intentosFallidos,
     contexto: {
       nSociasActivas: data.socios.filter(s => s.activo).length,
       antiguedadDatosDias,

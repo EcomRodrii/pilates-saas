@@ -3,7 +3,7 @@
 // (patrón P0-19 de lib/engines/automation-engine.ts) — nadie vuelve a iterar las
 // colecciones completas por socia.
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
-import type { SnapshotEstudio } from './tipos.ts';
+import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
 
 export interface IndicesSenal {
@@ -24,6 +24,13 @@ export interface IndicesSenal {
   logsPorSocio: Map<string, AutomationLog[]>;
   // Plazas ocupadas (estado != CANCELADA) por sesión.
   ocupadasPorSesion: Map<string, number>;
+  // Tarifa/hora por instructora (null = sin fijar). Construido aquí, no en
+  // SnapshotEstudio (array JSON-safe) — ver InstructorTarifaSnapshot en tipos.ts.
+  tarifaHoraPorInstructor: Map<string, number | null>;
+  // Socios que cada socio ha REFERIDO (Socio.referidoPor), para onboarding.ts.
+  referidosPorSocio: Map<string, Socio[]>;
+  // Intentos de reserva self-service rechazados por socia, 90d (informe fila 14).
+  intentosFallidosPorSocio: Map<string, IntentoFallidoSnapshot[]>;
 }
 
 function agrupar<T>(items: T[], claveDe: (item: T) => string | null | undefined): Map<string, T[]> {
@@ -74,6 +81,14 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
   }
 
+  const tarifaHoraPorInstructor = new Map<string, number | null>(
+    s.instructorTarifas.map(t => [t.instructorId, t.tarifaHora])
+  );
+
+  const referidosPorSocio = agrupar(s.socios, soc => soc.referidoPor);
+
+  const intentosFallidosPorSocio = agrupar(s.intentosFallidos, i => i.socioId);
+
   return {
     socioPorId: new Map(s.socios.map(soc => [soc.id, soc])),
     planPorId: new Map(s.planesTarifa.map(p => [p.id, p])),
@@ -87,6 +102,9 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     recibosPendientes: s.recibos.filter(r => r.estado === 'PENDIENTE'),
     logsPorSocio: agrupar(s.automationLogs, l => l.socioId),
     ocupadasPorSesion,
+    tarifaHoraPorInstructor,
+    referidosPorSocio,
+    intentosFallidosPorSocio,
   };
 }
 
@@ -176,6 +194,63 @@ export function diasDesdeUltimoContacto(socioId: string, idx: IndicesSenal, now:
   if (logs.length === 0) return null;
   const masReciente = logs.reduce((max, l) => (l.ejecutadoEn > max.ejecutadoEn ? l : max));
   return Math.floor((now.getTime() - new Date(masReciente.ejecutadoEn).getTime()) / MS_DIA);
+}
+
+/** Días desde el alta de la socia. null si no se encuentra en el índice. */
+export function diasDesdeAlta(socioId: string, idx: IndicesSenal, now: Date): number | null {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return null;
+  return Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
+}
+
+/** Asistencias (ASISTIDA) dentro de los primeros 30 días desde el alta. */
+export function visitasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return 0;
+  const desde = new Date(socio.fechaAlta).getTime();
+  const hasta = desde + 30 * MS_DIA;
+  const asistidas = idx.asistidasPorSocio.get(socioId) ?? [];
+  return asistidas.filter(r => {
+    const t = new Date(r.creadoEn).getTime();
+    return t >= desde && t < hasta;
+  }).length;
+}
+
+/**
+ * Socias que ESTA socia trajo (Socio.referidoPor) y que ya hicieron su
+ * primera clase dentro de los 30 días de onboarding de la referidora —
+ * "conocidas" del informe estratégico. La primera asistencia de un referido
+ * es la más antigua de `asistidasPorSocio` (ordenado desc), mismo criterio
+ * que `esPrimeraAsistencia` (lib/booking-logic.ts) usa para el premio de
+ * referidos — no se reinventa el criterio, solo se consulta con fecha.
+ */
+export function conocidasEnOnboarding(socioId: string, idx: IndicesSenal): number {
+  const socio = idx.socioPorId.get(socioId);
+  if (!socio) return 0;
+  const desde = new Date(socio.fechaAlta).getTime();
+  const hasta = desde + 30 * MS_DIA;
+  const referidos = idx.referidosPorSocio.get(socioId) ?? [];
+  let n = 0;
+  for (const referido of referidos) {
+    const asistidas = idx.asistidasPorSocio.get(referido.id) ?? [];
+    if (asistidas.length === 0) continue;
+    const primera = asistidas[asistidas.length - 1];
+    const t = new Date(primera.creadoEn).getTime();
+    if (t >= desde && t < hasta) n++;
+  }
+  return n;
+}
+
+/**
+ * Nº de intentos de reserva self-service rechazados por la socia dentro de
+ * `ventanaDias` (informe fila 14 — "quería pagar y no pudo"). Cuenta
+ * cualquier motivo por igual: lo que importa es la frustración repetida, no
+ * la causa concreta (aforo lleno vs. sin plan son ambas fricción real).
+ */
+export function intentosFallidosRecientes(socioId: string, idx: IndicesSenal, now: Date, ventanaDias: number): number {
+  const intentos = idx.intentosFallidosPorSocio.get(socioId) ?? [];
+  const desde = now.getTime() - ventanaDias * MS_DIA;
+  return intentos.filter(i => new Date(i.creadoEn).getTime() >= desde).length;
 }
 
 /**
@@ -347,4 +422,32 @@ export function demandaInsatisfecha(franja: FranjaRecurrente, s: SnapshotEstudio
   const idsSesion = new Set(ultimasN.map(se => se.id));
   const enEspera = s.reservas.filter(r => idsSesion.has(r.sesionId) && r.estado === 'LISTA_ESPERA').length;
   return enEspera / ultimasN.length;
+}
+
+/**
+ * Precio medio por sesión, ponderado por socias activas (mismo criterio que
+ * Ingresos §2.2). Compartido: lo usa Agenda para valorar plazas vacías en una
+ * franja infrautilizada, y margen-clase.ts como precio de referencia del
+ * break-even de una clase suelta — señal genérica de "cuánto vale en
+ * promedio una plaza", no propia de ningún especialista.
+ */
+export function precioMedioSesion(s: SnapshotEstudio, idx: IndicesSenal): number {
+  const precios: number[] = [];
+  for (const socio of s.socios) {
+    if (!socio.activo) continue;
+    const sus = idx.suscripcionActivaPorSocio.get(socio.id);
+    if (!sus) continue;
+    const plan = idx.planPorId.get(sus.planId);
+    if (!plan) continue;
+    if (plan.tipo === 'MENSUAL') {
+      const freq = frecuenciaHabitual(socio.id, idx);
+      if (freq !== null && freq > 0) precios.push(plan.precio / (freq * 4.33));
+    } else if (plan.tipo === 'BONO' && plan.sesiones && plan.sesiones > 0) {
+      precios.push(plan.precio / plan.sesiones);
+    } else if (plan.tipo === 'PUNTUAL') {
+      precios.push(plan.precio);
+    }
+  }
+  if (precios.length === 0) return 0;
+  return precios.reduce((a, b) => a + b, 0) / precios.length;
 }

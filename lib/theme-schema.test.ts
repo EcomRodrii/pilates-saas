@@ -133,6 +133,20 @@ test('resolveTheme: tabBarStyle inválido cae a clasica', () => {
   assert.equal(resolveTheme({ tabBarStyle: 'flotante' }).tabBarStyle, 'clasica');
 });
 
+test('themeConfigSchema: barraOscura ausente → false (tema guardado antes del tema Noir)', () => {
+  const sinBarra: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinBarra.barraOscura;
+  const r = themeConfigSchema.safeParse(sinBarra);
+  assert.equal(r.success, true);
+  if (r.success) assert.equal(r.data.barraOscura, false);
+});
+
+test('resolveTheme: barraOscura no booleana cae a false; true se respeta', () => {
+  assert.equal(resolveTheme({ barraOscura: 'si' }).barraOscura, false);
+  assert.equal(resolveTheme(null).barraOscura, false);
+  assert.equal(resolveTheme({ barraOscura: true }).barraOscura, true);
+});
+
 test('themeConfigSchema: navPortal ausente → default sin ocultos/etiquetas/iconos (tema guardado antes de la Fase 2)', () => {
   const sinNav: Record<string, unknown> = { ...DEFAULT_THEME };
   delete sinNav.navPortal;

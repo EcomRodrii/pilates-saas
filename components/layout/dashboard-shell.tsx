@@ -134,6 +134,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return <PantallaBienvenida studio={studio} />;
   }
 
+  // Editor de Apariencia a pantalla completa: mismo patrón que
+  // PantallaBienvenida arriba (sustituye el layout entero en vez de vivir
+  // dentro de él), pero por RUTA en vez de por estado del estudio. Sigue
+  // dentro de los providers (auth/tema/privacidad ya resueltos arriba) — solo
+  // se salta Sidebar/Topbar y el `max-w-[1320px]` pensado para contenido de
+  // panel normal, que aquí solo recortaría las 3 columnas del editor.
+  if (pathname === '/configuracion/apariencia/editor') {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-screen bg-background">
+          {cargandoDatos ? <PanelSkeleton /> : children}
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
   return (
     <PanelPrivacyProvider>
       <PanelThemeProvider className="min-h-screen bg-background">

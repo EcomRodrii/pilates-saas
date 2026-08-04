@@ -7,7 +7,7 @@ import type {
   Instructor, Campana, AutomationLog,
 } from '@/lib/types';
 
-export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO';
+export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO' | 'ONBOARDING';
 
 // Catálogo único de tipos de recomendación — todo tipo nuevo de cualquier fase
 // se añade aquí (DECISION-OS-ARQUITECTURA.md §3).
@@ -30,7 +30,11 @@ export type TipoRecomendacion =
   | 'CONTACTAR_LEAD'
   | 'CONVERTIR_PRUEBA'
   // Equipo
-  | 'REVISAR_CARGA_EQUIPO';
+  | 'REVISAR_CARGA_EQUIPO'
+  // Onboarding (primeros 30 días de una socia nueva)
+  | 'IMPULSAR_ONBOARDING'
+  // Riesgo por intentos de reserva fallidos (informe fila 14)
+  | 'RIESGO_RESERVA_FALLIDA';
 
 export type NivelAutonomia = 0 | 1 | 2 | 3;
 export type NivelConfianza = 'ALTA' | 'MEDIA' | 'BAJA';
@@ -224,7 +228,7 @@ export interface MensajeDia {
 // P2-5: faltaba CAPTACION — hueco del catálogo (EspecialistaId ya la tenía),
 // no una reapertura de nada. Necesario para que el filtro por especialista
 // de motor.ts pueda apagar/encender los 7 especialistas, no solo 6.
-export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION';
+export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION' | 'ONBOARDING';
 export interface DecisionFeatureFlag {
   id: string;
   studioId: string;
@@ -243,6 +247,33 @@ export interface SustitucionSnapshot {
   sesionId: string;
   instructorOriginalId: string | null;
   estado: string;
+  creadoEn: string;
+}
+
+// Fila cruda de `instructor_tarifas` (dato salarial, tabla aparte de
+// `instructores` — migr 20260731110000). Array, NO Map: SnapshotEstudio
+// cruza la frontera de un `step.run` de Inngest en lib/inngest/decision.ts,
+// que serializa a JSON entre steps — un Map ahí se convierte en `{}` en el
+// replay (mismo gotcha ya documentado para `memoria`/`flagsRows` en ese
+// fichero). El Map de consulta vive en `IndicesSenal.tarifaHoraPorInstructor`
+// (construirIndices), calculado siempre FUERA de cualquier step, igual que
+// el resto de los índices.
+export interface InstructorTarifaSnapshot {
+  instructorId: string;
+  tarifaHora: number | null;
+}
+
+// Fila cruda de `intentos_reserva_fallidos` (informe fila 14 — "la alumna que
+// quería pagar y no pudo"). Array, NO Map: mismo motivo que
+// InstructorTarifaSnapshot arriba — SnapshotEstudio cruza la frontera de un
+// step.run de Inngest, que serializa a JSON entre steps. El índice de
+// consulta vive en `IndicesSenal.intentosFallidosPorSocio` (construirIndices).
+export interface IntentoFallidoSnapshot {
+  id: string;
+  socioId: string;
+  sesionId: string | null;
+  tipoClaseId: string | null;
+  motivo: string;
   creadoEn: string;
 }
 
@@ -272,5 +303,9 @@ export interface SnapshotEstudio {
   automationLogs: AutomationLog[]; // 90d
   campanas: Campana[];
   sustituciones: SustitucionSnapshot[]; // 90d
+  // Tarifa/hora por instructora — para margen de contribución por clase.
+  // Ver InstructorTarifaSnapshot arriba (por qué array, no Map, aquí).
+  instructorTarifas: InstructorTarifaSnapshot[];
+  intentosFallidos: IntentoFallidoSnapshot[]; // 90d, ver IntentoFallidoSnapshot arriba
   contexto: ContextoEstudio;
 }
