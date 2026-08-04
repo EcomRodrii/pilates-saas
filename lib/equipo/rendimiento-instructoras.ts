@@ -152,10 +152,20 @@ export function calcularRendimientoInstructoras(params: {
     for (const socioId of alumnas) {
       const arr = asistenciasPorSocio.get(socioId) ?? [];
       if (arr.length === 0) continue;
-      const primeraConEsta = arr[0].creadoEn;
+      // La atribución exige ≥80%, no 100% — una alumna puede tener alguna
+      // asistencia suelta con OTRA instructora dentro de la ventana (una
+      // sustituta, probó con otra antes de decantarse). "Primera con esta
+      // instructora" tiene que filtrar por `ins.id`, o `arr[0]` (la más
+      // antigua de CUALQUIERA) puede adelantar artificialmente su antigüedad
+      // con esta instructora y colarla en el denominador antes de tiempo.
+      const arrConEsta = arr.filter(a => sesionInstructor.get(a.sesionId) === ins.id);
+      if (arrConEsta.length === 0) continue;
+      const primeraConEsta = arrConEsta[0].creadoEn;
       const diasDesdePrimera = Math.floor((params.now.getTime() - new Date(primeraConEsta).getTime()) / MS_DIA);
       if (diasDesdePrimera < MIN_DIAS_PARA_JUZGAR_RETENCION) continue;
       paraRetencion++;
+      // La reciencia SÍ mira "alguna asistencia a cualquier instructora" — es
+      // deliberado (arr sin filtrar), ver comentario de arriba.
       const ultima = arr[arr.length - 1].creadoEn;
       const diasDesdeUltima = Math.floor((params.now.getTime() - new Date(ultima).getTime()) / MS_DIA);
       if (diasDesdeUltima <= DIAS_RECIENCIA_RETENCION) retenidas++;

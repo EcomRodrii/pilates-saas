@@ -63,6 +63,36 @@ test('retención: alumna atribuida con primera clase hace ≥60 días y asistenc
   assert.equal(r[0].retencionPct, 100);
 });
 
+test('retención: una prueba puntual con OTRA instructora no adelanta artificialmente la antigüedad con la atribuida', () => {
+  // 'mixta' asiste una vez con i2 (sustituta) hace 85 días, luego se decanta
+  // por i1 y asiste 5 veces entre los días 20 y 12 (atribuida a i1: 5/6 ≈
+  // 83% ≥ 80%). Su primera clase REAL con i1 fue hace solo 20 días — no
+  // cumple los 60 días mínimos para entrar en el denominador de retención de
+  // i1, aunque su primera asistencia CON CUALQUIERA (i2) sí los supere.
+  const sesionSustituta = sesion('i2', 85);
+  const sesionesI1Mixta = Array.from({ length: 5 }, (_, i) => sesion('i1', 20 - i * 2));
+  const sesionesRelleno = [sesion('i1', 65), sesion('i1', 5)];
+  const relleno = Array.from({ length: 4 }, (_, i) => socio(`r${i}`, 200));
+  const asistenciasRelleno = relleno.flatMap(s => [
+    asistencia(s.id, sesionesRelleno[0].id, 65), asistencia(s.id, sesionesRelleno[1].id, 5),
+  ]);
+  const s = calcularRendimientoInstructoras({
+    instructores: [INSTRUCTOR],
+    sesiones: [sesionSustituta, ...sesionesI1Mixta, ...sesionesRelleno],
+    asistencias: [
+      ...asistenciasRelleno,
+      asistencia('mixta', sesionSustituta.id, 85),
+      ...sesionesI1Mixta.map((se, i) => asistencia('mixta', se.id, 20 - i * 2)),
+    ],
+    socios: [...relleno, socio('mixta', 200)],
+    now: NOW, primeraSesionPorInstructor: primeraSesionAntigua,
+  });
+  // 'mixta' cuenta como alumna atribuida a i1, pero NO debe entrar en el
+  // denominador de retención (solo lleva 20 días con i1, no 85).
+  assert.equal(s[0].nAlumnasAtribuidas, 5);
+  assert.equal(s[0].nParaRetencion, 4); // solo las 4 de relleno, 'mixta' queda fuera
+});
+
 test('retención: alumna que no vuelve en 30 días no cuenta como retenida', () => {
   const sesiones = [sesion('i1', 65), sesion('i1', 61), sesion('i1', 5)];
   const asistencias = [
