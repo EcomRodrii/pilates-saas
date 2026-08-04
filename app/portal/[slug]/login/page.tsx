@@ -238,7 +238,12 @@ export default function PortalLogin() {
               textDecoration: 'none', transition: transicion(['background', 'border-color', 'transform']),
             }}
           >
-            Entrar con un enlace
+            {/* Antes decía solo "Entrar con un enlace" — para quien acaba de
+                recibir su cuenta de la propietaria y nunca ha puesto una
+                contraseña, ese texto no dice CUÁNDO usarlo (parecía una
+                alternativa cualquiera, no LA vía para su caso). Ahora nombra
+                directamente el motivo. */}
+            ¿Sin contraseña todavía? Entra con un enlace
           </Link>
         </form>
 
