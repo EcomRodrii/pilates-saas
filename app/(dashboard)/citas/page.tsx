@@ -318,6 +318,14 @@ export default function CitasPage() {
   // segundo clic. No sobrevive a un recargo de página (para eso haría falta
   // persistir el vínculo cita→recibo, fuera de alcance de este cambio).
   const [recibosGenerados, setRecibosGenerados] = useState<Set<string>>(new Set());
+  // Error del cobro cuando el diálogo se queda ABIERTO (nada se llegó a crear,
+  // es seguro reintentar): el banner de errorLista vive en el fondo de la
+  // página, y con el diálogo abierto la librería de Dialog marca el fondo
+  // `inert` por accesibilidad — un error ahí sería invisible en la práctica
+  // (y para lectores de pantalla). Cuando el diálogo SÍ se cierra (recibo ya
+  // creado, solo falló un paso posterior) el aviso vuelve a usar errorLista,
+  // porque entonces el fondo ya no está inert.
+  const [errorCobro, setErrorCobro] = useState<string | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -467,11 +475,11 @@ export default function CitasPage() {
       // Puede pasar si el precio se quitó/editó mientras el diálogo estaba
       // abierto — antes esto no daba ningún aviso y el botón "Confirmar
       // cobro" simplemente no hacía nada, sin explicar por qué.
-      setErrorLista('Esta cita ya no tiene precio fijado. Ciérralo y edítala antes de cobrar.');
-      setAvisoDineroMovido(false);
+      setErrorCobro('Esta cita ya no tiene precio fijado. Ciérralo y edítala antes de cobrar.');
       return;
     }
     setProcesandoCobro(true);
+    setErrorCobro(null);
     setErrorLista(null);
     setAvisoDineroMovido(false);
     const tipoLabel = TIPO_BADGE[cita.tipo].label;
@@ -482,8 +490,9 @@ export default function CitasPage() {
     });
     if (!res.ok && !('cobroRegistrado' in res)) {
       // Nada se llegó a crear (fallo antes de tocar `recibos`) — seguro
-      // reintentar, el diálogo se queda abierto.
-      setErrorLista(res.error);
+      // reintentar, el diálogo se queda abierto. Dentro del diálogo, no en
+      // errorLista: con el diálogo abierto el fondo está `inert`.
+      setErrorCobro(res.error);
       setProcesandoCobro(false);
       return;
     }
@@ -683,7 +692,7 @@ export default function CitasPage() {
                 esNuevo={(sociosConVariasCitas.get(cita.socioId) ?? 0) <= 1}
                 onCompletar={handleCompletar}
                 onCancelar={handleCancelar}
-                onCobrar={setCobrandoId}
+                onCobrar={(id) => { setCobrandoId(id); setErrorCobro(null); }}
                 onToggleFisio={handleToggleFisio}
                 verPrecio={verPrecio}
                 puedeCobrar={puedeCobrar}
@@ -858,7 +867,7 @@ export default function CitasPage() {
       {/* Confirmación de cobro: genera Recibo COBRADO + factura sellada de
           verdad, así que no puede ser un clic sin más — a diferencia del
           resto de acciones de esta pantalla, esto sí mueve dinero real. */}
-      <Dialog open={cobrandoId !== null} onOpenChange={(open) => { if (!open && !procesandoCobro) setCobrandoId(null); }}>
+      <Dialog open={cobrandoId !== null} onOpenChange={(open) => { if (!open && !procesandoCobro) { setCobrandoId(null); setErrorCobro(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Registrar cobro</DialogTitle>
@@ -875,10 +884,15 @@ export default function CitasPage() {
                   {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta socia'}</span>.
                   No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.
                 </p>
+                {errorCobro && (
+                  <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    {errorCobro}
+                  </div>
+                )}
                 <div className="flex justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setCobrandoId(null)}
+                    onClick={() => { setCobrandoId(null); setErrorCobro(null); }}
                     disabled={procesandoCobro}
                     className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                   >
