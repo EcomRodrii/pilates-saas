@@ -140,7 +140,10 @@ export function VistaDiaSalas({
                   }}
                 >
                   {c.sesiones.length === 0 && (
-                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                    // pointer-events-none: mismo motivo que "Cerrado" en
+                    // VistaSemana — cubre toda la columna y se comía el clic
+                    // antes de llegar a onClickVacio.
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
                       Sin clases
                     </span>
                   )}
