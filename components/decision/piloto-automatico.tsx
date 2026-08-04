@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useId } from 'react';
+import { useCallback, useEffect, useRef, useState, useId } from 'react';
 import { Sparkles, ShieldCheck } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 
@@ -25,6 +25,11 @@ export function PilotoAutomatico() {
   const [maxTope, setMaxTope] = useState(50);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El input de "máximo por día" muta `config.maxDiario` en cada tecleo (para
+  // que se vea lo que se escribe) ANTES de guardar en `onBlur` — por eso no
+  // puede usar el `config` del momento del blur como `prev` (ya está mutado).
+  // Se guarda el valor de verdad al entrar en el campo.
+  const maxDiarioAlEntrar = useRef<AutonomiaConfig | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -39,7 +44,14 @@ export function PilotoAutomatico() {
     })();
   }, []);
 
-  const guardar = useCallback(async (next: AutonomiaConfig) => {
+  // El piloto automático AUTO-ENVÍA mensajes a clientas mientras esté ON: si el
+  // servidor rechaza el cambio (o la petición falla de red), dejar puesto el
+  // valor optimista podría mostrar OFF en pantalla mientras el servidor lo
+  // sigue teniendo activo — o al revés. `prev` se recibe explícito de quien
+  // llama (que ya tiene el `config` actual a mano) y se restaura en las dos
+  // ramas de fallo, en vez de fiarse de un closure de `config` potencialmente
+  // obsoleto dentro de este `useCallback` con deps vacías.
+  const guardar = useCallback(async (prev: AutonomiaConfig, next: AutonomiaConfig) => {
     setConfig(next); // optimista
     setGuardando(true);
     setError(null);
@@ -49,10 +61,11 @@ export function PilotoAutomatico() {
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify(next),
       });
-      if (!res.ok) { setError('No se pudo guardar'); return; }
+      if (!res.ok) { setConfig(prev); setError('No se pudo guardar'); return; }
       const d = await res.json();
       setConfig(d.config); // el servidor devuelve la config saneada (autoritativa)
     } catch {
+      setConfig(prev);
       setError('Error de conexión');
     } finally {
       setGuardando(false);
@@ -64,7 +77,7 @@ export function PilotoAutomatico() {
   const toggleTipo = (tipo: string) => {
     const set = new Set(config.tiposPermitidos);
     if (set.has(tipo)) set.delete(tipo); else set.add(tipo);
-    guardar({ ...config, tiposPermitidos: [...set] });
+    guardar(config, { ...config, tiposPermitidos: [...set] });
   };
 
   return (
@@ -87,7 +100,7 @@ export function PilotoAutomatico() {
           role="switch"
           aria-checked={config.activa}
           aria-label="Activar piloto automático"
-          onClick={() => guardar({ ...config, activa: !config.activa })}
+          onClick={() => guardar(config, { ...config, activa: !config.activa })}
           disabled={guardando}
           className="relative mt-1 inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors disabled:opacity-50"
           style={{ background: config.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
@@ -95,6 +108,13 @@ export function PilotoAutomatico() {
           <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${config.activa ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
       </div>
+
+      {/* Fuera del bloque `config.activa &&` a propósito: si falla justo el
+          intento de ENCENDER el interruptor, el revert deja `activa` en
+          `false` y desmonta ese bloque — el aviso de error tiene que
+          sobrevivir a ese revert para que la propietaria sepa qué pasó, no
+          solo ver el interruptor volver solo a su sitio. */}
+      {error && !config.activa && <p className="mt-3 text-[12px] text-destructive">{error}</p>}
 
       {config.activa && (
         <div className="mt-4 flex flex-col gap-4 border-t border-border pt-4">
@@ -121,8 +141,9 @@ export function PilotoAutomatico() {
             <input id={`${uid}-1`}
               type="number" min={0} max={maxTope}
               value={config.maxDiario}
+              onFocus={() => { maxDiarioAlEntrar.current = config; }}
               onChange={e => setConfig(c => c ? { ...c, maxDiario: Number(e.target.value) } : c)}
-              onBlur={() => guardar(config)}
+              onBlur={() => guardar(maxDiarioAlEntrar.current ?? config, config)}
               disabled={guardando}
               className="w-16 rounded-lg border border-border px-2 py-1 text-[13px] focus:outline-none focus:ring-2 focus:ring-black/10"
             />
