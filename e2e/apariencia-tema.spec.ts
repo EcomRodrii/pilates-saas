@@ -2,11 +2,14 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolveTheme } from '../lib/theme-schema.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Galería de temas: sección "Tema" del editor de marca (separada de
-// "Personalizar", ver components/theme/theme-editor.tsx). No se puede
-// verificar en el preview de Vercel de la PR (Turnstile bloquea el login en
-// *.vercel.app — ver README), así que la verificación pasa por aquí, mockeando
-// red con page.route (mismo patrón que e2e/apariencia-boton-tarjeta.spec.ts).
+// Biblioteca de temas (/configuracion/apariencia) — la pantalla de llegada de
+// Apariencia, donde se elige el tema viéndolo pintado. Antes esto era la
+// categoría "Tema" dentro del editor; al mudarse a su propia pantalla, estas
+// pruebas se mudaron con ella (el editor ya no duplica la galería).
+//
+// No se puede verificar en el preview de Vercel de la PR (Turnstile bloquea el
+// login en *.vercel.app — ver README), así que la verificación pasa por aquí,
+// mockeando red con page.route (mismo patrón que apariencia-boton-tarjeta).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -30,6 +33,8 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     }));
   }, [STORAGE_KEY, AUTH_UID] as const);
 
+  const puts: Record<string, unknown>[] = [];
+
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/layout**', route =>
     json(route, { orden: [], ocultos: [], menuPosition: 'lateral', home: { orden: [], ocultos: [] } }));
@@ -37,7 +42,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
   const themeResuelto = resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED', ...themeGuardado });
   await page.route('**/api/theme**', route => {
-    if (route.request().method() === 'PUT') return json(route, resolveTheme(themeGuardado));
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      puts.push(body);
+      return json(route, resolveTheme(body));
+    }
     return json(route, themeResuelto);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
@@ -46,75 +55,72 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia');
-  // El editor único (theme-workspace.tsx) arranca en la pestaña "Secciones";
-  // "Tema" vive en "Ajustes" (categoría por defecto al entrar ahí).
-  await page.getByRole('tab', { name: 'Ajustes' }).click();
+  return { puts };
 }
 
-test.describe('Editor de temas — galería de temas', () => {
-  test('sin tema elegido, "Clásico" aparece seleccionado', async ({ page }) => {
+/** La fila de un tema dentro de la tarjeta "Biblioteca de temas". */
+function filaTema(page: Page, id: string) {
+  return page.locator(`[data-tema="${id}"]`);
+}
+
+test.describe('Biblioteca de temas', () => {
+  test('lista los temas de la galería, con el activo marcado "En uso"', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });
-    const clasico = page.getByRole('button', { name: /Clásico/ });
-    const geometrico = page.getByRole('button', { name: /Geométrico/ });
-    await expect(clasico).toBeVisible();
-    await expect(geometrico).toBeVisible();
-    await expect(clasico).toHaveClass(/border-brand/);
-    await expect(geometrico).not.toHaveClass(/border-brand/);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    // Los tres temas con paleta propia de la última tanda, y los previos.
+    for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
+      await expect(filaTema(page, id)).toBeVisible();
+    }
+    // Sin themeId guardado, el tema resuelto es "classic" → es el que está en uso.
+    await expect(filaTema(page, 'classic').getByText('En uso')).toBeVisible();
+    await expect(filaTema(page, 'noir').getByText('En uso')).toHaveCount(0);
   });
 
-  test('elegir "Geométrico" y guardar manda themeId/themeVersion/portalHeadingFontId a /api/theme', async ({ page }) => {
-    await montar(page);
-    await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });
+  test('"Tu tema" muestra el tema instalado con su versión', async ({ page }) => {
+    await montar(page, { themeId: 'editorial', themeVersion: 1 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('v1').first()).toBeVisible();
+  });
 
-    await page.getByRole('button', { name: /Geométrico/ }).click();
+  test('"Usar" en un tema lo guarda en el borrador con sus defaults', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    const [req] = await Promise.all([
+    // "Usar" solo aparece en los temas que NO están en uso.
+    const usarGeometrico = filaTema(page, 'geometric').getByRole('button', { name: 'Usar' });
+    await Promise.all([
       page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
-      page.getByRole('button', { name: /Guardar borrador/ }).click(),
+      usarGeometrico.click(),
     ]);
-    const body = req.postDataJSON() as Record<string, unknown>;
+
+    const body = puts.at(-1)!;
     expect(body.themeId).toBe('geometric');
     expect(body.themeVersion).toBe(1);
     expect(body.portalHeadingFontId).toBe('outfit');
     expect(body.themeCustomized).toBe(false);
-
-    await expect(page.getByRole('button', { name: /Geométrico/ })).toHaveClass(/border-brand/);
   });
 
-  test('elegir "Editorial" manda tabBarStyle/buttonStyle/cardStyle/portalHeadingFontId a /api/theme', async ({ page }) => {
-    await montar(page);
-    await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });
+  test('"Usar" en Noir manda su paleta y la barra oscura', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    await page.getByRole('button', { name: /Editorial/ }).click();
-
-    const [req] = await Promise.all([
+    await Promise.all([
       page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
-      page.getByRole('button', { name: /Guardar borrador/ }).click(),
+      filaTema(page, 'noir').getByRole('button', { name: 'Usar' }).click(),
     ]);
-    const body = req.postDataJSON() as Record<string, unknown>;
-    expect(body.themeId).toBe('editorial');
-    expect(body.portalHeadingFontId).toBe('instrumentSansBold');
-    expect(body.buttonStyle).toBe('solid');
-    expect(body.cardStyle).toBe('elevated');
-    expect(body.tabBarStyle).toBe('pestanaActiva');
 
-    await expect(page.getByRole('button', { name: /Editorial/ })).toHaveClass(/border-brand/);
+    const body = puts.at(-1)!;
+    expect(body.themeId).toBe('noir');
+    expect(body.barraOscura).toBe(true);
+    expect(body.primary).toBe('#1D2A21');
+    expect(body.secondary).toBe('#C9A24D');
   });
 
-  test('tocar "Personalizar" tras elegir un tema lo marca como "(personalizado)"', async ({ page }) => {
+  test('"Personalizar" lleva al editor', async ({ page }) => {
     await montar(page);
-    await expect(page.getByText('Tema', { exact: true })).toBeVisible({ timeout: 30_000 });
-
-    await page.getByRole('button', { name: /Geométrico/ }).click();
-    await expect(page.getByRole('button', { name: /Geométrico/ })).not.toContainText('personalizado');
-
-    // Cualquier control de "Personalizar" — aquí, el estilo de botón — marca
-    // deriva. Vive en su propia categoría del panel de Ajustes; se vuelve a
-    // "Tema" después para comprobar que la tarjeta ya dice "(personalizado)".
-    await page.getByRole('button', { name: 'Botón principal' }).click();
-    await page.getByRole('button', { name: 'Contorno' }).click();
-    await page.getByRole('button', { name: 'Tema', exact: true }).click();
-    await expect(page.getByRole('button', { name: /Geométrico/ })).toContainText('personalizado');
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('link', { name: 'Personalizar' }).first().click();
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/);
   });
 });

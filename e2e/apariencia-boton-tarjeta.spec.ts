@@ -49,7 +49,7 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
-  await page.goto('/configuracion/apariencia');
+  await page.goto('/configuracion/apariencia/editor');
   // El editor único (theme-workspace.tsx): "Botón principal"/"Tarjetas" viven
   // en "Ajustes", cada una como categoría propia (panel derecho, una a la
   // vez) — ya no las dos a la vista simultáneamente en un formulario largo.

@@ -33,6 +33,15 @@ export async function fetchThemeBorrador(): Promise<ThemeConfig> {
   return res.json();
 }
 
+// El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
+// lo necesita para poder decir "N cambios sin publicar" comparándolo con el
+// borrador; el resto del editor solo trabaja contra el borrador.
+export async function fetchThemePublicado(): Promise<ThemeConfig> {
+  const res = await fetch('/api/theme', { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
+  return res.json();
+}
+
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
   const res = await fetch('/api/theme', {
     method: 'PUT',
