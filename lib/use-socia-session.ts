@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
+import { mensajeSeguro } from '@/lib/errores';
 
 export interface SociaSesion {
   socioId: string;
@@ -74,7 +75,10 @@ export function useSociaSession(slug: string) {
       options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}${query}`, captchaToken },
     });
     if (captchaToken) captchaGastado();
-    return error ? { error: error.message } : { ok: true };
+    // Mismo filtro que lib/portal-auth.tsx: Supabase a veces devuelve un
+    // `message` que no es texto para una persona (p. ej. un "{}" en crudo
+    // cuando el token de captcha ha caducado entre verificarlo y enviar).
+    return error ? { error: mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
   }, [slug]);
 
   const logout = useCallback(async () => {
