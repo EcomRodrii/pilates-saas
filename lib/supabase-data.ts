@@ -4068,6 +4068,33 @@ export async function fetchInstructorTarifas(studioId: string): Promise<Instruct
   return (data ?? []).map(r => ({ instructorId: r.instructor_id, tarifaHora: r.tarifa_hora }));
 }
 
+// Informe fila 14 (Decision OS): intentos de reserva self-service que el
+// servidor rechazó de verdad — "es la alumna que quería pagar y no pudo".
+// Mismo criterio service-role que fetchInstructorTarifas/fetchSustitucionesRecientes.
+// Devuelve filas crudas (array, no Map) — mismo motivo de siempre.
+export interface IntentoFallidoRow {
+  id: string;
+  socioId: string;
+  sesionId: string | null;
+  tipoClaseId: string | null;
+  motivo: string;
+  creadoEn: string;
+}
+
+export async function fetchIntentosFallidosRecientes(studioId: string, desdeISO: string): Promise<IntentoFallidoRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('intentos_reserva_fallidos')
+    .select('id, socio_id, sesion_id, tipo_clase_id, motivo, creado_en')
+    .eq('studio_id', studioId)
+    .gte('creado_en', desdeISO) as { data: { id: string; socio_id: string; sesion_id: string | null; tipo_clase_id: string | null; motivo: string; creado_en: string }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchIntentosFallidosRecientes]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id, socioId: r.socio_id, sesionId: r.sesion_id,
+    tipoClaseId: r.tipo_clase_id, motivo: r.motivo, creadoEn: r.creado_en,
+  }));
+}
+
 // Fase A1 (Decision OS): nº de sedes de la cadena a la que pertenece el
 // estudio, para calibrar umbrales de "tamaño" — una cadena de 5 sedes con
 // pocas socias en cada una no es un "estudio pequeño". 1 si no hay cadena.

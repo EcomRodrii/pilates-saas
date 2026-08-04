@@ -27,7 +27,7 @@ function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
     suscripciones: [suscripcion({ socioId: 'a', planId: 'p1' })], planesTarifa: [plan({ id: 'p1' })],
-    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
@@ -191,6 +191,60 @@ test('R5: con suscripción ACTIVA vigente no entra por la rama de baja (la cubre
   const snap = snapshot({ socios, reservas }); // suscripción ACTIVA por defecto
   const candidatas = retencion.detectar(snap, memoriaVacia(), NOW);
   assert.equal(candidatas.find(c => c.datosUsados.diasDesdeVencimiento !== undefined), undefined);
+});
+
+test('R7: 3 intentos de reserva fallidos en 14 días, socia elegible sin otra señal → RIESGO_RESERVA_FALLIDA', () => {
+  const socios = [socio({ id: 'a' })];
+  const intentosFallidos = Array.from({ length: 3 }, (_, i) => ({
+    id: `if-${i}`, socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'AFORO_LLENO_SIN_ESPERA', creadoEn: diasAntes(i + 1),
+  }));
+  const snap = snapshot({ socios, intentosFallidos });
+  const [c] = retencion.detectar(snap, memoriaVacia(), NOW);
+  assert.ok(c);
+  assert.equal(c.tipo, 'RIESGO_RESERVA_FALLIDA');
+  assert.equal(c.confianza.nivel, 'MEDIA');
+  assert.equal(c.datosUsados.intentosFallidos, 3);
+});
+
+test('R7: 1 solo intento fallido → sin candidata (por debajo del suelo de emisión)', () => {
+  const socios = [socio({ id: 'a' })];
+  const intentosFallidos = [{ id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) }];
+  const snap = snapshot({ socios, intentosFallidos });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
+});
+
+test('R7: 2 intentos fallidos pero fuera de la ventana de 14 días → sin candidata', () => {
+  const socios = [socio({ id: 'a' })];
+  const intentosFallidos = [
+    { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(20) },
+    { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(25) },
+  ];
+  const snap = snapshot({ socios, intentosFallidos });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
+});
+
+test('R7: SIN suscripción activa (motivo SIN_PLAN), ≥30 días de antigüedad → RIESGO_RESERVA_FALLIDA (no la tapa la rama de R5)', () => {
+  const socios = [socio({ id: 'a', fechaAlta: diasAntes(60) })];
+  const intentosFallidos = [
+    { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  // Sin suscripciones en absoluto: la socia nunca tuvo plan (esElegible nunca
+  // la alcanza), pero sigue intentando reservar sin conseguirlo.
+  const snap = snapshot({ socios, suscripciones: [], intentosFallidos });
+  const [c] = retencion.detectar(snap, memoriaVacia(), NOW);
+  assert.ok(c);
+  assert.equal(c.tipo, 'RIESGO_RESERVA_FALLIDA');
+});
+
+test('R7: SIN suscripción activa pero antigüedad < 30 días → sin candidata (la cubre ONBOARDING)', () => {
+  const socios = [socio({ id: 'a', fechaAlta: diasAntes(10) })];
+  const intentosFallidos = [
+    { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  const snap = snapshot({ socios, suscripciones: [], intentosFallidos });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
 });
 
 test('silencio: estudio sin datos suficientes no genera candidatas (ni error)', () => {

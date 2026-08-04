@@ -3,7 +3,7 @@
 // (patrón P0-19 de lib/engines/automation-engine.ts) — nadie vuelve a iterar las
 // colecciones completas por socia.
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
-import type { SnapshotEstudio } from './tipos.ts';
+import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
 
 export interface IndicesSenal {
@@ -29,6 +29,8 @@ export interface IndicesSenal {
   tarifaHoraPorInstructor: Map<string, number | null>;
   // Socios que cada socio ha REFERIDO (Socio.referidoPor), para onboarding.ts.
   referidosPorSocio: Map<string, Socio[]>;
+  // Intentos de reserva self-service rechazados por socia, 90d (informe fila 14).
+  intentosFallidosPorSocio: Map<string, IntentoFallidoSnapshot[]>;
 }
 
 function agrupar<T>(items: T[], claveDe: (item: T) => string | null | undefined): Map<string, T[]> {
@@ -85,6 +87,8 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
 
   const referidosPorSocio = agrupar(s.socios, soc => soc.referidoPor);
 
+  const intentosFallidosPorSocio = agrupar(s.intentosFallidos, i => i.socioId);
+
   return {
     socioPorId: new Map(s.socios.map(soc => [soc.id, soc])),
     planPorId: new Map(s.planesTarifa.map(p => [p.id, p])),
@@ -100,6 +104,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     ocupadasPorSesion,
     tarifaHoraPorInstructor,
     referidosPorSocio,
+    intentosFallidosPorSocio,
   };
 }
 
@@ -234,6 +239,18 @@ export function conocidasEnOnboarding(socioId: string, idx: IndicesSenal): numbe
     if (t >= desde && t < hasta) n++;
   }
   return n;
+}
+
+/**
+ * Nº de intentos de reserva self-service rechazados por la socia dentro de
+ * `ventanaDias` (informe fila 14 — "quería pagar y no pudo"). Cuenta
+ * cualquier motivo por igual: lo que importa es la frustración repetida, no
+ * la causa concreta (aforo lleno vs. sin plan son ambas fricción real).
+ */
+export function intentosFallidosRecientes(socioId: string, idx: IndicesSenal, now: Date, ventanaDias: number): number {
+  const intentos = idx.intentosFallidosPorSocio.get(socioId) ?? [];
+  const desde = now.getTime() - ventanaDias * MS_DIA;
+  return intentos.filter(i => new Date(i.creadoEn).getTime() >= desde).length;
 }
 
 /**
