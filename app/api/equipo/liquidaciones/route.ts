@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { generarLiquidacionBorrador, transicionarLiquidacion, listarLiquidaciones, obtenerLiquidacion } from '@/lib/equipo/liquidacion-datos.ts';
 
 // Fila 11 del informe estratégico: liquidación de instructoras (desglose
@@ -80,8 +80,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: ficha } = await admin
-    .from('instructores').select('id').eq('id', instructorId).eq('studio_id', sesion.studioId).maybeSingle();
+    .from('instructores').select('id, rol').eq('id', instructorId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!ficha) return NextResponse.json({ error: 'Instructora no encontrada' }, { status: 404 });
+
+  // Mismo guard que PATCH /api/equipo/tarifas: un manager no gestiona la
+  // compensación de la propietaria ni de otro manager.
+  if (sesion.rol === 'MANAGER' && !rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never)) {
+    return NextResponse.json({ error: 'No puedes generar la liquidación de esta persona.' }, { status: 403 });
+  }
 
   const { row, error } = await generarLiquidacionBorrador(admin, sesion.studioId, instructorId, anio, mes);
   if (error) return NextResponse.json({ error }, { status: 409 });
@@ -102,6 +108,18 @@ export async function PATCH(req: NextRequest) {
   const accion = body?.accion === 'confirmar' || body?.accion === 'marcar_pagada' ? body.accion : null;
   if (!id || !accion) return NextResponse.json({ error: 'Faltan id/accion válidos' }, { status: 400 });
   const referenciaPago = typeof body?.referenciaPago === 'string' ? body.referenciaPago.slice(0, 200) : null;
+
+  // Mismo guard que POST/tarifas: hay que saber a quién pertenece la
+  // liquidación antes de dejar a un manager confirmarla/marcarla pagada.
+  if (sesion.rol === 'MANAGER') {
+    const { data: liq } = await admin
+      .from('liquidaciones_instructoras').select('instructor_id').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+    if (!liq) return NextResponse.json({ error: 'Liquidación no encontrada' }, { status: 404 });
+    const { data: ficha } = await admin.from('instructores').select('rol').eq('id', liq.instructor_id).maybeSingle();
+    if (!ficha || !rolesQuePuedeAsignar('MANAGER').includes(ficha.rol as never)) {
+      return NextResponse.json({ error: 'No puedes gestionar la liquidación de esta persona.' }, { status: 403 });
+    }
+  }
 
   const { row, error } = await transicionarLiquidacion(admin, id, sesion.studioId, accion, sesion.userId, referenciaPago);
   if (error) return NextResponse.json({ error }, { status: 409 });
