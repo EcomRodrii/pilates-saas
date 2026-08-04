@@ -1506,6 +1506,32 @@ export interface Liquidacion {
   generadaEn: string;
 }
 
+// Rendimiento de instructoras (fila 17 del informe estratégico): retención,
+// conversión y red social por instructora, ventana móvil de 90 días.
+// Informe de solo lectura — no mide/paga nada, solo mide.
+export interface RendimientoInstructoraApi {
+  instructorId: string;
+  nombre: string;
+  nAlumnasAtribuidas: number;
+  datosInsuficientes: boolean;
+  retencionPct: number | null;
+  nParaRetencion: number;
+  conversionPct: number | null;
+  nParaConversion: number;
+  redSocialPct: number | null;
+}
+
+export async function fetchRendimientoInstructoras(): Promise<RendimientoInstructoraApi[]> {
+  try {
+    const res = await fetch('/api/equipo/rendimiento', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: RendimientoInstructoraApi[] };
+    return data.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchLiquidaciones(
   anio: number, mes: number, instructorId?: string,
 ): Promise<Liquidacion[]> {

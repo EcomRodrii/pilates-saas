@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History,
   CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
-  ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro,
+  ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro, TrendingUp,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
@@ -396,9 +396,14 @@ export default function EquipoPage() {
         actions={tab === 'equipo' && gestiona && (
           <div className="flex items-center gap-2">
             {puedeGestionarEquipo(miRol) && (
-              <Link href="/equipo/liquidaciones" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
-                <Euro size={16} /> Liquidaciones
-              </Link>
+              <>
+                <Link href="/equipo/rendimiento" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                  <TrendingUp size={16} /> Rendimiento
+                </Link>
+                <Link href="/equipo/liquidaciones" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                  <Euro size={16} /> Liquidaciones
+                </Link>
+              </>
             )}
             <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-sm font-bold hover:brightness-95 transition-colors">
               <Plus size={16} /> Nuevo miembro
