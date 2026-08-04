@@ -330,7 +330,7 @@ interface StudioContextValue {
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
-  checkin: (reservaId: string) => void;
+  checkin: (reservaId: string) => Promise<ResultadoEscritura>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
   marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -2266,30 +2266,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setReservas(reservasActualizadas);
     // La inserción real pasa por la función Postgres atómica reservar_plaza
     // (bloquea la fila de la sesión mientras decide) — la estimación de arriba
-    // es solo para pintar algo al instante. Si dos altas concurrentes compiten
-    // por la última plaza, la decisión de la base de datos manda: se corrige el
-    // estado local y los efectos (bono/créditos/logros) se disparan sobre ese
-    // resultado autoritativo, no sobre la estimación.
-    dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId).then(r => {
-      if (!r || 'error' in r) return;
-      if (r.estado !== estado) {
-        setReservas(prev => prev.map(x => x.id === reservaId
-          ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
-      }
-      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
-      if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-      // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
-      // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
-      // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
-      // otorgaría logros como si la clase contara.
-      const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
-        ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera }
-        : x);
-      evaluarLogrosSocio(socioId, reservasFinales);
-      evaluarRetosSocio(socioId, reservasFinales);
-    });
+    // es solo para pintar algo al instante. Se ESPERA la respuesta (antes esto
+    // era un `.then()` sin await: la función devolvía `{ ok: true, estado }`
+    // con la estimación ANTES de que la RPC respondiera, así que un rechazo
+    // real —clase ya empezada, tope semanal, sin bono— nunca llegaba a quien
+    // llamaba, y el calendario anunciaba éxito con la reserva inexistente en
+    // servidor). Si dos altas concurrentes compiten por la última plaza, o si
+    // la RPC rechaza, la decisión de la base de datos manda: se corrige o se
+    // retira el estado local y los efectos (bono/créditos/logros) se disparan
+    // sobre ese resultado autoritativo, no sobre la estimación.
+    const r = await dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId);
+    if (!r || 'error' in r) {
+      setReservas(prev => prev.filter(x => x.id !== reservaId));
+      return { ok: false, error: r && 'error' in r ? r.error : 'No se pudo guardar la reserva' };
+    }
+    if (r.estado !== estado) {
+      setReservas(prev => prev.map(x => x.id === reservaId
+        ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
+    }
+    if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
+    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
+    // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
+    // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
+    // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
+    // otorgaría logros como si la clase contara.
+    const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
+      ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera }
+      : x);
+    evaluarLogrosSocio(socioId, reservasFinales);
+    evaluarRetosSocio(socioId, reservasFinales);
 
-    return { ok: true, estado };
+    return { ok: true, estado: r.estado as EstadoReserva };
   }
 
   // Favorito por TIPO de clase (catálogo), no por sesión puntual — así una
@@ -2444,13 +2451,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
-  async function checkin(reservaId: string) {
+  async function checkin(reservaId: string): Promise<ResultadoEscritura> {
     if (publicSlug) {
       // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
       // hace el servidor; se re-sincroniza al terminar.
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn: new Date().toISOString() } : r)); // optimista
       postPublico('/api/public/checkin', { studioId: studioIdOverride ?? '', reservaId });
-      return;
+      return { ok: true };
     }
     const checkInEn = new Date().toISOString();
     const reservasActualizadas = reservas.map(r =>
@@ -2462,7 +2469,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // la RPC podía llegar antes de que el UPDATE de arriba hubiera hecho
     // commit y rechazaba la concesión con CONDICION_NO_CUMPLIDA, perdiendo en
     // silencio el crédito de una asistencia real.
-    await dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
+    const res = await dbUpdateReserva(reservaId, { estado: 'ASISTIDA', checkInEn });
+    // Antes esto no comprobaba el resultado: un fallo del UPDATE dejaba la
+    // reserva marcada ASISTIDA en pantalla (con créditos/logros ya concedidos
+    // sobre una asistencia que el servidor nunca llegó a registrar) sin
+    // ninguna forma de detectarlo. Se revierte el optimista y se corta aquí.
+    if (!res.ok) {
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CONFIRMADA' as const, checkInEn: null } : r));
+      return res;
+    }
     // Control de acceso: con Kisi conectado, el check-in abre la puerta del
     // estudio. Fire-and-forget — un fallo de la cerradura no debe bloquear el
     // check-in (la recepcionista está delante y puede abrir a mano).
@@ -2472,7 +2487,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         .catch(() => {});
     }
     const reserva = reservas.find(r => r.id === reservaId);
-    if (!reserva) return;
+    if (!reserva) return res;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
     evaluarRetosSocio(reserva.socioId, reservasActualizadas);
@@ -2487,6 +2502,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // Nota: la sesión del bono ya se descuenta al confirmar la reserva
     // (ver consumirSesionBono en addReserva), no en el check-in, para evitar
     // el doble cobro y para que el saldo refleje las plazas ya comprometidas.
+    return res;
   }
 
   // Marca manualmente una reserva como NO_ASISTIO (recepción, cuando la socia no

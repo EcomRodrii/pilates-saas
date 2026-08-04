@@ -531,6 +531,9 @@ export default function Calendario() {
   const [busqueda, setBusqueda] = useState('');
 
   const [guardandoSesion, setGuardandoSesion] = useState(false);
+  // No dispara re-render (no hace falta pintar un loading): solo evita que
+  // ejecutarPasarLista se re-entre para la misma sesión mientras ya está en curso.
+  const pasandoListaRef = useRef<Set<string>>(new Set());
   const [avisoInstructora, setAvisoInstructora] = useState<
     {
       sesionId: string; apuntadas: number; instructora: string;
@@ -970,7 +973,13 @@ export default function Calendario() {
   }
 
   async function asignarSustituta(nuevoInstructorId: string) {
-    if (!sesionActual) return;
+    // Mismo guard anti doble-submit que editarSesion/editarSerie: el diálogo
+    // tiene un botón "Asignar" por candidata sin loading propio, así que sin
+    // esto dos clics (o dos candidatas distintas) mandaban dos updateSesion
+    // en paralelo — el segundo en responder ganaba en silencio.
+    if (!sesionActual || guardandoSesion) return;
+    setGuardandoSesion(true);
+    try {
     const anterior = nombreInstructor(sesionActual.instructorId);
     const nueva = nombreInstructor(nuevoInstructorId);
     const guardado = await updateSesion(sesionActual.id, { instructorId: nuevoInstructorId });
@@ -1006,6 +1015,9 @@ export default function Calendario() {
     setShowCobertura(false);
     showToast(`Sustituta asignada: ${nueva}`);
     void refrescarVista();
+    } finally {
+      setGuardandoSesion(false);
+    }
   }
 
   async function editarSerie() {
@@ -1145,17 +1157,23 @@ export default function Calendario() {
       });
       return;
     }
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
   }
 
-  function confirmarAddReserva(sesionId: string, socioId: string) {
-    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+  async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
-    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
-    void addReserva(sesionId, socioId);
-    showToast(estado === 'LISTA_ESPERA'
-      ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
+    // Se espera el resultado AUTORITATIVO de addReserva (la RPC del servidor),
+    // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
+    // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
+    // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
+    const res = await addReserva(sesionId, socioId);
+    if (!res.ok) {
+      showToast(res.error);
+      return;
+    }
+    showToast(res.estado === 'LISTA_ESPERA'
+      ? `Clase llena — ${nombre} va a lista de espera`
       : `${nombre} añadida a la clase`);
     void refrescarVista();
   }
@@ -1191,7 +1209,7 @@ export default function Calendario() {
     const { sesionId, socioId } = avisoSinBono;
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La clienta';
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
     addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
     setAvisoSinBono(null);
   }
@@ -1499,15 +1517,35 @@ export default function Calendario() {
   }
 
   async function ejecutarPasarLista(sesionId: string) {
+    // Anti doble-submit: sin esto, dos clics en "Pasar lista" (el botón no
+    // tiene loading propio) mandaban dos rondas de check-in en paralelo sobre
+    // las mismas reservas.
+    if (pasandoListaRef.current.has(sesionId)) return;
+    pasandoListaRef.current.add(sesionId);
+    try {
     const reservasSesion = reservasPorSesion.get(sesionId) ?? [];
     const ids = reservasParaPasarLista(reservasSesion.map(r => ({ id: r.id, estado: r.estado, checkInEn: r.checkInEn })));
     if (ids.length === 0) return;
-    for (const id of ids) checkin(id);
+    // Se espera cada check-in y solo se cuentan/deshacen las que de verdad se
+    // marcaron: antes `checkin(id)` se disparaba sin await por cada reserva,
+    // así que un rechazo del servidor (RLS, red) se perdía en silencio y el
+    // toast decía "marcadas" con reservas que seguían sin check-in real.
+    const resultados = await Promise.all(ids.map(async id => ({ id, res: await checkin(id) })));
+    const marcadas = resultados.filter(r => r.res.ok).map(r => r.id);
+    const fallidas = resultados.length - marcadas.length;
     await refrescarVista();
-    showToast(`Lista pasada · ${ids.length} clienta${ids.length !== 1 ? 's' : ''} marcada${ids.length !== 1 ? 's' : ''}`, {
-      texto: 'Deshacer',
-      onClick: async () => { for (const id of ids) deshacerCheckin(id); await refrescarVista(); },
-    });
+    if (marcadas.length === 0) { showToast('No se ha podido pasar lista — inténtalo de nuevo'); return; }
+    showToast(
+      `Lista pasada · ${marcadas.length} clienta${marcadas.length !== 1 ? 's' : ''} marcada${marcadas.length !== 1 ? 's' : ''}`
+      + (fallidas > 0 ? ` · ${fallidas} sin marcar` : ''),
+      {
+        texto: 'Deshacer',
+        onClick: async () => { for (const id of marcadas) await deshacerCheckin(id); await refrescarVista(); },
+      },
+    );
+    } finally {
+      pasandoListaRef.current.delete(sesionId);
+    }
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -2219,6 +2257,7 @@ export default function Calendario() {
         instructores={instructoresActivos}
         ausencias={ausencias}
         onAsignar={asignarSustituta}
+        guardando={guardandoSesion}
       />
 
       <NoPuedoAsistirDialog
@@ -2539,7 +2578,7 @@ export default function Calendario() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEspera) confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
+                if (confirmarEspera) void confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
                 setConfirmarEspera(null);
               }}
             >
