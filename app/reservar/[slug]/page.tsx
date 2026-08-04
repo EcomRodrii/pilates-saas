@@ -178,6 +178,11 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio';
+// Cada pestaña es también un widget embebible por separado (Configuración >
+// Estudio > Enlaces genera un <iframe ?embed=1&tab=…> distinto por cada una)
+// — de ahí que valga la pena validar el ?tab= de la URL contra esta lista en
+// vez de leerlo a ciegas.
+const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio'];
 // 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
 // manual — la reserva no queda confirmada ni en lista de espera, se avisa a
 // la socia por separado cuando la propietaria decida.
@@ -221,7 +226,10 @@ export default function ReservarPage() {
   useEffect(() => setMounted(true), []);
 
   const [filtroTipo, setFiltroTipo] = useState('');
-  const [tab, setTab] = useState<Tab>('clases');
+  const tabInicial = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
+  );
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
