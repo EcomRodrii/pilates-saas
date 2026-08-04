@@ -223,6 +223,30 @@ test('R7: 2 intentos fallidos pero fuera de la ventana de 14 días → sin candi
   assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
 });
 
+test('R7: SIN suscripción activa (motivo SIN_PLAN), ≥30 días de antigüedad → RIESGO_RESERVA_FALLIDA (no la tapa la rama de R5)', () => {
+  const socios = [socio({ id: 'a', fechaAlta: diasAntes(60) })];
+  const intentosFallidos = [
+    { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  // Sin suscripciones en absoluto: la socia nunca tuvo plan (esElegible nunca
+  // la alcanza), pero sigue intentando reservar sin conseguirlo.
+  const snap = snapshot({ socios, suscripciones: [], intentosFallidos });
+  const [c] = retencion.detectar(snap, memoriaVacia(), NOW);
+  assert.ok(c);
+  assert.equal(c.tipo, 'RIESGO_RESERVA_FALLIDA');
+});
+
+test('R7: SIN suscripción activa pero antigüedad < 30 días → sin candidata (la cubre ONBOARDING)', () => {
+  const socios = [socio({ id: 'a', fechaAlta: diasAntes(10) })];
+  const intentosFallidos = [
+    { id: 'if-1', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 'a', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  const snap = snapshot({ socios, suscripciones: [], intentosFallidos });
+  assert.equal(retencion.detectar(snap, memoriaVacia(), NOW).length, 0);
+});
+
 test('silencio: estudio sin datos suficientes no genera candidatas (ni error)', () => {
   const socios = [socio({ id: 'a' })];
   const snap = snapshot({ socios });

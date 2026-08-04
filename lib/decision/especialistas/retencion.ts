@@ -316,14 +316,21 @@ function reglaR6(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
 
 /**
  * R7 · Intentos de reserva fallidos repetidos → CONTACTO_MANUAL (informe fila
- * 14, "quería pagar y no pudo"). Solo para ≥30d de antigüedad (esElegible) —
- * el mismo caso en socias nuevas lo cubre onboarding.ts, que ya conoce su
- * ventana de 30 días. Va última del `??`: es la señal más nueva y débil de
- * las siete, no debe tapar un riesgo ya más asentado (impago, ausencia...).
+ * 14, "quería pagar y no pudo"). Solo para ≥30d de antigüedad — el mismo caso
+ * en socias nuevas lo cubre onboarding.ts, que ya conoce su ventana de 30
+ * días. Comprueba la antigüedad ella misma (no delega en `esElegible`) porque
+ * se llama desde AMBAS ramas de `detectar`: el motivo SIN_PLAN, el más común
+ * de `intentos_reserva_fallidos`, se dispara precisamente cuando la socia NO
+ * tiene suscripción activa — justo la rama que `esElegible` (exige
+ * suscripción ACTIVA) nunca alcanza. Sin esta comprobación propia, esa
+ * fracción de socias frustradas quedaría siempre invisible.
  */
 const VENTANA_DIAS_INTENTOS_FALLIDOS = 14;
 
 function reglaR7(socio: Socio, idx: IndicesSenal, now: Date): Candidata | null {
+  if (!socio.activo) return null;
+  const antiguedadDias = Math.floor((now.getTime() - new Date(socio.fechaAlta).getTime()) / MS_DIA);
+  if (antiguedadDias < 30) return null;
   const nIntentos = intentosFallidosRecientes(socio.id, idx, now, VENTANA_DIAS_INTENTOS_FALLIDOS);
   const confianza = confianzaRiesgoReservaFallida({ nIntentos });
   if (!confianza) return null;
@@ -355,10 +362,11 @@ export const retencion: Especialista = {
     const idx = construirIndices(s);
     const candidatas: Candidata[] = [];
     for (const socio of s.socios) {
-      // Rama sin suscripción ACTIVA: la socia que no renovó. Antes se descartaba
-      // aquí y quedaba invisible; ahora R5 la recupera.
+      // Rama sin suscripción ACTIVA: la socia que no renovó, o que nunca llegó
+      // a tener plan (el caso SIN_PLAN de R7 — ver comentario de reglaR7).
+      // Antes se descartaba aquí y quedaba invisible; ahora R5/R7 la recuperan.
       if (!idx.suscripcionActivaPorSocio.has(socio.id)) {
-        const c = reglaR5(socio, idx, now);
+        const c = reglaR5(socio, idx, now) ?? reglaR7(socio, idx, now);
         if (c) candidatas.push(c);
         continue;
       }
