@@ -40,6 +40,7 @@ import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL } from '@/lib/portal-home-logic';
+import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
@@ -92,6 +93,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
     homeBloques: homeBloquesPublicado,
+    retosApuntados, retoConteos, toggleReto,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   const { t, noche } = useModo();
@@ -698,6 +700,58 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                   {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Retos (tema "Bloom") — carrusel de 2 retos fijos (lib/retos-portal.ts)
+              con conteo REAL de apuntadas de este estudio (nunca una cifra de
+              marketing) y un toggle Apuntarme/Apuntada ✓ persistido por socia.
+              Oculto por defecto. */}
+          <div {...wrap('retos')}>
+            <div style={{ height: 40 }} />
+            <h2 style={{ ...display(30), color: t.ink }}>Retos</h2>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
+              {RETOS_PORTAL.map((reto) => {
+                const apuntada = retosApuntados.includes(reto.key);
+                const conteo = retoConteos[reto.key] ?? 0;
+                return (
+                  <div
+                    key={reto.key}
+                    style={{
+                      flex: '0 0 200px', borderRadius: radio.card, background: t.surface,
+                      padding: 18, boxShadow: sombra.cardSemana,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                      <span style={{ ...display(18, false, 1.2), color: t.ink }}>{reto.label}</span>
+                      <span style={{
+                        flex: 'none', height: 24, padding: '0 10px', borderRadius: 999,
+                        background: t.surface2, color: t.muted, display: 'inline-flex', alignItems: 'center',
+                        ...micro(10.5, 0, 600),
+                      }}>
+                        {reto.dias}
+                      </span>
+                    </div>
+                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 14 }}>
+                      {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera en apuntarte'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
+                      style={{
+                        marginTop: 14, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
+                        background: apuntada ? t.surface2 : 'var(--portal-brand)',
+                        color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: transicion(['background', 'color'], dur.card),
+                        ...texto.metaFuerte,
+                      }}
+                    >
+                      {apuntada ? 'Apuntada ✓' : 'Apuntarme'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

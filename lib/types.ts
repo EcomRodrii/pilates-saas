@@ -498,6 +498,17 @@ export interface FavoritoClase {
   creadoEn: string;
 }
 
+// Participación de una socia en un reto del carrusel de Inicio (tema Bloom,
+// lib/retos-portal.ts) — el reto en sí es contenido fijo de código, solo la
+// participación necesita persistencia real.
+export interface RetoParticipacion {
+  id: string;
+  studioId: string;
+  socioId: string;
+  retoKey: string;
+  creadoEn: string;
+}
+
 // Valores cerrados a propósito: evita que aparezcan variantes libres tipo
 // "inicio"/"Home"/"homepage" en la BD. Solo 'home' se usa por ahora — el resto
 // deja el editor preparado para reutilizarse en otras pantallas sin migrar.

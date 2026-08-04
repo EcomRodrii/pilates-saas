@@ -108,7 +108,7 @@ test('validarContrasteTheme: sin `destacado`, el gate cae a `secondary` (tema gu
 });
 
 test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids reales de bloques sistema', () => {
-  const idsValidos = new Set(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal']);
+  const idsValidos = new Set(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal', 'retos']);
   for (const id of ['oliva', 'bloom', 'noir']) {
     const def = getThemeDefinition(id)!;
     assert.ok(def.bloquesHome && def.bloquesHome.length > 0, `"${id}" no trae bloquesHome`);
@@ -116,6 +116,7 @@ test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids rea
       assert.ok(idsValidos.has(b), `"${id}" referencia un id de bloque desconocido: "${b}"`);
     }
   }
-  // Retos queda fuera de esta ronda a propósito — Bloom no lo referencia.
-  assert.ok(!getThemeDefinition('bloom')!.bloquesHome!.includes('retos'));
+  // Retos sí se construyó de verdad (conteo real, ver lib/retos-portal.ts) —
+  // Bloom lo instala primero, antes de "Accesos rápidos".
+  assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['retos', 'accesosRapidos', 'contenidoEstudio']);
 });

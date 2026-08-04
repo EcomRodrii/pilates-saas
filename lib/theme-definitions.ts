@@ -28,11 +28,15 @@
 // (Bloom, eje independiente de `barraOscura`) y `radioTema` (radio por pieza
 // SOLO en las secciones nuevas) — mismo patrón mecánico de 4 pasos en
 // theme-schema.ts que ya usó `barraOscura`. `bloquesHome` (ver la interfaz
-// de abajo) siembra el Inicio con los bloques `sistema` nuevos
-// (`tiraSemana`, `progresoSemanal`) al instalar el tema. "Retos" (Bloom) y
-// "Sesión guiada" quedan fuera: el primero es una feature de producto nueva
-// con persistencia sin diseñar; el segundo toca Vídeos/VOD, en feature-freeze
-// deliberado (lib/frozen-features.ts) — ninguno se construye a medias.
+// de abajo) siembra el Inicio con los bloques `sistema` nuevos (`tiraSemana`,
+// `progresoSemanal`, `retos`) al instalar el tema.
+//
+// "Retos" y "Sesión guiada", inicialmente descartados por falta de spec, se
+// diseñaron después con el prototipo real de Claude Design en mano: Sesión
+// guiada resultó NO tocar Vídeos/VOD (es cronómetro de cliente puro, ver
+// app/portal/[slug]/clases/[sesionId]/sesion-guiada/), y Retos se construyó
+// con contenido fijo (lib/retos-portal.ts) + conteo REAL de apuntadas por
+// estudio (reto_participaciones, nunca la cifra de marketing del prototipo).
 
 import type { ThemeConfig } from './theme-schema.ts';
 
@@ -155,10 +159,10 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // completo descartado a propósito, ver harmonic-discovering-kettle.md.
       radioTema: { card: 30 },
     },
-    // Retos queda fuera de esta ronda (feature de producto nueva, con
-    // persistencia — no se construye a medias): Bloom instala solo con
-    // accesos rápidos + lo del estudio, `estaSemana`/`invitarAmiga` ocultos.
-    bloquesHome: ['accesosRapidos', 'contenidoEstudio'],
+    // Retos primero, como en el prototipo original — justo antes de
+    // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
+    // de apuntadas por estudio (nunca la cifra de marketing del prototipo).
+    bloquesHome: ['retos', 'accesosRapidos', 'contenidoEstudio'],
   },
   {
     id: 'noir',

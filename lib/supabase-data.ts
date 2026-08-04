@@ -80,6 +80,7 @@ import type {
   RowSuscripciones,
   RowTiposClase,
   RowFavoritosClase,
+  RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
   RowUsuarios,
@@ -150,6 +151,7 @@ import type {
   Suscripcion,
   TipoClase,
   FavoritoClase,
+  RetoParticipacion,
   ContenidoPortal,
   BannerPortal,
   UbicacionBannerPortal,
@@ -770,6 +772,16 @@ export function mapFavoritoClase(r: RowFavoritosClase): FavoritoClase {
     studioId: r.studio_id,
     socioId: r.socio_id,
     tipoClaseId: r.tipo_clase_id,
+    creadoEn: r.created_at,
+  };
+}
+
+export function mapRetoParticipacion(r: RowRetoParticipaciones): RetoParticipacion {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    retoKey: r.reto_key,
     creadoEn: r.created_at,
   };
 }
