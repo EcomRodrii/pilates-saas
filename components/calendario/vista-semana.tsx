@@ -139,7 +139,12 @@ export function VistaSemana({
                   }}
                 >
                   {c.vacio && (
-                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                    // pointer-events-none: sin esto, este rótulo (que cubre TODA
+                    // la columna) se comía cualquier clic en un día cerrado antes
+                    // de que llegara a onClickVacio — la comprobación de "clic en
+                    // el fondo, no en una clase" lo veía como target distinto y
+                    // lo descartaba en silencio.
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
                       Cerrado
                     </span>
                   )}
