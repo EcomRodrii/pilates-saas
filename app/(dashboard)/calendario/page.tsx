@@ -1911,7 +1911,21 @@ export default function Calendario() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col h-full">
+    // h-full por sí solo no basta: DashboardShell envuelve `children` en un
+    // <main className="min-h-screen"> (mínimo, no altura fija) sin ningún
+    // ancestro de altura definida contra la que "h-full" pueda resolverse.
+    // Sin un tope real, LienzoCalendario (h-full + overflow-hidden) nunca
+    // llega a acotar nada: la rejilla crece a su alto natural y es la PÁGINA
+    // ENTERA la que hace scroll — justo el anti-patrón que LienzoCalendario
+    // documenta evitar. Eso rompía dos cosas a la vez: la cabecera de días
+    // (sticky dentro de la rejilla) quedaba pegada al scroll de la página en
+    // vez del de la rejilla, y se solapaba con la Topbar/el menú de perfil
+    // (ambos con su propio sticky/absolute pensado para un scroll de página
+    // que no debería existir aquí). 100vh menos el padding+Topbar reales del
+    // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
+    // h-14+mb-2 en escritorio) — mismo patrón ya usado en
+    // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
+    <div className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
