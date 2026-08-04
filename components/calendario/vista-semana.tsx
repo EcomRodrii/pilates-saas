@@ -8,6 +8,16 @@ import type { DatoSesion } from '@/components/calendario/vista-dia-salas';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+// Ancho mínimo de cada columna-día. Sin esto, en móvil (o con la ventana del
+// panel estrecha) `flex-1`/`grid-cols-7` reparte 7 columnas en el ancho que
+// haya SIN SUELO — se veían columnas de ~40px donde "Cerrado" (centrado,
+// `absolute inset-0`, sin overflow-hidden) desbordaba sobre las columnas
+// vecinas y se solapaba con las suyas, ilegible. Por debajo de este ancho
+// total, la rejilla entera scrollea en horizontal en vez de seguir
+// encogiendo columnas.
+const ANCHO_MIN_COLUMNA_PX = 92;
+const ANCHO_GUTTER_PX = 56; // w-14
+
 export interface VistaSemanaProps {
   columnas: ColumnaDia[];
   datos: Map<string, DatoSesion>;
@@ -53,76 +63,86 @@ export function VistaSemana({
     horas.push({ label: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, topPx: ((m - horaInicioMin) / 60) * pxPorHora });
   }
 
+  const anchoMinTotal = ANCHO_GUTTER_PX + columnas.length * ANCHO_MIN_COLUMNA_PX;
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
-      <div className="flex flex-none border-b border-border">
-        <div className="w-14 flex-none" />
-        {columnas.map((c, i) => {
-          const esHoy = hoyIndex === i;
-          return (
-            <div
-              key={c.dia}
-              className="min-w-0 flex-1 border-l border-border/60 px-2 py-2 text-center"
-              style={{ background: esHoy ? 'var(--muted)' : undefined }}
-            >
-              <p className="flex items-center justify-center gap-1.5 min-w-0">
-                {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
-                <span
-                  className="text-[11px] font-bold uppercase tracking-wide"
-                  style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)' }}
+      {/* Un único contenedor con scroll en las dos direcciones: horizontal
+          para las 7 columnas cuando no caben (móvil), vertical para las
+          horas. La cabecera va `sticky top-0` DENTRO de este contenedor —
+          así al hacer scroll horizontal se mueve solidaria con la rejilla en
+          vez de desincronizarse (dos scrolls separados no se sincronizan
+          solos). El gutter de horas va `sticky left-0` por el mismo motivo,
+          en la dirección contraria. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+        <div style={{ minWidth: anchoMinTotal }}>
+          <div className="sticky top-0 z-10 flex border-b border-border bg-card">
+            <div className="sticky left-0 z-10 w-14 flex-none bg-card" />
+            {columnas.map((c, i) => {
+              const esHoy = hoyIndex === i;
+              return (
+                <div
+                  key={c.dia}
+                  className="min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
+                  style={{ background: esHoy ? 'var(--muted)' : undefined, minWidth: ANCHO_MIN_COLUMNA_PX }}
                 >
-                  {DIAS[i]}
-                </span>
-                <span className="text-sm font-bold tracking-tight text-foreground">{fechasSemana[i]?.getDate()}</span>
-              </p>
-              <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
-                {c.vacio ? 'Cerrado' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex" style={{ height: altoTotal }}>
-          <div className="relative w-14 flex-none">
-            {horas.map(h => (
-              <span
-                key={h.label}
-                className="absolute right-2 -translate-y-1.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground"
-                style={{ top: h.topPx }}
-              >
-                {h.label}
-              </span>
-            ))}
+                  <p className="flex items-center justify-center gap-1.5 min-w-0">
+                    {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
+                    <span
+                      className="text-[11px] font-bold uppercase tracking-wide"
+                      style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)' }}
+                    >
+                      {DIAS[i]}
+                    </span>
+                    <span className="text-sm font-bold tracking-tight text-foreground">{fechasSemana[i]?.getDate()}</span>
+                  </p>
+                  <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
+                    {c.vacio ? 'Cerrado' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="grid min-w-0 flex-1 grid-cols-7">
-            {columnas.map((c, i) => (
-              <div
-                key={c.dia}
-                data-dia-index={i}
-                className="relative min-w-0 border-l border-border/60"
-                style={{
-                  background: hoyIndex === i ? 'color-mix(in srgb, var(--muted) 60%, var(--card))' : undefined,
-                  backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
-                  cursor: onClickVacio ? 'pointer' : undefined,
-                }}
-                onClick={!onClickVacio ? undefined : e => {
-                  // Solo si el clic fue en el fondo de la columna, no en una
-                  // clase (BloqueClase no para la propagación): así no hace
-                  // falta tocarlo para que esto conviva con seleccionar/
-                  // arrastrar una clase existente.
-                  if (e.target !== e.currentTarget) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
-                }}
-              >
-                {c.vacio && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
-                    Cerrado
-                  </span>
-                )}
+          <div className="flex" style={{ height: altoTotal }}>
+            <div className="sticky left-0 z-[5] w-14 flex-none bg-card">
+              {horas.map(h => (
+                <span
+                  key={h.label}
+                  className="absolute right-2 -translate-y-1.5 text-[10.5px] font-semibold tabular-nums text-muted-foreground"
+                  style={{ top: h.topPx }}
+                >
+                  {h.label}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid min-w-0 flex-1" style={{ gridTemplateColumns: `repeat(${columnas.length || 1}, minmax(${ANCHO_MIN_COLUMNA_PX}px, 1fr))` }}>
+              {columnas.map((c, i) => (
+                <div
+                  key={c.dia}
+                  data-dia-index={i}
+                  className="relative min-w-0 overflow-hidden border-l border-border/60"
+                  style={{
+                    background: hoyIndex === i ? 'color-mix(in srgb, var(--muted) 60%, var(--card))' : undefined,
+                    backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
+                    cursor: onClickVacio ? 'pointer' : undefined,
+                  }}
+                  onClick={!onClickVacio ? undefined : e => {
+                    // Solo si el clic fue en el fondo de la columna, no en una
+                    // clase (BloqueClase no para la propagación): así no hace
+                    // falta tocarlo para que esto conviva con seleccionar/
+                    // arrastrar una clase existente.
+                    if (e.target !== e.currentTarget) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
+                  }}
+                >
+                  {c.vacio && (
+                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
+                      Cerrado
+                    </span>
+                  )}
 
                 {c.sesiones.map(s => {
                   const d = datos.get(s.id);
@@ -161,6 +181,7 @@ export function VistaSemana({
                 })}
               </div>
             ))}
+            </div>
           </div>
         </div>
       </div>
