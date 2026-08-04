@@ -1192,22 +1192,30 @@ export async function avisarClaseModificada(
   } catch { /* best-effort: no bloquea la edición */ return null; }
 }
 
+// Devuelve si el envío se confirmó de verdad (mismo patrón que
+// enviarEmailCampana): el llamador (cancelarSesion) lo usa para saber
+// CUÁNTAS clientas quedaron avisadas de verdad, no asumirlo siempre.
 export async function enviarEmailCancelacionClase(params: DatosClaseEmailCliente & {
   to: string; toName: string;
-}) {
-  await fetch('/api/emails/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-    body: JSON.stringify({
-      tipo: 'cancelacion',
-      to: params.to,
-      toName: params.toName,
-      data: {
-        claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
-        sala: params.sala, instructor: params.instructor,
-      },
-    }),
-  });
+}): Promise<boolean> {
+  try {
+    const res = await fetch('/api/emails/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({
+        tipo: 'cancelacion',
+        to: params.to,
+        toName: params.toName,
+        data: {
+          claseNombre: params.claseNombre, fecha: params.fecha, hora: params.hora,
+          sala: params.sala, instructor: params.instructor,
+        },
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 // Aviso de "cambio de clase" (instructora y/o hora/sala), email + in-app, a

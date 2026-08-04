@@ -15,6 +15,20 @@ export function uid() {
   return `${Date.now().toString(36)}-${uidSeq.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+// UUID v4 de verdad (para columnas Postgres `uuid`, donde el `uid()` de arriba
+// no vale — formato inválido, 22P02). `crypto.randomUUID()` exige contexto
+// seguro y Safari >=15.4; `crypto.getRandomValues()` es muchísimo más viejo y
+// funciona en contexto no seguro, así que sirve de fallback real, no solo de
+// mejor-que-nada.
+export function uuidV4(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const hex = Array.from(b, x => x.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+}
+
 // Compara dos versiones "0.92"/"1.0.3" numéricamente, no como texto — un
 // ORDER BY version en SQL (o un .sort() de JS por defecto) las trata como
 // texto y ordena mal en cuanto un componente llega a dos cifras: "0.10" sale

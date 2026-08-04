@@ -1074,28 +1074,38 @@ export default function Calendario() {
     const guardado = await updateSesion(sesionId, { cancelada: true });
     if (!guardado.ok) { showToast(guardado.error); return; }
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    let avisadas = 0;
+    let sinAvisar = 0;
     if (sesion) {
       const inicio = new Date(sesion.inicio);
       const fecha = fechaLargaEstudio(inicio);
       const hora = horaEstudio(inicio);
-      reservas
-        .filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'))
-        .forEach(r => {
-          const socia = socios.find(s => s.id === r.socioId);
-          if (!socia?.email) return;
-          enviarEmailCancelacionClase({
-            to: socia.email,
-            toName: socia.nombre,
-            claseNombre: sesion.tipoClase.nombre,
-            fecha, hora,
-            sala: sesion.sala.nombre,
-            instructor: sesion.instructor.nombre,
-          });
+      const apuntadas = reservas.filter(r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'));
+      // Se espera cada envío y se cuenta el resultado real: antes el
+      // `.forEach` disparaba enviarEmailCancelacionClase sin await por cada
+      // clienta y el toast decía "avisadas" pase lo que pase con el envío.
+      const resultados = await Promise.all(apuntadas.map(async r => {
+        const socia = socios.find(s => s.id === r.socioId);
+        if (!socia?.email) return null;
+        return enviarEmailCancelacionClase({
+          to: socia.email,
+          toName: socia.nombre,
+          claseNombre: sesion.tipoClase.nombre,
+          fecha, hora,
+          sala: sesion.sala.nombre,
+          instructor: sesion.instructor.nombre,
         });
+      }));
+      for (const ok of resultados) {
+        if (ok === null) continue; // sin email: no cuenta ni como avisada ni como fallo
+        if (ok) avisadas++; else sinAvisar++;
+      }
     }
     void avisarClaseCancelada(sesionId);
     setSesionId(null);
-    showToast('Clase cancelada · clientas avisadas');
+    showToast(sinAvisar > 0
+      ? `Clase cancelada · ${avisadas} clienta${avisadas !== 1 ? 's' : ''} avisada${avisadas !== 1 ? 's' : ''} · ${sinAvisar} sin avisar`
+      : 'Clase cancelada · clientas avisadas');
     void refrescarVista();
   }
 

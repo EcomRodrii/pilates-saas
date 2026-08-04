@@ -61,6 +61,12 @@ export function forzarCarga(): Promise<SDK | null> {
           enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
           tracesSampleRate: 0.1,
           sendDefaultPii: false,
+          // Probe de navegadores in-app de iOS (WKWebView de Instagram/
+          // Facebook/etc., y el propio Safari en ciertos casos) sondeando si
+          // existe un puente nativo que esta app nunca declara — visto en
+          // /legal (Sentry NEXTJS-X). No es un bug propio: ningún código de
+          // este repo referencia `window.webkit`.
+          ignoreErrors: [/window\.webkit\.messageHandlers/],
         });
       }
       sdk = m;

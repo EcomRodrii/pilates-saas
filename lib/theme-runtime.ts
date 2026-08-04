@@ -19,7 +19,7 @@
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
-import { cumpleContraste, foregroundParaFondo } from './wcag-contrast.ts';
+import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 
 // foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
 // reexporta aquí por compatibilidad — así PanelThemeProvider (montado en TODO
@@ -55,8 +55,14 @@ function varsBoton(t: ThemeConfig, marcaForeground: string): Record<string, stri
     };
   }
   if (t.buttonStyle === 'soft') {
+    // rgba(), no color-mix(): Safari <16.2 no soporta color-mix(), y como
+    // valor de una custom property no cae al fallback de var() (no está
+    // "vacía", solo es una función que ese motor no entiende) — el botón
+    // "soft" se quedaba sin fondo entero. rgba() con el mismo 15% de opacidad
+    // sobre transparente da el resultado visual idéntico y es universal.
+    const rgb = hexARgb(t.primary);
     return {
-      '--portal-btn-bg': `color-mix(in srgb, ${t.primary} 15%, transparent)`,
+      '--portal-btn-bg': rgb ? `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15)` : `color-mix(in srgb, ${t.primary} 15%, transparent)`,
       '--portal-btn-fg': t.primary,
       '--portal-btn-border': 'none',
     };

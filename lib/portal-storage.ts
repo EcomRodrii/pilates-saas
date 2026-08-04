@@ -165,10 +165,19 @@ export async function eliminarLogoEstudio(studioId: string): Promise<{ ok: true 
 // Favicon del estudio (marca) — mismo bucket público, prefijo propio. Se usa como
 // icono de pestaña en las páginas públicas (white-label). Más restrictivo de
 // tamaño que el logo.
+//
+// A diferencia del logo (que no tiene borrador — se persiste directo en
+// studios.logoUrl), el favicon SÍ es un campo del tema (theme-schema.ts) que
+// vive en config_draft/config_published. El editor sube/borra SIEMPRE contra
+// `favicon-borrador-<studioId>`, nunca `favicon-<studioId>` directamente — si
+// subiera al path publicado, cambiar el favicon mientras se edita ya lo
+// cambiaría en producción, saltándose "Publicar" (I-6). El paso borrador ->
+// publicado (copia de storage + URL final) lo hace publicarTheme()
+// (lib/theme-data.ts), server-side, con el cliente admin.
 export async function subirFaviconEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, FAVICON_MAX_BYTES);
   if (invalido) return { error: invalido };
-  const path = `favicon-${studioId}`;
+  const path = `favicon-borrador-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
     .upload(path, file, { upsert: true, contentType: file.type });
@@ -180,7 +189,7 @@ export async function subirFaviconEstudio(studioId: string, file: File): Promise
 }
 
 export async function eliminarFaviconEstudio(studioId: string): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.storage.from(BUCKET).remove([`favicon-${studioId}`]);
+  const { error } = await supabase.storage.from(BUCKET).remove([`favicon-borrador-${studioId}`]);
   if (error) return { error: error.message };
   return { ok: true };
 }

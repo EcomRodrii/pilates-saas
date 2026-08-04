@@ -154,7 +154,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { uid, uuidV4, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
@@ -1308,8 +1308,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // no el `bp-${uid()}` habitual, o Postgres lo rechaza con 22P02. Además el
     // storage de la imagen del banner necesita este id YA creado en BD antes de
     // subir (la RLS del bucket lo valida contra la fila), así que no vale con
-    // dejar que Postgres lo genere y leerlo después: se genera aquí.
-    const nuevo: BannerPortal = { ...fields, id: crypto.randomUUID(), studioId: getCurrentStudioId() };
+    // dejar que Postgres lo genere y leerlo después: se genera aquí. uuidV4() en
+    // vez de crypto.randomUUID() a secas: exige contexto seguro y Safari
+    // >=15.4, y sin fallback esto lanzaba antes de llegar siquiera a la RPC.
+    const nuevo: BannerPortal = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
     const res = await dbInsertBannerPortal(nuevo);
     if (!res.ok) return res;
     setBannersPortal(prev => [...prev, nuevo]);

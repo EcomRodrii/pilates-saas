@@ -277,14 +277,26 @@ function esErrorDeRedCliente(error: unknown): boolean {
   return /load failed|failed to fetch|networkerror|network request failed|the operation was aborted/i.test(msg);
 }
 
+// 409 es, por convención en TODAS las API routes de este repo (equipo,
+// decisiones, sustituciones, terminal, penalizaciones...), "conflicto de
+// negocio ya resuelto con su propio mensaje al usuario" — el propio código de
+// app/api/equipo/route.ts lo dice literal: "Se responde 409 con qué hacer, y
+// no se registra nada". No es un bug de la app: es la respuesta esperada a un
+// intento de dar de alta un email duplicado, aprobar dos veces la misma
+// recomendación, etc. — ruido no accionable en Sentry (auditoría M-5).
+function esConflictoDeNegocioEsperado(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 409;
+}
+
 export function reportDbError(tag: string, error: unknown) {
   console.error(tag, error);
   // A-6: los fallos de escritura de DB llegan a Sentry (antes solo console.error
   // + un toast → invisibles en producción). Tag por estudio para agrupar por
   // tenant. No-op si Sentry no está inicializado (DSN sin definir).
-  // Los fallos de RED del cliente se registran en consola y alimentan el toast,
-  // pero NO se envían a Sentry (ruido no accionable, no un error de BD).
-  if (!esErrorDeRedCliente(error)) {
+  // Los fallos de RED del cliente y los conflictos de negocio ya resueltos con
+  // su propio mensaje (409) se registran en consola y alimentan el toast, pero
+  // NO se envían a Sentry (ruido no accionable, no un error de BD).
+  if (!esErrorDeRedCliente(error) && !esConflictoDeNegocioEsperado(error)) {
     try {
       capturarExcepcion(
         error instanceof Error ? error : new Error(`${tag}: ${typeof error === 'string' ? error : JSON.stringify(error)}`),
