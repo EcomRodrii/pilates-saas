@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Socio, Reserva, Suscripcion, PlanTarifa, Recibo, Sesion, AutomationLog } from '@/lib/types';
 import type { SnapshotEstudio } from './tipos.ts';
 import {
-  construirIndices, frecuenciaHabitual, diasSinVenir, umbralAnomalo, ausenciaAnomala,
+  construirIndices, frecuenciaHabitual, frecuenciaHabitualPorTipoClase, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
   pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
 } from './senales.ts';
@@ -40,6 +40,22 @@ function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
     ...over,
   };
 }
+
+// ── frecuenciaHabitualPorTipoClase (Finanzas F2) ────────────────────────────
+
+test('frecuenciaHabitualPorTipoClase: solo cuenta asistencias de la disciplina pedida, no las de otra', () => {
+  const sesReformer = [0, 7, 14, 21].map(d => sesion({ id: `sr${d}`, inicio: diasAntes(d), tipoClaseId: 'reformer' }));
+  const sesMat = [0, 3, 6, 9, 12].map(d => sesion({ id: `sm${d}`, inicio: diasAntes(d), tipoClaseId: 'mat' }));
+  const reservas = [
+    ...sesReformer.map(se => reserva({ socioId: 'a', estado: 'ASISTIDA', sesionId: se.id, creadoEn: se.inicio })),
+    ...sesMat.map(se => reserva({ socioId: 'a', estado: 'ASISTIDA', sesionId: se.id, creadoEn: se.inicio })),
+  ];
+  const idx = construirIndices(snapshot({ reservas, sesiones: [...sesReformer, ...sesMat] }));
+  assert.equal(frecuenciaHabitualPorTipoClase('a', 'reformer', idx), 4 / 8);
+  assert.equal(frecuenciaHabitualPorTipoClase('a', 'mat', idx), 5 / 8);
+  // Sin acotar (null) cuenta las 9 asistencias de ambas disciplinas — igual que frecuenciaHabitual.
+  assert.equal(frecuenciaHabitualPorTipoClase('a', null, idx), frecuenciaHabitual('a', idx));
+});
 
 // ── frecuenciaHabitual / diasSinVenir / umbralAnomalo / ausenciaAnomala ──────
 

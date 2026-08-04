@@ -110,13 +110,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
 
 const MS_DIA = 86400000;
 
-/**
- * Media de asistencias/semana en las 8 semanas previas a la última asistencia.
- * Requiere al menos 4 asistencias en esa ventana para ser válida — si no, null
- * (socia con historial insuficiente; ver casos borde, Núcleo §9).
- */
-export function frecuenciaHabitual(socioId: string, idx: IndicesSenal): number | null {
-  const asistidas = idx.asistidasPorSocio.get(socioId) ?? [];
+function frecuenciaDesdeAsistidas(asistidas: Reserva[]): number | null {
   if (asistidas.length === 0) return null;
   const ultimaTs = new Date(asistidas[0].creadoEn).getTime();
   const desde = ultimaTs - 8 * 7 * MS_DIA;
@@ -126,6 +120,31 @@ export function frecuenciaHabitual(socioId: string, idx: IndicesSenal): number |
   });
   if (enVentana.length < 4) return null;
   return enVentana.length / 8;
+}
+
+/**
+ * Media de asistencias/semana en las 8 semanas previas a la última asistencia.
+ * Requiere al menos 4 asistencias en esa ventana para ser válida — si no, null
+ * (socia con historial insuficiente; ver casos borde, Núcleo §9).
+ */
+export function frecuenciaHabitual(socioId: string, idx: IndicesSenal): number | null {
+  return frecuenciaDesdeAsistidas(idx.asistidasPorSocio.get(socioId) ?? []);
+}
+
+/**
+ * Igual que `frecuenciaHabitual`, pero acotada a UN tipo de clase (Finanzas
+ * F2, informe fila 16). Necesaria para no inflar la frecuencia con
+ * asistencias de otra disciplina — una socia con bono de Mat que también
+ * hace Reformer con otro plan (`planes_por_tipo_de_clase`, mismo punto ciego
+ * que ya corrigió F1 en P2-5) tendría una `frecuenciaHabitual` total mayor
+ * que su frecuencia real en Mat, abaratando artificialmente el coste
+ * estimado de un mensual de Mat. `tipoClaseId: null` = sin acotar (mismo
+ * resultado que `frecuenciaHabitual`, para planes que cubren todas las clases).
+ */
+export function frecuenciaHabitualPorTipoClase(socioId: string, tipoClaseId: string | null, idx: IndicesSenal): number | null {
+  const asistidas = idx.asistidasPorSocio.get(socioId) ?? [];
+  if (tipoClaseId === null) return frecuenciaDesdeAsistidas(asistidas);
+  return frecuenciaDesdeAsistidas(asistidas.filter(r => idx.sesionPorId.get(r.sesionId)?.tipoClaseId === tipoClaseId));
 }
 
 /** Días desde la última asistencia. null = nunca ha asistido. */
