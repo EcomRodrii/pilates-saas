@@ -34,6 +34,7 @@ import { useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel } f
 import { useBloquesEditor, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
+import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -62,10 +63,29 @@ const PANTALLAS_RAIL: { id: IdPantalla; label: string; desplegable: boolean }[] 
   ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({ id: p.id as IdPantalla, label: p.etiqueta, desplegable: false })),
 ];
 
+// Lo que ofrece el selector de página de la barra superior. Solo las que el
+// preview sabe enseñar: las demás llevarían a una caja gris (ver el
+// comentario de SelectorPagina).
+const OPCIONES_SELECTOR: OpcionPagina[] = [
+  { id: 'home', etiqueta: PANTALLA_LABEL.home, conSecciones: true, grupo: 'Portal de la socia' },
+  { id: 'clases', etiqueta: PANTALLA_LABEL.clases, conSecciones: true, grupo: 'Portal de la socia' },
+  { id: 'bonos', etiqueta: PANTALLA_LABEL.bonos, conSecciones: true, grupo: 'Portal de la socia' },
+  ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({
+    id: p.id, etiqueta: p.etiqueta, conSecciones: false, grupo: 'Solo se pueden ver',
+  })),
+];
+
 export function ThemeEditorFullscreen() {
   const { rol } = usePermisos();
   const [nodo, setNodo] = useState<Nodo>({ tipo: 'pantalla', id: 'home' });
   const [pantallaActiva, setPantallaActiva] = useState<PantallaId>('home');
+  // Qué enseña el iframe. NO es lo mismo que `pantallaActiva`: incluye
+  // Reservas y Perfil, que se pueden ver pero no tienen bloques. Y NO sigue
+  // siempre a la selección del rail — elegir "Inicio del panel" cambia lo que
+  // se edita y deja el preview donde estaba, porque esa página no tiene vista
+  // que enseñar. Es la misma regla que fija `vista` en lib/theme/
+  // editor-navegacion.ts, con su test.
+  const [pantallaMirada, setPantallaMirada] = useState<VistaId>('home');
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
   const [zoom, setZoom] = useState(1);
   const [previewVivo, setPreviewVivo] = useState(true);
@@ -103,7 +123,8 @@ export function ThemeEditorFullscreen() {
   function seleccionar(n: Nodo) {
     setNodo(n);
     const p = n.tipo === 'tema' ? null : n.tipo === 'item' && n.grupo !== 'contenido-portal' ? n.grupo : n.tipo === 'pantalla' && PANTALLA_IDS.includes(n.id as PantallaId) ? (n.id as PantallaId) : null;
-    if (p) setPantallaActiva(p);
+    if (p) { setPantallaActiva(p); setPantallaMirada(p); }
+    else if (n.tipo === 'pantalla' && (n.id === 'reservas' || n.id === 'perfil')) setPantallaMirada(n.id);
   }
 
   function alternarExpandido(id: IdPantalla) {
@@ -179,6 +200,16 @@ export function ThemeEditorFullscreen() {
               <p className="text-[11px] text-muted-foreground">{cambiosTema} sin publicar</p>
             )}
           </div>
+        </div>
+
+        {/* Qué página se está mirando. En el centro y no en el rail porque es
+            la pregunta que se hace la propietaria más veces por sesión, y en
+            el rail quedaba enterrada entre las categorías del tema. */}
+        <div className="flex-1 min-w-0 flex justify-center">
+          {/* `as VistaId`: el selector es genérico y habla en `string`, pero
+              sus opciones salen de OPCIONES_SELECTOR, que solo lleva vistas
+              que el preview sabe enseñar. */}
+          <SelectorPagina opciones={OPCIONES_SELECTOR} activa={pantallaMirada} onElegir={(id) => irAVista(id as VistaId)} />
         </div>
 
         <div className="flex items-center gap-1.5 flex-none">
