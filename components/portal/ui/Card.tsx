@@ -18,7 +18,9 @@ export function Card({ style, children, ...props }: HTMLAttributes<HTMLDivElemen
         // que depende del modo claro/oscuro) es el que se aplica.
         border: `var(--portal-card-border, 1px solid ${t.line})`,
         boxShadow: 'var(--portal-card-shadow, none)',
-        borderRadius: radius.card,
+        // `radioTema.card` del tema del estudio (lib/theme-runtime.ts) — sin
+        // ese campo, cae al radio de siempre.
+        borderRadius: `var(--portal-radius-card, ${radius.card}px)`,
         ...style,
       }}
       {...props}

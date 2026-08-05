@@ -86,7 +86,7 @@ export function PortalBonosView({
 
         {bono ? (
           <div style={{
-            marginTop: 28, borderRadius: 26, background: t.surface, padding: '26px 24px',
+            marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
             boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
           }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
@@ -131,7 +131,7 @@ export function PortalBonosView({
               type="button"
               onClick={() => navegar(`/portal/${slug}/compras`)}
               style={{
-                height: 54, width: '100%', borderRadius: radio.botonAlto - 6,
+                height: 54, width: '100%', borderRadius: `var(--portal-radius-boton, ${radio.botonAlto - 6}px)`,
                 border: `1px solid ${noche ? 'rgba(243,241,233,.16)' : 'rgba(34,38,31,.16)'}`,
                 background: 'none', color: t.ink, ...texto.boton, fontSize: 13.5,
                 marginTop: 22, cursor: 'pointer',
@@ -144,7 +144,7 @@ export function PortalBonosView({
         ) : (
           // Sin bono la pantalla no se queda muda: lo que toca es comprar uno.
           <div style={{
-            marginTop: 28, borderRadius: 26, background: t.surface, padding: '26px 24px',
+            marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
             boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
           }}>
             <div style={{ ...display(26), color: t.ink }}>Todavía no tienes bono</div>
@@ -155,7 +155,7 @@ export function PortalBonosView({
               type="button"
               onClick={() => navegar(`/portal/${slug}/compras`)}
               style={{
-                height: 54, width: '100%', borderRadius: radio.botonAlto - 6, border: 'none',
+                height: 54, width: '100%', borderRadius: `var(--portal-radius-boton, ${radio.botonAlto - 6}px)`, border: 'none',
                 background: 'var(--portal-brand)', color: t.accentInk, ...texto.boton, fontSize: 13.5,
                 marginTop: 22, cursor: 'pointer',
               }}
@@ -167,7 +167,7 @@ export function PortalBonosView({
 
         {plaza && (
           <div style={{
-            marginTop: 14, borderRadius: 26,
+            marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
             background: noche ? t.surface2 : '#EEF0EA',
             border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
             padding: 24,

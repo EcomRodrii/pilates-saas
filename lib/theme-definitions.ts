@@ -25,11 +25,11 @@
 //
 // `barraOscura` (Noir) fue el primer eje nuevo que pidió esta tanda; en la
 // v2 se añadieron `destacado` (acento fuera de la marca), `barraFlotante`
-// (Bloom, eje independiente de `barraOscura`) y `radioTema` (radio por pieza
-// SOLO en las secciones nuevas) — mismo patrón mecánico de 4 pasos en
-// theme-schema.ts que ya usó `barraOscura`. `bloquesHome` (ver la interfaz
-// de abajo) siembra el Inicio con los bloques `sistema` nuevos (`tiraSemana`,
-// `progresoSemanal`, `retos`) al instalar el tema.
+// (Bloom, eje independiente de `barraOscura`) y `radioTema` (radio por
+// pieza) — mismo patrón mecánico de 4 pasos en theme-schema.ts que ya usó
+// `barraOscura`. `bloquesHome` (ver la interfaz de abajo) siembra el Inicio
+// con los bloques `sistema` nuevos (`tiraSemana`, `progresoSemanal`,
+// `retos`) al instalar el tema.
 //
 // "Retos" y "Sesión guiada", inicialmente descartados por falta de spec, se
 // diseñaron después con el prototipo real de Claude Design en mano: Sesión
@@ -37,6 +37,17 @@
 // app/portal/[slug]/clases/[sesionId]/sesion-guiada/), y Retos se construyó
 // con contenido fijo (lib/retos-portal.ts) + conteo REAL de apuntadas por
 // estudio (reto_participaciones, nunca la cifra de marketing del prototipo).
+//
+// `radioTema` completo (card+boton) y `barraClasica`, en una tercera ronda:
+// la primera tanda de esta ronda solo tocaba paleta+tipografía+`radioTema.card`
+// en la tarjeta hero — el resto del portal (Button.tsx/Card.tsx, listado de
+// clases, Bonos) seguía con un radio fijo sin relación con el tema, así que
+// los tres temas se veían "iguales pero de otro color". `radioTema.boton` +
+// que Button.tsx/Card.tsx por fin lean esas vars (ver harmonic-discovering-kettle.md)
+// cierran eso. `barraClasica` (Oliva/Noir) reabre a propósito, solo para
+// estos 3 temas, el "único look de barra" del rediseño de agosto 2026 —
+// confirmado explícitamente con el usuario tras ver que el prototipo real
+// no usa la píldora flotante salvo en Bloom.
 
 import type { ThemeConfig } from './theme-schema.ts';
 
@@ -121,6 +132,9 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Plana a propósito: el aire y el contraste del oliva ya separan las
       // tarjetas del fondo crema. Una sombra encima las ensucia.
       cardStyle: 'flat',
+      // Valores exactos del prototipo (paleta() → radCard/radBoton de Oliva).
+      radioTema: { card: 26, boton: 20 },
+      barraClasica: true,
     },
     // La tarjeta de "próxima clase" está siempre arriba, fuera de este
     // sistema — no es un bloque `sistema` reordenable, ver
@@ -154,10 +168,8 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Barra flotante — eje independiente de tabBarStyle (que ya no se lee
       // en render, ver comentario de barraFlotanteSchema en theme-schema.ts).
       barraFlotante: true,
-      // Solo la tarjeta de próxima clase pisa el radio fijo del portal — el
-      // resto (botones, chips) sigue con los números de siempre; retrofit
-      // completo descartado a propósito, ver harmonic-discovering-kettle.md.
-      radioTema: { card: 30 },
+      // Valores exactos del prototipo: botón 100% píldora (radBoton: 999).
+      radioTema: { card: 30, boton: 999 },
     },
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
@@ -186,8 +198,12 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       portalHeadingFontId: 'instrumentSansBold',
       radius: 'rounded',
       buttonStyle: 'solid',
-      cardStyle: 'elevated',
+      // Plana como Oliva a propósito — el prototipo solo da sombra a Bloom.
+      cardStyle: 'flat',
       barraOscura: true,
+      barraClasica: true,
+      // Valores exactos del prototipo (paleta() → radCard/radBoton de Noir).
+      radioTema: { card: 24, boton: 18 },
     },
     // El anillo de progreso semanal primero, luego accesos rápidos.
     bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],

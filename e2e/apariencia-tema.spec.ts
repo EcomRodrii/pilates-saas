@@ -138,9 +138,12 @@ test.describe('Biblioteca de temas', () => {
     const body = puts.at(-1)!;
     expect(body.themeId).toBe('noir');
     expect(body.barraOscura).toBe(true);
+    expect(body.barraClasica).toBe(true);
     expect(body.primary).toBe('#1E2B22');
     expect(body.secondary).toBe('#A9B79B');
     expect(body.destacado).toBe('#D9B166');
+    expect(body.cardStyle).toBe('flat');
+    expect(body.radioTema).toEqual({ card: 24, boton: 18 });
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
@@ -155,8 +158,27 @@ test.describe('Biblioteca de temas', () => {
     const body = puts.at(-1)!;
     expect(body.themeId).toBe('bloom');
     expect(body.barraFlotante).toBe(true);
+    expect(body.barraClasica).toBeFalsy(); // sigue flotando — el prototipo solo hace clásica Oliva/Noir
     expect(body.destacado).toBe('#FF8FB1');
-    expect(body.radioTema).toEqual({ card: 30 });
+    expect(body.cardStyle).toBe('elevated');
+    expect(body.radioTema).toEqual({ card: 30, boton: 999 });
+  });
+
+  test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      filaTema(page, 'oliva').getByRole('button', { name: 'Usar' }).click(),
+    ]);
+
+    const body = puts.at(-1)!;
+    expect(body.themeId).toBe('oliva');
+    expect(body.barraClasica).toBe(true);
+    expect(body.barraOscura).toBeFalsy(); // clásica, no oscura — esa es solo de Noir
+    expect(body.cardStyle).toBe('flat');
+    expect(body.radioTema).toEqual({ card: 26, boton: 20 });
   });
 
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {

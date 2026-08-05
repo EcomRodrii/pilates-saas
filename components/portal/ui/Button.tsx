@@ -47,7 +47,11 @@ export function Button({ variant = 'primary', size = 'default', style, disabled,
       style={{
         height: small ? 40 : 48,
         padding: small ? '0 16px' : '0 20px',
-        borderRadius: small ? radius.control : 14,
+        // `radioTema.boton` del tema del estudio (lib/theme-runtime.ts) — sin
+        // ese campo, cae al 14px de siempre. Solo el tamaño normal lo lee:
+        // `small` es un contexto ya compacto (chips/acciones secundarias),
+        // no la forma que distingue un tema de otro.
+        borderRadius: small ? radius.control : 'var(--portal-radius-boton, 14px)',
         fontWeight: 800,
         fontSize: small ? 12.5 : 14,
         textTransform: 'uppercase',
