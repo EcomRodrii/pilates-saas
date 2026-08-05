@@ -207,6 +207,95 @@ test('un evento → varios roles con plantilla distinta (pago fallido)', async (
   assert.equal(owner.priority, 'ALTA');
 });
 
+// ── La misma cuenta en las dos superficies ───────────────────────────────────
+// El test de arriba usa DOS userId distintos ('u-owner' y 'u-socia'), y por eso
+// pasó en verde mientras el bug vivía debajo: la clave de dedup se construía con
+// (hecho, persona), así que cuando la persona es LA MISMA —propietaria y socia
+// del mismo estudio, cosa que existe en producción— la segunda fila chocaba con
+// `uq_notification_dedup`, el 23505 se tragaba como si fuera un reproceso y solo
+// sobrevivía la de PROPIETARIO. Daba igual mientras la bandeja no distinguía
+// superficie; desde `ambito.ts` esa persona no vería NUNCA como socia un aviso
+// ALTA de dinero. Ahora la clave lleva también la superficie.
+
+test('misma cuenta como propietaria Y socia: recibe el aviso en las DOS campanas', async () => {
+  const { admin, notifs } = fakeAdmin();
+  const event: NotificationEvent = {
+    type: EVENTOS.PAGO_FALLIDO, studioId: 'st1',
+    data: { concepto: 'Cuota mensual', importe: 45, socia: 'María Soler', slug: 'mar' },
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-dual' },
+      { role: 'SOCIA', userId: 'u-dual', socioId: 's1' },
+    ],
+    dedupKey: 'pago-fallido:rec1',
+  };
+  const r = await procesarEvento(admin, event);
+  // Lo que fallaba: `creadas: 1, omitidas: 1` — la fila de socia descartada.
+  assert.equal(r.creadas, 2);
+  assert.equal(r.omitidas, 0);
+  const socia = notifs.find(n => n.recipient_role === 'SOCIA');
+  assert.ok(socia, 'la fila de SOCIA se ha vuelto a perder por dedup');
+  assert.equal(socia.title, 'Problema con tu pago');
+});
+
+test('instructora con plaza en su propia clase: se entera como alumna Y como quien la imparte', async () => {
+  // El otro cruce de frontera: audiencia 'socias-e-instructora-de-la-sesion'.
+  // Aquí `recipients.ts` devuelve [...socias, ...instructora], así que la que
+  // se perdía era la de INSTRUCTOR — su clase se cancelaba y en el panel no
+  // aparecía el "no hace falta que vayas".
+  const { admin, notifs } = fakeAdmin();
+  const r = await procesarEvento(admin, {
+    type: EVENTOS.CLASE_CANCELADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'lunes a las 9:00', slug: 'mar', sesionId: 'ses1' },
+    recipients: [
+      { role: 'SOCIA', userId: 'u-dual', socioId: 's1' },
+      { role: 'INSTRUCTOR', userId: 'u-dual', instructorId: 'i1' },
+    ],
+    dedupKey: 'clase-cancelada:ses1',
+  });
+  assert.equal(r.creadas, 2);
+  assert.ok(notifs.find(n => n.recipient_role === 'INSTRUCTOR'), 'falta la fila de INSTRUCTOR');
+});
+
+test('la clave de socia NO cambia de formato: solo se sufija el lado staff', async () => {
+  // Esto no es cosmética, es seguridad de deploy. Varios crons republican la
+  // MISMA clave de socia durante días (`bono-caduca:<id>`, cada mañana hasta 7
+  // veces) y esos eventos declaran PUSH con la preferencia por defecto en ON.
+  // Si esta aserción cambia, la primera corrida del cron tras el deploy manda
+  // un push duplicado a toda socia con un bono a punto de caducar.
+  const { admin, notifs } = fakeAdmin();
+  await procesarEvento(admin, {
+    type: EVENTOS.PAGO_FALLIDO, studioId: 'st1',
+    data: { concepto: 'Cuota', importe: 45, socia: 'María', slug: 'mar' },
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-dual' },
+      { role: 'SOCIA', userId: 'u-dual', socioId: 's1' },
+    ],
+    dedupKey: 'pago-fallido:rec1',
+  });
+  const clave = (rol: string) => notifs.find(n => n.recipient_role === rol)!.dedup_key;
+  assert.equal(clave('SOCIA'), 'pago-fallido:rec1:u-dual');
+  assert.equal(clave('PROPIETARIO'), 'pago-fallido:rec1:u-dual:staff');
+});
+
+test('sigue habiendo UNA sola fila para quien es dueña y además recepción', async () => {
+  // La audiencia 'mostrador' resuelve por dos vías —propietaria() y
+  // recepcionistas()—, así que la misma cuenta puede volver con dos roles de
+  // staff. Ambos se ven en la MISMA campana: deduplicar es lo correcto. Esto es
+  // lo que se habría roto metiendo el rol crudo en la clave en vez del ámbito.
+  const { admin, notifs } = fakeAdmin();
+  const r = await procesarEvento(admin, {
+    type: EVENTOS.RESERVA_PENDIENTE_APROBACION, studioId: 'st1',
+    data: { socia: 'María', clase: 'Mat', cuando: 'hoy', sesionId: 'ses1' },
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-dual' },
+      { role: 'RECEPCION', userId: 'u-dual', instructorId: 'i1' },
+    ],
+    dedupKey: 'reserva-pendiente:ses1:s1',
+  });
+  assert.equal(r.creadas, 1, 'la misma persona no debe recibir dos veces el mismo aviso');
+  assert.equal(notifs.length, 1);
+});
+
 test('destinatario sin cuenta: in-app se omite (no puede iniciar sesión)', async () => {
   const { admin, deliveries } = fakeAdmin();
   const event: NotificationEvent = {

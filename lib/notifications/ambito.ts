@@ -18,9 +18,21 @@
 // mensaje del Umbral, categoría `decisiones`— y el "marcar todo leído" de esa
 // bandeja se los borraba de la campana del panel. No hay nada en la petición de
 // lo que derivar cuál de las dos superficies llama: tiene que decirlo.
+//
+// Este módulo es la ÚNICA definición de dónde está la frontera entre las dos
+// superficies, y la usan los dos lados: el LECTOR (`filtroDeAmbito`, que arma
+// la query del centro de notificaciones) y el ESCRITOR (`ambitoDeRol`, que
+// mete la superficie en la clave de deduplicación al crear la fila, ver
+// `inapp.ts`). Tienen que salir del mismo sitio: si divergieran, un aviso se
+// escribiría deduplicado como si fuera de una superficie y se leería desde la
+// otra — que es exactamente la forma del bug que motivó todo esto.
 // ─────────────────────────────────────────────────────────────────────────────
+import type { NotificationRole } from './types.ts';
 
 export type Ambito = 'socia' | 'staff';
+
+// La frontera, escrita UNA vez. Todo lo demás en este fichero se deriva de aquí.
+const ROL_SOCIA = 'SOCIA';
 
 /** Predicados extra a aplicar sobre la query, ADEMÁS de `recipient_user_id`. */
 export interface FiltroAmbito {
@@ -49,9 +61,27 @@ export interface FiltroAmbito {
  */
 export function filtroDeAmbito(ambito: Ambito, studioId: string | null): FiltroAmbito {
   if (ambito === 'socia') {
-    return { studioId, rolIgual: 'SOCIA', rolDistinto: null };
+    return { studioId, rolIgual: ROL_SOCIA, rolDistinto: null };
   }
-  return { studioId: null, rolIgual: null, rolDistinto: 'SOCIA' };
+  return { studioId: null, rolIgual: null, rolDistinto: ROL_SOCIA };
+}
+
+/**
+ * A qué superficie pertenece un aviso, según el rol con el que se emitió. Es la
+ * inversa de `filtroDeAmbito` y sale del mismo `ROL_SOCIA` a propósito: lo que
+ * `ambitoDeRol` marca en la clave de dedup tiene que ser exactamente lo que
+ * `filtroDeAmbito` va a buscar después.
+ *
+ * Todo lo que no es SOCIA es staff, por complemento y por el mismo motivo que
+ * allí: un rol nuevo debe aparecer en la campana del panel, no desaparecer en
+ * silencio.
+ *
+ * Ojo: se deriva del rol de LA FILA (`recipient_role`, congelado en el momento
+ * de emitir), no del rol actual de la persona. Es lo correcto en los dos lados
+ * — quien cambió de rol conserva su histórico donde lo dejó.
+ */
+export function ambitoDeRol(role: NotificationRole): Ambito {
+  return role === ROL_SOCIA ? 'socia' : 'staff';
 }
 
 /**

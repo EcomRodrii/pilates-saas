@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { REGLAS, plantillaDe, render, type ReglaEvento } from './catalog.ts';
+import { ambitoDeRol } from './ambito.ts';
 import { resolverDestinatarios } from './recipients.ts';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
@@ -92,8 +93,35 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     const canalesExtra = canalesExtraDe(regla, pref, critica);
     if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }
 
+    // La unidad de "un hecho → una notificación" es (hecho, persona, SUPERFICIE
+    // donde se ve), no (hecho, persona). Una misma cuenta puede recibir el mismo
+    // evento con dos roles de superficies distintas — `mostrador-y-socia` en
+    // pago.fallido (quien es propietaria y socia del mismo estudio) y
+    // `socias-e-instructora-de-la-sesion` en clase.cancelada/modificada (quien
+    // imparte la clase y además tiene plaza en ella)—. Sin la superficie en la
+    // clave, la segunda fila choca con `uq_notification_dedup`, el 23505 de
+    // abajo se la traga como si fuera un reproceso, y el aviso desaparece de UNA
+    // de las dos campanas desde que `ambito.ts` las separó. Ojo con "arreglarlo"
+    // metiendo `dest.role` crudo: la audiencia `mostrador` resuelve por dos vías
+    // (propietaria() y recepcionistas()), así que quien sea dueña Y tenga ficha
+    // de RECEPCION/MANAGER en su estudio recibiría DOS avisos en la MISMA
+    // campana. Con el ámbito las dos caen en 'staff' y se siguen deduplicando.
+    //
+    // Se sufija SOLO el lado staff, a conciencia, en vez de sufijar los dos:
+    //  · Generaliza el apaño manual que `emitirReserva` ya hacía a mano
+    //    (`emit.ts`: `${dedup}` para la socia, `${dedup}:owner` para mostrador).
+    //  · Y sobre todo deja INTACTAS las claves de socia ya escritas. Varios
+    //    crons republican la MISMA clave durante días —`bono-caduca:<id>` se
+    //    reemite cada mañana hasta 7 veces (`notif-automations.ts`)— y su evento
+    //    declara PUSH con la preferencia por defecto en ON: cambiarles el
+    //    formato habría reenviado ese push a toda socia con un bono por caducar
+    //    la primera vez que corriera el cron tras el deploy. Del lado staff no
+    //    republica nada con canales externos, y la migración
+    //    20260805013000 sufija las filas ya escritas para no dejar ni ese hueco.
+    const ambito = ambitoDeRol(dest.role);
+    const quien = dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon';
     const dedupKey = event.dedupKey
-      ? `${event.dedupKey}:${dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon'}`
+      ? `${event.dedupKey}:${quien}${ambito === 'staff' ? ':staff' : ''}`
       : null;
 
     const id = `not-${crypto.randomUUID()}`;
