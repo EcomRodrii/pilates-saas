@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -520,7 +521,11 @@ export default function Calendario() {
     setMesVisto(today);
   }, []);
 
-  const now = mounted ? new Date() : FALLBACK;
+  // `now` estable entre renders: antes era `new Date()` en cada render, y como
+  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
+  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
+  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
+  const { ahora: now } = useAhora(FALLBACK);
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);

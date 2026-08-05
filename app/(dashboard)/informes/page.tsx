@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useStudio } from '@/lib/studio-context';
 import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
@@ -163,10 +164,14 @@ export default function Informes() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
 
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // `now` estable entre renders: antes era `new Date()` en cada render, y como
+  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
+  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
+  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
+  const { ahora: now } = useAhora(new Date('2026-06-29'));
 
   // ─── Period bounds ──────────────────────────────────────────────────────────
-  const periodStart = useMemo(() => getPeriodStart(period, now), [period, mounted]);
+  const periodStart = useMemo(() => getPeriodStart(period, now), [period, now]);
 
   // ─── Margen por clase: tarifas de instructora (dato salarial aparte) ────────
   const [tarifasInstructoras, setTarifasInstructoras] = useState<TarifaInstructor[]>([]);
@@ -240,7 +245,7 @@ export default function Informes() {
     });
 
     return buckets.map(b => ({ ...b, value: map[b.key] ?? 0 }));
-  }, [agg, period, mounted]);
+  }, [agg, period, now]);
 
   // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
   const totalIngresos = agg?.total ?? 0;
@@ -321,7 +326,7 @@ export default function Informes() {
       });
     }
     return rows;
-  }, [socios, sesiones, reservas, period, mounted]);
+  }, [socios, sesiones, reservas, period, now]);
 
   // ─── Top 5 socias ───────────────────────────────────────────────────────────
   const topSocias = useMemo(() => {
@@ -385,7 +390,7 @@ export default function Informes() {
     a.click();
     URL.revokeObjectURL(url);
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
-  }, [periodStart, mounted]);
+  }, [periodStart, now]);
 
   // Export real: abre el diálogo de impresión del navegador, desde el que se
   // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los
