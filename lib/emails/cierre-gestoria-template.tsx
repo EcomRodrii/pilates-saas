@@ -21,7 +21,7 @@ export interface CierreGestoriaEmailProps {
   nombreAdjunto: string;
 }
 
-const th: React.CSSProperties = { color: '#9C9C94', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 0 6px' };
+const th: React.CSSProperties = { color: '#63635D', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 0 6px' };
 const td: React.CSSProperties = { color: '#1A1A1A', fontSize: 13, padding: '7px 0', borderTop: '1px solid #E5E1DA' };
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' as const };
 
@@ -42,9 +42,9 @@ export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, ani
 
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '18px 22px', margin: '0 0 20px' }}>
         <Row>
-          <Column><Text style={{ color: '#9C9C94', fontSize: 12, margin: '0 0 2px' }}>Base imponible</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 700, margin: 0 }}>{eur(totales.base)}</Text></Column>
-          <Column><Text style={{ color: '#9C9C94', fontSize: 12, margin: '0 0 2px' }}>IVA repercutido</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 700, margin: 0 }}>{eur(totales.cuota)}</Text></Column>
-          <Column><Text style={{ color: '#9C9C94', fontSize: 12, margin: '0 0 2px' }}>Total facturado</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 800, margin: 0 }}>{eur(totales.total)}</Text></Column>
+          <Column><Text style={{ color: '#63635D', fontSize: 12, margin: '0 0 2px' }}>Base imponible</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 700, margin: 0 }}>{eur(totales.base)}</Text></Column>
+          <Column><Text style={{ color: '#63635D', fontSize: 12, margin: '0 0 2px' }}>IVA repercutido</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 700, margin: 0 }}>{eur(totales.cuota)}</Text></Column>
+          <Column><Text style={{ color: '#63635D', fontSize: 12, margin: '0 0 2px' }}>Total facturado</Text><Text style={{ color: '#1A1A1A', fontSize: 18, fontWeight: 800, margin: 0 }}>{eur(totales.total)}</Text></Column>
         </Row>
       </Section>
 
@@ -77,7 +77,7 @@ export function CierreGestoriaEmail({ estudioNombre, logoUrl, colorPrimario, ani
         Incluye {totales.numFacturas} factura(s) emitida(s) en Tentare Manager{totales.numManuales ? ` y ${totales.numManuales} ingreso(s) añadido(s) a mano (cobrados fuera de la plataforma)` : ''}.
       </Text>
       <Hr style={{ borderColor: '#E5E1DA', margin: '16px 0' }} />
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: 0, lineHeight: 1.55 }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: 0, lineHeight: 1.55 }}>
         Este resumen recopila ingresos y el IVA repercutido a partir de las facturas del estudio. No incluye gastos ni IVA soportado, y no sustituye la presentación de impuestos. Enviado desde Tentare Manager por {remitente}; puedes responder a este correo para contactar con el estudio.
       </Text>
     </EmailLayout>

@@ -25,7 +25,7 @@ export function PedirConfirmacionEmail({ toName, estudioNombre, logoUrl, colorPr
         <Text style={{ color: '#6B7280', fontSize: 15, margin: 0 }}>{cuando}</Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>Sí, voy a venir</EmailButton>
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Si no confirmas, liberaremos tu plaza para que otra persona pueda venir.
       </Text>
     </EmailLayout>
@@ -49,7 +49,7 @@ export function RecordatorioConfirmacionEmail({ toName, estudioNombre, logoUrl, 
         <Text style={{ color: '#6B7280', fontSize: 15, margin: 0 }}>{cuando}</Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>Sí, voy a venir</EmailButton>
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Si no confirmas, liberaremos tu plaza para que otra persona pueda venir.
       </Text>
     </EmailLayout>

@@ -31,7 +31,12 @@ export function BienvenidaEmail({
 
       {planNombre && (
         <Section style={{ backgroundColor: '#F1F2EA', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
-          <Text style={{ color: colorPrimario || '#343825', fontSize: 13, fontWeight: 600, margin: '0 0 4px', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>
+          {/* Etiqueta en gris, no en el color del estudio: es la ÚNICA vez que
+              colorPrimario se usaba como color de TEXTO, y con una marca pastel
+              (un rosa claro) quedaba ilegible sobre esta tarjeta gris. El color
+              del estudio se ve en la banda y en el botón, donde no tiene que
+              competir con un fondo claro. Mismo gris que EmailInfoRow. */}
+          <Text style={{ color: '#63635D', fontSize: 11.5, fontWeight: 700, margin: '0 0 4px', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>
             Tu plan
           </Text>
           <Text style={{ color: '#1A1A1A', fontSize: 16, fontWeight: 700, margin: 0 }}>
@@ -57,7 +62,7 @@ export function BienvenidaEmail({
 
       <Hr style={{ borderColor: '#E5E1DA', margin: '20px 0' }} />
 
-      <Text style={{ color: '#9C9C94', fontSize: 13, margin: 0 }}>
+      <Text style={{ color: '#63635D', fontSize: 13, margin: 0 }}>
         Con cariño, el equipo de {estudioNombre}
       </Text>
     </EmailLayout>
