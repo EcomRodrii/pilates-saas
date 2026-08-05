@@ -225,3 +225,17 @@ export function rotuloAccesos(variante: 'filas' | 'rejilla' | 'circulos'): strin
   if (variante === 'filas') return null;
   return variante === 'rejilla' ? 'Mis accesos rápidos' : 'Accesos rápidos';
 }
+
+/**
+ * "Buenos días / Buenas tardes / Buenas noches" según la hora LOCAL de quien
+ * mira (variante `cabeceraInicio: 'titular'`). Puro y con los cortes
+ * explícitos para poder probarlos: un saludo que se equivoca de franja es el
+ * tipo de detalle que solo se ve en producción a las 21:00.
+ */
+export function saludoPorHora(now: Date): string {
+  const h = now.getHours();
+  if (h < 6) return 'Buenas noches';
+  if (h < 13) return 'Buenos días';
+  if (h < 21) return 'Buenas tardes';
+  return 'Buenas noches';
+}
