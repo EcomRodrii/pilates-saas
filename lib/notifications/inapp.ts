@@ -117,7 +117,7 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     //    formato habría reenviado ese push a toda socia con un bono por caducar
     //    la primera vez que corriera el cron tras el deploy. Del lado staff no
     //    republica nada con canales externos, y la migración
-    //    20260805013000 sufija las filas ya escritas para no dejar ni ese hueco.
+    //    20260805195041 sufija las filas ya escritas para no dejar ni ese hueco.
     const ambito = ambitoDeRol(dest.role);
     const quien = dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon';
     const dedupKey = event.dedupKey
