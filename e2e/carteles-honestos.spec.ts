@@ -71,14 +71,17 @@ test.describe('Carteles que llevan a donde dicen', () => {
   test('Mi perfil ya deja a la propietaria poner su nombre, no solo un cartel honesto', async ({ page }) => {
     await montar(page, '/configuracion?tab=perfil');
 
+    await expect(page.getByText('Nombre', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Apellidos', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
+
+    // Las ausencias van DESPUÉS de anclar en algo visible: contra una pantalla
+    // todavía en blanco (`next dev` compila la ruta bajo demanda) un
+    // toHaveCount(0) pasa al instante aunque el cartel siguiera ahí.
     // La promesa falsa nunca vuelve…
     await expect(page.getByText(/Tu nombre y datos de contacto de propietaria se gestionan/)).toHaveCount(0);
     // …y el cartel "aún no se puede" (Fase 1 del perfil de la propietaria) ya
     // quedó obsoleto: ahora hay un formulario real.
     await expect(page.getByText(/Todavía no puedes poner tu nombre aquí/)).toHaveCount(0);
-
-    await expect(page.getByText('Nombre', { exact: true })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Apellidos', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
   });
 });
