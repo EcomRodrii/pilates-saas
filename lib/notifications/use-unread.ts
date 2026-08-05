@@ -35,13 +35,22 @@ type Headers = () => Promise<Record<string, string>>;
  * llamadores posibles (`portalAuthHeader`/`authHeader`) son funciones de módulo
  * estables, pero el hook es exportado y no puede depender de eso.
  */
-export function useNotificacionesSinLeer(getHeaders: Headers, activo = true): number | null {
+export function useNotificacionesSinLeer(getHeaders: Headers, studioId: string | undefined, activo = true): number | null {
   const [sinLeer, setSinLeer] = useState<number | null>(null);
   const getHeadersRef = useRef(getHeaders);
-  getHeadersRef.current = getHeaders;
+  // La sincronización va en su propio efecto, no en el cuerpo: escribir una ref
+  // durante el render está prohibido (react-hooks/refs). Declarado ANTES del
+  // efecto de carga para que en cada render se actualice primero; en el primer
+  // render ya vale lo correcto por el valor inicial de useRef.
+  useEffect(() => { getHeadersRef.current = getHeaders; });
 
   useEffect(() => {
-    if (!activo) return;
+    // Sin estudio no se puede acotar la bandeja a este portal, y contar sin
+    // acotar es lo que enseñaba a la propietaria sus avisos de panel en la
+    // campana de socia. `studioId` llega del contexto un render después, de ahí
+    // que esté en las dependencias: sin él, el contador se quedaría en `null`
+    // para siempre.
+    if (!activo || !studioId) return;
     let vivo = true;
     // Contador de secuencia: `visibilitychange` puede lanzar una segunda
     // petición antes de que vuelva la primera, y sin esto ganaría la que
@@ -50,7 +59,7 @@ export function useNotificacionesSinLeer(getHeaders: Headers, activo = true): nu
     const cargar = async () => {
       const mia = ++ultima;
       try {
-        const { unread } = await fetchNotificaciones(getHeadersRef.current);
+        const { unread } = await fetchNotificaciones(getHeadersRef.current, { ambito: 'socia', studioId });
         if (vivo && mia === ultima) setSinLeer(unread);
       } catch {
         // Sin red (o `fetch` rechazado por lo que sea) no se sabe cuántos hay,
@@ -78,7 +87,7 @@ export function useNotificacionesSinLeer(getHeaders: Headers, activo = true): nu
     const alVolver = () => { if (document.visibilityState === 'visible') void cargar(); };
     document.addEventListener('visibilitychange', alVolver);
     return () => { vivo = false; document.removeEventListener('visibilitychange', alVolver); };
-  }, [activo]);
+  }, [activo, studioId]);
 
   return sinLeer;
 }

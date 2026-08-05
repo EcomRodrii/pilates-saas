@@ -115,7 +115,7 @@ test.describe('Campana del Inicio del portal', () => {
     await montarPortal(page, { conSesion: true });
     // Después de montarPortal para que gane esta ruta: la socia sin cobertura,
     // que en una PWA de móvil es el caso normal y no el límite.
-    await page.route('**/api/notifications', route => route.abort('failed'));
+    await page.route('**/api/notifications*', route => route.abort('failed'));
     await page.goto(`/portal/${SLUG}/home`);
 
     // Se espera al Inicio por otra cosa que sí carga, para no confundir "falló"

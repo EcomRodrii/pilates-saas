@@ -226,7 +226,7 @@ export async function montarPortal(page: Page, opciones: {
   // bajaba).
   const avisosVivos: { id: string; readAt: string | null }[] =
     (sinAvisos ? [] : AVISOS_BASE).map(a => ({ ...a }));
-  await page.route('**/api/notifications', route => {
+  await page.route('**/api/notifications*', route => {
     const req = route.request();
     if (req.method() === 'PATCH') {
       const { action, id } = req.postDataJSON() as { action: string; id?: string };

@@ -231,7 +231,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // pantalla a la que enlaza la campana — si el número y la lista se calculan
   // por separado, dejan de coincidir (ver lib/notifications/use-unread.ts).
   // `null` = todavía no se sabe.
-  const sinLeerReal = useNotificacionesSinLeer(portalAuthHeader, escribible);
+  const sinLeerReal = useNotificacionesSinLeer(portalAuthHeader, studio?.id, escribible);
   // En el preview el hook nunca pide nada, así que se quedaría en `null` para
   // siempre y el editor enseñaría un círculo VACÍO, que no es un estado real
   // del portal. Un valor de muestra fijo: la propietaria juzga el diseño con lo
