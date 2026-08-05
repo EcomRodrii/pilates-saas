@@ -124,18 +124,18 @@ create policy template_select on public.notification_template
 --      y no puede escribir en `notification_template` (prueba en vivo con
 --      `set role` + `ROLLBACK`, patrón habitual del repo).
 --   4. Que `20260805195208` está sellada de verdad en `list_migrations`,
---      cruzando POR NOMBRE y no por número — su fichero NO viaja en esta rama
---      (ver aviso de abajo), así que la premisa "`notification` ya está cerrada"
---      solo se sostiene si aquella se aplicó ya en prod.
+--      cruzando POR NOMBRE y no por número — de ello depende la premisa
+--      "`notification` ya está cerrada por destinatario" que se usa arriba para
+--      calibrar la severidad de `delivery_select` como BAJA.
 --   5. Renombrar ESTE FICHERO a la versión con la que `apply_migration` lo
 --      selle: el timestamp de aplicación diverge del de fichero en este repo, y
 --      dejarlos divergidos hace que un `supabase db push` desde limpio lo
 --      reaplique con OTRO timestamp.
 --
--- ⚠️ ORDEN DE MERGE — no mergear esta rama sola. `20260805195208` vive en otra
--- rama (`claude/upbeat-cerf-db9b90`) que no es ancestro de esta. En PROD la
--- premisa se sostiene (allí ya está aplicada), pero en un `supabase db push`
--- desde limpio con solo esta rama, `notification_select` seguiría siendo la
--- amplia de la 0137 y el argumento "`notification` ya está cerrada" sería falso
--- en ese entorno. Los timestamps ordenan bien (195208 < 195400): basta con que
--- ambas lleguen a `main`.
+-- ORDEN DE MERGE — resuelto, se deja escrito por si alguien lo replantea.
+-- Esta migración da por hecho que `notification_select` ya está cerrada por
+-- destinatario, cosa que hace `20260805195208`. Esa migración llegó a `main` en
+-- el commit `91ced36` (PR #705), así que no hay dependencia pendiente: los
+-- timestamps ordenan bien (195208 < 195400) y un `supabase db push` desde limpio
+-- las aplica en el orden correcto. Rebasar esta rama sobre `main` antes de abrir
+-- PR basta para que el fichero de la predecesora viaje también aquí.
