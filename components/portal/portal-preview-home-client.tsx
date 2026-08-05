@@ -18,5 +18,9 @@ export function PortalPreviewHomeClient() {
   const { bloques, seleccionId } = usePreviewBloques('home');
   usePreviewClickToSelect();
   usePreviewResaltado(seleccionId);
-  return <PortalHomeView session={SESION_MUESTRA} homeBloquesOverride={bloques ?? undefined} />;
+  // `escribible={false}`: el preview corre en un iframe del MISMO origen, así
+  // que comparte localStorage con /portal/[slug]. Si la propietaria entró
+  // alguna vez a su portal como socia en este navegador, el token sigue ahí y
+  // la campana enseñaría avisos reales dentro del editor de temas.
+  return <PortalHomeView session={SESION_MUESTRA} homeBloquesOverride={bloques ?? undefined} escribible={false} />;
 }

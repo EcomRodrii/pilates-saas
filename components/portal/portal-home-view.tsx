@@ -42,11 +42,11 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
-import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
+import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
-import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
 } from '@/lib/portal-design';
@@ -93,10 +93,18 @@ function GlifoAcceso({ color }: { color: string }) {
   );
 }
 
-export function PortalHomeView({ session, homeBloquesOverride }: { session: PortalSession | null; homeBloquesOverride?: BloqueHome[] }) {
+export function PortalHomeView({ session, homeBloquesOverride, escribible = true }: {
+  session: PortalSession | null;
+  homeBloquesOverride?: BloqueHome[];
+  /**
+   * `false` en el preview de temas: misma vista, pero sin servidor real detrás
+   * al que preguntar. Mismo criterio que portal-clases-view/reservas-view.
+   */
+  escribible?: boolean;
+}) {
   const { slug } = useParams<{ slug: string }>();
   const {
-    socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
+    socios, suscripciones, planesTarifa, sesiones, reservas,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
     homeBloques: homeBloquesPublicado,
     retosApuntados, retoConteos, toggleReto, variantes,
@@ -219,11 +227,16 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
-  const notifItems = useMemo(() => {
-    if (!session?.socioId) return [];
-    return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
-  }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
-  const sinLeer = usePortalNotifUnreadCount(session?.socioId, notifItems);
+  // Los avisos salen del motor de notificaciones, la MISMA fuente que la
+  // pantalla a la que enlaza la campana — si el número y la lista se calculan
+  // por separado, dejan de coincidir (ver lib/notifications/use-unread.ts).
+  // `null` = todavía no se sabe.
+  const sinLeerReal = useNotificacionesSinLeer(portalAuthHeader, escribible);
+  // En el preview el hook nunca pide nada, así que se quedaría en `null` para
+  // siempre y el editor enseñaría un círculo VACÍO, que no es un estado real
+  // del portal. Un valor de muestra fijo: la propietaria juzga el diseño con lo
+  // que verá una socia al día, no con un estado de carga congelado.
+  const sinLeer = escribible ? sinLeerReal : 0;
 
   const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const proximas = misReservas.filter(r => {
@@ -377,7 +390,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
           )}
           <Link
             href={`/portal/${slug}/notificaciones`}
-            aria-label={sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
+            aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
             style={{
               position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 22,
               borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
@@ -386,8 +399,11 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               transition: transicion(['transform']),
             }}
           >
-            <span style={{ ...display(17), color: t.ink }}>{sinLeer}</span>
-            {sinLeer > 0 && (
+            {/* El numeral queda en blanco mientras carga: el "0" del diseño es
+                una afirmación ("estás al día"), y todavía no se sabe. Mismo
+                criterio que el "Un momento…" de la pantalla de Avisos. */}
+            <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>
+            {sinLeer !== null && sinLeer > 0 && (
               <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
             )}
           </Link>
