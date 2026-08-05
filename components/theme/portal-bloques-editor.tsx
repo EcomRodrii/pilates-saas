@@ -139,12 +139,18 @@ function Fila({
   );
 }
 
-// Estado + persistencia de los bloques de UNA pantalla del portal
-// (home/clases/bonos). `pantalla` es controlada por el padre (el selector de
-// página del workspace) — el hook carga las TRES pantallas de una vez (así
-// el preview de la derecha enseña el borrador correcto sea cual sea la
-// pantalla que se mire) pero opera sobre la que le pasen.
-export function useBloquesEditor(pantalla: PantallaId) {
+// Estado + persistencia de los bloques de las TRES pantallas del portal.
+//
+// Una sola instancia, no una por pantalla. Antes se montaba tres veces —una
+// por Inicio/Clases/Bonos— con el argumento de que así podían estar las tres
+// desplegadas a la vez en el rail; pero cada instancia ya cargaba LAS TRES
+// pantallas de todos modos, así que eran nueve peticiones para los datos de
+// tres, y tres copias independientes del mismo estado. No llegaban a
+// divergir de milagro: cada copia solo se leía para su propia pantalla.
+//
+// Ahora las operaciones reciben la `pantalla` sobre la que actúan, que los
+// componentes ya tienen como prop.
+export function useBloquesEditor() {
   const { rol } = usePermisos();
   const [bloquesPorPantalla, setBloquesPorPantalla] = useState<Record<PantallaId, BloqueHome[]>>(DEFAULT_BLOQUES_POR_PANTALLA);
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
@@ -170,48 +176,50 @@ export function useBloquesEditor(pantalla: PantallaId) {
     return () => { vivo = false; };
   }, []);
 
-  const bloques = bloquesPorPantalla[pantalla];
-  function setBloques(actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
+  function bloquesDe(pantalla: PantallaId) {
+    return bloquesPorPantalla[pantalla];
+  }
+  function setBloques(pantalla: PantallaId, actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
     setBloquesPorPantalla((prev) => ({ ...prev, [pantalla]: actualizar(prev[pantalla]) }));
   }
 
-  function onDragEnd(e: DragEndEvent) {
+  function onDragEnd(pantalla: PantallaId, e: DragEndEvent) {
     const { active, over } = e;
     if (over && active.id !== over.id) {
-      setBloques((prev) => arrayMove(prev, prev.findIndex((b) => b.id === active.id), prev.findIndex((b) => b.id === over.id)));
+      setBloques(pantalla, (prev) => arrayMove(prev, prev.findIndex((b) => b.id === active.id), prev.findIndex((b) => b.id === over.id)));
       setAviso(null);
     }
   }
 
-  function toggle(id: string) {
-    setBloques((prev) => prev.map((b) => (b.id === id ? { ...b, oculto: !b.oculto } : b)));
+  function toggle(pantalla: PantallaId, id: string) {
+    setBloques(pantalla, (prev) => prev.map((b) => (b.id === id ? { ...b, oculto: !b.oculto } : b)));
     setAviso(null);
   }
 
-  function eliminar(id: string) {
-    setBloques((prev) => prev.filter((b) => b.id !== id));
+  function eliminar(pantalla: PantallaId, id: string) {
+    setBloques(pantalla, (prev) => prev.filter((b) => b.id !== id));
     setAviso(null);
   }
 
-  function cambiar(actualizado: BloqueHome) {
-    setBloques((prev) => prev.map((b) => (b.id === actualizado.id ? actualizado : b)));
+  function cambiar(pantalla: PantallaId, actualizado: BloqueHome) {
+    setBloques(pantalla, (prev) => prev.map((b) => (b.id === actualizado.id ? actualizado : b)));
     setAviso(null);
   }
 
-  function anadir(kind: (typeof BLOCK_CATALOG)[number]['kind']): string | null {
+  function anadir(pantalla: PantallaId, kind: (typeof BLOCK_CATALOG)[number]['kind']): string | null {
     const entry = getBlockCatalogEntry(kind);
     if (!entry) return null;
     const nuevo = { id: uid(), kind, config: entry.defaultConfig } as BloqueHome;
-    setBloques((prev) => [...prev, nuevo]);
+    setBloques(pantalla, (prev) => [...prev, nuevo]);
     setAviso(null);
     return nuevo.id;
   }
 
-  async function guardar() {
+  async function guardar(pantalla: PantallaId) {
     setGuardando(true);
     setAviso(null);
     try {
-      await guardarBloquesBorradorApi(pantalla, bloques);
+      await guardarBloquesBorradorApi(pantalla, bloquesDe(pantalla));
       setAviso({ tipo: 'ok', texto: 'Borrador guardado. Tus clientas no lo ven todavía.' });
     } catch (e) {
       setAviso({ tipo: 'error', texto: mensajeSeguro((e as Error).message, ERROR_RED) });
@@ -220,11 +228,11 @@ export function useBloquesEditor(pantalla: PantallaId) {
     }
   }
 
-  async function publicar() {
+  async function publicar(pantalla: PantallaId) {
     setPublicando(true);
     setAviso(null);
     try {
-      await guardarBloquesBorradorApi(pantalla, bloques);
+      await guardarBloquesBorradorApi(pantalla, bloquesDe(pantalla));
       await publicarBloquesApi(pantalla);
       setAviso({ tipo: 'ok', texto: '¡Publicado! Ya lo ven tus clientas.' });
     } catch (e) {
@@ -234,21 +242,21 @@ export function useBloquesEditor(pantalla: PantallaId) {
     }
   }
 
-  function restaurar() {
-    setBloques(() => DEFAULT_BLOQUES_POR_PANTALLA[pantalla]);
+  function restaurar(pantalla: PantallaId) {
+    setBloques(pantalla, () => DEFAULT_BLOQUES_POR_PANTALLA[pantalla]);
     setAviso(null);
   }
 
   // "Deshacer" del editor a pantalla completa: relee el borrador de ESTA
   // pantalla desde el servidor, descartando ediciones locales — distinto de
   // `restaurar()`, que vacía a los bloques `sistema` de fábrica.
-  function recargar() {
-    fetchBloquesBorrador(pantalla).then((r) => setBloques(() => r)).catch(() => {});
+  function recargar(pantalla: PantallaId) {
+    fetchBloquesBorrador(pantalla).then((r) => setBloques(pantalla, () => r)).catch(() => {});
     setAviso(null);
   }
 
   return {
-    rol, bloquesPorPantalla, bloques, estado, guardando, publicando, aviso,
+    rol, bloquesPorPantalla, bloquesDe, estado, guardando, publicando, aviso,
     onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar, recargar,
   };
 }
@@ -261,6 +269,7 @@ export function BloquesSeccionesList({
   seleccionId: string | null;
   onSeleccionar: (id: string) => void;
 }) {
+  const bloques = hook.bloquesDe(pantalla);
   const [picker, setPicker] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -273,17 +282,17 @@ export function BloquesSeccionesList({
         Arrastra para reordenar, usa el ojo para ocultar, y añade bloques nuevos del catálogo. {DESCRIPCION_PANTALLA[pantalla]}
       </p>
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={hook.onDragEnd}>
-        <SortableContext items={hook.bloques.map((b) => b.id)} strategy={verticalListSortingStrategy}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => hook.onDragEnd(pantalla, e)}>
+        <SortableContext items={bloques.map((b) => b.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1.5">
-            {hook.bloques.map((b) => (
+            {bloques.map((b) => (
               <Fila
                 key={b.id}
                 bloque={b}
                 activa={seleccionId === b.id}
                 onSeleccionar={() => onSeleccionar(b.id)}
-                onToggle={() => hook.toggle(b.id)}
-                onDelete={b.kind === 'sistema' ? undefined : () => hook.eliminar(b.id)}
+                onToggle={() => hook.toggle(pantalla, b.id)}
+                onDelete={b.kind === 'sistema' ? undefined : () => hook.eliminar(pantalla, b.id)}
               />
             ))}
           </div>
@@ -306,7 +315,7 @@ export function BloquesSeccionesList({
                 return (
                   <button
                     key={entry.kind}
-                    onClick={() => { const id = hook.anadir(entry.kind); setPicker(false); if (id) onSeleccionar(id); }}
+                    onClick={() => { const id = hook.anadir(pantalla, entry.kind); setPicker(false); if (id) onSeleccionar(id); }}
                     className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border hover:bg-muted text-left"
                   >
                     <Icono size={16} className="text-brand-medio" />
@@ -330,18 +339,19 @@ export function BloquesSeccionesList({
 }
 
 export function BloquesConfigPanel({
-  hook, seleccionId,
+  hook, pantalla, seleccionId,
 }: {
   hook: ReturnType<typeof useBloquesEditor>;
+  pantalla: PantallaId;
   seleccionId: string | null;
 }) {
-  const bloque = hook.bloques.find((b) => b.id === seleccionId);
+  const bloque = hook.bloquesDe(pantalla).find((b) => b.id === seleccionId);
   if (!bloque) return <p className="text-[13px] text-muted-foreground">Selecciona un bloque de la izquierda para configurarlo.</p>;
   if (bloque.kind === 'sistema') return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} no tiene ajustes propios — solo se puede reordenar u ocultar.</p>;
   return (
     <div>
-      <ConfigForm bloque={bloque} onChange={hook.cambiar} />
-      <EstiloForm bloque={bloque} onChange={hook.cambiar} />
+      <ConfigForm bloque={bloque} onChange={(b) => hook.cambiar(pantalla, b)} />
+      <EstiloForm bloque={bloque} onChange={(b) => hook.cambiar(pantalla, b)} />
     </div>
   );
 }
