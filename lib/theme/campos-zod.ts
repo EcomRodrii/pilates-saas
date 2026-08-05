@@ -80,15 +80,28 @@ export function zodDeBloques(
   });
   const catalogo = definiciones
     .filter((d) => d.origen === 'catalogo')
-    .map((d) =>
-      z.object({
+    .map((d) => {
+      const base = {
         id: z.string(),
         kind: z.literal(d.id),
         oculto: z.boolean().optional(),
         estilo,
         config: zodDeCampos(d.campos),
-      }),
-    );
+      };
+      // Los hijos se validan con el schema de SU propio kind, y sin `hijos`
+      // dentro — el nivel único queda garantizado también aquí, no solo en el
+      // tipo: si el jsonb trae un tercer nivel, zod lo poda al guardar.
+      if (!d.hijos) return z.object(base);
+      const admitidos = definiciones.filter((x) => d.hijos!.admite.includes(x.id));
+      const hijo = z.discriminatedUnion('kind', admitidos.map((x) => z.object({
+        id: z.string(),
+        kind: z.literal(x.id),
+        oculto: z.boolean().optional(),
+        estilo,
+        config: zodDeCampos(x.campos),
+      })) as unknown as [z.ZodObject<z.ZodRawShape>, z.ZodObject<z.ZodRawShape>, ...z.ZodObject<z.ZodRawShape>[]]);
+      return z.object({ ...base, hijos: z.array(hijo).optional() });
+    });
   // `discriminatedUnion` necesita al menos dos miembros y no acepta un array
   // de tipo genérico, de ahí el cast. Lo que garantiza que la unión es la
   // correcta no es el tipo aquí, es el test que la compara contra el zod
@@ -110,4 +123,5 @@ export interface DefinicionBloqueParaZod {
   id: string;
   origen: 'catalogo' | 'sistema';
   campos: readonly CampoSchema[];
+  hijos?: { admite: readonly string[]; max?: number };
 }

@@ -204,15 +204,36 @@ export const CAMPOS_ESTILO = [
 
 export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 
+// `hijos` solo lo llevan los bloques del CATÁLOGO, y de UN nivel: un hijo no
+// puede tener hijos a su vez. No es una limitación temporal, es una decisión:
+//
+//  · Los `sistema` no anidan porque `portal-home-view.tsx` los ordena con CSS
+//    `order` dentro de UN solo contenedor flex, sin mover el DOM — los efectos
+//    de scroll dependen de esa estructura. Un hijo tiene que vivir DENTRO del
+//    subárbol de su padre, y `order` no cruza contenedores. Anidarlos exigiría
+//    reestructurar ese fichero, que está vetado.
+//  · Un solo nivel porque dos ya no se pueden enseñar en un rail de 272 px sin
+//    que la sangría se coma el nombre, y porque el caso real —una sección con
+//    columnas, un acordeón con items— se resuelve con uno.
+//
+// Aditivo y opcional: el jsonb de los estudios que ya existen no cambia de
+// forma, y un bloque sin `hijos` se comporta exactamente igual que antes.
 export type BloqueHome =
   | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; oculto?: boolean }
-  | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'galeria'; config: GaleriaConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'video'; config: VideoConfig; oculto?: boolean; estilo?: EstiloBloque }
-  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque };
+  | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'galeria'; config: GaleriaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'video'; config: VideoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] };
+
+/**
+ * Un hijo es un bloque del catálogo SIN `hijos` propios — el tipo es quien
+ * impide el segundo nivel, no una comprobación en tiempo de ejecución que se
+ * pueda olvidar en algún camino.
+ */
+export type BloqueHijo = Omit<Extract<BloqueHome, { kind: BloqueTipoCatalogo }>, 'hijos'>;
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
@@ -265,6 +286,11 @@ export interface DefinicionBloque {
   campos: readonly CampoSchema[];
   /** Si admite `estilo` propio. Los `sistema` son UI de producto, no. */
   estilizable: boolean;
+  /**
+   * Qué bloques admite dentro y cuántos. Ausente = no admite ninguno, que es
+   * el caso de los siete de hoy. Los `sistema` lo llevan siempre ausente.
+   */
+  hijos?: { admite: readonly BloqueTipoCatalogo[]; max?: number };
   /**
    * Cuándo el bloque tiene contenido suficiente para pintarse. Ausente =
    * siempre completo (es el caso de `banner`, que se pinta con o sin imagen).
@@ -521,12 +547,27 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
   const estilo = b.estilo && typeof b.estilo === 'object' && !Array.isArray(b.estilo)
     ? { estilo: b.estilo as EstiloBloque }
     : {};
+  // Los hijos se resuelven con las MISMAS reglas que el padre (kind
+  // desconocido fuera, claves ausentes rellenadas, desconocidas conservadas) y
+  // además se filtran por lo que el padre admite: un hijo que su padre ya no
+  // acepta —porque el registro cambió— se descarta en vez de pintarse en un
+  // sitio donde no encaja. Y se les quita `hijos` recursivamente, que es lo
+  // que garantiza el nivel único aunque el jsonb venga con más profundidad.
+  const hijos = def.hijos && Array.isArray(b.hijos)
+    ? b.hijos
+        .map(resolverBloque)
+        .filter((h): h is Extract<BloqueHome, { kind: BloqueTipoCatalogo }> =>
+          h !== null && h.kind !== 'sistema' && def.hijos!.admite.includes(h.kind))
+        .map(({ hijos: _descartado, ...resto }) => resto as BloqueHijo)
+        .slice(0, def.hijos.max ?? Infinity)
+    : [];
   return {
     id: b.id,
     kind: b.kind,
     config: resolverConfig(def.campos, guardada),
     ...oculto,
     ...estilo,
+    ...(hijos.length > 0 ? { hijos } : {}),
   } as BloqueHome;
 }
 
