@@ -1,5 +1,6 @@
 'use client';
 
+import { MarcoMovil, MarcoMovilVacio } from './marco-movil';
 import { useEffect, useRef } from 'react';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
@@ -32,15 +33,11 @@ export function ThemePreview({ config, slug }: { config: ThemeConfig; slug?: str
   });
 
   if (!slug) {
-    return (
-      <div className="mx-auto w-full max-w-[320px] aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
-        <p className="text-[12px] text-muted-foreground">La vista previa aparecerá cuando el estudio tenga su enlace de reservas listo.</p>
-      </div>
-    );
+    return <MarcoMovilVacio>La vista previa aparecerá cuando el estudio tenga su enlace de reservas listo.</MarcoMovilVacio>;
   }
 
   return (
-    <div className="mx-auto w-full max-w-[320px] aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
+    <MarcoMovil>
       <iframe
         ref={ref}
         src={`/reservar/${slug}`}
@@ -48,6 +45,6 @@ export function ThemePreview({ config, slug }: { config: ThemeConfig; slug?: str
         onLoad={enviar}
         className="w-full h-full border-0"
       />
-    </div>
+    </MarcoMovil>
   );
 }
