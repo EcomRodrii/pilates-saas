@@ -99,8 +99,16 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      # Caché de compilación de Next/Turbopack entre runs (docs de Next:
-      # "How to configure Continuous Integration (CI) build caching").
+      # Caché de compilación entre runs (docs de Next: "CI Build Caching").
+      # ⚠️ MEDIDO: hoy no sirve de nada. En Next 16 el bundler por defecto es
+      # Turbopack, y su caché persistente de build es opt-in
+      # (`experimental.turbopackFileSystemCacheForBuild`, marcada experimental
+      # para producción). Sin ella, `.next/cache` se guarda con 0 MB — se
+      # comprobó en la caché real del repo. Se deja el paso porque cuesta 2s y
+      # es correcto el día que esa opción se estabilice o se vuelva a webpack;
+      # NO se activa la experimental a propósito: haría que el build de CI
+      # dejara de ser el mismo que el de Vercel, y una caché experimental
+      # sirviendo salida obsoleta convierte un CI verde en una mentira.
       - name: Restaurar caché de Next.js
         uses: actions/cache@v4
         with:
@@ -114,7 +122,7 @@ jobs:
         run: npm run build
 
       # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
-      # cientos de MB que multiplicarían la subida y las 6 bajadas de los shards).
+      # cientos de MB que multiplicarían la subida y las 8 bajadas de los shards).
       - name: Empaquetar salida del build
         run: tar -cf build.tar --exclude=.next/cache .next
 
@@ -132,13 +140,13 @@ jobs:
   # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
   # ---------------------------------------------------------------------------
   e2e:
-    name: E2E ${{ matrix.shard }}/6
+    name: E2E ${{ matrix.shard }}/8
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@v4
 
@@ -176,7 +184,7 @@ jobs:
         # `next start` en vez de `next dev` (ver playwright.config.ts).
         env:
           E2E_USA_BUILD: '1'
-        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=blob
 
       - name: Subir reporte parcial si falla
         if: failure()
@@ -187,7 +195,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Solo cuando algo falla: junta los blobs de los 6 shards en un único informe
+  # Solo cuando algo falla: junta los blobs de los 8 shards en un único informe
   # HTML navegable. En verde no corre, así que no alarga el camino feliz.
   # ---------------------------------------------------------------------------
   informe-e2e:

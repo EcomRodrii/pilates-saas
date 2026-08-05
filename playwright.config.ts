@@ -24,6 +24,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // Los runners de GitHub tienen 4 vCPU y Playwright, por defecto, usa la
+  // MITAD (medido: "Running 59 tests using 2 workers"). Sirviendo desde el
+  // build ya no hay compilación que sature la CPU — el servidor solo entrega
+  // páginas ya construidas — así que caben los 4. En local se deja el
+  // automático para no acaparar la máquina mientras se programa.
+  workers: process.env.CI ? 4 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: BASE_URL,
