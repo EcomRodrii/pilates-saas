@@ -839,7 +839,14 @@ export default function Dashboard() {
         </div>
         </div>
 
+        {/* La tarjeta enlaza a /primeros-pasos, que es configuración del
+            negocio (marca, Stripe, planes, equipo) — fuera de la lista blanca
+            de INSTRUCTOR. Sin este guardia, su botón "Ver todos los pasos"
+            la devolvía al propio dashboard, mismo enlace-que-no-lleva-a-
+            ningún-sitio que ya se evita en el resto de esta pantalla. */}
+        {puedeVer(rolActual, '/primeros-pasos') && (
         <div {...wrap('onboarding')}><OnboardingChecklist /></div>
+        )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
         {/* /automatizaciones solo lo ve la propietaria (BLOQUEADO_RECEPCION y

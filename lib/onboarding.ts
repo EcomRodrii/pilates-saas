@@ -43,7 +43,6 @@ export interface PasoOnboarding {
 
 export interface CategoriaOnboarding {
   id: string;
-  emoji: string;
   label: string;
   pasos: PasoOnboarding[];
 }
@@ -127,11 +126,11 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const categorias: CategoriaOnboarding[] = [
-    { id: 'configuracion-inicial', emoji: '🚀', label: 'Configuración inicial', pasos: configuracionInicial },
-    { id: 'pagos', emoji: '💳', label: 'Pagos', pasos: pagos },
-    { id: 'automatizaciones', emoji: '🤖', label: 'Funciones inteligentes', pasos: automatizaciones },
-    { id: 'equipo', emoji: '👥', label: 'Equipo', pasos: equipo },
-    { id: 'portal', emoji: '📱', label: 'Portal de alumnas', pasos: portal },
+    { id: 'configuracion-inicial', label: 'Configuración inicial', pasos: configuracionInicial },
+    { id: 'pagos', label: 'Pagos', pasos: pagos },
+    { id: 'automatizaciones', label: 'Funciones inteligentes', pasos: automatizaciones },
+    { id: 'equipo', label: 'Equipo', pasos: equipo },
+    { id: 'portal', label: 'Portal de alumnas', pasos: portal },
   ];
 
   const enlaces: EnlaceOnboarding[] = [
