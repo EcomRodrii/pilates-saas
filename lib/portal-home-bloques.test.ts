@@ -5,6 +5,7 @@ import {
   resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto,
   CAMPOS_BANNER, CAMPOS_TEXTO, CAMPOS_CTA, CAMPOS_FAQ, CAMPOS_GALERIA, CAMPOS_VIDEO, CAMPOS_TESTIMONIOS,
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
+  resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
   type BloqueHome, type FaqConfig,
 } from './portal-home-bloques.ts';
@@ -415,4 +416,80 @@ test('un botón con solo espacios ya no cuenta como completo — cambio delibera
   assert.equal(bloqueEstaCompleto({ ...conEspacios, config: { ...conEspacios.config, textoBoton: 'Reservar' } }), true);
   // Mismo criterio en `texto`: un título de espacios no salva el bloque.
   assert.equal(bloqueEstaCompleto({ id: 't', kind: 'texto', config: { titulo: '  ', texto: '' } }), false);
+});
+
+// ── Lectura tolerante ───────────────────────────────────────────────────────
+
+test('un array ya válido sale byte a byte igual — la tolerancia no cambia nada bueno', () => {
+  const bueno: BloqueHome[] = [
+    { id: 's', kind: 'sistema', sistemaId: 'estaSemana' },
+    { id: 's2', kind: 'sistema', sistemaId: 'retos', oculto: true },
+    { id: 'b', kind: 'banner', config: { imagenUrl: 'u', titulo: 'T', texto: 'x', href: '/reservar' } },
+    { id: 'f', kind: 'faq', config: { titulo: '', preguntas: [{ pregunta: 'P', respuesta: 'R' }] }, estilo: { esquinas: 'pill' } },
+  ];
+  assert.deepEqual(resolverBloques(bueno), bueno);
+});
+
+test('un kind desconocido se descarta SOLO a sí mismo — antes reventaba la pantalla entera', () => {
+  // El bug latente: `BloqueHomeRender` acaba en `return <TestimoniosBloque>`
+  // sin guarda, así que un kind inesperado leía `config.testimonios.map` de
+  // una config que no lo tiene. La socia perdía sus clases y su bono, no solo
+  // el bloque raro.
+  const conBasura = [
+    { id: 'ok1', kind: 'texto', config: { titulo: 'A', texto: 'B' } },
+    { id: 'raro', kind: 'delFuturo', config: { loQueSea: 1 } },
+    { id: 'ok2', kind: 'sistema', sistemaId: 'estaSemana' },
+  ];
+  const salida = resolverBloques(conBasura);
+  assert.deepEqual(salida.map((b) => b.id), ['ok1', 'ok2']);
+});
+
+test('descarta lo que no es un bloque, sin lanzar', () => {
+  assert.deepEqual(resolverBloques([null, 42, 'texto', [], {}, { kind: 'texto' }, { id: 'x' }]), []);
+  assert.deepEqual(resolverBloques('no soy un array'), []);
+  assert.deepEqual(resolverBloques(undefined), []);
+  assert.equal(resolverBloque({ id: 'x', kind: 'sistema' }), null, 'sistema sin sistemaId');
+  assert.equal(resolverBloque({ id: 'x', kind: 'sistema', sistemaId: 'inventado' }), null);
+  // Un `kind` de catálogo no puede colarse como sistemaId, ni al revés.
+  assert.equal(resolverBloque({ id: 'x', kind: 'sistema', sistemaId: 'banner' }), null);
+  assert.equal(resolverBloque({ id: 'x', kind: 'retos', config: {} }), null);
+});
+
+test('una clave ausente se rellena con su porDefecto — un campo nuevo es retroactivo', () => {
+  // Este es el efecto que vale más que la tolerancia: lo guardado pasa a ser
+  // un parche sobre los defaults del schema, así que añadir un campo NO exige
+  // migrar los jsonb de todos los estudios. Justo lo que no pasaba con los
+  // `defaults` de los temas.
+  const viejo = { id: 'v', kind: 'video', config: { url: 'https://youtu.be/x' } };
+  assert.deepEqual(resolverBloque(viejo), {
+    id: 'v', kind: 'video', config: { titulo: '', url: 'https://youtu.be/x' },
+  });
+  const sinConfig = { id: 'b', kind: 'banner' };
+  assert.deepEqual(resolverBloque(sinConfig), {
+    id: 'b', kind: 'banner', config: { imagenUrl: '', titulo: '', texto: '', href: '' },
+  });
+});
+
+test('una clave desconocida se CONSERVA — tirarla la borraría en el siguiente guardado', () => {
+  const conExtra = { id: 't', kind: 'texto', config: { titulo: 'A', texto: 'B', campoDeOtraVersion: 'no me borres' } };
+  const salida = resolverBloque(conExtra) as { config: Record<string, unknown> };
+  assert.equal(salida.config.campoDeOtraVersion, 'no me borres');
+});
+
+test('estilo NO se rellena con defaults — ausente significa "hereda del tema"', () => {
+  // Si `resolverConfig` tocara `estilo`, un bloque que hoy hereda pasaría a
+  // llevar `esquinas: 'redondeada'` y `espaciado: 'normal'` escritos, y
+  // cambiaría de aspecto en estudios reales sin que nadie tocara nada.
+  const sinEstilo = resolverBloque({ id: 't', kind: 'texto', config: { titulo: 'A', texto: 'B' } });
+  assert.equal('estilo' in (sinEstilo as object), false);
+  const conEstiloParcial = resolverBloque({ id: 't', kind: 'texto', config: { titulo: 'A', texto: 'B' }, estilo: { fondo: '#aabbcc' } });
+  assert.deepEqual((conEstiloParcial as { estilo: unknown }).estilo, { fondo: '#aabbcc' });
+});
+
+test('resolveBloquesPantalla ya no deja pasar basura al render', () => {
+  const shape = resolveBloquesPantalla(
+    { draft: [{ id: 'ok', kind: 'texto', config: { titulo: 'A', texto: '' } }, { id: 'malo', kind: 'zzz' }], publicado: [] },
+    'home',
+  );
+  assert.deepEqual(shape.draft.map((b) => b.id), ['ok']);
 });

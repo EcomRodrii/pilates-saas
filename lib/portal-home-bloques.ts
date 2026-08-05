@@ -23,7 +23,7 @@
 // arrastrar peso — mismo principio que layout-runtime.ts. La validación con
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
-import { cumpleCondicion, defaultsDe, type CampoSchema, type CondicionCampo, type ConfigDe } from './theme/campos.ts';
+import { cumpleCondicion, defaultsDe, resolverConfig, type CampoSchema, type CondicionCampo, type ConfigDe } from './theme/campos.ts';
 
 export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
 export type PantallaId = (typeof PANTALLA_IDS)[number];
@@ -475,6 +475,68 @@ export const DEFAULT_BLOQUES_SHAPE: BloquesPorPantallaShape = {
 export const DEFAULT_HOME_BLOQUES_SHAPE: HomeBloquesShape = DEFAULT_BLOQUES_SHAPE.home;
 
 /**
+ * Lee UN bloque de jsonb crudo, o `null` si no se puede confiar en él.
+ *
+ * El agujero que cierra: la lectura hacía un cast crudo (`obj.draft as
+ * BloqueHome[]`) sin mirar nada, y `BloqueHomeRender` acaba en un `return
+ * <TestimoniosBloque>` sin guarda. Un `kind` desconocido —una fila escrita
+ * por una versión más nueva, un jsonb tocado a mano, un rollback del
+ * deploy— no daba un bloque raro: reventaba la pantalla ENTERA de la socia,
+ * con sus clases y su bono dentro.
+ *
+ * Tres reglas, del mismo espíritu que `resolveTheme`/`resolveVariantes`:
+ *  · `kind` desconocido → se descarta ESE bloque; el resto de la pantalla se
+ *    pinta igual.
+ *  · clave ausente → se rellena con su `porDefecto`. Esto vale más que la
+ *    tolerancia en sí: lo guardado pasa a ser un PARCHE sobre los defaults
+ *    del schema, así que **un campo nuevo es retroactivo para todos los
+ *    estudios sin migrar datos**. Es exactamente el problema que ya nos
+ *    mordió con los `defaults` de los temas, que no eran retroactivos.
+ *  · clave desconocida → **se conserva**. Es contenido que escribió alguien;
+ *    tirarlo en lectura lo borraría en el siguiente guardado.
+ *
+ * ⚠️ `estilo` NO pasa por `resolverConfig`: ahí "ausente" significa "hereda
+ * del tema", un tercer estado que el render distingue de verdad. Rellenarlo
+ * con defaults cambiaría el aspecto de estudios reales sin que nadie tocara
+ * nada.
+ */
+export function resolverBloque(raw: unknown): BloqueHome | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const b = raw as Record<string, unknown>;
+  if (typeof b.id !== 'string' || typeof b.kind !== 'string') return null;
+  const oculto = b.oculto === true ? { oculto: true as const } : {};
+
+  if (b.kind === 'sistema') {
+    if (typeof b.sistemaId !== 'string') return null;
+    const def = getDefinicionBloque(b.sistemaId);
+    if (!def || def.origen !== 'sistema') return null;
+    return { id: b.id, kind: 'sistema', sistemaId: b.sistemaId as BloqueSistemaId, ...oculto };
+  }
+
+  const def = getDefinicionBloque(b.kind);
+  if (!def || def.origen !== 'catalogo') return null;
+  const guardada = b.config && typeof b.config === 'object' && !Array.isArray(b.config)
+    ? (b.config as Record<string, unknown>)
+    : {};
+  const estilo = b.estilo && typeof b.estilo === 'object' && !Array.isArray(b.estilo)
+    ? { estilo: b.estilo as EstiloBloque }
+    : {};
+  return {
+    id: b.id,
+    kind: b.kind,
+    config: resolverConfig(def.campos, guardada),
+    ...oculto,
+    ...estilo,
+  } as BloqueHome;
+}
+
+/** Una lista de bloques crudos, sin los que no se puedan resolver. */
+export function resolverBloques(raw: unknown): BloqueHome[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(resolverBloque).filter((b): b is BloqueHome => b !== null);
+}
+
+/**
  * Resuelve los bloques de UNA pantalla. Mismo principio que resolveTheme():
  * ante cualquier duda cae al default visual de siempre, nunca lanza.
  *
@@ -491,8 +553,8 @@ export function resolveBloquesPantalla(
   legacyPortalHome?: { orden: string[]; ocultos: string[] },
 ): HomeBloquesShape {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-  const draft = Array.isArray(obj.draft) ? (obj.draft as BloqueHome[]) : [];
-  const publicado = Array.isArray(obj.publicado) ? (obj.publicado as BloqueHome[]) : [];
+  const draft = resolverBloques(obj.draft);
+  const publicado = resolverBloques(obj.publicado);
 
   if (draft.length > 0 || publicado.length > 0) {
     return { draft: draft.length > 0 ? draft : publicado, publicado };
