@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
 import { useAuth } from '@/lib/auth-context';
-import { useStudio } from '@/lib/studio-context';
+import { useCore } from '@/lib/core-context';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
@@ -22,7 +22,10 @@ import { navSections } from '@/lib/nav-config';
 // el layout ahora es un wrapper fino que solo pone la metadata y renderiza esto.
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
-  const { studio } = useStudio();
+  // useCore() y no useStudio(): esto es el marco de las 50 rutas del panel y
+  // solo mira `studio`. Con useStudio() se re-renderizaba (y recreaba Sidebar,
+  // Topbar y AvisoCambioDeSede) ante cualquier cambio del god-context.
+  const { studio } = useCore();
   const { rol, puedeVer } = usePermisos();
   const router = useRouter();
   const pathname = usePathname();

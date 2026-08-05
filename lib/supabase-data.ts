@@ -3880,6 +3880,14 @@ export async function fetchCriticalStudioData(studioId?: string) {
     mandatosSepaRes,
     contenidoPortalRes,
     bannersPortalRes,
+    // Añadido AL FINAL de la lista a propósito: el desestructurado es
+    // posicional, así que meterlo en medio desplazaría las 52 posiciones
+    // siguientes. Antes esta consulta se hacía DESPUÉS del Promise.all
+    // (dentro de hidratarTiposDePlanes), o sea un viaje de red entero en
+    // serie colgando del arranque del panel, cuando en realidad solo
+    // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
+    // memoria, no la consulta.
+    planTiposClaseRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -3956,11 +3964,16 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // gestionarlos — el filtro para lo que se muestra en el portal vive en
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
+    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
   // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
-  const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
+  // El cruce es en memoria; la consulta ya vino arriba, en paralelo con el resto.
+  const planesConTiposPanel = unirTiposAPlanes(
+    (planesTarifaRes.data ?? []).map(mapPlanTarifa),
+    planTiposClaseRes.data as { plan_id: string; tipo_clase_id: string }[] | null,
+  );
   return {
     studio: studioRes.data ? mapStudio(studioRes.data, studioHorarioRes.data ?? undefined) : null,
     // Política/términos persistidos (0107); null = el cliente aplica el texto por
@@ -4188,9 +4201,20 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
     from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string }[] | null }> } };
   };
   const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', studioId);
-  if (!data || data.length === 0) return planes;
+  return unirTiposAPlanes(planes, data);
+}
+
+// El cruce en memoria, separado de la consulta. Lo comparten
+// `hidratarTiposDePlanes` (que consulta y cruza, para quien no tiene ya las
+// filas) y `fetchCriticalStudioData` (que trae las filas dentro de su
+// Promise.all y solo necesita cruzar). Misma lógica en un único sitio.
+export function unirTiposAPlanes(
+  planes: PlanTarifa[],
+  filas: { plan_id: string; tipo_clase_id: string }[] | null,
+): PlanTarifa[] {
+  if (planes.length === 0 || !filas || filas.length === 0) return planes;
   const porPlan = new Map<string, string[]>();
-  for (const f of data) {
+  for (const f of filas) {
     const arr = porPlan.get(f.plan_id) ?? [];
     arr.push(f.tipo_clase_id);
     porPlan.set(f.plan_id, arr);
