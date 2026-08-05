@@ -429,12 +429,18 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
   const [hora, setHora] = useState('');
 
   // Prefill con el horario actual de la clase al abrir.
-  useEffect(() => {
-    if (!s?.sesiones?.inicio) return;
+  //
+  // Ajuste en render, no efecto: con efecto los dos campos se pintaban vacíos
+  // un frame antes de rellenarse, que es el parpadeo que se veía al abrir el
+  // diálogo de cambio de horario.
+  const claveClase = `${s?.id ?? ''} ${s?.sesiones?.inicio ?? ''}`;
+  const [claveClasePrevia, setClaveClasePrevia] = useState<string | null>(null);
+  if (s?.sesiones?.inicio && claveClase !== claveClasePrevia) {
+    setClaveClasePrevia(claveClase);
     const d = new Date(s.sesiones.inicio);
     setFecha(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     setHora(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-  }, [s?.sesiones?.inicio, s?.id]);
+  }
 
   const inicioISO = fecha && hora ? new Date(`${fecha}T${hora}:00`).toISOString() : null;
   const enPasado = !!inicioISO && new Date(inicioISO).getTime() < Date.now();

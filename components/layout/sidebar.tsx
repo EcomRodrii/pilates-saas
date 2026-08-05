@@ -25,6 +25,7 @@ export function useNavMode() {
 
   useEffect(() => {
     const stored = localStorage.getItem('nav-mode');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage. No es accesible durante el render (ni en servidor ni en la hidratación): leerlo en render rompería la hidratación.
     if (stored === 'avanzado') setMode('avanzado');
   }, []);
 
@@ -258,6 +259,7 @@ export function Sidebar() {
     const storedSize = localStorage.getItem('sidebar-size') as SidebarSize | null;
     const legacyCollapsed = localStorage.getItem('sidebar-collapsed');
     const initial: SidebarSize = storedSize ?? (legacyCollapsed === '1' ? 'compacto' : 'normal');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage y escribe una custom property en document.documentElement. Ambas cosas son el DOM, un sistema externo.
     setSize(initial);
     document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
     // eslint-disable-next-line react-hooks/exhaustive-deps

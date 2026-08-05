@@ -83,6 +83,7 @@ export function CitasPublica({
 
   // Carga de huecos cuando hay servicio + instructora + día.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona con bandera de cancelación. El estado llega de la red, no se puede derivar en render.
     if (!servicioId || !instructorId) { setHuecos(null); return; }
     let cancelado = false;
     setLoadingHuecos(true);

@@ -126,6 +126,7 @@ export function useDecisiones() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Dispara la carga asíncrona de recomendaciones. El estado viene de la red.
   useEffect(() => { cargar(); }, [cargar]);
 
   // Optimista: quita la tarjeta al instante; si el servidor rechaza la

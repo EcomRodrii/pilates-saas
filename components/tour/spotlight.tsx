@@ -44,6 +44,7 @@ export function Spotlight() {
   // acceso a esa pantalla, o la página tarda en montar tras la navegación—
   // se salta el paso solo: nunca se deja un overlay flotando sin objetivo.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Mide el DOM real (getBoundingClientRect) con requestAnimationFrame hasta que el elemento existe. Medir el DOM es el ejemplo canónico de efecto legítimo.
     setRect(null);
     intentosRef.current = 0;
     if (!paso || pathname !== paso.ruta) return;

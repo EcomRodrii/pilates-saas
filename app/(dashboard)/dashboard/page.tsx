@@ -468,6 +468,7 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date('2026-06-29'));
   useEffect(() => {
     if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo. El setInterval es justo el caso de uso que la regla considera legítimo.
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);

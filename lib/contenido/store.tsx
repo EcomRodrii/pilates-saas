@@ -58,6 +58,7 @@ export function ContenidoProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Hidrata el estado desde localStorage. No accesible durante el render.
         setState(JSON.parse(raw) as ContenidoState);
       } else {
         const seeded = seedContenido(new Date());
