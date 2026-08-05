@@ -34,9 +34,14 @@ export default function PrimerosPasosPage() {
   } = useStudio();
   const { iniciarTour } = useTour();
 
-  if (!studio) return null;
-
-  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = calcularOnboarding({
+  // `studio` empieza en `null` y llega asíncrono (studio-context), así que el
+  // `return null` de más abajo NO puede ir antes de ningún hook: la primera
+  // pasada llamaría a menos hooks que la segunda y React rompe con "Rendered
+  // more hooks than during the previous render". Hoy no estalla solo porque
+  // `DashboardShell` pinta un skeleton en vez de `children` hasta que hay
+  // estudio — pero eso es una salvaguarda de otro componente, no una garantía
+  // de este. Por eso todo el cálculo se hace opcional y el corte va al final.
+  const datos = studio && calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -55,6 +60,8 @@ export default function PrimerosPasosPage() {
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
   });
 
+  const totalPasos = datos ? datos.totalPasos : 0;
+  const totalCompletados = datos ? datos.totalCompletados : 0;
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
 
   // Gamificación: detecta el instante en que se pasa de incompleto a
@@ -63,13 +70,22 @@ export default function PrimerosPasosPage() {
   // renders — no hay nada que persistir en BD: si recarga la página después
   // de completarlo, ya no hay "antes" que comparar, y eso es correcto, la
   // confirmación es un momento, no un estado.
+  const hayDatos = !!datos;
   const prevTotalRef = useRef<number | null>(null);
   const [recienCompletado, setRecienCompletado] = useState(false);
   useEffect(() => {
+    // Sin estudio cargado los totales son 0 de relleno, no una medición. Si se
+    // guardaran en la ref, un estudio YA completo entraría luego como
+    // "0 → completo" y dispararía la animación en cada carga. Se sale antes de
+    // tocar la ref para que la primera medición real siga siendo la primera.
+    if (!hayDatos) return;
     const prev = prevTotalRef.current;
     if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
     prevTotalRef.current = totalCompletados;
-  }, [totalCompletados, totalPasos]);
+  }, [hayDatos, totalCompletados, totalPasos]);
+
+  if (!datos) return null;
+  const { categorias, enlaces, recomendaciones } = datos;
 
   return (
     <div className="space-y-6 max-w-3xl">
