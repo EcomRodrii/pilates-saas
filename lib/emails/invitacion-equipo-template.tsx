@@ -39,7 +39,7 @@ export function InvitacionEquipoEmail({ nombre, propietariaNombre, estudioNombre
         </Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>Crear mi cuenta</EmailButton>
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Si no esperabas esta invitación, puedes ignorar este email.
       </Text>
     </EmailLayout>

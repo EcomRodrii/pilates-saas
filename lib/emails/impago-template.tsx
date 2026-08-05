@@ -40,14 +40,14 @@ export function ImpagoEmail({
       </Text>
 
       <Section style={{ backgroundColor: '#FAFAF7', borderRadius: 10, padding: '20px 24px', marginBottom: 20 }}>
-        <Text style={{ color: '#9C9C94', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 6px' }}>
+        <Text style={{ color: '#63635D', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 6px' }}>
           Concepto
         </Text>
         <Text style={{ color: '#1A1A1A', fontSize: 16, fontWeight: 700, margin: '0 0 14px' }}>
           {concepto}
         </Text>
         <Hr style={{ borderColor: '#E5E1DA', margin: '0 0 14px' }} />
-        <Text style={{ color: '#9C9C94', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 6px' }}>
+        <Text style={{ color: '#63635D', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: '0 0 6px' }}>
           Importe
         </Text>
         <Text style={{ color: acento, fontSize: 20, fontWeight: 700, margin: 0 }}>

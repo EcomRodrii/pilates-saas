@@ -27,7 +27,7 @@ export function PedirValoracionEmail({ toName, estudioNombre, logoUrl, colorPrim
         <Text style={{ color: '#6B7280', fontSize: 15, margin: 0 }}>{cuando}</Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>⭐ Valorar la clase</EmailButton>
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Sin instalar nada. Solo tú y tu estudio veis esto.
       </Text>
     </EmailLayout>

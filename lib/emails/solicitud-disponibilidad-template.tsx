@@ -27,7 +27,7 @@ export function SolicitudDisponibilidadEmail({ nombre, propietariaNombre, estudi
         </Text>
       </Section>
       <EmailButton href={url} colorPrimario={colorPrimario}>Marcar mi disponibilidad</EmailButton>
-      <Text style={{ color: '#9C9C94', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
+      <Text style={{ color: '#63635D', fontSize: 12, margin: '22px 0 0', textAlign: 'center' as const }}>
         Puedes volver a este enlace cuando quieras para actualizarla.
       </Text>
     </EmailLayout>

@@ -9,15 +9,19 @@ import { foregroundParaFondo } from '@/lib/wcag-contrast';
 // Antes cada módulo repetía su propio Container/Section (3 estilos distintos:
 // React Email genérico #111827, y dos familias de HTML a mano en #343825)
 // — ninguno usaba el logo ni el color real del estudio. Este layout:
-//   1. Da un único look premium consistente en todo el producto.
+//   1. Da un único look consistente en todo el producto.
 //   2. Aplica la marca de CADA estudio (logo + colorPrimario), con fallback al
-//      logo/morado de Tentare si el estudio no tiene los suyos.
-//   3. Calcula el color de texto del header con WCAG (foregroundParaFondo) para
-//      que un colorPrimario claro (p.ej. un rosa pastel) nunca deje texto
-//      blanco ilegible — el mismo criterio que ya usa el editor de tema.
+//      color de Tentare si el estudio no tiene el suyo.
+//   3. El color del estudio NO es fondo de texto en ninguna parte: va en la
+//      banda de membrete y en el botón. Un colorPrimario pastel dejaba de ser
+//      un problema de contraste en vez de algo que hay que compensar. Donde sí
+//      hace falta —el texto DENTRO del botón— sigue mandando
+//      foregroundParaFondo, el mismo criterio que usa el editor de tema.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const TENTARE_LOGO_URL = 'https://tentare.app/logo-horizontal.png';
+// Sin consumidores hoy. Va a www porque tentare.app hace un 308 y hay proxys de
+// imágenes de correo que no siguen redirecciones.
+export const TENTARE_LOGO_URL = 'https://www.tentare.app/logo-horizontal.png';
 export const COLOR_PRIMARIO_DEFECTO = '#343825';
 
 interface EmailLayoutProps {
@@ -45,8 +49,6 @@ export function EmailLayout({
 }: EmailLayoutProps) {
   const primario = colorPrimario || COLOR_PRIMARIO_DEFECTO;
   const fondoHeader = headerColor || primario;
-  const textoHeader = foregroundParaFondo(fondoHeader);
-  const textoHeaderSuave = textoHeader === '#FFFFFF' ? 'rgba(255,255,255,0.75)' : 'rgba(19,19,19,0.65)';
 
   return (
     <Html lang="es">
@@ -55,26 +57,37 @@ export function EmailLayout({
       </Head>
       {preview && <Preview>{preview}</Preview>}
       <Body style={{ backgroundColor: '#EEEEE8', fontFamily: "'Plus Jakarta Sans', system-ui, 'Segoe UI', Arial, sans-serif", margin: 0, padding: '40px 0' }}>
-        <Container style={{ maxWidth: 520, margin: '0 auto', backgroundColor: '#ffffff', borderRadius: 16, overflow: 'hidden', border: '1px solid #E5E1DA' }}>
-          <Section style={{ backgroundColor: fondoHeader, padding: '28px 32px' }}>
+        <Container style={{ maxWidth: 560, margin: '0 auto', backgroundColor: '#ffffff', borderRadius: 18, overflow: 'hidden', border: '1px solid #E5E1DA' }}>
+          {/* El color del estudio va en una banda de membrete, no en una franja
+              sólida con texto encima. Dos motivos: un colorPrimario pastel
+              obligaba a jugar con foregroundParaFondo para que el título se
+              leyera, y el logo del estudio está diseñado para su propio fondo,
+              no para flotar sobre su color de marca. Aquí el color se ve igual
+              de claro —es lo primero del correo— pero nunca es fondo de texto.
+              Con headerColor (cancelación, impago, plaza liberada) la banda
+              sigue dando el aviso de un vistazo. */}
+          <Section style={{ backgroundColor: fondoHeader, height: 6, lineHeight: '6px', fontSize: 0 }}>&nbsp;</Section>
+
+          <Section style={{ padding: '30px 34px 0' }}>
             {logoUrl ? (
-              <Img src={logoUrl} height="28" alt={studioNombre} style={{ marginBottom: 10 }} />
+              <Img src={logoUrl} height="32" alt={studioNombre} style={{ display: 'block', marginBottom: 22 }} />
             ) : (
-              <Text style={{ color: textoHeaderSuave, fontSize: 13, fontWeight: 600, margin: 0, letterSpacing: '-0.01em' }}>
+              <Text style={{ color: '#63635D', fontSize: 12, fontWeight: 700, margin: '0 0 20px', letterSpacing: '0.08em', textTransform: 'uppercase' as const }}>
                 {studioNombre}
               </Text>
             )}
-            <Heading as="h1" style={{ color: textoHeader, fontSize: 22, fontWeight: 700, margin: '6px 0 0', letterSpacing: '-0.02em' }}>
+            <Heading as="h1" style={{ color: '#1A1A1A', fontSize: 26, fontWeight: 700, margin: 0, lineHeight: 1.22, letterSpacing: '-0.025em' }}>
               {titulo}
             </Heading>
           </Section>
 
-          <Section style={{ padding: '28px 32px' }}>
+          <Section style={{ padding: '18px 34px 30px' }}>
             {children}
           </Section>
 
-          <Section style={{ borderTop: '1px solid #E5E1DA', padding: '20px 32px', backgroundColor: '#FAFAF7' }}>
-            <Text style={{ color: '#9C9C94', fontSize: 12, margin: 0, textAlign: 'center' as const }}>
+          <Section style={{ borderTop: '1px solid #E5E1DA', padding: '18px 34px', backgroundColor: '#FAFAF7' }}>
+            {/* Antes iba en gris claro: 2,76:1 sobre este fondo, no llegaba a AA. */}
+            <Text style={{ color: '#63635D', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
               Enviado por {studioNombre} · Powered by Tentare · {new Date().getFullYear()}
             </Text>
           </Section>
@@ -91,16 +104,30 @@ export function EmailLayout({
 export function EmailButton({ href, children, colorPrimario }: { href: string; children: React.ReactNode; colorPrimario?: string | null }) {
   const fondo = colorPrimario || COLOR_PRIMARIO_DEFECTO;
   const texto = foregroundParaFondo(fondo);
+  // Píldora y no bloque a todo el ancho: es la forma que usa la app entera
+  // (rounded-full en el panel, borderRadius:999 en la landing), y un botón que
+  // ocupa la línea completa es justo lo que hace que un correo parezca una
+  // plantilla de catálogo. Envuelto en tabla porque Outlook ignora el padding
+  // de un <a> suelto.
   return (
-    <a
-      href={href}
-      style={{
-        display: 'block', textAlign: 'center' as const, backgroundColor: fondo, color: texto,
-        textDecoration: 'none', fontSize: 16, fontWeight: 700, padding: '14px', borderRadius: 12,
-      }}
-    >
-      {children}
-    </a>
+    <table role="presentation" cellPadding={0} cellSpacing={0} border={0}>
+      <tbody>
+        <tr>
+          <td style={{ backgroundColor: fondo, borderRadius: 999 }}>
+            <a
+              href={href}
+              style={{
+                display: 'inline-block', backgroundColor: fondo, color: texto, borderRadius: 999,
+                textDecoration: 'none', fontSize: 15, fontWeight: 700, padding: '15px 32px',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {children}
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   );
 }
 
@@ -111,13 +138,14 @@ export function EmailInfoRow({ label, value, tachado }: { label: string; value: 
     <table role="presentation" width="100%" cellPadding={0} cellSpacing={0} style={{ marginBottom: 10 }}>
       <tbody>
         <tr>
-          <td style={{ width: 100, verticalAlign: 'top' }}>
-            <Text style={{ color: '#9C9C94', fontSize: 12, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', margin: 0 }}>
+          <td style={{ width: 104, verticalAlign: 'top', paddingTop: 1 }}>
+            {/* Antes iba en gris claro (2,76:1): una etiqueta de 12px que no se leía. */}
+            <Text style={{ color: '#63635D', fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', margin: 0 }}>
               {label}
             </Text>
           </td>
           <td>
-            <Text style={{ color: '#1A1A1A', fontSize: 14, fontWeight: 600, margin: 0, textDecoration: tachado ? 'line-through' : 'none' }}>
+            <Text style={{ color: '#1A1A1A', fontSize: 15, fontWeight: 600, margin: 0, lineHeight: 1.35, textDecoration: tachado ? 'line-through' : 'none' }}>
               {value}
             </Text>
           </td>

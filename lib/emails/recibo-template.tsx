@@ -60,12 +60,12 @@ export function ReciboEmail({
 
       <Row>
         <Column>
-          <Text style={{ color: '#9C9C94', fontSize: 12, margin: '0 0 2px' }}>Fecha</Text>
+          <Text style={{ color: '#63635D', fontSize: 12, margin: '0 0 2px' }}>Fecha</Text>
           <Text style={{ color: '#374151', fontSize: 14, fontWeight: 600, margin: 0 }}>{fecha}</Text>
         </Column>
         {numeroFactura && (
           <Column>
-            <Text style={{ color: '#9C9C94', fontSize: 12, margin: '0 0 2px' }}>Nº Factura</Text>
+            <Text style={{ color: '#63635D', fontSize: 12, margin: '0 0 2px' }}>Nº Factura</Text>
             <Text style={{ color: '#374151', fontSize: 14, fontWeight: 600, margin: 0 }}>{numeroFactura}</Text>
           </Column>
         )}
