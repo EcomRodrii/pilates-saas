@@ -262,7 +262,6 @@ export function Sidebar() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage y escribe una custom property en document.documentElement. Ambas cosas son el DOM, un sistema externo.
     setSize(initial);
     document.documentElement.style.setProperty('--sidebar-w', SIDEBAR_SIZES[initial].cssVar);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSignOut() {

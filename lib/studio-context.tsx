@@ -4098,9 +4098,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateAvatarAdmin,
     updateStudio,
     updateHorarioEstudio,
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps deliberately cover only state read by
-  // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
-  // functions themselves are intentionally excluded since they're recreated every render anyway.
+  // deps deliberately cover only state read by `value`'s ~80 inline functions
+  // (verified: every closed-over identifier is listed below); the functions
+  // themselves are intentionally excluded since they're recreated every render
+  // anyway.
+  //
+  // El disable va en la línea de justo antes del array, no encima del comentario:
+  // la regla señala esta línea, y las dos versiones anteriores (una arriba del
+  // todo y otra pegada al `]`) no tapaban nada y llevaban avisando sin que se
+  // notara.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
@@ -4124,7 +4131,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dataLoaded,
     studio,
     authUserId, publicSlug, studioIdOverride,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   function resetDatosPilates() {

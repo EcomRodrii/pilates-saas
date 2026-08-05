@@ -2,7 +2,6 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
-import { useAhora } from '@/lib/use-ahora';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -66,6 +65,12 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
+
+// Fecha fija con la que pintan IGUAL servidor y cliente hasta que monta y salta
+// a la real (guarda de hidratación). A nivel de módulo, no dentro del
+// componente: dentro era un objeto nuevo en cada render, y es el valor inicial
+// de cuatro estados.
+const FALLBACK = new Date('2026-01-01T12:00:00');
 
 function addDays(date: Date, n: number) {
   const d = new Date(date);
@@ -241,13 +246,12 @@ function ModalClasesRecurrentes({
   sesionesExistentes: SlotSesion[];
 }) {
   const uid = useId();
-  // Leer el reloj DURANTE el render es impuro: dos lecturas del mismo render
-  // pueden dar valores distintos, y React puede descartar y repetir un render
-  // sin avisar. La hora viene del hook (estado), que además la mantiene estable.
-  const { ahora } = useAhora(new Date());
-  const today = ahora.toISOString().slice(0, 10);
-  const inOneMonth = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  // Las dos fechas por defecto se calculan DENTRO de emptyForm(), no en el
+  // cuerpo del componente: así solo se leen cuando el formulario se crea o se
+  // reinicia (al abrir el diálogo), en vez de en cada render. Antes, además de
+  // ser impuro, significaba que el diálogo abierto a las 23:59 proponía el día
+  // de ayer si el usuario tardaba un minuto en pulsar.
   const emptyForm = (): RecurringFormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
@@ -255,8 +259,8 @@ function ModalClasesRecurrentes({
     horaInicio: '10:00',
     duracion: 60,
     diasSemana: [1, 3],
-    fechaInicio: today,
-    fechaFin: inOneMonth,
+    fechaInicio: new Date().toISOString().slice(0, 10),
+    fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     aforoMaximo: salas[0]?.capacidad ?? 8,
   });
 
@@ -504,13 +508,22 @@ export default function Calendario() {
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
-  const FALLBACK = new Date('2026-01-01T12:00:00');
 
   // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
   const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
   const [semana, setSemana] = useState(() => weekStart(FALLBACK));
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
+
+  // `now` vive en estado, no como `new Date()` en el cuerpo del render. Era un
+  // objeto nuevo en cada pasada, y está en las dependencias de tres cosas caras
+  // (el formulario vacío, el estado por sesión y las tarjetas): recalculaban
+  // todas en cada render, incluido uno tan ajeno como abrir un toast.
+  // Congelarlo tras montar tampoco vale —es la trampa que ya documenta
+  // dashboard/page.tsx— porque la línea roja de "ahora" y los badges EN_CURSO
+  // dejarían de moverse en una pestaña que se queda abierta. De ahí el
+  // intervalo de un minuto, igual que allí.
+  const [now, setNow] = useState(FALLBACK);
 
   useEffect(() => {
     const today = new Date();
@@ -523,13 +536,10 @@ export default function Calendario() {
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
     setMesVisto(today);
+    setNow(today);
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
   }, []);
-
-  // `now` estable entre renders: antes era `new Date()` en cada render, y como
-  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
-  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
-  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
-  const { ahora: now } = useAhora(FALLBACK);
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);

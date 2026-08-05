@@ -3,7 +3,6 @@ import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
-import { useAhora } from '@/lib/use-ahora';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
@@ -231,8 +230,21 @@ export default function ReservarPage() {
   const embedMode = searchParams.get('embed') === '1';
 
   const [mounted, setMounted] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
-  useEffect(() => setMounted(true), []);
+  // `now` en estado, con reloj de un minuto. Antes era
+  // `useMemo(() => now.getTime(), [mounted])`, o sea que quedaba CONGELADO en
+  // el instante del montaje — y de él sale `slots`, que filtra `inicio > nowMs`
+  // para decidir qué clases se pueden reservar. Una pestaña abierta un rato
+  // seguía ofreciendo clases que ya habían empezado, y la reserva fallaba
+  // después contra el servidor. Es exactamente la trampa que documenta
+  // dashboard/page.tsx al descartar `useMemo([mounted])`.
+  const [now, setNow] = useState(FECHA_PLACEHOLDER_SSR);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO; derivarlo en render rompería la hidratación.
+    setMounted(true);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   const tabInicial = searchParams.get('tab');
@@ -282,16 +294,9 @@ export default function ReservarPage() {
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
 
-  // Antes de montar se renderiza el esqueleto, así que este valor no llega a
-  // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
-  // `now` estable entre renders: antes era `new Date()` en cada render, y como
-  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
-  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
-  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
-  const { ahora: now } = useAhora(FECHA_PLACEHOLDER_SSR);
-  // Marca temporal estable durante la vida del componente: new Date() daría una
-  // identidad nueva en cada render y recalcularía `slots` sin necesidad.
-  const nowMs = useMemo(() => now.getTime(), [now]);
+  // `now` es estable entre ticks del reloj (viene de estado), así que esto no
+  // necesita memo: solo cambia de identidad cuando cambia de verdad la hora.
+  const nowMs = now.getTime();
 
   // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
   // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus

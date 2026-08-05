@@ -68,13 +68,13 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # BLOQUEA. Entró como informativo porque el lint no había corrido nunca en
-      # CI y llegó con 117 errores; ya están a 0 y el `continue-on-error` se ha
-      # ido. Quedan 49 casos de 5 reglas de react-hooks degradados a "warn" y
-      # acotados en eslint.config.mjs, con su plan escrito — el resto de reglas
-      # ya corta el CI, que era el objetivo: que no entre deuda NUEVA.
+      # BLOQUEA, y ahora también con los avisos. Entró como informativo porque
+      # el lint no había corrido nunca en CI y llegó con 117 errores + 268
+      # avisos; ambos están a 0. `--max-warnings 0` es lo que impide que la
+      # deuda vuelva a acumularse: sin él, "0 avisos" dura hasta el siguiente
+      # import sin usar, y nadie se entera hasta que son 200 otra vez.
       - name: Lint
-        run: npm run lint -- --cache --cache-location .eslintcache
+        run: npm run lint -- --cache --cache-location .eslintcache --max-warnings 0
 
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test

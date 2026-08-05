@@ -22,9 +22,13 @@ export function useSociaSession(slug: string) {
   const [usuarioEmail, setUsuarioEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // El ref se actualiza en un efecto, no en el cuerpo del render: escribir un
+  // ref mientras se renderiza rompe si React descarta ese render. El
+  // `useRef(...)` ya deja puesto el primer valor, y solo se lee dentro de
+  // callbacks asíncronos posteriores al montaje.
   const { recargarPublico } = useStudio();
   const recargarRef = useRef(recargarPublico);
-  recargarRef.current = recargarPublico;
+  useEffect(() => { recargarRef.current = recargarPublico; }, [recargarPublico]);
 
   const resolver = useCallback(async () => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();

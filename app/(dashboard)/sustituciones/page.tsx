@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState, useId } from 'react';
-import { useAhora } from '@/lib/use-ahora';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
@@ -428,10 +427,6 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
   const uid = useId();
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
-  // El reloj se lee del estado, no durante el render: leerlo en render es
-  // impuro (dos lecturas del mismo render pueden diferir, y React puede
-  // descartar y repetir un render) y daba una identidad nueva cada vez.
-  const { ahora } = useAhora(new Date());
 
   // Prefill con el horario actual de la clase al abrir.
   //
@@ -447,8 +442,18 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
     setHora(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
   }
 
+  // El "ahora" contra el que se valida no puede leerse en render (Date.now() es
+  // impuro y además haría que dos renders del mismo diálogo dieran resultados
+  // distintos). Se fija al abrir: este diálogo está siempre montado, así que un
+  // mount-once daría la hora de carga de la página, no la de abrirlo.
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render; es justo lo que la regla de pureza prohíbe.
+    if (s) setAhoraMs(Date.now());
+  }, [s]);
+
   const inicioISO = fecha && hora ? new Date(`${fecha}T${hora}:00`).toISOString() : null;
-  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < ahora.getTime();
+  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < ahoraMs;
   const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
 
   return (

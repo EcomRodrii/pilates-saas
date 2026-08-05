@@ -61,9 +61,9 @@ export function VistaDiaSalas({
   // todo. Deliberadamente `[]` — solo al abrir esta vista (o al cambiar de
   // día, si el padre remonta con `key={fecha}`), nunca en cada tick del reloj
   // que actualiza `ahoraMin` (si no, pelearía con el scroll del usuario).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: calcularScrollInicial(ahoraMin, horaInicioMin, horaFinMin, pxPorHora) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `[]` a propósito, ver el comentario de arriba. La regla señala la línea del array de dependencias, no la del `useEffect`: puesto arriba no tapaba nada y llevaba avisando sin que se notara.
   }, []);
   const horas: { label: string; topPx: number }[] = [];
   for (let m = horaInicioMin; m <= horaFinMin; m += 60) {

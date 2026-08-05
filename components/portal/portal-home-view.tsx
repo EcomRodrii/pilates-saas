@@ -54,15 +54,22 @@ import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 
-// Evaluada UNA vez al cargar el módulo, no en cada render: es solo el valor con
-// el que se calcula antes de montar (ver el fallback de `now`, más abajo).
-// Estable por definición, que es justo lo que le faltaba al `new Date()` en línea.
-const FECHA_MODULO = new Date();
-
 // Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
 // componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
 const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
+
+// Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
+// servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
+// y no `new Date()`: un `new Date()` en el cuerpo del componente es una
+// referencia distinta en cada render, así que los cinco useMemo que dependen de
+// `now` se recalculaban SIEMPRE — justo lo que la memoización pretendía evitar.
+// La fecha concreta da igual: todo lo que consume `now` antes de montar sale de
+// datos del estudio (sesiones/reservas/banners), que StudioProvider carga en un
+// efecto y por tanto están vacíos en ese momento. El único consumidor que
+// pintaría algo real sin datos —el saludo por hora— se resuelve con `ahora` ya
+// montado, no con esta constante.
+const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
@@ -131,17 +138,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     const id = setInterval(() => setAhora(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
-  // ⚠️ El fallback NO puede ser `new Date()` en línea: daba un objeto nuevo en
-  // CADA render, y `now` está en las dependencias de cinco useMemo de esta
-  // pantalla (banners, retos, próxima clase...). Con eso, la memoización estaba
-  // escrita pero no servía de nada: se recalculaban siempre.
-  //
-  // Se queda como fallback y no se usa el hook `useAhora`, a propósito: aquí
-  // `ahora` arranca en null porque ese null ES una guarda —`fechaHoy` y
-  // `contador` (más abajo) no se pintan hasta montar, para no meter una cuenta
-  // atrás en el HTML del servidor—. Un hook que devuelva siempre una Date
-  // borraría esa distinción.
-  const now = ahora ?? FECHA_MODULO;
+  const now = ahora ?? FECHA_PLACEHOLDER_SSR;
   const bannersVigentes = useMemo(() => {
     // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
     // siguiente a medianoche local todavía cae en el día UTC anterior, y un
@@ -239,11 +236,19 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
+  // El id se saca FUERA del memo a propósito. Dentro, la guarda `if
+  // (!session?.socioId)` estrecha `session` y la línea siguiente lo leía como
+  // `session.socioId` (ya sin `?.`): el compilador de React deduce entonces que
+  // la dependencia real es el objeto `session` entero, más ancha que el
+  // `session?.socioId` declarado a mano, y ante esa discrepancia renuncia a
+  // optimizar el componente COMPLETO. Con un `string | undefined` suelto, lo
+  // deducido y lo declarado coinciden.
+  const socioId = session?.socioId;
   const notifItems = useMemo(() => {
-    if (!session?.socioId) return [];
-    return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
-  }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
-  const sinLeer = usePortalNotifUnreadCount(session?.socioId, notifItems);
+    if (!socioId) return [];
+    return buildPortalNotifications({ socioId, reservas, recibos, sesiones, tiposClase, instructores });
+  }, [socioId, reservas, recibos, sesiones, tiposClase, instructores]);
+  const sinLeer = usePortalNotifUnreadCount(socioId, notifItems);
 
   const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const proximas = misReservas.filter(r => {
@@ -393,7 +398,15 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                   </>
                 ) : (
                   <>
-                    <div style={{ ...texto.meta, color: t.muted2 }}>{saludoPorHora(now)}</div>
+                    {/* Con `ahora`, no con `now`: es lo ÚNICO de esta pantalla
+                        que pinta contenido real derivado solo de la hora (lo
+                        demás sale de datos del estudio, vacíos hasta montar).
+                        Con el placeholder saldría "Buenas noches" y cambiaría
+                        de golpe al montar; y leerlo del reloj del servidor
+                        (UTC) tampoco vale, porque la franja horaria de la socia
+                        puede caer en otro saludo y eso es un desajuste de
+                        hidratación. Mismo criterio que `fechaHoy` más abajo. */}
+                    <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
                     <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {nombre}
                     </h1>
