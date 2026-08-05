@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos } from './portal-home-logic.ts';
+import { calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from './portal-home-logic.ts';
 import type { Reserva, Sesion } from './types.ts';
 
 // Miércoles 2026-08-05, 10:00 — un día fijo a media semana para que "lunes de
@@ -121,4 +121,16 @@ test('rotuloAccesos: la variante de FILAS no lleva encabezado (es la de hoy)', (
   assert.equal(rotuloAccesos('filas'), null);
   assert.equal(rotuloAccesos('rejilla'), 'Mis accesos rápidos');
   assert.equal(rotuloAccesos('circulos'), 'Accesos rápidos');
+});
+
+test('saludoPorHora: los cortes de franja, que solo se ven en producción a deshora', () => {
+  const a = (h: number) => saludoPorHora(new Date(2026, 7, 5, h, 30));
+  assert.equal(a(0), 'Buenas noches');
+  assert.equal(a(5), 'Buenas noches');
+  assert.equal(a(6), 'Buenos días');
+  assert.equal(a(12), 'Buenos días');
+  assert.equal(a(13), 'Buenas tardes');
+  assert.equal(a(20), 'Buenas tardes');
+  assert.equal(a(21), 'Buenas noches');
+  assert.equal(a(23), 'Buenas noches');
 });

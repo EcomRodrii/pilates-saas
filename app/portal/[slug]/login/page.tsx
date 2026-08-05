@@ -35,7 +35,13 @@ export default function PortalLogin() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
   const { loginConPassword } = usePortalAuth();
-  const { studio, dataLoaded, tabBarStyle } = useStudio();
+  const { studio, dataLoaded, tabBarStyle, variantes } = useStudio();
+  // ⚠️ El OR con `tabBarStyle` NO es redundante y no se puede quitar: los
+  // estudios que YA instalaron Editorial tienen `tabBarStyle: 'pestanaActiva'`
+  // guardado en su borrador y NINGÚN `variantes` — `defaults` no es
+  // retroactivo (instalar() los congela al instalar). Sin este OR perderían la
+  // bienvenida en silencio al desplegar esto.
+  const quiereBienvenida = variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva';
   const { t, noche } = useModo();
   // Tema "Editorial": una pantalla de bienvenida a pantalla completa antes del
   // login, una sola vez por dispositivo. Empieza en `true` (se ve el login,
@@ -47,13 +53,13 @@ export default function PortalLogin() {
   // vea este tema por primera vez es preferible a bloquear a todo el mundo.
   const [bienvenidaVista, setBienvenidaVista] = useState(true);
   useEffect(() => {
-    if (!dataLoaded || tabBarStyle !== 'pestanaActiva') return;
+    if (!dataLoaded || !quiereBienvenida) return;
     if (yaVioBienvenida(slug)) return;
     // localStorage no existe en el servidor: esto solo puede resolverse tras
     // montar, no hay forma de calcularlo durante el render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBienvenidaVista(false);
-  }, [dataLoaded, tabBarStyle, slug]);
+  }, [dataLoaded, quiereBienvenida, slug]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -92,6 +98,7 @@ export default function PortalLogin() {
       <BienvenidaPortal
         nombreEstudio={nombreEstudio}
         fotoUrl={studio?.fotoUrl ?? null}
+        variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
         onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
       />
     );
