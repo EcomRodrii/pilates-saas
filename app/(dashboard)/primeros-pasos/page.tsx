@@ -27,6 +27,18 @@ const ICONOS_CATEGORIA: Record<string, LucideIcon> = {
   portal: Smartphone,
 };
 
+// Ilustraciones (unDraw, recoloreadas al verde de marca) — de icono suelto a
+// algo con la cara que pide el spec original. Solo en esta página: la
+// tarjeta compacta del dashboard (onboarding-checklist.tsx) sigue siendo
+// solo icono, no hay sitio para una ilustración en una tira tan estrecha.
+const ILUSTRACIONES_CATEGORIA: Record<string, string> = {
+  'configuracion-inicial': '/ilustraciones/configuracion.svg',
+  pagos: '/ilustraciones/pagos.svg',
+  automatizaciones: '/ilustraciones/automatizaciones.svg',
+  equipo: '/ilustraciones/equipo.svg',
+  portal: '/ilustraciones/portal.svg',
+};
+
 export default function PrimerosPasosPage() {
   const {
     studio, instructores, tiposClase, sesiones, socios,
@@ -111,8 +123,16 @@ export default function PrimerosPasosPage() {
         </Link>
       </div>
 
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
+      <div className="rounded-2xl border border-border bg-card p-6 flex items-center gap-6 overflow-hidden">
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">{pct}% de tu estudio está listo</p>
+          <p className="text-[13px] text-muted-foreground mt-1">Ve completando lo que te falta a tu ritmo — no hace falta hacerlo todo hoy.</p>
+          <div className="h-2 rounded-full bg-muted overflow-hidden mt-4">
+            <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/ilustraciones/hero.svg" alt="" className="hidden sm:block w-40 shrink-0" />
       </div>
 
       {totalCompletados === totalPasos ? (
@@ -120,7 +140,8 @@ export default function PrimerosPasosPage() {
           'rounded-2xl border border-border bg-card p-6 text-center',
           recienCompletado && 'animate-in fade-in-0 zoom-in-95 duration-300',
         )}>
-          <CheckCircle2 size={28} className="text-brand-secondary mx-auto mb-2" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ilustraciones/completado.svg" alt="" className="w-32 h-32 mx-auto mb-2" />
           <p className="text-[15px] font-semibold text-foreground">Configuración inicial completada</p>
           <p className="text-[13px] text-muted-foreground mt-1">Tu estudio ya está preparado para recibir reservas.</p>
         </div>
@@ -191,7 +212,11 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
             </span>
           )}
         </span>
-        <span className="flex items-center gap-2 shrink-0">
+        <span className="flex items-center gap-3 shrink-0">
+          {ILUSTRACIONES_CATEGORIA[categoria.id] && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ILUSTRACIONES_CATEGORIA[categoria.id]} alt="" className="hidden sm:block w-[72px] h-14 object-cover rounded-lg" />
+          )}
           <span className="text-[12px] text-muted-foreground">{completados}/{total}</span>
           <ChevronDown size={16} className={cn('text-muted-foreground transition-transform', abierta && 'rotate-180')} />
         </span>
