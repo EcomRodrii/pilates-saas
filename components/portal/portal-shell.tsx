@@ -52,7 +52,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     if (isLoading || isClaveNueva) return;
     if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
     if (session && isLoginPage) router.replace(`/portal/${slug}/home`);
-  }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]);
 
   // Transición entre pantallas del portal: la pantalla saliente se queda
   // montada (misma key, así React la conserva en vez de desmontarla) y se

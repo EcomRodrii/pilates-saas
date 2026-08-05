@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useAhora } from '@/lib/use-ahora';
 import { useStudio } from '@/lib/studio-context';
 import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
@@ -14,6 +13,11 @@ import { inicioDeSemana, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
+
+// Fecha fija con la que servidor y cliente pintan lo mismo hasta que monta
+// (guarda de hidratación). A nivel de módulo para que sea la MISMA referencia
+// en cada render.
+const FALLBACK_SSR = new Date('2026-06-29');
 
 function localDate(d: Date | string): string {
   const dt = typeof d === 'string' ? new Date(d) : d;
@@ -161,14 +165,20 @@ export default function Informes() {
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
   const [retencion, setRetencion] = useState(0);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
-  useEffect(() => setMounted(true), []);
-
-  // `now` estable entre renders: antes era `new Date()` en cada render, y como
-  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
-  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
-  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
-  const { ahora: now } = useAhora(new Date('2026-06-29'));
+  // `now` en estado en vez de `new Date()` en el cuerpo del render, mismo
+  // arreglo que dashboard y calendario. Aquí importaba doblemente: los cuatro
+  // memos de abajo llevaban `mounted` en las dependencias EN VEZ de `now`, o
+  // sea que declaraban depender de algo que solo cambia una vez. Con `now` de
+  // verdad en las deps, cruzar la medianoche (o el fin de mes) recalcula los
+  // KPIs y las cohortes en vez de dejarlas mostrando el período de ayer.
+  const [now, setNow] = useState(FALLBACK_SSR);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta FALLBACK_SSR y el cliente salta a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
+    setMounted(true);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ─── Period bounds ──────────────────────────────────────────────────────────
   const periodStart = useMemo(() => getPeriodStart(period, now), [period, now]);

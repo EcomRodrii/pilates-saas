@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
-import { useAhora } from '@/lib/use-ahora';
 import { dbStatsClientas } from '@/lib/supabase-data';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
@@ -158,10 +157,6 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
-  // El reloj se lee del estado, no durante el render: leerlo en render es
-  // impuro (dos lecturas del mismo render pueden diferir, y React puede
-  // descartar y repetir un render) y daba una identidad nueva cada vez.
-  const { ahora } = useAhora(new Date());
   const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
   const rol = useRol();
@@ -255,7 +250,12 @@ export default function Socios() {
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
     }
-  }, []);
+    // `gestionaClientas` SÍ va en las dependencias, no es ruido: el rol se
+    // resuelve después del primer render, así que con `[]` el efecto corría una
+    // vez con el permiso todavía en false y el enlace `?nuevo=1` del dashboard
+    // no abría nada. Al volver a correr cuando el permiso llega, la URL sigue
+    // teniendo `?nuevo=1` (solo se limpia si se entró) y el alta se abre.
+  }, [gestionaClientas]);
 
   // ── Índices precomputados (P0-34) ──────────────────────────────────────────
   // Antes cada helper escaneaba suscripciones/reservas/sesiones ENTERAS, y se
@@ -300,10 +300,22 @@ export default function Socios() {
     return ultimaVisitaPorSocio.get(socioId) ?? null;
   }
 
+  // El "ahora" con el que se decide quién lleva 30 días sin venir se fija una
+  // vez al montar, en vez de leer el reloj en cada render. Sin intervalo a
+  // propósito: el umbral es de 30 días, no se cruza mientras la pantalla está
+  // abierta. `0` = todavía sin montar, y entonces nadie sale como inactiva
+  // (mejor no marcar a nadie que marcar a todas durante un frame).
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: leer el reloj en render daría valores distintos en servidor y cliente.
+    setAhoraMs(Date.now());
+  }, []);
+
   function isInactiva30d(socioId: string): boolean {
+    if (!ahoraMs) return false;
     const last = getLastVisit(socioId);
     if (!last) return true;
-    return ahora.getTime() - new Date(last).getTime() > 30 * 86400000;
+    return ahoraMs - new Date(last).getTime() > 30 * 86400000;
   }
 
   function isBonoExpirado(socioId: string): boolean {
@@ -376,7 +388,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir]);
+  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir, ahoraMs]);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {

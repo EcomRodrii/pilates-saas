@@ -55,31 +55,13 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "off",
     },
   },
-  {
-    // ─── Deuda acotada de react-hooks: 49 casos, TODOS preexistentes ─────────
-    //
-    // Estas 5 reglas (del plugin nuevo de React 19) nunca habían corrido en CI,
-    // así que llegaron con backlog. Bajarlas a "warn" NO es taparlas: es lo que
-    // permite que el lint pase a BLOQUEAR de verdad hoy mismo. Antes, con
-    // `continue-on-error` en el workflow, no bloqueaba NADA — un `any` nuevo en
-    // producción o una entidad sin escapar entraban sin que nadie se enterara.
-    // Ahora todo lo demás corta el CI y solo queda visible esta lista concreta.
-    //
-    // No se arreglan aquí a propósito: 32 son `set-state-in-effect` sobre el
-    // render de calendario, clientas y dashboard. Cambiarlos altera CUÁNDO
-    // pinta cada pantalla, y eso hay que verlo en un navegador autenticado, no
-    // deducirlo. Van en su propio PR, con verificación pantalla por pantalla.
-    //
-    // Al llegar a 0, borrar este bloque entero — no relajarlo más.
-    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
-    rules: {
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/purity": "warn",
-      "react-hooks/refs": "warn",
-      "react-hooks/preserve-manual-memoization": "warn",
-      "react-hooks/immutability": "warn",
-    },
-  },
+  // Aquí vivía el bloque que bajaba a "warn" 5 reglas de react-hooks
+  // (`set-state-in-effect`, `purity`, `refs`, `preserve-manual-memoization`,
+  // `immutability`) mientras se saldaba la deuda con la que llegaron. Su propio
+  // comentario decía "al llegar a 0, borrar este bloque entero — no relajarlo
+  // más", y eso es lo que se ha hecho: vuelven a su severidad por defecto, que
+  // es error. Con el contador a 0 y el `--max-warnings 0` del workflow, ni un
+  // aviso nuevo puede volver a acumularse sin que alguien lo vea.
 ]);
 
 export default eslintConfig;

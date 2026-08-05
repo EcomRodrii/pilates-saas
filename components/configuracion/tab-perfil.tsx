@@ -64,9 +64,12 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
     let vivo = true;
     fetchTarifasEquipo().then(r => { if (vivo) setTarifaHora(r[0]?.tarifaHora ?? null); });
     return () => { vivo = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `yo` es un objeto
-    // recalculado cada render (instructores.find); depender de yo.id evita
-    // repetir el fetch en cada tecleo del formulario de más abajo.
+    // `yo` es un objeto recalculado cada render (instructores.find); depender
+    // de yo.id evita repetir el fetch en cada tecleo del formulario de abajo.
+    // El disable va en la ÚLTIMA línea de comentario, pegado al array: la regla
+    // señala la línea de las dependencias, y puesto tres líneas más arriba no
+    // tapaba nada — llevaba avisando sin que se notara.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rol, yo?.id]);
 
   async function guardarPerfilPropietaria() {

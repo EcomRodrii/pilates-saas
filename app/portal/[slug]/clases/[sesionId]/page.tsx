@@ -65,10 +65,16 @@ export default function ClaseDetallePage() {
     return ses.aforoMaximo - reservas.filter(r => r.sesionId === ses.id && r.estado === 'CONFIRMADA').length;
   }, [ses, reservas]);
 
+  // El id se saca FUERA del memo a propósito: la guarda estrecha `session` y la
+  // línea siguiente lo leía como `session.socioId` (ya sin `?.`), así que el
+  // compilador de React deducía como dependencia el objeto `session` entero —
+  // más ancha que el `session?.socioId` declarado a mano — y ante esa
+  // discrepancia renunciaba a optimizar la pantalla COMPLETA.
+  const socioId = session?.socioId;
   const miReserva = useMemo(() => {
-    if (!ses || !session?.socioId) return null;
-    return reservas.find(r => r.sesionId === ses.id && r.socioId === session.socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
-  }, [ses, reservas, session?.socioId]);
+    if (!ses || !socioId) return null;
+    return reservas.find(r => r.sesionId === ses.id && r.socioId === socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
+  }, [ses, reservas, socioId]);
 
   const spotsDeLaSala = useMemo(
     () => (ses ? spots.filter(sp => sp.activo && sp.salaId === ses.salaId) : []),

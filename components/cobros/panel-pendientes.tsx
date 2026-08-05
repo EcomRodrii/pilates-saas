@@ -531,7 +531,9 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     });
     setStripeLoading(null);
     if ('url' in result && result.url) {
-      window.location.href = result.url;
+      // `assign()` en vez de `href = …`: mismo salto, pero llamada en vez de
+      // mutación de un global (lo que marcaba `react-hooks/immutability`).
+      window.location.assign(result.url);
     } else {
       const err = 'error' in result ? result.error : 'Error desconocido';
       setStripeToast({ tipo: 'error', msg: err });
