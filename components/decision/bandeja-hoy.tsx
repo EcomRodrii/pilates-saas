@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import Link from 'next/link';
 import { Wrench, CreditCard, RotateCcw, CalendarClock, ChevronRight, type LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,14 +25,17 @@ export function BandejaHoy() {
     sesiones, reservas, socios, salas, socioExcepciones,
   } = useStudio();
 
-  // Date.now() aquí (cliente) — la lógica pura lo recibe inyectado y es testeable.
+  // La hora se INYECTA en la lógica pura (que así sigue siendo testeable), pero
+  // se lee del estado y no durante el render: un `Date.now()` dentro del useMemo
+  // es impuro y además hacía que el valor dependiera de CUÁNDO se recalculó.
+  const { ahora } = useAhora(new Date());
   const items = useMemo(
     () => construirBandeja({
-      ahoraMs: Date.now(),
+      ahoraMs: ahora.getTime(),
       recuperaciones, recibos, plazasFijas, bloqueosMaquina,
       sesiones, reservas, socios, salas, excepciones: socioExcepciones,
     }),
-    [recuperaciones, recibos, plazasFijas, bloqueosMaquina, sesiones, reservas, socios, salas, socioExcepciones],
+    [ahora, recuperaciones, recibos, plazasFijas, bloqueosMaquina, sesiones, reservas, socios, salas, socioExcepciones],
   );
 
   if (items.length === 0) return null;

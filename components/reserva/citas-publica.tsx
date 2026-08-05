@@ -2,6 +2,7 @@
 import { queImparten } from '@/lib/equipo';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { Clock, ChevronLeft, ChevronRight, X, CheckCircle2, Calendar, User } from 'lucide-react';
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
@@ -55,6 +56,10 @@ export function CitasPublica({
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
 }: CitasPublicaProps) {
   const hoy = useMemo(() => new Date(), []);
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
   const [servicioId, setServicioId] = useState<string | null>(servicios.length === 1 ? servicios[0].id : null);
   const [instructorId, setInstructorId] = useState<string | null>(null);
   const [weekAnchor, setWeekAnchor] = useState<Date>(hoy);
@@ -112,7 +117,7 @@ export function CitasPublica({
   function cerrarSheet() { setBooking(null); setResultado(null); }
 
   const citasFuturas = misCitas
-    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > Date.now())
+    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > ahora.getTime())
     .sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   if (servicios.length === 0) {
