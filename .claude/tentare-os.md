@@ -117,10 +117,11 @@ Internal", backoffice de Tentare-empresa, no relacionado); `app/portal/[slug]`
 (marca blanca por estudio, tercer contexto de marca ya separado); los emails a
 socias/clientas (sin marca de producto interno, solo la marca del estudio); el logo
 colapsado del sidebar (el icono "T" es el mismo en las tres marcas, sin texto que
-distinguir) y el de `/login` (aunque ya existen `logo-stacked-core.png`/
-`-manager.png` con export real de diseño, `/login` sigue sin poder usarlos porque el
-rol no se conoce antes de autenticar — no es un hueco de asset, es la misma
-limitación de siempre).
+distinguir) y el de `/login` (el rol no se conoce antes de autenticar — no es un
+hueco de asset, es la misma limitación de siempre; hubo un `logo-stacked-core.png`
+/`-manager.png` esperando a que se resolviera y se borraron al no usarlos nadie:
+si algún día hace falta, salen de `docs/marca/` con
+`node scripts/regenerar-marca.mjs`).
 
 ## Tentare Core — autoservicio de instructora (completo, 2026-07-30)
 
