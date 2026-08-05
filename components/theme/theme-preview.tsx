@@ -1,6 +1,7 @@
 'use client';
 
-import { MarcoMovil, MarcoMovilVacio } from './marco-movil';
+import { MarcoDispositivo } from './marco-dispositivo';
+import type { DispositivoId } from '@/lib/theme/dispositivos';
 import { useEffect, useRef } from 'react';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
@@ -10,7 +11,7 @@ import type { ThemeConfig } from '@/lib/theme-schema';
 // el tema BORRADOR aplicándose en vivo por postMessage (lo recibe
 // ThemePreviewListener, montado en la página de reservas). Fiel al 100% porque
 // es la página de verdad, no una maqueta.
-export function ThemePreview({ config, slug }: { config: ThemeConfig; slug?: string | null }) {
+export function ThemePreview({ config, slug, dispositivo = 'movil', zoom = 1 }: { config: ThemeConfig; slug?: string | null; dispositivo?: DispositivoId; zoom?: number }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const vars = themeToCssVars(config) as Record<string, string>;
   // Los dos emisores de este mensaje mandan la MISMA forma a propósito (ver
@@ -33,11 +34,11 @@ export function ThemePreview({ config, slug }: { config: ThemeConfig; slug?: str
   });
 
   if (!slug) {
-    return <MarcoMovilVacio>La vista previa aparecerá cuando el estudio tenga su enlace de reservas listo.</MarcoMovilVacio>;
+    return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá cuando el estudio tenga su enlace de reservas listo." />;
   }
 
   return (
-    <MarcoMovil>
+    <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
       <iframe
         ref={ref}
         src={`/reservar/${slug}`}
@@ -45,6 +46,6 @@ export function ThemePreview({ config, slug }: { config: ThemeConfig; slug?: str
         onLoad={enviar}
         className="w-full h-full border-0"
       />
-    </MarcoMovil>
+    </MarcoDispositivo>
   );
 }

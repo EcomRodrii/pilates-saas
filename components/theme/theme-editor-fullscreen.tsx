@@ -24,6 +24,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle, Undo2, Redo2,
+  Smartphone, Tablet, Monitor, type LucideIcon,
 } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { PANTALLA_IDS, PANTALLA_LABEL, bloqueEstaCompleto, type PantallaId, type BloqueHome } from '@/lib/portal-home-bloques';
@@ -35,6 +36,7 @@ import { useBloquesEditor, BloquesSeccionesList, BloquesConfigPanel, labelDe } f
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
 import { SelectorPagina, type OpcionPagina } from './selector-pagina';
+import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -44,6 +46,10 @@ import { Button } from '@/components/ui/button';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const RUTA_BIBLIOTECA = '/configuracion/apariencia';
+
+const ICONO_DISPOSITIVO: Record<DispositivoId, LucideIcon> = {
+  movil: Smartphone, tablet: Tablet, completo: Monitor,
+};
 
 type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'reservas' | 'perfil';
 
@@ -88,6 +94,7 @@ export function ThemeEditorFullscreen() {
   const [pantallaMirada, setPantallaMirada] = useState<VistaId>('home');
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
   const [zoom, setZoom] = useState(1);
+  const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
   const [previewVivo, setPreviewVivo] = useState(true);
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
@@ -219,6 +226,24 @@ export function ThemeEditorFullscreen() {
         </div>
 
         <div className="flex items-center gap-1.5 flex-none">
+          <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Dispositivo">
+            {DISPOSITIVO_IDS.map((id) => {
+              const Icono = ICONO_DISPOSITIVO[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDispositivo(id)}
+                  aria-pressed={dispositivo === id}
+                  title={DISPOSITIVOS[id].etiqueta}
+                  aria-label={DISPOSITIVOS[id].etiqueta}
+                  className={`p-1.5 rounded-md ${dispositivo === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icono size={15} />
+                </button>
+              );
+            })}
+          </div>
           <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5">
             <button type="button" onClick={() => setZoom((z) => Math.max(0.75, z - 0.1))} aria-label="Alejar" className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom <= 0.75}>
               <ZoomOut size={14} />
@@ -346,9 +371,12 @@ export function ThemeEditorFullscreen() {
 
         {/* Preview central */}
         <div className="overflow-auto p-6 flex items-start justify-center bg-muted/30">
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
+          {/* Ya NO se escala aquí: el zoom viaja al marco, que lo combina con
+              el encogido automático del dispositivo. Escalar dos veces (aquí y
+              dentro) multiplicaba los factores sin que nadie lo dijera. */}
+          <div className="w-full">
             {nodo.tipo === 'tema' ? (
-              <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} />
+              <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} dispositivo={dispositivo} zoom={zoom} />
             ) : nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
                 <p className="text-[12px] text-muted-foreground">Este panel es interno, no tiene vista previa.</p>
@@ -367,6 +395,8 @@ export function ThemeEditorFullscreen() {
                 onBloqueSeleccionado={(id) => seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id })}
                 temaBorrador={ajustesHook.draft}
                 irA={comandoVista}
+                dispositivo={dispositivo}
+                zoom={zoom}
               />
             )}
           </div>
