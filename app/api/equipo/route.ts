@@ -16,6 +16,7 @@ const MENSAJE_EMAIL_DUPLICADO =
   'Ya hay alguien en tu equipo con ese email. Si volvió después de una baja, reactiva su ficha en vez de crear otra: así conserva su historial.';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { congelarBajaCartera } from '@/lib/instructor-dependency';
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
 // enforcement de servidor. Antes el cliente escribía `rol` —incluido PROPIETARIO—
@@ -261,7 +262,7 @@ export async function DELETE(req: NextRequest) {
 
   // Un manager no puede borrar a la propietaria ni a otro manager.
   const { data: victima } = await admin
-    .from('instructores').select('rol').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+    .from('instructores').select('rol, nombre').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
   if (sesion.rol !== 'PROPIETARIO') {
     if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
       return NextResponse.json({ error: 'No puedes dar de baja a esta persona.' }, { status: 403 });
@@ -269,6 +270,17 @@ export async function DELETE(req: NextRequest) {
   }
   if (victima?.rol === 'PROPIETARIO' && await quedariaSinPropietaria(admin, sesion.studioId, id)) {
     return NextResponse.json({ error: MENSAJE_ULTIMA_PROPIETARIA }, { status: 409 });
+  }
+
+  // Fila 18: congelar la cartera ANTES del DELETE — `instructor_dependency_
+  // snapshots.instructor_id` tiene ON DELETE CASCADE, así que tras el borrado
+  // ya no habría nada que leer.
+  if (victima?.nombre) {
+    await congelarBajaCartera(admin, {
+      studioId: sesion.studioId,
+      instructorId: id,
+      instructorNombre: victima.nombre,
+    }).catch(e => console.error('[equipo:congelar-baja-cartera]', e));
   }
 
   const { error } = await admin
