@@ -173,6 +173,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   const now = mounted ? new Date() : new Date('2026-06-29');
 

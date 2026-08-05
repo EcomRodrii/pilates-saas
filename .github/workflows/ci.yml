@@ -68,14 +68,12 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # NO bloqueante todavía, a propósito. El lint nunca ha corrido en CI, así
-      # que hay deuda acumulada: 119 errores y 257 avisos a fecha de hoy (los
-      # 42 `react-hooks/set-state-in-effect` son cascadas de render reales, se
-      # atacan en el PR de rendimiento). Ponerlo a bloquear ahora dejaría el
-      # repo en rojo permanente. Cuando el contador llegue a 0, quitar el
-      # `continue-on-error` — ese es el único paso que falta.
-      - name: Lint (informativo, aún no bloquea)
-        continue-on-error: true
+      # BLOQUEA. Entró como informativo porque el lint no había corrido nunca en
+      # CI y llegó con 117 errores; ya están a 0 y el `continue-on-error` se ha
+      # ido. Quedan 49 casos de 5 reglas de react-hooks degradados a "warn" y
+      # acotados en eslint.config.mjs, con su plan escrito — el resto de reglas
+      # ya corta el CI, que era el objetivo: que no entre deuda NUEVA.
+      - name: Lint
         run: npm run lint -- --cache --cache-location .eslintcache
 
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)

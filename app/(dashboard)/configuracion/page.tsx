@@ -275,6 +275,7 @@ export default function ConfiguracionPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
 
   // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids

@@ -453,6 +453,7 @@ export default function Dashboard() {
 
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   // Auditoría 2026-07-29, I-4 + M-4: `new Date()` sin memoizar creaba un
   // objeto NUEVO en cada render, y `now` está en las dependencias de varios

@@ -503,6 +503,7 @@ export default function Calendario() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: los tres estados arrancan en FALLBACK (fecha fija) para que servidor y cliente pinten lo mismo, y saltan a la fecha real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
   useEffect(() => {
     const today = new Date();
     setMounted(true);
