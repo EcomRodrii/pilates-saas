@@ -27,6 +27,8 @@
 //    — el mismo bug de spread superficial que ya mordió en `instalar()` con
 //    `variantes`/`radioTema` (ver theme-library.tsx).
 
+import { resolverHrefBloque, resolverVideoEmbed } from './enlaces.ts';
+
 /** Una opción de un campo `opciones`/`select`. */
 export interface OpcionCampo {
   id: string;
@@ -153,42 +155,18 @@ export type ConfigDe<Campos extends readonly CampoSchema[]> = {
 };
 
 // ── Validadores con nombre ──────────────────────────────────────────────────
-// Espejan el saneado que YA hace el render (`resolverHrefBloque`,
-// `resolverVideoEmbed` en lib/portal-home-bloques.ts). Aquí solo se necesita
-// el "¿es válido?", no el valor resuelto, así que se comprueba la forma sin
-// importar aquel módulo (que a su vez importaría éste — ciclo).
+// `href` y `videoEmbed` delegan en los MISMOS resolvedores que usa el render
+// (lib/theme/enlaces.ts). Antes estaban duplicados aquí "para no importar
+// aquel módulo" y las dos copias ya habían divergido en ambos sentidos — con
+// el motor decidiendo si un bloque está completo, esa divergencia acaba en un
+// `<iframe src={null}>` delante de una socia. Aquí solo hace falta el "¿es
+// válido?", no el valor resuelto, pero la respuesta tiene que ser la misma.
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-function esHrefValido(valor: unknown): boolean {
-  if (typeof valor !== 'string') return false;
-  const v = valor.trim();
-  if (v === '') return false;
-  // Ruta interna del portal.
-  if (v.startsWith('/')) return true;
-  try {
-    const u = new URL(v);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function esVideoValido(valor: unknown): boolean {
-  if (typeof valor !== 'string') return false;
-  const v = valor.trim();
-  if (v === '') return false;
-  try {
-    const host = new URL(v).hostname.replace(/^www\./, '');
-    return host === 'youtube.com' || host === 'youtu.be' || host === 'vimeo.com' || host === 'player.vimeo.com';
-  } catch {
-    return false;
-  }
-}
-
 const VALIDADORES: Record<NombreValidador, (valor: unknown) => boolean> = {
-  href: esHrefValido,
-  videoEmbed: esVideoValido,
+  href: (v) => typeof v === 'string' && resolverHrefBloque(v) !== null,
+  videoEmbed: (v) => typeof v === 'string' && resolverVideoEmbed(v) !== null,
   hex: (v) => typeof v === 'string' && HEX.test(v),
 };
 
@@ -291,7 +269,7 @@ export function camposVisibles(
  * está mal, y perder lo tecleado por eso sería peor que el error.
  */
 export function validarCampo(campo: CampoSchema, valor: unknown): string | null {
-  if (campo.tipo === 'url' && typeof valor === 'string' && valor.trim() !== '' && !esHrefValido(valor)) {
+  if (campo.tipo === 'url' && typeof valor === 'string' && valor.trim() !== '' && !VALIDADORES.href(valor)) {
     return 'Escribe una ruta que empiece por / o un enlace https://';
   }
   if (campo.tipo === 'color' && typeof valor === 'string' && !HEX.test(valor)) {

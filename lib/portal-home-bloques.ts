@@ -23,7 +23,7 @@
 // arrastrar peso — mismo principio que layout-runtime.ts. La validación con
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
-import { defaultsDe, type CampoSchema, type ConfigDe } from './theme/campos.ts';
+import { cumpleCondicion, defaultsDe, type CampoSchema, type CondicionCampo, type ConfigDe } from './theme/campos.ts';
 
 export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
 export type PantallaId = (typeof PANTALLA_IDS)[number];
@@ -265,6 +265,14 @@ export interface DefinicionBloque {
   campos: readonly CampoSchema[];
   /** Si admite `estilo` propio. Los `sistema` son UI de producto, no. */
   estilizable: boolean;
+  /**
+   * Cuándo el bloque tiene contenido suficiente para pintarse. Ausente =
+   * siempre completo (es el caso de `banner`, que se pinta con o sin imagen).
+   * La MISMA condición gobierna el `return null` del render y el gate de
+   * "antes de publicar" del editor: antes eran dos listas escritas por
+   * separado que podían contradecirse en silencio.
+   */
+  completoSi?: CondicionCampo;
 }
 
 /**
@@ -278,36 +286,43 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_BANNER,
+    // Sin `completoSi`: un banner se pinta con o sin imagen y sin enlace.
     descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
   },
   texto: {
     id: 'texto', nombre: 'Texto', icono: 'Type', origen: 'catalogo',
     categoria: 'texto', estilizable: true, campos: CAMPOS_TEXTO,
+    completoSi: { alguna: [{ campo: 'titulo', noVacio: true }, { campo: 'texto', noVacio: true }] },
     descripcion: 'Un bloque de texto libre, con título opcional.',
   },
   cta: {
     id: 'cta', nombre: 'Llamada a la acción', icono: 'MousePointerClick', origen: 'catalogo',
     categoria: 'interaccion', estilizable: true, campos: CAMPOS_CTA,
+    completoSi: { todas: [{ campo: 'href', valido: 'href' }, { campo: 'textoBoton', noVacio: true }] },
     descripcion: 'Título y un botón que lleva a donde quieras.',
   },
   faq: {
     id: 'faq', nombre: 'Preguntas frecuentes', icono: 'HelpCircle', origen: 'catalogo',
     categoria: 'texto', estilizable: true, campos: CAMPOS_FAQ,
+    completoSi: { campo: 'preguntas', minimo: 1 },
     descripcion: 'Lista de preguntas y respuestas, plegable.',
   },
   galeria: {
     id: 'galeria', nombre: 'Galería de imágenes', icono: 'GalleryHorizontal', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_GALERIA,
+    completoSi: { campo: 'imagenes', minimo: 1 },
     descripcion: 'Varias imágenes en un carrusel horizontal.',
   },
   video: {
     id: 'video', nombre: 'Vídeo', icono: 'Video', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_VIDEO,
+    completoSi: { campo: 'url', valido: 'videoEmbed' },
     descripcion: 'Un vídeo embebido de YouTube o Vimeo.',
   },
   testimonios: {
     id: 'testimonios', nombre: 'Testimonios', icono: 'Quote', origen: 'catalogo',
     categoria: 'texto', estilizable: true, campos: CAMPOS_TESTIMONIOS,
+    completoSi: { campo: 'testimonios', minimo: 1 },
     descripcion: 'Citas de socias, con autora y rol opcional.',
   },
 
@@ -502,78 +517,20 @@ export function bloquesVisibles(bloques: BloqueHome[]): BloqueHome[] {
   return bloques.filter((b) => !b.oculto);
 }
 
-/**
- * Resuelve el `href` de un bloque (banner/cta) a algo seguro para enlazar, o
- * `null` si no lo es. No basta con validar en el editor: el dato viene de
- * jsonb guardado por el estudio, que pudo teclear cualquier cosa. Un link
- * interno es una ruta ("/reservar"); uno externo solo se acepta si es
- * http(s) — nada de `javascript:`/`data:`. Mismo criterio que
- * hrefExternoSeguro() en app/portal/[slug]/home/page.tsx (banners legacy).
- */
-export function resolverHrefBloque(href: string): { interno: true; valor: string } | { interno: false; valor: string } | null {
-  const v = href.trim();
-  if (!v) return null;
-  if (v.startsWith('/')) return { interno: true, valor: v };
-  try {
-    const u = new URL(v);
-    return u.protocol === 'http:' || u.protocol === 'https:' ? { interno: false, valor: v } : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resuelve la URL de un bloque `video` a una URL de EMBED segura, o `null`
- * si no lo es. El dato viene de jsonb tecleado por el estudio — nunca se
- * mete crudo en un `<iframe src>`: solo YouTube/Vimeo por whitelist de host,
- * mismo criterio de "validar en el render, no solo en el editor" que
- * resolverHrefBloque().
- */
-export function resolverVideoEmbed(url: string): string | null {
-  const v = url.trim();
-  if (!v) return null;
-  let u: URL;
-  try {
-    u = new URL(v);
-  } catch {
-    return null;
-  }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-  const host = u.hostname.replace(/^www\./, '');
-
-  if (host === 'youtube.com' || host === 'm.youtube.com') {
-    const id = u.pathname === '/watch' ? u.searchParams.get('v') : u.pathname.startsWith('/embed/') ? u.pathname.slice('/embed/'.length) : null;
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  if (host === 'youtu.be') {
-    const id = u.pathname.slice(1);
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  if (host === 'vimeo.com') {
-    const id = u.pathname.slice(1).split('/')[0];
-    return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
-  }
-  if (host === 'player.vimeo.com') {
-    return u.pathname.startsWith('/video/') ? v : null;
-  }
-  return null;
-}
+// Re-exportados desde lib/theme/enlaces.ts, donde viven ahora para que el
+// motor de campos pueda usar la MISMA validación sin crear un ciclo. Se
+// re-exportan para no tocar a los callers (el render los importa de aquí).
+export { resolverHrefBloque, resolverVideoEmbed } from './theme/enlaces.ts';
 
 /**
  * Si un bloque del catálogo tiene contenido suficiente para pintarse de
- * verdad. Espeja EXACTAMENTE las condiciones de "return null" de cada
- * componente en components/portal/bloque-home-render.tsx — misma fuente de
- * verdad para el render y para el gate de "antes de publicar" del editor
- * (lib/portal-home-bloques.test.ts prueba que un bloque incompleto aquí es
- * el mismo que se pinta vacío allí; no duplicar la lógica en el editor).
- * `banner` nunca está incompleto: se pinta con o sin imagen/enlace.
+ * verdad. Ya no es una cadena de `if` por kind: la condición vive en el
+ * registro (`completoSi`) y aquí solo se evalúa. Sigue siendo la MISMA
+ * fuente de verdad para el `return null` de cada componente de render y para
+ * el gate de "antes de publicar" del editor.
  */
 export function bloqueEstaCompleto(b: Exclude<BloqueHome, { kind: 'sistema' }>): boolean {
-  if (b.kind === 'banner') return true;
-  if (b.kind === 'texto') return !!(b.config.titulo || b.config.texto);
-  if (b.kind === 'cta') return resolverHrefBloque(b.config.href) !== null && !!b.config.textoBoton;
-  if (b.kind === 'faq') return b.config.preguntas.length > 0;
-  if (b.kind === 'galeria') return b.config.imagenes.length > 0;
-  if (b.kind === 'video') return resolverVideoEmbed(b.config.url) !== null;
-  return b.config.testimonios.length > 0;
+  const def = getDefinicionBloque(b.kind);
+  if (!def) return false;
+  return cumpleCondicion(def.completoSi, b.config as Record<string, unknown>);
 }

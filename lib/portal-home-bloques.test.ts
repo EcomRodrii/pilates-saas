@@ -340,3 +340,79 @@ test('DEFAULT_BLOQUES_POR_PANTALLA sigue sacando el orden de BLOQUES_SISTEMA_POR
     assert.deepEqual(enPantalla, [...BLOQUES_SISTEMA_POR_PANTALLA[pantalla]], pantalla);
   }
 });
+
+// ── completoSi: el motor y el render tienen que decir lo MISMO ──────────────
+// Este es el punto entero del cambio. `bloqueEstaCompleto` decide si el
+// bloque se pinta; el render, justo después, hace `resolverVideoEmbed(url)!`
+// y `resolverHrefBloque(href)!` con la aserción de no-nulo puesta. Si el
+// validador del motor fuera un ápice más laxo que el resolvedor del render,
+// esa aserción sería mentira y la socia acabaría viendo un `<iframe
+// src={null}>`. Pasó de verdad mientras se escribía esto: había dos copias de
+// la validación y divergían en AMBOS sentidos.
+const URLS_FRONTERIZAS = [
+  'https://youtube.com/',                       // host bueno, sin id
+  'https://youtube.com/watch',                  // /watch sin ?v=
+  'https://youtube.com/watch?v=abc123',
+  'https://www.youtube.com/embed/abc123',
+  'https://m.youtube.com/watch?v=abc123',       // el motor duplicado lo rechazaba
+  'https://youtu.be/',                          // sin id
+  'https://youtu.be/abc123',
+  'https://vimeo.com/abc',                      // id no numérico
+  'https://vimeo.com/123456',
+  'https://player.vimeo.com/video/123456',
+  'https://player.vimeo.com/otro',
+  'ftp://youtube.com/x',                        // protocolo no http(s)
+  'javascript:alert(1)',
+  'https://malicioso.com/x.mp4',
+  '   ', '',
+];
+
+test('el validador videoEmbed dice exactamente lo mismo que resolverVideoEmbed', () => {
+  for (const url of URLS_FRONTERIZAS) {
+    const completo = bloqueEstaCompleto({ id: 'v', kind: 'video', config: { titulo: '', url } });
+    const resuelve = resolverVideoEmbed(url) !== null;
+    assert.equal(completo, resuelve, `divergen en ${JSON.stringify(url)}`);
+  }
+});
+
+const HREFS_FRONTERIZOS = [
+  '/reservar', '/', 'https://ejemplo.com', 'http://ejemplo.com',
+  'javascript:alert(1)', 'data:text/html,x', 'ftp://ejemplo.com',
+  'ejemplo.com', '   ', '',
+];
+
+test('el validador href dice exactamente lo mismo que resolverHrefBloque', () => {
+  for (const href of HREFS_FRONTERIZOS) {
+    const completo = bloqueEstaCompleto({ id: 'c', kind: 'cta', config: { titulo: '', textoBoton: 'Reservar', href } });
+    const resuelve = resolverHrefBloque(href) !== null;
+    assert.equal(completo, resuelve, `divergen en ${JSON.stringify(href)}`);
+  }
+});
+
+test('un kind desconocido no está completo — nunca llega al render', () => {
+  // Antes esto no se podía ni preguntar: la cadena de `if` acababa en un
+  // `return b.config.testimonios.length > 0` que reventaba con cualquier
+  // config que no fuera la de testimonios.
+  const raro = { id: 'x', kind: 'inventado', config: {} } as unknown as Exclude<BloqueHome, { kind: 'sistema' }>;
+  assert.equal(bloqueEstaCompleto(raro), false);
+});
+
+test('completoSi está declarado en los 6 bloques que lo tenían, y solo en esos', () => {
+  const conCondicion = DEFINICIONES_CATALOGO.filter((d) => d.completoSi).map((d) => d.id).sort();
+  assert.deepEqual(conCondicion, ['cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
+  // Banner es el único sin condición: se pinta con o sin imagen y sin enlace.
+  assert.equal(REGISTRO_BLOQUES.banner.completoSi, undefined);
+});
+
+test('un botón con solo espacios ya no cuenta como completo — cambio deliberado', () => {
+  // Antes la condición era `!!b.config.textoBoton`, verdad para '   '. El
+  // resultado era un botón real, enlazado, con la etiqueta en blanco. `noVacio`
+  // hace `trim()`, así que ahora el bloque no se pinta y además aparece en el
+  // panel de "antes de publicar". Es el único cambio de comportamiento de esta
+  // PR y va a mejor.
+  const conEspacios = { id: 'c', kind: 'cta', config: { titulo: '', textoBoton: '   ', href: '/reservar' } } as const;
+  assert.equal(bloqueEstaCompleto(conEspacios), false);
+  assert.equal(bloqueEstaCompleto({ ...conEspacios, config: { ...conEspacios.config, textoBoton: 'Reservar' } }), true);
+  // Mismo criterio en `texto`: un título de espacios no salva el bloque.
+  assert.equal(bloqueEstaCompleto({ id: 't', kind: 'texto', config: { titulo: '  ', texto: '' } }), false);
+});
