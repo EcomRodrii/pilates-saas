@@ -90,4 +90,89 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     // El resto de módulos, sin tocar, sigue ahí.
     await expect(frame.getByText('Trae a quien quieras')).toBeVisible();
   });
+
+  // El hueco que cerró lib/theme-preview-puente.ts: el puente
+  // `tentare-theme-preview` solo llevaba CSS vars, así que el preview grande
+  // pintaba la PALETA del borrador con la FORMA del tema publicado. Con Bloom
+  // en borrador se veía morado, pero la cabecera seguía en 'clasica' ("Hola,
+  // X." grande) y las tarjetas de reto salían blancas.
+  test('dentro del iframe, la FORMA del tema en borrador (variantes) también llega — no solo el color', async ({ page }) => {
+    // Dos cargas completas de la ruta (la de arriba y la del iframe) más la
+    // compilación de `next dev` no caben en el presupuesto por defecto.
+    test.slow();
+    // `retos` va OCULTO por defecto (SISTEMA_OCULTO_POR_DEFECTO en
+    // lib/portal-home-bloques.ts) y es el bloque donde se ve el eje `retos`,
+    // así que se publica desde el mock en vez de encenderlo por el canal de
+    // bloques: lo que se prueba aquí es el canal del TEMA, y mezclar los dos
+    // haría que un fallo en el otro se leyera como un fallo de este.
+    await montarPortal(page, {
+      conSesion: false,
+      homeBloques: [
+        { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
+        { id: 'sistema-retos', kind: 'sistema', sistemaId: 'retos' },
+      ],
+    });
+    const token = firmarTokenPreviewHome(STUDIO_ID);
+    const url = `/portal-preview/${SLUG}?t=${token}`;
+
+    // El iframe es imprescindible: los dos listeners del puente
+    // (ThemePreviewListener para el color y StudioProvider para la forma) se
+    // apagan solos cuando `self === top`, así que en una pestaña normal no
+    // habría nada que probar. Mismo montaje que el test de bloques de arriba,
+    // incluido el `goto` previo para que el origen del padre sea el real.
+    await page.goto(url);
+    await page.setContent(
+      `<iframe id="prev" src="${url}" style="width:400px;height:1600px;border:0"></iframe>`,
+      { waitUntil: 'domcontentloaded' },
+    );
+
+    const frame = page.frameLocator('#prev');
+    // Punto de partida: el aspecto de hoy, con el tema PUBLICADO. "Estudio
+    // Alma" es el nombre que devuelve el mock de /api/public/studio-data: hasta
+    // que aparece, el catálogo (bloques incluidos) todavía no ha llegado y
+    // cualquier aserción sobre la forma miraría un portal a medio cargar.
+    await expect(frame.getByRole('heading', { name: /Hola, Vista\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(frame.getByText('Estudio Alma').first()).toBeVisible({ timeout: 30_000 });
+
+    const reto = frame.getByText('Core Pilates').locator('xpath=ancestor::div[1]/parent::div');
+    await expect(frame.getByRole('heading', { name: 'Retos' })).toBeVisible();
+    // Sin `variantes`, la tarjeta de reto es la neutra: fondo de superficie
+    // (blanco en modo claro), nunca el verde propio del reto.
+    await expect(reto).not.toHaveCSS('background-color', 'rgb(207, 239, 214)');
+
+    // ⚠️ El mensaje se emite DESDE DENTRO del marco, no desde el padre como en
+    // el test de bloques de arriba. No es un atajo ni una preferencia de
+    // estilo: el salto padre→hijo es INESTABLE en este arnés (el test de
+    // arriba, que sí lo usa, falla en local de forma intermitente; con
+    // `--repeat-each=3` esta misma prueba pasaba 1 de 3 escrita así). Lo que
+    // hay que verificar aquí es el extremo RECEPTOR —StudioProvider
+    // resolviendo `temaJs` y PortalHomeView repintándose con otra FORMA—, y
+    // eso se ejercita igual desde dentro. El emisor manda exactamente esta
+    // forma de mensaje: ver HomePreview y lib/theme-preview-puente.test.ts.
+    const marco = page.frames().find((f) => f !== page.mainFrame())!;
+    await marco.evaluate(() => {
+      // Mismo mensaje que manda HomePreview con Bloom en borrador: `vars` es
+      // el color (ya funcionaba) y `temaJs` la forma (lo que faltaba). Aquí se
+      // manda `vars` vacío a propósito, para que lo que se compruebe abajo sea
+      // SOLO el eje nuevo y no un efecto colateral de la paleta.
+      window.postMessage({
+        type: 'tentare-theme-preview',
+        vars: {},
+        temaJs: {
+          variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color' },
+          barraClasica: false,
+          tabBarStyle: 'clasica',
+        },
+      }, window.location.origin);
+    });
+
+    // Cabecera: de "Hola, X." grande al titular con avatar y el nombre solo.
+    await expect(frame.getByRole('heading', { name: /Hola, Vista\./ })).toHaveCount(0);
+    await expect(frame.getByRole('heading', { name: 'Vista', exact: true })).toBeVisible();
+    // Y con ella el subtítulo ascendido a titular, que en 'clasica' iba dentro
+    // del saludo.
+    await expect(frame.getByText('Tu sitio sigue aquí.')).toBeVisible();
+    // Retos: el fondo propio del reto (#CFEFD6, lib/retos-portal.ts).
+    await expect(reto).toHaveCSS('background-color', 'rgb(207, 239, 214)');
+  });
 });
