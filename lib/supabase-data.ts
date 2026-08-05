@@ -2,8 +2,12 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
-import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
+// (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
+// no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
+// —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
+// de cliente— pero eran una arista latente: bastaba con que alguien usara una
+// de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
+// layout raíz, que es cliente.)
 import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
