@@ -35,9 +35,10 @@ const CAMPOS_VISIBLES = [
   'primary', 'secondary', 'accent', 'background', 'text',
   'fontId', 'portalHeadingFontId', 'radius', 'buttonStyle', 'cardStyle',
   'tabBarStyle', 'barraOscura', 'barraFlotante', 'destacado', 'faviconUrl',
-  // `radioTema` (objeto) queda fuera a propósito, mismo criterio que
-  // `navPortal`/`redesSociales`: comparar por referencia daría falsos
-  // positivos (el fetch siempre crea un objeto nuevo).
+  // `radioTema` y `variantes` (objetos) quedan fuera a propósito, mismo
+  // criterio que `navPortal`/`redesSociales`: comparar por referencia daría
+  // falsos positivos (el fetch siempre crea un objeto nuevo), y el contador
+  // se quedaría clavado en "1 cambio sin publicar" para siempre.
 ] as const satisfies readonly (keyof ThemeConfig)[];
 
 /**
@@ -134,6 +135,13 @@ export function ThemeLibrary() {
     setErrorInstalar(null);
     const nuevo: ThemeConfig = {
       ...draft, ...def.defaults,
+      // El spread es superficial: sin clonar, `variantes`/`radioTema`
+      // compartirían referencia con la constante del módulo. Hoy no muerde
+      // (se serializa a JSON al guardar), pero muerde el día que el editor
+      // deje tocar una variante in place — y ese bug sería invisible hasta
+      // que un tema empezara a "contagiar" al siguiente.
+      ...(def.defaults.variantes ? { variantes: { ...def.defaults.variantes } } : {}),
+      ...(def.defaults.radioTema ? { radioTema: { ...def.defaults.radioTema } } : {}),
       themeId: def.id, themeVersion: def.version, themeCustomized: false,
     };
     try {

@@ -13,6 +13,7 @@
 
 import { z } from 'zod';
 import { NAV_SEG_IDS, NAV_ICONOS_DISPONIBLES, DEFAULT_NAV_CONFIG } from './portal-nav.ts';
+import { VARIANTES_PORTAL, type EjeVariante } from './theme-variantes.ts';
 
 /** Hex de 3 o 6 dígitos. */
 export const hexSchema = z
@@ -185,7 +186,27 @@ const radioTemaSchema = z.object({
   card: z.number().optional(),
   boton: z.number().optional(),
   chip: z.number().optional(),
+  // Baldosa de "accesos rápidos" en la variante rejilla (20 en Oliva, 22 en
+  // Bloom). Sin este campo la baldosa cae al radio de tarjeta de siempre.
+  acceso: z.number().optional(),
 }).strict();
+// Variantes de FORMA por bloque — el catálogo vive en theme-variantes.ts
+// (módulo puro), igual que navConfigSchema toma el suyo de portal-nav.ts. Todo
+// opcional: ausente = el aspecto de hoy en todos los ejes.
+//
+// ⚠️ `.strict()` aquí significa que una clave DESCONOCIDA tumba el objeto
+// entero y `pick` lo deja en `undefined` → todo al look de siempre. Es la
+// dirección segura (nunca un estado a medias), pero es grosera; por eso el uso
+// real pasa por `resolveVariantes()`, que valida clave a clave y salva las que
+// sí son válidas.
+const variantesSchema = z.object(
+  Object.fromEntries(
+    (Object.keys(VARIANTES_PORTAL) as EjeVariante[]).map((eje) => [
+      eje,
+      z.enum(VARIANTES_PORTAL[eje] as unknown as [string, ...string[]]).optional(),
+    ]),
+  ),
+).strict();
 const themeIdSchema = z.string();
 const themeVersionSchema = z.number().int();
 const themeCustomizedSchema = z.boolean();
@@ -230,6 +251,9 @@ export const themeConfigSchema = z
     // arriba. Ausente = las piezas nuevas caen a los números fijos de
     // portal-design.ts, como si el campo no existiera.
     radioTema: radioTemaSchema.optional(),
+    // Variantes de forma por bloque — ver comentario del schema arriba.
+    // Ausente = el aspecto de hoy en todos los ejes.
+    variantes: variantesSchema.optional(),
     // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
     // Builder) — ver lib/portal-nav.ts. Independiente de tabBarStyle: uno
     // decide el LOOK de la barra, este decide QUÉ pestañas tiene.
@@ -272,6 +296,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   barraClasica: false,
   destacado: null,
   radioTema: undefined,
+  variantes: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
   redesSociales: { instagram: '', facebook: '', whatsapp: '' },
   themeId: 'classic',
@@ -308,6 +333,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     barraClasica: pick('barraClasica', barraClasicaSchema),
     destacado: pick('destacado', destacadoSchema.nullable()),
     radioTema: pick('radioTema', radioTemaSchema.optional()),
+    variantes: pick('variantes', variantesSchema.optional()),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),
     themeId: pick('themeId', themeIdSchema),

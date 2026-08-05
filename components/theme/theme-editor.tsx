@@ -20,6 +20,7 @@ import {
   type ThemeConfig, type RedSocialId,
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
+import { resolveVariantes } from '@/lib/theme-variantes';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
 import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
@@ -504,6 +505,7 @@ export function AjustesCategoriaPanel({
               slug={studio?.slug ?? ''}
               interactive={false}
               flotante={!draft.barraClasica}
+              etiquetas={resolveVariantes(draft.variantes).barra}
             />
           </div>
         </div>

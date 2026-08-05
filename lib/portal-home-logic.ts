@@ -172,3 +172,56 @@ export function calcularProgresoSemanal(now: Date, misReservas: Reserva[], sesio
     return inicio >= lunes && inicio < domingoFin;
   }).length;
 }
+
+// ── Accesos rápidos ─────────────────────────────────────────────────────────
+// Extraído del JSX (portal-home-view.tsx) al pasar de UNA forma a tres: los
+// datos son los mismos en las tres, solo cambia cómo se pintan, así que
+// calcularlos en un sitio y probarlos aparte evita que las variantes se
+// desincronicen entre sí. Mismo criterio que getHomeCardContext/tiraSemana.
+
+/** Un acceso rápido del Inicio. `icono` solo lo usan rejilla/círculos. */
+export interface AccesoRapido {
+  etiqueta: string;
+  valor: string;
+  href: string;
+  /** Nombre de icono de lucide — el mismo catálogo que usa portal-nav.tsx. */
+  icono: string;
+  /** Punto de aviso (hay notificaciones sin leer). */
+  punto?: boolean;
+}
+
+/**
+ * Los CUATRO destinos reales del portal. Ojo: el prototipo de diseño usa otros
+ * cuatro (Reservar/Mis reservas/Favoritas/Mi bono) porque es una maqueta —
+ * cambiar CUÁLES son es una decisión de producto, no del tema, así que aquí se
+ * mantienen los de la app y solo cambia la FORMA.
+ */
+export function accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras }: {
+  slug: string;
+  proximas: number;
+  totalAsistidas: number;
+  sinLeer: number;
+  nInstructoras: number;
+}): AccesoRapido[] {
+  const plural = (n: number, sing: string, pl = `${sing}s`) => `${n} ${n === 1 ? sing : pl}`;
+  return [
+    { etiqueta: 'Mis reservas', icono: 'CalendarDays', href: `/portal/${slug}/reservas`,
+      valor: proximas > 0 ? plural(proximas, 'próxima') : 'Ninguna' },
+    { etiqueta: 'Mi progreso', icono: 'Sparkles', href: `/portal/${slug}/progreso`,
+      valor: plural(totalAsistidas, 'clase') },
+    { etiqueta: 'Notificaciones', icono: 'Bell', href: `/portal/${slug}/notificaciones`,
+      valor: sinLeer > 0 ? plural(sinLeer, 'nueva') : 'Al día', punto: sinLeer > 0 },
+    { etiqueta: 'El equipo', icono: 'User', href: `/portal/${slug}/instructores`,
+      valor: plural(nInstructoras, 'instructora') },
+  ];
+}
+
+/**
+ * El rótulo de la sección. La variante de filas no lleva ninguno (hoy no hay
+ * encabezado ahí); rejilla/círculos sí, y Oliva lo dice en primera persona,
+ * como el prototipo ("Mis accesos rápidos" vs "Accesos rápidos").
+ */
+export function rotuloAccesos(variante: 'filas' | 'rejilla' | 'circulos'): string | null {
+  if (variante === 'filas') return null;
+  return variante === 'rejilla' ? 'Mis accesos rápidos' : 'Accesos rápidos';
+}

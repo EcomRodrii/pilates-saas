@@ -171,6 +171,7 @@ function varsRadioTema(t: ThemeConfig): Record<string, string> {
   if (t.radioTema.card !== undefined) vars['--portal-radius-card'] = `${t.radioTema.card}px`;
   if (t.radioTema.boton !== undefined) vars['--portal-radius-boton'] = `${t.radioTema.boton}px`;
   if (t.radioTema.chip !== undefined) vars['--portal-radius-chip'] = `${t.radioTema.chip}px`;
+  if (t.radioTema.acceso !== undefined) vars['--portal-radius-acceso'] = `${t.radioTema.acceso}px`;
   return vars;
 }
 

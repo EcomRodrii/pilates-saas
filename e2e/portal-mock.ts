@@ -1,5 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 import { resolveBloquesPantalla, type BloqueHome } from '../lib/portal-home-bloques.ts';
+import type { VariantesPortal } from '../lib/theme-variantes.ts';
 
 // Montaje del portal de la clienta con datos deterministas, compartido por los
 // tests de las dos pantallas del diseño v2. Vive fuera de un `.spec` porque
@@ -159,6 +160,9 @@ export async function montarPortal(page: Page, opciones: {
   /** Comportamiento de la barra inferior del tema (galería de temas,
    *  "Editorial"). Sin esto, `'clasica'` — el de siempre. */
   tabBarStyle?: 'clasica' | 'pestanaActiva';
+  /** Variantes de FORMA por bloque (lib/theme-variantes.ts). Sin esto,
+   *  ausentes — el portal se ve con la forma de siempre en todos los ejes. */
+  variantes?: Partial<VariantesPortal>;
   /** Conteo REAL de apuntadas por reto (bloque "retos", tema Bloom), del
    *  estudio ENTERO. Sin esto, {} — cada reto se ve con 0. */
   retoConteos?: Record<string, number>;
@@ -167,7 +171,7 @@ export async function montarPortal(page: Page, opciones: {
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
-          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica',
+          portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
           retoConteos = {}, retosApuntados = [] } = opciones;
   const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
 
@@ -248,6 +252,7 @@ export async function montarPortal(page: Page, opciones: {
     portalHome,
     homeBloques: bloquesResueltos,
     tabBarStyle,
+    variantes: variantes ?? null,
     retoConteos: retoConteosVivos,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en

@@ -143,7 +143,11 @@ test.describe('Biblioteca de temas', () => {
     expect(body.secondary).toBe('#A9B79B');
     expect(body.destacado).toBe('#D9B166');
     expect(body.cardStyle).toBe('flat');
-    expect(body.radioTema).toEqual({ card: 24, boton: 18 });
+    expect(body.radioTema).toEqual({ card: 24, boton: 18, chip: 999 });
+    // Noir es el ÚNICO con accesos en círculo, y su barra lleva las 4
+    // etiquetas pero SIN relleno (su icono activo es dorado, no macizo).
+    expect(body.variantes).toEqual({ cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' });
+    expect(body.themeVersion).toBe(3);
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
@@ -161,7 +165,13 @@ test.describe('Biblioteca de temas', () => {
     expect(body.barraClasica).toBeFalsy(); // sigue flotando — el prototipo solo hace clásica Oliva/Noir
     expect(body.destacado).toBe('#FF8FB1');
     expect(body.cardStyle).toBe('elevated');
-    expect(body.radioTema).toEqual({ card: 30, boton: 999 });
+    expect(body.radioTema).toEqual({ card: 30, boton: 999, chip: 999, acceso: 22 });
+    // Bloom conserva la píldora flotante → NO declara `barra`: su etiqueta
+    // sigue apareciendo solo en la activa (`conTexto: !tabPill || activo`).
+    const variantesBloom = body.variantes as Record<string, string>;
+    expect(variantesBloom.barra).toBeUndefined();
+    expect(variantesBloom.retos).toBe('color');
+    expect(body.themeVersion).toBe(3);
   });
 
   test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {
@@ -178,7 +188,9 @@ test.describe('Biblioteca de temas', () => {
     expect(body.barraClasica).toBe(true);
     expect(body.barraOscura).toBeFalsy(); // clásica, no oscura — esa es solo de Noir
     expect(body.cardStyle).toBe('flat');
-    expect(body.radioTema).toEqual({ card: 26, boton: 20 });
+    expect(body.radioTema).toEqual({ card: 26, boton: 20, chip: 999, acceso: 20 });
+    expect(body.variantes).toEqual({ accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
+    expect(body.themeVersion).toBe(3);
   });
 
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {

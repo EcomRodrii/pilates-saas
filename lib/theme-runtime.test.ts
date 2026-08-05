@@ -126,3 +126,25 @@ test('themeToCssVars: portalHeadingFontId "instrumentSansBold" reusa --font-ui, 
   assert.match(vars['--portal-heading-font'], /--font-ui/);
   assert.equal(vars['--portal-heading-weight'], '700');
 });
+
+// ── Variantes de forma: la única que cabe en una CSS var ────────────────────
+
+test('themeToCssVars: sin `radioTema`, ninguna var de radio — el aspecto de siempre, para todos', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME }) as Record<string, string>;
+  assert.equal(vars['--portal-radius-acceso'], undefined);
+});
+
+// Ninguna otra variante de forma produce CSS: todas deciden qué elementos
+// EXISTEN en el DOM y viajan como prop JS (ver theme-variantes.ts). El icono
+// activo relleno también, porque la única var candidata la emitiría
+// ThemeStyle (componente de servidor) y no llegaría al preview ni a los e2e.
+test('themeToCssVars: `variantes` no emite ninguna var — se resuelven en JS', () => {
+  const con = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todasRelleno', accesosRapidos: 'circulos' } });
+  const sin = themeToCssVars({ ...DEFAULT_THEME });
+  assert.deepEqual(con, sin);
+});
+
+test('themeToCssVars: `radioTema.acceso` declara el radio de la baldosa de accesos', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, radioTema: { acceso: 22 } }) as Record<string, string>;
+  assert.equal(vars['--portal-radius-acceso'], '22px');
+});

@@ -96,7 +96,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'editorial',
-    version: 1,
+    version: 2,
     label: 'Editorial',
     // Sin la palabra "tarjetas" a propósito: colisionaba con el encabezado
     // de esa sección en "Personalizar" (getByText('Tarjetas') dejaba de ser
@@ -108,11 +108,18 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       buttonStyle: 'solid',
       cardStyle: 'elevated',
       tabBarStyle: 'pestanaActiva',
+      // Editorial YA enseñaba la bienvenida antes del login, con el gate
+      // `tabBarStyle === 'pestanaActiva'`. Al pasar ese gate a `variantes`, hay
+      // que declararlo aquí — ⚠️ pero eso NO basta para los estudios que ya lo
+      // tienen instalado: `defaults` no es retroactivo (instalar() los congela
+      // en el borrador). Por eso el gate mantiene el OR con `tabBarStyle`,
+      // ver app/portal/[slug]/login/page.tsx.
+      variantes: { bienvenida: 'foto' },
     },
   },
   {
     id: 'oliva',
-    version: 2,
+    version: 3,
     label: 'Oliva',
     description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
     capabilities: ['colors', 'typography', 'buttons', 'cards'],
@@ -132,9 +139,12 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Plana a propósito: el aire y el contraste del oliva ya separan las
       // tarjetas del fondo crema. Una sombra encima las ensucia.
       cardStyle: 'flat',
-      // Valores exactos del prototipo (paleta() → radCard/radBoton de Oliva).
-      radioTema: { card: 26, boton: 20 },
+      // Valores exactos del prototipo (paleta() → radCard/radBoton/radChip).
+      radioTema: { card: 26, boton: 20, chip: 999, acceso: 20 },
       barraClasica: true,
+      // Forma por bloque: rejilla de baldosas y la barra con las 4 etiquetas
+      // y el icono activo relleno (`relleno: activo && esOliva` del prototipo).
+      variantes: { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' },
     },
     // La tarjeta de "próxima clase" está siempre arriba, fuera de este
     // sistema — no es un bloque `sistema` reordenable, ver
@@ -146,7 +156,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'bloom',
-    version: 2,
+    version: 3,
     label: 'Bloom',
     description: 'Lila y rosa, esquinas de píldora y una barra que flota. Energía y comunidad, para público joven.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -169,7 +179,11 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // en render, ver comentario de barraFlotanteSchema en theme-schema.ts).
       barraFlotante: true,
       // Valores exactos del prototipo: botón 100% píldora (radBoton: 999).
-      radioTema: { card: 30, boton: 999 },
+      radioTema: { card: 30, boton: 999, chip: 999, acceso: 22 },
+      // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
+      // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
+      // Cabecera con titular grande y retos con fondo de color propio.
+      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', bienvenida: 'marca' },
     },
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
@@ -178,7 +192,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'noir',
-    version: 2,
+    version: 3,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -203,7 +217,11 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       barraOscura: true,
       barraClasica: true,
       // Valores exactos del prototipo (paleta() → radCard/radBoton de Noir).
-      radioTema: { card: 24, boton: 18 },
+      radioTema: { card: 24, boton: 18, chip: 999 },
+      // Accesos en CÍRCULO (el rasgo propio de Noir en el prototipo, frente a
+      // las baldosas de Oliva/Bloom) y barra con las 4 etiquetas — pero sin
+      // relleno: el icono activo de Noir es dorado, no macizo.
+      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' },
     },
     // El anillo de progreso semanal primero, luego accesos rápidos.
     bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
