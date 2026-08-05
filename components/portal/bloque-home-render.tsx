@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
 import { display, texto, radio, altura, sombra, transicion, dur } from '@/lib/portal-design';
-import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type EstiloBloque } from '@/lib/portal-home-bloques';
+import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque } from '@/lib/portal-home-bloques';
+import { paraKind, type PropsBloqueRender } from '@/components/portal/bloques/registro-render';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
 // Los bloques `sistema` NO pasan por aquí: siguen siendo el JSX ya existente
@@ -122,7 +123,6 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   const { t } = useModo();
   const { titulo, texto: cuerpo } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -136,8 +136,7 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
   const { t } = useModo();
   const { titulo, textoBoton, href } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
-  const resuelto = resolverHrefBloque(href)!; // bloqueEstaCompleto ya lo comprobó
+  const resuelto = resolverHrefBloque(href)!; // BloqueHomeRender ya comprobó completoSi
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   const estiloBoton: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', height: altura.botonCta,
@@ -182,7 +181,6 @@ function FaqBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'faq' }> })
   const { t } = useModo();
   const { titulo, preguntas } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -196,7 +194,6 @@ function GaleriaBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'galeri
   const { t } = useModo();
   const { imagenes } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
   const radioImagen = estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.card;
   return (
     <div style={contenedorDe(estilo)}>
@@ -219,8 +216,7 @@ function VideoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'video' }
   const { t } = useModo();
   const { titulo, url } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
-  const embed = resolverVideoEmbed(url)!; // bloqueEstaCompleto ya lo comprobó
+  const embed = resolverVideoEmbed(url)!; // BloqueHomeRender ya comprobó completoSi
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -239,7 +235,6 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
   const { t } = useModo();
   const { titulo, testimonios } = bloque.config;
   const { estilo } = bloque;
-  if (!bloqueEstaCompleto(bloque)) return null;
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
@@ -258,12 +253,36 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
   );
 }
 
+/**
+ * Qué componente pinta cada bloque. La clave es el `kind` persistido, la
+ * misma que la de REGISTRO_BLOQUES — hay un test que exige que los dos
+ * conjuntos coincidan, porque un bloque con metadatos y sin componente sale
+ * en blanco y uno con componente y sin metadatos no se puede ni nombrar.
+ */
+const RENDER_BLOQUES: Record<BloqueTipoCatalogo, ComponentType<PropsBloqueRender>> = {
+  banner: paraKind<'banner'>(BannerBloque),
+  texto: paraKind<'texto'>(TextoBloque),
+  cta: paraKind<'cta'>(CtaBloque),
+  faq: paraKind<'faq'>(FaqBloque),
+  galeria: paraKind<'galeria'>(GaleriaBloque),
+  video: paraKind<'video'>(VideoBloque),
+  testimonios: paraKind<'testimonios'>(TestimoniosBloque),
+};
+
+export { RENDER_BLOQUES };
+
 export function BloqueHomeRender({ bloque, slug }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; slug: string }) {
-  if (bloque.kind === 'banner') return <BannerBloque bloque={bloque} slug={slug} />;
-  if (bloque.kind === 'texto') return <TextoBloque bloque={bloque} />;
-  if (bloque.kind === 'cta') return <CtaBloque bloque={bloque} slug={slug} />;
-  if (bloque.kind === 'faq') return <FaqBloque bloque={bloque} />;
-  if (bloque.kind === 'galeria') return <GaleriaBloque bloque={bloque} />;
-  if (bloque.kind === 'video') return <VideoBloque bloque={bloque} />;
-  return <TestimoniosBloque bloque={bloque} />;
+  // Antes esto era una cadena de `if` que terminaba en `return
+  // <TestimoniosBloque>` SIN guarda: un kind inesperado leía
+  // `config.testimonios.map` de una config que no lo tiene y se llevaba por
+  // delante la pantalla entera de la socia. Buscar en el registro y devolver
+  // null si no está mata esa clase de fallo por construcción.
+  const Render = RENDER_BLOQUES[bloque.kind];
+  if (!Render) return null;
+  // El "¿tiene contenido suficiente?" se comprueba UNA vez aquí y no siete
+  // veces repartidas por los componentes. Es la misma condición que usa el
+  // gate de "antes de publicar" del editor, así que lo que la propietaria ve
+  // avisado ahí es exactamente lo que no se pinta aquí.
+  if (!bloqueEstaCompleto(bloque)) return null;
+  return <Render bloque={bloque} slug={slug} />;
 }

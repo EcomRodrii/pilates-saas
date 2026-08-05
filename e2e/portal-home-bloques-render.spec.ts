@@ -87,4 +87,37 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('No debería verse')).toHaveCount(0);
   });
+
+  // La regresión que motivó el registro de render + la lectura tolerante.
+  // Antes, `BloqueHomeRender` acababa en un `return <TestimoniosBloque>` SIN
+  // guarda: un `kind` que el código no conoce —una fila escrita por una
+  // versión más nueva, un jsonb tocado a mano, un rollback del deploy— leía
+  // `config.testimonios.map` de una config que no lo tiene y tumbaba la
+  // pantalla ENTERA. No era un bloque roto: era la socia sin sus clases ni su
+  // bono.
+  //
+  // Este caso no se puede escribir como test unitario: el tipo `BloqueHome`
+  // impide construirlo en TS, y justo la gracia es que llega de jsonb, donde
+  // no hay tipos que valgan. Por eso vive aquí, inyectándolo por la red
+  // mockeada como llegaría de verdad.
+  test('un bloque con un kind desconocido se ignora y NO tumba el resto de la pantalla', async ({ page }) => {
+    const errores: string[] = [];
+    page.on('pageerror', (e) => errores.push(e.message));
+
+    await montarPortal(page, {
+      conSesion: true,
+      homeBloques: [
+        { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+        { id: 'b-futuro', kind: 'carruselDelFuturo', config: { loQueSea: [1, 2, 3] } },
+        { id: 'b-texto', kind: 'texto', config: { titulo: 'Esto sí se ve', texto: 'y el saludo también' } },
+      ] as never,
+    });
+    await page.goto(`/portal/${SLUG}/home`);
+
+    // El saludo (bloque sistema) y el bloque bueno que va DESPUÉS del raro
+    // siguen ahí: el desconocido se descarta él solo.
+    await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Esto sí se ve')).toBeVisible();
+    expect(errores).toEqual([]);
+  });
 });
