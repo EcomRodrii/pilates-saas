@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG,
   resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto,
+  CAMPOS_BANNER, CAMPOS_TEXTO, CAMPOS_CTA, CAMPOS_FAQ, CAMPOS_GALERIA, CAMPOS_VIDEO, CAMPOS_TESTIMONIOS,
   type BloqueHome,
 } from './portal-home-bloques.ts';
+import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los 4 módulos de siempre, en orden, sin ocultar', () => {
   const idsVisibles = DEFAULT_BLOQUES_POR_PANTALLA.home
@@ -167,4 +169,84 @@ test('bloqueEstaCompleto: vídeo necesita una URL que resuelva a embed', () => {
   assert.equal(bloqueEstaCompleto({ id: 'v', kind: 'video', config: { titulo: '', url: '' } }), false);
   assert.equal(bloqueEstaCompleto({ id: 'v', kind: 'video', config: { titulo: '', url: 'https://malicioso.com/x.mp4' } }), false);
   assert.equal(bloqueEstaCompleto({ id: 'v', kind: 'video', config: { titulo: '', url: 'https://youtu.be/abc123' } }), true);
+});
+
+// ── Oráculo de no-regresión de los schemas ─────────────────────────────────
+// Los tipos ya los comprueba `tsc` (las interfaces escritas a mano pasaron a
+// ser `ConfigDe<typeof CAMPOS_X>`, así que cualquier divergencia rompe la
+// compilación). Lo que `tsc` NO ve son los VALORES por defecto: un
+// `porDefecto` mal puesto compila igual y le cambia el contenido inicial a
+// una propietaria. Por eso el oráculo está copiado literal aquí, no importado
+// de BLOCK_CATALOG — un test que importa lo que compara no prueba nada.
+const DEFAULTS_ESPERADOS: Record<string, unknown> = {
+  banner: { imagenUrl: '', titulo: '', texto: '', href: '' },
+  texto: { titulo: '', texto: '' },
+  cta: { titulo: '', textoBoton: '', href: '' },
+  faq: { titulo: '', preguntas: [] },
+  galeria: { imagenes: [] },
+  video: { titulo: '', url: '' },
+  testimonios: { titulo: '', testimonios: [] },
+};
+
+test('defaultsDe(CAMPOS_X) coincide con el defaultConfig de hoy, para los 7 bloques', () => {
+  const porKind: Record<string, readonly CampoSchema[]> = {
+    banner: CAMPOS_BANNER, texto: CAMPOS_TEXTO, cta: CAMPOS_CTA, faq: CAMPOS_FAQ,
+    galeria: CAMPOS_GALERIA, video: CAMPOS_VIDEO, testimonios: CAMPOS_TESTIMONIOS,
+  };
+  assert.deepEqual(Object.keys(porKind).sort(), BLOCK_CATALOG.map((b) => b.kind).sort());
+  for (const [kind, campos] of Object.entries(porKind)) {
+    assert.deepEqual(defaultsDe(campos), DEFAULTS_ESPERADOS[kind], `defaults de ${kind}`);
+  }
+});
+
+test('el defaultConfig del catálogo sigue siendo el mismo objeto que el oráculo', () => {
+  for (const entrada of BLOCK_CATALOG) {
+    assert.deepEqual(entrada.defaultConfig, DEFAULTS_ESPERADOS[entrada.kind], entrada.kind);
+  }
+});
+
+test('el orden de los campos es el del formulario de hoy — el Inspector pintará igual', () => {
+  assert.deepEqual(CAMPOS_BANNER.map((c) => c.id), ['imagenUrl', 'titulo', 'texto', 'href']);
+  assert.deepEqual(CAMPOS_CTA.map((c) => c.id), ['titulo', 'textoBoton', 'href']);
+  assert.deepEqual(CAMPOS_TESTIMONIOS.map((c) => c.id), ['titulo', 'testimonios']);
+  // Galería es el único sin título: su formulario de hoy empieza por la lista.
+  assert.deepEqual(CAMPOS_GALERIA.map((c) => c.id), ['imagenes']);
+});
+
+test('las etiquetas son literalmente las del formulario escrito a mano', () => {
+  const etiqueta = (campos: readonly CampoSchema[], id: string) =>
+    campos.find((c) => c.id === id)?.etiqueta;
+  assert.equal(etiqueta(CAMPOS_BANNER, 'imagenUrl'), 'URL de la imagen');
+  assert.equal(etiqueta(CAMPOS_BANNER, 'href'), 'Enlace (opcional)');
+  assert.equal(etiqueta(CAMPOS_CTA, 'href'), 'Enlace');
+  assert.equal(etiqueta(CAMPOS_CTA, 'textoBoton'), 'Texto del botón');
+  assert.equal(etiqueta(CAMPOS_VIDEO, 'url'), 'URL de YouTube o Vimeo');
+  // "Título" a secas en los bloques donde hoy es obligatorio, "(opcional)" en
+  // el resto — la diferencia la ve la propietaria, así que se fija aquí.
+  assert.equal(etiqueta(CAMPOS_BANNER, 'titulo'), 'Título');
+  assert.equal(etiqueta(CAMPOS_CTA, 'titulo'), 'Título');
+  assert.equal(etiqueta(CAMPOS_TEXTO, 'titulo'), 'Título (opcional)');
+  assert.equal(etiqueta(CAMPOS_FAQ, 'titulo'), 'Título (opcional)');
+  assert.equal(etiqueta(CAMPOS_VIDEO, 'titulo'), 'Título (opcional)');
+  assert.equal(etiqueta(CAMPOS_TESTIMONIOS, 'titulo'), 'Título (opcional)');
+});
+
+test('los tres repetidores declaran los mismos subcampos que sus formularios a mano', () => {
+  const lista = (campos: readonly CampoSchema[], id: string) => {
+    const c = campos.find((x) => x.id === id);
+    assert.equal(c?.tipo, 'lista', `${id} tiene que ser una lista`);
+    return c?.tipo === 'lista' ? c.campos.map((s) => s.id) : [];
+  };
+  assert.deepEqual(lista(CAMPOS_FAQ, 'preguntas'), ['pregunta', 'respuesta']);
+  assert.deepEqual(lista(CAMPOS_GALERIA, 'imagenes'), ['url', 'alt']);
+  assert.deepEqual(lista(CAMPOS_TESTIMONIOS, 'testimonios'), ['cita', 'autor', 'rol']);
+});
+
+test('resolverConfig rellena un bloque guardado antes de existir un campo nuevo', () => {
+  // El valor de tener los defaults en el schema y no solo en el catálogo: un
+  // bloque guardado hace meses, al que le falta una clave, se lee completo sin
+  // migrar nada — y lo que la propietaria SÍ escribió no se toca.
+  const guardado = { titulo: 'Lo que escribió ella' };
+  assert.deepEqual(resolverConfig(CAMPOS_VIDEO, guardado), { titulo: 'Lo que escribió ella', url: '' });
+  assert.deepEqual(guardado, { titulo: 'Lo que escribió ella' }, 'no muta la entrada');
 });

@@ -23,6 +23,8 @@
 // arrastrar peso — mismo principio que layout-runtime.ts. La validación con
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
+import type { CampoSchema, ConfigDe } from './theme/campos.ts';
+
 export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
 export type PantallaId = (typeof PANTALLA_IDS)[number];
 
@@ -72,36 +74,83 @@ export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSis
   bonos: ['listadoBonos'],
 };
 
-export interface BannerConfig {
-  imagenUrl: string;
-  titulo: string;
-  texto: string;
-  href: string;
-}
-export interface TextoConfig {
-  titulo: string;
-  texto: string;
-}
-export interface CtaConfig {
-  titulo: string;
-  textoBoton: string;
-  href: string;
-}
-export interface FaqConfig {
-  titulo: string;
-  preguntas: Array<{ pregunta: string; respuesta: string }>;
-}
-export interface GaleriaConfig {
-  imagenes: Array<{ url: string; alt: string }>;
-}
-export interface VideoConfig {
-  titulo: string;
-  url: string;
-}
-export interface TestimoniosConfig {
-  titulo: string;
-  testimonios: Array<{ cita: string; autor: string; rol: string }>;
-}
+// ── Schemas de campo ────────────────────────────────────────────────────────
+// La forma de cada bloque se declara UNA vez y de ahí se derivan el tipo TS
+// (abajo), el zod (lib/layout-schema.ts) y el formulario del editor. Las
+// etiquetas y marcadores son EXACTAMENTE los de los formularios escritos a
+// mano de hoy (components/theme/portal-bloques-editor.tsx) para que el panel
+// generado salga idéntico.
+
+export const CAMPOS_BANNER = [
+  { tipo: 'imagen', id: 'imagenUrl', etiqueta: 'URL de la imagen', marcador: 'https://…', porDefecto: '' },
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '' },
+  { tipo: 'texto', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
+  { tipo: 'url', id: 'href', etiqueta: 'Enlace (opcional)', marcador: '/reservar o https://…', porDefecto: '' },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_TEXTO = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  { tipo: 'textoLargo', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_CTA = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '' },
+  { tipo: 'texto', id: 'textoBoton', etiqueta: 'Texto del botón', porDefecto: '' },
+  { tipo: 'url', id: 'href', etiqueta: 'Enlace', marcador: '/reservar o https://…', porDefecto: '' },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_FAQ = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  {
+    tipo: 'lista', id: 'preguntas', etiqueta: 'Preguntas',
+    etiquetaElemento: 'pregunta', resumenCampo: 'pregunta', porDefecto: [],
+    campos: [
+      { tipo: 'texto', id: 'pregunta', etiqueta: 'Pregunta', marcador: 'Pregunta', porDefecto: '' },
+      { tipo: 'textoLargo', id: 'respuesta', etiqueta: 'Respuesta', marcador: 'Respuesta', porDefecto: '' },
+    ],
+  },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_GALERIA = [
+  {
+    tipo: 'lista', id: 'imagenes', etiqueta: 'Imágenes',
+    etiquetaElemento: 'imagen', resumenCampo: 'alt', porDefecto: [],
+    campos: [
+      { tipo: 'imagen', id: 'url', etiqueta: 'Imagen', marcador: 'https://…', porDefecto: '' },
+      { tipo: 'texto', id: 'alt', etiqueta: 'Texto alternativo', marcador: 'Texto alternativo', porDefecto: '' },
+    ],
+  },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_VIDEO = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  { tipo: 'url', id: 'url', etiqueta: 'URL de YouTube o Vimeo', marcador: 'https://youtube.com/watch?v=…', porDefecto: '' },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_TESTIMONIOS = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  {
+    tipo: 'lista', id: 'testimonios', etiqueta: 'Testimonios',
+    etiquetaElemento: 'testimonio', resumenCampo: 'autor', porDefecto: [],
+    campos: [
+      { tipo: 'textoLargo', id: 'cita', etiqueta: 'Cita', marcador: 'Cita', porDefecto: '' },
+      { tipo: 'texto', id: 'autor', etiqueta: 'Autora', marcador: 'Autora', porDefecto: '' },
+      { tipo: 'texto', id: 'rol', etiqueta: 'Rol (opcional)', marcador: 'Rol (opcional)', porDefecto: '' },
+    ],
+  },
+] as const satisfies readonly CampoSchema[];
+
+// Los tipos de config se DERIVAN del schema. Antes eran interfaces escritas a
+// mano, y eran una de las cuatro copias de la misma forma; ahora son la misma
+// forma vista desde otro sitio. Los nombres exportados no cambian, así que
+// ningún caller se entera.
+export type BannerConfig = ConfigDe<typeof CAMPOS_BANNER>;
+export type TextoConfig = ConfigDe<typeof CAMPOS_TEXTO>;
+export type CtaConfig = ConfigDe<typeof CAMPOS_CTA>;
+export type FaqConfig = ConfigDe<typeof CAMPOS_FAQ>;
+export type GaleriaConfig = ConfigDe<typeof CAMPOS_GALERIA>;
+export type VideoConfig = ConfigDe<typeof CAMPOS_VIDEO>;
+export type TestimoniosConfig = ConfigDe<typeof CAMPOS_TESTIMONIOS>;
 
 // Estilo PROPIO de una sección — pedido explícitamente por el usuario ("no es
 // nada personalizable, tiene que ser un constructor totalmente libre"): antes
@@ -116,16 +165,61 @@ export interface TestimoniosConfig {
 // existentes en lib/portal-design.ts (mismo principio que `espaciado` con
 // ESPACIADO_PADDING) — nunca un número libre nuevo, para no fragmentar la
 // escala visual del resto del portal.
-export interface EstiloBloque {
-  fondo?: string | null;
-  color?: string | null;
-  alineacion?: 'izquierda' | 'centro' | 'derecha';
-  espaciado?: 'compacto' | 'normal' | 'amplio';
-  tamanoTexto?: 'pequeno' | 'normal' | 'grande';
-  esquinas?: 'ninguna' | 'suave' | 'redondeada' | 'pill';
-  sombra?: 'ninguna' | 'suave' | 'marcada';
-  ancho?: 'completo' | 'contenido';
-}
+//
+// ⚠️ **`estilo` es el único sitio donde "ausente" NO significa "el valor por
+// defecto"** — significa "hereda del tema", que es un tercer estado. El render
+// lo distingue de verdad: `estilo?.esquinas ? X : (estilo?.fondo ? radio.card
+// : undefined)`. De ahí dos reglas que hay que respetar al generalizar:
+//  · `EstiloBloque` es `Partial<>` a propósito: las claves siguen siendo
+//    opcionales, no se vuelven obligatorias por venir de un schema.
+//  · **Nunca pasar `estilo` por `resolverConfig()`.** Rellenar los defaults
+//    ahí escribiría "redondeada"/"normal" en bloques que hoy heredan, y
+//    cambiaría el aspecto de estudios reales sin que nadie tocara nada.
+// El `porDefecto` de cada campo es sólo "qué opción sale marcada en el panel"
+// — exactamente el `?? 'redondeada'` que hoy escribe a mano `EstiloForm` — y
+// sólo se persiste cuando la propietaria pulsa.
+export const CAMPOS_ESTILO = [
+  { tipo: 'colorHeredado', id: 'fondo', etiqueta: 'Fondo', porDefecto: null },
+  { tipo: 'colorHeredado', id: 'color', etiqueta: 'Texto', porDefecto: null },
+  {
+    tipo: 'opciones', id: 'alineacion', etiqueta: 'Alineación', porDefecto: 'izquierda',
+    opciones: [
+      { id: 'izquierda', label: 'Izquierda' }, { id: 'centro', label: 'Centro' }, { id: 'derecha', label: 'Derecha' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'espaciado', etiqueta: 'Espaciado', porDefecto: 'normal',
+    opciones: [
+      { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'tamanoTexto', etiqueta: 'Tamaño del texto', porDefecto: 'normal',
+    opciones: [
+      { id: 'pequeno', label: 'Pequeño' }, { id: 'normal', label: 'Normal' }, { id: 'grande', label: 'Grande' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'esquinas', etiqueta: 'Esquinas', porDefecto: 'redondeada',
+    opciones: [
+      { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'sombra', etiqueta: 'Sombra', porDefecto: 'ninguna',
+    opciones: [
+      { id: 'ninguna', label: 'Ninguna' }, { id: 'suave', label: 'Suave' }, { id: 'marcada', label: 'Marcada' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'ancho', etiqueta: 'Ancho', porDefecto: 'completo',
+    opciones: [
+      { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+    ],
+  },
+] as const satisfies readonly CampoSchema[];
+
+export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 
 export type BloqueHome =
   | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; oculto?: boolean }
