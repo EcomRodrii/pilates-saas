@@ -119,7 +119,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'oliva',
-    version: 3,
+    version: 4,
     label: 'Oliva',
     description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
     capabilities: ['colors', 'typography', 'buttons', 'cards'],
@@ -144,7 +144,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       barraClasica: true,
       // Forma por bloque: rejilla de baldosas y la barra con las 4 etiquetas
       // y el icono activo relleno (`relleno: activo && esOliva` del prototipo).
-      variantes: { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' },
+      variantes: { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
     },
     // La tarjeta de "próxima clase" está siempre arriba, fuera de este
     // sistema — no es un bloque `sistema` reordenable, ver
@@ -156,7 +156,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'bloom',
-    version: 3,
+    version: 4,
     label: 'Bloom',
     description: 'Lila y rosa, esquinas de píldora y una barra que flota. Energía y comunidad, para público joven.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -183,7 +183,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
       // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
       // Cabecera con titular grande y retos con fondo de color propio.
-      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', bienvenida: 'marca' },
+      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' },
     },
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
@@ -192,7 +192,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'noir',
-    version: 3,
+    version: 4,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -221,7 +221,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Accesos en CÍRCULO (el rasgo propio de Noir en el prototipo, frente a
       // las baldosas de Oliva/Bloom) y barra con las 4 etiquetas — pero sin
       // relleno: el icono activo de Noir es dorado, no macizo.
-      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' },
+      variantes: { cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' },
     },
     // El anillo de progreso semanal primero, luego accesos rápidos.
     bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
