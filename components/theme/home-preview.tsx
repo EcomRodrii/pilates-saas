@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchHomePreviewToken } from '@/lib/api-client';
 import { themeToCssVars } from '@/lib/theme-runtime';
+import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 
@@ -120,7 +121,16 @@ export function HomePreview({
     }
     if (temaBorrador) {
       ref.current?.contentWindow?.postMessage(
-        { type: 'tentare-theme-preview', vars: themeToCssVars(temaBorrador) as Record<string, string> },
+        {
+          type: MENSAJE_TEMA_PREVIEW,
+          vars: themeToCssVars(temaBorrador) as Record<string, string>,
+          // La mitad JS del tema (variantes de FORMA, barra) — ver
+          // lib/theme-preview-puente.ts. Sin esto, el iframe pintaba la paleta
+          // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
+          // 'clasica' y los retos salían blancos aunque el borrador dijera otra
+          // cosa. Lo aplica StudioProvider, que es donde vive `variantes`.
+          temaJs: resolveTemaJs(temaBorrador),
+        },
         window.location.origin,
       );
     }
