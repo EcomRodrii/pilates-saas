@@ -9,7 +9,7 @@ import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell,
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
-import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, LeadStage, DestinatariosCampana } from '@/lib/types'
+import type { Campana, Automatizacion, TipoCampana, LeadStage, DestinatariosCampana } from '@/lib/types'
 import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
@@ -596,7 +596,6 @@ export default function MarketingPage() {
     .reduce((acc, r) => acc + (r.importe ?? 0), 0)
 
   // Recipient counts by destinatarios type
-  const socioIds = new Set(socios.map(s => s.id))
   const socioIdsConSuscripcionActiva = new Set(
     suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
   )

@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Loader2, Plus, Rocket, Trash2, X } from 'lucide-react';
 import {
   borrarVersionChangelog, crearVersionChangelog, fetchChangelog, guardarVersionChangelog,
-  publicarVersionChangelog, type CambioChangelog, type EtiquetaCambio, type VersionChangelog,
+  publicarVersionChangelog, type EtiquetaCambio, type VersionChangelog,
 } from '@/lib/interno/client';
 
 const ETIQUETA_LABEL: Record<EtiquetaCambio, string> = {

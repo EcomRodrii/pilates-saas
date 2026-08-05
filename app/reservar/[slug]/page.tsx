@@ -1,12 +1,12 @@
 'use client';
 import { queImparten } from '@/lib/equipo';
 
-import { useState, useMemo, useEffect, useRef, useId } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
-import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
+import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,

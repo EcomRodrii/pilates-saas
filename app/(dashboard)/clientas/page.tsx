@@ -17,9 +17,9 @@ import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2
+  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
 } from 'lucide-react';
-import { cn, formatFechaLarga as formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
@@ -58,10 +58,6 @@ const emptyForm = (): FormSocia => ({
 const RE_DIACRITICOS = /[̀-ͯ]/g;
 function normalizaBusqueda(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
-}
-
-function initials(nombre: string, apellidos: string) {
-  return `${nombre[0] ?? ''}${apellidos[0] ?? ''}`.toUpperCase();
 }
 
 function avatarColor(str: string) {

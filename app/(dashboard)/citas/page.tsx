@@ -37,10 +37,6 @@ const ESTADO_BADGE: Record<EstadoCita, { label: string; cls: string }> = {
 const TIPOS_CITA: TipoCita[] = ['PRIVADA', 'EVALUACION', 'FISIOTERAPIA', 'ONLINE'];
 const DURACIONES = [30, 45, 60, 90];
 
-function uid(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
 function formatFecha(iso: string): string {
   return `${formatFechaCorta(iso)} · ${formatHoraCorta(iso)}`;
 }

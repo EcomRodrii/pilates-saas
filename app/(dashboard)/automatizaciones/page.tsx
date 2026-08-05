@@ -9,7 +9,7 @@ import {
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
 } from 'lucide-react';
-import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
+import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';

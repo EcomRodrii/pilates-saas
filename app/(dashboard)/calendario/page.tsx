@@ -458,7 +458,7 @@ export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     suscripciones, planesTarifa,
-    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
+    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -1139,18 +1139,12 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  async function cancelarSerie() {
-    if (!sesionId) return;
-    const n = sesionesEnriquecidas.filter(s => {
-      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
-      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
-    }).length;
-    const guardado = await cancelarSerieDesde(sesionId);
-    if (!guardado.ok) { showToast(guardado.error); return; }
-    setSesionId(null);
-    showToast(`Serie cancelada · ${n} clases · clientas avisadas`);
-    void refrescarVista();
-  }
+  // OJO si vienes a reponer "cancelar la serie entera": la capacidad NO se ha
+  // borrado. `cancelarSerieDesde` sigue entera en studio-context (con aviso a
+  // las socias incluido); lo que había aquí era un envoltorio que ningún botón
+  // llamaba — editar serie sí tiene el suyo, cancelar serie no. Se quitó por
+  // estar muerto, no por estar de más: si se decide reponer el botón, llama
+  // directamente a `cancelarSerieDesde` desde el panel.
 
   async function eliminarSesion() {
     if (!sesionId) return;

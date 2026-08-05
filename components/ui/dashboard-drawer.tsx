@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a DashboardSheet (components/ui/dashboard-sheet.tsx) para los

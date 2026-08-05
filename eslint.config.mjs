@@ -23,6 +23,26 @@ const eslintConfig = defineConfig([
     "**/*.frozen.ts",
   ]),
   {
+    // `no-unused-vars` sin opciones marca como deuda dos idiomas que este repo
+    // usa a propósito para decir "esto sobra AQUÍ", que es justo lo contrario:
+    //
+    //   const { id: _i, studioId: _s, ...esperado } = guardado;  // omitir claves
+    //   catch { }                                                // el error da igual
+    //
+    // `ignoreRestSiblings` es además el valor por defecto de la regla base de
+    // eslint; aquí se había perdido al no pasar opciones. Declararlo no es
+    // relajar nada: lo que sí lo sería es dejar 200 avisos y que nadie los mire.
+    // El prefijo `_` queda como la única forma de callar la regla, y se ve.
+    rules: {
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        ignoreRestSiblings: true,
+        varsIgnorePattern: "^_",
+        argsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      }],
+    },
+  },
+  {
     // `any` en pruebas: los dobles de test son parciales a propósito. Un mock
     // de PostgREST o de `page.route` tipado al milímetro no aporta seguridad
     // —el objeto real nunca pasa por ahí— y sí obliga a inventar interfaces

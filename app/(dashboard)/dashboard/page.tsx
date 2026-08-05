@@ -9,12 +9,12 @@ import {
   CheckCircle2, ChevronDown, ChevronUp,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
-  Clock, Activity, Bot, MessageSquare, Mail, CalendarX,
+  Clock, Activity, Bot, MessageSquare, CalendarX,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
@@ -429,7 +429,6 @@ export default function Dashboard() {
     cobrarTodosPendientes,
     actividadReciente,
     automationLogs,
-    resetDatosPilates,
   } = useStudio();
 
   // Personalización de la home por estudio (reordenar/ocultar secciones). Se
@@ -474,14 +473,11 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [mounted]);
 
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
   const hoyStr = localDate(now);
   const saludo = now.getHours() < 13 ? 'Buenos días' : now.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches';
 
   // P0-27: índices compartidos por sesión y del conjunto de sesiones de hoy, para
   // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
-  const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
   const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
   // Auditoría 2026-07-29, I-5: plazas ocupadas (CONFIRMADA/ASISTIDA) por
