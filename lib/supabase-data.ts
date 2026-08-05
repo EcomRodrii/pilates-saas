@@ -3507,6 +3507,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbPrioridad' in changes) db.onb_prioridad = changes.onbPrioridad;
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
+  if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
@@ -3781,6 +3782,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     onbPrioridad: r.onb_prioridad ?? null,
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
+    tourVistoEn: r.tour_visto_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
   } as Studio;
 }

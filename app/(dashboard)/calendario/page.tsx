@@ -1927,7 +1927,7 @@ export default function Calendario() {
     // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
     // h-14+mb-2 en escritorio) — mismo patrón ya usado en
     // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
-    <div className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
+    <div data-tour="calendario-vista" className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}

@@ -694,6 +694,7 @@ export interface RowStudios {
   sepa_titular: string | null;
   bienvenida_vista_en: string | null;
   decision_contrato_visto_en: string | null;
+  tour_visto_en: string | null;
   onb_centros: string | null;
   onb_software_anterior: string | null;
   onb_alumnos_activos: string | null;

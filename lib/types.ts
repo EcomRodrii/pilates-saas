@@ -131,6 +131,10 @@ export interface Studio {
   // contrato-decision-os.tsx), mostrado UNA sola vez. NULL = aún no lo ha
   // visto. Mismo patrón que bienvenidaVistaEn/onboardingDescartadoEn.
   decisionContratoVistoEn: string | null;
+  // Tour guiado interactivo (Fase 2 del rediseño de onboarding), registrado
+  // UNA sola vez. NULL = aún no lo ha visto. No bloquea nada — el botón para
+  // repetirlo sigue disponible siempre; mismo patrón que decisionContratoVistoEn.
+  tourVistoEn: string | null;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no

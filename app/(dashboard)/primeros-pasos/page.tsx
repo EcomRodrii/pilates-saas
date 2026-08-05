@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CheckCircle2, Circle, Clock, Lightbulb, ArrowRight, ChevronDown,
-  Rocket, CreditCard, Bot, Users, Smartphone, type LucideIcon,
+  Rocket, CreditCard, Bot, Users, Smartphone, Play, Compass, type LucideIcon,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { calcularOnboarding, type CategoriaOnboarding } from '@/lib/onboarding';
+import { useTour } from '@/lib/tour-context';
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from '@/components/ui/collapsible';
 import { PageHeader } from '@/components/ui/page-header';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,7 @@ export default function PrimerosPasosPage() {
     studio, instructores, tiposClase, sesiones, socios,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
   } = useStudio();
+  const { iniciarTour } = useTour();
 
   if (!studio) return null;
 
@@ -55,6 +57,20 @@ export default function PrimerosPasosPage() {
 
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
 
+  // Gamificación: detecta el instante en que se pasa de incompleto a
+  // completo (nunca al revés, y nunca en la primera carga) para disparar la
+  // confirmación con animación. Derivado en cliente por comparación de
+  // renders — no hay nada que persistir en BD: si recarga la página después
+  // de completarlo, ya no hay "antes" que comparar, y eso es correcto, la
+  // confirmación es un momento, no un estado.
+  const prevTotalRef = useRef<number | null>(null);
+  const [recienCompletado, setRecienCompletado] = useState(false);
+  useEffect(() => {
+    const prev = prevTotalRef.current;
+    if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
+    prevTotalRef.current = totalCompletados;
+  }, [totalCompletados, totalPasos]);
+
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader
@@ -64,12 +80,30 @@ export default function PrimerosPasosPage() {
         badge={<span className="text-[12px] font-semibold text-muted-foreground">{totalCompletados} de {totalPasos} completados</span>}
       />
 
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <button
+          onClick={iniciarTour}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-colors"
+        >
+          <Play size={15} /> Ver un tour guiado (3 minutos)
+        </button>
+        <Link
+          href="/explorar-funciones"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-card text-[13px] font-semibold text-foreground hover:bg-muted transition-colors"
+        >
+          <Compass size={15} /> Explorar todas las funciones
+        </Link>
+      </div>
+
       <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
       </div>
 
       {totalCompletados === totalPasos ? (
-        <div className="rounded-2xl border border-border bg-card p-6 text-center">
+        <div className={cn(
+          'rounded-2xl border border-border bg-card p-6 text-center',
+          recienCompletado && 'animate-in fade-in-0 zoom-in-95 duration-300',
+        )}>
           <CheckCircle2 size={28} className="text-brand-secondary mx-auto mb-2" />
           <p className="text-[15px] font-semibold text-foreground">Configuración inicial completada</p>
           <p className="text-[13px] text-muted-foreground mt-1">Tu estudio ya está preparado para recibir reservas.</p>
@@ -112,6 +146,17 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
   const [abierta, setAbierta] = useState(completados < total);
   const Icono = ICONOS_CATEGORIA[categoria.id] ?? Circle;
 
+  // Misma gamificación que a nivel de página, pero por categoría: un
+  // pequeño "✔ completada" que aparece una vez, al pasar de incompleta a
+  // completa, sin tocar lib/onboarding.ts (que sigue puro).
+  const prevRef = useRef<number | null>(null);
+  const [recienCompletada, setRecienCompletada] = useState(false);
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (prev !== null && prev < total && completados === total) setRecienCompletada(true);
+    prevRef.current = completados;
+  }, [completados, total]);
+
   return (
     <Collapsible open={abierta} onOpenChange={setAbierta} className="rounded-2xl border border-border bg-card overflow-hidden">
       <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors">
@@ -119,10 +164,16 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
           <span className={cn(
             'flex size-8 items-center justify-center rounded-lg shrink-0',
             completados === total ? 'bg-brand-secondary/15 text-brand-secondary' : 'bg-brand/10 text-brand-secondary',
+            recienCompletada && 'animate-in zoom-in-50 duration-300',
           )}>
             <Icono size={16} />
           </span>
           <span className="text-[14px] font-semibold text-foreground">{categoria.label}</span>
+          {recienCompletada && (
+            <span className="text-[11px] font-semibold text-brand-secondary animate-in fade-in-0 slide-in-from-left-1 duration-300">
+              ¡Completada!
+            </span>
+          )}
         </span>
         <span className="flex items-center gap-2 shrink-0">
           <span className="text-[12px] text-muted-foreground">{completados}/{total}</span>

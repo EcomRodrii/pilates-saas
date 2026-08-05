@@ -308,7 +308,7 @@ export default function ConfiguracionPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="configuracion-vista" className="space-y-6">
       <PageHeader
         title="Configuración"
         description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"
