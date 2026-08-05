@@ -46,9 +46,13 @@ export default function PrimerosPasosPage() {
   } = useStudio();
   const { iniciarTour } = useTour();
 
-  if (!studio) return null;
-
-  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = calcularOnboarding({
+  // Todos los hooks deben ejecutarse siempre, en el mismo orden, en CADA
+  // render — así que calcularOnboarding y el "return null" de estudio aún
+  // no cargado NO pueden ir antes de useRef/useState/useEffect. Sin datos
+  // reales del estudio, se calcula sobre un onboarding vacío (0 pasos, sin
+  // categorías): el render real de la página llega solo cuando `studio`
+  // existe (guardia más abajo, después de todos los hooks).
+  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = studio ? calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -65,7 +69,7 @@ export default function PrimerosPasosPage() {
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  });
+  }) : { categorias: [], enlaces: [], recomendaciones: [], totalPasos: 0, totalCompletados: 0 };
 
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
 
@@ -82,6 +86,8 @@ export default function PrimerosPasosPage() {
     if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
     prevTotalRef.current = totalCompletados;
   }, [totalCompletados, totalPasos]);
+
+  if (!studio) return null;
 
   return (
     <div className="space-y-6 max-w-3xl">
