@@ -23,7 +23,7 @@
 // arrastrar peso — mismo principio que layout-runtime.ts. La validación con
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
-import type { CampoSchema, ConfigDe } from './theme/campos.ts';
+import { defaultsDe, type CampoSchema, type ConfigDe } from './theme/campos.ts';
 
 export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
 export type PantallaId = (typeof PANTALLA_IDS)[number];
@@ -44,23 +44,6 @@ export const BLOQUES_SISTEMA_IDS = [
 ] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
-export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = {
-  estaSemana: 'Esta semana',
-  accesosRapidos: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
-  invitarAmiga: 'Invita a una amiga',
-  contenidoEstudio: 'Contenido del estudio (mensaje destacado y banners)',
-  listadoClases: 'Calendario de clases',
-  listadoBonos: 'Tu bono y accesos rápidos',
-  tiraSemana: 'Tira de la semana (7 días, con punto si hay clase reservada)',
-  // Sin la frase "esta semana" a propósito: colisionaba con el bloque
-  // "Esta semana" en los e2e existentes (getByText hace match de subcadena
-  // sin distinguir mayúsculas por defecto — e2e/apariencia-inicio-portal.spec.ts).
-  progresoSemanal: 'Progreso semanal (anillo con tus clases reservadas)',
-  // "Apuntarme" en vez de "Apúntate"/"únete" a propósito: es el texto exacto
-  // del botón, no una paráfrasis — mismo criterio que el resto de labels de
-  // este registro (describen lo que la propietaria ve, no lo reinterpretan).
-  retos: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
-};
 
 // Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
 // pueden reordenar/ocultar como cualquier otro bloque, pero no eliminar: son
@@ -233,13 +216,177 @@ export type BloqueHome =
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
-// Catálogo de lo que se puede AÑADIR desde el picker del editor — los bloques
-// `sistema` no están aquí porque no se "añaden", ya existen siempre por
-// defecto (ver DEFAULT_BLOQUES_POR_PANTALLA). Icono como nombre de
-// lucide-react (string, no el componente) para no meter React en este módulo
-// puro — el editor resuelve el nombre a un icono real. Mismo catálogo para
-// las tres pantallas: un banner/CTA/FAQ es igual de válido en Clases o Bonos
-// que en Inicio.
+// ── Registro de bloques ─────────────────────────────────────────────────────
+// La ÚNICA fuente de verdad de "qué bloques existen y qué sabe hacer cada
+// uno". Antes esa información estaba repartida en cuatro sitios que había que
+// mantener a mano y en sincronía: la interfaz de config, el zod, el
+// formulario del editor y el render. Añadir un campo obligaba a tocar los
+// cuatro, y olvidarse de uno no rompía la compilación — simplemente el campo
+// no se guardaba, o no se pintaba, o se podaba en el siguiente guardado.
+//
+// Los `sistema` viven en el MISMO registro que los del catálogo, aunque no se
+// puedan añadir ni configurar: el rail del editor, el render y el gate de
+// publicar necesitan preguntar lo mismo de ambos ("¿cómo se llama?", "¿existe
+// este kind?"), y tenerlos en dos tablas distintas es justo lo que obligaba a
+// escribir un `if (kind === 'sistema')` en cada consumidor. Se distinguen por
+// `origen`, no por vivir en otro sitio.
+//
+// Icono como NOMBRE de lucide-react (string, no el componente) para no meter
+// React en este módulo puro — el editor resuelve el nombre a un icono real.
+//
+// ⚠️ Regla de retrocompatibilidad: `id` es lo que se persiste en el jsonb de
+// cada estudio. **Nunca se renombra ni se borra una entrada** — renombrarla
+// convierte los bloques guardados en `kind` desconocidos, y borrarla hace que
+// el zod los pode en el siguiente guardado, perdiendo contenido escrito por
+// la propietaria. Para retirar un bloque se le marca `obsoleto`, igual que a
+// un campo.
+
+/** Agrupa el picker de "Añadir sección". Solo aplica a `origen: 'catalogo'`. */
+export type CategoriaBloque = 'texto' | 'multimedia' | 'interaccion';
+
+export const CATEGORIA_BLOQUE_LABEL: Record<CategoriaBloque, string> = {
+  texto: 'Texto',
+  multimedia: 'Imagen y vídeo',
+  interaccion: 'Interacción',
+};
+
+export interface DefinicionBloque {
+  /** El `kind` persistido. Ver la regla de retrocompatibilidad de arriba. */
+  id: BloqueTipoCatalogo | 'sistema';
+  /** Para los `sistema`, cuál de ellos: la clave real dentro de la pantalla. */
+  sistemaId?: BloqueSistemaId;
+  /** Lo que la propietaria lee en el rail y en el picker. */
+  nombre: string;
+  /** Solo en el catálogo: la frase del picker. Un `sistema` no se añade. */
+  descripcion?: string;
+  icono: string;
+  categoria?: CategoriaBloque;
+  origen: 'catalogo' | 'sistema';
+  campos: readonly CampoSchema[];
+  /** Si admite `estilo` propio. Los `sistema` son UI de producto, no. */
+  estilizable: boolean;
+}
+
+/**
+ * Clave del registro: el `kind` para el catálogo, el `sistemaId` para los
+ * `sistema` (todos comparten `kind: 'sistema'`, así que el kind no los
+ * distingue).
+ */
+export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
+
+export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
+  banner: {
+    id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
+    categoria: 'multimedia', estilizable: true, campos: CAMPOS_BANNER,
+    descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
+  },
+  texto: {
+    id: 'texto', nombre: 'Texto', icono: 'Type', origen: 'catalogo',
+    categoria: 'texto', estilizable: true, campos: CAMPOS_TEXTO,
+    descripcion: 'Un bloque de texto libre, con título opcional.',
+  },
+  cta: {
+    id: 'cta', nombre: 'Llamada a la acción', icono: 'MousePointerClick', origen: 'catalogo',
+    categoria: 'interaccion', estilizable: true, campos: CAMPOS_CTA,
+    descripcion: 'Título y un botón que lleva a donde quieras.',
+  },
+  faq: {
+    id: 'faq', nombre: 'Preguntas frecuentes', icono: 'HelpCircle', origen: 'catalogo',
+    categoria: 'texto', estilizable: true, campos: CAMPOS_FAQ,
+    descripcion: 'Lista de preguntas y respuestas, plegable.',
+  },
+  galeria: {
+    id: 'galeria', nombre: 'Galería de imágenes', icono: 'GalleryHorizontal', origen: 'catalogo',
+    categoria: 'multimedia', estilizable: true, campos: CAMPOS_GALERIA,
+    descripcion: 'Varias imágenes en un carrusel horizontal.',
+  },
+  video: {
+    id: 'video', nombre: 'Vídeo', icono: 'Video', origen: 'catalogo',
+    categoria: 'multimedia', estilizable: true, campos: CAMPOS_VIDEO,
+    descripcion: 'Un vídeo embebido de YouTube o Vimeo.',
+  },
+  testimonios: {
+    id: 'testimonios', nombre: 'Testimonios', icono: 'Quote', origen: 'catalogo',
+    categoria: 'texto', estilizable: true, campos: CAMPOS_TESTIMONIOS,
+    descripcion: 'Citas de socias, con autora y rol opcional.',
+  },
+
+  // Los `sistema`: contenido funcional del producto. Sin `campos` (lo que
+  // muestran sale de los datos del estudio, no de un formulario), sin
+  // `estilo` propio y sin `descripcion` de picker — no se pueden añadir, ya
+  // existen siempre. Los `nombre` son los de siempre, con sus paréntesis
+  // explicativos: describen lo que la propietaria ve en pantalla, y hay e2e
+  // que buscan por ese texto exacto.
+  estaSemana: {
+    id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
+    icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: [],
+  },
+  accesosRapidos: {
+    id: 'sistema', sistemaId: 'accesosRapidos',
+    nombre: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
+    icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: [],
+  },
+  invitarAmiga: {
+    id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',
+    icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: [],
+  },
+  contenidoEstudio: {
+    id: 'sistema', sistemaId: 'contenidoEstudio',
+    nombre: 'Contenido del estudio (mensaje destacado y banners)',
+    icono: 'Megaphone', origen: 'sistema', estilizable: false, campos: [],
+  },
+  listadoClases: {
+    id: 'sistema', sistemaId: 'listadoClases', nombre: 'Calendario de clases',
+    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: [],
+  },
+  listadoBonos: {
+    id: 'sistema', sistemaId: 'listadoBonos', nombre: 'Tu bono y accesos rápidos',
+    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
+  },
+  tiraSemana: {
+    id: 'sistema', sistemaId: 'tiraSemana',
+    nombre: 'Tira de la semana (7 días, con punto si hay clase reservada)',
+    icono: 'CalendarCheck', origen: 'sistema', estilizable: false, campos: [],
+  },
+  // Sin la frase "esta semana" a propósito: colisionaba con el bloque
+  // "Esta semana" en los e2e existentes (getByText hace match de subcadena
+  // sin distinguir mayúsculas por defecto — e2e/apariencia-inicio-portal.spec.ts).
+  progresoSemanal: {
+    id: 'sistema', sistemaId: 'progresoSemanal',
+    nombre: 'Progreso semanal (anillo con tus clases reservadas)',
+    icono: 'CircleDashed', origen: 'sistema', estilizable: false, campos: [],
+  },
+  // "Apuntarme" en vez de "Apúntate"/"únete" a propósito: es el texto exacto
+  // del botón, no una paráfrasis — mismo criterio que el resto de nombres de
+  // este registro (describen lo que la propietaria ve, no lo reinterpretan).
+  retos: {
+    id: 'sistema', sistemaId: 'retos',
+    nombre: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
+    icono: 'Trophy', origen: 'sistema', estilizable: false, campos: [],
+  },
+};
+
+/** Una definición por su clave, sin poder confiar en que el string sea válida. */
+export function getDefinicionBloque(clave: string): DefinicionBloque | undefined {
+  return Object.prototype.hasOwnProperty.call(REGISTRO_BLOQUES, clave)
+    ? REGISTRO_BLOQUES[clave as ClaveBloque]
+    : undefined;
+}
+
+/** La definición de un bloque ya construido, resolviendo `sistema` por su id. */
+export function definicionDe(bloque: BloqueHome): DefinicionBloque | undefined {
+  return getDefinicionBloque(bloque.kind === 'sistema' ? bloque.sistemaId : bloque.kind);
+}
+
+export const DEFINICIONES_CATALOGO: DefinicionBloque[] =
+  Object.values(REGISTRO_BLOQUES).filter((d) => d.origen === 'catalogo');
+
+// ── Vistas derivadas (compatibilidad) ───────────────────────────────────────
+// Lo que consumía el editor antes del registro. Se mantienen para no tocar
+// una docena de callers en la misma PR que introduce el registro; el
+// contenido es exactamente el de antes, y hay tests que lo fijan contra un
+// oráculo copiado a mano.
+
 export interface BlockCatalogEntry<K extends BloqueTipoCatalogo = BloqueTipoCatalogo> {
   kind: K;
   label: string;
@@ -248,46 +395,33 @@ export interface BlockCatalogEntry<K extends BloqueTipoCatalogo = BloqueTipoCata
   defaultConfig: Extract<BloqueHome, { kind: K }>['config'];
 }
 
-export const BLOCK_CATALOG: BlockCatalogEntry[] = [
-  {
-    kind: 'banner', label: 'Banner', icono: 'Image',
-    descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
-    defaultConfig: { imagenUrl: '', titulo: '', texto: '', href: '' } satisfies BannerConfig,
-  },
-  {
-    kind: 'texto', label: 'Texto', icono: 'Type',
-    descripcion: 'Un bloque de texto libre, con título opcional.',
-    defaultConfig: { titulo: '', texto: '' } satisfies TextoConfig,
-  },
-  {
-    kind: 'cta', label: 'Llamada a la acción', icono: 'MousePointerClick',
-    descripcion: 'Título y un botón que lleva a donde quieras.',
-    defaultConfig: { titulo: '', textoBoton: '', href: '' } satisfies CtaConfig,
-  },
-  {
-    kind: 'faq', label: 'Preguntas frecuentes', icono: 'HelpCircle',
-    descripcion: 'Lista de preguntas y respuestas, plegable.',
-    defaultConfig: { titulo: '', preguntas: [] } satisfies FaqConfig,
-  },
-  {
-    kind: 'galeria', label: 'Galería de imágenes', icono: 'GalleryHorizontal',
-    descripcion: 'Varias imágenes en un carrusel horizontal.',
-    defaultConfig: { imagenes: [] } satisfies GaleriaConfig,
-  },
-  {
-    kind: 'video', label: 'Vídeo', icono: 'Video',
-    descripcion: 'Un vídeo embebido de YouTube o Vimeo.',
-    defaultConfig: { titulo: '', url: '' } satisfies VideoConfig,
-  },
-  {
-    kind: 'testimonios', label: 'Testimonios', icono: 'Quote',
-    descripcion: 'Citas de socias, con autora y rol opcional.',
-    defaultConfig: { titulo: '', testimonios: [] } satisfies TestimoniosConfig,
-  },
-];
+/** @deprecated Usa `DEFINICIONES_CATALOGO`. */
+export const BLOCK_CATALOG: BlockCatalogEntry[] = DEFINICIONES_CATALOGO.map((d) => ({
+  kind: d.id as BloqueTipoCatalogo,
+  label: d.nombre,
+  descripcion: d.descripcion ?? '',
+  icono: d.icono,
+  defaultConfig: defaultsDe(d.campos) as BlockCatalogEntry['defaultConfig'],
+}));
 
+/** @deprecated Usa `REGISTRO_BLOQUES[sistemaId].nombre`. */
+export const BLOQUE_SISTEMA_LABEL: Record<BloqueSistemaId, string> = Object.fromEntries(
+  Object.values(REGISTRO_BLOQUES)
+    .filter((d) => d.origen === 'sistema')
+    .map((d) => [d.sistemaId, d.nombre]),
+) as Record<BloqueSistemaId, string>;
+
+/** @deprecated Usa `getDefinicionBloque`. */
 export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefined {
-  return BLOCK_CATALOG.find((b) => b.kind === kind);
+  const def = getDefinicionBloque(kind);
+  if (!def || def.origen !== 'catalogo') return undefined;
+  // `defaultConfig` se re-CLONA en cada llamada, no se devuelve el del array.
+  // El editor lo usa tal cual al insertar (`config: entry.defaultConfig`), así
+  // que devolver siempre el mismo objeto haría que dos FAQ de la misma
+  // pantalla compartieran el array `preguntas`. Hoy no rompe nada de milagro
+  // (todos los onChange construyen arrays nuevos), pero es una mina esperando
+  // al primer `.push()`.
+  return { ...BLOCK_CATALOG.find((b) => b.kind === kind)!, defaultConfig: defaultsDe(def.campos) as BlockCatalogEntry['defaultConfig'] };
 }
 
 // Ocultos por defecto: los que ningún estudio ve hasta que instala el tema

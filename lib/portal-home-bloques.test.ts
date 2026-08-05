@@ -4,7 +4,9 @@ import {
   DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG,
   resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto,
   CAMPOS_BANNER, CAMPOS_TEXTO, CAMPOS_CTA, CAMPOS_FAQ, CAMPOS_GALERIA, CAMPOS_VIDEO, CAMPOS_TESTIMONIOS,
-  type BloqueHome,
+  REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
+  BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
+  type BloqueHome, type FaqConfig,
 } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
@@ -249,4 +251,92 @@ test('resolverConfig rellena un bloque guardado antes de existir un campo nuevo'
   const guardado = { titulo: 'Lo que escribió ella' };
   assert.deepEqual(resolverConfig(CAMPOS_VIDEO, guardado), { titulo: 'Lo que escribió ella', url: '' });
   assert.deepEqual(guardado, { titulo: 'Lo que escribió ella' }, 'no muta la entrada');
+});
+
+// ── El registro y sus vistas derivadas ──────────────────────────────────────
+// Los oráculos van copiados literales, NO importados de lo que comparan: un
+// test que deriva su expectativa de la misma fuente que prueba pasa siempre.
+
+test('BLOCK_CATALOG derivado es exactamente el catálogo de antes del registro', () => {
+  assert.deepEqual(BLOCK_CATALOG, [
+    { kind: 'banner', label: 'Banner', icono: 'Image', descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.', defaultConfig: { imagenUrl: '', titulo: '', texto: '', href: '' } },
+    { kind: 'texto', label: 'Texto', icono: 'Type', descripcion: 'Un bloque de texto libre, con título opcional.', defaultConfig: { titulo: '', texto: '' } },
+    { kind: 'cta', label: 'Llamada a la acción', icono: 'MousePointerClick', descripcion: 'Título y un botón que lleva a donde quieras.', defaultConfig: { titulo: '', textoBoton: '', href: '' } },
+    { kind: 'faq', label: 'Preguntas frecuentes', icono: 'HelpCircle', descripcion: 'Lista de preguntas y respuestas, plegable.', defaultConfig: { titulo: '', preguntas: [] } },
+    { kind: 'galeria', label: 'Galería de imágenes', icono: 'GalleryHorizontal', descripcion: 'Varias imágenes en un carrusel horizontal.', defaultConfig: { imagenes: [] } },
+    { kind: 'video', label: 'Vídeo', icono: 'Video', descripcion: 'Un vídeo embebido de YouTube o Vimeo.', defaultConfig: { titulo: '', url: '' } },
+    { kind: 'testimonios', label: 'Testimonios', icono: 'Quote', descripcion: 'Citas de socias, con autora y rol opcional.', defaultConfig: { titulo: '', testimonios: [] } },
+  ]);
+});
+
+test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan ese texto', () => {
+  assert.deepEqual(BLOQUE_SISTEMA_LABEL, {
+    estaSemana: 'Esta semana',
+    accesosRapidos: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
+    invitarAmiga: 'Invita a una amiga',
+    contenidoEstudio: 'Contenido del estudio (mensaje destacado y banners)',
+    listadoClases: 'Calendario de clases',
+    listadoBonos: 'Tu bono y accesos rápidos',
+    tiraSemana: 'Tira de la semana (7 días, con punto si hay clase reservada)',
+    progresoSemanal: 'Progreso semanal (anillo con tus clases reservadas)',
+    retos: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
+  });
+});
+
+test('el registro cubre TODOS los kinds del catálogo y TODOS los sistemaId', () => {
+  // El agujero que esto cierra: un bloque en el registro sin render (o al
+  // revés) es una pantalla en blanco para la socia. Aquí se fija el lado del
+  // registro; el mapa de render se comprueba contra este mismo conjunto.
+  const sistema = Object.values(REGISTRO_BLOQUES).filter((d) => d.origen === 'sistema');
+  assert.deepEqual(sistema.map((d) => d.sistemaId).sort(), [...BLOQUES_SISTEMA_IDS].sort());
+  assert.deepEqual(DEFINICIONES_CATALOGO.map((d) => d.id).sort(), BLOCK_CATALOG.map((b) => b.kind).sort());
+  // Todos los `sistema` comparten `kind: 'sistema'`: la clave del registro es
+  // el sistemaId, no el kind. Si esto se rompiera, `definicionDe` devolvería
+  // la definición equivocada para 8 de los 9.
+  assert.ok(sistema.every((d) => d.id === 'sistema'));
+});
+
+test('definicionDe resuelve un bloque sistema por su sistemaId, no por su kind', () => {
+  const bloque: BloqueHome = { id: 'x', kind: 'sistema', sistemaId: 'retos' };
+  assert.equal(definicionDe(bloque)?.nombre, REGISTRO_BLOQUES.retos.nombre);
+  assert.equal(definicionDe({ id: 'y', kind: 'cta', config: { titulo: '', textoBoton: '', href: '' } })?.nombre, 'Llamada a la acción');
+});
+
+test('getDefinicionBloque no se traga claves heredadas de Object.prototype', () => {
+  assert.equal(getDefinicionBloque('constructor'), undefined);
+  assert.equal(getDefinicionBloque('toString'), undefined);
+  assert.equal(getDefinicionBloque('__proto__'), undefined);
+});
+
+test('getBlockCatalogEntry devuelve un defaultConfig nuevo en cada llamada', () => {
+  // Dos FAQ en la misma pantalla no pueden compartir el array `preguntas`.
+  const a = getBlockCatalogEntry('faq')!;
+  const b = getBlockCatalogEntry('faq')!;
+  assert.deepEqual(a.defaultConfig, b.defaultConfig);
+  assert.notEqual(a.defaultConfig, b.defaultConfig);
+  assert.notEqual((a.defaultConfig as FaqConfig).preguntas, (b.defaultConfig as FaqConfig).preguntas);
+  // Y un `sistema` no es una entrada del catálogo: no se puede "añadir".
+  assert.equal(getBlockCatalogEntry('retos'), undefined);
+});
+
+test('solo los bloques del catálogo son estilizables', () => {
+  for (const def of Object.values(REGISTRO_BLOQUES)) {
+    assert.equal(def.estilizable, def.origen === 'catalogo', def.nombre);
+    // Un `sistema` no tiene formulario: lo que enseña sale de los datos del
+    // estudio, no de campos que rellene la propietaria.
+    if (def.origen === 'sistema') assert.deepEqual(def.campos, []);
+    else assert.ok(def.campos.length > 0, def.nombre);
+  }
+});
+
+test('DEFAULT_BLOQUES_POR_PANTALLA sigue sacando el orden de BLOQUES_SISTEMA_POR_PANTALLA', () => {
+  // Y NO del registro: el orden de las claves de un objeto no es una promesa
+  // que quiera hacer aquí, y el orden de los módulos en la pantalla de la
+  // socia sí es visible. Son dos cosas distintas y deben seguir siéndolo.
+  for (const pantalla of PANTALLA_IDS) {
+    const enPantalla = DEFAULT_BLOQUES_POR_PANTALLA[pantalla]
+      .filter((b) => b.kind === 'sistema')
+      .map((b) => (b as { sistemaId: string }).sistemaId);
+    assert.deepEqual(enPantalla, [...BLOQUES_SISTEMA_POR_PANTALLA[pantalla]], pantalla);
+  }
 });
