@@ -41,20 +41,13 @@ const CAJA = {
 
 /** [destino, svg del kit, encuadre, ancho en px] — el alto sale del encuadre. */
 const TRABAJOS = [
-  // Único PNG con consumidor real fuera de la app: la cabecera de los correos
-  // de acceso de Supabase (supabase/templates/*.html) lo pide por URL absoluta.
+  // Único lockup con consumidor real: la cabecera de los correos de acceso de
+  // Supabase (supabase/templates/*.html) lo pide por URL absoluta. Los demás
+  // (stacked, wordmark, mark, icon, y las variantes por producto) se borraron
+  // al quedarse sin un solo llamador: la app pinta el logo en línea con
+  // <LogoTentare>. Si vuelve a hacer falta alguno, se añade aquí y sale del
+  // mismo kit — docs/marca/ los tiene todos en SVG.
   ['public/logo-horizontal.png', 'horizontal/tentare-horizontal-degradado.svg', CAJA.horizontal, 1200],
-  // …y esos correos van sobre oliva #343825, donde la palabra en tinta no se
-  // lee. Por eso existe esta versión, que es la que usan las plantillas.
-  ['public/logo-horizontal-blanco.png', 'horizontal/tentare-horizontal-blanco.svg', CAJA.horizontal, 1200],
-  ['public/logo-wordmark.png', 'horizontal/tentare-horizontal-degradado.svg', CAJA.horizontal, 1200],
-  ['public/logo-horizontal-core.png', 'productos/core/tentare-core-horizontal.svg', CAJA.horizontalProducto, 1200],
-  ['public/logo-horizontal-manager.png', 'productos/manager/tentare-manager-horizontal.svg', CAJA.horizontalProducto, 1200],
-  ['public/logo-stacked.png', 'vertical/tentare-vertical-degradado.svg', CAJA.vertical, 800],
-  ['public/logo-stacked-core.png', 'productos/core/tentare-core-vertical.svg', CAJA.verticalProducto, 800],
-  ['public/logo-stacked-manager.png', 'productos/manager/tentare-manager-vertical.svg', CAJA.verticalProducto, 800],
-  ['public/logo-mark.png', 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipo, 800],
-  ['public/logo-icon.png', 'isotipo/tentare-isotipo-degradado.svg', CAJA.isotipoCuadrado, 512],
   // Iconos de app y de notificación push (app/manifest.ts, panel.webmanifest,
   // portal/[slug]/manifest.webmanifest, public/sw.js): placa completa.
   ['public/icon-192.png', 'icono-app/tentare-icono-color.svg', CAJA.placa, 192],
