@@ -230,3 +230,37 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # ⚠️ NO RENOMBRAR ESTE JOB. La protección de rama de `main` exige un check
+  # llamado EXACTAMENTE `test` (era el nombre del único job que había antes de
+  # partir el pipeline). GitHub casa por NOMBRE del check: al renombrar los
+  # jobs, ese check dejó de existir y el PR se quedó en `BLOCKED` para siempre
+  # — y de haberse forzado el merge, TODOS los PRs siguientes del repo se
+  # habrían quedado bloqueados igual, porque el check exigido ya no lo produce
+  # nadie.
+  #
+  # Se resuelve con un job agregador en vez de tocando la protección de rama:
+  # así el contrato con `main` no cambia, y sigue valiendo aunque mañana se
+  # añadan, quiten o renumeren shards.
+  # ---------------------------------------------------------------------------
+  test:
+    name: test
+    if: always()
+    needs: [calidad, build, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar que todo lo anterior ha pasado
+        run: |
+          echo "calidad = ${{ needs.calidad.result }}"
+          echo "build   = ${{ needs.build.result }}"
+          echo "e2e     = ${{ needs.e2e.result }}"
+          fallo=0
+          for r in "${{ needs.calidad.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
+            [ "$r" = "success" ] || fallo=1
+          done
+          if [ "$fallo" = "1" ]; then
+            echo "::error::Alguna parte del pipeline no ha pasado — ver los jobs de arriba."
+            exit 1
+          fi
+          echo "Todo en verde."
