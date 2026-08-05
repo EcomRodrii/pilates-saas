@@ -328,6 +328,49 @@ nextjs-portal { display: none !important; }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* ── Motion de marca ───────────────────────────────────────────────────────
+   Tres de las diez del kit (docs/marca/animaciones/tentare-motion.css); las
+   otras siete siguen ahí sin enganchar. Se activan con la prop `animacion` de
+   <LogoTentare>, que pone la clase de estado en el <svg>.
+
+   Ninguna gira: girar el isotipo rompe el degradado a 135° y la lectura de la
+   «t». El isotipo se mueve por piezas.
+
+   Van ANTES del bloque de prefers-reduced-motion de abajo, que las anula con
+   !important — que es justo lo que se quiere: sin movimiento, cada pieza se
+   queda en su sitio y la marca nunca deja de verse. */
+.t-logo * {
+  /* transform-origin relativo a cada pieza, no al lienzo del SVG: sin esto
+     cualquier escala se descoloca. */
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* Construcción — el logo se monta solo al abrir el panel. */
+.t-construccion .t-hoja-i { animation: t-cons-hoja-i .5s cubic-bezier(.16,1,.3,1) both; }
+.t-construccion .t-hoja-d { animation: t-cons-hoja-d .5s cubic-bezier(.16,1,.3,1) .07s both; }
+.t-construccion .t-tallo  { animation: t-cons-tallo .55s cubic-bezier(.16,1,.3,1) .2s both; transform-origin: 50% 100%; }
+.t-construccion .t-disco  { animation: t-cons-disco .45s cubic-bezier(.16,1,.3,1) .45s both; transform-origin: 0% 50%; }
+
+@keyframes t-cons-hoja-i { from { opacity: 0; transform: translate(-16px,-12px) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-hoja-d { from { opacity: 0; transform: translate(16px,-12px) rotate(8deg); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-tallo  { from { opacity: 0; transform: scaleY(.06); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-disco  { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+
+/* Cargando — espera larga. Respira, no gira. */
+.t-cargando .t-disco { animation: t-carga-disco 1.4s ease-in-out infinite; transform-origin: 0% 50%; }
+.t-cargando .t-tallo { animation: t-carga-tallo 1.4s ease-in-out infinite; }
+
+@keyframes t-carga-disco { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.82); opacity: .5; } }
+@keyframes t-carga-tallo { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
+
+/* Barrido de luz — hover en el logo de la cabecera. El <rect> y su recorte
+   solo existen cuando se pide `animacion="barrido"`, así que este selector no
+   alcanza a ningún otro logo de la app. */
+.t-barrido:hover .t-brillo { animation: t-brillo .9s ease-in-out both; }
+
+@keyframes t-brillo { 0% { transform: translateX(-90px); } 100% { transform: translateX(90px); } }
+
 /* Rediseño del Calendario, punto 10 — respeta prefers-reduced-motion. Global
    a propósito (no solo el módulo de calendario): ninguna otra pantalla lo
    comprobaba todavía, y es una preferencia de accesibilidad del sistema, no
