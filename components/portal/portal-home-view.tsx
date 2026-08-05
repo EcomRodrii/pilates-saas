@@ -39,7 +39,7 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
@@ -347,8 +347,24 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
       {/* 62 px arriba como el diseño. Abajo solo 32: el hueco que deja libre el
           menú flotante lo pone el armazón, que es quien sabe cuánto mide. */}
       <div style={{ padding: '62px 24px 32px' }}>
-        {/* Saludo */}
+        {/* Saludo — dos jerarquías según el tema (lib/theme-variantes.ts).
+            ⚠️ `saludoRef` se queda SIEMPRE en este envoltorio exterior: el
+            efecto de scroll le escribe opacity/transform directamente (ver
+            más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
         <div ref={saludoRef} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}>
+          {variantes.cabeceraInicio === 'titular' ? (
+            <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* El avatar sube a la cabecera (en la variante clásica vive solo
+                  en la pestaña Perfil, y aquí abajo en un sr-only). */}
+              <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="lg" />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ ...texto.meta, color: t.muted2 }}>{saludoPorHora(now)}</div>
+                <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {nombre}
+                </h1>
+              </div>
+            </div>
+          ) : (
           <div style={{ minWidth: 0 }}>
             <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{fechaHoy || ' '}</div>
             <h1 style={{ ...display(50), color: t.ink, marginTop: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -358,6 +374,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
             </p>
           </div>
+          )}
           <Link
             href={`/portal/${slug}/notificaciones`}
             aria-label={sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
@@ -375,6 +392,15 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             )}
           </Link>
         </div>
+
+        {/* El titular grande que en el prototipo va aparte del saludo. Lleva el
+            MENSAJE REAL del día (el mismo que en la variante clásica es
+            subtítulo, ascendido), no una frase de marketing de la maqueta. */}
+        {variantes.cabeceraInicio === 'titular' && (
+          <p style={{ ...display(30, false, 1.18), color: t.ink, marginTop: 20 }}>
+            {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+          </p>
+        )}
 
         <div style={{ height: 32 }} />
 
@@ -777,34 +803,63 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);
                 const conteo = retoConteos[reto.key] ?? 0;
+                // Variante 'color' (Bloom): fondo propio por reto y tinta fija
+                // oscura — con un fondo claro constante, `t.ink` en modo noche
+                // sería casi blanco encima y quedaría ilegible.
+                const conColor = variantes.retos === 'color';
+                const tinta = conColor ? reto.tinta : t.ink;
                 return (
                   <div
                     key={reto.key}
                     style={{
-                      flex: '0 0 200px', borderRadius: radio.card, background: t.surface,
-                      padding: 18, boxShadow: sombra.cardSemana,
+                      flex: conColor ? '0 0 218px' : '0 0 200px',
+                      borderRadius: conColor ? 26 : radio.card,
+                      background: conColor ? reto.fondo : t.surface,
+                      padding: 18,
+                      boxShadow: conColor ? 'none' : sombra.cardSemana,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                      <span style={{ ...display(18, false, 1.2), color: t.ink }}>{reto.label}</span>
+                      <span style={{ ...display(18, false, 1.2), color: tinta }}>{reto.label}</span>
                       <span style={{
                         flex: 'none', height: 24, padding: '0 10px', borderRadius: 999,
-                        background: t.surface2, color: t.muted, display: 'inline-flex', alignItems: 'center',
+                        background: conColor ? 'rgba(255,255,255,.75)' : t.surface2,
+                        color: conColor ? tinta : t.muted,
+                        display: 'inline-flex', alignItems: 'center',
                         ...micro(10.5, 0, 600),
                       }}>
                         {reto.dias}
                       </span>
                     </div>
-                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 14 }}>
-                      {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera en apuntarte'}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
+                      {/* Pila de "caras": decoración de COLOR, nunca fotos
+                          reales de socias (el prototipo también usa colores
+                          planos, y así no se expone a nadie). */}
+                      {conColor && (
+                        <span aria-hidden style={{ display: 'flex', flex: 'none' }}>
+                          {reto.caras.map((c, i) => (
+                            <span key={i} style={{
+                              display: 'block', width: 24, height: 24, borderRadius: '50%',
+                              background: c, border: `2px solid ${reto.fondo}`, marginLeft: i ? -8 : 0,
+                            }} />
+                          ))}
+                        </span>
+                      )}
+                      <p style={{ ...texto.meta, color: conColor ? tinta : t.muted2, opacity: conColor ? 0.75 : 1, margin: 0 }}>
+                        {conteo > 0 ? `${conteo} apuntada${conteo === 1 ? '' : 's'}` : 'Sé la primera en apuntarte'}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => void toggleReto(reto.key, apuntada ? 'desmarcar' : 'marcar')}
                       style={{
-                        marginTop: 14, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
-                        background: apuntada ? t.surface2 : 'var(--portal-brand)',
-                        color: apuntada ? t.ink : 'var(--portal-brand-foreground)',
+                        marginTop: 16, width: '100%', height: 40, borderRadius: 999, border: 'none', cursor: 'pointer',
+                        background: conColor
+                          ? (apuntada ? 'rgba(255,255,255,.55)' : tinta)
+                          : (apuntada ? t.surface2 : 'var(--portal-brand)'),
+                        color: conColor
+                          ? (apuntada ? tinta : reto.fondo)
+                          : (apuntada ? t.ink : 'var(--portal-brand-foreground)'),
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: transicion(['background', 'color'], dur.card),
                         ...texto.metaFuerte,
@@ -843,9 +898,11 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
       {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
           Se deja este bloque fuera de la vista para que los lectores de pantalla
           sigan anunciando de quién es la sesión al entrar. */}
-      <span className="sr-only">
-        <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
-      </span>
+      {variantes.cabeceraInicio !== 'titular' && (
+        <span className="sr-only">
+          <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
+        </span>
+      )}
     </div>
   );
 }
