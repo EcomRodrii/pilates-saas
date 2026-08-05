@@ -68,8 +68,12 @@ export function useSociaSession(slug: string) {
   // `sesionId` opcional: si la socia venía de pulsar "Reservar" en una clase
   // concreta, lo propagamos al enlace mágico (?sesion=…) para aterrizar directa
   // en la confirmación de ESA clase al volver del correo, sin re-buscarla.
+  // Sin `sesionId` (acceso genérico, botón "Acceder" de la cabecera) se
+  // propaga `?acceso=1` en su lugar — sin ESTO, volver del correo dejaba a la
+  // socia en la página sin ninguna señal de si había entrado o no: tenía que
+  // pulsar "Acceder" otra vez para que el modal reaccionara.
   const enviarEnlace = useCallback(async (email: string, sesionId?: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
-    const query = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '';
+    const query = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1';
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}${query}`, captchaToken },

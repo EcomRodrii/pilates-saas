@@ -290,15 +290,24 @@ export default function ReservarPage() {
   // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
   // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
   // datos estén cargados. Cierra el bucle de conversión que rompía el magic link.
+  //
+  // Sin ?sesion (acceso genérico, ver enviarEnlace en use-socia-session.ts) el
+  // enlace lleva ?acceso=1: mismo mecanismo, pero reabre el modal en el paso
+  // que toque (registro/contrato) sin necesitar una clase concreta — antes no
+  // pasaba nada al volver del correo y había que pulsar "Acceder" otra vez.
   const deepLinkHecho = useRef(false);
   useEffect(() => {
-    if (!mounted || deepLinkHecho.current) return;
+    if (!mounted || deepLinkHecho.current || !autenticado) return;
     const sesionDeepLink = searchParams.get('sesion');
-    if (!sesionDeepLink || !autenticado) return;
-    if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
-    deepLinkHecho.current = true;
-    setTab('clases');
-    openBooking(sesionDeepLink);
+    if (sesionDeepLink) {
+      if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
+      deepLinkHecho.current = true;
+      setTab('clases');
+      openBooking(sesionDeepLink);
+    } else if (searchParams.get('acceso') === '1') {
+      deepLinkHecho.current = true;
+      openBooking('');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, autenticado, sesiones, searchParams]);
 
@@ -503,6 +512,30 @@ export default function ReservarPage() {
     return null;
   }
 
+  // Alta de la ficha de una walk-in (autenticada por magic link, sin ficha
+  // todavía). Extraído para reutilizar entre handleConfirm (reservando una
+  // clase) y handleSignContract (acceso genérico sin clase que reservar) —
+  // antes solo vivía dentro de handleConfirm, así que el acceso genérico
+  // (botón "Acceder" de la cabecera, sesionId='') nunca llegaba a crear la
+  // ficha: se quedaba esperando un paso "confirmar" que no tenía sesión que
+  // mostrar y no se pintaba nunca.
+  async function crearAltaWalkIn(id: string) {
+    const referidoValido = refCode && refCode !== id && socios.some(s => s.id === refCode) ? refCode : null;
+    return addSocioFromPortal({
+      id,
+      nombre: loginForm.nombre.trim(),
+      telefono: loginForm.telefono.trim(),
+      email: usuarioEmail ?? '',
+      aceptacionContrato: {
+        fecha: new Date().toISOString(),
+        firma: loginForm.nombre.trim(),
+        versionTexto: textoLegalCompleto(studioConfig),
+        origen: 'PORTAL',
+      },
+      referidoPor: referidoValido,
+    });
+  }
+
   function openBooking(sesionId: string) {
     setBookingSesionId(sesionId);
     setTerminosAceptados(false);
@@ -515,7 +548,18 @@ export default function ReservarPage() {
     } else if (socia) {
       const found = socios.find(s => s.id === socia.socioId);
       const needsContract = !found?.aceptacionContrato;
-      setLoginStep(needsContract ? 'contrato' : 'confirm');
+      if (needsContract) {
+        setLoginStep('contrato');
+      } else if (sesionId) {
+        setLoginStep('confirm');
+      } else {
+        // Acceso genérico (botón "Acceder" de la cabecera, sin clase elegida):
+        // ya está todo hecho — autenticada, con ficha, contrato firmado — y no
+        // hay ninguna sesión que confirmar. Sin este caso se abría el modal en
+        // el paso 'confirm' con bookingSesion=null: pantalla en blanco, solo la
+        // X para cerrar (encontrado en producción). Se cierra directo.
+        closeBooking();
+      }
     } else {
       // Autenticada por magic link pero aún sin ficha (walk-in): pedir nombre.
       setLoginStep('registro');
@@ -559,8 +603,22 @@ export default function ReservarPage() {
       // Sin consentimiento guardado no se sigue: avanzar dejaría al estudio
       // creyendo que lo tiene.
       if (!res.ok) { setGateError(res.error); return; }
+    } else if (!bookingSesionId) {
+      // Walk-in en acceso genérico (sin clase elegida): no hay un paso
+      // "confirmar" al que enganchar la alta — con clase (bookingSesionId
+      // truthy) se pospone a handleConfirm a propósito, para no crear la
+      // ficha si el gate de derechos o el aforo la rechazan después; aquí no
+      // hay nada más que pueda rechazarla, así que se crea ya.
+      const nuevoId = `soc-${Date.now()}`;
+      const altaRes = await crearAltaWalkIn(nuevoId);
+      if (!altaRes.ok) { setGateError(altaRes.error); return; }
+      await refrescar();
+      closeBooking();
+      return;
     }
-    setLoginStep('confirm');
+    // Con clase pendiente hay algo que confirmar; en acceso genérico ya
+    // está todo hecho (ficha existente + contrato recién firmado arriba).
+    if (bookingSesionId) { setLoginStep('confirm'); } else { closeBooking(); }
   }
 
   async function handleConfirm() {
@@ -581,24 +639,13 @@ export default function ReservarPage() {
     try {
       let socioIdParaReserva = socia?.socioId ?? '';
       if (!socia) {
-        // Walk-in: alta de la ficha. El servidor la vincula a su auth_user_id a
-        // partir del JWT (magic link) y usa el email del token; el nombre lo puso
-        // en el paso "registro". Se AWAITea para que la reserva la encuentre.
+        // Walk-in: alta de la ficha (crearAltaWalkIn, compartida con el acceso
+        // genérico de handleSignContract). El servidor la vincula a su
+        // auth_user_id a partir del JWT (magic link) y usa el email del token;
+        // el nombre/teléfono los puso en el paso "registro". Se AWAITea para
+        // que la reserva la encuentre.
         const nuevoId = `soc-${Date.now()}`;
-        const referidoValido = refCode && refCode !== nuevoId && socios.some(s => s.id === refCode) ? refCode : null;
-        const altaRes = await addSocioFromPortal({
-          id: nuevoId,
-          nombre: loginForm.nombre.trim(),
-          telefono: loginForm.telefono.trim(),
-          email: usuarioEmail ?? '',
-          aceptacionContrato: {
-            fecha: new Date().toISOString(),
-            firma: loginForm.nombre.trim(),
-            versionTexto: textoLegalCompleto(studioConfig),
-            origen: 'PORTAL',
-          },
-          referidoPor: referidoValido,
-        });
+        const altaRes = await crearAltaWalkIn(nuevoId);
         // Antes este resultado se descartaba: un rechazo del servidor (tope de
         // plan, red, timeout) se trataba como éxito silencioso y el flujo se
         // quedaba colgado con el botón inerte, sin ficha ni aviso alguno.
