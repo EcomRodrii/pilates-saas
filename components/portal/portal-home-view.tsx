@@ -446,7 +446,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             </div>
             {(() => {
               const estilo: React.CSSProperties = {
-                width: '100%', height: altura.botonCta, borderRadius: radio.botonCta, background: 'var(--portal-brand)',
+                width: '100%', height: altura.botonCta, borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`, background: 'var(--portal-brand)',
                 display: 'flex', alignItems: 'center', padding: '0 24px', marginTop: 18, border: 'none',
                 textDecoration: 'none', cursor: 'pointer',
                 boxShadow: sombra.cta, transition: transicion(['transform', 'background']),

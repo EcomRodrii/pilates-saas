@@ -503,6 +503,7 @@ export function AjustesCategoriaPanel({
               activeIndex={0}
               slug={studio?.slug ?? ''}
               interactive={false}
+              flotante={!draft.barraClasica}
             />
           </div>
         </div>

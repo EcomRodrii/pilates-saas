@@ -78,7 +78,7 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
           style={{
             flex: 'none',
             marginTop: 22,
-            borderRadius: radio.card,
+            borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
             background: config.accent,
             border: 'var(--portal-card-border, none)',
             boxShadow: 'var(--portal-card-shadow, none)',
@@ -98,7 +98,7 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
               style={{
                 marginTop: 16,
                 height: 46,
-                borderRadius: radio.botonCta,
+                borderRadius: `var(--portal-radius-boton, ${radio.botonCta}px)`,
                 background: 'var(--portal-btn-bg, var(--portal-brand))',
                 color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
                 border: 'var(--portal-btn-border, none)',
@@ -141,7 +141,7 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
         {/* Barra inferior REAL — el mismo componente que el portal, para que
             `barraOscura` (tema Noir) se vea aquí tal cual se verá en el móvil. */}
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14 }}>
-          <PortalNav items={items} activeIndex={0} slug="preview" interactive={false} />
+          <PortalNav items={items} activeIndex={0} slug="preview" interactive={false} flotante={!config.barraClasica} />
         </div>
       </div>
     </div>

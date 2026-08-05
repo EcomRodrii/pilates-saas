@@ -506,6 +506,11 @@ export async function fetchPublicStudioData(
       tabBarStyle: temaPublicado.tabBarStyle,
       navPortal: temaPublicado.navPortal,
       redesSociales: temaPublicado.redesSociales,
+      // Barra clásica (Oliva/Noir, ver harmonic-discovering-kettle.md): igual
+      // que tabBarStyle/navPortal, es una decisión de LAYOUT que portal-shell.tsx
+      // toma con JS (position flotante o no), no algo que una CSS var pueda
+      // decidir por sí sola.
+      barraClasica: temaPublicado.barraClasica,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),

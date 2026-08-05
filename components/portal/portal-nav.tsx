@@ -14,6 +14,13 @@
 // tema (lib/theme-schema.ts) solo para que temas ya guardados sigan
 // resolviendo sin romper — este componente ya no lo lee.
 //
+// `flotante` (prop, no CSS var) reabre esa decisión SOLO para Oliva/Noir
+// (campo `barraClasica` del tema, ver theme-schema.ts) — confirmado
+// explícitamente con el usuario tras comparar contra el prototipo real, que
+// para esos dos temas usa una barra pegada abajo con borde superior, no la
+// píldora flotante. El resto de estudios (default `flotante=true`) no
+// cambia — la pestaña activa/icono+texto tampoco cambia en ningún caso.
+//
 // Resuelve nombre de icono → componente (lib/portal-nav.ts es puro, sin
 // React) — mismo criterio que bloque-home-render.tsx con portal-home-bloques.ts.
 
@@ -31,35 +38,49 @@ const ICONOS: Record<string, LucideIcon> = {
 };
 
 export function PortalNav({
-  items, activeIndex, slug, interactive = true,
+  items, activeIndex, slug, interactive = true, flotante = true,
 }: {
   items: NavItemDefault[];
   activeIndex: number;
   slug: string;
   /** false = widget de preview del editor: mismo look, sin navegar de verdad. */
   interactive?: boolean;
+  /** false = barra clásica (Oliva/Noir): pegada abajo, sin flotar, con borde
+   *  superior en vez de cápsula de cristal. Ver `barraClasica` del tema. */
+  flotante?: boolean;
 }) {
   const { t, noche } = useModo();
+  // `interactive` decide la MECÁNICA de posición (absolute con desplazamiento
+  // propio vs relative — el widget de preview ya vive dentro de un contenedor
+  // que lo coloca, no necesita posicionarse solo). `flotante` decide el
+  // ASPECTO (cápsula de cristal vs barra clásica con borde) — son ejes
+  // independientes: la miniatura de la biblioteca de temas es `interactive
+  // ={false}` pero SÍ debe mostrar a Bloom como cápsula flotante.
+  const posicionaSola = interactive && flotante;
 
   return (
     <nav
       aria-label="Secciones"
       style={{
-        position: interactive ? 'absolute' : 'relative',
-        left: interactive ? 18 : undefined, right: interactive ? 18 : undefined,
-        bottom: interactive ? 'calc(22px + env(safe-area-inset-bottom))' : undefined,
+        position: posicionaSola ? 'absolute' : 'relative',
+        left: posicionaSola ? 18 : undefined, right: posicionaSola ? 18 : undefined,
+        bottom: posicionaSola ? 'calc(22px + env(safe-area-inset-bottom))' : undefined,
         // var() con el valor de hoy como fallback en las 3: sin `barraOscura`/
         // `barraFlotante` el tema no declara estas vars (ver varsBarra/
         // varsBarraFlotante en lib/theme-runtime.ts) y la barra se ve
         // exactamente igual que antes, en claro y en oscuro.
         height: `var(--portal-tabbar-height, ${altura.tabbar}px)`,
         zIndex: interactive ? 14 : undefined,
-        borderRadius: `var(--portal-tabbar-radius, ${radio.tabbar}px)`,
+        borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
         background: `var(--portal-tabbar-bg, ${t.tabbar})`,
-        ...cristal(desenfoque.tabbar, 170),
-        border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`,
-        boxShadow: `var(--portal-tabbar-shadow, ${sombra.tabbar})`,
+        ...(flotante ? cristal(desenfoque.tabbar, 170) : {}),
+        border: flotante
+          ? `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`
+          : `1px solid ${t.line}`,
+        borderWidth: flotante ? '1px' : '1px 0 0 0',
+        boxShadow: flotante ? `var(--portal-tabbar-shadow, ${sombra.tabbar})` : 'none',
         display: 'flex', alignItems: 'center', padding: 6,
+        paddingBottom: flotante && interactive ? 6 : 'calc(6px + env(safe-area-inset-bottom))',
       }}
     >
       {items.map((item, i) => {

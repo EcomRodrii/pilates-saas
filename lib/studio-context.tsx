@@ -251,9 +251,12 @@ interface StudioContextValue {
   bloquesClases: BloqueHome[];
   bloquesBonos: BloqueHome[];
   // Comportamiento de la barra inferior del portal (galería de temas,
-  // "Editorial") — único campo del tema expuesto como valor JS, no solo CSS:
-  // portal-shell.tsx decide con esto si pinta iconos/pestaña expandible.
+  // "Editorial") — expuesto como valor JS, no solo CSS: portal-shell.tsx
+  // decide con esto si pinta iconos/pestaña expandible.
   tabBarStyle: TabBarStyleId;
+  // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
+  // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
+  barraClasica: boolean;
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
@@ -595,6 +598,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
   const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
+  const [barraClasica, setBarraClasica] = useState(false);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
@@ -796,6 +800,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
       setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
+      setBarraClasica(pub.barraClasica === true);
       setNavPortal(resolveNavConfig(pub.navPortal));
       setRedesSociales({
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
@@ -3835,6 +3840,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesClases,
     bloquesBonos,
     tabBarStyle,
+    barraClasica,
     navPortal,
     redesSociales,
     favoritos,
@@ -4043,7 +4049,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, barraClasica, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

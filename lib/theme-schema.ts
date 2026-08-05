@@ -158,18 +158,29 @@ const barraOscuraSchema = z.boolean();
 // lee (rediseño 2026-08, "pestaña activa" como único look). Los dos flags
 // pueden convivir sin pisarse; ningún tema de hoy usa los dos a la vez.
 const barraFlotanteSchema = z.boolean();
+// Barra clásica (Oliva/Noir): pegada abajo, sin flotar, con borde superior —
+// el look de ANTES del rediseño de 2026-08 ("único look de barra para todos
+// los estudios", tras feedback de 49 propietarias). Reabre esa decisión a
+// propósito, pero SOLO para los estudios con este flag activo: el resto
+// sigue con la píldora flotante de siempre. Default false. Es un eje JS, no
+// solo CSS — igual que `tabBarStyle`/`navPortal`, portal-shell.tsx decide con
+// esto si monta <PortalNav flotante={false}>, algo que una var no puede
+// decidir por sí sola (ver getThemePublicado/fetchPublicStudioData).
+const barraClasicaSchema = z.boolean();
 // Acento que NO es la marca (dorado de Noir, rosa de Bloom) — icono activo de
 // la barra, borde de tarjeta reservada, punto de aviso. Antes de este campo,
 // Noir reusaba `secondary` para ese papel (ver #640); con `destacado`
 // explícito, `secondary` vuelve a ser "superficie suave" en los tres temas
 // nuevos, como pide la tabla de valores del encargo.
 const destacadoSchema = hexSchema;
-// Radio por PIEZA, solo para las piezas nuevas de cada tema (tarjeta de
-// próxima clase, tiraSemana, progresoSemanal) — ver varsRadioTema en
-// theme-runtime.ts. Parcial y opcional: sin este campo, esas piezas caen a
-// los números fijos de siempre en lib/portal-design.ts. El resto del portal
-// (~37 usos de `radio.*`) no lee este campo — retrofit completo descartado
-// a propósito, ver harmonic-discovering-kettle.md.
+// Radio por PIEZA — ver varsRadioTema en theme-runtime.ts. Parcial y
+// opcional: sin este campo, todo el portal cae a los números fijos de
+// siempre en lib/portal-tokens.ts/portal-design.ts. `card`/`boton` ya los
+// leen tanto los componentes compartidos (Button.tsx/Card.tsx) como el resto
+// de tarjetas/botones inline del portal (clases, bonos, hero) — no es solo
+// la tarjeta de "próxima clase" (ver harmonic-discovering-kettle.md, ronda
+// que cerró ese hueco tras el feedback "todos los temas son el mismo pero
+// de otro color").
 const radioTemaSchema = z.object({
   card: z.number().optional(),
   boton: z.number().optional(),
@@ -206,6 +217,9 @@ export const themeConfigSchema = z
     // Barra flotante sobre el fondo (tema "Bloom") — ver comentario del
     // schema arriba. Default false: sin cambios para nadie que no lo pida.
     barraFlotante: barraFlotanteSchema.default(false),
+    // Barra clásica, no flotante (Oliva/Noir) — ver comentario del schema
+    // arriba. Default false: sin cambios para nadie que no lo pida.
+    barraClasica: barraClasicaSchema.default(false),
     // Acento fuera de la marca (dorado/rosa) — ver comentario del schema
     // arriba. Sin default explícito con valor propio: si el estudio no lo
     // toca, cae a `secondary` en el render (mismo criterio de "hereda del
@@ -255,6 +269,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   tabBarStyle: 'clasica',
   barraOscura: false,
   barraFlotante: false,
+  barraClasica: false,
   destacado: null,
   radioTema: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
@@ -290,6 +305,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),
     barraFlotante: pick('barraFlotante', barraFlotanteSchema),
+    barraClasica: pick('barraClasica', barraClasicaSchema),
     destacado: pick('destacado', destacadoSchema.nullable()),
     radioTema: pick('radioTema', radioTemaSchema.optional()),
     navPortal: pick('navPortal', navConfigSchema),

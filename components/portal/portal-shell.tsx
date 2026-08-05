@@ -29,7 +29,7 @@ import { PortalNav } from './portal-nav';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal } = useStudio();
+  const { dataLoaded, navPortal, barraClasica } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -143,11 +143,19 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <div key={screen.path} className={leaving ? 'portal-page-in' : undefined}>
             {screen.node}
           </div>
-          {/* Hueco bajo el contenido para que el menú flotante no tape la
-              última fila. Vive aquí y no en cada pantalla porque el menú
-              también vive aquí: si cambia de alto, esto cambia con él. Sin
-              menú en pantalla completa, tampoco hace falta el hueco. */}
-          {!isFullscreen && <div style={{ height: `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }} />}
+          {/* Hueco bajo el contenido para que el menú no tape la última fila.
+              Vive aquí y no en cada pantalla porque el menú también vive
+              aquí: si cambia de alto, esto cambia con él. Sin menú en
+              pantalla completa, tampoco hace falta el hueco. Los +38px de
+              aire son solo para la variante flotante (el espacio entre la
+              cápsula y el borde de la pantalla) — la barra clásica no flota,
+              así que solo necesita su propia altura. */}
+          {!isFullscreen && (
+            <div style={{ height: barraClasica
+              ? `calc(${altura.tabbar}px + env(safe-area-inset-bottom))`
+              : `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }}
+            />
+          )}
         </main>
 
         {!isFullscreen && (
@@ -155,7 +163,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             {/* Aviso de un toque para activar notificaciones al entrar. Se
                 pinta solo si procede. */}
             <PushPrompt />
-            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} />
+            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} flotante={!barraClasica} />
           </>
         )}
       </div>

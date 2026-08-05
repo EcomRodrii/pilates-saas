@@ -77,6 +77,30 @@ test('Noir es el único que pide barra oscura; Bloom el único que pide barra fl
   assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).length, 1);
 });
 
+test('Oliva y Noir piden barra clásica; Bloom no la pide (sigue flotando)', () => {
+  assert.equal(getThemeDefinition('oliva')!.defaults.barraClasica, true);
+  assert.equal(getThemeDefinition('noir')!.defaults.barraClasica, true);
+  assert.ok(!getThemeDefinition('bloom')!.defaults.barraClasica);
+  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraClasica).length, 2);
+});
+
+// Valores exactos del prototipo real (paleta() → radCard/radBoton), leído vía
+// el MCP claude_design — ver harmonic-discovering-kettle.md. Antes de esta
+// ronda solo Bloom traía `radioTema` (y solo `card`), así que Button.tsx/
+// Card.tsx (usados en TODO el portal) nunca reflejaban ninguna diferencia
+// real entre temas — "todos iguales pero de otro color".
+test('radioTema completo (card+boton) por tema, con los valores exactos del prototipo', () => {
+  assert.deepEqual(getThemeDefinition('oliva')!.defaults.radioTema, { card: 26, boton: 20 });
+  assert.deepEqual(getThemeDefinition('bloom')!.defaults.radioTema, { card: 30, boton: 999 });
+  assert.deepEqual(getThemeDefinition('noir')!.defaults.radioTema, { card: 24, boton: 18 });
+});
+
+test('cardStyle: solo Bloom tiene sombra de tarjeta — Oliva y Noir son planas, como el prototipo', () => {
+  assert.equal(getThemeDefinition('oliva')!.defaults.cardStyle, 'flat');
+  assert.equal(getThemeDefinition('bloom')!.defaults.cardStyle, 'elevated');
+  assert.equal(getThemeDefinition('noir')!.defaults.cardStyle, 'flat');
+});
+
 test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la marca se rechaza', () => {
   const malo = validarContrasteTheme({
     ...DEFAULT_THEME, ...getThemeDefinition('noir')!.defaults,

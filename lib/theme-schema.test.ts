@@ -170,6 +170,20 @@ test('resolveTheme: barraFlotante/destacado/radioTema — inválidos caen al def
   assert.deepEqual(resolveTheme({ radioTema: { card: 30 } }).radioTema, { card: 30 });
 });
 
+test('themeConfigSchema: barraClasica ausente → false (tema guardado antes de esta fase)', () => {
+  const sinCampo: Record<string, unknown> = { ...DEFAULT_THEME };
+  delete sinCampo.barraClasica;
+  const r = themeConfigSchema.safeParse(sinCampo);
+  assert.equal(r.success, true);
+  if (r.success) assert.equal(r.data.barraClasica, false);
+});
+
+test('resolveTheme: barraClasica no booleano cae a false; true se respeta', () => {
+  assert.equal(resolveTheme({ barraClasica: 'si' }).barraClasica, false);
+  assert.equal(resolveTheme(null).barraClasica, false);
+  assert.equal(resolveTheme({ barraClasica: true }).barraClasica, true);
+});
+
 test('themeConfigSchema: portalHeadingFontId acepta "poppins" (tema Bloom)', () => {
   const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME, portalHeadingFontId: 'poppins' });
   assert.equal(r.success, true);

@@ -457,7 +457,7 @@ export function PortalClasesView({
               key={c.sesion.id}
               style={{
                 position: 'relative',
-                borderRadius: radio.card, padding: 20, display: 'flex', gap: 18,
+                borderRadius: `var(--portal-radius-card, ${radio.card}px)`, padding: 20, display: 'flex', gap: 18,
                 background: reservada
                   ? (noche ? t.surface2 : '#EEF0EA')
                   : (completa || c.pasada ? (noche ? 'rgba(28,31,23,.5)' : 'rgba(255,255,255,.5)') : t.surface),
@@ -527,7 +527,7 @@ export function PortalClasesView({
                   <button
                     type="button" onClick={() => abrirReserva(c)}
                     style={{
-                      height: 34, padding: '0 16px', borderRadius: 17, border: `1px solid ${t.line}`,
+                      height: 34, padding: '0 16px', borderRadius: 'var(--portal-radius-boton, 17px)', border: `1px solid ${t.line}`,
                       background: 'none', fontSize: 10.5, fontWeight: 500, color: t.muted2,
                       whiteSpace: 'nowrap', cursor: 'pointer', fontFamily: 'inherit',
                     }}
