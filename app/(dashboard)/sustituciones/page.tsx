@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useId } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useStudio } from '@/lib/studio-context';
 import {
   listarSustituciones, crearBaja, confirmarSustituta, descartarSustitucion, avisarSustituta,
@@ -427,6 +428,10 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
   const uid = useId();
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
 
   // Prefill con el horario actual de la clase al abrir.
   //
@@ -443,7 +448,7 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
   }
 
   const inicioISO = fecha && hora ? new Date(`${fecha}T${hora}:00`).toISOString() : null;
-  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < Date.now();
+  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < ahora.getTime();
   const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
 
   return (

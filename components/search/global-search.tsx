@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X, Zap } from 'lucide-react';
@@ -78,13 +79,17 @@ export function GlobalSearch({
     : socios.filter(s => s.activo).slice(0, 4),
     [socios, q]);
 
+  // El reloj viene del estado, no de un `Date.now()` dentro del useMemo: leerlo
+  // ahí es impuro y, además, ataba el resultado al momento en que tocara
+  // recalcular — dos búsquedas seguidas podían filtrar por instantes distintos.
+  const { ahora } = useAhora(new Date());
   const sesionesRes = useMemo(() => {
-    const nowMs = Date.now();
+    const nowMs = ahora.getTime();
     const futuras = sesiones.filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .sort((a, b) => a.inicio.localeCompare(b.inicio));
     if (q.length < 1) return futuras.slice(0, 3);
     return futuras.filter(s => tipoById.get(s.tipoClaseId)?.nombre.toLowerCase().includes(q)).slice(0, 4);
-  }, [sesiones, tipoById, q]);
+  }, [ahora, sesiones, tipoById, q]);
 
   const recibosRes = useMemo(() => {
     const pend = recibos.filter(r => r.estado === 'PENDIENTE');

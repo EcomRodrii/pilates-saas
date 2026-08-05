@@ -241,8 +241,12 @@ function ModalClasesRecurrentes({
   sesionesExistentes: SlotSesion[];
 }) {
   const uid = useId();
-  const today = new Date().toISOString().slice(0, 10);
-  const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Leer el reloj DURANTE el render es impuro: dos lecturas del mismo render
+  // pueden dar valores distintos, y React puede descartar y repetir un render
+  // sin avisar. La hora viene del hook (estado), que además la mantiene estable.
+  const { ahora } = useAhora(new Date());
+  const today = ahora.toISOString().slice(0, 10);
+  const inOneMonth = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const emptyForm = (): RecurringFormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',

@@ -467,6 +467,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   const [avisado, setAvisado] = useState<Set<TipoIntegracion>>(new Set());
   const avisarme = (cat: CatalogoIntegracion) => {
     dbInsertSoporteSolicitud({
+      // eslint-disable-next-line react-hooks/purity -- Esto NO corre en render: `avisarme` solo se invoca desde el onClick del botón (línea ~596). Generar un id con la hora y un sufijo aleatorio en el momento del clic es correcto; la regla lo marca porque la función se declara en el cuerpo del componente y no puede demostrar que nadie la llame durante el render.
       id: `sup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       tipo: 'MEJORA',
       mensaje: `Quiero que se avise cuando esté disponible la integración con ${cat.nombre}.`,

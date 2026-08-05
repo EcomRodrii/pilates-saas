@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { dbStatsClientas } from '@/lib/supabase-data';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
@@ -161,6 +162,10 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
   const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
   const rol = useRol();
@@ -302,7 +307,7 @@ export default function Socios() {
   function isInactiva30d(socioId: string): boolean {
     const last = getLastVisit(socioId);
     if (!last) return true;
-    return Date.now() - new Date(last).getTime() > 30 * 86400000;
+    return ahora.getTime() - new Date(last).getTime() > 30 * 86400000;
   }
 
   function isBonoExpirado(socioId: string): boolean {
