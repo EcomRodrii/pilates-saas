@@ -45,6 +45,7 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   useEffect(() => {
     let vivo = true;
     const sid = getCurrentStudioId();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona de canales. El estado viene de la red.
     if (!sid) { setEstadoCarga('listo'); return; }
     dbListCanalesEquipo().then(cs => {
       if (!vivo) return;
@@ -69,6 +70,7 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   useEffect(() => {
     if (!canalActivo) return;
     let vivo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona de mensajes con bandera de vida. El estado viene de la red.
     setEstadoCarga('cargando');
     setMensajes([]);
 

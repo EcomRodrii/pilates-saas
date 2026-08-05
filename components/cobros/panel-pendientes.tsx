@@ -195,6 +195,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
       // Stripe hubiera cobrado nada. El webhook de checkout.session.completed
       // ya hace ese trabajo en servidor, con el importe verificado contra
       // Stripe. Aquí no se escribe: se relee el estado real.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Retorno de Stripe: lee la URL para saber si el pago se completó y la limpia con history.replaceState. Sincronización con el navegador.
       setStripeToast({ tipo: 'ok', msg: 'Pago completado. Actualizando…' });
       window.history.replaceState({}, '', '/cobros?tab=deudas');
       resetDatosPilates();

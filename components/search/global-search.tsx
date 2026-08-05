@@ -47,9 +47,19 @@ export function GlobalSearch({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // El foco SÍ se queda en un efecto: mover el cursor es tocar el DOM, que es
+  // justo para lo que existen los efectos. Lo que sale de aquí es el reset del
+  // texto, que es estado y se ajusta en render — con efecto, al reabrir el
+  // buscador se veía un frame con la búsqueda anterior todavía escrita.
   useEffect(() => {
-    if (open) { setTimeout(() => inputRef.current?.focus(), 40); setQuery(''); }
+    if (open) setTimeout(() => inputRef.current?.focus(), 40);
   }, [open]);
+
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) setQuery('');
+  }
 
   // P0-32: debounce del texto (no filtrar en cada tecla) + resultados memoizados
   // + Map socio por id (antes: socios.find() por cada recibo, en cada pulsación).

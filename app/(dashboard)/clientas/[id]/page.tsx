@@ -327,6 +327,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     if (!id) return;
     // Se limpia YA, síncrono: cambiar de ficha no debe seguir enseñando el
     // historial de la clienta anterior mientras carga la nueva.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona del historial con bandera 'ignorar' para que una respuesta tardía no pinte datos de otra clienta. El estado viene de la red.
     setComunicaciones([]);
     let ignorar = false;
     // A partir de aquí, null (fallo de red/permiso) no pisa lo que ya había

@@ -168,9 +168,12 @@ export function ReservaCalendario({
   );
 
   // Si el slot abierto desaparece (p. ej. la sesión ya pasó tras recargar), cierra.
-  useEffect(() => {
-    if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); }
-  }, [openSlotId, openSlot]);
+  //
+  // Ajuste en render, no efecto: con efecto se pintaba un frame con la hoja
+  // todavía abierta sobre un slot que ya no existe. La condición se
+  // auto-cancela —al poner `openSlotId` a null deja de cumplirse—, así que no
+  // hace falta guardar el valor anterior ni hay riesgo de bucle.
+  if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); }
 
   function navegarSemana(dir: -1 | 1) {
     const nuevoAnchor = addDays(weekAnchor, dir * 7);

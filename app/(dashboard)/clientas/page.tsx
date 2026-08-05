@@ -239,8 +239,9 @@ export default function Socios() {
   const [errorFila, setErrorFila] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
-  // Reset selection when filters change
-  useEffect(() => { setSelected(new Set()); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // (El reset de la selección al cambiar de filtro vive más abajo, junto al de
+  // la paginación: los dos vigilaban las mismas cuatro dependencias y ahora
+  // son un único ajuste en render.)
 
   // Auto-open create modal when ?nuevo=1 in URL (linked from dashboard)
   useEffect(() => {
@@ -248,6 +249,7 @@ export default function Socios() {
     // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
     // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
     if (params.get('nuevo') === '1' && gestionaClientas) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?nuevo=1). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render.
       setForm(emptyForm());
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
@@ -381,8 +383,22 @@ export default function Socios() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  // Al cambiar filtros/búsqueda/orden, volver a la primera página.
-  useEffect(() => { setVisibles(PAGE); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // Al cambiar filtros/búsqueda/orden: volver a la primera página y vaciar la
+  // selección (no tendría sentido conservar marcadas clientas que ya no salen).
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // al teclear en el buscador se pintaba un frame con la lista nueva pero
+  // todavía la paginación y la selección viejas, y el reset entraba en un
+  // segundo render. Así React descarta el render en curso y rehace antes de
+  // tocar el DOM: ese frame intermedio no llega a existir.
+  const filtroActual = `${busqueda} ${smartFilter} ${sortKey} ${sortDir}`;
+  const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
+  if (filtroActual !== filtroPrevio) {
+    setFiltroPrevio(filtroActual);
+    setVisibles(PAGE);
+    setSelected(new Set());
+  }
   const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
 
   // ── Bulk helpers ───────────────────────────────────────────────────────────

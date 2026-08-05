@@ -924,6 +924,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // como un toast de error real a cualquier visitante de la home pública.
     if (!studioIdOverride && !authUserId) {
       setCurrentStudioId('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos del estudio: marca dataLoaded para los casos en que no hay nada que pedir. El estado viene de la red.
       setDataLoaded(true);
       return;
     }

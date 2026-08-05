@@ -303,6 +303,7 @@ export default function ReservarPage() {
     if (sesionDeepLink) {
       if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
       deepLinkHecho.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
       openBooking(sesionDeepLink);
     } else if (searchParams.get('acceso') === '1') {
