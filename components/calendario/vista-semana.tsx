@@ -97,7 +97,7 @@ export function VistaSemana({
                     <span className="text-sm font-bold tracking-tight text-foreground">{fechasSemana[i]?.getDate()}</span>
                   </p>
                   <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
-                    {c.vacio ? 'Cerrado' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
+                    {c.cerrado ? 'Cerrado' : c.vacio ? 'Sin clases' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
                   </p>
                 </div>
               );
@@ -138,14 +138,14 @@ export function VistaSemana({
                     onClickVacio({ diaColumna: i, offsetYPx: e.clientY - rect.top, pxPorHora });
                   }}
                 >
-                  {c.vacio && (
+                  {(c.cerrado || c.vacio) && (
                     // pointer-events-none: sin esto, este rótulo (que cubre TODA
                     // la columna) se comía cualquier clic en un día cerrado antes
                     // de que llegara a onClickVacio — la comprobación de "clic en
                     // el fondo, no en una clase" lo veía como target distinto y
                     // lo descartaba en silencio.
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-semibold uppercase tracking-wide text-border">
-                      Cerrado
+                      {c.cerrado ? 'Cerrado' : 'Sin clases'}
                     </span>
                   )}
 

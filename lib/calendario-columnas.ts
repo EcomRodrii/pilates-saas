@@ -77,16 +77,30 @@ export interface ColumnaDia {
   sesiones: SesionEnColumna[];
   ocupacionMedia: number;
   hayAtencion: boolean;
-  /** Sin clases este día. El componente decide si eso significa "cerrado"
-   *  (no hay ninguna programada) — no hay un campo de "días de apertura" en
-   *  el estudio, así que "vacío" es la única señal real disponible. */
+  /** Sin clases programadas este día — puede pasar dentro de horario normal
+   *  (nadie ha metido nada aún) y no significa que el estudio esté cerrado. */
   vacio: boolean;
+  /** El horario del estudio (studio_horario) marca este día como no laborable.
+   *  Independiente de `vacio`: un día "cerrado" nunca tiene clases, pero un
+   *  día "vacío" puede estar perfectamente abierto. Si no llega `horarioSemana`
+   *  al caller, nunca se afirma "cerrado" sin dato real (queda en `false`). */
+  cerrado: boolean;
+}
+
+// Índice por `dia` (0=lunes..6=domingo, misma convención local que `dia` de
+// arriba) de si el estudio abre ese día, según lib/types.ts:DiaHorario —cuya
+// `diaSemana` usa la convención EXTRACT(DOW) (0=domingo)—; la conversión la
+// hace el caller antes de pasar este array.
+export interface DiaAbiertoLocal {
+  dia: number;
+  abierto: boolean;
 }
 
 // Sin sala de por medio: los carriles se calculan sobre TODO lo del día
 // (varias salas a la vez), igual que hace el prototipo, porque el punto de la
 // semana es planificar de un vistazo, no distinguir sala por sala.
-export function prepararColumnasDiaSemana(sesiones: SesionSemana[]): ColumnaDia[] {
+export function prepararColumnasDiaSemana(sesiones: SesionSemana[], horarioSemana?: DiaAbiertoLocal[]): ColumnaDia[] {
+  const cerradoPorDia = new Map(horarioSemana?.map(h => [h.dia, !h.abierto]));
   return Array.from({ length: 7 }, (_, dia) => {
     const delDia = sesiones.filter(s => s.dia === dia);
     const { puesto, total } = asignarCarriles(delDia.map(s => ({ id: s.id, inicioMin: s.inicioMin, finMin: s.finMin })));
@@ -109,6 +123,6 @@ export function prepararColumnasDiaSemana(sesiones: SesionSemana[]): ColumnaDia[
       huecosLibres: Math.max(0, s.aforoMaximo - s.confirmadas),
     }));
 
-    return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0 };
+    return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0, cerrado: cerradoPorDia.get(dia) ?? false };
   });
 }

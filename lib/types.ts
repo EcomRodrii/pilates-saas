@@ -131,6 +131,21 @@ export interface Studio {
   // contrato-decision-os.tsx), mostrado UNA sola vez. NULL = aún no lo ha
   // visto. Mismo patrón que bienvenidaVistaEn/onboardingDescartadoEn.
   decisionContratoVistoEn: string | null;
+  // Horario real por día de la semana (tabla studio_horario, migr
+  // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
+  // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no
+  // cargado; [] nunca debería darse (el backfill garantiza 7 filas).
+  horarioSemana?: DiaHorario[];
+}
+
+// Horario de un día de la semana (0=domingo..6=sábado, EXTRACT(DOW) — mismo
+// criterio que lib/sustituciones/franjas.ts, DISTINTO del `dia` local de
+// lib/calendario-columnas.ts donde 0=lunes).
+export interface DiaHorario {
+  diaSemana: number;
+  abierto: boolean;
+  horaApertura: string | null; // 'HH:MM:SS', null si abierto=false
+  horaCierre: string | null;
 }
 
 // F2 (B2.10): mandato SEPA de domiciliación de una socia (independiente de Stripe;

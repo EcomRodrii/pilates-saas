@@ -444,6 +444,7 @@ interface DatosVista {
   instructores: import('@/lib/types').Instructor[];
   horaApertura: string;
   horaCierre: string;
+  horarioSemana: { dia: number; abierto: boolean }[];
   rol: string;
 }
 
@@ -1404,7 +1405,7 @@ export default function Calendario() {
         dia: d === 0 ? 6 : d - 1,
       };
     });
-    return prepararColumnasDiaSemana(cols);
+    return prepararColumnasDiaSemana(cols, datosVista.horarioSemana);
   }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
 
   // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio

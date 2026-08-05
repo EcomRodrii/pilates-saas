@@ -76,6 +76,7 @@ import type {
   RowInstructorDependencySnapshots,
   RowSpots,
   RowStudios,
+  RowStudioHorario,
   RowMandatosSepa,
   RowSuscripciones,
   RowTiposClase,
@@ -147,6 +148,7 @@ import type {
   InstructorDependencySnapshot,
   Spot,
   Studio,
+  DiaHorario,
   MandatoSEPA,
   Suscripcion,
   TipoClase,
@@ -3505,6 +3507,30 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
 
+// Horario semanal del estudio (studio_horario, migr 20260804210500). Un solo
+// upsert de las 7 filas — el guardado de la rejilla de Configuración es "todo
+// o nada", no autoguardado por fila. La RLS (studio_horario_escritura) exige
+// PROPIETARIO; si el rol no cuadra, Supabase devuelve 0 filas afectadas sin
+// error explícito, así que se verifica el conteo, no solo la ausencia de error.
+export async function dbUpdateHorarioEstudio(dias: DiaHorario[]): Promise<ResultadoEscritura> {
+  const filas = dias.map(d => ({
+    studio_id: STUDIO_ID,
+    dia_semana: d.diaSemana,
+    abierto: d.abierto,
+    hora_apertura: d.abierto ? d.horaApertura : null,
+    hora_cierre: d.abierto ? d.horaCierre : null,
+  }));
+  const { data, error } = await supabase
+    .from('studio_horario')
+    .upsert(filas, { onConflict: 'studio_id,dia_semana' })
+    .select('dia_semana');
+  if (error) return falloEscritura('[dbUpdateHorarioEstudio]', error);
+  if ((data?.length ?? 0) !== filas.length) {
+    return falloEscritura('[dbUpdateHorarioEstudio]', { message: 'No tienes permiso para editar el horario del estudio' });
+  }
+  return ESCRITURA_OK;
+}
+
 // Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
 // llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
 export function slugify(nombre: string): string {
@@ -3668,7 +3694,16 @@ export async function dbDeleteInstructor(id: string): Promise<ResultadoEscritura
 const RECENT_FEED_LIMIT = 500;
 
 
-function mapStudio(r: RowStudios): Studio {
+function mapDiaHorario(r: RowStudioHorario): DiaHorario {
+  return {
+    diaSemana: r.dia_semana,
+    abierto: r.abierto,
+    horaApertura: r.hora_apertura,
+    horaCierre: r.hora_cierre,
+  };
+}
+
+function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
   return {
     id: r.id,
     nombre: r.nombre,
@@ -3742,6 +3777,7 @@ function mapStudio(r: RowStudios): Studio {
     onbPrioridad: r.onb_prioridad ?? null,
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
+    horarioSemana: horario?.map(mapDiaHorario),
   } as Studio;
 }
 
@@ -3789,6 +3825,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
   const db = getSupabaseAdmin() ?? supabase;
   const [
     studioRes,
+    studioHorarioRes,
     usuariosRes,
     sociosRes,
     planesTarifaRes,
@@ -3841,6 +3878,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     bannersPortalRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
+    db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
     db.from('usuarios').select('*').eq('studio_id', sid),
     // A-3/A-4: las socias con baja lógica (borrado_en) no entran al panel; su
     // rastro fiscal (recibos/facturas) sí queda y se muestra como "Socia eliminada".
@@ -3920,7 +3958,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
   // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
   const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
   return {
-    studio: studioRes.data ? mapStudio(studioRes.data) : null,
+    studio: studioRes.data ? mapStudio(studioRes.data, studioHorarioRes.data ?? undefined) : null,
     // Política/términos persistidos (0107); null = el cliente aplica el texto por
     // defecto. Antes StudioConfig no se hidrataba nunca y perdía lo que la dueña editó.
     studioConfig: {

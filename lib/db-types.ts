@@ -1075,6 +1075,15 @@ export interface RowInstructoraDisponibilidadExcepciones {
   creado_en: string | null;
 }
 
+export interface RowStudioHorario {
+  studio_id: string;
+  dia_semana: number; // 0=domingo..6=sábado (EXTRACT(DOW))
+  abierto: boolean;
+  hora_apertura: string | null;
+  hora_cierre: string | null;
+  actualizado_en: string;
+}
+
 export interface RowSustituciones {
   id: string;
   studio_id: string;

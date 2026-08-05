@@ -9,6 +9,7 @@ import { CLAVE_CAMBIO_SEDE } from '@/components/layout/sede-activa';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { TabEstudioGeneral } from './tab-estudio-general';
 import { TabEstudioSedes } from './tab-estudio-sedes';
+import { TabEstudioHorario } from './tab-estudio-horario';
 import { TabEstudioReservas } from './tab-estudio-reservas';
 import { TabEstudioCobros } from './tab-estudio-cobros';
 import { TabEstudioEnlaces } from './tab-estudio-enlaces';
@@ -20,10 +21,11 @@ import { TabEstudioLegal } from './tab-estudio-legal';
 // teléfono. Mismo patrón ya usado en "Clases y salas" y "Gamificación":
 // sub-navegación interna, un tema por pestaña. Los componentes de cada tema
 // no cambian de lógica, solo de dónde viven.
-type Sub = 'general' | 'sedes' | 'reservas' | 'cobros' | 'enlaces' | 'legal';
+type Sub = 'general' | 'sedes' | 'horario' | 'reservas' | 'cobros' | 'enlaces' | 'legal';
 
 const SUBS_BASE: { id: Sub; label: string }[] = [
   { id: 'general', label: 'General' },
+  { id: 'horario', label: 'Horario' },
   { id: 'reservas', label: 'Reservas y cancelaciones' },
   { id: 'cobros', label: 'Cobros' },
   { id: 'enlaces', label: 'Enlaces' },
@@ -110,6 +112,7 @@ export function TabEstudio({ showToast, sub: subInicial }: { showToast: (m: stri
             />
           </TabsContent>
         )}
+        <TabsContent value="horario"><TabEstudioHorario showToast={showToast} /></TabsContent>
         <TabsContent value="reservas"><TabEstudioReservas showToast={showToast} /></TabsContent>
         <TabsContent value="cobros"><TabEstudioCobros showToast={showToast} /></TabsContent>
         <TabsContent value="enlaces"><TabEstudioEnlaces showToast={showToast} /></TabsContent>
