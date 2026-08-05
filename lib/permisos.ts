@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuth } from './auth-context';
-import { useStudio } from './studio-context';
+import { useCore } from './core-context';
 import { puedeVer } from './permisos-reglas';
 import type { Rol } from './types';
 
@@ -21,9 +21,17 @@ export {
 // excepción es la dueña real del negocio (studios.owner_auth_user_id), que no tiene
 // ficha de instructora pero sí es PROPIETARIA. Esto es solo la barrera de UI; el
 // servidor (verificarSesionStaff) y la RLS son la fuente de verdad.
+// `useCore()` y no `useStudio()`: los dos únicos campos que hace falta mirar
+// aquí (instructores, studio) ya viven en CoreContext, que existe justamente
+// para que sidebar/topbar/profile-menu no se re-rendericen con cualquiera de
+// los ~150 campos del god-context. Mientras esto leyera useStudio(), los 18
+// ficheros que usan useRol() —el Sidebar entre ellos— seguían suscritos al
+// god-context y ese aislamiento no servía de nada. CoreProvider envuelve
+// SIEMPRE a StudioContext.Provider (studio-context.tsx:4159-4194), así que
+// funciona en todos los sitios donde funcionaba antes.
 export function useRol(): Rol {
   const { user } = useAuth();
-  const { instructores, studio } = useStudio();
+  const { instructores, studio } = useCore();
   if (!user) return 'INSTRUCTOR';
   const yo = instructores.find(i => i.authUserId === user.id);
   if (yo) return yo.rol;
