@@ -31,7 +31,9 @@
 -- El motivo real para cerrarla es el otro: NO TIENE UN SOLO CONSUMIDOR. Los seis
 -- caminos que tocan esta tabla usan `getSupabaseAdmin()` (service-role, se salta
 -- la RLS entera) — verificado por grep antes de escribir esto:
---   - app/api/notifications/admin/route.ts:27      (Notification Center)
+--   - app/api/notifications/admin/route.ts:42      (Notification Center; su cerradura
+--                                                   es `puedeVerCentroNotificaciones()`
+--                                                   en la route —PR #705—, no la RLS)
 --   - lib/notifications/process.ts:53,86,145,155   (envío + reintentos)
 --   - lib/notifications/inapp.ts:137               (recibe `admin` por parámetro;
 --                                                   sus dos llamadores, engine.ts:42
