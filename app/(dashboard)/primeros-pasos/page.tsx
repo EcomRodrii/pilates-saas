@@ -34,9 +34,12 @@ export default function PrimerosPasosPage() {
   } = useStudio();
   const { iniciarTour } = useTour();
 
-  if (!studio) return null;
-
-  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = calcularOnboarding({
+  // ⚠️ Los tres hooks de la gamificación (más abajo) tienen que ejecutarse en
+  // TODOS los renders, así que el `return null` por falta de `studio` va
+  // después de ellos y no aquí — con el early-return delante, React los veía
+  // aparecer y desaparecer entre renders (`react-hooks/rules-of-hooks`, que
+  // desde el gate de lint de #701 rompe el CI).
+  const datos = studio ? calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -53,8 +56,10 @@ export default function PrimerosPasosPage() {
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  });
+  }) : null;
 
+  const totalPasos = datos?.totalPasos ?? 0;
+  const totalCompletados = datos?.totalCompletados ?? 0;
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
 
   // Gamificación: detecta el instante en que se pasa de incompleto a
@@ -65,11 +70,20 @@ export default function PrimerosPasosPage() {
   // confirmación es un momento, no un estado.
   const prevTotalRef = useRef<number | null>(null);
   const [recienCompletado, setRecienCompletado] = useState(false);
+  const hayDatos = !!datos;
   useEffect(() => {
+    // Sin datos todavía no hay nada que comparar. Y es importante NO fijar el
+    // ref a 0 en esos renders: un estudio que llega ya completo pasaría de
+    // 0 a 15 y dispararía la celebración al abrir la página, que es
+    // exactamente lo que el comentario de arriba dice que no debe pasar.
+    if (!hayDatos) return;
     const prev = prevTotalRef.current;
     if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
     prevTotalRef.current = totalCompletados;
-  }, [totalCompletados, totalPasos]);
+  }, [hayDatos, totalCompletados, totalPasos]);
+
+  if (!datos) return null;
+  const { categorias, enlaces, recomendaciones } = datos;
 
   return (
     <div className="space-y-6 max-w-3xl">
