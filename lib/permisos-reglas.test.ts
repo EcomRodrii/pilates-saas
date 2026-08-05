@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
-  puedeCrearClasesPropias, puedeGestionarPortalHome,
+  puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCategoriaAvisos,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -263,4 +263,41 @@ test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instruct
   assert.equal(puedeGestionarPortalHome('MANAGER'), true);
   assert.equal(puedeGestionarPortalHome('RECEPCION'), false);
   assert.equal(puedeGestionarPortalHome('INSTRUCTOR'), false);
+});
+
+// ── Notification Center: qué avisos del estudio puede LEER cada rol ─────────
+//
+// `/api/notifications/admin` solo comprobaba que hubiera sesión de staff, y esa
+// pantalla enseña el título y el CUERPO de cada aviso: una instructora leía los
+// de todas las socias y los de la propietaria. Mismo patrón que #561 (RLS bien,
+// hueco de API encima).
+
+test('la instructora no lee el centro de avisos del estudio, ni una categoría', () => {
+  for (const cat of ['reservas', 'clases', 'pagos', 'decisiones', 'sistema']) {
+    assert.equal(puedeVerCategoriaAvisos('INSTRUCTOR', cat), false, `no debería ver ${cat}`);
+  }
+});
+
+test('`decisiones` sigue el mismo criterio que /centro-de-control, donde vive', () => {
+  // En prod estos avisos son "Laura tiene 90€ pendientes de pago", con nombre y
+  // cifra. Dejar pasar la ruta entera se los habría enseñado a roles que tienen
+  // /centro-de-control bloqueado.
+  assert.equal(puedeVerCategoriaAvisos('PROPIETARIO', 'decisiones'), true);
+  assert.equal(puedeVerCategoriaAvisos('MANAGER', 'decisiones'), false);
+  assert.equal(puedeVerCategoriaAvisos('RECEPCION', 'decisiones'), false);
+});
+
+test('`pagos` sigue a puedeVerFinanzas: el manager no ve el dinero aquí tampoco', () => {
+  // /cobros está bloqueado para MANAGER; el centro de avisos no puede ser la
+  // puerta de atrás a lo mismo.
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
+    assert.equal(puedeVerCategoriaAvisos(rol, 'pagos'), puedeVerFinanzas(rol));
+  }
+});
+
+test('la operativa de mostrador la ve quien puede abrir la pantalla', () => {
+  for (const cat of ['reservas', 'clases', 'sustituciones', 'marketing', 'sistema']) {
+    assert.equal(puedeVerCategoriaAvisos('RECEPCION', cat), true, `recepción debería ver ${cat}`);
+    assert.equal(puedeVerCategoriaAvisos('MANAGER', cat), true, `manager debería ver ${cat}`);
+  }
 });

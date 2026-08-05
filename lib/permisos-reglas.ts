@@ -161,6 +161,30 @@ export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
   return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
 }
 
+// Qué categorías del Notification Center (la vista admin de TODO lo que el
+// estudio ha enviado, `/notificaciones`) puede leer cada rol.
+//
+// Hace falta porque esa pantalla enseña el TÍTULO y el CUERPO de cada aviso, y
+// dos categorías llevan dentro cosas que otras pantallas ya tienen vedadas al
+// mismo rol — así que dejar pasar la ruta entera contradecía las reglas de al
+// lado:
+//
+//  · `decisiones` es el Decision OS (el mensaje del Umbral y las
+//    recomendaciones). En prod son literalmente "Laura tiene 90€ pendientes de
+//    pago" con nombre y cifra. `/centro-de-control`, que es donde vive eso,
+//    está bloqueado para MANAGER y RECEPCION — se respeta el mismo criterio en
+//    vez de escribir uno nuevo.
+//  · `pagos` es dinero, y ya hay una regla para eso.
+//
+// El resto (reservas, clases, sustituciones, marketing, sistema) es operativa
+// de mostrador y la ve quien puede abrir la pantalla.
+export function puedeVerCategoriaAvisos(rol: Rol, categoria: string): boolean {
+  if (!puedeVer(rol, '/notificaciones')) return false;
+  if (categoria === 'decisiones') return puedeVer(rol, '/centro-de-control');
+  if (categoria === 'pagos') return puedeVerFinanzas(rol);
+  return true;
+}
+
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
   // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del
