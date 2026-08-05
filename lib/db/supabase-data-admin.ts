@@ -4,6 +4,7 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
@@ -829,18 +830,42 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
 }
 
 
+// Cuánto histórico mira el barrido. El cron corre a diario (vercel.json:
+// `0 23 * * *`), así que 30 días absorben una caída larguísima del cron sin
+// dejar reservas sin marcar. Acotar es necesario: sin cota, la consulta
+// re-escanea el histórico de TODA la plataforma cada noche y su coste crece
+// para siempre, aunque el trabajo útil sea siempre el del último día.
+const VENTANA_NO_SHOWS_DIAS = 30;
+
 export async function barrerNoShows(nowISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data: sesiones, error } = await admin
-    .from('sesiones')
-    .select('id')
-    .eq('cancelada', false)
-    .lt('fin', nowISO);
-  if (error) throw new Error(error.message);
+  // ⚠️ Esta consulta no lleva `studio_id` (es global, la dispara el cron), así
+  // que antes no la cubría ningún índice y, peor, no paginaba NI ordenaba:
+  // PostgREST cortaba en 1000 filas en silencio y SIN `ORDER BY` las 1000 que
+  // llegaban eran arbitrarias (orden físico, típicamente las más antiguas).
+  // O sea: pasadas las 1000 sesiones pasadas, las RECIENTES — las únicas que
+  // hay que barrer — eran justo las que se quedaban fuera. Un fallo de
+  // corrección nacido de un patrón de rendimiento.
+  const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
+  const { filas: sesiones, truncado } = await leerCatalogoCompleto<{ id: string }>(
+    (desde, hasta) => admin
+      .from('sesiones')
+      .select('id')
+      .eq('cancelada', false)
+      .lt('fin', nowISO)
+      .gte('fin', desdeISO)
+      .order('fin', { ascending: true })
+      .range(desde, hasta),
+  );
+  if (truncado) {
+    capturarMensaje('barrerNoShows: se alcanzó el tope de paginación, quedan sesiones sin barrer', 'warning', {
+      tags: { area: 'cron-no-shows' }, extra: { desdeISO, nowISO },
+    });
+  }
 
-  const ids = (sesiones ?? []).map(s => s.id as string);
+  const ids = sesiones.map(s => s.id);
   let marcadas = 0;
   // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
   for (let i = 0; i < ids.length; i += 200) {
