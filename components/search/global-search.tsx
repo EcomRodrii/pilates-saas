@@ -258,7 +258,7 @@ export function GlobalSearch({
 
               {!hasResults && q.length > 0 && (
                 <div className="py-12 text-center">
-                  <p className="text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>Sin resultados para "{query}"</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--muted-foreground)' }}>Sin resultados para «{query}»</p>
                 </div>
               )}
             </div>

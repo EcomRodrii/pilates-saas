@@ -251,6 +251,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   // Estable entre renders (solo cambia al montar): así el useMemo del resumen no
   // se invalida en cada tecleo por un `new Date()` nuevo.

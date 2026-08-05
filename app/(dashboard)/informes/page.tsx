@@ -160,6 +160,7 @@ export default function Informes() {
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
   const [retencion, setRetencion] = useState(0);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
 
   const now = mounted ? new Date() : new Date('2026-06-29');
