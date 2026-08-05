@@ -224,6 +224,11 @@ test.describe('Biblioteca de temas', () => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('link', { name: 'Personalizar' }).first().click();
-    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/);
+    // Timeout explícito, como los toBeVisible de arriba: el webServer es
+    // `next dev`, así que la PRIMERA navegación a /editor tiene que compilar la
+    // ruta bajo demanda y eso se come de sobra los 5s por defecto de
+    // toHaveURL. En CI no se veía porque `retries: 1` reintentaba con la ruta
+    // ya compilada; en local, sin reintento, fallaba 2 de cada 3 veces.
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 30_000 });
   });
 });

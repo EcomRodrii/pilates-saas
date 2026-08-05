@@ -117,7 +117,9 @@ test.describe('La intro del logo', () => {
     const ctx = await browser.newContext({ javaScriptEnabled: false });
     const page = await ctx.newPage();
     await page.goto('/');
-    await expect(cortina(page)).toBeVisible();
+    // Mismo motivo que en `entrarYCazarLaCortina`: en frío la compilación del
+    // dev server se lleva segundos, más que los 5s por defecto de expect.
+    await expect(cortina(page)).toBeVisible({ timeout: 30_000 });
     await expect(cortina(page)).toBeHidden({ timeout: 15_000 });
     await ctx.close();
   });

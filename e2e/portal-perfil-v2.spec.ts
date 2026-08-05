@@ -72,6 +72,8 @@ test.describe('Portal — Perfil', () => {
 
   test('«Métodos de pago» lleva a Compras', async ({ page }) => {
     await page.getByRole('button', { name: 'Métodos de pago' }).click();
-    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras$`));
+    // Timeout explícito: con `next dev`, la primera navegación a /compras
+    // compila la ruta bajo demanda y se pasa de los 5s por defecto.
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras$`), { timeout: 30_000 });
   });
 });
