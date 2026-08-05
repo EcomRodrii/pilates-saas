@@ -246,3 +246,28 @@ test('resolveTheme: redesSociales corrupto no lanza y cae al default vacío', ()
   assert.doesNotThrow(() => resolveTheme({ redesSociales: 'basura' }));
   assert.deepEqual(resolveTheme({ redesSociales: 'basura' }).redesSociales, { instagram: '', facebook: '', whatsapp: '' });
 });
+
+// ── Variantes de forma por bloque ───────────────────────────────────────────
+
+test('themeConfigSchema: `variantes` ausente → undefined (tema guardado antes de esta fase)', () => {
+  const r = themeConfigSchema.safeParse({ ...DEFAULT_THEME });
+  assert.equal(r.success, true);
+  assert.equal(r.data!.variantes, undefined);
+});
+
+test('themeConfigSchema acepta variantes válidas y rechaza un valor fuera del catálogo', () => {
+  const ok = themeConfigSchema.safeParse({ ...DEFAULT_THEME, variantes: { accesosRapidos: 'circulos', barra: 'todas' } });
+  assert.equal(ok.success, true);
+  const mal = themeConfigSchema.safeParse({ ...DEFAULT_THEME, variantes: { accesosRapidos: 'espiral' } });
+  assert.equal(mal.success, false);
+});
+
+test('resolveTheme: `variantes` corrupto cae a undefined (dirección segura: el look de siempre)', () => {
+  // `.strict()` + clave desconocida tumba el objeto entero; `pick` lo deja en
+  // undefined, que es "sin variantes" = aspecto de hoy. Nunca un estado a medias.
+  const r = resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED', variantes: { ejeInventado: 'x' } });
+  assert.equal(r.variantes, undefined);
+  // Y uno válido sí se respeta.
+  const ok = resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED', variantes: { retos: 'color' } });
+  assert.deepEqual(ok.variantes, { retos: 'color' });
+});

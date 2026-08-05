@@ -171,7 +171,18 @@ function varsRadioTema(t: ThemeConfig): Record<string, string> {
   if (t.radioTema.card !== undefined) vars['--portal-radius-card'] = `${t.radioTema.card}px`;
   if (t.radioTema.boton !== undefined) vars['--portal-radius-boton'] = `${t.radioTema.boton}px`;
   if (t.radioTema.chip !== undefined) vars['--portal-radius-chip'] = `${t.radioTema.chip}px`;
+  if (t.radioTema.acceso !== undefined) vars['--portal-radius-acceso'] = `${t.radioTema.acceso}px`;
   return vars;
+}
+
+// La única variante de forma que SÍ es un valor puro y no una decisión
+// estructural: el icono activo relleno de Oliva. `fill` es propiedad CSS y
+// gana sobre el atributo de presentación `fill="none"` que pinta lucide, así
+// que basta una var — el resto de ejes de `variantes` deciden qué elementos
+// EXISTEN en el DOM y por eso viajan como valor JS (ver theme-variantes.ts).
+function varsVariantes(t: ThemeConfig): Record<string, string> {
+  if (t.variantes?.barra !== 'todasRelleno') return {};
+  return { '--portal-tabbar-active-fill': 'currentColor' };
 }
 
 /** Mapa var→valor a partir de un tema (crudo o resuelto). Interno. */
@@ -210,6 +221,8 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsBarraFlotante(t),
     // Radio por pieza de las secciones nuevas
     ...varsRadioTema(t),
+    // Variantes de forma que sí caben en una var (icono activo relleno)
+    ...varsVariantes(t),
   };
 }
 

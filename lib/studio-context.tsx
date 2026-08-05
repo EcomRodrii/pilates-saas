@@ -160,6 +160,7 @@ import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
+import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -258,6 +259,11 @@ interface StudioContextValue {
   // Barra clásica, no flotante (Oliva/Noir) — mismo motivo JS que tabBarStyle:
   // decide el `position` de <PortalNav>, algo que una CSS var no puede hacer.
   barraClasica: boolean;
+  // Variantes de FORMA por bloque (accesos rápidos en rejilla/círculos,
+  // etiquetas de la barra, retos de color...) — ver lib/theme-variantes.ts.
+  // Siempre completo: los componentes nunca tienen que poner su propio
+  // `?? 'filas'`.
+  variantes: VariantesResueltas;
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
@@ -601,6 +607,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
+  const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
@@ -803,6 +810,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
+      // resolveVariantes valida clave a clave y siempre devuelve el objeto
+      // completo — un valor corrupto en un eje no arrastra a los demás.
+      setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
       setRedesSociales({
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
@@ -3850,6 +3860,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     bloquesBonos,
     tabBarStyle,
     barraClasica,
+    variantes,
     navPortal,
     redesSociales,
     favoritos,
@@ -4059,7 +4070,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
   // functions themselves are intentionally excluded since they're recreated every render anyway.
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, barraClasica, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, barraClasica, variantes, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,

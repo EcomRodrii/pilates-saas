@@ -511,6 +511,10 @@ export async function fetchPublicStudioData(
       // toma con JS (position flotante o no), no algo que una CSS var pueda
       // decidir por sí sola.
       barraClasica: temaPublicado.barraClasica,
+      // Variantes de forma por bloque (theme-variantes.ts) — viajan como valor
+      // JS por el mismo motivo que `barraClasica`: deciden qué elementos
+      // EXISTEN, algo que una CSS var no puede decidir.
+      variantes: temaPublicado.variantes ?? null,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),

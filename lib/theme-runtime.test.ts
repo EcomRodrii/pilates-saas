@@ -126,3 +126,25 @@ test('themeToCssVars: portalHeadingFontId "instrumentSansBold" reusa --font-ui, 
   assert.match(vars['--portal-heading-font'], /--font-ui/);
   assert.equal(vars['--portal-heading-weight'], '700');
 });
+
+// ── Variantes de forma: la única que cabe en una CSS var ────────────────────
+
+test('themeToCssVars: sin `variantes`, NINGUNA var nueva — el aspecto de siempre, para todos', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME }) as Record<string, string>;
+  assert.equal(vars['--portal-tabbar-active-fill'], undefined);
+  assert.equal(vars['--portal-radius-acceso'], undefined);
+});
+
+test('themeToCssVars: solo `barra: todasRelleno` declara el relleno del icono activo', () => {
+  // El resto de ejes decide qué elementos EXISTEN en el DOM (ver
+  // theme-variantes.ts) y viaja como valor JS, no como var.
+  const relleno = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todasRelleno' } }) as Record<string, string>;
+  assert.equal(relleno['--portal-tabbar-active-fill'], 'currentColor');
+  const sinRelleno = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todas' } }) as Record<string, string>;
+  assert.equal(sinRelleno['--portal-tabbar-active-fill'], undefined);
+});
+
+test('themeToCssVars: `radioTema.acceso` declara el radio de la baldosa de accesos', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, radioTema: { acceso: 22 } }) as Record<string, string>;
+  assert.equal(vars['--portal-radius-acceso'], '22px');
+});

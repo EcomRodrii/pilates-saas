@@ -385,7 +385,11 @@ export function PortalClasesView({
                   <button
                     key={chip.id ?? 'todas'} type="button" onClick={() => setTipoElegido(chip.id)} aria-pressed={activo}
                     style={{
-                      flex: '0 0 auto', height: 36, padding: chip.color ? '0 16px' : '0 18px', borderRadius: 18,
+                      // `radioTema.chip` del tema (varsRadioTema, lib/theme-runtime.ts).
+                      // Sin ese campo —hoy, ningún tema lo declara— cae al 18 de
+                      // siempre, así que el cambio es no-op hasta que un tema lo pida.
+                      flex: '0 0 auto', height: 36, padding: chip.color ? '0 16px' : '0 18px',
+                      borderRadius: 'var(--portal-radius-chip, 18px)',
                       background: activo ? 'var(--portal-brand)' : (noche ? 'rgba(28,31,23,.7)' : 'rgba(255,255,255,.7)'),
                       color: activo ? 'var(--portal-brand-foreground)' : t.muted2,
                       border: `1px solid ${activo ? 'transparent' : t.line}`,
@@ -413,7 +417,10 @@ export function PortalClasesView({
                 transition: `transform 550ms ${EASE}`,
               }}
             >
-              <span style={{ width: 44, height: 72, borderRadius: 22, background: 'var(--portal-brand)', boxShadow: '0 12px 24px -14px rgba(34,42,30,.6)' }} />
+              {/* Mismo criterio que los chips de arriba: con `radioTema.chip`
+                  la píldora del día pasa a cápsula (999) como en el prototipo;
+                  sin él, el 22 de siempre. */}
+              <span style={{ width: 44, height: 72, borderRadius: 'var(--portal-radius-chip, 22px)', background: 'var(--portal-brand)', boxShadow: '0 12px 24px -14px rgba(34,42,30,.6)' }} />
             </span>
             {dias.map((d, i) => {
               const activo = i === diaActivo;

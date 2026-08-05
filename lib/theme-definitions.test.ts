@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
 import { validarContrasteTheme } from './theme-runtime.ts';
+import { VARIANTES_PORTAL } from './theme-variantes.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
   const ids = THEME_DEFINITIONS.map((d) => d.id);
@@ -90,9 +91,11 @@ test('Oliva y Noir piden barra clásica; Bloom no la pide (sigue flotando)', () 
 // Card.tsx (usados en TODO el portal) nunca reflejaban ninguna diferencia
 // real entre temas — "todos iguales pero de otro color".
 test('radioTema completo (card+boton) por tema, con los valores exactos del prototipo', () => {
-  assert.deepEqual(getThemeDefinition('oliva')!.defaults.radioTema, { card: 26, boton: 20 });
-  assert.deepEqual(getThemeDefinition('bloom')!.defaults.radioTema, { card: 30, boton: 999 });
-  assert.deepEqual(getThemeDefinition('noir')!.defaults.radioTema, { card: 24, boton: 18 });
+  // `chip: 999` en los tres (radChip del prototipo) y `acceso` solo donde hay
+  // baldosa — Noir no lo lleva porque sus accesos son círculos.
+  assert.deepEqual(getThemeDefinition('oliva')!.defaults.radioTema, { card: 26, boton: 20, chip: 999, acceso: 20 });
+  assert.deepEqual(getThemeDefinition('bloom')!.defaults.radioTema, { card: 30, boton: 999, chip: 999, acceso: 22 });
+  assert.deepEqual(getThemeDefinition('noir')!.defaults.radioTema, { card: 24, boton: 18, chip: 999 });
 });
 
 test('cardStyle: solo Bloom tiene sombra de tarjeta — Oliva y Noir son planas, como el prototipo', () => {
@@ -143,4 +146,49 @@ test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids rea
   // Retos sí se construyó de verdad (conteo real, ver lib/retos-portal.ts) —
   // Bloom lo instala primero, antes de "Accesos rápidos".
   assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['retos', 'accesosRapidos', 'contenidoEstudio']);
+});
+
+// ── Variantes de forma por bloque ───────────────────────────────────────────
+
+// Guardia sobre el registro ENTERO, mismo espíritu que el gate de contraste:
+// un tema futuro con una variante inventada se detecta aquí, no en el portal
+// de una socia.
+test('THEME_DEFINITIONS: toda `variantes` declarada usa ejes y valores del catálogo', () => {
+  for (const def of THEME_DEFINITIONS) {
+    const v = def.defaults.variantes;
+    if (!v) continue;
+    for (const [eje, valor] of Object.entries(v)) {
+      const permitidos = (VARIANTES_PORTAL as Record<string, readonly string[]>)[eje];
+      assert.ok(permitidos, `"${def.id}" declara un eje desconocido: "${eje}"`);
+      assert.ok(permitidos.includes(valor as string), `"${def.id}".${eje} = "${valor}" no está en el catálogo`);
+    }
+  }
+});
+
+test('Variantes exactas por tema, según el prototipo real', () => {
+  // Oliva: baldosas + las 4 etiquetas con icono activo relleno.
+  assert.deepEqual(getThemeDefinition('oliva')!.defaults.variantes,
+    { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
+  // Bloom es el único que conserva la píldora flotante → su barra se queda con
+  // etiqueta solo en la activa (`conTexto: !tabPill || activo` del prototipo).
+  assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.barra, undefined);
+  assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.retos, 'color');
+  // Noir es el ÚNICO con accesos en círculo.
+  assert.equal(getThemeDefinition('noir')!.defaults.variantes?.accesosRapidos, 'circulos');
+  assert.equal(
+    THEME_DEFINITIONS.filter((t) => t.defaults.variantes?.accesosRapidos === 'circulos').length, 1);
+});
+
+test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a variantes', () => {
+  // Sin esto, un estudio que instale Editorial DESPUÉS de esta fase perdería
+  // la bienvenida. (Los que ya la tienen instalada se cubren con el OR de
+  // tabBarStyle en login/page.tsx: `defaults` no es retroactivo.)
+  assert.equal(getThemeDefinition('editorial')!.defaults.variantes?.bienvenida, 'foto');
+});
+
+test('los 3 temas suben de versión al ganar variantes (para poder avisar de que hay una nueva)', () => {
+  for (const id of ['oliva', 'bloom', 'noir']) {
+    assert.equal(getThemeDefinition(id)!.version, 3, `"${id}" debería ir por la v3`);
+  }
+  assert.equal(getThemeDefinition('editorial')!.version, 2);
 });
