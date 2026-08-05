@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { PASOS_TOUR } from './tour-pasos.ts';
+import { PASOS_TOUR, resolverPasoGuardado } from './tour-pasos.ts';
 
 // Estado del tour guiado — mismo patrón que panel-privacy.tsx (localStorage,
 // por navegador). A propósito NO es un query param: el tour cruza páginas
@@ -35,9 +35,8 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     // localStorage no existe en SSR — la lectura va en el efecto, no en el
     // render (mismo motivo que panel-theme.tsx/panel-privacy.tsx). Un tour a
     // medias sobrevive a cerrar el navegador: -1 = no hay tour en marcha.
-    const guardado = Number(localStorage.getItem(TOUR_KEY));
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPasoActualState(Number.isFinite(guardado) && guardado >= 0 && guardado < PASOS_TOUR.length ? guardado : -1);
+    setPasoActualState(resolverPasoGuardado(localStorage.getItem(TOUR_KEY)));
   }, []);
 
   function setPasoActual(v: number) {

@@ -48,3 +48,19 @@ export const PASOS_TOUR: PasoTour[] = [
     descripcion: 'Planes, marca, integraciones y todo lo demás que define cómo funciona tu estudio en Tentare.',
   },
 ];
+
+/**
+ * Interpreta el valor crudo de localStorage para el paso guardado del tour.
+ * -1 = no hay tour en marcha.
+ *
+ * ⚠️ `Number(null)` y `Number('')` dan `0`, no `NaN` — hay que descartar
+ * "la clave no existe todavía" y "cadena vacía" ANTES de convertir a número.
+ * Sin esto, un estudio que nunca ha tocado el tour (o cualquier test e2e con
+ * contexto limpio) arrancaba el tour solo en el paso 0 en cuanto cargaba
+ * cualquier página del panel, con su overlay bloqueando clics en toda la app.
+ */
+export function resolverPasoGuardado(bruto: string | null): number {
+  if (bruto === null || bruto === '') return -1;
+  const n = Number(bruto);
+  return Number.isFinite(n) && n >= 0 && n < PASOS_TOUR.length ? n : -1;
+}
