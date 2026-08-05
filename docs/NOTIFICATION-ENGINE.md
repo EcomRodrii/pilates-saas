@@ -226,17 +226,32 @@ La cabecera dice que ningún módulo envía por su cuenta. Es la intención, y h
 tiene excepciones vivas. Antes de añadir `EMAIL` a una regla o de prometerle a
 alguien que un interruptor silencia algo, mira si su flujo ya está aquí:
 
-- **Recordatorio de clase, 24 h — hay DOS, por vías distintas.** El del motor
-  (`notif-automations.ts`, cron `*/15`, in-app + push) y otro completamente
-  aparte: `lib/inngest/recordatorios.ts` (cron `0 8 * * *`) →
-  `enviarRecordatoriosClasesProximas` (`lib/db/supabase-data-admin.ts`), que
-  manda **email y WhatsApp** directos, sin pasar por `publish()`. Registrado en
+- **Recordatorio de clase — hay DOS caminos, por CANALES DISTINTOS.** El del
+  motor (`notif-automations.ts`, cron `*/15`) manda **in-app y push** a 24 h y a
+  1 h. El otro, `lib/inngest/recordatorios.ts` (cron `0 8 * * *`) →
+  `enviarRecordatoriosClasesProximas` (`lib/db/supabase-data-admin.ts`), manda
+  **email y WhatsApp** directos, sin pasar por `publish()`, y registrado en
   producción (`app/api/inngest/route.ts`).
-  ⚠️ Y se gobierna con **otro sistema de preferencias**:
-  `preferencias_socio.notif_email` / `notif_whatsapp` y la exención
-  `socio_excepciones` tipo `SIN_RECORDATORIO` — nada de eso es
-  `notification_preference`. Apagar "reservas" en el centro de preferencias **no**
-  silencia ese correo.
+
+  No es un duplicado en el mismo canal —cada uno cubre los suyos— pero conviene
+  saber tres cosas antes de tocarlo:
+
+  1. **La exención `socio_excepciones` tipo `SIN_RECORDATORIO` la respetan LOS
+     DOS.** El camino del motor no lo hacía: la propietaria marcaba "no enviarle
+     recordatorios", dejaba de salir el correo y el móvil le seguía sonando con
+     el push. Cualquier camino nuevo de recordatorio tiene que consultarla —
+     `lib/excepciones.ts` promete que **todas** las automatizaciones que escriben
+     a la socia lo hacen.
+  2. **Las preferencias de CANAL siguen siendo dos sistemas distintos**, y eso sí
+     es coherente porque gobiernan canales distintos: `notification_preference`
+     (in-app/push, centro de preferencias) y `preferencias_socio.notif_email` /
+     `notif_whatsapp` (portal). Apagar "reservas" en el centro **no** silencia el
+     correo, y no debería: ese interruptor no habla de correo.
+  3. El WhatsApp de este camino usa las credenciales **Meta propias del estudio**
+     (`whatsappPorStudio`), no el Twilio de `channels.ts`. Son transportes
+     distintos: mover el recordatorio al motor no es cambiar una regla, es
+     cambiarle el proveedor de WhatsApp a todos los estudios que lo tengan
+     configurado.
 - **Los tres correos del aviso de más arriba**: `clase.cancelada`
   (`enviarEmailCancelacionClase`, desde el calendario y `studio-context`),
   `clase.modificada` (`enviarEmailesCambioClase`, en la ruta
@@ -244,5 +259,8 @@ alguien que un interruptor silencia algo, mira si su flujo ya está aquí:
   Por eso esas tres reglas **no declaran EMAIL**.
 
 Ninguna de estas es un descuido a corregir a ciegas: unificarlas significa
-decidir qué preferencia manda y aceptar que alguien deje de recibir un correo que
-hoy recibe. Documentado para que la próxima persona lo decida a propósito.
+decidir qué preferencia manda, cambiar de proveedor de WhatsApp y aceptar que
+alguien deje de recibir un correo que hoy recibe — el motor tiene `EMAIL` en
+`false` por defecto y sin interruptor en la UI, así que "moverlo al motor"
+apagaría el recordatorio por correo de casi todo el mundo. Documentado para que
+la próxima persona lo decida a propósito.

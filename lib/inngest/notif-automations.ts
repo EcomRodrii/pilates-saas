@@ -10,7 +10,13 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
+import type { TipoExcepcion } from '@/lib/excepciones';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Tipado, no un literal suelto: una errata aquí (`SIN_RECORDATORIOS`) apagaría
+// la exención en silencio y nadie se enteraría hasta que una socia exenta
+// recibiera el push.
+const EXENCION_RECORDATORIO: TipoExcepcion = 'SIN_RECORDATORIO';
 
 type TipoAutomacion = 'recordatorios' | 'bonos' | 'inactivas';
 
@@ -85,10 +91,25 @@ async function recordatorios(admin: SupabaseClient, studioId: string) {
   ]);
   const nombre = new Map((tipos ?? []).map((t) => [t.id as string, t.nombre as string]));
   const slug = (studio?.slug as string | null) ?? '';
+
+  // "No enviarle recordatorios" (B2.9). `lib/excepciones.ts` lo describe sin
+  // matices —"no recibirá el recordatorio automático de sus clases próximas"— y
+  // su cabecera afirma que TODAS las automatizaciones que escriben a la socia lo
+  // consultan antes. Esta no lo hacía: el camino viejo (email/WhatsApp, en
+  // `enviarRecordatoriosClasesProximas`) sí lo respetaba, así que la propietaria
+  // marcaba la casilla, dejaba de salir el correo, y el móvil le seguía sonando
+  // con el push. Se consulta aquí en lote, mismo criterio que allí.
+  const socioIds = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
+  const { data: exentosR } = socioIds.length
+    ? await admin.from('socio_excepciones').select('socio_id').eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds)
+    : { data: [] as { socio_id: string }[] };
+  const exentos = new Set((exentosR ?? []).map(e => e.socio_id as string));
+
   let publicados = 0;
   for (const r of reservas ?? []) {
     const ses = sesById.get(r.sesion_id as string);
     if (!ses || !r.socio_id) continue;
+    if (exentos.has(r.socio_id as string)) continue;
     const horas = (new Date(ses.inicio as string).getTime() - ahora) / 3600_000;
     const tipo = horas >= 23.5 && horas <= 24.5 ? '24h' : horas >= 0.75 && horas <= 1.25 ? '1h' : null;
     if (!tipo) continue;
