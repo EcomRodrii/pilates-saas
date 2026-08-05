@@ -100,6 +100,16 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   return res.json();
 }
 
+// Los bloques PUBLICADOS — los que la socia ve ahora mismo. Espejo de
+// `fetchThemePublicado`: lo usa "Volver a lo publicado" de la biblioteca de
+// temas, que tiene que devolver al borrador el Inicio tal cual estaba, no
+// resembrarlo con el orden que propone un tema.
+export async function fetchBloquesPublicados(pantalla: PantallaId): Promise<BloqueHome[]> {
+  const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}&publicado=1`, { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudieron cargar los bloques publicados del portal');
+  return res.json();
+}
+
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
     method: 'PUT',

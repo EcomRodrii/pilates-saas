@@ -14,14 +14,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, RotateCcw } from 'lucide-react';
+import { Check, RotateCcw, ArrowUpCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
 import { ThemeThumb } from './theme-thumb';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
-import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi } from '@/lib/api-client';
+import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicados, guardarBloquesBorradorApi } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
@@ -104,7 +104,7 @@ function Colores({ config }: { config: ThemeConfig }) {
 
 export function ThemeLibrary() {
   const hook = useThemeEditor();
-  const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste } = hook;
+  const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste, recargar } = hook;
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [instalando, setInstalando] = useState<string | null>(null);
   const [errorInstalar, setErrorInstalar] = useState<string | null>(null);
@@ -168,16 +168,49 @@ export function ThemeLibrary() {
   const definicion = getThemeDefinition(draft.themeId);
   const cambios = contarCambios(draft, publicado);
 
+  // Un tema puede sacar versión nueva DESPUÉS de que el estudio lo instalara,
+  // y `defaults` no es retroactivo: `instalar()` los vuelca en el borrador y
+  // ahí quedan congelados. Sin este aviso, el único rodeo era instalar OTRO
+  // tema y volver a este — dos escrituras y un estado intermedio raro.
+  //
+  // Estricto `<`, no `!==`: si se revierte un despliegue y el catálogo queda
+  // por DEBAJO de lo instalado, no hay nada que ofrecer (y "actualizar" a una
+  // versión más vieja sería una regresión anunciada como mejora).
+  const versionNueva = definicion && draft.themeVersion < definicion.version ? definicion : null;
+
   // "Volver a lo publicado" descarta el borrador y deja el tema que las socias
   // ya están viendo — la vuelta atrás de quien ha probado algo y no le
   // convence. Distinto de `hook.restaurar()`, que vuelve al tema del SISTEMA
   // (y que por eso se queda en el editor, con el resto del ajuste fino).
+  //
+  // NO pasa por `instalar()`, aunque se le parezca, por dos motivos:
+  //
+  // 1. Los BLOQUES. Instalar/actualizar un tema resiembra el Inicio con el
+  //    orden que propone (`bloquesHome`), así que deshacer solo el ThemeConfig
+  //    dejaba el reorden puesto: la propietaria volvía a su tema de siempre
+  //    con el Inicio del tema que había probado. Aquí se restaura el array
+  //    publicado TAL CUAL — `sembrarBloquesHome` no serviría: solo sabe
+  //    ordenar bloques `sistema` por una lista de ids, y perdería la posición
+  //    y la config de los bloques del catálogo.
+  // 2. `themeCustomized`. `elegirTema` lo fuerza a `false` (correcto al
+  //    instalar: el tema queda puro). Al REVERTIR es un dato más que restaurar
+  //    — si lo publicado estaba personalizado, tiene que seguir diciéndolo.
+  //    Por eso se relee el borrador con `recargar()` en vez de fusionarlo a
+  //    mano: lo que quede en pantalla es lo que el servidor tiene, sin una
+  //    segunda copia de la lógica de fusión que se pueda desviar.
   async function volverAPublicado() {
     if (!publicado) return;
-    await instalar({
-      id: publicado.themeId, version: publicado.themeVersion,
-      label: '', description: '', capabilities: [], defaults: publicado,
-    });
+    setInstalando(publicado.themeId);
+    setErrorInstalar(null);
+    try {
+      await guardarThemeBorrador(publicado);
+      await guardarBloquesBorradorApi('home', await fetchBloquesPublicados('home'));
+      recargar();
+    } catch (e) {
+      setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
+    } finally {
+      setInstalando(null);
+    }
   }
 
   return (
@@ -215,6 +248,39 @@ export function ThemeLibrary() {
               <p className="text-[11.5px] text-muted-foreground">
                 {nombreTitular(draft.portalHeadingFontId)} · {nombreFuente(draft.fontId)}
               </p>
+
+              {versionNueva && (
+                <div
+                  data-aviso="version-nueva"
+                  className="rounded-xl border border-warning bg-warning/10 p-3 space-y-2"
+                >
+                  {/* `items-start` + `shrink-0`: en móvil el título parte en dos
+                      líneas y con `items-center` el icono quedaba flotando a
+                      media altura. */}
+                  <p className="flex items-start gap-1.5 text-[13px] font-bold text-warning">
+                    <ArrowUpCircle size={14} className="shrink-0 mt-[3px]" />
+                    Hay una versión nueva de {versionNueva.label} (v{versionNueva.version})
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {draft.themeCustomized
+                      ? 'Actualizar recupera los colores, la tipografía y las formas del tema, así que se pierden los retoques que hiciste en "Personalizar". '
+                      : 'Actualizar trae los colores, la tipografía y las formas nuevas del tema. '}
+                    También reordena los bloques de tu Inicio como los propone el tema. Tu logo,
+                    tus redes y el contenido de tus pantallas no se tocan.
+                  </p>
+                  {/* La red de seguridad, dicha explícitamente: `instalar()` solo
+                      escribe el BORRADOR, así que hasta publicar no cambia nada
+                      para las socias y "Volver a lo publicado" lo deshace. Es lo
+                      que permite ofrecer el botón también con el tema
+                      personalizado en vez de dejar tirado a ese estudio. */}
+                  <p className="text-[11.5px] text-muted-foreground">
+                    Se guarda en tu borrador: hasta que publiques, tus socias siguen viendo lo de ahora.
+                  </p>
+                  <Button size="sm" disabled={instalando !== null} onClick={() => instalar(versionNueva)}>
+                    {instalando === versionNueva.id ? 'Actualizando…' : `Actualizar a v${versionNueva.version}`}
+                  </Button>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 flex-wrap pt-0.5">
                 <Link href={RUTA_EDITOR} className={buttonVariants()}>Personalizar</Link>

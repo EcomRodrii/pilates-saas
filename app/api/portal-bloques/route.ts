@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
-import { getBloquesBorrador, guardarBloquesBorrador } from '@/lib/layout-data';
+import { getBloquesBorrador, getBloquesPublicado, guardarBloquesBorrador } from '@/lib/layout-data';
 import { bloqueHomeSchema } from '@/lib/layout-schema';
 import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { PANTALLA_IDS, type PantallaId } from '@/lib/portal-home-bloques';
@@ -13,12 +13,24 @@ function pantallaDe(req: NextRequest): PantallaId | null {
 }
 
 // GET /api/portal-bloques?pantalla=home|clases|bonos → bloques BORRADOR de esa pantalla del portal (editor).
+// GET .../?publicado=1 → los PUBLICADOS (los que ve la socia ahora mismo).
+//
+// El opt-in es `publicado=1` y no `draft=1` como en /api/theme, al revés que
+// allí: este GET nació devolviendo el BORRADOR y todos sus llamadores cuentan
+// con eso. Invertir el defecto para ganar simetría rompería el editor entero.
+//
+// Sin gate de rol, igual que la rama del borrador: lo publicado es
+// exactamente lo que el portal ya pinta a cualquier socia, así que leerlo con
+// sesión de staff no expone nada nuevo. Escribir sí lo tiene (ver PUT).
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const pantalla = pantallaDe(req);
   if (!pantalla) return NextResponse.json({ error: 'Pantalla desconocida' }, { status: 400 });
-  return NextResponse.json(await getBloquesBorrador(sesion.studioId, pantalla));
+  const publicado = req.nextUrl.searchParams.get('publicado') === '1';
+  return NextResponse.json(publicado
+    ? await getBloquesPublicado(sesion.studioId, pantalla)
+    : await getBloquesBorrador(sesion.studioId, pantalla));
 }
 
 // PUT /api/portal-bloques?pantalla=home|clases|bonos → guarda (reemplaza) el BORRADOR de esa pantalla. No publica.
