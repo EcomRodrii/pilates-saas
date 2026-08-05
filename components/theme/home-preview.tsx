@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { MarcoMovil, MarcoMovilVacio } from './marco-movil';
 import { fetchHomePreviewToken } from '@/lib/api-client';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
@@ -156,26 +157,20 @@ export function HomePreview({
   }, [onBloqueSeleccionado]);
 
   if (!slug || !token) {
-    return (
-      <div className="mx-auto w-full max-w-[390px] aspect-[390/844] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
-        <p className="text-[12px] text-muted-foreground">La vista previa aparecerá en un momento.</p>
-      </div>
-    );
+    return <MarcoMovilVacio>La vista previa aparecerá en un momento.</MarcoMovilVacio>;
   }
 
   const ruta = TODAS_LAS_VISTAS.find((p) => p.id === vista)?.ruta ?? '';
 
   return (
-    <div className="mx-auto w-full max-w-[390px]">
-      <div className="aspect-[390/844] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
-        <iframe
-          ref={ref}
-          src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
-          title="Vista previa de la app de socias"
-          onLoad={enviar}
-          className="w-full h-full border-0"
-        />
-      </div>
-    </div>
+    <MarcoMovil>
+      <iframe
+        ref={ref}
+        src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
+        title="Vista previa de la app de socias"
+        onLoad={enviar}
+        className="w-full h-full border-0"
+      />
+    </MarcoMovil>
   );
 }
