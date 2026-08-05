@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { fijarUsuario } from '@/lib/sentry-cliente';
 import { supabase } from './db/supabase';
@@ -231,8 +231,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  // El value va memoizado (mismo patrón y misma limitación que documenta
+  // CoreProvider en core-context.tsx): antes era un literal creado en cada
+  // render, así que CUALQUIER render de este provider —que vive en el layout
+  // raíz— daba una referencia nueva y re-renderizaba a sus 18 consumidores
+  // aunque la sesión no hubiera cambiado. Las funciones se siguen recreando en
+  // cada render (no están en useCallback), pero cierran solo sobre `supabase`
+  // y setters de estado, que son estables: solo el ESTADO decide cuándo
+  // recalcular.
+  const value = useMemo(() => ({
+    session, user: session?.user ?? null, loading,
+    signIn, signUp, signOut, updateProfile, updateEmail, updatePassword,
+    recuperarPassword, establecerPassword, reenviarConfirmacion,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [session, loading]);
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword, recuperarPassword, establecerPassword, reenviarConfirmacion }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
