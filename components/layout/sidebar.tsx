@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   X, Menu, LogOut, Check, PanelLeft, ExternalLink,
@@ -16,6 +15,7 @@ import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -199,20 +199,12 @@ export function Sidebar() {
   // app/(dashboard)/layout.tsx, que gatea igual con `rolResuelto`).
   const rolResuelto = studio !== null;
   const marca = rolResuelto ? nombreAppPorRol(rol) : 'Tentare';
-  // Solo hay lockup horizontal por rol (icono + wordmark en fila); el logo
-  // colapsado (solo icono) y el de /login siguen siendo el genérico Tentare
-  // hasta que haya un caso de uso que lo pida — el rol no se conoce antes de
-  // autenticar. Export real de diseño, recortado a su contenido real (con
-  // canal alfa): el lienzo que entrega el diseñador es 1508×1043, pero el
-  // logo en sí solo ocupa ~30% de esa altura — declarar el width/height del
-  // lienzo completo hacía que `object-contain` reservara la caja por ese
-  // aspect-ratio casi cuadrado y el logo se viera diminuto dentro. Con las
-  // dimensiones del PNG ya recortado, la caja se ajusta al logo de verdad.
-  const logoHorizontal = !rolResuelto
-    ? { src: '/logo-horizontal.png', width: 1508, height: 1043 }
-    : rol === 'INSTRUCTOR'
-      ? { src: '/logo-horizontal-core.png', width: 1389, height: 358 }
-      : { src: '/logo-horizontal-manager.png', width: 1493, height: 337 };
+  // Solo hay lockup horizontal por rol (isotipo + palabra + nombre de producto
+  // en fila); el logo colapsado (solo isotipo) y el de /login siguen siendo el
+  // genérico Tentare hasta que haya un caso de uso que lo pida — el rol no se
+  // conoce antes de autenticar. Sin rol resuelto no se pasa `producto`, así
+  // que se pinta la marca paraguas.
+  const producto = !rolResuelto ? undefined : rol === 'INSTRUCTOR' ? 'core' : 'manager';
   const router = useRouter();
   const { mode: navMode, setNavMode } = useNavMode();
 
@@ -282,7 +274,7 @@ export function Sidebar() {
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
       >
-        <Image src={logoHorizontal.src} alt={marca} width={logoHorizontal.width} height={logoHorizontal.height} className="h-9 w-auto object-contain" />
+        <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={30} />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
@@ -316,9 +308,9 @@ export function Sidebar() {
         )}
       >
         {collapsed ? (
-          <Image src="/logo-icon.png" alt={marca} width={56} height={56} className="w-14 h-14 object-contain" />
+          <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={46} />
         ) : (
-          <Image src={logoHorizontal.src} alt={marca} width={logoHorizontal.width} height={logoHorizontal.height} className="h-16 w-auto object-contain" />
+          <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={52} />
         )}
       </div>
 

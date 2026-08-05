@@ -1,4 +1,4 @@
-import Image from 'next/image';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import Link from 'next/link';
 
 export function SiteFooter({ links = [] }: { links?: { href: string; label: string }[] }) {
@@ -6,7 +6,8 @@ export function SiteFooter({ links = [] }: { links?: { href: string; label: stri
     <footer style={{ background: '#0F0F0F', color: '#8E8E86', padding: 'clamp(44px,6vw,64px) clamp(20px,4vw,44px) 36px' }}>
       <div style={{ maxWidth: 1120, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <Link href="/">
-          <Image src="/logo-mark.png" alt="Tentare" width={32} height={32} style={{ height: 32, width: 'auto' }} />
+          {/* negativo: el footer va sobre #0F0F0F. */}
+          <LogoTentare formato="isotipo" tinta="negativo" alto={32} />
         </Link>
         {links.length > 0 && (
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 14 }}>

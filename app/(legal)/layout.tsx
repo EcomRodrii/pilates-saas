@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import { LEGAL } from '@/lib/legal-info';
 
 // Chrome compartido de las páginas legales públicas (/legal, /privacidad,
@@ -29,7 +29,9 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         }}
       >
         <Link href="/" aria-label={`Ir al inicio de ${LEGAL.marca}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
-          <Image src="/logo-horizontal.png" alt={LEGAL.marca} width={160} height={44} style={{ height: 30, width: 'auto' }} priority />
+          {/* decorativo: el <Link> que lo envuelve ya tiene aria-label, así que
+              anunciar aquí la marca otra vez la duplicaría en el lector. */}
+          <LogoTentare formato="horizontal" alto={26} decorativo />
         </Link>
         <Link href="/" style={{ fontSize: 13, fontWeight: 600, color: '#0f6b5c', textDecoration: 'none', whiteSpace: 'nowrap' }}>
           ← Volver a {LEGAL.marca}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import Link from 'next/link';
 import { ACC, MUTED } from './theme';
 import { NAV_LINKS } from './data';
@@ -40,7 +40,7 @@ export function Nav() {
           }}
         >
           <a href="#top" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Image src="/logo-wordmark.png" alt="Tentare" width={150} height={48} style={{ height: 26, width: 'auto' }} />
+            <LogoTentare formato="horizontal" alto={22} />
           </a>
           <div className="tnt-navlinks lp-mono" style={{ display: 'flex', gap: 28, alignItems: 'center', fontSize: 12.5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
             {NAV_LINKS.map((l) => (
