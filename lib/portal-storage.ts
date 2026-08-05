@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/db/supabase';
+import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
 
 // Fotos de perfil de socias — bucket público "avatars" en Supabase Storage.
 // Se sobrescribe siempre el mismo path (sin extensión) para no tener que
@@ -142,9 +143,20 @@ export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok
 
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
 // en el portal público de reservas cuando existe.
+//
+// Se recorta el aire transparente ANTES de guardar, y aquí y no en el editor de
+// tema para que valga venga de donde venga la subida. Motivo: los correos
+// pintan este logo con una altura fija (`<Img height="32">`), así que el margen
+// del fichero se come la altura del dibujo. Un logo real en producción tenía
+// 1508×1043 de lienzo con 1451×297 de tinta — a 32 px, solo 9 eran logo. Al
+// subirlo no se nota (el editor lo enseña a lo grande); se nota en la bandeja
+// de la clienta, que es donde ya no puedes arreglarlo.
 export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };
+  // Se valida ANTES de recortar: el límite es sobre lo que sube la persona, no
+  // sobre lo que quede después, o un PNG enorme pasaría por haber adelgazado.
+  file = await recortarTransparencia(file);
   const path = `logo-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
