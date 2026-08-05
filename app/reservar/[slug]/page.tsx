@@ -3,6 +3,7 @@ import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef, useId } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
+import { useAhora } from '@/lib/use-ahora';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
@@ -283,10 +284,14 @@ export default function ReservarPage() {
 
   // Antes de montar se renderiza el esqueleto, así que este valor no llega a
   // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
-  const now = mounted ? new Date() : FECHA_PLACEHOLDER_SSR;
+  // `now` estable entre renders: antes era `new Date()` en cada render, y como
+  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
+  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
+  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
+  const { ahora: now } = useAhora(FECHA_PLACEHOLDER_SSR);
   // Marca temporal estable durante la vida del componente: new Date() daría una
   // identidad nueva en cada render y recalcularía `slots` sin necesidad.
-  const nowMs = useMemo(() => now.getTime(), [mounted]);
+  const nowMs = useMemo(() => now.getTime(), [now]);
 
   // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
   // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
@@ -303,6 +308,7 @@ export default function ReservarPage() {
     if (sesionDeepLink) {
       if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
       deepLinkHecho.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
       openBooking(sesionDeepLink);
     } else if (searchParams.get('acceso') === '1') {

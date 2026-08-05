@@ -54,6 +54,11 @@ import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 
+// Evaluada UNA vez al cargar el módulo, no en cada render: es solo el valor con
+// el que se calcula antes de montar (ver el fallback de `now`, más abajo).
+// Estable por definición, que es justo lo que le faltaba al `new Date()` en línea.
+const FECHA_MODULO = new Date();
+
 // Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
 // componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
@@ -126,7 +131,17 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     const id = setInterval(() => setAhora(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
-  const now = ahora ?? new Date();
+  // ⚠️ El fallback NO puede ser `new Date()` en línea: daba un objeto nuevo en
+  // CADA render, y `now` está en las dependencias de cinco useMemo de esta
+  // pantalla (banners, retos, próxima clase...). Con eso, la memoización estaba
+  // escrita pero no servía de nada: se recalculaban siempre.
+  //
+  // Se queda como fallback y no se usa el hook `useAhora`, a propósito: aquí
+  // `ahora` arranca en null porque ese null ES una guarda —`fechaHoy` y
+  // `contador` (más abajo) no se pintan hasta montar, para no meter una cuenta
+  // atrás en el HTML del servidor—. Un hook que devuelva siempre una Date
+  // borraría esa distinción.
+  const now = ahora ?? FECHA_MODULO;
   const bannersVigentes = useMemo(() => {
     // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
     // siguiente a medianoche local todavía cae en el día UTC anterior, y un

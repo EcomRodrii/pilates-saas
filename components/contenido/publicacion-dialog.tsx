@@ -40,7 +40,22 @@ export function PublicacionDialog({
   const [fecha, setFecha] = useState('');
   const [hashtags, setHashtags] = useState('');
 
-  useEffect(() => {
+  // Ajuste en render, no efecto: con efecto el diálogo se pintaba un frame con
+  // los campos de la publicación ANTERIOR (o vacíos) y se rellenaba después.
+  //
+  // ⚠️ La clave va sobre PRIMITIVOS (id y timestamp), nunca sobre `publicacion`
+  // o `fechaInicial` directamente: son objetos, y si el padre los recrea en
+  // cada render una comparación por identidad no se estabilizaría nunca —
+  // ajustar en render con una clave inestable es un bucle infinito, no un
+  // render de más.
+  const claveDialogo = `${open} ${publicacion?.id ?? ''} ${fechaInicial?.getTime() ?? ''}`;
+  const [claveDialogoPrevia, setClaveDialogoPrevia] = useState(claveDialogo);
+  if (claveDialogo !== claveDialogoPrevia) {
+    setClaveDialogoPrevia(claveDialogo);
+    rellenarDesdeProps();
+  }
+
+  function rellenarDesdeProps() {
     if (!open) return;
     if (publicacion) {
       setTitulo(publicacion.titulo);
@@ -56,7 +71,7 @@ export function PublicacionDialog({
       setTitulo(''); setContenido(''); setTipo('post'); setEstado('programada');
       setPlataformas(['instagram']); setFecha(toLocalInput(base.toISOString())); setHashtags('');
     }
-  }, [open, publicacion, fechaInicial]);
+  }
 
   function togglePlat(p: Plataforma) {
     setPlataformas((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);

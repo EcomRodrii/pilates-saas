@@ -232,7 +232,12 @@ export function CamposForm({
 }: {
   campos: readonly CampoSchema[];
   valores: Valores;
-  onChange: (v: Valores) => void;
+  /**
+   * `campoId` dice QUÉ campo se tocó. El historial lo usa para fundir
+   * pulsaciones seguidas sobre el mismo campo en un solo paso — sin él,
+   * escribir un título serían doce pasos de deshacer.
+   */
+  onChange: (v: Valores, campoId: string) => void;
   /** Oculta la etiqueta de un campo `lista` que ya se explica por su bloque. */
   etiquetaListaSinTitulo?: boolean;
 }) {
@@ -244,7 +249,7 @@ export function CamposForm({
           campo={campo}
           valor={valores[campo.id]}
           sinEtiqueta={etiquetaListaSinTitulo && campo.tipo === 'lista'}
-          onChange={(v) => onChange({ ...valores, [campo.id]: v })}
+          onChange={(v) => onChange({ ...valores, [campo.id]: v }, campo.id)}
         />
       ))}
     </div>

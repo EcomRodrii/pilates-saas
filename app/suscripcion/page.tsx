@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -20,6 +21,10 @@ const BULLETS: Record<Plan, string[]> = {
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
   const [estado, setEstado] = useState<EstadoBilling | null>(null);
   const [cargandoEstado, setCargandoEstado] = useState(true);
   const [accion, setAccion] = useState<string | null>(null);
@@ -74,7 +79,7 @@ export default function SuscripcionPage() {
   // Primera suscripción (nunca se ha suscrito) → tiene derecho a la prueba gratis.
   const primeraVez = !estado?.subscriptionStatus;
   const diasPrueba = estado?.pruebaTermina
-    ? Math.max(0, Math.ceil((new Date(estado.pruebaTermina).getTime() - Date.now()) / 86400000))
+    ? Math.max(0, Math.ceil((new Date(estado.pruebaTermina).getTime() - ahora.getTime()) / 86400000))
     : null;
   // Fecha del próximo cobro, en cristiano. Durante la prueba es el primer cargo.
   const proximoCobro = estado?.periodoTermina

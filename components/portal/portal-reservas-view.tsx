@@ -10,6 +10,7 @@
 // por si el estudio prueba con una sesión real desde otra pestaña del navegador.
 
 import { useMemo, useState } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
@@ -60,7 +61,12 @@ export function PortalReservasView({
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const socioId = session?.socioId;
-  const now = new Date();
+  // `new Date()` a secas daba una identidad NUEVA en cada render, y `now` está
+  // en las dependencias del useMemo que reparte las reservas entre pestañas:
+  // se recalculaba entero al abrir un toast o al teclear. El hook lo mantiene
+  // estable entre renders y aun así lo hace avanzar. El fallback es el mismo
+  // valor que había antes, así que el primer paint no cambia.
+  const { ahora: now } = useAhora(new Date());
 
   const misReservas = useMemo(() =>
     reservas

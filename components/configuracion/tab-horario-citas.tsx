@@ -74,9 +74,13 @@ export function TabHorarioCitas({ showToast }: { showToast: (m: string) => void 
   const loadedFor = useRef<string | null>(null);
 
   // Si aún no hay instructora elegida pero ya cargaron, elige la primera.
-  useEffect(() => {
-    if (!selected && activos.length > 0) setSelected(activos[0].id);
-  }, [activos, selected]);
+  // (Pasa cuando `activos` llega vacío en el primer render y se puebla después.)
+  //
+  // Ajuste en render, no efecto: con efecto se pintaba un frame con el
+  // desplegable en blanco y sin horario aunque las instructoras ya estuvieran
+  // cargadas. La condición se auto-cancela —en cuanto hay `selected` deja de
+  // cumplirse—, así que no hace falta guardar el valor anterior.
+  if (!selected && activos.length > 0) setSelected(activos[0].id);
 
   // Carga el borrador desde la BD al cambiar de instructora (no pisa ediciones:
   // solo recarga cuando cambia la instructora seleccionada).

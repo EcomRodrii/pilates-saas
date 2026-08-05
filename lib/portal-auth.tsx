@@ -80,6 +80,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, [slug]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Se suscribe a onAuthStateChange de Supabase. Sincronización con un sistema externo, que es para lo que existen los efectos.
     resolver(); // carga inicial (sesión ya existente o retorno del magic link)
     const { data: sub } = supabasePortal.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {

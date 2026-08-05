@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { dbStatsClientas } from '@/lib/supabase-data';
 import { useSemaforoRecepcion } from '@/lib/hooks/use-semaforo-recepcion';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
@@ -161,6 +162,10 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Socios() {
   const router = useRouter();
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
   const { socios, suscripciones, planesTarifa, reservas, sesiones, addSocio, updateSocio, deleteSocio, assignPlan, studioConfig, condicionesSalud, camposPersonalizados } =
     useStudio();
   const rol = useRol();
@@ -239,8 +244,9 @@ export default function Socios() {
   const [errorFila, setErrorFila] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
-  // Reset selection when filters change
-  useEffect(() => { setSelected(new Set()); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // (El reset de la selección al cambiar de filtro vive más abajo, junto al de
+  // la paginación: los dos vigilaban las mismas cuatro dependencias y ahora
+  // son un único ajuste en render.)
 
   // Auto-open create modal when ?nuevo=1 in URL (linked from dashboard)
   useEffect(() => {
@@ -248,6 +254,7 @@ export default function Socios() {
     // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
     // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
     if (params.get('nuevo') === '1' && gestionaClientas) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?nuevo=1). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render.
       setForm(emptyForm());
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
@@ -300,7 +307,7 @@ export default function Socios() {
   function isInactiva30d(socioId: string): boolean {
     const last = getLastVisit(socioId);
     if (!last) return true;
-    return Date.now() - new Date(last).getTime() > 30 * 86400000;
+    return ahora.getTime() - new Date(last).getTime() > 30 * 86400000;
   }
 
   function isBonoExpirado(socioId: string): boolean {
@@ -381,8 +388,22 @@ export default function Socios() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  // Al cambiar filtros/búsqueda/orden, volver a la primera página.
-  useEffect(() => { setVisibles(PAGE); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // Al cambiar filtros/búsqueda/orden: volver a la primera página y vaciar la
+  // selección (no tendría sentido conservar marcadas clientas que ya no salen).
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // al teclear en el buscador se pintaba un frame con la lista nueva pero
+  // todavía la paginación y la selección viejas, y el reset entraba en un
+  // segundo render. Así React descarta el render en curso y rehace antes de
+  // tocar el DOM: ese frame intermedio no llega a existir.
+  const filtroActual = `${busqueda} ${smartFilter} ${sortKey} ${sortDir}`;
+  const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
+  if (filtroActual !== filtroPrevio) {
+    setFiltroPrevio(filtroActual);
+    setVisibles(PAGE);
+    setSelected(new Set());
+  }
   const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
 
   // ── Bulk helpers ───────────────────────────────────────────────────────────

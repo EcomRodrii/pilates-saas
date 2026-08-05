@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, isValidElement, cloneElement, type ReactElement, type ReactNode } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
@@ -240,8 +241,12 @@ function ModalClasesRecurrentes({
   sesionesExistentes: SlotSesion[];
 }) {
   const uid = useId();
-  const today = new Date().toISOString().slice(0, 10);
-  const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  // Leer el reloj DURANTE el render es impuro: dos lecturas del mismo render
+  // pueden dar valores distintos, y React puede descartar y repetir un render
+  // sin avisar. La hora viene del hook (estado), que además la mantiene estable.
+  const { ahora } = useAhora(new Date());
+  const today = ahora.toISOString().slice(0, 10);
+  const inOneMonth = new Date(ahora.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const emptyForm = (): RecurringFormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',
@@ -258,10 +263,14 @@ function ModalClasesRecurrentes({
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
   const duracionInvalida = !form.duracion || form.duracion < 15;
 
-  useEffect(() => {
+  // Al abrir, el formulario vuelve a estar vacío. Ajuste en render, no efecto:
+  // con efecto el diálogo aparecía un frame con lo que se escribió la vez
+  // anterior y se limpiaba después.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
     if (open) setForm(emptyForm());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
   function toggleDia(day: number) {
     setForm(f => ({
@@ -503,16 +512,24 @@ export default function Calendario() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: los tres estados arrancan en FALLBACK (fecha fija) para que servidor y cliente pinten lo mismo, y saltan a la fecha real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
   useEffect(() => {
     const today = new Date();
+    // ⚠️ El disable va AQUÍ, sobre la llamada, y no encima del `useEffect`: la
+    // regla señala la línea del setState, no la del efecto, así que en un
+    // efecto multilínea un disable sobre el `useEffect(` no la tapa (pasó en
+    // este mismo sitio y se quedó avisando sin que se notara).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: los tres estados arrancan en FALLBACK (fecha fija) para que servidor y cliente pinten lo mismo, y saltan a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
     setMesVisto(today);
   }, []);
 
-  const now = mounted ? new Date() : FALLBACK;
+  // `now` estable entre renders: antes era `new Date()` en cada render, y como
+  // esta pantalla lo tiene en las dependencias de varios useMemo caros, esos
+  // cálculos se rehacían SIEMPRE — la memoización estaba escrita pero no servía.
+  // El hook lo mantiene estable y aun así lo hace avanzar (ver lib/use-ahora.ts).
+  const { ahora: now } = useAhora(FALLBACK);
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);
@@ -1529,7 +1546,15 @@ export default function Calendario() {
     });
   }, [decisiones, datosVista, tiposClase, estadoPorSesion]);
 
-  useEffect(() => { setIndiceDecision(0); }, [decisiones.length]);
+  // Si cambia el número de decisiones, el índice actual puede apuntar fuera de
+  // la lista: se vuelve a la primera. Ajuste en render (patrón documentado por
+  // React para resetear estado al cambiar una dependencia) en vez de efecto,
+  // que pintaba un frame con el índice viejo sobre la lista nueva.
+  const [nDecisionesPrevio, setNDecisionesPrevio] = useState(decisiones.length);
+  if (decisiones.length !== nDecisionesPrevio) {
+    setNDecisionesPrevio(decisiones.length);
+    setIndiceDecision(0);
+  }
 
   function accionParaSesion(sesionId: string): TipoAccion | null {
     const it = itemsDecision.find(i => i.sesionId === sesionId);
@@ -1804,10 +1829,9 @@ export default function Calendario() {
   // gateado a las instructoras del piloto, no visible al resto.
   const enPiloto = enPilotoVoz(yo?.id);
   const [notaVozSocioId, setNotaVozSocioId] = useState<string | null>(null);
-  // Si la sesión activa cambia (o se cierra el drawer) sin pasar por el
-  // onClose del propio modal, no dejar el socio de la nota de voz colgado
-  // — al reabrir cualquier sesión, no debe reaparecer atado a la anterior.
-  useEffect(() => { setNotaVozSocioId(null); }, [sesionId]);
+  // (El reset de `notaVozSocioId` al cambiar de sesión vive más abajo, junto al
+  // del panel de preparación con IA: los dos vigilaban `sesionId` por separado
+  // y ahora son un único ajuste en render.)
 
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -1867,7 +1891,25 @@ export default function Calendario() {
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
 
-  useEffect(() => { setPrepIA(null); setPrepIAError(false); setShowAnadir(false); setBuscarSocia(''); }, [sesionId]);
+  // Al cambiar de sesión (o cerrar el drawer) se limpia todo lo que colgaba de
+  // la anterior: el socio de la nota de voz y el panel de preparación con IA.
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // el usuario veía un frame con los datos de la sesión ANTERIOR ya pintados y
+  // el reset llegaba en un segundo render. Así React descarta el render en
+  // curso y vuelve a renderizar antes de tocar el DOM: nunca se pinta.
+  // De paso, los dos efectos que vigilaban `sesionId` por separado pasan a ser
+  // uno solo.
+  const [sesionIdPrevia, setSesionIdPrevia] = useState(sesionId);
+  if (sesionId !== sesionIdPrevia) {
+    setSesionIdPrevia(sesionId);
+    setNotaVozSocioId(null);
+    setPrepIA(null);
+    setPrepIAError(false);
+    setShowAnadir(false);
+    setBuscarSocia('');
+  }
 
   async function prepararClaseIA() {
     if (!sesionActual) return;

@@ -23,7 +23,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle,
+  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle, Undo2, Redo2,
 } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { PANTALLA_IDS, PANTALLA_LABEL, bloqueEstaCompleto, type PantallaId, type BloqueHome } from '@/lib/portal-home-bloques';
@@ -91,6 +91,7 @@ export function ThemeEditorFullscreen() {
   const [previewVivo, setPreviewVivo] = useState(true);
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [confirmarDescartar, setConfirmarDescartar] = useState(false);
   const [publicandoTodo, setPublicandoTodo] = useState(false);
   const [avisoPublicar, setAvisoPublicar] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   // Tema PUBLICADO (no el borrador) — solo para el badge "N sin publicar" y
@@ -177,11 +178,16 @@ export function ThemeEditorFullscreen() {
   );
   const puedePublicar = ajustesHook.contraste.ok && bloquesIncompletos.length === 0;
 
-  function deshacerActivo() {
+  // ⚠️ Esto NO es "deshacer": relee del servidor y tira TODAS las ediciones
+  // locales de esta sección. Antes se llamaba "Deshacer" y no preguntaba —
+  // quien llevaba veinte minutos ajustando una pantalla lo pulsaba esperando
+  // quitar lo último y lo perdía todo. Ahora se llama por su nombre y pide
+  // confirmación; deshacer de verdad son las flechas de al lado.
+  function descartarSeccionActiva() {
     if (nodo.tipo === 'tema') { ajustesHook.recargar(); return; }
     if (nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio') { homeHook.recargar(); return; }
     const p = nodo.tipo === 'item' && nodo.grupo !== 'contenido-portal' ? nodo.grupo : nodo.tipo === 'pantalla' && PANTALLA_IDS.includes(nodo.id as PantallaId) ? (nodo.id as PantallaId) : null;
-    if (p) bloquesHook.recargar(p);
+    if (p) bloquesHook.descartarCambios(p);
   }
 
   return (
@@ -229,8 +235,27 @@ export function ThemeEditorFullscreen() {
           >
             {previewVivo ? <Eye size={16} /> : <EyeOff size={16} />}
           </button>
-          <button type="button" onClick={deshacerActivo} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
-            <RotateCcw size={14} /> Deshacer
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button" onClick={bloquesHook.deshacer} disabled={!bloquesHook.puedeDeshacer}
+              title="Deshacer (los ajustes del tema todavía no entran)"
+              aria-label="Deshacer" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              type="button" onClick={bloquesHook.rehacer} disabled={!bloquesHook.puedeRehacer}
+              title="Rehacer" aria-label="Rehacer"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Redo2 size={16} />
+            </button>
+          </div>
+          <button
+            type="button" onClick={() => setConfirmarDescartar(true)}
+            className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            <RotateCcw size={14} /> Descartar cambios
           </button>
           {nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' && (
             <button onClick={homeHook.guardar} disabled={homeHook.guardando} className="text-[13px] font-semibold px-3 py-1.5 rounded-lg border border-border disabled:opacity-50">
@@ -370,6 +395,27 @@ export function ThemeEditorFullscreen() {
       </div>
 
       {/* Antes de publicar */}
+      <Dialog open={confirmarDescartar} onOpenChange={setConfirmarDescartar}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Descartar los cambios de esta sección?</DialogTitle>
+            <DialogDescription>
+              Se pierde todo lo que has editado aquí desde la última vez que guardaste, no solo lo último.
+              Para deshacer un paso, usa la flecha de la barra.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmarDescartar(false)}>Seguir editando</Button>
+            <Button
+              onClick={() => { descartarSeccionActiva(); setConfirmarDescartar(false); }}
+              className="bg-destructive text-destructive-foreground hover:brightness-95"
+            >
+              Descartar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
         <DialogContent className="max-w-md">
           <DialogHeader>

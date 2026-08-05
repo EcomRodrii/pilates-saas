@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { ColorInput, ColorSwatch, ConfirmDialog, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
@@ -46,6 +47,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<SalaForm>(() => emptySalaForm(COLORES_SALA[0]));
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  // El reloj se lee del estado, no durante el render: leerlo en render es
+  // impuro (dos lecturas del mismo render pueden diferir, y React puede
+  // descartar y repetir un render) y daba una identidad nueva cada vez.
+  const { ahora } = useAhora(new Date());
   // Sala que la dueña intentó borrar pero tiene clases: no se puede borrar hasta
   // reasignarlas o eliminarlas (FK `sesiones.sala_id`, NO ACTION). Se lo decimos
   // antes de mostrar el diálogo destructivo, no después de que falle en la BD.
@@ -167,7 +172,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const canGuardar = form.nombre.trim() && form.capacidad;
 
   // F2 (B2.7): averías activas = sin fecha de arreglo, o con arreglo aún futuro.
-  const averiasActivas = bloqueosMaquina.filter(b => !b.hasta || Date.parse(b.hasta) > Date.now());
+  const averiasActivas = bloqueosMaquina.filter(b => !b.hasta || Date.parse(b.hasta) > ahora.getTime());
 
   const abrirAveria = useCallback(() => {
     setAveriaForm({ salaId: salas[0]?.id ?? '', motivo: '', hasta: '' });

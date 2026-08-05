@@ -468,6 +468,7 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date('2026-06-29'));
   useEffect(() => {
     if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo. El setInterval es justo el caso de uso que la regla considera legítimo.
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
@@ -1261,12 +1262,21 @@ export default function Dashboard() {
                   <h2 className="text-[13px] font-semibold text-foreground">Actividad</h2>
                   <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 </div>
+                {/* El Notification Center pasó a ser solo de la propietaria
+                    (`puedeVerCentroNotificaciones`: mezcla importes, decisiones
+                    y fichas de salud). Este enlace era además la ÚNICA puerta a
+                    esa pantalla —no está en el menú—, así que sin comprobar el
+                    rol los otros tres roles pulsaban "Ver todo" y el guardia del
+                    layout los devolvía al dashboard sin decir por qué. Mismo
+                    criterio que las tarjetas de arriba. */}
+                {puedeVer(rolActual, '/notificaciones') && (
                 <Link
                   href="/notificaciones"
                   className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Bell size={11} /> Ver todo
                 </Link>
+                )}
               </div>
               <div className="divide-y divide-muted">
                 {actividadReciente.length === 0 ? (

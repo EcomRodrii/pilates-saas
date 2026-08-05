@@ -41,6 +41,7 @@ export function PushPrompt() {
       return;
     }
     if (descartado) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Consulta Notification.permission, una API del navegador. No existe en servidor.
     if (permiso === 'default') setVista('cta');
     else if (permiso === 'unsupported' && esIOS() && !esStandalone()) setVista('ios-instalar');
   }, [socioId, studioId]);

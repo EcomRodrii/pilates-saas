@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { bloqueHomeSchema } from '../layout-schema.ts';
-import { zodDeCampos } from './campos-zod.ts';
+import { zodDeCampos, zodDeBloques } from './campos-zod.ts';
 import { CAMPOS_ESTILO } from '../portal-home-bloques.ts';
 
 // ── El oráculo: el zod que estaba escrito a mano ────────────────────────────
@@ -134,3 +134,52 @@ test('zodDeCampos({todoOpcional}) es lo que necesita `estilo`: todo puede faltar
   // Y sin la opción, las mismas claves pasan a ser obligatorias.
   assert.equal(zodDeCampos(CAMPOS_ESTILO).safeParse({}).success, false);
 });
+
+// ── Anidamiento: el zod tiene que podar el segundo nivel ───────────────────
+
+test('un padre que admite hijos los valida con el schema de SU kind', () => {
+  const conHijos = zodDeBloques(
+    [
+      { id: 'sec', origen: 'catalogo', campos: CAMPOS_ESTILO_VACIO, hijos: { admite: ['texto'] } },
+      { id: 'texto', origen: 'catalogo', campos: CAMPOS_TEXTO_MINI },
+    ],
+    ['estaSemana'],
+    [],
+  );
+  const ok = conHijos.safeParse({
+    id: 'p', kind: 'sec', config: {},
+    hijos: [{ id: 'h', kind: 'texto', config: { texto: 'hola' } }],
+  });
+  assert.equal(ok.success, true);
+
+  // Un hijo de un kind que el padre NO admite se rechaza.
+  const malKind = conHijos.safeParse({
+    id: 'p', kind: 'sec', config: {},
+    hijos: [{ id: 'h', kind: 'sec', config: {} }],
+  });
+  assert.equal(malKind.success, false);
+});
+
+test('el zod poda un TERCER nivel — el hijo no lleva `hijos`', () => {
+  // Si el jsonb viene con más profundidad (a mano, o de una versión futura),
+  // no se conserva: el nivel único se garantiza también al guardar, no solo
+  // en el tipo de TypeScript.
+  const conHijos = zodDeBloques(
+    [
+      { id: 'sec', origen: 'catalogo', campos: CAMPOS_ESTILO_VACIO, hijos: { admite: ['texto'] } },
+      { id: 'texto', origen: 'catalogo', campos: CAMPOS_TEXTO_MINI },
+    ],
+    ['estaSemana'],
+    [],
+  );
+  const salida = conHijos.parse({
+    id: 'p', kind: 'sec', config: {},
+    hijos: [{ id: 'h', kind: 'texto', config: { texto: 'x' }, hijos: [{ id: 'n', kind: 'texto', config: { texto: 'y' } }] }],
+  }) as { hijos: Record<string, unknown>[] };
+  assert.equal('hijos' in salida.hijos[0], false);
+});
+
+const CAMPOS_ESTILO_VACIO = [] as const;
+const CAMPOS_TEXTO_MINI = [
+  { tipo: 'texto', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
+] as const;

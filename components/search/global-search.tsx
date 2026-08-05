@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useAhora } from '@/lib/use-ahora';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { Search, ArrowRight, Calendar, CreditCard, X, Zap } from 'lucide-react';
@@ -47,9 +48,19 @@ export function GlobalSearch({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // El foco SÍ se queda en un efecto: mover el cursor es tocar el DOM, que es
+  // justo para lo que existen los efectos. Lo que sale de aquí es el reset del
+  // texto, que es estado y se ajusta en render — con efecto, al reabrir el
+  // buscador se veía un frame con la búsqueda anterior todavía escrita.
   useEffect(() => {
-    if (open) { setTimeout(() => inputRef.current?.focus(), 40); setQuery(''); }
+    if (open) setTimeout(() => inputRef.current?.focus(), 40);
   }, [open]);
+
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
+    if (open) setQuery('');
+  }
 
   // P0-32: debounce del texto (no filtrar en cada tecla) + resultados memoizados
   // + Map socio por id (antes: socios.find() por cada recibo, en cada pulsación).
@@ -68,13 +79,17 @@ export function GlobalSearch({
     : socios.filter(s => s.activo).slice(0, 4),
     [socios, q]);
 
+  // El reloj viene del estado, no de un `Date.now()` dentro del useMemo: leerlo
+  // ahí es impuro y, además, ataba el resultado al momento en que tocara
+  // recalcular — dos búsquedas seguidas podían filtrar por instantes distintos.
+  const { ahora } = useAhora(new Date());
   const sesionesRes = useMemo(() => {
-    const nowMs = Date.now();
+    const nowMs = ahora.getTime();
     const futuras = sesiones.filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .sort((a, b) => a.inicio.localeCompare(b.inicio));
     if (q.length < 1) return futuras.slice(0, 3);
     return futuras.filter(s => tipoById.get(s.tipoClaseId)?.nombre.toLowerCase().includes(q)).slice(0, 4);
-  }, [sesiones, tipoById, q]);
+  }, [ahora, sesiones, tipoById, q]);
 
   const recibosRes = useMemo(() => {
     const pend = recibos.filter(r => r.estado === 'PENDIENTE');

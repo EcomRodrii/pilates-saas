@@ -46,13 +46,13 @@ export default function PrimerosPasosPage() {
   } = useStudio();
   const { iniciarTour } = useTour();
 
-  // Todos los hooks deben ejecutarse siempre, en el mismo orden, en CADA
-  // render — así que calcularOnboarding y el "return null" de estudio aún
-  // no cargado NO pueden ir antes de useRef/useState/useEffect. Sin datos
-  // reales del estudio, se calcula sobre un onboarding vacío (0 pasos, sin
-  // categorías): el render real de la página llega solo cuando `studio`
-  // existe (guardia más abajo, después de todos los hooks).
-  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = studio ? calcularOnboarding({
+  // Sin `studio` no hay nada que calcular, pero el early return NO puede ir
+  // aquí: los hooks de gamificación de más abajo dejarían de ejecutarse en el
+  // primer render y volverían a hacerlo en cuanto el contexto resuelve, que es
+  // exactamente el "Rendered more hooks than during the previous render" que
+  // tumba la pantalla. Se calcula condicionalmente y se sale DESPUÉS de todos
+  // los hooks.
+  const datos = studio ? calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -69,8 +69,10 @@ export default function PrimerosPasosPage() {
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  }) : { categorias: [], enlaces: [], recomendaciones: [], totalPasos: 0, totalCompletados: 0 };
+  }) : null;
 
+  const totalPasos = datos?.totalPasos ?? 0;
+  const totalCompletados = datos?.totalCompletados ?? 0;
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
 
   // Gamificación: detecta el instante en que se pasa de incompleto a
@@ -81,13 +83,21 @@ export default function PrimerosPasosPage() {
   // confirmación es un momento, no un estado.
   const prevTotalRef = useRef<number | null>(null);
   const [recienCompletado, setRecienCompletado] = useState(false);
+  const hayDatos = datos !== null;
   useEffect(() => {
+    // Mientras el contexto no ha resuelto, los totales valen 0 y NO cuentan
+    // como un "antes": sin esta guarda, un estudio que ya lo tenía todo hecho
+    // vería la animación de recién completado nada más abrir la página (0 → 15
+    // se lee como si lo acabara de terminar), justo lo que dice el comentario
+    // de arriba que no debe pasar.
+    if (!hayDatos) return;
     const prev = prevTotalRef.current;
     if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
     prevTotalRef.current = totalCompletados;
-  }, [totalCompletados, totalPasos]);
+  }, [hayDatos, totalCompletados, totalPasos]);
 
-  if (!studio) return null;
+  if (!studio || !datos) return null;
+  const { categorias, enlaces, recomendaciones } = datos;
 
   return (
     <div className="space-y-6 max-w-3xl">

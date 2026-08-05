@@ -103,9 +103,20 @@ que ya existe: `lib/emails/send-server.ts`, `lib/twilio.ts`) y regístralo en
 incluya y cuyo usuario lo tenga activado. **La lógica de negocio no cambia.**
 
 ### …crear/editar plantillas
-Por defecto viven en `PLANTILLAS` (código, con variables `{clase}`, `{cuando}`,
-`{socia}`, `{importe}`…). Para overrides por estudio, inserta en
-`notification_template` (el motor puede preferir el override sobre el global).
+Viven en `PLANTILLAS` (código, con variables `{clase}`, `{cuando}`, `{socia}`,
+`{importe}`…), y hoy **solo ahí**: `plantillaDe()` (`lib/notifications/catalog.ts`)
+lee el catálogo estático y nada más.
+
+⚠️ La tabla `notification_template` existe en el esquema desde la 0092 pero
+**está muerta**: cero referencias en `app/`, `lib/` y `components/`. El motor NO
+prefiere ningún override sobre el global — esa frase estuvo aquí y era falsa.
+Su política de escritura se cerró a propósito
+(`20260805195400_notification_rls_higiene_delivery_template.sql`) para que
+conectar overrides por estudio obligue a decidir explícitamente quién puede
+escribirlos, en vez de heredar el `FOR ALL TO authenticated` de la 0092 —que
+dejaba a cualquier instructora reescribir el texto que reciben todas las socias—.
+Si algún día se conectan: añadir la policy a propósito (`puede_gestionar_equipo()`
+es el candidato razonable) **y** enseñarle a `plantillaDe()` a leer la tabla.
 
 ### …crear automatizaciones (recordatorios, umbrales)
 Añade una función cron de Inngest (patrón dispatcher→fan-out, como
