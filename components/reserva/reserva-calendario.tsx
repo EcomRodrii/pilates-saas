@@ -112,9 +112,12 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
   const ringStyle: CSSProperties = ring ? { boxShadow: `0 0 0 3px ${ring}` } : {};
   if (fotoUrl) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora, no un asset estático conocido en build (mismo criterio que components/ui/profile-avatar)
       <img
         src={fotoUrl}
         alt={nombre}
+        loading="lazy"
+        decoding="async"
         style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0, ...ringStyle }}
       />
     );

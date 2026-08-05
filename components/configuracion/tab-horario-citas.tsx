@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import { queImparten } from '@/lib/equipo';

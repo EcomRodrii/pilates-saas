@@ -1,7 +1,6 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
 // —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
@@ -12,18 +11,9 @@ import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
-import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
-import { calcularMetrica } from '@/lib/engines/achievement-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
-import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
-import { planMasElegido } from '@/lib/estudio-publico';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -115,7 +105,6 @@ import type {
   Factura,
   Instructor,
   Integracion,
-  TipoIntegracion,
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
@@ -139,7 +128,6 @@ import type {
   RewardHistory,
   RewardRedemption,
   RewardRule,
-  RewardTrigger,
   Sala,
   BloqueoMaquina,
   PlazaFija,
@@ -165,10 +153,6 @@ import type {
   VentaPOS,
   VideoOnDemand,
 } from '@/lib/types';
-import {
-  generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
-  type IntervaloOcupado, type HuecoCita,
-} from '@/lib/citas/slots';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -1315,26 +1299,6 @@ function reciboToDb(rec: Recibo) {
   };
 }
 
-function facturaToDb(fac: Factura) {
-  return {
-    id: fac.id,
-    studio_id: fac.studioId ?? STUDIO_ID,
-    recibo_id: fac.reciboId,
-    numero_completo: fac.numeroCompleto,
-    fecha_emision: fac.fechaEmision,
-    receptor_nombre: fac.receptorNombre,
-    receptor_nif: fac.receptorNIF ?? null,
-    base_imponible: fac.baseImponible,
-    tipo_iva: fac.tipoIVA,
-    cuota_iva: fac.cuotaIVA,
-    total: fac.total,
-    verifactu_hash: fac.verifactuHash ?? null,
-    verifactu_prev_hash: fac.verifactuPrevHash ?? null,
-    verifactu_ts: fac.verifactuTs ?? null,
-    verifactu_seq: fac.verifactuSeq ?? null,
-  };
-}
-
 function citaToDb(cita: Cita) {
   return {
     id: cita.id,
@@ -2403,7 +2367,12 @@ export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
 
 // NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
 // /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
-// saltaría la huella encadenada. facturaToDb se conserva para los backups.
+// saltaría la huella encadenada.
+//
+// Antes esta nota decía además que `facturaToDb` se conservaba "para los
+// backups". No era cierto: el motor de backups copia filas crudas por nombre
+// de tabla (`BACKUP_TABLES` en lib/engines/backup-engine.ts) y nunca pasó por
+// ese mapeador. Llevaba sin usarse desde entonces, así que se ha borrado.
 
 export async function dbInsertCita(cita: Cita): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));

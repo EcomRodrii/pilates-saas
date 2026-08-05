@@ -165,7 +165,6 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     marcarDevuelto,
     reintentar,
     deleteRecibo,
-    cobrarTodosPendientes,
     addRecibo,
     crearFacturaDirecta,
     resetDatosPilates,

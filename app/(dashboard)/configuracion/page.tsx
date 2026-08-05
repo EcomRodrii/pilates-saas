@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
@@ -289,11 +289,9 @@ export default function ConfiguracionPage() {
       setGamificacionSub(tab);
       setActiveTab('gamificacion');
     } else if (SUB_CLASES_SALAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClasesSalasSub(SUB_CLASES_SALAS.get(tab));
       setActiveTab('clases-salas');
     } else if (SUB_CITAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCitasSub(SUB_CITAS.get(tab));
       setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
