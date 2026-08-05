@@ -25,6 +25,7 @@ import { display, texto, micro, radio, altura, sombra } from '@/lib/portal-desig
 import { resolveNavConfig, navItemsVisibles, NAV_DISPONIBLES } from '@/lib/portal-nav';
 import { PortalNav } from '@/components/portal/portal-nav';
 import type { ThemeConfig } from '@/lib/theme-schema';
+import { resolveVariantes } from '@/lib/theme-variantes';
 
 // Ancho real del portal en el móvil de referencia, y alto que hace falta para
 // que quepa la barra inferior sin recortar el botón de la tarjeta.
@@ -33,6 +34,9 @@ const ALTO = 565;
 
 export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?: number }) {
   const escala = ancho / ANCHO;
+  // Misma resolución que el portal real (resolveVariantes), para que la
+  // miniatura no pueda desincronizarse de lo que instala el tema.
+  const accesos = resolveVariantes(config.variantes).accesosRapidos;
   const vars = themeToCssVars(config) as React.CSSProperties;
   const items = navItemsVisibles(resolveNavConfig(config.navPortal), NAV_DISPONIBLES);
 
@@ -115,10 +119,13 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
           </div>
         </div>
 
-        {/* Dos filas de acceso, a lo ancho (no una rejilla de dos) — así se lee
-            el interlineado y el peso del titular del tema. */}
+        {/* Accesos rápidos, con la MISMA forma que instalará el tema — si aquí
+            se vieran siempre filas, la biblioteca mentiría sobre lo que se va
+            a instalar, que es justo lo que se está arreglando en esta tanda.
+            La variante de filas usa dos, no cuatro: en la miniatura lo que se
+            juzga es el interlineado y el peso del titular, no el inventario. */}
         <div style={{ flex: 'none', marginTop: 16 }}>
-          {['Reservar clase', 'Mi progreso'].map((etiqueta, i) => (
+          {accesos === 'filas' ? ['Reservar clase', 'Mi progreso'].map((etiqueta, i) => (
             <div
               key={etiqueta}
               style={{
@@ -135,7 +142,35 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
                 {i === 0 ? '3 huecos hoy' : '24 clases'}
               </span>
             </div>
-          ))}
+          )) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: accesos === 'circulos' ? 0 : 9 }}>
+              {['Reservar', 'Mis reservas', 'Favoritas', 'Mi bono'].map((etiqueta) => (
+                <div
+                  key={etiqueta}
+                  style={{
+                    flex: 1, minWidth: 0, textAlign: 'center', color: config.text,
+                    ...(accesos === 'circulos' ? {} : {
+                      height: 84, display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center', gap: 8,
+                      background: `${config.text}0A`,
+                      border: `1px solid ${config.text}1F`,
+                      borderRadius: config.radioTema?.acceso ?? radio.card,
+                    }),
+                  }}
+                >
+                  <span style={{
+                    display: 'block', margin: '0 auto',
+                    ...(accesos === 'circulos'
+                      ? { width: 42, height: 42, borderRadius: '50%', border: `1px solid ${config.text}1F`, background: `${config.text}0A` }
+                      : { width: 18, height: 18, borderRadius: 5, background: `${config.text}26` }),
+                  }} />
+                  <span style={{ ...texto.valor, color: config.text, opacity: 0.75, display: 'block', marginTop: accesos === 'circulos' ? 7 : 0, fontSize: 8.5 }}>
+                    {etiqueta}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Barra inferior REAL — el mismo componente que el portal, para que

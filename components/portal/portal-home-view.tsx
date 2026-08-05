@@ -39,7 +39,8 @@ import { useParams } from 'next/navigation';
 import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL } from '@/lib/portal-home-logic';
+import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos } from '@/lib/portal-home-logic';
+import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
 import { useModo } from '@/lib/portal-modo';
@@ -52,6 +53,11 @@ import {
 import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
+
+// Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
+// no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
+// componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
+const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
 
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
@@ -93,7 +99,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
     homeBloques: homeBloquesPublicado,
-    retosApuntados, retoConteos, toggleReto,
+    retosApuntados, retoConteos, toggleReto, variantes,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
   const { t, noche } = useModo();
@@ -138,7 +144,11 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
   const bloquesOrdenados = useMemo(() => bloquesVisibles(homeBloques), [homeBloques]);
   const wrap = (sistemaId: BloqueSistemaId) => {
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
-    return { style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
+    // `data-bloque-sistema` marca el bloque igual que `data-bloque-id` marca
+    // los del catálogo: sirve para acotar una aserción a SU bloque (varios de
+    // estos destinos salen también en la barra inferior, así que buscar el
+    // href a secas encuentra dos).
+    return { 'data-bloque-sistema': sistemaId, style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
   };
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
@@ -305,12 +315,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     }
   })();
 
-  const filas = [
-    { etiqueta: 'Mis reservas', valor: proximas > 0 ? `${proximas} próxima${proximas !== 1 ? 's' : ''}` : 'Ninguna', href: `/portal/${slug}/reservas` },
-    { etiqueta: 'Mi progreso', valor: `${totalAsistidas} clase${totalAsistidas !== 1 ? 's' : ''}`, href: `/portal/${slug}/progreso` },
-    { etiqueta: 'Notificaciones', valor: sinLeer > 0 ? `${sinLeer} nueva${sinLeer !== 1 ? 's' : ''}` : 'Al día', href: `/portal/${slug}/notificaciones`, punto: sinLeer > 0 },
-    { etiqueta: 'El equipo', valor: `${instructores.length} instructora${instructores.length !== 1 ? 's' : ''}`, href: `/portal/${slug}/instructores` },
-  ];
+  const filas = accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
   const conFoto = !!studio?.fotoUrl;
   const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
@@ -520,10 +525,17 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             )}
           </div>
 
-          {/* Accesos rápidos: las cuatro filas */}
+          {/* Accesos rápidos — tres formas según el tema (lib/theme-variantes.ts).
+              La rama 'filas' es la de SIEMPRE, literal: es lo que ve todo
+              estudio sin tema, y no se refactoriza de paso. */}
           <div {...wrap('accesosRapidos')}>
             <div style={{ height: 40 }} />
-            {filas.map((f, i) => (
+            {rotuloAccesos(variantes.accesosRapidos) && (
+              <h2 style={{ ...display(24), color: t.ink, marginBottom: 14 }}>
+                {rotuloAccesos(variantes.accesosRapidos)}
+              </h2>
+            )}
+            {variantes.accesosRapidos === 'filas' && filas.map((f, i) => (
               <Link
                 key={f.href}
                 href={f.href}
@@ -542,6 +554,57 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 </span>
               </Link>
             ))}
+
+            {/* Rejilla de baldosas (Oliva/Bloom) y círculos (Noir): misma
+                estructura, distinto envoltorio — separarlas en dos ramas
+                duplicaría el enlace y el punto de aviso sin ganar nada. */}
+            {variantes.accesosRapidos !== 'filas' && (
+              <div style={{
+                display: 'flex', justifyContent: 'space-between',
+                gap: variantes.accesosRapidos === 'circulos' ? 0 : 9,
+              }}>
+                {filas.map((f) => {
+                  const Icono = ICONOS_ACCESO[f.icono] ?? Sparkles;
+                  const enCirculo = variantes.accesosRapidos === 'circulos';
+                  return (
+                    <Link
+                      key={f.href}
+                      href={f.href}
+                      aria-label={`${f.etiqueta}: ${f.valor}`}
+                      style={{
+                        position: 'relative', flex: 1, minWidth: 0, textDecoration: 'none',
+                        textAlign: 'center', color: t.ink,
+                        ...(enCirculo ? {} : {
+                          height: 104, padding: '14px 8px',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9,
+                          background: t.surface,
+                          border: `var(--portal-card-border, 1px solid ${t.line})`,
+                          boxShadow: 'var(--portal-card-shadow, none)',
+                          borderRadius: `var(--portal-radius-acceso, ${radio.card}px)`,
+                        }),
+                      }}
+                    >
+                      <span style={enCirculo ? {
+                        width: 58, height: 58, margin: '0 auto', borderRadius: '50%',
+                        background: t.surface, border: `1px solid ${t.line}`,
+                        display: 'grid', placeItems: 'center',
+                      } : { display: 'grid', placeItems: 'center' }}>
+                        <Icono size={enCirculo ? 20 : 18} strokeWidth={1.8} />
+                      </span>
+                      <span style={{ ...texto.valor, color: t.ink, display: 'block', marginTop: enCirculo ? 9 : 0, lineHeight: 1.3 }}>
+                        {f.etiqueta}
+                      </span>
+                      {f.punto && (
+                        <span aria-hidden style={{
+                          position: 'absolute', top: enCirculo ? 0 : 10, right: enCirculo ? 10 : 10,
+                          width: 7, height: 7, borderRadius: '50%', background: 'var(--portal-brand)',
+                        }} />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Invita a una amiga */}
