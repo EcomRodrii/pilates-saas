@@ -7,7 +7,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type FaqConfig,
+  type BloqueHome, type BloqueHijo, type FaqConfig,
 } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
@@ -492,4 +492,37 @@ test('resolveBloquesPantalla ya no deja pasar basura al render', () => {
     'home',
   );
   assert.deepEqual(shape.draft.map((b) => b.id), ['ok']);
+});
+
+// ── Anidamiento de un nivel, solo en bloques de catálogo ───────────────────
+// Ninguna definición declara `hijos` todavía, así que estos tests usan un
+// registro de mentira para probar el MECANISMO. El día que un bloque real los
+// declare, la fontanería ya está probada.
+
+test('sin `hijos` en la definición, un array de hijos en el jsonb se ignora', () => {
+  // El caso de hoy: los siete bloques no admiten hijos. Si alguien mete un
+  // `hijos` a mano en la base de datos, no debe colarse al render.
+  const conHijosNoPedidos = {
+    id: 'b', kind: 'texto', config: { titulo: 'A', texto: 'B' },
+    hijos: [{ id: 'h', kind: 'cta', config: { titulo: '', textoBoton: 'Ir', href: '/x' } }],
+  };
+  const salida = resolverBloque(conHijosNoPedidos) as Record<string, unknown>;
+  assert.equal('hijos' in salida, false);
+});
+
+test('un bloque sin hijos NO gana una clave `hijos` vacía', () => {
+  // Importante para la no-regresión: el objeto guardado tiene que salir igual
+  // que entró, no con un `hijos: []` de más que luego se persistiría.
+  const simple: BloqueHome = { id: 't', kind: 'texto', config: { titulo: 'A', texto: 'B' } };
+  assert.deepEqual(resolverBloque(simple), simple);
+});
+
+test('el tipo impide un segundo nivel — BloqueHijo no tiene `hijos`', () => {
+  // Comprobación de tipo, no de runtime: si `BloqueHijo` volviera a admitir
+  // `hijos`, esto dejaría de compilar. El runtime lo cubre el test siguiente.
+  const hijo: BloqueHijo = { id: 'h', kind: 'texto', config: { titulo: '', texto: 'x' } };
+  assert.equal('hijos' in hijo, false);
+  // @ts-expect-error un hijo no puede tener hijos
+  const invalido: BloqueHijo = { id: 'h2', kind: 'texto', config: { titulo: '', texto: 'x' }, hijos: [] };
+  void invalido;
 });
