@@ -11,11 +11,13 @@ import { useEffect, useState } from 'react';
 // guardados allí: 266px, desenfoque 60px, retardo 0,31s y la curva
 // cubic-bezier(.22,.7,.3,1) — rápida al principio y con frenada larga.
 //
-// Las piezas se separaron del propio `public/logo-mark.png` por componentes
-// conectados de alfa, así que son exactamente el logo: comprobado
-// superponiéndolas de nuevo (diferencia media 1,24/255 sobre 130.460 píxeles).
-// Van en WebP a 2× del tamaño en pantalla: 28 KB las cuatro, frente a 412 KB
-// que ocupaban en PNG a tamaño original.
+// Las piezas salen del kit SVG (docs/marca/), cada una rasterizada con solo su
+// trazado visible sobre el mismo lienzo, así que superpuestas reconstruyen el
+// isotipo exacto por construcción — ya no por recorte de alfa de un PNG. Se
+// regeneran con `node scripts/regenerar-marca.mjs`, igual que el resto de
+// derivados: si el isotipo cambia, estas cuatro tienen que cambiar con él o la
+// intro monta una marca distinta de la que enseña el resto de la página.
+// Van en WebP a 2× del tamaño en pantalla: 11 KB las cuatro.
 //
 // ── POR QUÉ ESTO YA NO ES UN COMPONENTE "SOLO CLIENTE" ──────────────────────
 // La primera versión se pintaba solo tras hidratar, y encima esperaba a tener
@@ -107,7 +109,7 @@ export function IntroLogo({ autenticado }: { autenticado: boolean }) {
           animation: tnt-intro-cortina ${TOTAL}s linear forwards;
         }
       `}</style>
-      <div style={{ position: 'relative', width: LOGO_PX, aspectRatio: '572 / 532' }}>
+      <div style={{ position: 'relative', width: LOGO_PX, aspectRatio: '572 / 529' }}>
         {PIEZAS.map((p, i) => (
           // `next/image` no pinta nada aquí y estorba: estas cuatro ya son
           // WebP al tamaño exacto en que se muestran (2x de 266px), así que el

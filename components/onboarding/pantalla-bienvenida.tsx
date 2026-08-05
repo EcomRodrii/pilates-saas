@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import { Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
 import { authHeader } from '@/lib/api-client';
@@ -533,7 +533,7 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
         />
 
         <div className="absolute top-0 left-0 pt-[clamp(18px,3.2vh,34px)] px-[clamp(28px,6vw,84px)]">
-          <Image src="/logo-stacked.png" alt="Tentare" width={120} height={76} priority draggable={false} className="h-[clamp(58px,8vh,76px)] w-auto object-contain" />
+          <LogoTentare formato="vertical" className="h-[clamp(58px,8vh,76px)] w-auto" />
         </div>
 
         <div className="absolute top-[clamp(18px,3.2vh,34px)] right-6 z-10">

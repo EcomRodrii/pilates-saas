@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId, useRef } from 'react';
-import Image from 'next/image';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
@@ -196,7 +196,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <Image src="/logo-stacked.png" alt="Tentare" width={140} height={97} className="h-20 w-auto object-contain mb-2" />
+          <LogoTentare formato="vertical" alto={76} className="mb-2" />
           <p className="text-[14px] text-[#8E8E86] mt-1">Panel de gestión</p>
         </div>
 

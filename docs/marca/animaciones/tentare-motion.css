@@ -1,0 +1,154 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tentare · Motion de marca
+   Diez animaciones del isotipo. Ninguna gira: girarlo rompe el degradado a
+   135° y la lectura de la «t». El isotipo se mueve por piezas.
+
+   Uso — pon el SVG en línea (no como <img>, o el CSS no entra y no hay
+   animación). Los archivos de entrega ya vienen con sus clases:
+
+     <svg viewBox="0 0 120 120" class="t-logo">
+       <g class="t-marca">
+         <path class="t-hoja-i" d="…"/>
+         <path class="t-hoja-d" d="…"/>
+         <path class="t-disco"  d="…"/>
+         <path class="t-tallo"  d="…"/>
+       </g>
+     </svg>
+
+   Lo único que hay que añadir es la clase de estado (t-construccion,
+   t-cargando, …) en el <svg>, junto a t-logo.
+
+   El envoltorio .t-marca va SIEMPRE por fuera del <g transform="…"> del
+   archivo: una transform de CSS pisa el atributo transform, no se suma a él,
+   así que animar el mismo elemento que lleva el transform lo descolocaría.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.t-logo * {
+  /* transform-origin relativo a cada pieza, no al lienzo del SVG.
+     Sin esto cualquier escala se descoloca. */
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+/* ── 01 · Construcción — arranque de la app ───────────────────────────────── */
+.t-construccion .t-hoja-i { animation: t-cons-hoja-i .5s cubic-bezier(.16,1,.3,1) both; }
+.t-construccion .t-hoja-d { animation: t-cons-hoja-d .5s cubic-bezier(.16,1,.3,1) .07s both; }
+.t-construccion .t-tallo  { animation: t-cons-tallo .55s cubic-bezier(.16,1,.3,1) .2s both; transform-origin: 50% 100%; }
+.t-construccion .t-disco  { animation: t-cons-disco .45s cubic-bezier(.16,1,.3,1) .45s both; transform-origin: 0% 50%; }
+
+@keyframes t-cons-hoja-i { from { opacity: 0; transform: translate(-16px,-12px) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-hoja-d { from { opacity: 0; transform: translate(16px,-12px) rotate(8deg); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-tallo  { from { opacity: 0; transform: scaleY(.06); } to { opacity: 1; transform: none; } }
+@keyframes t-cons-disco  { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+
+/* ── 02 · Crecimiento — bienvenida y vídeos de marca ──────────────────────── */
+.t-crecimiento .t-tallo  { animation: t-crece-tallo .7s cubic-bezier(.16,1,.3,1) both; }
+.t-crecimiento .t-hoja-i { animation: t-crece-hoja .45s cubic-bezier(.16,1,.3,1) .55s both; transform-origin: 20% 50%; }
+.t-crecimiento .t-hoja-d { animation: t-crece-hoja .45s cubic-bezier(.16,1,.3,1) .65s both; transform-origin: 80% 50%; }
+.t-crecimiento .t-disco  { animation: t-crece-disco .4s cubic-bezier(.16,1,.3,1) .8s both; transform-origin: 0% 50%; }
+
+@keyframes t-crece-tallo { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes t-crece-hoja  { 0% { opacity: 0; transform: scale(.4); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes t-crece-disco { 0% { opacity: 0; transform: scale(.3); } 100% { opacity: 1; transform: scale(1); } }
+
+/* ── 03 · Apertura de la muesca — para explicar la marca ──────────────────── */
+.t-apertura .t-hoja-i { animation: t-abre-hoja-i .8s cubic-bezier(.16,1,.3,1) both; }
+.t-apertura .t-hoja-d { animation: t-abre-hoja-d .8s cubic-bezier(.16,1,.3,1) both; }
+.t-apertura .t-disco  { animation: t-abre-disco .8s cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes t-abre-hoja-i { 0%,18% { transform: translateX(10px); } 100% { transform: none; } }
+@keyframes t-abre-hoja-d { 0%,18% { transform: translateX(-7px); } 100% { transform: none; } }
+@keyframes t-abre-disco  { 0%,18% { transform: translateX(-7px); } 100% { transform: none; } }
+
+/* ── 04 · Cambio de producto — selector y páginas de la marca madre ───────── */
+.t-productos .t-disco {
+  animation: t-prod-color 5s steps(1,end) infinite, t-prod-salto 5s linear infinite;
+  transform-origin: 0% 50%;
+}
+@keyframes t-prod-color {
+  0%,14%  { fill: #4C9CB0; }  /* Core */
+  20%,34% { fill: #B4537E; }  /* Manager */
+  40%,54% { fill: #E08A3C; }  /* Studio */
+  60%,74% { fill: #4F8A5B; }  /* Network */
+  80%,94% { fill: #566270; }  /* Interno */
+  100%    { fill: #4C9CB0; }
+}
+@keyframes t-prod-salto {
+  0%,10%,20%,30%,40%,50%,60%,70%,80%,90%,100% { transform: scale(1); }
+  15%,35%,55%,75%,95% { transform: scale(.86); }
+}
+
+/* ── 05 · Cargando — espera larga. Respira, no gira ───────────────────────── */
+.t-cargando .t-disco { animation: t-carga-disco 1.4s ease-in-out infinite; transform-origin: 0% 50%; }
+.t-cargando .t-tallo { animation: t-carga-tallo 1.4s ease-in-out infinite; }
+
+@keyframes t-carga-disco { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(.82); opacity: .5; } }
+@keyframes t-carga-tallo { 0%,100% { opacity: 1; } 50% { opacity: .62; } }
+
+/* ── 06 · Confirmado — reserva hecha, pago cobrado, tema publicado ────────
+   Necesita un trazado extra dentro del SVG:
+   <path class="t-check" d="M74 84l8 8 16-18" fill="none" stroke="#FFFFFF"
+         stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"
+         stroke-dasharray="42"/>
+   y las cuatro piezas envueltas en <g class="t-marca">.                      */
+.t-confirmado .t-marca { animation: t-ok-marca 1s cubic-bezier(.16,1,.3,1) both; }
+.t-confirmado .t-disco { animation: t-ok-disco 1s cubic-bezier(.16,1,.3,1) both; transform-origin: 0% 50%; }
+.t-confirmado .t-check { animation: t-ok-check 1s cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes t-ok-marca { 0% { transform: scale(1); opacity: 1; } 40%,100% { transform: scale(.82); opacity: .16; } }
+@keyframes t-ok-disco { 0% { transform: scale(1); } 30%,100% { transform: scale(1.5); } }
+@keyframes t-ok-check { 0%,42% { stroke-dashoffset: 42; } 78%,100% { stroke-dashoffset: 0; } }
+
+/* ── 07 · Barrido de luz — hover en el logo de la cabecera ────────────────
+   Necesita, dentro del SVG:
+   <clipPath id="recorte-tallo"><path d="…el trazado del tallo…"/></clipPath>
+   <g clip-path="url(#recorte-tallo)">
+     <rect class="t-brillo" x="10" y="0" width="34" height="120" fill="url(#luz)"/>
+   </g>
+   con un gradiente horizontal blanco 0 → .85 → 0.                            */
+.t-logo:hover .t-brillo,
+.t-barrido .t-brillo { animation: t-brillo .9s ease-in-out both; }
+
+@keyframes t-brillo { 0% { transform: translateX(-90px); } 100% { transform: translateX(90px); } }
+
+/* ── 08 · Salida — cierre del splash ──────────────────────────────────────── */
+.t-salida .t-disco  { animation: t-sale-disco .7s cubic-bezier(.5,0,.75,0) both; }
+.t-salida .t-hoja-i { animation: t-sale-hoja-i .7s cubic-bezier(.5,0,.75,0) both; }
+.t-salida .t-hoja-d { animation: t-sale-hoja-d .7s cubic-bezier(.5,0,.75,0) both; }
+.t-salida .t-tallo  { animation: t-sale-tallo .7s cubic-bezier(.5,0,.75,0) both; }
+
+@keyframes t-sale-hoja-i { 0%,20% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(-38px,-24px); } }
+@keyframes t-sale-hoja-d { 0%,20% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(38px,-24px); } }
+@keyframes t-sale-tallo  { 0%,30% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(46px); } }
+@keyframes t-sale-disco  { 0%,10% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(38px); } }
+
+/* ── 09 · Isotipo a horizontal — cabecera al hacer scroll ─────────────────
+   El <svg> y la palabra van dentro de un contenedor flex; la palabra es HTML,
+   no <text>, para que herede la tipografía del sistema de diseño.            */
+.t-cabecera .t-marca   { animation: t-lock-iso 1s cubic-bezier(.16,1,.3,1) both; transform-origin: 0% 50%; }
+.t-cabecera-palabra    { animation: t-lock-palabra 1s cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes t-lock-iso     { 0%,22% { transform: scale(1.9) translateX(30px); } 100% { transform: scale(1) translateX(0); } }
+@keyframes t-lock-palabra { 0%,46% { opacity: 0; transform: translateX(-16px); } 100% { opacity: 1; transform: none; } }
+
+/* ── 10 · Error — pago rechazado, formulario incompleto. Nunca en bucle ───── */
+.t-error .t-marca { animation: t-err-marca .5s ease-in-out both; }
+.t-error .t-disco { animation: t-err-disco .5s ease-in-out both; }
+
+@keyframes t-err-marca {
+  0%,100% { transform: translateX(0); }
+  12% { transform: translateX(-7px); }  26% { transform: translateX(6px); }
+  40% { transform: translateX(-4px); }  54% { transform: translateX(3px); }
+  68% { transform: translateX(-2px); }  82% { transform: translateX(1px); }
+}
+/* Sin extremos: el 0% y el 100% los toma el navegador del fill propio de cada
+   disco, así el rojo de error vuelve al color DE SU producto. Codificarlos a
+   #B4537E dejaba en magenta el disco de Studio, Network e Interno. */
+@keyframes t-err-disco { 18%,62% { fill: #C0392B; } }
+
+/* ── Accesibilidad ────────────────────────────────────────────────────────
+   Con prefers-reduced-motion las diez se quedan en su fotograma final.
+   La marca nunca deja de verse.                                              */
+@media (prefers-reduced-motion: reduce) {
+  .t-logo *, .t-cabecera-palabra { animation: none !important; }
+}

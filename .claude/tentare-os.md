@@ -60,6 +60,39 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - El menú de una cadena es por cadena, no por sede (migración 0103) — no reintroducir el
   toggle antiguo.
 
+## El logotipo: un componente en línea, y `docs/marca/` como única fuente
+
+El logo NO se monta como imagen. `<LogoTentare>`
+(`components/marca/logo-tentare.tsx`) pinta el SVG en línea, con los once
+trazados de `components/marca/trazados.ts` — la palabra ya va **en curvas**, así
+que no depende de que Quicksand ni Inter estén instaladas (no lo están: este
+repo carga Plus Jakarta Sans y compañía, nunca Quicksand). Un componente
+paramétrico y no cincuenta archivos porque el kit es un solo dibujo: los cuatro
+trazados del isotipo son idénticos en los cincuenta SVG, y entre variantes solo
+cambian color y encuadre.
+
+- **Los encuadres van ceñidos al dibujo**, no al lienzo del kit (que trae hasta
+  un 22 % de aire abajo). Si se usa el lienzo tal cual, `alto` acaba midiendo el
+  aire — el bug que el sidebar compensaba a mano en la época de los PNG.
+- **El color va por custom properties** (`--marca-solido`, `--marca-disco`,
+  `--marca-a/b`, `--marca-producto`), nunca por `fill` fijo. La tinta `auto` es
+  la única cuyos valores viven en `globals.css` (`.marca-auto` / `.dark
+  .marca-auto`), porque un `style` en línea gana a una clase y la regla de modo
+  oscuro no podría pisarlo. ⚠️ Por eso los trazados leen **siempre**
+  `var(--marca-disco)` y jamás el color de producto directamente: hacerlo dejaba
+  el disco magenta sobre fondo oscuro, donde a una tinta manda el nombre.
+- **`useId()` por instancia** para el id del degradado: la barra móvil y la de
+  escritorio conviven en el DOM (`lg:hidden`, no desmontadas), y con un id fijo
+  `url(#…)` resolvía siempre al primero. Esto obliga a `'use client'`.
+- **Todo derivado ráster sale del mismo kit**: `node scripts/regenerar-marca.mjs`
+  regenera los PNG de manifests/favicons, el lockup blanco de los correos de
+  Supabase y las cuatro piezas WebP de la intro de la landing. Si el isotipo
+  cambia alguna vez, se vuelve a correr — si no, conviven dos marcas distintas a
+  un clic de distancia (pasó al adoptar el kit: su isotipo estaba **redibujado**
+  respecto al PNG que había en producción, no era una vectorización).
+- Fuera a propósito: los emails a socias (marca del ESTUDIO, no de Tentare),
+  `/portal/[slug]` (marca blanca) y `/interno`.
+
 ## Arquitectura de marca: Tentare Manager / Tentare Core
 
 Tentare se percibe como dos productos, no un panel único con roles:

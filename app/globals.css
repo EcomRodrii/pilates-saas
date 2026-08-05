@@ -205,6 +205,32 @@
   --brand-medio: #A8B37A;
 }
 
+/* Logo de marca en tinta `auto` (components/marca/logo-tentare.tsx). Vive aquí
+   y no en el componente porque un style en línea gana a cualquier clase: si el
+   componente pintara estos valores, la regla de modo oscuro de abajo no podría
+   pisarlos. Las demás tintas sí van en línea, que no necesitan alternativa.
+
+   En oscuro el logo pasa a su versión NEGATIVA, que no es el degradado
+   invertido sino uno más claro — decisión de contraste del kit. Sin esto, las
+   hojas (#222A33) desaparecen sobre --background: #16161A. */
+.marca-auto {
+  --marca-solido: #222A33;
+  --marca-disco: var(--marca-disco-producto, #B4537E);
+  --marca-a: #4C9CB0;
+  --marca-b: #B4537E;
+  --marca-producto: #5C6779;
+}
+.dark .marca-auto {
+  --marca-solido: #FFFFFF;
+  /* A una tinta el disco pierde su color: ahí el producto se distingue por su
+     nombre, no por el disco (regla 4 del kit). Por eso se ignora
+     --marca-disco-producto en vez de heredarlo. */
+  --marca-disco: #FFFFFF;
+  --marca-a: #8FD0DF;
+  --marca-b: #E9A7C2;
+  --marca-producto: #A9B4C0;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
