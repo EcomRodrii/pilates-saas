@@ -1,6 +1,8 @@
 import { AwsClient } from 'aws4fetch';
 import type { BackupSnapshot } from '@/lib/engines/backup-engine';
-import { fetchExterno, TIMEOUT_EXTERNO_MS, TIMEOUT_TRANSFERENCIA_MS } from '@/lib/fetch-externo';
+// Relativo con .ts explícito para que `backup-engine` (que importa este módulo)
+// se pueda cargar desde `node --test`. Ver tentare-os.md.
+import { fetchExterno, TIMEOUT_EXTERNO_MS, TIMEOUT_TRANSFERENCIA_MS } from './fetch-externo.ts';
 
 // Cloudflare R2 (S3-compatible) para guardar los snapshots de backup FUERA de
 // Postgres (P0-13/14). Guardar el backup dentro de la misma BD que respalda es
