@@ -36,7 +36,8 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
   const escala = ancho / ANCHO;
   // Misma resolución que el portal real (resolveVariantes), para que la
   // miniatura no pueda desincronizarse de lo que instala el tema.
-  const accesos = resolveVariantes(config.variantes).accesosRapidos;
+  const v = resolveVariantes(config.variantes);
+  const accesos = v.accesosRapidos;
   const vars = themeToCssVars(config) as React.CSSProperties;
   const items = navItemsVisibles(resolveNavConfig(config.navPortal), NAV_DISPONIBLES);
 
@@ -176,7 +177,7 @@ export function ThemeThumb({ config, ancho = 96 }: { config: ThemeConfig; ancho?
         {/* Barra inferior REAL — el mismo componente que el portal, para que
             `barraOscura` (tema Noir) se vea aquí tal cual se verá en el móvil. */}
         <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14 }}>
-          <PortalNav items={items} activeIndex={0} slug="preview" interactive={false} flotante={!config.barraClasica} />
+          <PortalNav items={items} activeIndex={0} slug="preview" interactive={false} flotante={!config.barraClasica} etiquetas={v.barra} />
         </div>
       </div>
     </div>

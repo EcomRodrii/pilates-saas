@@ -129,19 +129,19 @@ test('themeToCssVars: portalHeadingFontId "instrumentSansBold" reusa --font-ui, 
 
 // ── Variantes de forma: la única que cabe en una CSS var ────────────────────
 
-test('themeToCssVars: sin `variantes`, NINGUNA var nueva — el aspecto de siempre, para todos', () => {
+test('themeToCssVars: sin `radioTema`, ninguna var de radio — el aspecto de siempre, para todos', () => {
   const vars = themeToCssVars({ ...DEFAULT_THEME }) as Record<string, string>;
-  assert.equal(vars['--portal-tabbar-active-fill'], undefined);
   assert.equal(vars['--portal-radius-acceso'], undefined);
 });
 
-test('themeToCssVars: solo `barra: todasRelleno` declara el relleno del icono activo', () => {
-  // El resto de ejes decide qué elementos EXISTEN en el DOM (ver
-  // theme-variantes.ts) y viaja como valor JS, no como var.
-  const relleno = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todasRelleno' } }) as Record<string, string>;
-  assert.equal(relleno['--portal-tabbar-active-fill'], 'currentColor');
-  const sinRelleno = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todas' } }) as Record<string, string>;
-  assert.equal(sinRelleno['--portal-tabbar-active-fill'], undefined);
+// Ninguna otra variante de forma produce CSS: todas deciden qué elementos
+// EXISTEN en el DOM y viajan como prop JS (ver theme-variantes.ts). El icono
+// activo relleno también, porque la única var candidata la emitiría
+// ThemeStyle (componente de servidor) y no llegaría al preview ni a los e2e.
+test('themeToCssVars: `variantes` no emite ninguna var — se resuelven en JS', () => {
+  const con = themeToCssVars({ ...DEFAULT_THEME, variantes: { barra: 'todasRelleno', accesosRapidos: 'circulos' } });
+  const sin = themeToCssVars({ ...DEFAULT_THEME });
+  assert.deepEqual(con, sin);
 });
 
 test('themeToCssVars: `radioTema.acceso` declara el radio de la baldosa de accesos', () => {

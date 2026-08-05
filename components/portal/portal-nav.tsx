@@ -38,7 +38,7 @@ const ICONOS: Record<string, LucideIcon> = {
 };
 
 export function PortalNav({
-  items, activeIndex, slug, interactive = true, flotante = true,
+  items, activeIndex, slug, interactive = true, flotante = true, etiquetas = 'soloActiva',
 }: {
   items: NavItemDefault[];
   activeIndex: number;
@@ -48,6 +48,16 @@ export function PortalNav({
   /** false = barra clásica (Oliva/Noir): pegada abajo, sin flotar, con borde
    *  superior en vez de cápsula de cristal. Ver `barraClasica` del tema. */
   flotante?: boolean;
+  /**
+   * Qué pestañas muestran su etiqueta (eje `barra` de lib/theme-variantes.ts):
+   *  · `soloActiva` (default) — el look de siempre, y el que mantiene TODO
+   *    estudio que no pida otra cosa. Es también lo que pide el prototipo
+   *    para la barra en píldora (`conTexto: !tabPill || activo`).
+   *  · `todas` — las cuatro con su nombre, como el prototipo pinta la barra
+   *    clásica de Oliva/Noir.
+   *  · `todasRelleno` — igual, y además el icono activo va MACIZO (Oliva).
+   */
+  etiquetas?: 'soloActiva' | 'todas' | 'todasRelleno';
 }) {
   const { t, noche } = useModo();
   // `interactive` decide la MECÁNICA de posición (absolute con desplazamiento
@@ -57,6 +67,7 @@ export function PortalNav({
   // independientes: la miniatura de la biblioteca de temas es `interactive
   // ={false}` pero SÍ debe mostrar a Bloom como cápsula flotante.
   const posicionaSola = interactive && flotante;
+  const todasConTexto = etiquetas !== 'soloActiva';
 
   return (
     <nav
@@ -93,7 +104,10 @@ export function PortalNav({
         // de cuál está seleccionada al navegar sin ratón.
         const estilo: React.CSSProperties = {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-          flex: active ? '2.4 1 0%' : '1 1 0%',
+          // El 2.4 de la activa existe SOLO para hacerle sitio a su texto
+          // cuando es la única que lo lleva; con todas etiquetadas, ensancharla
+          // dejaría a las otras tres apretadas y sin razón.
+          flex: todasConTexto ? '1 1 0%' : (active ? '2.4 1 0%' : '1 1 0%'),
           height: altura.tabbar - 12, borderRadius: radio.pastilla,
           background: active ? `var(--portal-tabbar-active-bg, ${noche ? t.surface2 : '#FFFFFF'})` : 'transparent',
           boxShadow: active ? `var(--portal-tabbar-active-shadow, ${sombra.pastilla})` : 'none',
@@ -103,9 +117,31 @@ export function PortalNav({
           outlineOffset: 2,
         };
         const contenido = (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 7, overflow: 'hidden', maxWidth: '100%' }}>
-            <Icon size={18} strokeWidth={active ? 2.25 : 2} style={{ flexShrink: 0 }} />
-            {active && <span style={{ ...texto.tab, whiteSpace: 'nowrap' }}>{item.label}</span>}
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 7, overflow: 'hidden', maxWidth: '100%',
+            // Con las cuatro etiquetadas el texto va DEBAJO del icono (es lo
+            // que hace el prototipo, y en fila no cabrían cuatro nombres).
+            ...(todasConTexto ? { flexDirection: 'column', gap: 5 } : {}),
+          }}>
+            <Icon
+              size={18}
+              strokeWidth={active ? 2.25 : 2}
+              style={{
+                flexShrink: 0,
+                // Prop, no CSS var: la var la emitiría ThemeStyle, un
+                // componente de SERVIDOR que lee Supabase — no llega ni al
+                // arnés de e2e ni a ningún preview que no aplique
+                // themeToCssVars() en línea. `etiquetas` ya viaja hasta aquí,
+                // así que decidirlo con ella es más simple y sí se puede
+                // probar.
+                fill: active && etiquetas === 'todasRelleno' ? 'currentColor' : 'none',
+              }}
+            />
+            {(active || todasConTexto) && (
+              <span style={{ ...texto.tab, whiteSpace: 'nowrap', ...(todasConTexto ? { fontSize: 10.5 } : {}) }}>
+                {item.label}
+              </span>
+            )}
           </span>
         );
         return interactive ? (

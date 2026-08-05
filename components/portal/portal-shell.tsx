@@ -29,7 +29,7 @@ import { PortalNav } from './portal-nav';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal, barraClasica } = useStudio();
+  const { dataLoaded, navPortal, barraClasica, variantes } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -163,7 +163,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
             {/* Aviso de un toque para activar notificaciones al entrar. Se
                 pinta solo si procede. */}
             <PushPrompt />
-            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} flotante={!barraClasica} />
+            <PortalNav items={NAV} activeIndex={activeIndex} slug={slug} flotante={!barraClasica} etiquetas={variantes.barra} />
           </>
         )}
       </div>
