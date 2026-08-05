@@ -88,11 +88,6 @@ export function HomePreview({
     if (PANTALLAS.some((p) => p.id === vista)) setVista(pantalla);
   }
 
-  function elegirVista(id: VistaId) {
-    setVista(id);
-    if (id === 'home' || id === 'clases' || id === 'bonos') onPantallaChange(id);
-  }
-
   // Mismo patrón que `pantallaVista` arriba (ajuste de estado DURANTE el
   // render, no en un efecto): un `nonce` nuevo es "cambió la prop", aunque
   // `irA.vista` sea el mismo string que la última vez.
@@ -162,7 +157,7 @@ export function HomePreview({
 
   if (!slug || !token) {
     return (
-      <div className="mx-auto w-full max-w-[320px] aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
+      <div className="mx-auto w-full max-w-[390px] aspect-[390/844] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
         <p className="text-[12px] text-muted-foreground">La vista previa aparecerá en un momento.</p>
       </div>
     );
@@ -171,22 +166,8 @@ export function HomePreview({
   const ruta = TODAS_LAS_VISTAS.find((p) => p.id === vista)?.ruta ?? '';
 
   return (
-    <div className="mx-auto w-full max-w-[320px]">
-      <div className="flex flex-wrap justify-center gap-1 mb-3" role="tablist" aria-label="Pantalla a previsualizar">
-        {TODAS_LAS_VISTAS.map(p => (
-          <button
-            key={p.id}
-            type="button"
-            role="tab"
-            aria-selected={vista === p.id}
-            onClick={() => elegirVista(p.id)}
-            className={`px-3 py-1 rounded-full text-xs border ${vista === p.id ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
-          >
-            {p.etiqueta}
-          </button>
-        ))}
-      </div>
-      <div className="aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
+    <div className="mx-auto w-full max-w-[390px]">
+      <div className="aspect-[390/844] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
         <iframe
           ref={ref}
           src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
