@@ -10,6 +10,15 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = process.env.E2E_PORT ?? '3000';
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 
+// En CI la suite se sirve desde el BUILD DE PRODUCCIÓN (`next start`), no desde
+// `next dev`. Con `next dev` cada ruta se compila bajo demanda DENTRO del test:
+// era el 89% del tiempo de CI (1308s de 1473s) y la fuente de los falsos rojos
+// por timeout ya conocidos en este repo. Requiere un `.next` ya construido, que
+// en CI llega como artefacto del job de build.
+// En local se sigue usando `next dev` por comodidad (sin esperar un build);
+// para reproducir CI tal cual: `E2E_USA_BUILD=1 npm run build && npx playwright test`.
+const USA_BUILD = process.env.E2E_USA_BUILD === '1';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -24,11 +33,12 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
-  // Arranca `next dev` si no hay ya un server en el puerto. El env forzado aquí
+  // Arranca el servidor (build o dev, ver USA_BUILD) si no hay ya uno en el
+  // puerto. El env forzado aquí
   // garantiza que la E2E nunca use el backend real: valores dummy (Next no los
   // pisa con .env.local) + E2E_TEST=1 para sembrar el estudio en el servidor.
   webServer: {
-    command: `PORT=${PORT} npm run dev`,
+    command: USA_BUILD ? `PORT=${PORT} npm run start` : `PORT=${PORT} npm run dev`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

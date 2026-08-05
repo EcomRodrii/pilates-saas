@@ -5,24 +5,35 @@ on:
     branches: [main]
   pull_request:
 
-# Cancela ejecuciones anteriores de la misma rama/PR.
+# Cancela ejecuciones anteriores del mismo PR. En `main` NO se cancela: cada
+# commit que entra en producción tiene que quedar verificado por sí mismo.
+# (Antes se cancelaba también en main — 5 de los 15 últimos runs de main
+# quedaron "cancelled", es decir, commits en producción sin CI verde.)
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Valores dummy compartidos por todos los jobs: el build y el servidor crean el
+# cliente de Supabase con estas envs, pero los tests mockean toda la red — no se
+# conecta a nada real.
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
+  SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # B0.3: siembra el estudio en la resolución server-side para que la E2E
+  # (registro · reserva · pago) corra de verdad y bloquee el deploy.
+  E2E_TEST: '1'
+  NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  test:
+  # ---------------------------------------------------------------------------
+  # Verificación estática. Corre EN PARALELO con el build — no está en el camino
+  # crítico, así que aquí sí cabe el lint (que antes no corría en CI en absoluto).
+  # ---------------------------------------------------------------------------
+  calidad:
+    name: Tipos · lint · tests unitarios
     runs-on: ubuntu-latest
-    # Valores dummy: el build y el dev server crean el cliente de Supabase con
-    # estas envs, pero los tests mockean toda la red — no se conecta a nada real.
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      # B0.3: siembra el estudio en la resolución server-side para que la E2E
-      # (registro · reserva · pago) corra de verdad y bloquee el deploy.
-      E2E_TEST: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -34,23 +45,178 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      # tsc --noEmit con "incremental": true escribe tsconfig.tsbuildinfo. Sin
+      # cachearlo, cada run recomprueba los ~700 ficheros desde cero.
+      - name: Restaurar caché de TypeScript
+        uses: actions/cache@v4
+        with:
+          path: tsconfig.tsbuildinfo
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            tsbuildinfo-${{ runner.os }}-
+
+      - name: Restaurar caché de ESLint
+        uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-${{ github.sha }}
+          restore-keys: |
+            eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
+            eslintcache-${{ runner.os }}-
+
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # NO bloqueante todavía, a propósito. El lint nunca ha corrido en CI, así
+      # que hay deuda acumulada: 119 errores y 257 avisos a fecha de hoy (los
+      # 42 `react-hooks/set-state-in-effect` son cascadas de render reales, se
+      # atacan en el PR de rendimiento). Ponerlo a bloquear ahora dejaría el
+      # repo en rojo permanente. Cuando el contador llegue a 0, quitar el
+      # `continue-on-error` — ese es el único paso que falta.
+      - name: Lint (informativo, aún no bloquea)
+        continue-on-error: true
+        run: npm run lint -- --cache --cache-location .eslintcache
 
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
 
+  # ---------------------------------------------------------------------------
+  # Build de producción, UNA sola vez. El artefacto lo consumen los shards de
+  # E2E, que antes recompilaban la app entera bajo demanda con `next dev`.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build de producción
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Caché de compilación de Next/Turbopack entre runs (docs de Next:
+      # "How to configure Continuous Integration (CI) build caching").
+      - name: Restaurar caché de Next.js
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-
+
       - name: Build de producción
         run: npm run build
 
+      # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
+      # cientos de MB que multiplicarían la subida y las 6 bajadas de los shards).
+      - name: Empaquetar salida del build
+        run: tar -cf build.tar --exclude=.next/cache .next
+
+      - name: Subir salida del build
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: build.tar
+          retention-days: 1
+          compression-level: 1
+
+  # ---------------------------------------------------------------------------
+  # E2E repartida en shards, servida por `next start` sobre el build ya hecho.
+  # Este era el 89% del tiempo de CI (1308s de 1473s) porque corría contra
+  # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E ${{ matrix.shard }}/6
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Descargar salida del build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Desempaquetar salida del build
+        run: tar -xf build.tar && rm build.tar
+
+      # La versión de Playwright fija la del navegador: si no cambia el
+      # package-lock, el binario cacheado sirve tal cual.
+      - name: Restaurar navegador de Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar navegador de Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: E2E (registro · reserva · pago)
-        run: npx playwright test
+        # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
+        # `next start` en vez de `next dev` (ver playwright.config.ts).
+        env:
+          E2E_USA_BUILD: '1'
+        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=blob
 
-      - name: Subir reporte de Playwright si falla
+      - name: Subir reporte parcial si falla
         if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Solo cuando algo falla: junta los blobs de los 6 shards en un único informe
+  # HTML navegable. En verde no corre, así que no alarga el camino feliz.
+  # ---------------------------------------------------------------------------
+  informe-e2e:
+    name: Informe E2E (solo si falla)
+    if: always() && needs.e2e.result == 'failure'
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Descargar reportes parciales
+        uses: actions/download-artifact@v4
+        with:
+          path: blobs
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Juntar en un informe HTML
+        run: npx playwright merge-reports --reporter html ./blobs
+
+      - name: Subir informe de Playwright
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
