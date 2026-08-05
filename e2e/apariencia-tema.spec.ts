@@ -146,8 +146,9 @@ test.describe('Biblioteca de temas', () => {
     expect(body.radioTema).toEqual({ card: 24, boton: 18, chip: 999 });
     // Noir es el ÚNICO con accesos en círculo, y su barra lleva las 4
     // etiquetas pero SIN relleno (su icono activo es dorado, no macizo).
-    expect(body.variantes).toEqual({ cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' });
-    expect(body.themeVersion).toBe(3);
+    // Noir NO lleva titular grande — ése solo lo tiene Bloom en el prototipo.
+    expect(body.variantes).toEqual({ cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' });
+    expect(body.themeVersion).toBe(4);
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
@@ -171,7 +172,7 @@ test.describe('Biblioteca de temas', () => {
     const variantesBloom = body.variantes as Record<string, string>;
     expect(variantesBloom.barra).toBeUndefined();
     expect(variantesBloom.retos).toBe('color');
-    expect(body.themeVersion).toBe(3);
+    expect(body.themeVersion).toBe(4);
   });
 
   test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {
@@ -189,8 +190,8 @@ test.describe('Biblioteca de temas', () => {
     expect(body.barraOscura).toBeFalsy(); // clásica, no oscura — esa es solo de Noir
     expect(body.cardStyle).toBe('flat');
     expect(body.radioTema).toEqual({ card: 26, boton: 20, chip: 999, acceso: 20 });
-    expect(body.variantes).toEqual({ accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
-    expect(body.themeVersion).toBe(3);
+    expect(body.variantes).toEqual({ cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' });
+    expect(body.themeVersion).toBe(4);
   });
 
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {

@@ -10,6 +10,7 @@ test('el PRIMER valor de cada eje es el aspecto de siempre, y ése es el default
   assert.equal(VARIANTES_PORTAL.accesosRapidos[0], 'filas');
   assert.equal(VARIANTES_PORTAL.barra[0], 'soloActiva');
   assert.equal(VARIANTES_PORTAL.retos[0], 'neutro');
+  assert.equal(VARIANTES_PORTAL.tarjetaPrincipal[0], 'hero');
   assert.equal(VARIANTES_PORTAL.bienvenida[0], 'ninguna');
   for (const eje of Object.keys(VARIANTES_PORTAL) as EjeVariante[]) {
     assert.equal(DEFAULT_VARIANTES[eje], VARIANTES_PORTAL[eje][0], `el default de "${eje}" no es su primer valor`);
