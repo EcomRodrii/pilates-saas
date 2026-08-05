@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { uid } from '@/lib/utils';
 import type { NivelRiesgoDependencia, AlumnaCautiva } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -244,6 +245,118 @@ export async function calcularDependenciaEstudio(
   }
 
   return transiciones;
+}
+
+const VENTANA_SEGUIMIENTO_SEMANAS = 6;
+// Recencia para contar una alumna cautiva como "sigue viniendo" tras la baja
+// de su instructora — mismo criterio de "reciente" que usa
+// rendimiento-instructoras.ts para retención (30 días).
+const DIAS_RECIENCIA_RETENIDA = 30;
+
+type SnapshotBajaCartera = {
+  nivelRiesgo: string;
+  porcentajeFacturacion: number;
+  alumnasCautivasCount: number;
+  detalle: AlumnaCautiva[];
+};
+
+// Fila 18 (protocolo de salida): foto de la cartera de una instructora EN EL
+// MOMENTO de su baja. Lee el último snapshot ya calculado (hasta 1 semana de
+// antigüedad, aceptable para un indicador de seguimiento) en vez de recalcular
+// síncronamente dentro del endpoint de baja — reutiliza el dato, no lo rehace.
+// Debe llamarse ANTES del DELETE de `instructores`: `instructor_dependency_
+// snapshots.instructor_id` tiene ON DELETE CASCADE, así que su fila
+// desaparece en el mismo instante de la baja dura. Solo LEE — el registro se
+// escribe con `registrarBajaCartera` DESPUÉS de confirmar que el DELETE tuvo
+// éxito, para no dejar una baja "fantasma" si el DELETE falla (p.ej. la
+// instructora todavía tiene clases asignadas, caso que el propio endpoint ya
+// contempla en su mensaje de error).
+export async function leerSnapshotParaBaja(
+  admin: Admin,
+  studioId: string,
+  instructorId: string,
+): Promise<SnapshotBajaCartera | null> {
+  const { data: snapshot } = await admin
+    .from('instructor_dependency_snapshots')
+    .select('nivel_riesgo, porcentaje_facturacion, alumnas_cautivas_count, detalle')
+    .eq('studio_id', studioId)
+    .eq('instructor_id', instructorId)
+    .maybeSingle();
+
+  // Sin snapshot (instructora nueva, sin cron todavía, o sin ninguna alumna
+  // cautiva) → no hay cartera que proteger, no se registra nada.
+  if (!snapshot || (snapshot.alumnas_cautivas_count as number) === 0) return null;
+
+  return {
+    nivelRiesgo: snapshot.nivel_riesgo,
+    porcentajeFacturacion: snapshot.porcentaje_facturacion,
+    alumnasCautivasCount: snapshot.alumnas_cautivas_count,
+    detalle: snapshot.detalle as AlumnaCautiva[],
+  };
+}
+
+export async function registrarBajaCartera(
+  admin: Admin,
+  params: { studioId: string; instructorId: string; instructorNombre: string; snapshot: SnapshotBajaCartera },
+): Promise<void> {
+  const { snapshot } = params;
+  const { error } = await admin.from('instructor_bajas_seguimiento').insert({
+    id: `ibs-${uid()}`,
+    studio_id: params.studioId,
+    instructor_id: params.instructorId,
+    instructor_nombre: params.instructorNombre,
+    nivel_riesgo_al_salir: snapshot.nivelRiesgo,
+    porcentaje_facturacion_al_salir: snapshot.porcentajeFacturacion,
+    alumnas_cautivas_count: snapshot.alumnasCautivasCount,
+    alumnas_cautivas: snapshot.detalle,
+  });
+  if (error) throw new Error(`[registrarBajaCartera] ${error.message}`);
+}
+
+// Fila 18: a las N semanas de una baja con cartera congelada, ¿cuántas de sus
+// alumnas cautivas siguen viniendo al estudio (con cualquier instructora)?
+// Un número agregado, no una lista de "quién se fue con quién" — no es una
+// herramienta para señalar a nadie, es la señal de si hubo fuga real o no.
+export async function evaluarRetencionTrasBajas(admin: Admin, studioId: string): Promise<void> {
+  const hasta = new Date(Date.now() - VENTANA_SEGUIMIENTO_SEMANAS * 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: pendientes } = await admin
+    .from('instructor_bajas_seguimiento')
+    .select('id, alumnas_cautivas')
+    .eq('studio_id', studioId)
+    .is('evaluado_en', null)
+    .lte('fecha_baja', hasta);
+  if (!pendientes || pendientes.length === 0) return;
+
+  // Recencia por la fecha REAL de la clase (sesiones.inicio), no por cuándo se
+  // hizo la reserva — mismo criterio que calcularDependenciaEstudio más arriba
+  // en este fichero. Una socia puede reservar con semanas de antelación, así
+  // que `reservas.creado_en` no sirve como proxy de "ha venido recientemente".
+  const desdeReciencia = new Date(Date.now() - DIAS_RECIENCIA_RETENIDA * 24 * 60 * 60 * 1000).toISOString();
+  const { data: sesionesRecientes } = await admin
+    .from('sesiones')
+    .select('id')
+    .eq('studio_id', studioId)
+    .gte('inicio', desdeReciencia);
+  const sesionIdsRecientes = (sesionesRecientes ?? []).map(s => s.id as string);
+
+  for (const p of pendientes) {
+    const cautivas = (p.alumnas_cautivas as AlumnaCautiva[]) ?? [];
+    const socioIds = cautivas.map(c => c.socioId).filter(Boolean);
+    let retenidas = 0;
+    if (socioIds.length > 0 && sesionIdsRecientes.length > 0) {
+      const { data: asistidas } = await admin
+        .from('reservas')
+        .select('socio_id')
+        .eq('studio_id', studioId)
+        .eq('estado', 'ASISTIDA')
+        .in('socio_id', socioIds)
+        .in('sesion_id', sesionIdsRecientes);
+      retenidas = new Set((asistidas ?? []).map(r => r.socio_id as string)).size;
+    }
+    await admin.from('instructor_bajas_seguimiento')
+      .update({ evaluado_en: new Date().toISOString(), alumnas_retenidas_count: retenidas })
+      .eq('id', p.id as string);
+  }
 }
 
 // Recorre TODOS los estudios (para el cron semanal). Devuelve, por estudio, las

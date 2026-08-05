@@ -16,6 +16,8 @@ const MENSAJE_EMAIL_DUPLICADO =
   'Ya hay alguien en tu equipo con ese email. Si volvió después de una baja, reactiva su ficha en vez de crear otra: así conserva su historial.';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
+import { leerSnapshotParaBaja, registrarBajaCartera } from '@/lib/instructor-dependency';
+import * as Sentry from '@sentry/nextjs';
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
 // enforcement de servidor. Antes el cliente escribía `rol` —incluido PROPIETARIO—
@@ -188,7 +190,7 @@ export async function PATCH(req: NextRequest) {
   // La ficha a editar debe existir y pertenecer al estudio de la sesión.
   const { data: ficha, error: errLeer } = await admin
     .from('instructores')
-    .select('id, studio_id, auth_user_id, rol')
+    .select('id, studio_id, auth_user_id, rol, nombre, activo')
     .eq('id', id)
     .eq('studio_id', sesion.studioId)
     .maybeSingle();
@@ -231,6 +233,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: MENSAJE_ULTIMA_PROPIETARIA }, { status: 409 });
   }
 
+  // Fila 18: la desactivación (checkbox "Miembro activo") es también una baja
+  // real y visible en la UI, no solo el DELETE — y el cron semanal de
+  // dependencia PURGA el snapshot de cualquier instructor con activo=false
+  // (calcularDependenciaEstudio, "a quien ya no está en el equipo no se le
+  // mide la dependencia"). Sin congelar aquí, una desactivación de una
+  // instructora de riesgo ALTO nunca deja rastro: el snapshot desaparece en
+  // el próximo cron y un DELETE posterior (si llega) ya no encuentra nada.
+  const pasaAInactiva = ficha.activo === true && update.activo === false;
+
   const { error } = await admin
     .from('instructores')
     .update(update)
@@ -241,6 +252,19 @@ export async function PATCH(req: NextRequest) {
   }
   if (error) return errorInterno('equipo:actualizar', error,
     'No se han podido guardar los cambios de esta persona. Vuelve a intentarlo.');
+
+  if (pasaAInactiva && ficha.nombre) {
+    const snapshotBaja = await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null);
+    if (snapshotBaja) {
+      await registrarBajaCartera(admin, {
+        studioId: sesion.studioId,
+        instructorId: id,
+        instructorNombre: ficha.nombre,
+        snapshot: snapshotBaja,
+      }).catch(e => { Sentry.captureException(e); });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 
@@ -261,7 +285,7 @@ export async function DELETE(req: NextRequest) {
 
   // Un manager no puede borrar a la propietaria ni a otro manager.
   const { data: victima } = await admin
-    .from('instructores').select('rol').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
+    .from('instructores').select('rol, nombre').eq('id', id).eq('studio_id', sesion.studioId).maybeSingle();
   if (sesion.rol !== 'PROPIETARIO') {
     if (!victima || !rolesQuePuedeAsignar(sesion.rol).includes(victima.rol as never)) {
       return NextResponse.json({ error: 'No puedes dar de baja a esta persona.' }, { status: 403 });
@@ -271,6 +295,16 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: MENSAJE_ULTIMA_PROPIETARIA }, { status: 409 });
   }
 
+  // Fila 18: leer (no escribir) la cartera ANTES del DELETE —
+  // `instructor_dependency_snapshots.instructor_id` tiene ON DELETE CASCADE,
+  // así que tras el borrado ya no habría nada que leer. El registro solo se
+  // escribe DESPUÉS de confirmar que el DELETE tuvo éxito (más abajo), para
+  // no dejar una baja "fantasma" si el DELETE falla — p.ej. si la instructora
+  // todavía tiene clases asignadas, el propio mensaje de error de abajo.
+  const snapshotBaja = victima?.nombre
+    ? await leerSnapshotParaBaja(admin, sesion.studioId, id).catch(() => null)
+    : null;
+
   const { error } = await admin
     .from('instructores')
     .delete()
@@ -278,5 +312,15 @@ export async function DELETE(req: NextRequest) {
     .eq('studio_id', sesion.studioId);
   if (error) return errorInterno('equipo:eliminar', error,
     'No se ha podido eliminar a esta persona. Si tiene clases asignadas, reasígnalas antes.');
+
+  if (snapshotBaja && victima?.nombre) {
+    await registrarBajaCartera(admin, {
+      studioId: sesion.studioId,
+      instructorId: id,
+      instructorNombre: victima.nombre,
+      snapshot: snapshotBaja,
+    }).catch(e => { Sentry.captureException(e); });
+  }
+
   return NextResponse.json({ ok: true });
 }
