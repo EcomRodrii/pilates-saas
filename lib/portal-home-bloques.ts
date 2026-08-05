@@ -89,7 +89,7 @@ export const CAMPOS_FAQ = [
     etiquetaElemento: 'pregunta', resumenCampo: 'pregunta', porDefecto: [],
     campos: [
       { tipo: 'texto', id: 'pregunta', etiqueta: 'Pregunta', marcador: 'Pregunta', porDefecto: '' },
-      { tipo: 'textoLargo', id: 'respuesta', etiqueta: 'Respuesta', marcador: 'Respuesta', porDefecto: '' },
+      { tipo: 'textoLargo', id: 'respuesta', etiqueta: 'Respuesta', marcador: 'Respuesta', porDefecto: '', filas: 2 },
     ],
   },
 ] as const satisfies readonly CampoSchema[];
@@ -116,7 +116,7 @@ export const CAMPOS_TESTIMONIOS = [
     tipo: 'lista', id: 'testimonios', etiqueta: 'Testimonios',
     etiquetaElemento: 'testimonio', resumenCampo: 'autor', porDefecto: [],
     campos: [
-      { tipo: 'textoLargo', id: 'cita', etiqueta: 'Cita', marcador: 'Cita', porDefecto: '' },
+      { tipo: 'textoLargo', id: 'cita', etiqueta: 'Cita', marcador: 'Cita', porDefecto: '', filas: 2 },
       { tipo: 'texto', id: 'autor', etiqueta: 'Autora', marcador: 'Autora', porDefecto: '' },
       { tipo: 'texto', id: 'rol', etiqueta: 'Rol (opcional)', marcador: 'Rol (opcional)', porDefecto: '' },
     ],

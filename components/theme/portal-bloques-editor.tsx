@@ -27,9 +27,10 @@ import { usePermisos } from '@/lib/permisos';
 import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
-  type BloqueHome, type PantallaId, type BannerConfig, type TextoConfig, type CtaConfig, type FaqConfig,
-  type GaleriaConfig, type VideoConfig, type TestimoniosConfig, type EstiloBloque,
+  getDefinicionBloque, CAMPOS_ESTILO,
+  type BloqueHome, type PantallaId, type EstiloBloque,
 } from '@/lib/portal-home-bloques';
+import { CamposForm } from '@/components/theme/inspector/campos-form';
 import { uid } from '@/lib/utils';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
@@ -51,9 +52,6 @@ const ICONOS: Record<string, LucideIcon> = {
   GalleryHorizontal, Video, Quote,
 };
 
-const inputCls = 'w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background';
-const labelCls = 'text-[11.5px] font-semibold text-muted-foreground block mb-1';
-
 const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
   home: 'El saludo y tu próxima clase se mantienen siempre arriba.',
   clases: 'El calendario de clases se mantiene siempre visible; los bloques que añadas van antes o después.',
@@ -65,222 +63,46 @@ export function labelDe(b: BloqueHome): string {
   return getBlockCatalogEntry(b.kind)?.label ?? b.kind;
 }
 
-function ConfigBanner({ config, onChange }: { config: BannerConfig; onChange: (c: BannerConfig) => void }) {
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>URL de la imagen</span><input className={inputCls} value={config.imagenUrl} onChange={(e) => onChange({ ...config, imagenUrl: e.target.value })} placeholder="https://…" /></div>
-      <div><span className={labelCls}>Título</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      <div><span className={labelCls}>Texto</span><input className={inputCls} value={config.texto} onChange={(e) => onChange({ ...config, texto: e.target.value })} /></div>
-      <div><span className={labelCls}>Enlace (opcional)</span><input className={inputCls} value={config.href} onChange={(e) => onChange({ ...config, href: e.target.value })} placeholder="/reservar o https://…" /></div>
-    </div>
-  );
-}
-function ConfigTexto({ config, onChange }: { config: TextoConfig; onChange: (c: TextoConfig) => void }) {
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      <div><span className={labelCls}>Texto</span><textarea className={`${inputCls} min-h-20`} value={config.texto} onChange={(e) => onChange({ ...config, texto: e.target.value })} /></div>
-    </div>
-  );
-}
-function ConfigCta({ config, onChange }: { config: CtaConfig; onChange: (c: CtaConfig) => void }) {
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>Título</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      <div><span className={labelCls}>Texto del botón</span><input className={inputCls} value={config.textoBoton} onChange={(e) => onChange({ ...config, textoBoton: e.target.value })} /></div>
-      <div><span className={labelCls}>Enlace</span><input className={inputCls} value={config.href} onChange={(e) => onChange({ ...config, href: e.target.value })} placeholder="/reservar o https://…" /></div>
-    </div>
-  );
-}
-function ConfigFaq({ config, onChange }: { config: FaqConfig; onChange: (c: FaqConfig) => void }) {
-  function setPregunta(i: number, campo: 'pregunta' | 'respuesta', valor: string) {
-    const preguntas = config.preguntas.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p));
-    onChange({ ...config, preguntas });
-  }
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      {config.preguntas.map((p, i) => (
-        <div key={i} className="space-y-1 border-l-2 border-border pl-2.5">
-          <input className={inputCls} value={p.pregunta} onChange={(e) => setPregunta(i, 'pregunta', e.target.value)} placeholder="Pregunta" />
-          <textarea className={`${inputCls} min-h-14`} value={p.respuesta} onChange={(e) => setPregunta(i, 'respuesta', e.target.value)} placeholder="Respuesta" />
-          <button onClick={() => onChange({ ...config, preguntas: config.preguntas.filter((_, idx) => idx !== i) })} className="text-[11.5px] font-semibold text-destructive">Quitar pregunta</button>
-        </div>
-      ))}
-      <button
-        onClick={() => onChange({ ...config, preguntas: [...config.preguntas, { pregunta: '', respuesta: '' }] })}
-        className="text-[12px] font-semibold text-brand-medio"
-      >
-        + Añadir pregunta
-      </button>
-    </div>
-  );
-}
-
-function ConfigGaleria({ config, onChange }: { config: GaleriaConfig; onChange: (c: GaleriaConfig) => void }) {
-  function setImagen(i: number, campo: 'url' | 'alt', valor: string) {
-    const imagenes = config.imagenes.map((img, idx) => (idx === i ? { ...img, [campo]: valor } : img));
-    onChange({ ...config, imagenes });
-  }
-  return (
-    <div className="space-y-2">
-      {config.imagenes.map((img, i) => (
-        <div key={i} className="space-y-1 border-l-2 border-border pl-2.5">
-          <input className={inputCls} value={img.url} onChange={(e) => setImagen(i, 'url', e.target.value)} placeholder="https://…" />
-          <input className={inputCls} value={img.alt} onChange={(e) => setImagen(i, 'alt', e.target.value)} placeholder="Texto alternativo" />
-          <button onClick={() => onChange({ ...config, imagenes: config.imagenes.filter((_, idx) => idx !== i) })} className="text-[11.5px] font-semibold text-destructive">Quitar imagen</button>
-        </div>
-      ))}
-      <button
-        onClick={() => onChange({ ...config, imagenes: [...config.imagenes, { url: '', alt: '' }] })}
-        className="text-[12px] font-semibold text-brand-medio"
-      >
-        + Añadir imagen
-      </button>
-    </div>
-  );
-}
-function ConfigVideo({ config, onChange }: { config: VideoConfig; onChange: (c: VideoConfig) => void }) {
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      <div><span className={labelCls}>URL de YouTube o Vimeo</span><input className={inputCls} value={config.url} onChange={(e) => onChange({ ...config, url: e.target.value })} placeholder="https://youtube.com/watch?v=…" /></div>
-    </div>
-  );
-}
-function ConfigTestimonios({ config, onChange }: { config: TestimoniosConfig; onChange: (c: TestimoniosConfig) => void }) {
-  function setTestimonio(i: number, campo: 'cita' | 'autor' | 'rol', valor: string) {
-    const testimonios = config.testimonios.map((te, idx) => (idx === i ? { ...te, [campo]: valor } : te));
-    onChange({ ...config, testimonios });
-  }
-  return (
-    <div className="space-y-2">
-      <div><span className={labelCls}>Título (opcional)</span><input className={inputCls} value={config.titulo} onChange={(e) => onChange({ ...config, titulo: e.target.value })} /></div>
-      {config.testimonios.map((te, i) => (
-        <div key={i} className="space-y-1 border-l-2 border-border pl-2.5">
-          <textarea className={`${inputCls} min-h-14`} value={te.cita} onChange={(e) => setTestimonio(i, 'cita', e.target.value)} placeholder="Cita" />
-          <input className={inputCls} value={te.autor} onChange={(e) => setTestimonio(i, 'autor', e.target.value)} placeholder="Autora" />
-          <input className={inputCls} value={te.rol} onChange={(e) => setTestimonio(i, 'rol', e.target.value)} placeholder="Rol (opcional)" />
-          <button onClick={() => onChange({ ...config, testimonios: config.testimonios.filter((_, idx) => idx !== i) })} className="text-[11.5px] font-semibold text-destructive">Quitar testimonio</button>
-        </div>
-      ))}
-      <button
-        onClick={() => onChange({ ...config, testimonios: [...config.testimonios, { cita: '', autor: '', rol: '' }] })}
-        className="text-[12px] font-semibold text-brand-medio"
-      >
-        + Añadir testimonio
-      </button>
-    </div>
-  );
-}
-
+// El panel de configuración de un bloque ya no se escribe: sale de su schema
+// (REGISTRO_BLOQUES → `campos`) a través del Inspector genérico. Antes esto
+// eran siete componentes de formulario más una cadena de siete `if`, con la
+// forma de cada bloque duplicada respecto al tipo, al zod y al render.
 function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: BloqueHome) => void }) {
   if (bloque.kind === 'sistema') return null;
-  if (bloque.kind === 'banner') return <ConfigBanner config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  if (bloque.kind === 'texto') return <ConfigTexto config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  if (bloque.kind === 'cta') return <ConfigCta config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  if (bloque.kind === 'faq') return <ConfigFaq config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  if (bloque.kind === 'galeria') return <ConfigGaleria config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  if (bloque.kind === 'video') return <ConfigVideo config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-  return <ConfigTestimonios config={bloque.config} onChange={(config) => onChange({ ...bloque, config })} />;
-}
-
-function ColorFieldMini({ label, value, onChange }: { label: string; value: string | null | undefined; onChange: (v: string | null) => void }) {
-  const hexValido = !!value && /^#([0-9a-fA-F]{6})$/.test(value);
+  const def = getDefinicionBloque(bloque.kind);
+  if (!def) return null;
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-[12.5px] font-medium text-foreground">{label}</span>
-      <span className="flex items-center gap-2">
-        <input
-          type="text"
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder="Del tema"
-          className="w-24 text-[12px] font-mono px-2 py-1.5 rounded-lg border border-border bg-background"
-          aria-label={label}
-        />
-        <input
-          type="color"
-          value={hexValido ? value : '#000000'}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded-lg border border-border cursor-pointer bg-transparent"
-          aria-label={`Selector de ${label}`}
-        />
-        {value && (
-          <button type="button" onClick={() => onChange(null)} className="text-[11px] text-muted-foreground hover:text-destructive" aria-label={`Quitar ${label}`}>
-            <Trash2 size={13} />
-          </button>
-        )}
-      </span>
-    </label>
-  );
-}
-
-const ALINEACION_OPCIONES: { id: NonNullable<EstiloBloque['alineacion']>; label: string }[] = [
-  { id: 'izquierda', label: 'Izquierda' }, { id: 'centro', label: 'Centro' }, { id: 'derecha', label: 'Derecha' },
-];
-const ESPACIADO_OPCIONES: { id: NonNullable<EstiloBloque['espaciado']>; label: string }[] = [
-  { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
-];
-const TAMANO_TEXTO_OPCIONES: { id: NonNullable<EstiloBloque['tamanoTexto']>; label: string }[] = [
-  { id: 'pequeno', label: 'Pequeño' }, { id: 'normal', label: 'Normal' }, { id: 'grande', label: 'Grande' },
-];
-const ESQUINAS_OPCIONES: { id: NonNullable<EstiloBloque['esquinas']>; label: string }[] = [
-  { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
-];
-const SOMBRA_OPCIONES: { id: NonNullable<EstiloBloque['sombra']>; label: string }[] = [
-  { id: 'ninguna', label: 'Ninguna' }, { id: 'suave', label: 'Suave' }, { id: 'marcada', label: 'Marcada' },
-];
-const ANCHO_OPCIONES: { id: NonNullable<EstiloBloque['ancho']>; label: string }[] = [
-  { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
-];
-
-/** Fila de botones reutilizada por cada campo enum de EstiloBloque. */
-function FilaOpciones<T extends string>({
-  etiqueta, opciones, activa, onElegir,
-}: { etiqueta: string; opciones: { id: T; label: string }[]; activa: T; onElegir: (id: T) => void }) {
-  return (
-    <div>
-      <span className="text-[12.5px] font-medium text-foreground block mb-1.5">{etiqueta}</span>
-      <div className="flex gap-2 flex-wrap">
-        {opciones.map((op) => (
-          <button
-            key={op.id}
-            type="button"
-            onClick={() => onElegir(op.id)}
-            className={`flex-1 text-[12px] font-semibold py-1.5 px-2 rounded-lg border transition-colors ${
-              activa === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-            }`}
-          >
-            {op.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <CamposForm
+      campos={def.campos}
+      valores={bloque.config as Record<string, unknown>}
+      // Los repetidores (preguntas, imágenes, testimonios) van sin rótulo
+      // encima, igual que antes: dentro de la lista el marcador de cada
+      // casilla ya dice qué es, y un "Preguntas" suelto solo añadía ruido.
+      etiquetaListaSinTitulo
+      onChange={(config) => onChange({ ...bloque, config } as BloqueHome)}
+    />
   );
 }
 
 // Estilo PROPIO de la sección — pisa el tema global solo para este bloque.
-// Solo aplica a bloques del catálogo (banner/texto/cta/faq): los `sistema`
-// son UI de producto, no contenido de la propietaria, y ConfigForm ya los
-// filtra devolviendo null — este panel hace lo mismo por el mismo motivo.
+// Solo aplica a bloques del catálogo: los `sistema` son UI de producto, no
+// contenido de la propietaria (ConfigForm ya los filtra por el mismo motivo).
+//
+// ⚠️ Aquí **no** se rellenan defaults: en `estilo`, "ausente" significa
+// "hereda del tema", que es un tercer estado distinto de "el valor por
+// defecto". Se le pasa al Inspector el objeto guardado tal cual, y cada
+// control enseña su `porDefecto` como opción marcada sin escribirla — que es
+// exactamente lo que hacía el `?? 'redondeada'` de antes.
 function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; onChange: (b: BloqueHome) => void }) {
-  const estilo: EstiloBloque = bloque.estilo ?? {};
-  function setEstilo(cambios: Partial<EstiloBloque>) {
-    onChange({ ...bloque, estilo: { ...estilo, ...cambios } });
-  }
   return (
     <div className="space-y-3 border-t border-border pt-3 mt-3">
       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Estilo de esta sección</p>
       <p className="text-[11px] text-muted-foreground -mt-1">Pisa el tema global solo aquí. Vacío = hereda del tema.</p>
-      <ColorFieldMini label="Fondo" value={estilo.fondo} onChange={(v) => setEstilo({ fondo: v })} />
-      <ColorFieldMini label="Texto" value={estilo.color} onChange={(v) => setEstilo({ color: v })} />
-      <FilaOpciones etiqueta="Alineación" opciones={ALINEACION_OPCIONES} activa={estilo.alineacion ?? 'izquierda'} onElegir={(v) => setEstilo({ alineacion: v })} />
-      <FilaOpciones etiqueta="Espaciado" opciones={ESPACIADO_OPCIONES} activa={estilo.espaciado ?? 'normal'} onElegir={(v) => setEstilo({ espaciado: v })} />
-      <FilaOpciones etiqueta="Tamaño del texto" opciones={TAMANO_TEXTO_OPCIONES} activa={estilo.tamanoTexto ?? 'normal'} onElegir={(v) => setEstilo({ tamanoTexto: v })} />
-      <FilaOpciones etiqueta="Esquinas" opciones={ESQUINAS_OPCIONES} activa={estilo.esquinas ?? 'redondeada'} onElegir={(v) => setEstilo({ esquinas: v })} />
-      <FilaOpciones etiqueta="Sombra" opciones={SOMBRA_OPCIONES} activa={estilo.sombra ?? 'ninguna'} onElegir={(v) => setEstilo({ sombra: v })} />
-      <FilaOpciones etiqueta="Ancho" opciones={ANCHO_OPCIONES} activa={estilo.ancho ?? 'completo'} onElegir={(v) => setEstilo({ ancho: v })} />
+      <CamposForm
+        campos={CAMPOS_ESTILO}
+        valores={(bloque.estilo ?? {}) as Record<string, unknown>}
+        onChange={(estilo) => onChange({ ...bloque, estilo: estilo as EstiloBloque })}
+      />
     </div>
   );
 }
