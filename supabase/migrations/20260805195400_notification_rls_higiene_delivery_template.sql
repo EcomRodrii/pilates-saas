@@ -1,0 +1,141 @@
+-- Higiene de RLS sobre el Notification Engine: las dos políticas que quedaron
+-- fuera a propósito de `notification_select_solo_destinatario` (aplicada como
+-- 20260805195208). Mismo criterio que aquella: se cierra lo que no tiene un
+-- solo consumidor legítimo, no lo que "parece" peligroso.
+--
+-- ── 1. delivery_select ────────────────────────────────────────────────────────
+-- La 0092 la dejó como `studio_id = current_studio_id()`, así que cualquier
+-- staff —instructora incluida— podía sacar `notification_delivery` entera por
+-- PostgREST con su clave anon.
+--
+-- La severidad honesta es BAJA, y conviene dejarlo escrito para que nadie lo
+-- reabra como si fuera una fuga de datos de socias:
+--   - La fila no lleva `title` ni `body` ni destinatario, solo `notification_id`
+--     —y es opaco (`not-${crypto.randomUUID()}`)—. Como `notification` ya está
+--     cerrada por destinatario (20260805195208), NO se puede atribuir una
+--     entrega a una persona POR JOIN, que es la vía obvia.
+--   - Los strings de `error` están saneados en el peor caso: `lib/twilio.ts`
+--     devuelve texto fijo del wrapper (nunca el número), y los SKIPPED son
+--     literales. La excepción es el `error.message` de Resend, que se guarda
+--     crudo (`lib/notifications/channels.ts:126`) y sí puede llevar dentro la
+--     dirección de destino en algunos errores de validación — o sea que la vía
+--     de atribución no es literalmente cero, solo residual y no consultable.
+--     Aun así la severidad se queda en BAJA y no sube: quien lee esto es staff
+--     autenticado de ese mismo estudio, y `socios_lectura`
+--     (`0118_rls_escrituras_clientas_citas.sql:47-49`) ya le deja leer el email
+--     de todas las socias directamente de `socios`. No obtiene nada que no
+--     tenga de frente.
+--   - Lo expuesto son metadatos operativos agregados: volumen de avisos, qué
+--     canales fallan y cuándo.
+--
+-- El motivo real para cerrarla es el otro: NO TIENE UN SOLO CONSUMIDOR. Los seis
+-- caminos que tocan esta tabla usan `getSupabaseAdmin()` (service-role, se salta
+-- la RLS entera) — verificado por grep antes de escribir esto:
+--   - app/api/notifications/admin/route.ts:27      (Notification Center)
+--   - lib/notifications/process.ts:53,86,145,155   (envío + reintentos)
+--   - lib/notifications/inapp.ts:137               (recibe `admin` por parámetro;
+--                                                   sus dos llamadores, engine.ts:42
+--                                                   y process.ts:141, son service-role)
+-- Se DROPEA en vez de acotarse porque no existe una forma más estrecha con
+-- sentido: la fila no tiene noción de destinatario, así que no hay un
+-- "cada quien lo suyo" que escribir. Sin política y con RLS activa,
+-- `authenticated` ve cero filas — que es exactamente lo que ya veía por pantalla.
+--
+-- La 0092 nunca creó política de INSERT/UPDATE/DELETE aquí (solo `delivery_select`,
+-- `0092:134-135`), así que la escritura ya estaba bloqueada pese al GRANT. Tras
+-- este DROP la tabla queda con RLS activa y CERO políticas: deny-all para
+-- `authenticated`/`anon`, y `service_role` sigue entrando por su BYPASSRLS.
+-- Es un estado deliberado con precedente escrito en este repo —
+-- `0021_fase0_cierre_restaurar_backup_y_defaults.sql:55-57` ya declara
+-- `integracion_credenciales` y `reconciliaciones_pos` exactamente así— y NO un
+-- olvido: que nadie lo reabra como si faltara una policy.
+--
+-- (De paso desaparece el hallazgo `auth_rls_initplan` que arrastraba: usaba
+-- `current_studio_id()` sin envolver en `(select ...)`, reevaluándose por fila.
+-- Ya no aplica al no quedar política.)
+
+drop policy if exists delivery_select on public.notification_delivery;
+
+-- ── 2. template_write ─────────────────────────────────────────────────────────
+-- La 0092 la creó como `FOR ALL TO authenticated USING (studio_id =
+-- current_studio_id())`: cualquier instructora podía reescribir las plantillas
+-- del estudio.
+--
+-- Hoy es inocuo porque la tabla está MUERTA — cero referencias a
+-- `notification_template` en `app/`, `lib/` y `components/` (verificado por grep),
+-- y `plantillaDe()` (`lib/notifications/catalog.ts:466`) lee solo el catálogo
+-- estático. Pero es una bomba de relojería silenciosa: el día que alguien
+-- conecte "plantillas por estudio", esta política pasa a significar "cualquier
+-- instructora reescribe el texto que reciben todas las socias" sin que nadie
+-- toque una línea de RLS ni se entere.
+--
+-- Se CIERRA DEL TODO en vez de acotarse a `puede_gestionar_equipo()`. Acotarla
+-- sería más cómodo el día que se conecte, pero dejaría escrita una política de
+-- escritura con pinta de revisada para un flujo que nadie ha diseñado todavía —
+-- y se aceptaría sin mirar. Sin política de escritura, ese día CHOCA: quien
+-- conecte plantillas por estudio tendrá que añadir la suya y decidir a
+-- propósito quién puede escribirlas (`puede_gestionar_equipo()` es el candidato
+-- razonable, pero que lo decida quien conozca el flujo real).
+--
+-- `template_select` se queda: leer plantillas del propio estudio + las globales
+-- es inofensivo y es lo que necesitaría cualquier render futuro. Se REAFIRMA
+-- envuelta en `(select ...)` porque la 0092 la escribió con
+-- `current_studio_id()` a pelo y la 0137 no la incluyó en su barrido de
+-- `auth_rls_initplan` — reevaluándose una vez por fila.
+--
+-- ⚠️ Y de paso queda corregido un error de recuento que puede volver a engañar
+-- a alguien: la 0137 dice "las 4 políticas de notificaciones que quedaban"
+-- (`0137_higiene_seguridad_rendimiento_backlog.sql:20`) y solo barrió
+-- `notification_select`, `notification_update`, `preference_all` y `push_all`.
+-- Eran SEIS: se dejó fuera `delivery_select` y `template_select`, justo las dos
+-- de este fichero. No fiarse de ese "4" para dar el barrido por completo.
+
+drop policy if exists template_write on public.notification_template;
+
+drop policy if exists template_select on public.notification_template;
+create policy template_select on public.notification_template
+  for select to authenticated
+  using (studio_id = (select public.current_studio_id()) or studio_id is null);
+
+-- ── Nota sobre GRANTs ─────────────────────────────────────────────────────────
+-- La 0092 dio `SELECT, INSERT, UPDATE, DELETE` a `authenticated` sobre ambas
+-- tablas. No se revoca aquí a propósito: en este repo la RLS es la cerradura
+-- real, y sin política la escritura queda bloqueada igual. Revocar GRANTs es un
+-- cambio de otra naturaleza (afecta al error que devuelve PostgREST, no al
+-- acceso) y no se mete de rondón en una migración de higiene de políticas.
+--
+-- ⚠️ NO SE TOCA NINGUNA FIRMA DE FUNCIÓN aquí, así que no aplica el gotcha
+-- recurrente de este repo (`CREATE OR REPLACE` con firma nueva → `EXECUTE` por
+-- defecto a `PUBLIC`). No hace falta re-endurecer grants de RPC.
+
+-- ── PENDIENTE DE VERIFICAR EN VIVO ────────────────────────────────────────────
+-- Esta migración se escribió SIN acceso a producción (la sesión no tenía el MCP
+-- de Supabase conectado). Todo lo afirmado arriba sobre el CÓDIGO está
+-- verificado por grep; lo que falta comprobar antes o justo después de aplicar:
+--   1. `pg_policies` sobre las dos tablas: que `delivery_select` y
+--      `template_write` existan con la forma de la 0092 y que no las haya
+--      modificado ya otra migración posterior.
+--   2. `get_advisors` de tipo `security` tras aplicar: que no queden hallazgos
+--      `auth_rls_initplan` apuntando a estas tablas. OJO: aparecerá uno NUEVO,
+--      `rls_enabled_no_policy` sobre `notification_delivery` — es ESPERADO y
+--      correcto (mismo INFO que ya arrastran `integracion_credenciales` y
+--      `reconciliaciones_pos`, ver arriba). No reportarlo como regresión.
+--   3. Que `authenticated` ve efectivamente 0 filas de `notification_delivery`
+--      y no puede escribir en `notification_template` (prueba en vivo con
+--      `set role` + `ROLLBACK`, patrón habitual del repo).
+--   4. Que `20260805195208` está sellada de verdad en `list_migrations`,
+--      cruzando POR NOMBRE y no por número — su fichero NO viaja en esta rama
+--      (ver aviso de abajo), así que la premisa "`notification` ya está cerrada"
+--      solo se sostiene si aquella se aplicó ya en prod.
+--   5. Renombrar ESTE FICHERO a la versión con la que `apply_migration` lo
+--      selle: el timestamp de aplicación diverge del de fichero en este repo, y
+--      dejarlos divergidos hace que un `supabase db push` desde limpio lo
+--      reaplique con OTRO timestamp.
+--
+-- ⚠️ ORDEN DE MERGE — no mergear esta rama sola. `20260805195208` vive en otra
+-- rama (`claude/upbeat-cerf-db9b90`) que no es ancestro de esta. En PROD la
+-- premisa se sostiene (allí ya está aplicada), pero en un `supabase db push`
+-- desde limpio con solo esta rama, `notification_select` seguiría siendo la
+-- amplia de la 0137 y el argumento "`notification` ya está cerrada" sería falso
+-- en ese entorno. Los timestamps ordenan bien (195208 < 195400): basta con que
+-- ambas lleguen a `main`.
