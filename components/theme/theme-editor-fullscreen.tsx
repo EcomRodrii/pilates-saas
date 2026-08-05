@@ -84,23 +84,17 @@ export function ThemeEditorFullscreen() {
     return () => { vivo = false; };
   }, []);
 
-  // Los 6 hooks se llaman siempre, sin condicionar por `nodo` (reglas de
-  // hooks) — montar un hook no publica ni guarda nada por sí solo. Tres
-  // instancias de useBloquesEditor (una fija por pantalla) en vez de una sola
-  // controlada, para que Inicio/Clases/Bonos puedan estar los tres
-  // desplegados a la vez en el rail — cada una carga su propio borrador.
+  // Los hooks se llaman siempre, sin condicionar por `nodo` (reglas de
+  // hooks) — montar un hook no publica ni guarda nada por sí solo.
+  //
+  // UNA sola instancia de useBloquesEditor, que ya trae las tres pantallas.
+  // Antes había una por pantalla porque se creía que hacía falta para tenerlas
+  // las tres desplegadas a la vez en el rail; pero cada instancia cargaba las
+  // tres igualmente, así que eran nueve peticiones para los datos de tres.
   const ajustesHook = useThemeEditor();
-  const bloquesHomeHook = useBloquesEditor('home');
-  const bloquesClasesHook = useBloquesEditor('clases');
-  const bloquesBonosHook = useBloquesEditor('bonos');
+  const bloquesHook = useBloquesEditor();
   const homeHook = useHomeSeccionesEditor();
   const contenidoHook = useContenidoPortalEditor();
-
-  function bloquesHookDe(p: PantallaId) {
-    if (p === 'home') return bloquesHomeHook;
-    if (p === 'clases') return bloquesClasesHook;
-    return bloquesBonosHook;
-  }
 
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
     return <p className="p-6 text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden editar la apariencia.</p>;
@@ -135,7 +129,7 @@ export function ThemeEditorFullscreen() {
     setAvisoPublicar(null);
     try {
       await guardarThemeBorrador(ajustesHook.draft);
-      await Promise.all(PANTALLA_IDS.map((p) => guardarBloquesBorradorApi(p, bloquesHookDe(p).bloques)));
+      await Promise.all(PANTALLA_IDS.map((p) => guardarBloquesBorradorApi(p, bloquesHook.bloquesDe(p))));
       const rTema = await publicarThemeApi();
       if (!rTema.ok) {
         setAvisoPublicar({ tipo: 'error', texto: rTema.errores.join(' ') });
@@ -155,7 +149,7 @@ export function ThemeEditorFullscreen() {
 
   const cambiosTema = temaPublicado ? contarCambios(ajustesHook.draft, temaPublicado) : 0;
   const bloquesIncompletos = PANTALLA_IDS.flatMap((p) =>
-    bloquesHookDe(p).bloques
+    bloquesHook.bloquesDe(p)
       .filter((b): b is Exclude<BloqueHome, { kind: 'sistema' }> => b.kind !== 'sistema')
       .filter((b) => !bloqueEstaCompleto(b))
       .map((b) => ({ pantalla: p, bloque: b })),
@@ -166,7 +160,7 @@ export function ThemeEditorFullscreen() {
     if (nodo.tipo === 'tema') { ajustesHook.recargar(); return; }
     if (nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio') { homeHook.recargar(); return; }
     const p = nodo.tipo === 'item' && nodo.grupo !== 'contenido-portal' ? nodo.grupo : nodo.tipo === 'pantalla' && PANTALLA_IDS.includes(nodo.id as PantallaId) ? (nodo.id as PantallaId) : null;
-    if (p) bloquesHookDe(p).recargar();
+    if (p) bloquesHook.recargar(p);
   }
 
   return (
@@ -271,7 +265,7 @@ export function ThemeEditorFullscreen() {
                           // callback. `pantallaFila` es un binding nuevo, sí la conserva.
                           (() => { const pantallaFila = p.id; return (
                             <BloquesSeccionesList
-                              hook={bloquesHookDe(pantallaFila)} pantalla={pantallaFila}
+                              hook={bloquesHook} pantalla={pantallaFila}
                               seleccionId={nodo.tipo === 'item' && nodo.grupo === pantallaFila ? nodo.itemId : null}
                               onSeleccionar={(id) => seleccionar({ tipo: 'item', grupo: pantallaFila, itemId: id })}
                             />
@@ -309,7 +303,7 @@ export function ThemeEditorFullscreen() {
               </div>
             ) : (
               <HomePreview
-                bloquesPorPantalla={{ home: bloquesHomeHook.bloques, clases: bloquesClasesHook.bloques, bonos: bloquesBonosHook.bloques }}
+                bloquesPorPantalla={bloquesHook.bloquesPorPantalla}
                 pantalla={pantallaActiva}
                 onPantallaChange={(p) => seleccionar({ tipo: 'pantalla', id: p })}
                 slug={ajustesHook.studio?.slug}
@@ -336,7 +330,8 @@ export function ThemeEditorFullscreen() {
             <p className="text-[13px] text-muted-foreground">Cada campo se guarda solo, al escribirlo. Selecciona un banner de la izquierda para editarlo.</p>
           ) : (
             <BloquesConfigPanel
-              hook={bloquesHookDe(nodo.tipo === 'item' ? nodo.grupo as PantallaId : pantallaActiva)}
+              hook={bloquesHook}
+              pantalla={nodo.tipo === 'item' ? nodo.grupo as PantallaId : pantallaActiva}
               seleccionId={nodo.tipo === 'item' ? nodo.itemId : null}
             />
           )}
@@ -353,7 +348,7 @@ export function ThemeEditorFullscreen() {
           <div className="space-y-2 text-[13px] text-foreground">
             <p>{cambiosTema > 0 ? `Tema: ${cambiosTema} cambio${cambiosTema === 1 ? '' : 's'} sin publicar.` : 'Tema: sin cambios.'}</p>
             {PANTALLA_IDS.map((p) => {
-              const n = bloquesHookDe(p).bloques.filter((b) => b.kind !== 'sistema').length;
+              const n = bloquesHook.bloquesDe(p).filter((b) => b.kind !== 'sistema').length;
               return <p key={p}>{PANTALLA_LABEL[p]}: {n} bloque{n === 1 ? '' : 's'} del catálogo.</p>;
             })}
             <p className="text-muted-foreground">El contenido del portal (mensaje destacado y banners) se guarda solo — no forma parte de esta publicación.</p>
