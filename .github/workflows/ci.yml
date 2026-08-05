@@ -122,7 +122,7 @@ jobs:
         run: npm run build
 
       # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
-      # cientos de MB que multiplicarían la subida y las 8 bajadas de los shards).
+      # cientos de MB que multiplicarían la subida y las 12 bajadas de los shards).
       - name: Empaquetar salida del build
         run: tar -cf build.tar --exclude=.next/cache .next
 
@@ -140,13 +140,13 @@ jobs:
   # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
   # ---------------------------------------------------------------------------
   e2e:
-    name: E2E ${{ matrix.shard }}/8
+    name: E2E ${{ matrix.shard }}/12
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v4
 
@@ -184,7 +184,7 @@ jobs:
         # `next start` en vez de `next dev` (ver playwright.config.ts).
         env:
           E2E_USA_BUILD: '1'
-        run: npx playwright test --shard=${{ matrix.shard }}/8 --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
 
       - name: Subir reporte parcial si falla
         if: failure()
@@ -195,7 +195,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Solo cuando algo falla: junta los blobs de los 8 shards en un único informe
+  # Solo cuando algo falla: junta los blobs de los 12 shards en un único informe
   # HTML navegable. En verde no corre, así que no alarga el camino feliz.
   # ---------------------------------------------------------------------------
   informe-e2e:
