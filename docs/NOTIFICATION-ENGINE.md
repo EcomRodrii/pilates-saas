@@ -7,7 +7,7 @@ directamente.**
 
 ```
 Acción de negocio
-   └─ NotificationEngine.publish(evento)        (lib/notifications/engine.ts)
+   └─ publish(evento)                           (lib/notifications/engine.ts)
         └─ inngest.send('notification/emit')     (cola asíncrona, no bloquea el request)
              └─ worker procesarNotificacion       (lib/inngest/notifications.ts)
                   └─ procesarEvento()             (motor)
@@ -111,14 +111,14 @@ Por defecto viven en `PLANTILLAS` (código, con variables `{clase}`, `{cuando}`,
 Añade una función cron de Inngest (patrón dispatcher→fan-out, como
 `lib/inngest/renovaciones.ts`) que detecte la condición (24h antes, bono a punto
 de caducar, 90% de aforo, 30 días sin asistir…) y llame a
-`NotificationEngine.publish(evento)`. El motor se encarga del resto.
+`publish(evento)`. El motor se encarga del resto.
 
 ### …enviar una notificación desde CUALQUIER módulo
 ```ts
-import { NotificationEngine } from '@/lib/notifications/engine';
+import { publish } from '@/lib/notifications/engine';
 // o un emisor de dominio de lib/notifications/emit.ts
 
-await NotificationEngine.publish({
+await publish({
   type: 'reserva.confirmada',
   studioId,
   data: { clase, cuando, slug, sesionId, socioId },
