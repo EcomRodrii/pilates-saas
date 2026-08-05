@@ -5,35 +5,78 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tu enlace de acceso</title>
   </head>
-  <body style="margin:0; padding:40px 0; background-color:#EEEEE8; font-family:'Plus Jakarta Sans', system-ui, 'Segoe UI', Arial, sans-serif;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <!-- Correo de Tentare, no del estudio: aquí manda la marca de Tentare (oliva
+       #343825 + arena #D9C29E), al revés que lib/emails/layout.tsx, que viste la
+       del estudio. Sin tarjeta blanca centrada: el crema ES el papel. El botón
+       es una píldora porque toda la app lo es (rounded-full en el panel,
+       borderRadius:999 en la landing) — con esquinas de 12 no parecía nuestro. -->
+  <body style="margin:0; padding:0; background-color:#EEEEE8;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#EEEEE8;">
       <tr>
-        <td align="center">
-          <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px; width:100%; background-color:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #E5E1DA;">
+        <td align="center" style="padding:44px 20px 32px;">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; width:100%;">
+
             <tr>
-              <td style="background-color:#343825; padding:28px 32px;">
-                <img src="https://tentare.app/logo-horizontal-blanco.png" height="28" alt="Tentare" style="display:block; margin-bottom:10px;" />
-                <h1 style="color:#ffffff; font-size:22px; font-weight:700; margin:6px 0 0; letter-spacing:-0.02em;">Tu enlace de acceso</h1>
+              <td style="padding-bottom:22px;">
+                <img src="https://www.tentare.app/logo-horizontal.png" width="132" height="35" alt="Tentare" style="display:block; border:0; width:132px; height:35px;" />
               </td>
             </tr>
             <tr>
-              <td style="padding:28px 32px;">
-                <p style="color:#1A1A1A; font-size:15px; line-height:1.6; margin:0 0 20px;">
-                  Tentare es la aplicación que usa tu estudio de Pilates para gestionar tus reservas — no te has apuntado a nada nuevo, es donde ya tienes tu cuenta. Pulsa el botón para entrar; es un enlace de un solo uso, y si no lo has pedido tú, puedes ignorar este correo con tranquilidad.
+              <td style="border-top:2px solid #D9C29E; font-size:0; line-height:0; height:2px;">&nbsp;</td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:30px;">
+                <h1 style="margin:0; color:#343825; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:28px; line-height:1.2; font-weight:700; letter-spacing:-0.025em;">
+                  Tu enlace de acceso
+                </h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:16px;">
+                <p style="margin:0; color:#3A3A34; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:16px; line-height:1.65;">
+                  Tentare es la aplicación que usa tu estudio de Pilates para gestionar tus reservas — no te has apuntado a nada nuevo, es donde ya tienes tu cuenta. Pulsa el botón para entrar.
                 </p>
-                <a href="{{ .ConfirmationURL }}" style="display:block; text-align:center; background-color:#343825; color:#ffffff; text-decoration:none; font-size:16px; font-weight:700; padding:14px; border-radius:12px;">
-                  Entrar
-                </a>
-                <p style="color:#9C9C94; font-size:12.5px; line-height:1.6; margin:20px 0 0;">
-                  Este enlace caduca por tu seguridad. Si te ha caducado, pide uno nuevo desde la pantalla de acceso.
-                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:28px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="background-color:#343825; border-radius:999px;">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:15px 32px; color:#D9C29E; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:15px; font-weight:700; text-decoration:none; letter-spacing:-0.01em;">
+                        Entrar
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding-top:34px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="56">
+                  <tr><td style="border-top:1px solid #D3CFC2; font-size:0; line-height:0; height:1px;">&nbsp;</td></tr>
+                </table>
               </td>
             </tr>
             <tr>
-              <td style="border-top:1px solid #E5E1DA; padding:20px 32px; background-color:#FAFAF7;">
-                <p style="color:#9C9C94; font-size:12px; margin:0; text-align:center;">Tentare</p>
+              <td style="padding-top:14px;">
+                <p style="margin:0; color:#63635D; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:13.5px; line-height:1.6;">
+                  Es un enlace de un solo uso y caduca por tu seguridad. Si no lo has pedido tú, puedes ignorar este correo con tranquilidad.
+                </p>
               </td>
             </tr>
+
+            <tr>
+              <td style="padding-top:38px;">
+                <p style="margin:0; color:#8A8A82; font-family:'Plus Jakarta Sans', -apple-system, 'Segoe UI', Arial, sans-serif; font-size:12px; line-height:1.5;">
+                  Tentare · software para estudios de Pilates
+                </p>
+              </td>
+            </tr>
+
           </table>
         </td>
       </tr>

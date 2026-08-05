@@ -15,7 +15,7 @@ import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
-import { LogoTentare } from '@/components/marca/logo-tentare';
+import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -180,6 +180,16 @@ export function Sidebar() {
   const [masOpen, setMasOpen] = useState(false);
   const [size, setSize] = useState<SidebarSize>('normal');
   const [sizeMenuOpen, setSizeMenuOpen] = useState(false);
+  // El logo se monta por piezas al abrir el panel y, cuando termina, se queda
+  // con el barrido de luz al pasar el ratón. Una sola vez por carga de página:
+  // Sidebar vive en el layout del dashboard, así que navegar entre pantallas NO
+  // lo remonta y el splash no se repite a cada clic.
+  const [animacionLogo, setAnimacionLogo] = useState<AnimacionMarca>('construccion');
+  useEffect(() => {
+    // 1,1 s = lo que tarda la última pieza (disco: 0,45 s de retardo + 0,45 s).
+    const t = setTimeout(() => setAnimacionLogo('barrido'), 1100);
+    return () => clearTimeout(t);
+  }, []);
   const { user, signOut } = useAuth();
   const { studio, instructores } = useCore();
   // F4·E5: el enlace al Portal debe derivar SIEMPRE de la sede activa (studio.slug).
@@ -308,9 +318,9 @@ export function Sidebar() {
         )}
       >
         {collapsed ? (
-          <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={46} />
+          <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={46} animacion={animacionLogo} />
         ) : (
-          <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={52} />
+          <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={52} animacion={animacionLogo} />
         )}
       </div>
 

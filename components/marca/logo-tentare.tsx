@@ -23,6 +23,9 @@ export type TintaMarca = 'auto' | 'color' | 'negativo' | 'tinta' | 'blanco';
 /** Solo los productos con uso real hoy. Añadir uno es copiar su trazado de
  *  docs/marca/productos/<producto>/ a `trazados.ts`; el resto ya es genérico. */
 export type ProductoMarca = 'core' | 'manager';
+/** Las tres del kit que tienen uso real. Las otras siete siguen en
+ *  docs/marca/animaciones/tentare-motion.css, sin enganchar. */
+export type AnimacionMarca = 'construccion' | 'cargando' | 'barrido';
 
 // Encuadres ceñidos al dibujo, no al lienzo del kit. El lienzo trae hasta un
 // 22 % de aire abajo, que es justo lo que obligaba al hack documentado en la
@@ -55,6 +58,7 @@ export function LogoTentare({
   formato = 'horizontal',
   tinta = 'color',
   producto,
+  animacion,
   alto,
   titulo = 'Tentare',
   decorativo = false,
@@ -63,6 +67,9 @@ export function LogoTentare({
   formato?: FormatoMarca;
   tinta?: TintaMarca;
   producto?: ProductoMarca;
+  /** Ninguna gira: girar el isotipo rompe el degradado a 135° y la lectura de
+   *  la «t». `barrido` se dispara al pasar el ratón, las otras dos al montar. */
+  animacion?: AnimacionMarca;
   /** Altura en px del dibujo. El ancho sale del viewBox, así que no hay salto
    *  de maquetación. Si prefieres dimensionar por CSS, omítelo y usa className. */
   alto?: number;
@@ -75,7 +82,10 @@ export function LogoTentare({
 }) {
   // useId da un id estable entre servidor y cliente, así que no hay desajuste
   // de hidratación aunque haya varios logos montados a la vez.
-  const idDegradado = `marca-tallo-${useId()}`;
+  const propio = useId();
+  const idDegradado = `marca-tallo-${propio}`;
+  const idLuz = `marca-luz-${propio}`;
+  const idRecorte = `marca-recorte-${propio}`;
   const conNombre = formato !== 'isotipo' && producto !== undefined;
   const encuadre = ENCUADRE[formato];
   const tineDisco = TINE_EL_DISCO(tinta) && producto !== undefined;
@@ -83,7 +93,7 @@ export function LogoTentare({
   return (
     <svg
       viewBox={conNombre ? encuadre.con : encuadre.sin}
-      className={cn('t-logo', tinta === 'auto' && 'marca-auto', className)}
+      className={cn('t-logo', tinta === 'auto' && 'marca-auto', animacion && `t-${animacion}`, className)}
       style={{
         // Los trazados leen SIEMPRE --marca-disco, nunca el color de producto
         // directamente: si lo leyeran, el style en línea ganaría a la regla de
@@ -103,6 +113,21 @@ export function LogoTentare({
           <stop offset="0" stopColor="var(--marca-a)" />
           <stop offset="1" stopColor="var(--marca-b)" />
         </linearGradient>
+        {/* El barrido de luz solo se monta si se pide: el CSS del kit lo dispara
+            con .t-logo:hover, así que dejarlo siempre haría brillar también el
+            logo del pie de la landing o el de las páginas legales. */}
+        {animacion === 'barrido' && (
+          <>
+            <linearGradient id={idLuz} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+              <stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.85" />
+              <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+            </linearGradient>
+            <clipPath id={idRecorte}>
+              <path d={TRAZADOS.tallo} transform={encuadre.isotipo} />
+            </clipPath>
+          </>
+        )}
       </defs>
 
       <g className="t-marca">
@@ -112,6 +137,11 @@ export function LogoTentare({
           <path className="t-disco" fill="var(--marca-disco)" d={TRAZADOS.disco} />
           <path className="t-tallo" fill={`url(#${idDegradado})`} d={TRAZADOS.tallo} />
         </g>
+        {animacion === 'barrido' && (
+          <g clipPath={`url(#${idRecorte})`}>
+            <rect className="t-brillo" x="10" y="0" width="34" height="130" fill={`url(#${idLuz})`} />
+          </g>
+        )}
       </g>
 
       {/* Regla 3 del kit: en horizontal el isotipo va en línea y hace de «t»,
