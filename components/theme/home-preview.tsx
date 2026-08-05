@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MarcoMovil, MarcoMovilVacio } from './marco-movil';
+import { MarcoDispositivo } from './marco-dispositivo';
+import type { DispositivoId } from '@/lib/theme/dispositivos';
 import { fetchHomePreviewToken } from '@/lib/api-client';
 import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
@@ -46,6 +47,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
   bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador, irA,
+  dispositivo = 'movil', zoom = 1,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -72,6 +74,8 @@ export function HomePreview({
   // aunque `vista` sea la misma string que la última vez (ej. volver a pedir
   // Reservas tras haber navegado a Perfil a mano dentro del propio widget).
   irA?: { vista: VistaId; nonce: number } | null;
+  dispositivo?: DispositivoId;
+  zoom?: number;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -157,13 +161,13 @@ export function HomePreview({
   }, [onBloqueSeleccionado]);
 
   if (!slug || !token) {
-    return <MarcoMovilVacio>La vista previa aparecerá en un momento.</MarcoMovilVacio>;
+    return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;
   }
 
   const ruta = TODAS_LAS_VISTAS.find((p) => p.id === vista)?.ruta ?? '';
 
   return (
-    <MarcoMovil>
+    <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
       <iframe
         ref={ref}
         src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
@@ -171,6 +175,6 @@ export function HomePreview({
         onLoad={enviar}
         className="w-full h-full border-0"
       />
-    </MarcoMovil>
+    </MarcoDispositivo>
   );
 }
