@@ -52,9 +52,9 @@
 -- `integracion_credenciales` y `reconciliaciones_pos` exactamente así— y NO un
 -- olvido: que nadie lo reabra como si faltara una policy.
 --
--- (De paso desaparece el hallazgo `auth_rls_initplan` que arrastraba: usaba
--- `current_studio_id()` sin envolver en `(select ...)`, reevaluándose por fila.
--- Ya no aplica al no quedar política.)
+-- (Usaba `current_studio_id()` sin envolver en `(select ...)`, así que se
+-- reevaluaba por fila en vez de una vez por consulta. Al no quedar política, deja
+-- de aplicar.)
 
 drop policy if exists delivery_select on public.notification_delivery;
 
@@ -82,8 +82,19 @@ drop policy if exists delivery_select on public.notification_delivery;
 -- `template_select` se queda: leer plantillas del propio estudio + las globales
 -- es inofensivo y es lo que necesitaría cualquier render futuro. Se REAFIRMA
 -- envuelta en `(select ...)` porque la 0092 la escribió con
--- `current_studio_id()` a pelo y la 0137 no la incluyó en su barrido de
--- `auth_rls_initplan` — reevaluándose una vez por fila.
+-- `current_studio_id()` a pelo y la 0137 la dejó fuera de su barrido: envuelta,
+-- la función STABLE se evalúa como InitPlan una vez por consulta en vez de una
+-- vez por fila.
+--
+-- ⚠️ OJO, esa mejora es real pero NO la reportaba ningún advisor. El lint
+-- `auth_rls_initplan` solo mira `auth.<fn>()` y `current_setting()` a pelo — NO
+-- ve una SECURITY DEFINER cualquiera como `current_studio_id()`. Comprobado en
+-- vivo: en todo el proyecto hay UN hallazgo `auth_rls_initplan` y es
+-- `mensajes_equipo`; ninguna tabla `notification*` figuró ahí, ni antes ni
+-- después de esta migración. Una versión anterior de este comentario afirmaba
+-- que aquí "desaparecía un hallazgo" — era falso, y queda escrito para que nadie
+-- lo dé por bueno. (Además ese lint vive en `advisors/performance`, no en
+-- `security`.)
 --
 -- ⚠️ Y de paso queda corregido un error de recuento que puede volver a engañar
 -- a alguien: la 0137 dice "las 4 políticas de notificaciones que quedaban"
@@ -110,29 +121,23 @@ create policy template_select on public.notification_template
 -- recurrente de este repo (`CREATE OR REPLACE` con firma nueva → `EXECUTE` por
 -- defecto a `PUBLIC`). No hace falta re-endurecer grants de RPC.
 
--- ── PENDIENTE DE VERIFICAR EN VIVO ────────────────────────────────────────────
--- Esta migración se escribió SIN acceso a producción (la sesión no tenía el MCP
--- de Supabase conectado). Todo lo afirmado arriba sobre el CÓDIGO está
--- verificado por grep; lo que falta comprobar antes o justo después de aplicar:
---   1. `pg_policies` sobre las dos tablas: que `delivery_select` y
---      `template_write` existan con la forma de la 0092 y que no las haya
---      modificado ya otra migración posterior.
---   2. `get_advisors` de tipo `security` tras aplicar: que no queden hallazgos
---      `auth_rls_initplan` apuntando a estas tablas. OJO: aparecerá uno NUEVO,
---      `rls_enabled_no_policy` sobre `notification_delivery` — es ESPERADO y
---      correcto (mismo INFO que ya arrastran `integracion_credenciales` y
---      `reconciliaciones_pos`, ver arriba). No reportarlo como regresión.
---   3. Que `authenticated` ve efectivamente 0 filas de `notification_delivery`
---      y no puede escribir en `notification_template` (prueba en vivo con
---      `set role` + `ROLLBACK`, patrón habitual del repo).
---   4. Que `20260805195208` está sellada de verdad en `list_migrations`,
---      cruzando POR NOMBRE y no por número — de ello depende la premisa
---      "`notification` ya está cerrada por destinatario" que se usa arriba para
---      calibrar la severidad de `delivery_select` como BAJA.
---   5. Renombrar ESTE FICHERO a la versión con la que `apply_migration` lo
---      selle: el timestamp de aplicación diverge del de fichero en este repo, y
---      dejarlos divergidos hace que un `supabase db push` desde limpio lo
---      reaplique con OTRO timestamp.
+-- ── VERIFICADO EN VIVO CONTRA PRODUCCIÓN ──────────────────────────────────────
+-- Aplicada 2026-08-05, sellada con la MISMA versión que el fichero
+-- (`20260805195400`), así que aquí NO hay divergencia fichero/BD que reconciliar
+-- — la trampa de timestamps de este repo solo aparece con `apply_migration`, que
+-- sella con la hora de aplicar; aplicando el SQL tú eliges la versión y lo
+-- correcto es usar la del fichero.
+--
+--   · `pg_policies`: `delivery_select` y `template_write` ya no existen;
+--     `notification_delivery` se queda sin ninguna política y `template_select`
+--     sigue en pie sobre `authenticated`.
+--   · Con una INSTRUCTORA real de `studio-1`: `notification_delivery` pasó de
+--     62 filas visibles a 0, e `insert` en `notification_template` devuelve
+--     `42501`. Es la comprobación que importa — la RLS es la cerradura real.
+--   · `advisors/security`: el INFO `rls_enabled_no_policy` sobre
+--     `notification_delivery` salió como se esperaba (INFO 11→12, **WARN clavado
+--     en 39** = sin regresión). En prod hay ya 12 tablas en ese estado, no dos:
+--     es de lo más normal aquí, no una rareza de esta migración.
 --
 -- ORDEN DE MERGE — resuelto, se deja escrito por si alguien lo replantea.
 -- Esta migración da por hecho que `notification_select` ya está cerrada por
