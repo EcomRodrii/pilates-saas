@@ -89,6 +89,14 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
 // app/api/notifications/route.ts PATCH, ya filtra bien con service-role), pero
 // dejarlas así era una trampa para el próximo que las reutilizara confiando en
 // el comentario. Se exige userId y se filtra explícitamente.
+//
+// ⚠️ Y ahora `recipient_user_id` a secas tampoco basta, por lo que aprendió el
+// PATCH de esa misma ruta: una persona puede ser staff Y socia del mismo estudio
+// con la misma cuenta (en prod hay una), así que estas cuatro tocan hoy avisos
+// de ambas superficies a la vez — que es justo lo que `lib/notifications/
+// ambito.ts` vino a separar. Siguen sin llamador, pero siguen exportadas en
+// `NotificationEngine`: quien las enchufe tiene que pasarles también el ámbito
+// (`filtroDeAmbito`), o reabre el bug de aislamiento por el camino de al lado.
 
 export async function marcarLeida(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
   await supa.from('notification').update({ read_at: new Date().toISOString() })
