@@ -47,13 +47,9 @@ export async function GET(req: NextRequest) {
         });
         alertas++;
       }
-    }
-
-    // Fila 18: mismo cron semanal, evalúa retención de las bajas con cartera
-    // congelada que ya llevan las 6 semanas de margen.
-    for (const { studioId } of resultados) {
-      await evaluarRetencionTrasBajas(admin, studioId).catch(e =>
-        Sentry.captureException(e));
+      // Fila 18: mismo cron semanal, evalúa retención de las bajas con
+      // cartera congelada que ya llevan las 6 semanas de margen.
+      await evaluarRetencionTrasBajas(admin, studioId).catch(e => Sentry.captureException(e));
     }
 
     return NextResponse.json({ ok: true, estudios: resultados.length, alertasCreadas: alertas });

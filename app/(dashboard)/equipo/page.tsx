@@ -130,6 +130,7 @@ export default function EquipoPage() {
   const [invitando, setInvitando] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmDel, setConfirmDel] = useState<Instructor | null>(null);
+  const [eliminando, setEliminando] = useState(false);
   const [enlace, setEnlace] = useState<
     { instructor: MiembroCompleto; scope: EnlaceScope; url: string | null; loading: boolean; error: string | null; copiado: boolean } | null
   >(null);
@@ -723,7 +724,7 @@ export default function EquipoPage() {
       <HorasDialog instructor={verHoras} sesiones={sesiones} tiposClase={tiposClase} onClose={() => setVerHoras(null)} />
       <AusenciasDialog instructor={verAusencias} onClose={() => setVerAusencias(null)} />
 
-      <Dialog open={confirmDel !== null} onOpenChange={open => !open && setConfirmDel(null)}>
+      <Dialog open={confirmDel !== null} onOpenChange={open => !open && !eliminando && setConfirmDel(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Eliminar miembro</DialogTitle>
@@ -745,14 +746,16 @@ export default function EquipoPage() {
             );
           })()}
           <div className="flex justify-end gap-2 pt-4">
-            <button onClick={() => setConfirmDel(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
+            <button onClick={() => setConfirmDel(null)} disabled={eliminando} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-40">Cancelar</button>
             <button onClick={async () => {
-              if (!confirmDel) return;
+              if (!confirmDel || eliminando) return;
+              setEliminando(true);
               const res = await deleteInstructor(confirmDel.id);
+              setEliminando(false);
               setConfirmDel(null);
               if (!res.ok) showToast(res.error);
-            }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600">
-              <X size={14} /> Eliminar
+            }} disabled={eliminando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white text-[13px] font-bold hover:bg-red-600 disabled:opacity-40">
+              {eliminando ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} Eliminar
             </button>
           </div>
         </DialogContent>
