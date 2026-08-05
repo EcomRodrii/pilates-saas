@@ -10,6 +10,8 @@ import { useStudio } from '@/lib/studio-context';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
+import { TourProvider } from '@/lib/tour-context';
+import { Spotlight } from '@/components/tour/spotlight';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { estadoBilling } from '@/lib/api-client';
@@ -153,16 +155,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <PanelPrivacyProvider>
       <PanelThemeProvider className="min-h-screen bg-background">
-        <Sidebar />
-        {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
-            idéntico salvo por los datos: esto es lo único que confirma el salto. */}
-        <AvisoCambioDeSede />
-        <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
-          <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
-            <Topbar />
-            {cargandoDatos ? <PanelSkeleton /> : children}
-          </div>
-        </main>
+        <TourProvider>
+          <Sidebar />
+          {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
+              idéntico salvo por los datos: esto es lo único que confirma el salto. */}
+          <AvisoCambioDeSede />
+          {/* Montado una vez, fuera del árbol de cada página — solo lee el
+              estado del tour y localiza el data-tour="..." real de la ruta
+              actual (ver lib/tour-pasos.ts). */}
+          <Spotlight />
+          <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
+            <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
+              <Topbar />
+              {cargandoDatos ? <PanelSkeleton /> : children}
+            </div>
+          </main>
+        </TourProvider>
       </PanelThemeProvider>
     </PanelPrivacyProvider>
   );

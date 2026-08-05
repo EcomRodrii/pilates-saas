@@ -573,7 +573,7 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div className="max-w-4xl">
+    <div data-tour="automatizaciones-vista" className="max-w-4xl">
       <MorningBriefing logs={automationLogs} />
 
       {/* Pending admin actions */}

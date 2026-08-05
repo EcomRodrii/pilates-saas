@@ -447,7 +447,7 @@ export default function Informes() {
   const LABEL_SKIP = period === 'month' ? 4 : 1;
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
+    <div data-tour="informes-vista" className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
 
       <PageHeader
         className="pt-2"

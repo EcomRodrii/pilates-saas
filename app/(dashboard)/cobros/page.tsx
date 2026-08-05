@@ -59,7 +59,7 @@ export default function Cobros() {
   }
 
   return (
-    <div className="space-y-5">
+    <div data-tour="cobros-vista" className="space-y-5">
       <PageHeader
         title="Cobros"
         description="Lo que está pendiente, las facturas emitidas y todo el dinero que ha entrado."

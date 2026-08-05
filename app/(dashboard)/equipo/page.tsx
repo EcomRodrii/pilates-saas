@@ -390,7 +390,7 @@ export default function EquipoPage() {
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
 
   return (
-    <div className="space-y-5">
+    <div data-tour="equipo-vista" className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"

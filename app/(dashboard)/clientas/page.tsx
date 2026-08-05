@@ -584,7 +584,7 @@ export default function Socios() {
   ];
 
   return (
-    <div className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div data-tour="clientas-lista" className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {errorFila && (
         <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
