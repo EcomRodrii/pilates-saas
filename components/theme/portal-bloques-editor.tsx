@@ -32,6 +32,9 @@ import {
 } from '@/lib/portal-home-bloques';
 import { CamposForm } from '@/components/theme/inspector/campos-form';
 import { uid } from '@/lib/utils';
+import {
+  crearHistorial, registrar, deshacer, rehacer, puedeDeshacer, puedeRehacer,
+} from '@/lib/theme/editor-historial';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
 // Constructor de bloques tipo Shopify Sections para el portal de clientas
@@ -67,7 +70,7 @@ export function labelDe(b: BloqueHome): string {
 // (REGISTRO_BLOQUES → `campos`) a través del Inspector genérico. Antes esto
 // eran siete componentes de formulario más una cadena de siete `if`, con la
 // forma de cada bloque duplicada respecto al tipo, al zod y al render.
-function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: BloqueHome) => void }) {
+function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: BloqueHome, campoId?: string) => void }) {
   if (bloque.kind === 'sistema') return null;
   const def = getDefinicionBloque(bloque.kind);
   if (!def) return null;
@@ -79,7 +82,7 @@ function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: Bl
       // encima, igual que antes: dentro de la lista el marcador de cada
       // casilla ya dice qué es, y un "Preguntas" suelto solo añadía ruido.
       etiquetaListaSinTitulo
-      onChange={(config) => onChange({ ...bloque, config } as BloqueHome)}
+      onChange={(config, campoId) => onChange({ ...bloque, config } as BloqueHome, campoId)}
     />
   );
 }
@@ -93,7 +96,7 @@ function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: Bl
 // defecto". Se le pasa al Inspector el objeto guardado tal cual, y cada
 // control enseña su `porDefecto` como opción marcada sin escribirla — que es
 // exactamente lo que hacía el `?? 'redondeada'` de antes.
-function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; onChange: (b: BloqueHome) => void }) {
+function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; onChange: (b: BloqueHome, campoId?: string) => void }) {
   return (
     <div className="space-y-3 border-t border-border pt-3 mt-3">
       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Estilo de esta sección</p>
@@ -101,7 +104,7 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
       <CamposForm
         campos={CAMPOS_ESTILO}
         valores={(bloque.estilo ?? {}) as Record<string, unknown>}
-        onChange={(estilo) => onChange({ ...bloque, estilo: estilo as EstiloBloque })}
+        onChange={(estilo, campoId) => onChange({ ...bloque, estilo: estilo as EstiloBloque }, `estilo:${campoId}`)}
       />
     </div>
   );
@@ -152,7 +155,13 @@ function Fila({
 // componentes ya tienen como prop.
 export function useBloquesEditor() {
   const { rol } = usePermisos();
-  const [bloquesPorPantalla, setBloquesPorPantalla] = useState<Record<PantallaId, BloqueHome[]>>(DEFAULT_BLOQUES_POR_PANTALLA);
+  // El estado de las tres pantallas vive DENTRO de un historial. Todas las
+  // mutaciones pasan por `setBloques`, así que hay un único punto donde
+  // registrar un paso — por eso aquí no hace falta el `ref` de "estoy
+  // aplicando un undo" que haría falta si el historial observara varios
+  // hooks separados: deshacer no dispara ningún setter, cambia `presente`.
+  const [hist, setHist] = useState(() => crearHistorial(DEFAULT_BLOQUES_POR_PANTALLA));
+  const bloquesPorPantalla = hist.presente;
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
@@ -163,13 +172,17 @@ export function useBloquesEditor() {
     Promise.all(PANTALLA_IDS.map((p) => fetchBloquesBorrador(p).catch(() => null)))
       .then((resultados) => {
         if (!vivo) return;
-        setBloquesPorPantalla((prev) => {
-          const siguiente = { ...prev };
+        // La carga inicial NO es una edición: reemplaza la base del historial
+        // en vez de apilar un paso. Si apilara, la primera pulsación de
+        // deshacer devolvería a los bloques de fábrica en vez de a lo que la
+        // propietaria tenía guardado.
+        setHist((h) => {
+          const siguiente = { ...h.presente };
           PANTALLA_IDS.forEach((p, i) => {
             const r = resultados[i];
             if (r && r.length > 0) siguiente[p] = r;
           });
-          return siguiente;
+          return crearHistorial(siguiente);
         });
       })
       .finally(() => { if (vivo) setEstado('listo'); });
@@ -179,8 +192,14 @@ export function useBloquesEditor() {
   function bloquesDe(pantalla: PantallaId) {
     return bloquesPorPantalla[pantalla];
   }
-  function setBloques(pantalla: PantallaId, actualizar: (prev: BloqueHome[]) => BloqueHome[]) {
-    setBloquesPorPantalla((prev) => ({ ...prev, [pantalla]: actualizar(prev[pantalla]) }));
+  /**
+   * `clave` identifica el campo que se está tocando, para que escribir un
+   * título sea UN paso y no una letra por pulsación. Las acciones discretas
+   * —reordenar, ocultar, añadir, eliminar— la dejan vacía a propósito: cada
+   * una es su propio paso aunque vayan seguidas.
+   */
+  function setBloques(pantalla: PantallaId, actualizar: (prev: BloqueHome[]) => BloqueHome[], clave?: string) {
+    setHist((h) => registrar(h, { ...h.presente, [pantalla]: actualizar(h.presente[pantalla]) }, { clave }));
   }
 
   function onDragEnd(pantalla: PantallaId, e: DragEndEvent) {
@@ -201,8 +220,12 @@ export function useBloquesEditor() {
     setAviso(null);
   }
 
-  function cambiar(pantalla: PantallaId, actualizado: BloqueHome) {
-    setBloques(pantalla, (prev) => prev.map((b) => (b.id === actualizado.id ? actualizado : b)));
+  function cambiar(pantalla: PantallaId, actualizado: BloqueHome, campoId?: string) {
+    setBloques(
+      pantalla,
+      (prev) => prev.map((b) => (b.id === actualizado.id ? actualizado : b)),
+      campoId ? `${pantalla}:${actualizado.id}:${campoId}` : undefined,
+    );
     setAviso(null);
   }
 
@@ -250,14 +273,25 @@ export function useBloquesEditor() {
   // "Deshacer" del editor a pantalla completa: relee el borrador de ESTA
   // pantalla desde el servidor, descartando ediciones locales — distinto de
   // `restaurar()`, que vacía a los bloques `sistema` de fábrica.
-  function recargar(pantalla: PantallaId) {
-    fetchBloquesBorrador(pantalla).then((r) => setBloques(pantalla, () => r)).catch(() => {});
+  // Descartar TODO lo editado en esta pantalla y releer del servidor. No es un
+  // paso del historial: es tirar el historial. Por eso reemplaza la base.
+  function descartarCambios(pantalla: PantallaId) {
+    fetchBloquesBorrador(pantalla)
+      .then((r) => setHist((h) => crearHistorial({ ...h.presente, [pantalla]: r })))
+      .catch(() => {});
     setAviso(null);
   }
 
   return {
     rol, bloquesPorPantalla, bloquesDe, estado, guardando, publicando, aviso,
-    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar, recargar,
+    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar,
+    descartarCambios,
+    // Deshacer/rehacer de verdad, sobre las tres pantallas a la vez: "lo
+    // último que hice" no entiende de en qué pantalla estaba.
+    deshacer: () => setHist(deshacer),
+    rehacer: () => setHist(rehacer),
+    puedeDeshacer: puedeDeshacer(hist),
+    puedeRehacer: puedeRehacer(hist),
   };
 }
 
@@ -350,8 +384,8 @@ export function BloquesConfigPanel({
   if (bloque.kind === 'sistema') return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} no tiene ajustes propios — solo se puede reordenar u ocultar.</p>;
   return (
     <div>
-      <ConfigForm bloque={bloque} onChange={(b) => hook.cambiar(pantalla, b)} />
-      <EstiloForm bloque={bloque} onChange={(b) => hook.cambiar(pantalla, b)} />
+      <ConfigForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
+      <EstiloForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
     </div>
   );
 }
