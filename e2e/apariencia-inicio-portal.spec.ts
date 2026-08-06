@@ -205,6 +205,50 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Texto bajo los iconos')).toBeVisible();
   });
 
+  // Antes el botón lo confesaba en su propio tooltip: "los ajustes del tema
+  // todavía no entran". Cambiar un color no se podía deshacer.
+  test('deshacer alcanza también a los ajustes del tema, no solo a los bloques', async ({ page }) => {
+    await montar(page);
+    await page.getByRole('button', { name: 'Esquinas' }).click();
+
+    const rectas = page.getByRole('button', { name: 'Recto', exact: true });
+    await expect(rectas).toBeVisible({ timeout: 30_000 });
+    const antes = await rectas.getAttribute('aria-pressed');
+
+    await rectas.click();
+    await expect(rectas).toHaveAttribute('aria-pressed', 'true');
+
+    await page.getByRole('button', { name: 'Deshacer' }).click();
+    await expect(rectas).toHaveAttribute('aria-pressed', antes ?? 'false');
+  });
+
+  // Con DOS historiales y un solo botón, lo que importa es que deshaga lo
+  // ÚLTIMO — no lo último de una pila elegida de antemano.
+  test('deshacer va a la pila del paso más reciente, aunque las dos tengan pasos', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
+
+    // 1º un cambio en BLOQUES.
+    await page.getByRole('button', { name: 'Ocultar Invita a una amiga' }).click();
+    await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
+
+    // 2º un cambio en AJUSTES, después.
+    await page.getByRole('button', { name: 'Esquinas' }).click();
+    const rectas = page.getByRole('button', { name: 'Recto', exact: true });
+    await rectas.click();
+    await expect(rectas).toHaveAttribute('aria-pressed', 'true');
+
+    // Deshacer tiene que quitar lo del TEMA (lo último), dejando el bloque
+    // oculto como estaba. Elegir la pila equivocada aquí es el bug que
+    // `pilaADeshacer` existe para evitar.
+    await page.getByRole('button', { name: 'Deshacer' }).click();
+    await expect(rectas).toHaveAttribute('aria-pressed', 'false');
+    // Y el cambio ANTERIOR (el del bloque) sigue en pie: deshacer quitó lo
+    // último, no lo primero. Se comprueba desde el rail, que no ha cambiado
+    // de pantalla al entrar en Ajustes.
+    await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
+  });
+
   // Las esquinas por pieza usan `numeroHeredado`: la casilla VACÍA es un
   // estado real ("sigue el tema"), no un cero. Si se pintara pre-rellenada,
   // guardar fijaría ese número donde antes había herencia.

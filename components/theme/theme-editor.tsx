@@ -21,6 +21,7 @@ import {
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
+import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
 import { CamposForm } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
 import {
@@ -119,7 +120,29 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 export function useThemeEditor() {
   const { studio, updateStudio } = useStudio();
   const { rol } = usePermisos();
-  const [draft, setDraft] = useState<ThemeConfig>(DEFAULT_THEME);
+  // El borrador del tema vive DENTRO de un historial, igual que los bloques.
+  // Antes el botón "Deshacer" de la barra decía en su propio tooltip que "los
+  // ajustes del tema todavía no entran": cambiar un color no se podía
+  // deshacer, y quien probaba cinco paletas seguidas no tenía vuelta atrás.
+  const [hist, setHist] = useState(() => crearHistorial(DEFAULT_THEME));
+  const draft = hist.presente;
+  /**
+   * Todas las ediciones del tema pasan por aquí, así que hay UN solo punto
+   * donde registrar un paso. `clave` funde pulsaciones seguidas sobre el mismo
+   * campo: teclear un hex es un paso, no seis.
+   */
+  function setDraft(f: (d: ThemeConfig) => ThemeConfig, clave?: string) {
+    setHist((h) => registrar(h, f(h.presente), { clave }));
+  }
+  /**
+   * Reemplaza la BASE del historial en vez de apilar un paso. Para la carga
+   * inicial y para "restaurar": ninguna de las dos es una edición, y apilarlas
+   * haría que el primer deshacer devolviera al tema de fábrica en vez de a lo
+   * que la propietaria tenía. Mismo criterio que `useBloquesEditor`.
+   */
+  function rebasar(t: ThemeConfig) {
+    setHist(crearHistorial(t));
+  }
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
@@ -130,7 +153,7 @@ export function useThemeEditor() {
     let vivo = true;
     fetchThemeBorrador()
       .then((t) => {
-        if (vivo) setDraft(t);
+        if (vivo) rebasar(t);
       })
       .catch(() => {})
       .finally(() => {
@@ -153,7 +176,8 @@ export function useThemeEditor() {
   // deriva que permitirá en el futuro avisar de actualizaciones sin pisar lo
   // que el estudio ya tocó a mano.
   function setCampo<K extends keyof ThemeConfig>(key: K, value: ThemeConfig[K]) {
-    setDraft((d) => ({ ...d, [key]: value, themeCustomized: true }));
+    // La clave es el campo: teclear un hex letra a letra es UN paso.
+    setDraft((d) => ({ ...d, [key]: value, themeCustomized: true }), String(key));
     setAviso(null);
   }
 
@@ -299,7 +323,7 @@ export function useThemeEditor() {
   }
 
   function restaurar() {
-    setDraft(DEFAULT_THEME);
+    rebasar(DEFAULT_THEME);
     setAviso(null);
   }
 
@@ -308,7 +332,10 @@ export function useThemeEditor() {
   // `restaurar()`, que resetea al tema del SISTEMA (DEFAULT_THEME), no al
   // último guardado.
   function recargar() {
-    fetchThemeBorrador().then(setDraft).catch(() => {});
+    // `rebasar`, no `setDraft`: releer el servidor descarta las ediciones
+    // locales, así que es una base nueva. Apilarlo como paso dejaría un
+    // "deshacer" que resucita lo que la propietaria acaba de descartar.
+    fetchThemeBorrador().then(rebasar).catch(() => {});
     setAviso(null);
   }
 
@@ -317,6 +344,15 @@ export function useThemeEditor() {
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
     handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar, recargar,
+    // Deshacer/rehacer de los AJUSTES. `instanteUltimo` es lo que permite a la
+    // barra superior decidir qué pila deshacer cuando hay dos (bloques y
+    // ajustes): la del paso más reciente, que es lo que la propietaria
+    // entiende por "lo último que hice".
+    deshacer: () => setHist(deshacerHist),
+    rehacer: () => setHist(rehacerHist),
+    puedeDeshacer: hist.pasado.length > 0,
+    puedeRehacer: hist.futuro.length > 0,
+    instanteUltimo: hist.instanteUltima,
   };
 }
 

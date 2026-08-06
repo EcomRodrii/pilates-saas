@@ -46,6 +46,7 @@ import {
 } from '@/lib/theme/editor-navegacion';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
+import { pilaADeshacer, pilaARehacer } from '@/lib/theme/editor-historial';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
@@ -230,6 +231,19 @@ export function ThemeEditorFullscreen() {
     }
   }
 
+  // Dos hooks, dos historiales, UN par de botones. La propietaria no sabe (ni
+  // tiene por qué) que los bloques y los ajustes viven en sitios distintos:
+  // pulsa deshacer y espera que se deshaga lo último que hizo, sea lo que sea.
+  // El desempate por instante vive en `pilaADeshacer`, con sus tests.
+  const PILAS = [
+    { id: 'bloques', puedeDeshacer: bloquesHook.puedeDeshacer, puedeRehacer: bloquesHook.puedeRehacer, instante: bloquesHook.instanteUltimo },
+    { id: 'ajustes', puedeDeshacer: ajustesHook.puedeDeshacer, puedeRehacer: ajustesHook.puedeRehacer, instante: ajustesHook.instanteUltimo },
+  ];
+  const aDeshacer = pilaADeshacer(PILAS);
+  const aRehacer = pilaARehacer(PILAS);
+  const deshacerLoUltimo = () => (aDeshacer?.id === 'ajustes' ? ajustesHook.deshacer() : bloquesHook.deshacer());
+  const rehacerLoUltimo = () => (aRehacer?.id === 'ajustes' ? ajustesHook.rehacer() : bloquesHook.rehacer());
+
   const cambiosTema = temaPublicado ? contarCambios(ajustesHook.draft, temaPublicado) : 0;
   const bloquesIncompletos = PANTALLA_IDS.flatMap((p) =>
     bloquesHook.bloquesDe(p)
@@ -338,14 +352,14 @@ export function ThemeEditorFullscreen() {
           </div>
           <div className="flex items-center gap-0.5">
             <button
-              type="button" onClick={bloquesHook.deshacer} disabled={!bloquesHook.puedeDeshacer}
-              title="Deshacer (los ajustes del tema todavía no entran)"
+              type="button" onClick={deshacerLoUltimo} disabled={!aDeshacer}
+              title="Deshacer"
               aria-label="Deshacer" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
             >
               <Undo2 size={16} />
             </button>
             <button
-              type="button" onClick={bloquesHook.rehacer} disabled={!bloquesHook.puedeRehacer}
+              type="button" onClick={rehacerLoUltimo} disabled={!aRehacer}
               title="Rehacer" aria-label="Rehacer"
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
             >

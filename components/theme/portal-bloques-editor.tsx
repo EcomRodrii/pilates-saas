@@ -292,6 +292,9 @@ export function useBloquesEditor() {
     rehacer: () => setHist(rehacer),
     puedeDeshacer: puedeDeshacer(hist),
     puedeRehacer: puedeRehacer(hist),
+    // Para que la barra superior sepa cuál de las dos pilas (esta o la de los
+    // ajustes del tema) tiene el paso más reciente — ver `pilaADeshacer`.
+    instanteUltimo: hist.instanteUltima,
   };
 }
 

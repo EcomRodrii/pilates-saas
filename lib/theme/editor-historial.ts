@@ -106,3 +106,49 @@ export function rehacer<T>(h: Historial<T>): Historial<T> {
     instanteUltima: 0,
   };
 }
+
+// ── Dos pilas, un botón ─────────────────────────────────────────────────────
+
+/** Una pila candidata a deshacer/rehacer, vista desde la barra superior. */
+export interface PilaEditor {
+  id: string;
+  puedeDeshacer: boolean;
+  puedeRehacer: boolean;
+  /** `instanteUltima` de su historial. */
+  instante: number;
+}
+
+/**
+ * Cuál de las pilas deshacer.
+ *
+ * Los bloques y los ajustes del tema tienen historial propio —son hooks
+ * distintos, con estado distinto— pero la propietaria ve UN botón y espera que
+ * deshaga **lo último que hizo**, sin importar en qué panel lo hizo. Se elige
+ * la pila cuyo último paso es más reciente.
+ *
+ * ⚠️ No vale con "la que tenga pasos": si tocas un color y luego mueves un
+ * bloque, ambas tienen pasos, y deshacer la equivocada deja a la propietaria
+ * viendo cómo se deshace algo que hizo hace cinco minutos mientras lo último
+ * sigue ahí. El desempate por instante es la única forma de acertar sin
+ * fusionar el estado de los dos hooks.
+ *
+ * Devuelve `null` si ninguna puede deshacer — el botón va desactivado.
+ */
+export function pilaADeshacer(pilas: readonly PilaEditor[]): PilaEditor | null {
+  const conPasos = pilas.filter((p) => p.puedeDeshacer);
+  if (conPasos.length === 0) return null;
+  return conPasos.reduce((a, b) => (b.instante > a.instante ? b : a));
+}
+
+/**
+ * Cuál rehacer. Simétrico, pero con el instante al revés: rehacer va hacia
+ * adelante, así que la pila correcta es la que se deshizo **más recientemente**
+ * — que es la de instante mayor igual, porque `deshacer` no toca
+ * `instanteUltima`. Se mantiene como función propia para que el día que eso
+ * cambie no haya que descubrirlo en producción.
+ */
+export function pilaARehacer(pilas: readonly PilaEditor[]): PilaEditor | null {
+  const conFuturo = pilas.filter((p) => p.puedeRehacer);
+  if (conFuturo.length === 0) return null;
+  return conFuturo.reduce((a, b) => (b.instante > a.instante ? b : a));
+}
