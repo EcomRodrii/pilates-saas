@@ -21,6 +21,12 @@ import {
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
+import { CamposForm } from './inspector/campos-form';
+import type { CampoSchema } from '@/lib/theme/campos';
+import {
+  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO,
+  valoresFormaDesdeTema, escrituraDeCampoForma,
+} from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
 import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
@@ -47,6 +53,7 @@ export const AJUSTES_CATEGORIAS = [
   { id: 'esquinas', label: 'Esquinas' },
   { id: 'boton', label: 'Botón principal' },
   { id: 'tarjetas', label: 'Tarjetas' },
+  { id: 'forma-portal', label: 'Forma del portal' },
   { id: 'navegacion-portal', label: 'Navegación del portal' },
   { id: 'redes-sociales', label: 'Redes sociales' },
   { id: 'logo-favicon', label: 'Logo y favicon' },
@@ -313,6 +320,36 @@ export function useThemeEditor() {
   };
 }
 
+
+/**
+ * Puente entre el Inspector genérico y el editor de temas.
+ *
+ * Los campos de forma se DECLARAN (lib/theme/campos-forma.ts) y se pintan
+ * solos; lo único que hace falta aquí es traducir "se tocó este campo" al
+ * `setCampo(clave, valor)` del hook. Un eje de `variantes` no se puede
+ * escribir suelto —hay que reenviar el objeto entero— y esa regla vive en el
+ * módulo puro, con tests, no repartida por el JSX.
+ */
+function CamposDelTema({
+  campos, hook,
+}: {
+  campos: readonly CampoSchema[];
+  hook: ReturnType<typeof useThemeEditor>;
+}) {
+  const { draft, setCampo } = hook;
+  return (
+    <CamposForm
+      campos={campos}
+      valores={valoresFormaDesdeTema(draft)}
+      onChange={(_valores, campoId) => {
+        const w = escrituraDeCampoForma(draft, campoId, _valores[campoId]);
+        if (!w) return;
+        setCampo(w.clave as keyof ThemeConfig, w.valor as ThemeConfig[keyof ThemeConfig]);
+      }}
+    />
+  );
+}
+
 export function AjustesCategoriaPanel({
   hook, categoriaId,
 }: {
@@ -356,6 +393,7 @@ export function AjustesCategoriaPanel({
     return (
       <div className="space-y-3">
         <ColorField label="Color de marca" value={draft.primary} onChange={(v) => hook.setCampo('primary', v)} />
+        <CamposDelTema campos={CAMPOS_ACENTO} hook={hook} />
         <button
           onClick={() => aplicarPaleta(draft.primary)}
           className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border"
@@ -446,6 +484,18 @@ export function AjustesCategoriaPanel({
     );
   }
 
+  if (categoriaId === 'forma-portal') {
+    return (
+      <div className="space-y-3">
+        <p className="text-[11.5px] text-muted-foreground">
+          La FORMA de cada pieza del portal, no su color. Antes esto solo se
+          podía cambiar instalando un tema entero de la biblioteca.
+        </p>
+        <CamposDelTema campos={CAMPOS_FORMA_PORTAL} hook={hook} />
+      </div>
+    );
+  }
+
   if (categoriaId === 'navegacion-portal') {
     return (
       <div className="space-y-3">
@@ -491,6 +541,10 @@ export function AjustesCategoriaPanel({
               </div>
             );
           })}
+        </div>
+
+        <div className="pt-1 border-t border-border">
+          <CamposDelTema campos={CAMPOS_BARRA_PORTAL} hook={hook} />
         </div>
 
         {/* Preview en vivo (sin iframe: el widget de verdad, con las CSS

@@ -71,6 +71,10 @@ function FilaOpciones({
             key={op.id}
             type="button"
             onClick={() => onElegir(op.id)}
+            // Sin `aria-pressed`, cuál está elegida se transmite SOLO por
+            // color: un lector de pantalla lee tres botones idénticos y quien
+            // no distinga el contraste tampoco lo ve.
+            aria-pressed={activa === op.id}
             className={`flex-1 text-[12px] font-semibold py-1.5 px-2 rounded-lg border transition-colors ${
               activa === op.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
             }`}
