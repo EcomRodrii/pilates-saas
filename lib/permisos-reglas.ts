@@ -207,6 +207,7 @@ export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
   return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
 }
 
+
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.
   // Esto los saca a la vez del menú, del buscador ⌘K y hace que el guardia del

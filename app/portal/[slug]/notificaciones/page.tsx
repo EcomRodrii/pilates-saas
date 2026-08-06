@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useModo } from '@/lib/portal-modo';
+import { useStudio } from '@/lib/studio-context';
 import { portalAuthHeader } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion, type NotifItem } from '@/lib/notifications/client';
 import { resumenAvisos, selloTemporal } from '@/lib/avisos-portal';
@@ -36,14 +37,26 @@ export default function AvisosPage() {
   const router = useRouter();
   const { slug } = useParams<{ slug: string }>();
   const { t, noche } = useModo();
+  const { studio } = useStudio();
   const [items, setItems] = useState<NotifItem[]>([]);
   const [cargando, setCargando] = useState(true);
 
+  // El estudio hace falta para acotar la bandeja a ESTE portal y al rol SOCIA
+  // (lib/notifications/ambito.ts). Llega del contexto, que lo recibe ya
+  // resuelto en servidor — pero no en el primer render: hasta entonces no se
+  // pide nada y `cargando` sigue true, para no pintar "no hay nada" con la
+  // bandeja llena ni disparar el read-all de más abajo antes de tiempo.
+  const studioId = studio?.id;
+
   const cargar = useCallback(async () => {
-    const { items } = await fetchNotificaciones(portalAuthHeader);
+    // Si el contexto no llega a resolver el estudio (su fetch tiene una rama de
+    // error que deja `studio` en null para siempre), esto se quedaría en "Un
+    // momento…" eterno. Mejor la bandeja vacía, que al menos dice algo.
+    if (!studioId) { setCargando(false); return; }
+    const { items } = await fetchNotificaciones(portalAuthHeader, { ambito: 'socia', studioId });
     setItems(items);
     setCargando(false);
-  }, []);
+  }, [studioId]);
 
   // setState tras el await (asíncrono), no en cascada — falso positivo del lint.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -53,15 +66,15 @@ export default function AvisosPage() {
   // campana). El estado local NO se toca a propósito: los puntos siguen ahí
   // mientras la pantalla está abierta, que es justo lo que se vino a mirar.
   useEffect(() => {
-    if (!cargando && items.some(i => i.readAt == null)) {
-      void accionNotificacion(portalAuthHeader, 'read-all');
+    if (!cargando && studioId && items.some(i => i.readAt == null)) {
+      void accionNotificacion(portalAuthHeader, { ambito: 'socia', studioId }, 'read-all');
     }
-  }, [cargando, items]);
+  }, [cargando, items, studioId]);
 
   const sinLeer = useMemo(() => items.filter(i => i.readAt == null).length, [items]);
 
   async function abrir(n: NotifItem) {
-    if (n.readAt == null) await accionNotificacion(portalAuthHeader, 'read', n.id);
+    if (n.readAt == null && studioId) await accionNotificacion(portalAuthHeader, { ambito: 'socia', studioId }, 'read', n.id);
     if (n.deepLink) router.push(n.deepLink);
   }
 

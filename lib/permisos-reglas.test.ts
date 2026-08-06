@@ -290,3 +290,14 @@ test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instruct
   assert.equal(puedeGestionarPortalHome('RECEPCION'), false);
   assert.equal(puedeGestionarPortalHome('INSTRUCTOR'), false);
 });
+
+// ── Notification Center: qué avisos del estudio puede LEER cada rol ─────────
+//
+// `/api/notifications/admin` solo comprobaba que hubiera sesión de staff, y esa
+// pantalla enseña el título y el CUERPO de cada aviso: una instructora leía los
+// de todas las socias y los de la propietaria. Mismo patrón que #561 (RLS bien,
+// hueco de API encima).
+
+
+
+

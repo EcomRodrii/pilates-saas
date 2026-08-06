@@ -8,7 +8,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, Check, X, Inbox } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
-import { fetchNotificaciones, accionNotificacion, type NotifItem } from '@/lib/notifications/client';
+import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
+
+// Esta campana es la del PANEL: enseña lo que NO es de socia, y de todas las
+// sedes de la cadena (un pago fallido de la sede B tiene que verse aunque estés
+// mirando la A). Sin studioId a propósito — ver lib/notifications/ambito.ts.
+const AMBITO_STAFF: AmbitoNotif = { ambito: 'staff' };
 import { cn } from '@/lib/utils';
 
 const ACENTO: Record<string, string> = {
@@ -33,7 +38,7 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
-    const { items, unread } = await fetchNotificaciones(authHeader);
+    const { items, unread } = await fetchNotificaciones(authHeader, AMBITO_STAFF);
     setItems(items); setUnread(unread);
   }, []);
 
@@ -54,7 +59,7 @@ export function NotificationBell() {
     if (n.readAt == null) {
       setItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x));
       setUnread(u => Math.max(0, u - 1));
-      await accionNotificacion(authHeader, 'read', n.id);
+      await accionNotificacion(authHeader, AMBITO_STAFF, 'read', n.id);
     }
     if (n.deepLink) { setAbierto(false); router.push(n.deepLink); }
   }
@@ -63,13 +68,13 @@ export function NotificationBell() {
     e.stopPropagation();
     setItems(prev => prev.filter(x => x.id !== n.id));
     if (n.readAt == null) setUnread(u => Math.max(0, u - 1));
-    await accionNotificacion(authHeader, 'archive', n.id);
+    await accionNotificacion(authHeader, AMBITO_STAFF, 'archive', n.id);
   }
 
   async function marcarTodas() {
     setItems(prev => prev.map(x => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })));
     setUnread(0);
-    await accionNotificacion(authHeader, 'read-all');
+    await accionNotificacion(authHeader, AMBITO_STAFF, 'read-all');
   }
 
   return (

@@ -200,17 +200,24 @@ export function accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nIns
   slug: string;
   proximas: number;
   totalAsistidas: number;
-  sinLeer: number;
+  /**
+   * `null` = todavía no se sabe (los avisos vienen del servidor y la respuesta
+   * no ha llegado, o falló). NO es lo mismo que 0: colapsarlo a 0 hacía que la
+   * fila afirmara «Al día» —en palabras, más rotundo que el numeral de la
+   * campana— sobre algo que aún no se ha comprobado.
+   */
+  sinLeer: number | null;
   nInstructoras: number;
 }): AccesoRapido[] {
   const plural = (n: number, sing: string, pl = `${sing}s`) => `${n} ${n === 1 ? sing : pl}`;
+  const hayNuevos = sinLeer !== null && sinLeer > 0;
   return [
     { etiqueta: 'Mis reservas', icono: 'CalendarDays', href: `/portal/${slug}/reservas`,
       valor: proximas > 0 ? plural(proximas, 'próxima') : 'Ninguna' },
     { etiqueta: 'Mi progreso', icono: 'Sparkles', href: `/portal/${slug}/progreso`,
       valor: plural(totalAsistidas, 'clase') },
     { etiqueta: 'Notificaciones', icono: 'Bell', href: `/portal/${slug}/notificaciones`,
-      valor: sinLeer > 0 ? plural(sinLeer, 'nueva') : 'Al día', punto: sinLeer > 0 },
+      valor: hayNuevos ? plural(sinLeer, 'nueva') : sinLeer === null ? '—' : 'Al día', punto: hayNuevos },
     { etiqueta: 'El equipo', icono: 'User', href: `/portal/${slug}/instructores`,
       valor: plural(nInstructoras, 'instructora') },
   ];

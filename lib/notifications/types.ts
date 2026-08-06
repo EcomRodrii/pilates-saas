@@ -5,8 +5,15 @@
 
 export type NotificationRole = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER' | 'SOCIA';
 
-export type NotificationCategory =
-  | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema' | 'decisiones';
+// Lista y tipo salen del MISMO sitio: quien necesite recorrer las categorías en
+// tiempo de ejecución lo hace sobre esta lista, y con una unión suelta al lado
+// de un array los dos se separan en cuanto alguien añade una categoría — justo
+// el fallo que se abre en silencio.
+export const CATEGORIAS_NOTIFICACION = [
+  'reservas', 'clases', 'sustituciones', 'pagos', 'marketing', 'sistema', 'decisiones',
+] as const;
+
+export type NotificationCategory = typeof CATEGORIAS_NOTIFICACION[number];
 
 export type NotificationPriority =
   | 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'SILENCIOSA';

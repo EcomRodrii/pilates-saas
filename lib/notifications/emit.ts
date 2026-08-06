@@ -3,7 +3,7 @@
 //
 // Azúcar para que los módulos de negocio publiquen eventos en UNA línea sin
 // preocuparse de reunir las variables de plantilla. Cada emisor reúne los datos
-// de display (clase, cuándo, socia, importe…) y llama a NotificationEngine.publish.
+// de display (clase, cuándo, socia, importe…) y llama a `publish` (engine.ts).
 // TODO best-effort: envuelto en try/catch; una notificación jamás rompe el negocio.
 //
 // (Optimización futura: sacar la reunión de variables del hilo del request. Para

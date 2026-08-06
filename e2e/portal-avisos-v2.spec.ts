@@ -42,7 +42,7 @@ async function conAvisosDeterministas(page: Page) {
       deepLink: null, category: 'general', priority: 'BAJA', eventType: 'estudio.aviso',
       resourceType: null, resourceId: null, readAt: haceHoras(60), createdAt: haceHoras(122) },
   ];
-  await page.route('**/api/notifications', route => route.fulfill({
+  await page.route('**/api/notifications*', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ items, unread: items.filter(a => a.readAt == null).length }),
   }));

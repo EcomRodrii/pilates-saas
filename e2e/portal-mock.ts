@@ -218,9 +218,27 @@ export async function montarPortal(page: Page, opciones: {
     }
     return json(route, { ok: true });
   });
-  await page.route('**/api/notifications', route => {
-    const items = sinAvisos ? [] : AVISOS_BASE;
-    return json(route, { items, unread: items.filter(a => a.readAt == null).length });
+  // Con estado, igual que `retoConteosVivos`: el contador de la campana del
+  // Inicio y el `read-all` que dispara la pantalla de Avisos al abrirse son
+  // dos peticiones distintas contra la MISMA bandeja. Con un mock estático el
+  // contador salía siempre igual y no se podía probar que baja — que es
+  // justamente el bug que tuvo esa campana (contaba por su cuenta y nunca
+  // bajaba).
+  const avisosVivos: { id: string; readAt: string | null }[] =
+    (sinAvisos ? [] : AVISOS_BASE).map(a => ({ ...a }));
+  await page.route('**/api/notifications*', route => {
+    const req = route.request();
+    if (req.method() === 'PATCH') {
+      const { action, id } = req.postDataJSON() as { action: string; id?: string };
+      const ahora = new Date().toISOString();
+      for (const a of avisosVivos) {
+        if (action === 'read-all' && a.readAt == null) a.readAt = ahora;
+        else if (action === 'read' && a.id === id) a.readAt = ahora;
+        else if (action === 'unread' && a.id === id) a.readAt = null;
+      }
+      return json(route, { ok: true });
+    }
+    return json(route, { items: avisosVivos, unread: avisosVivos.filter(a => a.readAt == null).length });
   });
   // El pase de acceso de Marta para su clase de dentro de 3 h.
   let pasePeticiones = 0;

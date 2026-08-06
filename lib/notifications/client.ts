@@ -21,8 +21,25 @@ export interface NotifItem {
 
 type Headers = () => Promise<Record<string, string>>;
 
-export async function fetchNotificaciones(getHeaders: Headers): Promise<{ items: NotifItem[]; unread: number }> {
-  const res = await fetch('/api/notifications', { headers: await getHeaders(), cache: 'no-store' });
+/**
+ * Qué subconjunto de SUS avisos pide quien llama. Obligatorio desde que se
+ * separaron las dos superficies: una misma persona puede ser staff y socia con
+ * la misma cuenta (ver `lib/notifications/ambito.ts`). El portal manda
+ * `{ambito: 'socia', studioId}`; el panel, `{ambito: 'staff'}`.
+ */
+export interface AmbitoNotif {
+  ambito: 'socia' | 'staff';
+  studioId?: string;
+}
+
+function queryDe({ ambito, studioId }: AmbitoNotif): string {
+  const p = new URLSearchParams({ ambito });
+  if (studioId) p.set('studioId', studioId);
+  return `?${p}`;
+}
+
+export async function fetchNotificaciones(getHeaders: Headers, scope: AmbitoNotif): Promise<{ items: NotifItem[]; unread: number }> {
+  const res = await fetch(`/api/notifications${queryDe(scope)}`, { headers: await getHeaders(), cache: 'no-store' });
   if (!res.ok) return { items: [], unread: 0 };
   // Un cuerpo sin `items` (proxy, respuesta recortada) dejaba la lista en
   // `undefined` y la pantalla se caía al recorrerla. Vacío no es lo mismo que
@@ -32,12 +49,14 @@ export async function fetchNotificaciones(getHeaders: Headers): Promise<{ items:
 }
 
 export async function accionNotificacion(
-  getHeaders: Headers, action: 'read' | 'unread' | 'read-all' | 'archive', id?: string,
+  getHeaders: Headers, scope: AmbitoNotif, action: 'read' | 'unread' | 'read-all' | 'archive', id?: string,
 ): Promise<void> {
   await fetch('/api/notifications', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...(await getHeaders()) },
-    body: JSON.stringify({ action, id }),
+    // El ámbito viaja también en las escrituras: sin él, el `read-all` de una
+    // superficie marcaba leído lo de la otra.
+    body: JSON.stringify({ action, id, ...scope }),
   });
 }
 
