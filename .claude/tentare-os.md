@@ -672,14 +672,24 @@ squash/renumeración antiguo, o por sesiones en paralelo). Se encontraron y
 corrigieron dos ficheros locales obsoletos: `20260731150000_socios_email_...`
 tenía un bug (índice sin excluir `borrado_en`) que nunca llegó a aplicarse
 porque otra sesión ya había aplicado la versión correcta bajo
-`20260730231442` — renombrado y corregido para que coincida. Quedan sin
-resolver `20260730109000_sesiones_reservas_solo_propias_instructor.sql` y
-`20260730110000_editar_serie_desde_restringe_instructor.sql`: ficheros
-locales que, si se aplicaran tal cual, REGRESARÍAN la seguridad (la política
-real en prod para `reservas_escritura_update`/`sesiones_escritura_insert` es
-más restrictiva que lo que estos ficheros crearían — evolucionada por
-migraciones posteriores ya aplicadas). No tocados a propósito por
-incertidumbre sobre su procedencia exacta — decisión pendiente de tomar.
+`20260730231442` — renombrado y corregido para que coincida.
+
+**RESUELTO (2026-08-06)**: la nota anterior daba por "sin resolver"
+`20260730109000_sesiones_reservas_solo_propias_instructor.sql` y
+`20260730110000_editar_serie_desde_restringe_instructor.sql` — pero esa nota
+quedó desfasada nada más escribirse: esos dos nombres de fichero **no
+existen en `main`** (`git show origin/main:supabase/migrations/<fichero>`
+falla con "existe en disco, pero no en origin/main"). Solo estaban en la
+rama `claude/redesign-team-panel-7c9716`, que en el momento de investigar
+esto iba 134 commits por detrás de `main` y no tenía ningún PR abierto —
+sus propios PRs ya se habían mergeado todos por separado. Otra sesión ya
+había hecho el renombrado correcto DIRECTAMENTE en `main` (mismo patrón que
+el caso de `20260731150000_socios_email_...` de arriba): las piezas reales
+son `20260730012600_sesiones_reservas_solo_propias_instructor.sql` y
+`20260730012700_editar_serie_desde_restringe_instructor.sql`, ya con el
+timestamp de aplicación real. No había nada que tocar en `main` — la única
+acción real fue corregir esta nota, que describía un problema ya resuelto
+en otro sitio.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
