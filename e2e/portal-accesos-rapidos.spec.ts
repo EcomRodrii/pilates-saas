@@ -73,4 +73,24 @@ test.describe('Inicio — accesos rápidos por variante', () => {
       }
     });
   }
+
+  // El editor selecciona bloques buscando `data-bloque-id` con `closest()`
+  // (portal-preview-bridge.ts). Los módulos fijos solo llevaban
+  // `data-bloque-sistema` —que es el TIPO de módulo, igual en todos los
+  // estudios— así que no se podían seleccionar desde la vista previa. Se
+  // comprueba aquí, en el portal de verdad, porque el arnés del editor no
+  // llega a montar el iframe (sin token sirve un hueco, no el portal).
+  test('un módulo fijo lleva también `data-bloque-id`, que es lo que el editor selecciona', async ({ page }) => {
+    await montarPortal(page, { conSesion: true });
+    await page.goto(`/portal/${SLUG}/home`);
+    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+
+    const bloque = page.locator('[data-bloque-sistema="accesosRapidos"]');
+    // No vale con que exista el atributo: tiene que ser el id de ESA fila, no
+    // el `sistemaId`. Si fueran lo mismo, dos estudios distintos compartirían
+    // identificador de bloque.
+    const id = await bloque.getAttribute('data-bloque-id');
+    expect(id).toBeTruthy();
+    expect(id).not.toBe('accesosRapidos');
+  });
 });

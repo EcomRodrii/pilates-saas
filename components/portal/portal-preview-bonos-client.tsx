@@ -8,8 +8,8 @@ import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado } from 
 // `pantalla === 'bonos'` — ver components/portal/portal-preview-bridge.ts.
 
 export function PortalPreviewBonosClient() {
-  const { bloques, seleccionId } = usePreviewBloques('bonos');
-  usePreviewClickToSelect();
+  const { bloques, seleccionId, modo } = usePreviewBloques('bonos');
+  usePreviewClickToSelect(modo);
   usePreviewResaltado(seleccionId);
   return <PortalBonosView session={SESION_MUESTRA} navegar={() => {}} bloquesOverride={bloques ?? undefined} />;
 }

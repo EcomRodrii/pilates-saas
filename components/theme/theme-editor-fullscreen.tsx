@@ -23,7 +23,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle, Undo2, Redo2,
+  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, MousePointerClick, Hand, RotateCcw, AlertTriangle, Undo2, Redo2,
   Smartphone, Tablet, Monitor, type LucideIcon,
 } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
@@ -39,6 +39,7 @@ import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { useAutoguardado } from './use-autoguardado';
 import { textoEstado } from '@/lib/theme/autoguardado';
+import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -97,7 +98,12 @@ export function ThemeEditorFullscreen() {
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
   const [zoom, setZoom] = useState(1);
   const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
-  const [previewVivo, setPreviewVivo] = useState(true);
+  // Qué hace un click DENTRO del preview. Antes esto era un ojo que solo
+  // encendía/apagaba el contorno de selección; ahora que los módulos fijos
+  // (`sistema`) también son seleccionables, un click se come la navegación
+  // del portal — así que el control tiene que decir la verdad sobre lo que
+  // hace, con dos palabras, en vez de un icono que sugiere "ver".
+  const [modoPreview, setModoPreview] = useState<ModoPreview>('editar');
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [confirmarDescartar, setConfirmarDescartar] = useState(false);
@@ -285,13 +291,24 @@ export function ThemeEditorFullscreen() {
               <ZoomIn size={14} />
             </button>
           </div>
-          <button
-            type="button" onClick={() => setPreviewVivo((v) => !v)} aria-pressed={previewVivo}
-            title={previewVivo ? 'Ocultar el contorno de selección' : 'Mostrar el contorno de selección'}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            {previewVivo ? <Eye size={16} /> : <EyeOff size={16} />}
-          </button>
+          <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Qué hace un clic en la vista previa">
+            {([
+              { id: 'editar', etiqueta: 'Editar', Icono: MousePointerClick, ayuda: 'Clicar una sección la selecciona para editarla' },
+              { id: 'navegar', etiqueta: 'Navegar', Icono: Hand, ayuda: 'Clicar funciona como en el portal de la socia' },
+            ] as const).map(({ id, etiqueta, Icono, ayuda }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setModoPreview(id)}
+                aria-pressed={modoPreview === id}
+                title={ayuda}
+                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[11.5px] font-medium ${modoPreview === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Icono size={13} />
+                {etiqueta}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center gap-0.5">
             <button
               type="button" onClick={bloquesHook.deshacer} disabled={!bloquesHook.puedeDeshacer}
@@ -423,7 +440,8 @@ export function ThemeEditorFullscreen() {
                 pantalla={pantallaActiva}
                 onPantallaChange={(p) => seleccionar({ tipo: 'pantalla', id: p })}
                 slug={ajustesHook.studio?.slug}
-                seleccionId={previewVivo && nodo.tipo === 'item' ? nodo.itemId : null}
+                seleccionId={modoPreview === 'editar' && nodo.tipo === 'item' ? nodo.itemId : null}
+                modo={modoPreview}
                 onBloqueSeleccionado={(id) => seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id })}
                 temaBorrador={ajustesHook.draft}
                 irA={comandoVista}

@@ -15,8 +15,8 @@ import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado } from 
 // llega por postMessage — ver components/portal/portal-preview-bridge.ts.
 
 export function PortalPreviewHomeClient() {
-  const { bloques, seleccionId } = usePreviewBloques('home');
-  usePreviewClickToSelect();
+  const { bloques, seleccionId, modo } = usePreviewBloques('home');
+  usePreviewClickToSelect(modo);
   usePreviewResaltado(seleccionId);
   // `escribible={false}`: el preview corre en un iframe del MISMO origen, así
   // que comparte localStorage con /portal/[slug]. Si la propietaria entró
