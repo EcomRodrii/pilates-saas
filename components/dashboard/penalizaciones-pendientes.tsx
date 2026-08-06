@@ -26,6 +26,16 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
     const r = await aprobarPenalizacion(id);
     setAprobando(null);
     if ('error' in r) { onToast(r.error); return; }
+    // 202: el cargo SÍ entró en Stripe, pero no se pudo dejar escrito y el
+    // servidor ha marcado la penalización FALLIDA. La fila se quita igual —ya
+    // no está pendiente de aprobar, y volver a pulsar cobraría otra vez— pero
+    // el mensaje tiene que decir lo que ha pasado de verdad: antes desaparecía
+    // con un "Cobro aprobado" que era exactamente lo contrario.
+    if (r.aviso === 'COBRADO_SIN_PERSISTIR') {
+      setItems(prev => (prev ?? []).filter(p => p.id !== id));
+      onToast(r.detalle ?? 'Se ha cobrado en Stripe, pero no ha quedado registrado: revísalo antes de volver a cobrarlo.');
+      return;
+    }
     setItems(prev => (prev ?? []).filter(p => p.id !== id));
     onToast('Cobro aprobado');
   }
