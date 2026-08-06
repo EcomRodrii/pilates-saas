@@ -19,11 +19,12 @@
 //     mientras estás aquí, en vez de saltar a Inicio como hacía el lienzo.
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, prepararRenovacionPlan } from '@/lib/api-client';
+import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
@@ -33,6 +34,7 @@ import type { PlanTarifa } from '@/lib/types';
 export default function ComprasPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { session } = usePortalAuth();
   const { studio, socios, planesTarifa, recibos, facturas, planMasElegidoId } = useStudio();
   const { t, noche } = useModo();
@@ -60,6 +62,17 @@ export default function ComprasPage() {
     [planesTarifa],
   );
 
+  // Vuelta desde Stripe (`origen: 'portal'` → lib/billing/origen-pago.ts).
+  // Antes este camino devolvía a `/cobros`, el panel del STAFF, que además pide
+  // login: la socia pagaba y aterrizaba en un "¿Eres del equipo?" sin una sola
+  // palabra sobre su pago.
+  const avisoPago = useMemo(() => {
+    const v = searchParams.get('pago');
+    if (v === 'ok') return 'Pago completado. Tu factura aparecerá aquí abajo en cuanto se registre.';
+    if (v === 'cancelado') return 'Has salido sin completar el pago. No se te ha cobrado nada.';
+    return null;
+  }, [searchParams]);
+
   const misRecibos = useMemo(() =>
     recibos.filter(r => r.socioId === socioId)
       .sort((a, b) => (b.fechaCobro ?? b.fechaVencimiento).localeCompare(a.fechaCobro ?? a.fechaVencimiento)),
@@ -81,13 +94,18 @@ export default function ComprasPage() {
         body: JSON.stringify({
           studioId: studio.id, planId: plan.id, socioId,
           socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
+          origen: 'portal',
         }),
       });
-      const data = await res.json() as { url?: string; error?: string };
-      if (data.url) { window.location.assign(data.url); return; }
-      setError(data.error ?? 'No se ha podido iniciar el pago.');
+      // `res.ok` ANTES del cuerpo: un 500 de Next responde HTML, así que
+      // `res.json()` lanzaba y el fallo del SERVIDOR se le contaba a la socia
+      // como un problema de su conexión.
+      const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
+      if (!res.ok) { setError(mensajeSeguro(data?.error, mensajeHttp(res.status))); }
+      else if (data?.url) { window.location.assign(data.url); return; }
+      else setError(mensajeSeguro(data?.error, 'No se ha podido iniciar el pago.'));
     } catch {
-      setError('No hay conexión con el servidor. Inténtalo de nuevo.');
+      setError('No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.');
     }
     setComprando(null);
   }
@@ -101,6 +119,7 @@ export default function ComprasPage() {
       reciboId, socioId: socioId ?? '', studioId: studio.id,
       concepto: recibo.concepto, importe: recibo.importe,
       socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
+      origen: 'portal',
     });
     if ('url' in r && r.url) { window.location.assign(r.url); return; }
     setError('error' in r ? r.error : 'No se ha podido iniciar el pago.');
@@ -117,6 +136,7 @@ export default function ComprasPage() {
       reciboId: prep.reciboId, socioId: socioId ?? '', studioId: studio.id,
       concepto: 'Renovación', importe: 0,
       socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
+      origen: 'portal',
     });
     if ('url' in r && r.url) { window.location.assign(r.url); return; }
     setError('error' in r ? r.error : 'No se ha podido iniciar el pago.');
@@ -161,6 +181,20 @@ export default function ComprasPage() {
 
         <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Compras</h1>
         <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>Bonos, planes y facturas.</p>
+
+        {/* La vuelta de Stripe. El cobro lo confirma el WEBHOOK, no este
+            parámetro, así que el texto no afirma que el dinero haya entrado:
+            dice que se ha completado el pago y que la factura aparecerá abajo
+            cuando el estudio la registre. Prometer más sería el mismo error de
+            anunciar éxito sin haberlo comprobado. */}
+        {avisoPago && (
+          <p role="status" style={{
+            fontFamily: sans, fontSize: 12.5, color: t.ink, background: t.surface2,
+            borderRadius: 14, padding: '11px 14px', marginTop: 20,
+          }}>
+            {avisoPago}
+          </p>
+        )}
 
         {error && (
           <p role="alert" style={{
@@ -282,8 +316,25 @@ export default function ComprasPage() {
           <div style={{ marginTop: 12 }}>
             {misRecibos.map((rec, i) => {
               const factura = facturas.find(f => f.reciboId === rec.id);
-              const pendiente = rec.estado === 'PENDIENTE' || rec.estado === 'EN_CURSO';
+              // FALLIDO = el dunning agotó todos los reintentos. Antes no caía
+              // en ninguna categoría, así que se pintaba SIN etiqueta y SIN
+              // botón: indistinguible de un recibo ya pagado. Y el push de pago
+              // fallido manda justo a esta pantalla ("Revisa tu método de
+              // pago"), o sea que la socia aterrizaba aquí sin nada que revisar
+              // ni forma de pagar.
+              const fallido = rec.estado === 'FALLIDO';
+              const enCurso = rec.estado === 'EN_CURSO';
               const devuelto = rec.estado === 'DEVUELTO';
+              // Se nombra el estado siempre que no sea «pagado».
+              const pendiente = rec.estado === 'PENDIENTE' || enCurso || fallido;
+              // EN_CURSO no lleva botón: hay un adeudo SEPA en vuelo y el
+              // servidor contesta 409 a cualquier intento de volver a pagarlo,
+              // así que ofrecerlo era ofrecer un botón que siempre dice que no.
+              const pagable = rec.estado === 'PENDIENTE' || fallido;
+              const etiqueta = devuelto ? 'Devuelto'
+                : fallido ? 'Sin pagar'
+                : enCurso ? 'En proceso'
+                : 'Pendiente';
               return (
                 <div
                   key={rec.id}
@@ -302,7 +353,7 @@ export default function ComprasPage() {
                         de facturas, lo normal no necesita etiqueta. */}
                     {(pendiente || devuelto) && (
                       <div style={{ ...micro(8.5, 0.2, 600), color: t.heroAccent, marginTop: 6 }}>
-                        {devuelto ? 'Devuelto' : 'Pendiente'}
+                        {etiqueta}
                       </div>
                     )}
                   </div>
@@ -310,7 +361,7 @@ export default function ComprasPage() {
                     <span style={{ fontFamily: sans, fontSize: 12.5, fontWeight: 500, color: t.ink }}>
                       {rec.importe} €
                     </span>
-                    {pendiente ? (
+                    {pagable ? (
                       <button
                         type="button"
                         onClick={() => void pagarRecibo(rec.id)}

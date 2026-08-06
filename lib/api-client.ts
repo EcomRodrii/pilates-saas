@@ -8,6 +8,7 @@ import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
+import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
@@ -467,6 +468,31 @@ export async function descartarSustitucion(sustitucionId: string): Promise<{ ok:
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
+// ⚠️ Estas dos NUNCA deben lanzar. Devolvían `res.json()` a pelo, y sus
+// llamadores del portal (`pagarRecibo`, `renovar`, `domiciliar`) no envuelven en
+// try/catch: con la red caída —o con un 500, que responde HTML y hace reventar
+// al `res.json()`— la promesa rechazaba, el `setComprando(null)` no llegaba a
+// ejecutarse y la socia se quedaba con el overlay a pantalla completa y el
+// spinner girando para siempre, sin mensaje y sin salida salvo recargar.
+async function postCheckout(ruta: string, params: unknown): Promise<{ url: string } | { error: string }> {
+  let res: Response;
+  try {
+    res = await fetch(ruta, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    return { error: 'No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+  // El cuerpo se lee con catch aparte: un 500 de Next devuelve HTML, y sin esto
+  // el fallo del servidor se le contaba a la socia como un problema de SU red.
+  const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
+  if (!res.ok) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+  if (!data?.url) return { error: mensajeSeguro(data?.error, 'No se ha podido iniciar el pago.') };
+  return { url: data.url };
+}
+
 export async function crearCheckoutStripe(params: {
   reciboId: string;
   socioId: string;
@@ -475,13 +501,10 @@ export async function crearCheckoutStripe(params: {
   importe: number;
   socioEmail: string | null;
   socioNombre: string;
+  /** Desde dónde se paga: decide a qué pantalla devuelve Stripe. */
+  origen?: OrigenPago;
 }): Promise<{ url: string } | { error: string }> {
-  const res = await fetch('/api/stripe/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  return res.json() as Promise<{ url: string } | { error: string }>;
+  return postCheckout('/api/stripe/checkout', params);
 }
 
 // Fase 1 · PR-2 — inicia el alta del mandato SEPA (domiciliación). Devuelve la
@@ -492,12 +515,7 @@ export async function iniciarDomiciliacionSepa(params: {
   socioId: string;
   slug: string;
 }): Promise<{ url: string } | { error: string }> {
-  const res = await fetch('/api/stripe/setup-sepa', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  return res.json() as Promise<{ url: string } | { error: string }>;
+  return postCheckout('/api/stripe/setup-sepa', params);
 }
 
 // Comprobación proactiva antes de OFRECER el botón "Domiciliar": sin esto, la
