@@ -8,7 +8,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR } from './portal-home-bloques.ts';
+  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
@@ -782,4 +782,39 @@ test('REGISTRO_BLOQUES: solo banner declara camposEstilo propio', () => {
   // lo que hace que el panel se sienta igual en todos.
   const conPropio = Object.values(REGISTRO_BLOQUES).filter((d) => d.camposEstilo).map((d) => d.id);
   assert.deepEqual(conPropio, ['banner']);
+});
+
+// ── Etapa 3: "fijo" vive en la instancia ───────────────────────────────────
+test('conFijos MARCA los bloques fijos que ya estaban sin la marca', () => {
+  // Un borrador guardado antes de que la marca existiera. Sin marcarlo, sus
+  // bloques fijos pasarían de golpe a ser arrastrables y borrables.
+  const viejo: BloqueHome[] = [
+    { id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera' },
+    { id: 'sistema-proximaClase', kind: 'sistema', sistemaId: 'proximaClase' },
+    { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+  ];
+  const r = conFijos(viejo, 'home');
+  assert.equal(r.length, 3, 'no debe duplicar los que ya estaban');
+  assert.deepEqual(r.filter(esBloqueFijo).map((b) => b.id), ['sistema-cabecera', 'sistema-proximaClase']);
+  // El que no es fijo se queda intacto, sin marca.
+  assert.equal(esBloqueFijo(r.find((b) => b.id === 'sistema-estaSemana')!), false);
+});
+
+test('esBloqueFijo pregunta al BLOQUE, no a una tabla por pantalla', () => {
+  // Ese cambio de firma es el punto de la etapa: el llamador ya no puede
+  // consultar la pantalla equivocada, que es como se coló el bug de los
+  // bloques fijos invisibles en el editor.
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'sistema', sistemaId: 'cabecera', fijo: true }), true);
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'sistema', sistemaId: 'cabecera' }), false);
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'texto', config: { titulo: '', texto: '' } }), false);
+});
+
+test('los defaults traen ya la marca — misma forma que lo que devuelve la lectura', () => {
+  // Si los defaults salieran sin marca, un estudio nuevo y uno con borrador
+  // guardado tendrían bloques distintos para la MISMA pantalla.
+  assert.deepEqual(
+    DEFAULT_BLOQUES_POR_PANTALLA.home.filter(esBloqueFijo).map((b) => (b as { sistemaId: string }).sistemaId),
+    ['cabecera', 'proximaClase'],
+  );
+  assert.deepEqual(DEFAULT_BLOQUES_POR_PANTALLA.clases.filter(esBloqueFijo), []);
 });

@@ -434,8 +434,11 @@ export function BloquesSeccionesList({
   // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
   // editan pero no se mueven ni se ocultan. Meterlos en la lista arrastrable
   // pintaría una agarradera y un ojo que no hacen nada.
-  const fijos = todos.filter((b) => b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId));
-  const bloques = todos.filter((b) => !(b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId)));
+  // Se pregunta al BLOQUE, no a una tabla por pantalla: así el rail no
+  // puede consultar la pantalla equivocada, que es como se coló el bug de
+  // los bloques fijos invisibles.
+  const fijos = todos.filter(esBloqueFijo);
+  const bloques = todos.filter((b) => !esBloqueFijo(b));
   const [picker, setPicker] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

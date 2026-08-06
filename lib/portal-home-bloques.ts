@@ -82,8 +82,8 @@ export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSiste
 };
 
 /** Si un bloque es de los que existen siempre y no se reordenan. */
-export function esBloqueFijo(pantalla: PantallaId, sistemaId: string): boolean {
-  return (BLOQUES_FIJOS_POR_PANTALLA[pantalla] as readonly string[]).includes(sistemaId);
+export function esBloqueFijo(bloque: BloqueHome): boolean {
+  return bloque.kind === 'sistema' && bloque.fijo === true;
 }
 
 // ── Schemas de campo ────────────────────────────────────────────────────────
@@ -304,7 +304,27 @@ export type BloqueHome =
   // ⚠️ `config` es ADITIVA y opcional también aquí: un bloque de sistema
   // guardado antes de que existieran estos campos se lee igual que siempre,
   // porque `resolverConfig` rellena las claves ausentes con el texto de hoy.
-  | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; config?: Record<string, unknown>; oculto?: boolean }
+  | {
+      id: string; kind: 'sistema'; sistemaId: BloqueSistemaId;
+      config?: Record<string, unknown>; oculto?: boolean;
+      /**
+       * "Este bloque no se mueve ni se borra". Viaja EN EL DATO, no en una
+       * regla que cada lector aplique por su cuenta.
+       *
+       * ⚠️ Antes era una constante global consultada en tiempo de lectura
+       * (`BLOQUES_FIJOS_POR_PANTALLA` + `esBloqueFijo(pantalla, id)`), y el
+       * 2026-08-06 costó un bug real: el render aplicaba la regla y el editor
+       * no, así que la propietaria veía el bloque en su portal y en la vista
+       * previa pero no podía ni seleccionarlo. Con la marca en la instancia
+       * los dos caminos leen lo mismo por construcción, y el llamador ya no
+       * puede equivocarse de pantalla al preguntar.
+       *
+       * La lista global sigue existiendo, pero solo para MATERIALIZAR la marca
+       * (qué bloques deben existir en cada pantalla), no para responder "¿es
+       * fijo?".
+       */
+      fijo?: true;
+    }
   | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
@@ -770,10 +790,15 @@ function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
 // textos de fábrica. Sin esto, el default y lo que devuelve
 // `resolveBloquesPantalla` dejaban de ser iguales — y hay tests que comparan
 // justo esas dos cosas, que fueron los que lo cazaron.
+// ⚠️ Pasan por `conFijos`, no solo por `resolverBloque`: si no, los defaults
+// saldrían SIN la marca `fijo` y no coincidirían con lo que devuelve
+// `resolveBloquesPantalla` para el mismo estudio. Ya nos pasó con `config`:
+// dos construcciones del mismo dato que divergen es la fuente de bug más
+// repetida de este módulo.
 export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
-  home: BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!),
-  clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!),
-  bonos: BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!),
+  home: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!), 'home'),
+  clases: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!), 'clases'),
+  bonos: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!), 'bonos'),
 };
 /** @deprecated usar DEFAULT_BLOQUES_POR_PANTALLA.home */
 export const DEFAULT_HOME_BLOQUES: BloqueHome[] = DEFAULT_BLOQUES_POR_PANTALLA.home;
@@ -917,10 +942,16 @@ export function resolverBloques(raw: unknown): BloqueHome[] {
 export function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
   const fijos = BLOQUES_FIJOS_POR_PANTALLA[pantalla];
   if (fijos.length === 0) return bloques;
-  const presentes = new Set(bloques.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
+  // Marca los que YA están: un borrador guardado antes de que la marca
+  // existiera no la trae, y sin esto sus bloques fijos pasarían de golpe a ser
+  // arrastrables y borrables. Se persiste en el siguiente guardado.
+  const marcados = bloques.map((b) => (
+    b.kind === 'sistema' && fijos.includes(b.sistemaId) && b.fijo !== true ? { ...b, fijo: true as const } : b
+  ));
+  const presentes = new Set(marcados.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
   const faltan = fijos.filter((id) => !presentes.has(id));
-  if (faltan.length === 0) return bloques;
-  return [...faltan.map((id) => resolverBloque(bloqueSistema(id))!), ...bloques];
+  if (faltan.length === 0) return marcados;
+  return [...faltan.map((id) => ({ ...resolverBloque(bloqueSistema(id))!, fijo: true as const })), ...marcados];
 }
 
 export function resolveBloquesPantalla(

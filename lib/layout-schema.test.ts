@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad } from './layout-schema.ts';
+import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad, bloqueHomeSchema } from './layout-schema.ts';
 import { DEFAULT_BLOQUES_SHAPE } from './portal-home-bloques.ts';
 
 test('resolveLayout: null/garbage → default', () => {
@@ -210,4 +210,9 @@ test('layoutConfigSchema: rechaza un valor de estilo fuera del enum', () => {
     },
   });
   assert.equal(r.success, false);
+});
+
+test('bloqueHomeSchema conserva `fijo` — si zod lo podara, el bloque volvería a ser movible', () => {
+  const r = bloqueHomeSchema.parse({ id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera', fijo: true });
+  assert.equal((r as { fijo?: true }).fijo, true);
 });
