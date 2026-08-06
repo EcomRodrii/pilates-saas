@@ -81,6 +81,19 @@ export const EVENTOS = {
   // la propietaria, es accionable por su parte (pedir que la socia acepte el
   // contrato actualizado), a diferencia de "sin tarjeta" que es silencioso.
   PAGO_PENALIZACION_BLOQUEADA: 'pago.penalizacion_bloqueada',
+  // Devolución de dinero (reembolso total o parcial). El reembolso PARCIAL era
+  // hasta ahora 100 % invisible: no marcaba el recibo, no avisaba a nadie y no
+  // dejaba rastro — siendo el caso más habitual cuando la socia ya usó parte del
+  // bono. Lo accionable no es el dinero (ya se movió en Stripe pase lo que pase),
+  // sino que la socia se queda con lo entregado si nadie lo revisa.
+  PAGO_DEVUELTO: 'pago.devuelto',
+  // Disputa PERDIDA. Evento propio y no una variante de PAGO_DEVUELTO porque la
+  // prioridad y los canales se declaran POR evento, y este necesita más: el
+  // dinero se ha perdido definitivamente y ya no hay plazo que responder.
+  // Tampoco se reutiliza PAGO_DISPUTADO: su copy habla del plazo de evidencia
+  // (que ya pasó) y su dedupKey es por recibo, así que el segundo aviso del
+  // mismo recibo se tragaría en silencio.
+  PAGO_CHARGEBACK_PERDIDO: 'pago.chargeback_perdido',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -144,6 +157,15 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Solo al mostrador: quien disputa el cargo es la propia socia, avisarla
   // de su propia disputa no tiene sentido. EMAIL sí (hay un plazo de Stripe
   // que responder, no es algo que se pueda dejar para cuando se abra el panel).
+  // Solo in-app + push: hay que revisarlo, pero el dinero ya se movió y no hay
+  // ningún plazo externo corriendo. Audiencia `mostrador` con plantillas solo
+  // para PROPIETARIO y RECEPCION: sin plantilla `#MANAGER` el motor lo descarta
+  // solo, y MANAGER no puede ni leer `recibos` (migr 0114), así que el enlace le
+  // llevaría a una pantalla vacía. Mismo criterio que PAGO_DISPUTADO.
+  [EVENTOS.PAGO_DEVUELTO]: { category: 'pagos', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // ALTA + EMAIL: el dinero se ha perdido definitivamente y encima la socia
+  // conserva lo entregado hasta que alguien lo revise.
+  [EVENTOS.PAGO_CHARGEBACK_PERDIDO]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
@@ -353,6 +375,29 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_PENALIZACION_BLOQUEADA}#PROPIETARIO`]: {
     title: 'Penalización sin cobrar',
     body: 'Una penalización de {importe} € no se ha podido cobrar porque la socia no ha aceptado el contrato con la cláusula actualizada.',
+  },
+  // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo
+  // patrón que {motivoTexto} en RESERVA_CANCELADA. Lo que NO se puede meter en
+  // una variable es la prioridad, y por eso el chargeback es un evento aparte.
+  [`${EVENTOS.PAGO_DEVUELTO}#PROPIETARIO`]: {
+    title: 'Has devuelto un cobro',
+    body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_DEVUELTO}#RECEPCION`]: {
+    title: 'Has devuelto un cobro',
+    body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#PROPIETARIO`]: {
+    title: 'Has perdido una disputa',
+    body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#RECEPCION`]: {
+    title: 'Has perdido una disputa',
+    body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
+    deepLink: () => `/dashboard`,
   },
   [`${EVENTOS.PAGO_DISPUTADO}#PROPIETARIO`]: {
     title: 'Un cargo ha sido disputado',
