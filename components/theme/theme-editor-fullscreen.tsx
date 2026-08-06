@@ -40,6 +40,10 @@ import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/d
 import { useAutoguardado } from './use-autoguardado';
 import { textoEstado } from '@/lib/theme/autoguardado';
 import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import {
+  ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
+  pantallaOperativa, type EstadoEditor,
+} from '@/lib/theme/editor-navegacion';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -60,6 +64,18 @@ type Nodo =
   | { tipo: 'tema'; categoria: AjustesCategoriaId }
   | { tipo: 'pantalla'; id: IdPantalla }
   | { tipo: 'item'; grupo: PantallaId | 'contenido-portal'; itemId: string };
+
+
+/**
+ * `EstadoEditor` → el `Nodo` que entiende el rail. Solo traduce vocabulario:
+ * ninguna regla de navegación vive aquí (están en editor-navegacion.ts).
+ */
+function nodoDeEstado(e: EstadoEditor): Nodo {
+  if (e.seleccion?.tipo === 'categoria') return { tipo: 'tema', categoria: e.seleccion.id as AjustesCategoriaId };
+  if (e.seleccion?.tipo === 'bloque') return { tipo: 'item', grupo: e.seleccion.pantalla, itemId: e.seleccion.id };
+  if (e.seleccion?.tipo === 'item') return { tipo: 'item', grupo: 'contenido-portal', itemId: e.seleccion.id };
+  return { tipo: 'pantalla', id: e.pagina };
+}
 
 const PANTALLAS_RAIL: { id: IdPantalla; label: string; desplegable: boolean }[] = [
   { id: 'home', label: PANTALLA_LABEL.home, desplegable: true },
@@ -86,15 +102,23 @@ const OPCIONES_SELECTOR: OpcionPagina[] = [
 
 export function ThemeEditorFullscreen() {
   const { rol } = usePermisos();
-  const [nodo, setNodo] = useState<Nodo>({ tipo: 'pantalla', id: 'home' });
-  const [pantallaActiva, setPantallaActiva] = useState<PantallaId>('home');
-  // Qué enseña el iframe. NO es lo mismo que `pantallaActiva`: incluye
-  // Reservas y Perfil, que se pueden ver pero no tienen bloques. Y NO sigue
-  // siempre a la selección del rail — elegir "Inicio del panel" cambia lo que
-  // se edita y deja el preview donde estaba, porque esa página no tiene vista
-  // que enseñar. Es la misma regla que fija `vista` en lib/theme/
-  // editor-navegacion.ts, con su test.
-  const [pantallaMirada, setPantallaMirada] = useState<VistaId>('home');
+  // UN estado, no tres. Las reglas de qué arrastra a qué viven en
+  // lib/theme/editor-navegacion.ts —funciones puras con tests— en vez de en
+  // un ternario dentro de `seleccionar`, que es donde estaban y donde ya
+  // había un comentario admitiendo que duplicaban ese módulo.
+  //
+  // ⚠️ La regla que hay que conservar: **el preview NO sigue siempre al
+  // rail**. Elegir "Inicio del panel" o "Contenido del portal" cambia lo que
+  // se edita y deja el iframe donde estaba, porque esas dos no son pantallas
+  // del portal y no tienen vista que enseñar.
+  const [estado, setEstado] = useState<EstadoEditor>(ESTADO_INICIAL);
+  // `Nodo` pasa a ser una VISTA derivada, no estado: el rail y el JSX siguen
+  // hablando su vocabulario (tema/pantalla/item) sin tener que reescribir sus
+  // treinta y tantos usos, pero ya no hay dos fuentes de verdad que puedan
+  // separarse.
+  const nodo: Nodo = nodoDeEstado(estado);
+  const pantallaActiva = pantallaOperativa(estado);
+  const pantallaMirada: VistaId = estado.vista;
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
   const [zoom, setZoom] = useState(1);
   const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
@@ -156,10 +180,13 @@ export function ThemeEditorFullscreen() {
   }
 
   function seleccionar(n: Nodo) {
-    setNodo(n);
-    const p = n.tipo === 'tema' ? null : n.tipo === 'item' && n.grupo !== 'contenido-portal' ? n.grupo : n.tipo === 'pantalla' && PANTALLA_IDS.includes(n.id as PantallaId) ? (n.id as PantallaId) : null;
-    if (p) { setPantallaActiva(p); setPantallaMirada(p); }
-    else if (n.tipo === 'pantalla' && (n.id === 'reservas' || n.id === 'perfil')) setPantallaMirada(n.id);
+    setEstado((e) => {
+      if (n.tipo === 'tema') return elegirCategoria(e, n.categoria);
+      if (n.tipo === 'pantalla') return elegirPagina(e, n.id);
+      return n.grupo === 'contenido-portal'
+        ? elegirItemContenido(e, n.itemId)
+        : elegirBloque(e, n.grupo, n.itemId);
+    });
   }
 
   function alternarExpandido(id: IdPantalla) {
