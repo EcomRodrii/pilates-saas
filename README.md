@@ -1,94 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Tentare Software Pilates
 
-## Desarrollo en local
+> Modern management platform for Pilates studios.
+
+Tentare is an all-in-one SaaS platform built specifically for Pilates studios. It combines class scheduling, instructor management, payments, CRM, marketing automation, and a customizable client portal into a single platform.
+
+## Features
+
+- 🧘 Studio management
+- 📅 Class scheduling
+- 👥 Instructor management
+- 💳 Online payments
+- 📈 CRM & member management
+- 🤖 Marketing automation
+- 🌐 White-label client portal
+- 📊 Analytics & reporting
+
+## Tech Stack
+
+- Next.js
+- React
+- TypeScript
+- Supabase
+- PostgreSQL
+- Stripe
+- Tailwind CSS
+- Vercel
+
+---
+
+# Getting Started
+
+## Requirements
+
+- Node.js 20+
+- npm
+- Docker (recommended for local Supabase)
+
+## Installation
 
 ```bash
+git clone https://github.com/your-org/tentare.git
+cd tentare
+npm install
+
+Create your .env.local.
+
+Run locally
 npm run dev
-```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Application:
 
-### Ojo: el alta y el login NO funcionan contra la Supabase de producción
+http://localhost:3000
+Local Supabase (Recommended)
 
-El captcha (Cloudflare Turnstile) se exige **a nivel de proyecto en Supabase**, no en el cliente.
-Si el navegador no manda token, gotrue rechaza el alta **y el login** con:
+The project includes a local Supabase configuration where CAPTCHA and email confirmations are disabled.
 
-```
-captcha protection: request disallowed (no captcha_token found)
-```
+Start the local stack:
 
-Pasa en todo entorno sin `NEXT_PUBLIC_TURNSTILE_SITE_KEY` — local y las preview de Vercel.
-Hay dos caminos, y el primero es el bueno.
+npx supabase start
 
-#### 1. Supabase en local (recomendado)
+Configure your .env.local:
 
-No toca nada de producción. En `supabase/config.toml` el captcha está desactivado
-(`[auth.captcha]` comentado) y las confirmaciones de email también
-(`enable_confirmations = false`), así que el alta funciona de un tirón.
-
-Necesita Docker. Si no lo tienes, `colima` va de sobra y es más ligero que Docker
-Desktop: `brew install colima docker && colima start`.
-
-```bash
-npx supabase start          # aplica supabase/migrations + seed.sql y levanta el stack
-```
-
-Apunta `.env.local` a lo que imprima el comando, y **comenta la site key de
-Turnstile** si la tienes puesta:
-
-```
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<la ANON_KEY que imprime>
-# NEXT_PUBLIC_TURNSTILE_SITE_KEY=...   ← comentada: en local no hay captcha
-```
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
 
-Lo de comentarla no es opcional. La Supabase local no pide captcha, pero si la
-variable está puesta el widget se pinta igual y el formulario se queda esperando
-un token que **nunca llega**: el botón de «Crear estudio» no se habilita jamás y
-no hay ningún mensaje que explique por qué.
+Mailpit is available at:
 
-Para volver a producción, deshaz esas tres líneas. `npx supabase stop` apaga los
-contenedores y `colima stop` la VM.
+http://127.0.0.1:54324
 
-Los correos no salen a internet: van a Mailpit, en http://127.0.0.1:54324. Ahí ves
-el enlace de confirmación y cualquier aviso que dispare la app.
+Stop the stack:
 
-#### 2. Contra la Supabase de producción
+npx supabase stop
+Production Authentication
 
-Solo si necesitas datos reales. Hace falta que el navegador consiga un token válido:
+Production uses Cloudflare Turnstile.
 
-```
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=0x4AAAAAAD_8wUO3n50mElU0
-```
+Required environment variable:
 
-Es la site key de producción, y es pública (viaja en el bundle). La clave de *prueba* de
-Cloudflare **no sirve**: Supabase valida el token contra el secret real del proyecto.
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=YOUR_SITE_KEY
 
-Y además hay que añadir `localhost` en Cloudflare → Turnstile → el widget → *Hostname
-Management*. Sin eso el widget da error y el botón de enviar se queda deshabilitado aunque la
-variable esté puesta. Ten en cuenta que eso afloja un poco el control anti-bots del alta de
-producción: un token emitido desde `localhost` pasa a ser válido (el desafío hay que resolverlo
-igual).
+Localhost must also be added as an allowed hostname in Cloudflare Turnstile.
 
-En las **preview de Vercel** este camino no vale: el hostname es `*.vercel.app` y Turnstile no
-admite comodines de subdominio. Para verificar pantallas con sesión sin pelearse con el captcha,
-usa la suite e2e (`e2e/`), que siembra la sesión y mockea el backend.
+Project Structure
+app/
+components/
+lib/
+supabase/
+public/
+e2e/
+Deployment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The project is deployed on Vercel.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+vercel
+License
 
-## Learn More
+Private repository.
 
-To learn more about Next.js, take a look at the following resources:
+Copyright © Tentare.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## También quitaría todo esto
 
-## Deploy on Vercel
+GitHub ya lo muestra automáticamente, así que sobra:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- "This is a Next.js project bootstrapped..."
+- "Learn More"
+- "Next.js Documentation"
+- "Deploy on Vercel"
+- Todo el texto generado por `create-next-app`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Incluso añadiría al principio una imagen
+
+Algo así:
+
+```md
+<p align="center">
+  <img src="docs/cover.png" width="100%">
+</p>
+
+<h1 align="center">Tentare</h1>
+
+<p align="center">
+Management platform built exclusively for Pilates studios.
+</p>
