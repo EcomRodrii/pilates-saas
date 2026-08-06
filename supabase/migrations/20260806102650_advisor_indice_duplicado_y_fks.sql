@@ -36,7 +36,14 @@ create index if not exists idx_intentos_reserva_fallidos_sesion
 create index if not exists idx_intentos_reserva_fallidos_tipo_clase
   on public.intentos_reserva_fallidos (tipo_clase_id);
 
-create index if not exists idx_lecturas_ficha_salud_socio
+-- ⚠️ Ojo con el nombre: ya existía `idx_lecturas_ficha_salud_socio`, pero sobre
+-- (studio_id, socio_id, leido_en DESC). `create index if not exists` compara por
+-- NOMBRE, no por definición, así que la primera versión de esta migración se
+-- quedó en NO-OP silencioso — y como `studio_id` va delante, ese índice no
+-- cubre la FK, que es solo sobre socio_id (y con ON DELETE CASCADE, que es justo
+-- cuando el índice hace falta). Se detectó volviendo a pasar el advisor DESPUÉS
+-- de aplicar: seguía reportando esta FK. De ahí el sufijo `_fk`.
+create index if not exists idx_lecturas_ficha_salud_socio_fk
   on public.lecturas_ficha_salud (socio_id);
 
 -- ─── Lo que este archivo NO hace, a propósito ───────────────────────────────
