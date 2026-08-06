@@ -82,3 +82,49 @@ export function usePreviewResaltado(seleccionId: string | null): void {
     el?.classList.add('tentare-preview-seleccionado');
   }, [seleccionId]);
 }
+
+/**
+ * Mide dónde está cada bloque y se lo manda al padre, para que pinte el
+ * overlay (la etiqueta y el "+" de insertar) FUERA del iframe — ver
+ * lib/theme/overlay-preview.ts para el porqué.
+ *
+ * ⚠️ Se remide en scroll y en resize, y también cuando el DOM cambia: el
+ * borrador llega por postMessage y repinta los bloques sin que medie ninguna
+ * de las dos cosas. Sin el observador, añadir una sección dejaría todos los
+ * "+" en el sitio de antes.
+ *
+ * Las medidas van en el sistema del iframe (viewport interno, sin escalar):
+ * escalar aquí y otra vez en el padre es el bug clásico de esta conversión.
+ */
+export function usePreviewMedidas(activo: boolean): void {
+  useEffect(() => {
+    if (window.self === window.top || !activo) return;
+
+    let pendiente = 0;
+    function medir() {
+      const bloques = [...document.querySelectorAll<HTMLElement>('[data-bloque-id]')].map((el) => {
+        const r = el.getBoundingClientRect();
+        return { id: el.dataset.bloqueId!, caja: { x: r.left, y: r.top, ancho: r.width, alto: r.height } };
+      });
+      window.parent.postMessage({ type: 'tentare-bloques-preview-medidas', bloques }, window.location.origin);
+    }
+    // Una medida por frame como mucho: el scroll dispara decenas de eventos y
+    // cada uno cruza un postMessage.
+    function pedirMedida() {
+      if (pendiente) return;
+      pendiente = requestAnimationFrame(() => { pendiente = 0; medir(); });
+    }
+
+    medir();
+    window.addEventListener('scroll', pedirMedida, { passive: true, capture: true });
+    window.addEventListener('resize', pedirMedida);
+    const mo = new MutationObserver(pedirMedida);
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'hidden'] });
+    return () => {
+      if (pendiente) cancelAnimationFrame(pendiente);
+      window.removeEventListener('scroll', pedirMedida, { capture: true });
+      window.removeEventListener('resize', pedirMedida);
+      mo.disconnect();
+    };
+  }, [activo]);
+}

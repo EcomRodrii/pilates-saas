@@ -32,7 +32,7 @@ import { guardarThemeBorrador, publicarThemeApi, guardarBloquesBorradorApi, publ
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { useHomeSeccionesEditor, HomeSeccionesList } from './home-editor';
 import { useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel } from './contenido-portal-editor';
-import { useBloquesEditor, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
+import { useBloquesEditor, CatalogoBloques, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
 import { SelectorPagina, type OpcionPagina } from './selector-pagina';
@@ -129,6 +129,9 @@ export function ThemeEditorFullscreen() {
   // del portal — así que el control tiene que decir la verdad sobre lo que
   // hace, con dos palabras, en vez de un icono que sugiere "ver".
   const [modoPreview, setModoPreview] = useState<ModoPreview>('editar');
+  // Dónde insertar la sección que se está eligiendo, cuando se llegó por el
+  // "+" de la vista previa. `null` = no hay ninguna elección en curso.
+  const [insercionEn, setInsercionEn] = useState<number | null>(null);
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [confirmarDescartar, setConfirmarDescartar] = useState(false);
@@ -483,6 +486,7 @@ export function ThemeEditorFullscreen() {
                 slug={ajustesHook.studio?.slug}
                 seleccionId={modoPreview === 'editar' && nodo.tipo === 'item' ? nodo.itemId : null}
                 modo={modoPreview}
+                onInsertar={modoPreview === 'editar' ? setInsercionEn : undefined}
                 onBloqueSeleccionado={(id) => seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id })}
                 temaBorrador={ajustesHook.draft}
                 irA={comandoVista}
@@ -536,6 +540,21 @@ export function ThemeEditorFullscreen() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* El catálogo, abierto desde el "+" de la vista previa. Es el MISMO
+          componente que usa el botón del rail: dos copias se separarían en
+          cuanto se añadiera un bloque nuevo. */}
+      {insercionEn !== null && (
+        <CatalogoBloques
+          onCerrar={() => setInsercionEn(null)}
+          ancla={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
+          onElegir={(kind) => {
+            const id = bloquesHook.anadir(pantallaActiva, kind, insercionEn);
+            setInsercionEn(null);
+            if (id) seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id });
+          }}
+        />
+      )}
 
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
         <DialogContent className="max-w-md">

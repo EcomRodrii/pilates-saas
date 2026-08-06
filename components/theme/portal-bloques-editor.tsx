@@ -229,11 +229,22 @@ export function useBloquesEditor() {
     setAviso(null);
   }
 
-  function anadir(pantalla: PantallaId, kind: (typeof BLOCK_CATALOG)[number]['kind']): string | null {
+  /**
+   * `indice` es dónde cae el bloque nuevo. Sin él, al final — que es lo que
+   * hace el botón "Añadir bloque" del rail. Con él, en el hueco que se pulsó
+   * en la vista previa.
+   */
+  function anadir(pantalla: PantallaId, kind: (typeof BLOCK_CATALOG)[number]['kind'], indice?: number): string | null {
     const entry = getBlockCatalogEntry(kind);
     if (!entry) return null;
     const nuevo = { id: uid(), kind, config: entry.defaultConfig } as BloqueHome;
-    setBloques(pantalla, (prev) => [...prev, nuevo]);
+    setBloques(pantalla, (prev) => {
+      if (indice == null) return [...prev, nuevo];
+      // Acotado a propósito: un índice fuera de rango (medidas viejas tras
+      // borrar un bloque) mete el bloque en un extremo en vez de perderlo.
+      const i = Math.max(0, Math.min(indice, prev.length));
+      return [...prev.slice(0, i), nuevo, ...prev.slice(i)];
+    });
     setAviso(null);
     return nuevo.id;
   }
@@ -298,6 +309,49 @@ export function useBloquesEditor() {
   };
 }
 
+
+/**
+ * El catálogo de bloques. Extraído porque ahora tiene DOS puntos de entrada —
+ * el botón "Añadir bloque" del rail y el "+" entre secciones de la vista
+ * previa— y una segunda copia se separaría de la primera en cuanto se añada
+ * un bloque nuevo.
+ */
+export function CatalogoBloques({
+  onElegir, onCerrar, ancla,
+}: {
+  onElegir: (kind: (typeof BLOCK_CATALOG)[number]['kind']) => void;
+  onCerrar: () => void;
+  /** Colocación cuando se abre desde el preview y no desde el rail. */
+  ancla?: React.CSSProperties;
+}) {
+  return (
+    <>
+      <button className="fixed inset-0 z-20 cursor-default" onClick={onCerrar} aria-hidden tabIndex={-1} />
+      <div
+        className={`${ancla ? 'fixed' : 'absolute left-0 top-11'} z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2`}
+        style={ancla}
+        role="dialog"
+        aria-label="Elegir una sección"
+      >
+        {BLOCK_CATALOG.map((entry) => {
+          const Icono = ICONOS[entry.icono] ?? Plus;
+          return (
+            <button
+              key={entry.kind}
+              onClick={() => onElegir(entry.kind)}
+              className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border hover:bg-muted text-left"
+            >
+              <Icono size={16} className="text-brand-medio" />
+              <span className="text-[12.5px] font-semibold text-foreground">{entry.label}</span>
+              <span className="text-[11px] text-muted-foreground">{entry.descripcion}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 export function BloquesSeccionesList({
   hook, pantalla, seleccionId, onSeleccionar,
 }: {
@@ -344,25 +398,10 @@ export function BloquesSeccionesList({
           <Plus size={14} /> Añadir bloque
         </button>
         {picker && (
-          <>
-            <button className="fixed inset-0 z-20 cursor-default" onClick={() => setPicker(false)} aria-hidden tabIndex={-1} />
-            <div className="absolute left-0 top-11 z-30 w-72 rounded-xl border border-border bg-card shadow-lg p-2 grid grid-cols-2 gap-2">
-              {BLOCK_CATALOG.map((entry) => {
-                const Icono = ICONOS[entry.icono] ?? Plus;
-                return (
-                  <button
-                    key={entry.kind}
-                    onClick={() => { const id = hook.anadir(pantalla, entry.kind); setPicker(false); if (id) onSeleccionar(id); }}
-                    className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border hover:bg-muted text-left"
-                  >
-                    <Icono size={16} className="text-brand-medio" />
-                    <span className="text-[12.5px] font-semibold text-foreground">{entry.label}</span>
-                    <span className="text-[11px] text-muted-foreground">{entry.descripcion}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
+          <CatalogoBloques
+            onCerrar={() => setPicker(false)}
+            onElegir={(kind) => { const id = hook.anadir(pantalla, kind); setPicker(false); if (id) onSeleccionar(id); }}
+          />
         )}
       </div>
 
