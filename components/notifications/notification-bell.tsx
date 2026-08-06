@@ -44,8 +44,19 @@ export function NotificationBell() {
 
   // El setState de cargar() ocurre DESPUÉS del await (asíncrono), no en cascada;
   // el lint del compilador da un falso positivo con el fetch-en-effect.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void cargar(); const t = setInterval(cargar, 60_000); return () => clearInterval(t); }, [cargar]);
+  //
+  // El tic se salta con la pestaña oculta: una sesión de mostrador que se deja
+  // abierta toda la noche pedía notificaciones 60 veces por hora sin que nadie
+  // mirase. Para que volver a la pestaña no obligue a esperar al siguiente
+  // minuto, se recarga en cuanto vuelve a ser visible.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void cargar();
+    const t = setInterval(() => { if (!document.hidden) void cargar(); }, 60_000);
+    const alVolver = () => { if (!document.hidden) void cargar(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
+  }, [cargar]);
 
   // Cerrar al hacer clic fuera.
   useEffect(() => {
