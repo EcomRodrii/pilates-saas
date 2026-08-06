@@ -418,7 +418,13 @@ export async function fetchPublicStudioData(
   // sesiones futuras (incluida la semana siguiente) en el portal de la
   // clienta, aunque el panel interno (fetchCriticalStudioData) sí paginaba.
   const [{ data: sesionesData }, { data: reservasAforo }] = await Promise.all([
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('*').eq('studio_id', studioId).range(from, to)),
+    // Columnas, no `select('*')`: esto corre en el SERVIDOR y en CADA visita al
+    // portal, así que cada columna de más se paga dos veces en Active CPU de
+    // Fluid — al parsear la respuesta de PostgREST y al volver a serializar el
+    // JSON hacia el navegador. La espera de red no se factura; el trabajo de
+    // CPU sobre los bytes, sí. La lista es la misma que consume `mapSesion`
+    // (tipo `FilaSesionPanel`), así que si se queda corta, `tsc` la nombra.
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
