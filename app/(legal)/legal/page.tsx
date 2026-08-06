@@ -82,9 +82,6 @@ export default function AvisoLegal() {
         domicilio del titular, sin perjuicio del fuero que corresponda legalmente a las personas consumidoras.
       </p>
 
-      <p style={{ marginTop: 24, fontSize: 13, color: '#767d85' }}>
-        El texto de este documento es de plantilla y está pendiente de revisión por asesoría jurídica.
-      </p>
     </>
   );
 }
