@@ -437,14 +437,14 @@ test('un array ya válido sale igual, salvo los defaults que se rellenan a prop�
   // NADA de lo guardado se pierda ni se altere.
   const bueno: BloqueHome[] = [
     { id: 's', kind: 'sistema', sistemaId: 'estaSemana' },
-    { id: 's2', kind: 'sistema', sistemaId: 'retos', oculto: true },
+    { id: 's2', kind: 'sistema', sistemaId: 'tiraSemana', oculto: true },
     { id: 'b', kind: 'banner', config: { imagenUrl: 'u', titulo: 'T', texto: 'x', href: '/reservar' } },
     { id: 'f', kind: 'faq', config: { titulo: '', preguntas: [{ pregunta: 'P', respuesta: 'R' }] }, estilo: { esquinas: 'pill' } },
   ];
   const salida = resolverBloques(bueno);
   // Lo del catálogo, intacto byte a byte.
   assert.deepEqual(salida.slice(2), bueno.slice(2));
-  // `retos` todavía no tiene campos abiertos: sigue saliendo idéntico.
+  // `tiraSemana` no tiene campos (ni los tendrá): sigue saliendo idéntico.
   assert.deepEqual(salida[1], bueno[1]);
   // `estaSemana` sí, y gana sus textos de fábrica sin perder nada de lo suyo.
   assert.equal(salida[0].id, 's');
@@ -592,6 +592,30 @@ test('un texto guardado por el estudio NO se pisa con el de fábrica', () => {
   assert.equal(c.titulo, 'Ven con quien tú quieras');
   // Y lo que no tocó sigue en el texto de siempre, no en undefined.
   assert.equal(c.antetitulo, 'Trae a quien quieras');
+});
+
+test('los módulos de Clases, Bonos, Progreso y Retos también tienen campos', () => {
+  for (const sis of ['listadoClases', 'listadoBonos', 'progresoSemanal', 'retos']) {
+    assert.ok(getDefinicionBloque(sis)!.campos.length > 0, sis);
+  }
+});
+
+test('⚠️ y sus porDefecto también SON los literales del render', () => {
+  const campo = (sis: string, id: string) =>
+    getDefinicionBloque(sis)!.campos.find((c) => c.id === id) as { porDefecto: unknown };
+  assert.equal(campo('listadoClases', 'titulo').porDefecto, 'Clases');
+  assert.equal(campo('listadoClases', 'vacioDia').porDefecto, 'No hay clases este día.');
+  assert.equal(campo('listadoClases', 'vacioMias').porDefecto, 'Todavía no tienes ninguna clase reservada.');
+  assert.equal(campo('listadoBonos', 'antetitulo').porDefecto, 'Saldo y planes');
+  assert.equal(campo('listadoBonos', 'titulo').porDefecto, 'Bonos');
+  assert.equal(campo('progresoSemanal', 'titulo').porDefecto, 'Tu semana');
+  assert.equal(campo('retos', 'titulo').porDefecto, 'Retos');
+});
+
+test('`tiraSemana` se queda SIN campos a propósito — no tiene ningún texto propio', () => {
+  // Son siete casillas de día generadas de los datos. Inventarle un "título"
+  // sería un control que no mueve nada, que es peor que su ausencia.
+  assert.deepEqual(getDefinicionBloque('tiraSemana')!.campos, []);
 });
 
 test('un bloque de sistema SIN campos abiertos no gana un `config` vacío', () => {

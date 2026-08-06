@@ -932,7 +932,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 </div>
               </div>
               <div>
-                <div style={{ ...display(22), color: t.ink }}>Tu semana</div>
+                <div style={{ ...display(22), color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</div>
                 <div style={{ ...texto.meta, color: t.muted2, marginTop: 4 }}>
                   {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
                 </div>
@@ -946,7 +946,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               Oculto por defecto. */}
           <div {...wrap('retos')}>
             <div style={{ height: 40 }} />
-            <h2 style={{ ...display(30), color: t.ink }}>Retos</h2>
+            <h2 style={{ ...display(30), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);

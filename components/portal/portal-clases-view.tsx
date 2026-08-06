@@ -111,6 +111,17 @@ export function PortalClasesView({
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
     return { style: { order: i === -1 ? 0 : i } };
   };
+  /**
+   * El texto de un bloque de SISTEMA, ya resuelto. `resolverBloques` rellena
+   * lo que el estudio no haya tocado con el literal de siempre, así que sin
+   * config guardada esto devuelve exactamente lo que se pintaba antes.
+   */
+  const txt = (sistemaId: 'listadoClases', campo: string, siVacio: string): string => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    const v = b && b.kind === 'sistema' ? b.config?.[campo] : undefined;
+    return typeof v === 'string' ? v : siVacio;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -335,7 +346,7 @@ export function PortalClasesView({
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Clases</h1>
+            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
@@ -451,7 +462,9 @@ export function PortalClasesView({
       <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lista.length === 0 ? (
           <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
-            {vista === 'mias' ? 'Todavía no tienes ninguna clase reservada.' : 'No hay clases este día.'}
+            {vista === 'mias'
+              ? txt('listadoClases', 'vacioMias', 'Todavía no tienes ninguna clase reservada.')
+              : txt('listadoClases', 'vacioDia', 'No hay clases este día.')}
           </p>
         ) : lista.map(c => {
           const reservada = !!c.mia;

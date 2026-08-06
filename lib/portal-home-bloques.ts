@@ -354,6 +354,32 @@ export const CAMPOS_INVITAR_AMIGA = [
 
 export const CAMPOS_CONTENIDO_ESTUDIO = [] as const satisfies readonly CampoSchema[];
 
+export const CAMPOS_PROGRESO_SEMANAL = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Tu semana', maxLargo: 40 },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_RETOS = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Retos', maxLargo: 40 },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_LISTADO_CLASES = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Clases', maxLargo: 40 },
+  {
+    tipo: 'texto', id: 'vacioDia', etiqueta: 'Cuando no hay clases ese día',
+    porDefecto: 'No hay clases este día.', maxLargo: 90,
+  },
+  {
+    tipo: 'texto', id: 'vacioMias', etiqueta: 'Cuando la socia no tiene reservas',
+    porDefecto: 'Todavía no tienes ninguna clase reservada.', maxLargo: 90,
+    ayuda: 'Es la primera frase que lee alguien que acaba de darse de alta.',
+  },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_LISTADO_BONOS = [
+  { tipo: 'texto', id: 'antetitulo', etiqueta: 'Texto pequeño de arriba', porDefecto: 'Saldo y planes', maxLargo: 40 },
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Bonos', maxLargo: 40 },
+] as const satisfies readonly CampoSchema[];
+
 export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
@@ -424,11 +450,11 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   },
   listadoClases: {
     id: 'sistema', sistemaId: 'listadoClases', nombre: 'Calendario de clases',
-    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: CAMPOS_LISTADO_CLASES,
   },
   listadoBonos: {
     id: 'sistema', sistemaId: 'listadoBonos', nombre: 'Tu bono y accesos rápidos',
-    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: CAMPOS_LISTADO_BONOS,
   },
   tiraSemana: {
     id: 'sistema', sistemaId: 'tiraSemana',
@@ -441,7 +467,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   progresoSemanal: {
     id: 'sistema', sistemaId: 'progresoSemanal',
     nombre: 'Progreso semanal (anillo con tus clases reservadas)',
-    icono: 'CircleDashed', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'CircleDashed', origen: 'sistema', estilizable: false, campos: CAMPOS_PROGRESO_SEMANAL,
   },
   // "Apuntarme" en vez de "Apúntate"/"únete" a propósito: es el texto exacto
   // del botón, no una paráfrasis — mismo criterio que el resto de nombres de
@@ -449,7 +475,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   retos: {
     id: 'sistema', sistemaId: 'retos',
     nombre: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
-    icono: 'Trophy', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'Trophy', origen: 'sistema', estilizable: false, campos: CAMPOS_RETOS,
   },
 };
 
