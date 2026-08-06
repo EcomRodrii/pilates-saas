@@ -42,7 +42,27 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # MEDIDO: restaurar node_modules tarda 4s; `npm ci` con la caché de ~/.npm
+      # caliente tarda 19s. 15s por job x 14 jobs. En el camino crítico
+      # (build + shard más lento) son 289s -> 262s de media, comparando 6 runs
+      # sin caché contra 2 con ella.
+      #
+      # ⚠️ Ese ahorro NO se ve mirando el wall clock de un run suelto: el tiempo
+      # de ENCOLADO de los 14 runners va de 10s a 257s entre ejecuciones, y se
+      # come la señal. Para comparar cambios de CI en este repo hay que aislar
+      # el trabajo del camino crítico, no leer el total.
+      #
+      # La caché ocupa 147 MB (zstd comprime bien los 900 MB / 65k ficheros) y
+      # no desaloja nada: el repo usa 3,5 GB de los 10 disponibles.
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       # tsc --noEmit con "incremental": true escribe tsconfig.tsbuildinfo. Sin
@@ -94,7 +114,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       # Caché de compilación entre runs (docs de Next: "CI Build Caching").
@@ -153,7 +181,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Descargar salida del build
@@ -209,7 +245,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Descargar reportes parciales
