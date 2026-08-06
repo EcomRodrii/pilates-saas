@@ -8,8 +8,8 @@ import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado } from 
 // `pantalla === 'clases'` — ver components/portal/portal-preview-bridge.ts.
 
 export function PortalPreviewClasesClient() {
-  const { bloques, seleccionId } = usePreviewBloques('clases');
-  usePreviewClickToSelect();
+  const { bloques, seleccionId, modo } = usePreviewBloques('clases');
+  usePreviewClickToSelect(modo);
   usePreviewResaltado(seleccionId);
   return <PortalClasesView session={SESION_MUESTRA} escribible={false} bloquesOverride={bloques ?? undefined} />;
 }

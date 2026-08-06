@@ -8,6 +8,7 @@ import { themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
+import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
   { id: 'home', ruta: '', etiqueta: 'Inicio' },
@@ -47,7 +48,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
   bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador, irA,
-  dispositivo = 'movil', zoom = 1,
+  dispositivo = 'movil', zoom = 1, modo = 'editar',
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -76,6 +77,10 @@ export function HomePreview({
   irA?: { vista: VistaId; nonce: number } | null;
   dispositivo?: DispositivoId;
   zoom?: number;
+  // Qué hace un click DENTRO del iframe. Viaja por el mismo mensaje que los
+  // bloques (no hay canal nuevo) y se manda a las tres pantallas, no solo a
+  // la mirada: es un ajuste del editor, no de una pantalla.
+  modo?: ModoPreview;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -115,6 +120,7 @@ export function HomePreview({
         {
           type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id],
           seleccionId: p.id === pantalla ? (seleccionId ?? null) : null,
+          modo,
         },
         window.location.origin,
       );

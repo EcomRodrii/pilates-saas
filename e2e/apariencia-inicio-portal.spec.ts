@@ -105,17 +105,21 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText(/Contenido del estudio/)).toBeVisible();
   });
 
-  test('ocultar "Invita a una amiga" es local hasta publicar — no manda nada al servidor solo', async ({ page }) => {
-    const { putsPorPantalla } = await montar(page);
+  test('ocultar "Invita a una amiga" se autoguarda en el BORRADOR, sin publicar', async ({ page }) => {
+    const { putsPorPantalla, publicadasPorPantalla } = await montar(page);
     await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Ocultar Invita a una amiga' }).click();
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
 
-    // Nada de "guardar borrador" suelto en el editor a pantalla completa: sin
-    // pulsar Publicar, no hay ningún PUT.
-    await page.waitForTimeout(300);
-    expect(putsPorPantalla.home).toHaveLength(0);
+    // Antes esto afirmaba "no manda nada al servidor solo" y esperaba 300 ms.
+    // Con el autoguardado (1,5 s de espera tras la última tecla) eso pasaba
+    // por accidente de reloj, no porque fuera cierto. Lo que de verdad hay que
+    // sostener es la distinción que importa: se guarda el BORRADOR, y publicar
+    // sigue siendo un acto deliberado.
+    await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
+    expect(putsPorPantalla.home).toHaveLength(1);
+    expect(publicadasPorPantalla.home).toBe(0);
   });
 
   test('añadir un bloque de texto, configurarlo y publicar manda el borrador y publica las 3 pantallas', async ({ page }) => {
@@ -170,5 +174,24 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Desplegar Clases' }).click();
     await expect(page.getByText('Calendario de clases', { exact: true })).toBeVisible();
+  });
+
+  // Al hacer seleccionables los módulos fijos, un clic dentro de la vista
+  // previa deja de navegar. Eso no puede pasar en silencio: hay un
+  // interruptor que lo dice con dos palabras, y arranca en "Editar" (que es
+  // lo que el editor hacía antes de existir el interruptor).
+  test('el interruptor Editar/Navegar arranca en Editar y cambia al pulsar', async ({ page }) => {
+    await montar(page);
+    const grupo = page.getByRole('group', { name: 'Qué hace un clic en la vista previa' });
+    await expect(grupo).toBeVisible({ timeout: 30_000 });
+
+    const editar = grupo.getByRole('button', { name: 'Editar' });
+    const navegar = grupo.getByRole('button', { name: 'Navegar' });
+    await expect(editar).toHaveAttribute('aria-pressed', 'true');
+    await expect(navegar).toHaveAttribute('aria-pressed', 'false');
+
+    await navegar.click();
+    await expect(navegar).toHaveAttribute('aria-pressed', 'true');
+    await expect(editar).toHaveAttribute('aria-pressed', 'false');
   });
 });

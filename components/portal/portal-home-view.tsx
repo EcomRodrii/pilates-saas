@@ -173,7 +173,20 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     // los del catálogo: sirve para acotar una aserción a SU bloque (varios de
     // estos destinos salen también en la barra inferior, así que buscar el
     // href a secas encuentra dos).
-    return { 'data-bloque-sistema': sistemaId, style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
+    //
+    // `data-bloque-id` es lo que hace al bloque SELECCIONABLE desde el
+    // preview del editor (portal-preview-bridge.ts busca ese atributo con
+    // `closest()`). Los dos conviven a propósito: el `sistemaId` es el tipo
+    // de módulo —el mismo en todos los estudios— y el `id` es esta fila
+    // concreta en la lista de esta pantalla, que es lo que el editor
+    // selecciona. Fuera del preview no cambia nada: en el portal de verdad
+    // este atributo no lo lee nadie.
+    return {
+      'data-bloque-sistema': sistemaId,
+      'data-bloque-id': i === -1 ? undefined : bloquesOrdenados[i].id,
+      style: { order: i === -1 ? 0 : i },
+      hidden: i === -1,
+    };
   };
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
