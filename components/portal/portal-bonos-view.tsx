@@ -36,6 +36,17 @@ export function PortalBonosView({
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
     return { style: { order: i === -1 ? 0 : i } };
   };
+  /**
+   * El texto de un bloque de SISTEMA, ya resuelto. `resolverBloques` rellena
+   * lo que el estudio no haya tocado con el literal de siempre, así que sin
+   * config guardada esto devuelve exactamente lo que se pintaba antes.
+   */
+  const txt = (sistemaId: 'listadoBonos', campo: string, siVacio: string): string => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    const v = b && b.kind === 'sistema' ? b.config?.[campo] : undefined;
+    return typeof v === 'string' ? v : siVacio;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -81,8 +92,8 @@ export function PortalBonosView({
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoBonos')}>
       <div style={{ padding: '62px 24px 24px' }}>
-        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>Saldo y planes</div>
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Bonos</h1>
+        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
+        <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 
         {bono ? (
           <div style={{

@@ -5,7 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
-import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
+import { resolverBloques, type BloqueHome, type PantallaId } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
@@ -99,7 +99,17 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
 export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, { headers: await authHeader() });
   if (!res.ok) throw new Error('No se pudieron cargar los bloques del portal');
-  return res.json();
+  // ⚠️ `resolverBloques`, no `res.json()` a secas. El EDITOR tiene que ver
+  // exactamente lo mismo que el render, y el render sí resuelve
+  // (`resolveBloquesPantalla`, server-side). Con el JSON crudo, un campo que
+  // el estudio no ha tocado llega `undefined` y su casilla sale VACÍA —
+  // enseñando un texto que no es el que ve la socia, y guardando `''` encima
+  // en cuanto el autoguardado dispara: borrando el texto de verdad.
+  //
+  // No se notaba con los bloques del catálogo porque su config siempre venía
+  // entera del servidor; salió al abrir campos en los bloques de sistema,
+  // cuyo jsonb no tiene `config` en ningún estudio existente.
+  return resolverBloques(await res.json());
 }
 
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {

@@ -74,11 +74,27 @@ export function zodDeBloques(
   camposEstilo: readonly CampoSchema[],
 ): z.ZodTypeAny {
   const estilo = zodDeCampos(camposEstilo, { todoOpcional: true }).optional();
+  // Los bloques de sistema también tienen config: sus textos (el título de
+  // "Esta semana", el titular de "Invita a una amiga"…) dejaron de estar
+  // escritos a fuego en el render. Se valida por `sistemaId`, con el schema de
+  // cada uno, en vez de con un `record` permisivo: si no, un guardado podaría
+  // o dejaría pasar cualquier cosa y el schema no sería la fuente de verdad.
+  const porSistemaId = new Map(
+    definiciones.filter((d) => d.origen === 'sistema' && d.sistemaId).map((d) => [d.sistemaId!, d.campos]),
+  );
   const sistema = z.object({
     id: z.string(),
     kind: z.literal('sistema'),
     sistemaId: z.enum(sistemaIds as [string, ...string[]]),
     oculto: z.boolean().optional(),
+    // `.optional()` porque los que todavía no tienen campos abiertos no
+    // guardan config ninguna, y los guardados de antes tampoco la traen.
+    config: z.record(z.string(), z.unknown()).optional(),
+  }).superRefine((val, ctx) => {
+    const campos = porSistemaId.get(val.sistemaId);
+    if (!campos || campos.length === 0 || val.config === undefined) return;
+    const r = zodDeCampos(campos, { todoOpcional: true }).safeParse(val.config);
+    if (!r.success) ctx.addIssue({ code: 'custom', message: `config inválida para ${val.sistemaId}` });
   });
   const catalogo = definiciones
     .filter((d) => d.origen === 'catalogo')
@@ -126,4 +142,9 @@ export interface DefinicionBloqueParaZod {
   origen: 'catalogo' | 'sistema';
   campos: readonly CampoSchema[];
   hijos?: { admite: readonly string[]; max?: number };
+  /**
+   * Solo en los de `sistema`: su `id` es siempre la cadena 'sistema', así que
+   * lo que los distingue —y con lo que se busca su schema— es esto.
+   */
+  sistemaId?: string;
 }

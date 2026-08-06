@@ -322,11 +322,18 @@ test('getBlockCatalogEntry devuelve un defaultConfig nuevo en cada llamada', () 
 
 test('solo los bloques del catálogo son estilizables', () => {
   for (const def of Object.values(REGISTRO_BLOQUES)) {
+    // `estilizable` sigue siendo cosa del catálogo: el fondo/padding/esquinas
+    // de un módulo de producto los decide el TEMA, no la propietaria bloque a
+    // bloque. Eso no ha cambiado.
     assert.equal(def.estilizable, def.origen === 'catalogo', def.nombre);
-    // Un `sistema` no tiene formulario: lo que enseña sale de los datos del
-    // estudio, no de campos que rellene la propietaria.
-    if (def.origen === 'sistema') assert.deepEqual(def.campos, []);
-    else assert.ok(def.campos.length > 0, def.nombre);
+    // ⚠️ Lo que SÍ ha cambiado: este test exigía `campos: []` en todo bloque de
+    // sistema, con el argumento de que "lo que enseña sale de los datos del
+    // estudio". Era verdad para los DATOS (las clases de esta semana) y falso
+    // para los TEXTOS que los envuelven: el titular de "Invita a una amiga"
+    // era copy de un estudio concreto servido a todos, sin forma de cambiarlo.
+    // Un bloque de sistema puede tener campos; los que aún no se han abierto
+    // siguen con la lista vacía.
+    if (def.origen === 'catalogo') assert.ok(def.campos.length > 0, def.nombre);
   }
 });
 
@@ -420,14 +427,28 @@ test('un botón con solo espacios ya no cuenta como completo — cambio delibera
 
 // ── Lectura tolerante ───────────────────────────────────────────────────────
 
-test('un array ya válido sale byte a byte igual — la tolerancia no cambia nada bueno', () => {
+test('un array ya válido sale igual, salvo los defaults que se rellenan a propósito', () => {
+  // ⚠️ Este test decía "byte a byte igual". Dejó de ser cierto para los
+  // bloques de SISTEMA con campos abiertos, y el cambio es deliberado: ahora
+  // se les rellena el texto de fábrica igual que ya se hacía con el catálogo,
+  // que es lo que hace retroactivo un campo nuevo sin migrar datos.
+  //
+  // Lo que se sigue exigiendo, y es lo que este test protege de verdad: que
+  // NADA de lo guardado se pierda ni se altere.
   const bueno: BloqueHome[] = [
     { id: 's', kind: 'sistema', sistemaId: 'estaSemana' },
-    { id: 's2', kind: 'sistema', sistemaId: 'retos', oculto: true },
+    { id: 's2', kind: 'sistema', sistemaId: 'tiraSemana', oculto: true },
     { id: 'b', kind: 'banner', config: { imagenUrl: 'u', titulo: 'T', texto: 'x', href: '/reservar' } },
     { id: 'f', kind: 'faq', config: { titulo: '', preguntas: [{ pregunta: 'P', respuesta: 'R' }] }, estilo: { esquinas: 'pill' } },
   ];
-  assert.deepEqual(resolverBloques(bueno), bueno);
+  const salida = resolverBloques(bueno);
+  // Lo del catálogo, intacto byte a byte.
+  assert.deepEqual(salida.slice(2), bueno.slice(2));
+  // `tiraSemana` no tiene campos (ni los tendrá): sigue saliendo idéntico.
+  assert.deepEqual(salida[1], bueno[1]);
+  // `estaSemana` sí, y gana sus textos de fábrica sin perder nada de lo suyo.
+  assert.equal(salida[0].id, 's');
+  assert.equal((salida[0] as { config: Record<string, unknown> }).config.titulo, 'Esta semana');
 });
 
 test('un kind desconocido se descarta SOLO a sí mismo — antes reventaba la pantalla entera', () => {
@@ -525,4 +546,82 @@ test('el tipo impide un segundo nivel — BloqueHijo no tiene `hijos`', () => {
   // @ts-expect-error un hijo no puede tener hijos
   const invalido: BloqueHijo = { id: 'h2', kind: 'texto', config: { titulo: '', texto: 'x' }, hijos: [] };
   void invalido;
+});
+
+// ── Campos de los bloques de SISTEMA ────────────────────────────────────────
+// Abrirlos es el arreglo de la queja "solo puedo reordenar bloques": el estado
+// por defecto de las tres pantallas es 100 % bloques de sistema, así que
+// mientras tuvieran `campos: []` una propietaria no podía editar NADA hasta
+// añadir un bloque de catálogo.
+
+test('los cuatro bloques del Inicio ya no están vacíos de campos', () => {
+  assert.ok(getDefinicionBloque('estaSemana')!.campos.length > 0);
+  assert.ok(getDefinicionBloque('accesosRapidos')!.campos.length > 0);
+  assert.ok(getDefinicionBloque('invitarAmiga')!.campos.length > 0);
+});
+
+test('⚠️ los porDefecto SON los textos que estaban escritos a fuego en el render', () => {
+  // Si alguien cambia un texto en portal-home-view.tsx y no aquí, el portal de
+  // un estudio que nunca tocó el campo cambiaría solo. Este test es el ancla.
+  const campo = (sis: string, id: string) =>
+    getDefinicionBloque(sis)!.campos.find((c) => c.id === id) as { porDefecto: unknown };
+  assert.equal(campo('estaSemana', 'titulo').porDefecto, 'Esta semana');
+  assert.equal(campo('estaSemana', 'enlaceTexto').porDefecto, 'Agenda →');
+  assert.equal(campo('invitarAmiga', 'antetitulo').porDefecto, 'Trae a quien quieras');
+  assert.equal(campo('invitarAmiga', 'titulo').porDefecto, 'La calma se comparte mejor.');
+  assert.equal(campo('invitarAmiga', 'subtitulo').porDefecto, 'Invita a una amiga y ganáis las dos');
+  // El de accesos rápidos va vacío a propósito: sin rótulo propio manda el del
+  // tema (`rotuloAccesos`), y un texto aquí lo pisaría para todo el mundo.
+  assert.equal(campo('accesosRapidos', 'titulo').porDefecto, '');
+});
+
+test('un bloque de sistema guardado SIN config se lee con los textos de siempre', () => {
+  // El caso de todos los estudios que ya existen: su jsonb no tiene `config`.
+  const b = resolverBloque({ id: 'x', kind: 'sistema', sistemaId: 'invitarAmiga' });
+  assert.ok(b && b.kind === 'sistema');
+  assert.equal((b.config as Record<string, unknown>).titulo, 'La calma se comparte mejor.');
+});
+
+test('un texto guardado por el estudio NO se pisa con el de fábrica', () => {
+  const b = resolverBloque({
+    id: 'x', kind: 'sistema', sistemaId: 'invitarAmiga',
+    config: { titulo: 'Ven con quien tú quieras' },
+  });
+  assert.ok(b && b.kind === 'sistema');
+  const c = b.config as Record<string, unknown>;
+  assert.equal(c.titulo, 'Ven con quien tú quieras');
+  // Y lo que no tocó sigue en el texto de siempre, no en undefined.
+  assert.equal(c.antetitulo, 'Trae a quien quieras');
+});
+
+test('los módulos de Clases, Bonos, Progreso y Retos también tienen campos', () => {
+  for (const sis of ['listadoClases', 'listadoBonos', 'progresoSemanal', 'retos']) {
+    assert.ok(getDefinicionBloque(sis)!.campos.length > 0, sis);
+  }
+});
+
+test('⚠️ y sus porDefecto también SON los literales del render', () => {
+  const campo = (sis: string, id: string) =>
+    getDefinicionBloque(sis)!.campos.find((c) => c.id === id) as { porDefecto: unknown };
+  assert.equal(campo('listadoClases', 'titulo').porDefecto, 'Clases');
+  assert.equal(campo('listadoClases', 'vacioDia').porDefecto, 'No hay clases este día.');
+  assert.equal(campo('listadoClases', 'vacioMias').porDefecto, 'Todavía no tienes ninguna clase reservada.');
+  assert.equal(campo('listadoBonos', 'antetitulo').porDefecto, 'Saldo y planes');
+  assert.equal(campo('listadoBonos', 'titulo').porDefecto, 'Bonos');
+  assert.equal(campo('progresoSemanal', 'titulo').porDefecto, 'Tu semana');
+  assert.equal(campo('retos', 'titulo').porDefecto, 'Retos');
+});
+
+test('`tiraSemana` se queda SIN campos a propósito — no tiene ningún texto propio', () => {
+  // Son siete casillas de día generadas de los datos. Inventarle un "título"
+  // sería un control que no mueve nada, que es peor que su ausencia.
+  assert.deepEqual(getDefinicionBloque('tiraSemana')!.campos, []);
+});
+
+test('un bloque de sistema SIN campos abiertos no gana un `config` vacío', () => {
+  // Ensuciar el jsonb de todos los estudios con `config: {}` no aporta nada y
+  // hace ruido en cada diff de guardado.
+  const b = resolverBloque({ id: 'x', kind: 'sistema', sistemaId: 'contenidoEstudio' });
+  assert.ok(b && b.kind === 'sistema');
+  assert.equal('config' in b, false);
 });
