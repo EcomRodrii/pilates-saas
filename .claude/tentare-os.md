@@ -218,10 +218,14 @@ comprobar el aforo en ese momento con lock (`FOR UPDATE`, mismo patrón que
 que su clase haya empezado — la guardia vive DENTRO de la RPC (si
 `sesiones.inicio <= now()`, fuerza `CANCELADA` pase lo que pase con
 `p_aprobar`), no en el cron. El cron `lib/inngest/reservas-pendientes.ts`
-(cada minuto, sin fan-out por estudio — es una query global) solo hace el
+(cada 5 min, sin fan-out por estudio — es una query global) solo hace el
 aviso proactivo a la socia vía `expirarReservaPendiente()`; si el cron se
 retrasara o no corriera un tick, la regla de negocio seguiría siendo
-correcta, solo el aviso llegaría tarde.
+correcta, solo el aviso llegaría tarde. Corría cada minuto; se bajó a 5 min
+porque eran ~87.600 invocaciones de Vercel al mes (el 70 % de las de todos
+los crons juntos) para una tabla en la que casi siempre no hay nada que
+expirar — decisión de producto explícita del fundador, el precio es que el
+aviso puede tardar hasta 4 minutos más.
 
 **Cero eventos de notificación nuevos salvo uno** (petición explícita del
 usuario: reusar antes que crear estado/evento nuevo). `RESERVA_APROBADA` y
