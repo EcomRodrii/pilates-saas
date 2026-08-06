@@ -27,6 +27,11 @@ const BLOQUES_HOME_DEFAULT = [
   { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
   { id: 'sistema-tiraSemana', kind: 'sistema', sistemaId: 'tiraSemana', oculto: true },
   { id: 'sistema-progresoSemanal', kind: 'sistema', sistemaId: 'progresoSemanal', oculto: true },
+  // `retos` tiene que estar (oculto) para que resembrar con Bloom pueda
+  // DESocultarlo: `sembrarBloquesHome` solo reordena bloques que ya existen,
+  // así que sin esta fila la aserción "retos queda visible" pasaría vacía
+  // (`find()` → undefined, y `undefined?.oculto` ya es falsy).
+  { id: 'sistema-retos', kind: 'sistema', sistemaId: 'retos', oculto: true },
   // Bloque del catálogo ya añadido por la propietaria — tiene que sobrevivir
   // a instalar un tema nuevo.
   { id: 'b-texto-1', kind: 'texto', config: { titulo: 'Bienvenidas', texto: 'x' } },
@@ -62,7 +67,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     }
     return json(route, themeResuelto);
   });
+  // Borrador y PUBLICADO por separado: instalar/actualizar un tema solo toca
+  // el borrador, y "Volver a lo publicado" tiene que poder recuperar el otro.
+  // Un único array haría pasar esa prueba sin probar nada.
   let bloquesHomeActuales: unknown[] = BLOQUES_HOME_DEFAULT;
+  const bloquesHomePublicados: unknown[] = BLOQUES_HOME_DEFAULT;
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());
     if (url.searchParams.get('pantalla') !== 'home') return json(route, []);
@@ -72,7 +81,7 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
       bloquesHomeActuales = body;
       return json(route, body);
     }
-    return json(route, bloquesHomeActuales);
+    return json(route, url.searchParams.get('publicado') === '1' ? bloquesHomePublicados : bloquesHomeActuales);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -219,6 +228,137 @@ test.describe('Biblioteca de temas', () => {
     expect(porId('progresoSemanal')?.oculto).toBe(true); // Oliva no lo pide
     // El bloque del catálogo que ya tenía la propietaria sigue ahí.
     expect(body.some((b) => b.kind === 'texto' && b.id === 'b-texto-1')).toBe(true);
+  });
+
+  // ── Actualizar a una versión nueva del tema instalado ────────────────────
+  // `defaults` no es retroactivo: quien instaló Bloom v2 se quedó con esos
+  // valores congelados en el borrador. Antes no había botón para salir de ahí
+  // (la fila de la biblioteca solo pinta "Usar" si el tema NO está en uso), y
+  // el único rodeo era instalar otro tema y volver.
+
+  const avisoVersion = (page: Page) => page.locator('[data-aviso="version-nueva"]');
+
+  test('un tema instalado en versión vieja ofrece actualizar', async ({ page }) => {
+    await montar(page, { themeId: 'bloom', themeVersion: 2 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await expect(avisoVersion(page)).toBeVisible();
+    await expect(avisoVersion(page).getByText('Hay una versión nueva de Bloom (v3)')).toBeVisible();
+    await expect(avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' })).toBeVisible();
+  });
+
+  test('actualizar manda los defaults de la versión nueva y limpia "personalizado"', async ({ page }) => {
+    const { puts } = await montar(page, { themeId: 'bloom', themeVersion: 2, themeCustomized: true, primary: '#000000' });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/theme') && r.request().method() === 'PUT'),
+      avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' }).click(),
+    ]);
+
+    const body = puts.at(-1)!;
+    expect(body.themeId).toBe('bloom');
+    expect(body.themeVersion).toBe(3);
+    // El color que la propietaria había tocado a mano vuelve al del tema —
+    // decisión explícita: se ofrece siempre, avisando, en vez de dejar sin
+    // salida al estudio que personalizó.
+    expect(body.primary).toBe('#7C5CFC');
+    expect(body.themeCustomized).toBe(false);
+
+    // Y lo que ve la propietaria después: el aviso desaparece, la versión sube
+    // y el cambio queda pendiente de publicar (no se le ha publicado nada a
+    // las socias por pulsar "Actualizar").
+    await expect(avisoVersion(page)).toHaveCount(0);
+    await expect(page.getByText('v3').first()).toBeVisible();
+    await expect(page.getByText(/sin publicar/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Volver a lo publicado' })).toBeVisible();
+  });
+
+  test('actualizar resiembra los bloques del Inicio del tema', async ({ page }) => {
+    // El caso que motiva la feature: Bloom v3 añadió el bloque `retos`, que un
+    // estudio con v2 instalada no tenía. Actualizar solo la config lo dejaría
+    // fuera y la actualización sería a medias.
+    const { putsBloquesHome } = await montar(page, { themeId: 'bloom', themeVersion: 2 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques') && r.url().includes('pantalla=home') && r.request().method() === 'PUT'),
+      avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' }).click(),
+    ]);
+
+    const body = putsBloquesHome.at(-1) as Array<Record<string, unknown>>;
+    expect(body.find((b) => b.sistemaId === 'retos')?.oculto).toBeFalsy();
+    // Y el contenido de la propietaria sigue intacto, igual que al instalar.
+    expect(body.some((b) => b.kind === 'texto' && b.id === 'b-texto-1')).toBe(true);
+  });
+
+  test('un tema personalizado también puede actualizar, pero avisa de lo que pierde', async ({ page }) => {
+    await montar(page, { themeId: 'bloom', themeVersion: 2, themeCustomized: true });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await expect(avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' })).toBeVisible();
+    await expect(avisoVersion(page).getByText(/se pierden los retoques/)).toBeVisible();
+  });
+
+  test('"Volver a lo publicado" devuelve también los bloques del Inicio', async ({ page }) => {
+    // Actualizar resiembra el Inicio, así que deshacer solo el ThemeConfig
+    // dejaba a la propietaria con su tema de siempre y el Inicio del tema que
+    // había probado.
+    const { putsBloquesHome } = await montar(page, { themeId: 'bloom', themeVersion: 2 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques') && r.request().method() === 'PUT'),
+      avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' }).click(),
+    ]);
+    // El Inicio quedó con el orden de Bloom: retos visible, estaSemana fuera.
+    const trasActualizar = putsBloquesHome.at(-1) as Array<Record<string, unknown>>;
+    expect(trasActualizar.find((b) => b.sistemaId === 'retos')?.oculto).toBe(false);
+    expect(trasActualizar.find((b) => b.sistemaId === 'estaSemana')?.oculto).toBe(true);
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques') && r.request().method() === 'PUT'),
+      page.getByRole('button', { name: 'Volver a lo publicado' }).click(),
+    ]);
+
+    // Y ahora vuelve EXACTAMENTE lo publicado, no un resembrado.
+    const trasVolver = putsBloquesHome.at(-1);
+    expect(trasVolver).toEqual(BLOQUES_HOME_DEFAULT);
+  });
+
+  test('"Volver a lo publicado" conserva el "personalizado" que estaba publicado', async ({ page }) => {
+    // `elegirTema` fuerza themeCustomized:false (correcto al instalar, el tema
+    // queda puro). Al revertir es un dato más que restaurar: si lo publicado
+    // estaba personalizado, tiene que seguir diciéndolo.
+    const { puts } = await montar(page, { themeId: 'bloom', themeVersion: 2, themeCustomized: true });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/theme') && r.request().method() === 'PUT'),
+      avisoVersion(page).getByRole('button', { name: 'Actualizar a v3' }).click(),
+    ]);
+    expect(puts.at(-1)!.themeCustomized).toBe(false);
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/theme') && r.request().method() === 'PUT'),
+      page.getByRole('button', { name: 'Volver a lo publicado' }).click(),
+    ]);
+    expect(puts.at(-1)!.themeCustomized).toBe(true);
+    expect(puts.at(-1)!.themeVersion).toBe(2);
+  });
+
+  test('un tema ya al día no ofrece actualizar', async ({ page }) => {
+    await montar(page, { themeId: 'bloom', themeVersion: 3 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+    await expect(avisoVersion(page)).toHaveCount(0);
+  });
+
+  test('una versión instalada por DELANTE del catálogo no ofrece "actualizar" hacia atrás', async ({ page }) => {
+    // Un despliegue revertido deja el catálogo por debajo de lo instalado.
+    // Comparar con `!==` anunciaría una regresión como si fuera una mejora.
+    await montar(page, { themeId: 'bloom', themeVersion: 9 });
+    await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
+    await expect(avisoVersion(page)).toHaveCount(0);
   });
 
   test('"Personalizar" lleva al editor', async ({ page }) => {
