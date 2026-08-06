@@ -116,7 +116,9 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
   test('carga la página con el estudio y el calendario', async ({ page }) => {
     await mockBackend(page);
     await page.goto(`/reservar/${SLUG}`);
-    await expect(page.getByText('Tentare').first()).toBeVisible();
+    // Timeout explícito en la primera aserción tras el goto: con `next dev` la
+    // ruta se compila bajo demanda y se pasa de los 5s por defecto de expect.
+    await expect(page.getByText('Tentare').first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Reformer').first()).toBeVisible();
   });
 

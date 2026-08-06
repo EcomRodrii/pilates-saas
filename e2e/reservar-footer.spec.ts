@@ -36,12 +36,19 @@ async function montar(page: Page, extra: Record<string, unknown> = {}) {
 
 test('los enlaces legales se ven en "Clases", sin tener que ir a "El estudio"', async ({ page }) => {
   await montar(page);
-  await expect(page.getByRole('button', { name: 'Política de privacidad' })).toBeVisible();
+  // Timeout explícito en la primera aserción tras `montar` (que acaba en un
+  // goto): con `next dev` esta ruta se compila bajo demanda y se pasa de los 5s
+  // por defecto de expect.
+  await expect(page.getByRole('button', { name: 'Política de privacidad' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Términos de servicio' })).toBeVisible();
 });
 
 test('sin redes sociales configuradas, no se pinta ningún icono de red social', async ({ page }) => {
   await montar(page);
+  // Anclar en algo que SÍ tiene que estar antes de afirmar ausencias: los
+  // toHaveCount(0) de abajo pasan al instante contra una página en blanco, así
+  // que sin esta espera el test daba verde con la ruta aún sin compilar.
+  await expect(page.getByRole('button', { name: 'Política de privacidad' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Instagram' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Facebook' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'WhatsApp' })).toHaveCount(0);
@@ -50,7 +57,7 @@ test('sin redes sociales configuradas, no se pinta ningún icono de red social',
 test('con Instagram configurado, el enlace se ve y apunta a la URL de verdad', async ({ page }) => {
   await montar(page, { redesSociales: { instagram: 'https://instagram.com/estudio-alma', facebook: '', whatsapp: '' } });
   const enlace = page.getByRole('link', { name: 'Instagram' });
-  await expect(enlace).toBeVisible();
+  await expect(enlace).toBeVisible({ timeout: 30_000 });
   await expect(enlace).toHaveAttribute('href', 'https://instagram.com/estudio-alma');
   await expect(enlace).toHaveAttribute('target', '_blank');
   // Facebook/WhatsApp siguen sin configurar: no aparecen.
@@ -59,5 +66,8 @@ test('con Instagram configurado, el enlace se ve y apunta a la URL de verdad', a
 
 test('un enlace de red social peligroso (javascript:) no se pinta', async ({ page }) => {
   await montar(page, { redesSociales: { instagram: 'javascript:alert(1)', facebook: '', whatsapp: '' } });
+  // Mismo motivo que arriba: sin anclar, el toHaveCount(0) pasa contra una
+  // página que todavía no ha pintado nada y el test no prueba el saneado.
+  await expect(page.getByRole('button', { name: 'Política de privacidad' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('link', { name: 'Instagram' })).toHaveCount(0);
 });
