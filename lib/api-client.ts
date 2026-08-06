@@ -7,6 +7,7 @@ import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
@@ -515,12 +516,17 @@ export async function sepaDisponibleParaEstudio(studioId: string): Promise<boole
 
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
+// ⚠️ `ok: true` NO significa "todo cerrado": el servidor responde 202 con
+// `aviso: 'COBRADO_SIN_PERSISTIR'` cuando el dinero entró en Stripe pero no se
+// pudo dejar escrito. Ese caso llegaba antes como un `{ok:true}` pelado porque
+// **202 entra en `res.ok`**, así que el diseño del 202 moría aquí. La lectura
+// vive en `lib/billing/resultado-cobro.ts`, con tests.
 export async function aprobarCobroAutonomo(params: {
   logId: string;
   reciboId: string;
   socioId: string;
   studioId: string;
-}): Promise<{ ok: true } | { error: string }> {
+}): Promise<CobroAprobado | { error: string }> {
   const res = await fetch('/api/stripe/charge-off-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -528,12 +534,16 @@ export async function aprobarCobroAutonomo(params: {
   });
   const data = await res.json();
   if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  return { ok: true };
+  const aviso = leerAvisoCobro(data);
+  return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
 // Fase 3: aprueba un cobro de penalización pendiente (cancelación
 // tardía/no-show) con la tarjeta ya guardada de la socia.
-export async function aprobarPenalizacion(penalizacionId: string): Promise<{ ok: true } | { error: string }> {
+// Mismo 202 que `aprobarCobroAutonomo`: el cargo entró en Stripe y la
+// penalización quedó FALLIDA por no poder persistirlo. Antes se perdía aquí y
+// la fila desaparecía de la lista con un "Cobro aprobado" alegre.
+export async function aprobarPenalizacion(penalizacionId: string): Promise<CobroAprobado | { error: string }> {
   const res = await fetch('/api/penalizaciones/aprobar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -541,7 +551,8 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<{ ok:
   });
   const data = await res.json();
   if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  return { ok: true };
+  const aviso = leerAvisoCobro(data);
+  return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
 // Manda (o vuelve a mandar) el email de invitación a alguien que ya está en el
