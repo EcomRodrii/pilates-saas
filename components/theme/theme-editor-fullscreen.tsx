@@ -37,6 +37,8 @@ import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type Ajustes
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
 import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
+import { useAutoguardado } from './use-autoguardado';
+import { textoEstado } from '@/lib/theme/autoguardado';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -99,6 +101,12 @@ export function ThemeEditorFullscreen() {
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [confirmarDescartar, setConfirmarDescartar] = useState(false);
+  // Un reloj lento solo para que "Guardado hace 20 s" envejezca a la vista.
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, []);
   const [publicandoTodo, setPublicandoTodo] = useState(false);
   const [avisoPublicar, setAvisoPublicar] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   // Tema PUBLICADO (no el borrador) — solo para el badge "N sin publicar" y
@@ -123,6 +131,19 @@ export function ThemeEditorFullscreen() {
   const bloquesHook = useBloquesEditor();
   const homeHook = useHomeSeccionesEditor();
   const contenidoHook = useContenidoPortalEditor();
+
+  // Autoguardado del borrador. Va AQUÍ, antes del `return` por rol de abajo:
+  // los hooks tienen que llamarse en el mismo orden en todos los renders, y
+  // ponerlo después haría que apareciera y desapareciera. Es exactamente el
+  // fallo que #707 arregló en /primeros-pasos.
+  //
+  // El tercer argumento es la guarda que impide guardar antes de que llegue
+  // el borrador del servidor — sin ella se subirían los bloques de fábrica.
+  const { estado: estadoGuardado } = useAutoguardado(
+    bloquesHook.bloquesPorPantalla,
+    guardarBloquesBorradorApi,
+    bloquesHook.estado === 'listo',
+  );
 
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
     return <p className="p-6 text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden editar la apariencia.</p>;
@@ -226,6 +247,17 @@ export function ThemeEditorFullscreen() {
         </div>
 
         <div className="flex items-center gap-1.5 flex-none">
+          {/* Lo único que le dice a la propietaria si su trabajo está a salvo.
+              En rojo cuando falla, porque un aviso gris de "no se ha podido
+              guardar" se lee como decoración. */}
+          <span
+            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
+            role="status"
+            aria-live="polite"
+            data-estado-guardado
+          >
+            {textoEstado(estadoGuardado, ahora)}
+          </span>
           <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Dispositivo">
             {DISPOSITIVO_IDS.map((id) => {
               const Icono = ICONO_DISPOSITIVO[id];
