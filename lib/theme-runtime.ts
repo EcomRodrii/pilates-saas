@@ -197,6 +197,23 @@ function varsBarraFlotante(t: ThemeConfig, marcaForeground: string): Record<stri
 // clase, tiraSemana, progresoSemanal) — nunca del resto del portal, que sigue
 // leyendo los números fijos de lib/portal-design.ts. Sin `radioTema`, ninguna
 // var — mismo mecanismo que el resto de esta fase.
+// Escala tipográfica por pieza. Mismo criterio que varsRadioTema: una var por
+// eje que el tema fije, ninguna para los que no — así el portal de un estudio
+// sin tema de esta tanda no cambia ni un píxel.
+function varsEscalaTexto(t: ThemeConfig): Record<string, string> {
+  if (!t.escalaTexto) return {};
+  const e = t.escalaTexto;
+  const vars: Record<string, string> = {};
+  if (e.seccion !== undefined) vars['--portal-text-seccion'] = `${e.seccion}px`;
+  if (e.tituloPantalla !== undefined) vars['--portal-text-titulo-pantalla'] = `${e.tituloPantalla}px`;
+  if (e.saludo !== undefined) vars['--portal-text-saludo'] = `${e.saludo}px`;
+  if (e.tituloHero !== undefined) vars['--portal-text-titulo-hero'] = `${e.tituloHero}px`;
+  if (e.bienvenida !== undefined) vars['--portal-text-bienvenida'] = `${e.bienvenida}px`;
+  if (e.numeroBono !== undefined) vars['--portal-text-numero-bono'] = `${e.numeroBono}px`;
+  if (e.cronometro !== undefined) vars['--portal-text-cronometro'] = `${e.cronometro}px`;
+  return vars;
+}
+
 function varsRadioTema(t: ThemeConfig): Record<string, string> {
   if (!t.radioTema) return {};
   const vars: Record<string, string> = {};
@@ -246,6 +263,8 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsBarraFlotante(t, marcaForeground),
     // Radio por pieza de las secciones nuevas
     ...varsRadioTema(t),
+    // Escala tipográfica por pieza (token del tema, ver theme-schema.ts)
+    ...varsEscalaTexto(t),
   };
 }
 

@@ -203,11 +203,12 @@ test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a varian
 
 test('cada cambio de defaults sube la versión — `defaults` NO es retroactivo', () => {
   // Sin subirla, un estudio que ya tenga el tema instalado se queda con los
-  // valores viejos para siempre y sin enterarse. Noir va por la 5 desde que su
-  // `cardStyle` pasó a `elevated`.
-  assert.equal(getThemeDefinition('oliva')!.version, 4);
-  assert.equal(getThemeDefinition('bloom')!.version, 4);
-  assert.equal(getThemeDefinition('noir')!.version, 5);
+  // valores viejos para siempre y sin enterarse. Los tres suben con
+  // `escalaTexto`; Noir iba una por delante desde que su `cardStyle` pasó a
+  // `elevated`.
+  assert.equal(getThemeDefinition('oliva')!.version, 5);
+  assert.equal(getThemeDefinition('bloom')!.version, 5);
+  assert.equal(getThemeDefinition('noir')!.version, 6);
   assert.equal(getThemeDefinition('editorial')!.version, 2);
 });
 
@@ -268,4 +269,33 @@ test('un estudio sin ninguno de los tres ejes conserva la píldora blanca de sie
                        '--portal-tabbar-active-fg', '--portal-tabbar-border']) {
     assert.equal(v[clave], undefined, clave);
   }
+});
+
+test('escalaTexto: los valores EXACTOS de `typography.scale` del encargo, y distintos por tema', () => {
+  // ⚠️ La escala es identidad del TEMA, no una constante del producto. Se llegó
+  // a recomendar una escala única para todos los estudios y los tokens que
+  // entregó diseño lo contradicen: Noir y Oliva titulan sus secciones a 17 y
+  // Bloom a 20. Este test es el que impide que vuelva a unificarse "por
+  // coherencia".
+  assert.equal(getThemeDefinition('oliva')!.defaults.escalaTexto?.seccion, 17);
+  assert.equal(getThemeDefinition('noir')!.defaults.escalaTexto?.seccion, 17);
+  assert.equal(getThemeDefinition('bloom')!.defaults.escalaTexto?.seccion, 20);
+  // El saludo es donde más se separan: Noir lo pone 5px por encima.
+  assert.equal(getThemeDefinition('noir')!.defaults.escalaTexto?.saludo, 24);
+  assert.equal(getThemeDefinition('oliva')!.defaults.escalaTexto?.saludo, 19);
+  // Y la bienvenida, donde más: 33 / 40 / 46.
+  assert.deepEqual(
+    ['bloom', 'noir', 'oliva'].map((id) => getThemeDefinition(id)!.defaults.escalaTexto?.bienvenida),
+    [33, 40, 46],
+  );
+});
+
+test('escalaTexto: un estudio SIN tema de esta tanda no declara ninguna var de texto', () => {
+  // La regresión cara: estos tamaños no deben cambiarle el portal a nadie más.
+  const v = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  assert.equal(Object.keys(v).some((k) => k.startsWith('--portal-text-')), false);
+  // Y con tema, las siete.
+  const oliva = themeToCssVars({ ...DEFAULT_THEME, ...getThemeDefinition('oliva')!.defaults }) as Record<string, string>;
+  assert.equal(Object.keys(oliva).filter((k) => k.startsWith('--portal-text-')).length, 7);
+  assert.equal(oliva['--portal-text-seccion'], '17px');
 });

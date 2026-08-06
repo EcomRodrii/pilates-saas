@@ -48,8 +48,7 @@ import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import {
-  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
-} from '@/lib/portal-design';
+  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
 import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
@@ -447,7 +446,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     Es la única diferencia entre las dos — ambas llevan avatar. */}
                 {variantes.cabeceraInicio === 'saludo' ? (
                   <>
-                    <h1 style={{ ...display(21), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <h1 style={{ ...display(escala('saludo', 21)), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       Hola, {nombre}
                     </h1>
                     <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
@@ -467,7 +466,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                         puede caer en otro saludo y eso es un desajuste de
                         hidratación. Mismo criterio que `fechaHoy` más abajo. */}
                     <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
-                    <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <h1 style={{ ...display(escala('saludo', 24)), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {nombre}
                     </h1>
                   </>
@@ -516,7 +515,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             MENSAJE REAL del día (el mismo que en la variante clásica es
             subtítulo, ascendido), no una frase de marketing de la maqueta. */}
         {variantes.cabeceraInicio === 'titular' && (
-          <p style={{ ...display(30, false, 1.18), color: t.ink, marginTop: 20 }}>
+          <p style={{ ...display(escala('titulo-hero', 30), false, 1.18), color: t.ink, marginTop: 20 }}>
             {homeCard.caso === 'PROXIMA_CLASE'
               ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
               : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
@@ -530,7 +529,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
             no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
         {tarjetaRotulada && (
-          <h2 style={{ ...display(24), color: t.ink, marginBottom: 12 }}>
+          <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 12 }}>
             {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
                 palabra de diferencia que obligaría a exponer otro campo del
                 tema hasta aquí, así que se unifica. */}
@@ -639,7 +638,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
           }}>
             <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ ...display(36, true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ ...display(escala('titulo-hero', 36), true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tarjeta.titulo}
               </div>
             </Link>
@@ -689,7 +688,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(30), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
+                  <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
                   <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
                     {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
@@ -737,7 +736,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             {/* El rótulo del estudio manda sobre el del tema; vacío en los dos
                 = sin rótulo, que es lo que hacen las variantes que no lo llevan. */}
             {(txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)) && (
-              <h2 style={{ ...display(24), color: t.ink, marginBottom: 14 }}>
+              <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 14 }}>
                 {txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)}
               </h2>
             )}
@@ -841,7 +840,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
                 </span>
                 <div>
-                  <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
                     {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
                   </div>
                   <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
@@ -890,7 +889,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
                     {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
                   </div>
                   <span aria-hidden style={{
@@ -982,7 +981,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               Oculto por defecto. */}
           <div {...wrap('retos')}>
             <div style={{ height: 40 }} />
-            <h2 style={{ ...display(30), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
+            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);

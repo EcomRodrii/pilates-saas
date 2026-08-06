@@ -55,4 +55,13 @@ export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--portal-radius-boton',
   '--portal-radius-chip',
   '--portal-radius-acceso',
+  // Escala tipográfica (`escalaTexto`): igual, solo se declara lo que el tema
+  // fija. Es identidad del tema — Noir/Oliva titulan a 17 y Bloom a 20.
+  '--portal-text-seccion',
+  '--portal-text-titulo-pantalla',
+  '--portal-text-saludo',
+  '--portal-text-titulo-hero',
+  '--portal-text-bienvenida',
+  '--portal-text-numero-bono',
+  '--portal-text-cronometro',
 ]);

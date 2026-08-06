@@ -50,9 +50,26 @@ export const serif = "var(--portal-heading-font, var(--font-display)), 'Instrume
 export const sans = "var(--font-ui), 'Instrument Sans', system-ui, sans-serif";
 
 /** Display serif. `it` = cursiva, que en este diseño no es énfasis: es voz. */
-export function display(size: number, it = false, lh = 1): CSSProperties {
+export function display(size: number | string, it = false, lh = 1): CSSProperties {
   return { fontFamily: serif, fontSize: size, fontStyle: it ? 'italic' : 'normal', lineHeight: lh, fontWeight: 'var(--portal-heading-weight, 400)' };
 }
+
+/**
+ * Un paso de la escala tipográfica del TEMA, con el número de siempre como
+ * fallback. `escalaTexto` es opcional: un estudio sin tema de la tanda
+ * Oliva/Bloom/Noir no declara la var y se ve exactamente igual que antes.
+ *
+ * ⚠️ Existe porque los rótulos estaban escritos a mano y habían derivado a 24
+ * en unos bloques y 30 en otros, sin criterio. Con la escala en el tema esa
+ * incoherencia no puede volver: es un token, no un número suelto.
+ */
+export function escala(paso: PasoEscala, siNoHayTema: number): string {
+  return `var(--portal-text-${paso}, ${siNoHayTema}px)`;
+}
+
+export type PasoEscala =
+  | 'seccion' | 'titulo-pantalla' | 'saludo' | 'titulo-hero'
+  | 'bienvenida' | 'numero-bono' | 'cronometro';
 
 // Las micro-etiquetas van en versalitas muy espaciadas. El `paddingLeft` iguala
 // al `letterSpacing`: sin él, el espaciado de la ÚLTIMA letra descuadra el

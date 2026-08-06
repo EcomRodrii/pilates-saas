@@ -119,7 +119,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'oliva',
-    version: 4,
+    version: 5,
     label: 'Oliva',
     description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
     capabilities: ['colors', 'typography', 'buttons', 'cards'],
@@ -141,6 +141,10 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       cardStyle: 'flat',
       // Valores exactos del prototipo (paleta() → radCard/radBoton/radChip).
       radioTema: { card: 26, boton: 20, chip: 999, acceso: 20 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 17, tituloPantalla: 30, saludo: 19, tituloHero: 25, bienvenida: 46, numeroBono: 60, cronometro: 40 },
       barraClasica: true,
       // Forma por bloque: rejilla de baldosas y la barra con las 4 etiquetas
       // y el icono activo relleno (`relleno: activo && esOliva` del prototipo).
@@ -156,7 +160,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
   },
   {
     id: 'bloom',
-    version: 4,
+    version: 5,
     label: 'Bloom',
     description: 'Lila y rosa, esquinas de píldora y una barra que flota. Energía y comunidad, para público joven.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -180,6 +184,10 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       barraFlotante: true,
       // Valores exactos del prototipo: botón 100% píldora (radBoton: 999).
       radioTema: { card: 30, boton: 999, chip: 999, acceso: 22 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 20, tituloPantalla: 28, saludo: 19, tituloHero: 25, bienvenida: 33, numeroBono: 60, cronometro: 40 },
       // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
       // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
       // Cabecera con titular grande y retos con fondo de color propio.
@@ -195,7 +203,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     // 4 → 5: `cardStyle` pasa de flat a elevated. Sube la versión porque
     // `defaults` NO es retroactivo — sin esto, un estudio que ya tenga Noir
     // instalado se queda con las tarjetas planas para siempre y sin enterarse.
-    version: 5,
+    version: 6,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -225,6 +233,10 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       barraClasica: true,
       // Valores exactos del prototipo (paleta() → radCard/radBoton de Noir).
       radioTema: { card: 24, boton: 18, chip: 999 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 17, tituloPantalla: 28, saludo: 24, tituloHero: 26, bienvenida: 40, numeroBono: 60, cronometro: 40 },
       // Accesos en CÍRCULO (el rasgo propio de Noir en el prototipo, frente a
       // las baldosas de Oliva/Bloom) y barra con las 4 etiquetas — pero sin
       // relleno: el icono activo de Noir es dorado, no macizo.
