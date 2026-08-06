@@ -722,3 +722,19 @@ test('en Clases y Bonos no hay fijos: su lista guardada sale intacta', () => {
   const guardado = { draft: [{ id: 'l', kind: 'sistema', sistemaId: 'listadoClases' }], publicado: [] };
   assert.deepEqual(resolveBloquesPantalla(guardado, 'clases').draft.map((b) => b.id), ['l']);
 });
+
+test('⚠️ un campo con porDefecto VACÍO no debe borrar el texto del render', () => {
+  // El bug: `fraseConClase` va vacía a propósito (cada variante de cabecera
+  // conserva SU frase). El helper del render trataba '' como valor válido, así
+  // que en vez de heredar BORRABA la frase cuando la socia sí tenía clase hoy.
+  //
+  // Ni tsc, ni el lint, ni 1793 unitarios, ni los 22 e2e del editor lo vieron:
+  // lo cazó un e2e del PORTAL que no se me ocurrió correr. Este test fija la
+  // pieza que se puede comprobar desde aquí — que el defecto es '' — para que
+  // el día que alguien le ponga un texto se pregunte por qué estaba vacío.
+  const c = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseConClase') as { porDefecto: unknown };
+  assert.equal(c.porDefecto, '', 'vacío = "la frase que traiga tu tema", no una frase impuesta a todos');
+  // Y la que sí tiene texto propio lo conserva.
+  const sin = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseSinClase') as { porDefecto: unknown };
+  assert.equal(sin.porDefecto, 'Tu sitio sigue aquí.');
+});

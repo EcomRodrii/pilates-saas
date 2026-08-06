@@ -203,7 +203,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   };
   const txt = (sistemaId: BloqueSistemaId, campo: string, siVacio = ''): string => {
     const v = cfgSistema(sistemaId)[campo];
-    return typeof v === 'string' ? v : siVacio;
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
   };
 
   /**

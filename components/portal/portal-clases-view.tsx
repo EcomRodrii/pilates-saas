@@ -119,7 +119,12 @@ export function PortalClasesView({
   const txt = (sistemaId: 'listadoClases', campo: string, siVacio: string): string => {
     const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
     const v = b && b.kind === 'sistema' ? b.config?.[campo] : undefined;
-    return typeof v === 'string' ? v : siVacio;
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
   };
 
   const bloquesPersonalizados = useMemo(
