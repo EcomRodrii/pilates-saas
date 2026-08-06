@@ -802,7 +802,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setCurrentStudioId(studioIdOverride ?? '');
     // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
     // Bearer); ya no se pasa {socioId,email} desde el cliente.
-    cargarDatosPublicos(publicSlug).then(pub => {
+    //
+    // `liviano`: solo /reservar/[slug] (y sus widgets embebidos, mismo path)
+    // — nunca vídeos/recompensas/niveles/logros/retos/contenido de portal.
+    // app/portal/[slug] sigue pidiendo el catálogo completo (mismo criterio
+    // que `shadowedByPublicRoute` arriba, basado en el pathname real).
+    const liviano = (pathname ?? '').startsWith('/reservar/');
+    cargarDatosPublicos(publicSlug, { liviano }).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
       setPlanMasElegidoId((pub as { planMasElegidoId?: string | null }).planMasElegidoId ?? null);

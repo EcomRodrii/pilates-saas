@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -52,7 +52,18 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   const widget = WIDGETS.find(w => w.tab === activo)!;
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
   const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tab}`;
-  const codigo = `<iframe src="${src}" style="width:100%;max-width:480px;height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}"></iframe>`;
+  // Id único por widget (no solo por estudio): una web puede embeber varios
+  // widgets del mismo estudio a la vez (clases + citas), y el listener de
+  // abajo necesita distinguir qué iframe redimensionar.
+  const iframeId = `tentare-widget-${slug}-${widget.tab}`;
+  // Auto-resize (audit de rendimiento): la página embebida avisa su altura
+  // real por postMessage (ver useEffect de embedMode en
+  // app/reservar/[slug]/page.tsx) — este script la escucha y ajusta el
+  // iframe, así el contenido nunca queda cortado ni con hueco muerto. Se
+  // incluye en el propio código a copiar porque un <iframe> suelto no puede
+  // ejecutar nada en la página anfitriona.
+  const codigo = `<iframe id="${iframeId}" src="${src}" style="width:100%;max-width:480px;height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}"></iframe>
+<script>window.addEventListener('message',function(e){if(e.data&&e.data.tentareEmbedAltura&&e.data.tentareSlug==='${slug}'){var f=document.getElementById('${iframeId}');if(f)f.style.height=e.data.tentareEmbedAltura+'px';}});</script>`;
 
   function copiar() {
     navigator.clipboard.writeText(codigo);
@@ -60,6 +71,19 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
     showToast('Código copiado');
     setTimeout(() => setCopiado(false), 2000);
   }
+
+  // Misma auto-resize para la vista previa DENTRO del panel — el listener de
+  // arriba solo se activa en la web anfitriona una vez pegado el código.
+  const previewRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.tentareEmbedAltura && e.data?.tentareSlug === slug && previewRef.current) {
+        previewRef.current.style.height = `${Math.min(e.data.tentareEmbedAltura, 900)}px`;
+      }
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [slug]);
 
   return (
     <div className={cn(cardCls, 'p-6')}>
@@ -84,8 +108,8 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
       </div>
       <p className="text-[12px] text-muted-foreground mb-4">{widget.desc}</p>
       <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
-        <div className="rounded-xl border border-border overflow-hidden bg-muted/30" style={{ aspectRatio: '3/4' }}>
-          <iframe key={activo} src={src} title={`Vista previa: ${widget.nombre}`} className="w-full h-full" style={{ border: 0 }} />
+        <div className="rounded-xl border border-border overflow-y-auto bg-muted/30" style={{ maxHeight: 640 }}>
+          <iframe ref={previewRef} key={activo} src={src} title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} />
         </div>
         <div className="min-w-0">
           <p className={labelCls}>Código para pegar en tu web</p>

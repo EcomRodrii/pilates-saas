@@ -266,6 +266,7 @@ export async function resolverStudioPorSlug(
 export async function fetchPublicStudioData(
   slug: string,
   member?: { socioId: string; email: string },
+  opts?: { liviano?: boolean },
 ) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
@@ -274,6 +275,7 @@ export async function fetchPublicStudioData(
   if (!resuelto) return null;
   const studioRow = resuelto.row as unknown as RowStudios;
   const studioId: string = studioRow.id;
+  const liviano = opts?.liviano ?? false;
 
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
   // planes, spots, vídeos y la configuración de gamificación (niveles, logros,
@@ -287,24 +289,25 @@ export async function fetchPublicStudioData(
   // "CACHE"). sesiones y el aforo de plazas quedan FUERA del caché a propósito
   // — cambian con cada reserva/cancelación y una socia no debe ver una plaza
   // como libre cuando ya se ocupó hace 10 segundos.
-  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}`, async () => {
+  //
+  // `liviano` (audit de rendimiento de los widgets embebibles, #~730): los 4
+  // iframes de /reservar/[slug]?embed=1 comparten este mismo endpoint con el
+  // portal completo (app/portal/[slug]) pero NUNCA leen vídeos, recompensas,
+  // niveles/logros/retos, contenido del portal ni el layout de temas — eso es
+  // exclusivo de la app instalable. Confirmado por grep en
+  // app/reservar/[slug]/page.tsx: cero referencias a esos campos. Se saltan
+  // esas 11 queries y sus campos vuelven vacíos/null — misma forma del objeto,
+  // así que el portal (que sí pide el modo completo) no cambia en nada.
+  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}:${liviano ? 'liviano' : 'completo'}`, async () => {
     const [
-      tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
-      rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+      tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
       admin.from('instructores').select('*').eq('studio_id', studioId),
       admin.from('spots').select('*').eq('studio_id', studioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
-      admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
-      admin.from('reward_rules').select('*').eq('studio_id', studioId),
-      admin.from('reward_catalog').select('*').eq('studio_id', studioId),
-      admin.from('level_definitions').select('*').eq('studio_id', studioId),
-      admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
-      admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
       // Catálogo de citas 1:1 (0046): solo servicios auto-reservables y activos +
       // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
       admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
@@ -314,32 +317,51 @@ export async function fetchPublicStudioData(
       // suscripciones que allí hay (las de la socia identificada, y ninguna si
       // no lo está) convertía su propia compra repetida en prueba social.
       admin.from('suscripciones').select('plan_id').eq('studio_id', studioId),
-      admin.from('contenido_portal').select('*').eq('studio_id', studioId).maybeSingle(),
-      // Filtrado en SQL (activo + ubicación 'home'), no en el cliente — es lo
-      // que gana la tabla normalizada frente a un jsonb. La ventana de fechas se
-      // filtra en el cliente: "hoy" depende del momento de carga, no de cuándo
-      // se rellenó este caché de hasta 60s.
-      admin.from('contenido_portal_banners').select('*')
-        .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
-        .order('orden', { ascending: true }),
-      // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
-      // editor de temas) — getLayout ya es una función pública sin auth
-      // (service-role, cacheada con React cache), así que se llama tal cual,
-      // sin RLS/endpoint nuevo.
-      getLayout(studioId),
-      // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
-      // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
-      // la única excepción — la barra inferior (portal-shell.tsx) decide con
-      // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
-      // puede decidir por sí solo.
-      getThemePublicado(studioId),
-      // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
-      // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
-      // socia daría un número parcial, no el real.
-      admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
     ]);
 
-    const retoConteos = (retoParticipRes.data ?? []).reduce<Record<string, number>>((acc, r) => {
+    // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
+    // `liviano` arriba. Sin ellas cuando el widget no las necesita: un array
+    // literal con spread condicional rompe la inferencia de tupla de
+    // Promise.all (degenera a un array homogéneo), así que este bloque va en
+    // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
+    const [
+      videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
+    ] = liviano
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      : await Promise.all([
+        admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
+        admin.from('reward_rules').select('*').eq('studio_id', studioId),
+        admin.from('reward_catalog').select('*').eq('studio_id', studioId),
+        admin.from('level_definitions').select('*').eq('studio_id', studioId),
+        admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
+        admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
+        admin.from('contenido_portal').select('*').eq('studio_id', studioId).maybeSingle(),
+        // Filtrado en SQL (activo + ubicación 'home'), no en el cliente — es lo
+        // que gana la tabla normalizada frente a un jsonb. La ventana de fechas se
+        // filtra en el cliente: "hoy" depende del momento de carga, no de cuándo
+        // se rellenó este caché de hasta 60s.
+        admin.from('contenido_portal_banners').select('*')
+          .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
+          .order('orden', { ascending: true }),
+        // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
+        // editor de temas) — getLayout ya es una función pública sin auth
+        // (service-role, cacheada con React cache), así que se llama tal cual,
+        // sin RLS/endpoint nuevo.
+        getLayout(studioId),
+        // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
+        // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
+        // la única excepción — la barra inferior (portal-shell.tsx) decide con
+        // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
+        // puede decidir por sí solo.
+        getThemePublicado(studioId),
+        // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
+        // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
+        // socia daría un número parcial, no el real.
+        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+      ]);
+
+    const retoConteos = (retoParticipRes?.data ?? []).reduce<Record<string, number>>((acc, r) => {
       const key = (r as { reto_key: string }).reto_key;
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
@@ -354,34 +376,34 @@ export async function fetchPublicStudioData(
       instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
       spots: (spotsRes.data ?? []).map(mapSpot),
       planesTarifa: planesConTiposPub,
-      videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
-      rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
-      rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
-      levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
-      achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
-      challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
+      videosOnDemand: (videosRes?.data ?? []).map(mapVideoOnDemand),
+      rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
+      rewardCatalog: (rewardCatalogRes?.data ?? []).map(mapRewardCatalogItem),
+      levelDefinitions: (levelDefsRes?.data ?? []).map(mapLevelDefinition),
+      achievementDefinitions: (achDefsRes?.data ?? []).map(mapAchievementDefinition),
+      challengeDefinitions: (chalDefsRes?.data ?? []).map(mapChallengeDefinition),
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
-      contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
-      bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
-      portalHome: layout.portalHome,
+      contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+      bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+      portalHome: layout?.portalHome ?? null,
       // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
       // borrador — solo lo publicado llega al portal en vivo.
-      homeBloques: layout.bloques.home.publicado,
-      bloquesClases: layout.bloques.clases.publicado,
-      bloquesBonos: layout.bloques.bonos.publicado,
-      tabBarStyle: temaPublicado.tabBarStyle,
-      navPortal: temaPublicado.navPortal,
-      redesSociales: temaPublicado.redesSociales,
+      homeBloques: layout?.bloques.home.publicado ?? [],
+      bloquesClases: layout?.bloques.clases.publicado ?? [],
+      bloquesBonos: layout?.bloques.bonos.publicado ?? [],
+      tabBarStyle: temaPublicado?.tabBarStyle ?? null,
+      navPortal: temaPublicado?.navPortal ?? null,
+      redesSociales: temaPublicado?.redesSociales ?? null,
       // Barra clásica (Oliva/Noir, ver harmonic-discovering-kettle.md): igual
       // que tabBarStyle/navPortal, es una decisión de LAYOUT que portal-shell.tsx
       // toma con JS (position flotante o no), no algo que una CSS var pueda
       // decidir por sí sola.
-      barraClasica: temaPublicado.barraClasica,
+      barraClasica: temaPublicado?.barraClasica ?? null,
       // Variantes de forma por bloque (theme-variantes.ts) — viajan como valor
       // JS por el mismo motivo que `barraClasica`: deciden qué elementos
       // EXISTEN, algo que una CSS var no puede decidir.
-      variantes: temaPublicado.variantes ?? null,
+      variantes: temaPublicado?.variantes ?? null,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),

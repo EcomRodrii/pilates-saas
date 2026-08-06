@@ -2,6 +2,7 @@
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
@@ -12,8 +13,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
-import { CitasPublica } from '@/components/reserva/citas-publica';
+import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
@@ -24,6 +24,23 @@ import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
+
+// Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
+// de este widget (clases / citas 1:1 / mis reservas / planes) es
+// autoexcluyente — solo una está montada a la vez — pero antes las cuatro se
+// importaban de forma estática, así que un iframe embebido en la web del
+// estudio para SOLO citas 1:1 cargaba también el bundle entero del calendario
+// de clases (y viceversa) sin usarlo nunca. `ssr: false` es seguro aquí: todo
+// el widget ya es 'use client' y ambos componentes leen `window`/interacción
+// de usuario.
+const ReservaCalendario = dynamic(
+  () => import('@/components/reserva/reserva-calendario').then((m) => m.ReservaCalendario),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando calendario…</div> },
+);
+const CitasPublica = dynamic(
+  () => import('@/components/reserva/citas-publica').then((m) => m.CitasPublica),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
+);
 
 // Redes sociales del pie de página (Fase 3 del Theme Builder, lib/theme-schema.ts
 // → RedSocialId) — orden y etiqueta de cada icono del pie.
@@ -251,6 +268,25 @@ export default function ReservarPage() {
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
+
+  // Auto-resize del <iframe> embebido (audit de rendimiento de los widgets):
+  // el código que se copia en tab-api.tsx fija un `height` en px por widget —
+  // un contenido más corto o más largo que ese valor deja hueco muerto o
+  // recorta contenido y obliga a hacer scroll DENTRO del iframe. Se avisa a
+  // la ventana padre con la altura real del documento cada vez que cambia
+  // (cambio de tab, expandir un desplegable, cargar más clases…); el snippet
+  // que se copia junto al iframe (tab-api.tsx) escucha este mensaje y ajusta
+  // el alto. Sin efecto si el widget no está embebido en un iframe ajeno.
+  useEffect(() => {
+    if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
+    const enviarAltura = () => {
+      window.parent.postMessage({ tentareEmbedAltura: document.documentElement.scrollHeight, tentareSlug: slug }, '*');
+    };
+    enviarAltura();
+    const obs = new ResizeObserver(enviarAltura);
+    obs.observe(document.documentElement);
+    return () => obs.disconnect();
+  }, [embedMode, slug, tab]);
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
