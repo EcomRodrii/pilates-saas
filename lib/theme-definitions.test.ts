@@ -294,8 +294,9 @@ test('escalaTexto: un estudio SIN tema de esta tanda no declara ninguna var de t
   // La regresión cara: estos tamaños no deben cambiarle el portal a nadie más.
   const v = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
   assert.equal(Object.keys(v).some((k) => k.startsWith('--portal-text-')), false);
-  // Y con tema, las siete.
+  // Y con tema, las SEIS. Seis y no siete: el `timer` del encargo no se
+  // declara porque el portal no tiene pantalla de sesión guiada.
   const oliva = themeToCssVars({ ...DEFAULT_THEME, ...getThemeDefinition('oliva')!.defaults }) as Record<string, string>;
-  assert.equal(Object.keys(oliva).filter((k) => k.startsWith('--portal-text-')).length, 7);
+  assert.equal(Object.keys(oliva).filter((k) => k.startsWith('--portal-text-')).length, 6);
   assert.equal(oliva['--portal-text-seccion'], '17px');
 });

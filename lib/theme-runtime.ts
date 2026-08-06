@@ -210,7 +210,6 @@ function varsEscalaTexto(t: ThemeConfig): Record<string, string> {
   if (e.tituloHero !== undefined) vars['--portal-text-titulo-hero'] = `${e.tituloHero}px`;
   if (e.bienvenida !== undefined) vars['--portal-text-bienvenida'] = `${e.bienvenida}px`;
   if (e.numeroBono !== undefined) vars['--portal-text-numero-bono'] = `${e.numeroBono}px`;
-  if (e.cronometro !== undefined) vars['--portal-text-cronometro'] = `${e.cronometro}px`;
   return vars;
 }
 

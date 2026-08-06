@@ -340,7 +340,7 @@ de un estudio existente salvo donde se diga.
 | 4a | **Documento = mapa + orden** (modelo puro + duplicar en el editor) ✅ | Habilita duplicar y restaurar, imposibles con array plano. NO toca el jsonb: `desdeArray`/`aArray` son el puente. |
 | 4b | **Lector tolerante**: `resolverBloques` y el zod aceptan array **o** `{bloques, orden}` ✅ | Orden correcto de migración: el lector va SIEMPRE por delante del escritor. Sale a producción sabiendo leer las dos formas antes de que nada escriba la nueva. |
 | 4c | **Flip del escritor**: el editor guarda documento | Ya sin riesgo de rollback: cualquier versión desplegada sabe leerlo. Se hace cuando 4b lleve un rato en producción. |
-| 5 | **Escala tipográfica y de espaciado** — `--font-size--*` fija + presets por elemento + `clamp()` derivado; `--spacing-scale` por breakpoint | Arregla los rótulos de 24-vs-30px de raíz: el problema no es qué número poner, es que hay números sueltos en vez de una escala. |
+| 5 | **Escala tipográfica** ✅ (el espaciado, no — ver abajo) — `--font-size--*` fija + presets por elemento + `clamp()` derivado; `--spacing-scale` por breakpoint | Arregla los rótulos de 24-vs-30px de raíz: el problema no es qué número poner, es que hay números sueltos en vez de una escala. |
 | 6 | **Contraste por superficie** (`<Superficie fondo>` que emite las vars y decide el texto) | Hoy solo validamos al publicar. Esto hace que `EstiloBloque.fondo` no pueda romper la legibilidad, y el anidamiento sale gratis por cascada. |
 | 7 | **Vocabulario de campos**: `rango` (min/max/step/unidad), `alineacion`, `richtext`, selectores de recurso (clase, tipo de clase, instructora, plan) | `range` es el 2.º tipo más usado de Horizon (548) y no lo tenemos. |
 | 8 | **`themes/<id>/` + manifest + registro por glob** | El cambio estructural. Se hace cuando 1-7 ya han estabilizado el modelo. |
@@ -367,3 +367,27 @@ en Horizon y no se tocan:
   vez de tumbar la pantalla de la socia.
 - **Gate de contraste al publicar** (`validarContrasteTheme`). Horizon no tiene
   nada equivalente: puedes publicar un tema ilegible.
+
+
+## 7. Lo que NO se hizo de la etapa 5, y por qué
+
+**El `--spacing-scale` por breakpoint queda fuera.** La técnica es buena (un
+valor que edita la propietaria, escalado por un factor según el ancho), pero
+una custom property **no funciona dentro de una media query**: hay que
+declararla en una hoja de estilos. El portal tiene dos caminos —
+`themeToCssText` (un `<style>` server-side) y `themeToCssVars` (estilo en
+línea, que es lo que usa el PREVIEW)—, y solo el primero puede llevar la media
+query. Hacerlo así dejaría el preview mintiendo otra vez sobre el espaciado,
+que es exactamente la clase de bug que ha costado tres arreglos en esta tanda.
+Se hará cuando el preview y el render compartan un solo camino de CSS.
+
+**La tipografía fluida (`clamp()` derivado) tampoco.** Horizon la deriva
+porque su escala es de ESCRITORIO y encoge hacia abajo. La nuestra viene de
+`tokens.json` con **un valor por paso, medido en móvil**: derivar un rango
+significaría inventarme el extremo de escritorio, que es diseño y no me
+corresponde. Si se quiere, el encargo tiene que dar el par (móvil, ancho) por
+paso.
+
+**El séptimo paso, `timer`, no se declara.** El portal no tiene pantalla de
+sesión guiada. Declararlo sería justo lo que este proyecto lleva pagando caro:
+un campo sin consumidor que parece que hace algo.

@@ -39,7 +39,7 @@ import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
-import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
+import { EASE, dur, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -363,7 +363,7 @@ export function PortalClasesView({
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
+            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>

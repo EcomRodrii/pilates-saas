@@ -14,7 +14,7 @@ import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, plazaFijaTexto, fechaLarga } from '@/lib/bonos-portal';
-import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
@@ -98,7 +98,7 @@ export function PortalBonosView({
       <div {...wrap('listadoBonos')}>
       <div style={{ padding: '62px 24px 24px' }}>
         <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
+        <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 
         {bono ? (
           <div style={{
@@ -115,7 +115,7 @@ export function PortalBonosView({
             {bono.total != null && bono.restantes != null ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 22 }}>
-                  <span style={{ ...display(62, false, 0.9), color: t.ink }}>{bono.restantes}</span>
+                  <span style={{ ...display(escala('numero-bono', 62), false, 0.9), color: t.ink }}>{bono.restantes}</span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: t.muted }}>
                     de {bono.total} sesiones disponibles
                   </span>

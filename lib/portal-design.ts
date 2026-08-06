@@ -69,7 +69,7 @@ export function escala(paso: PasoEscala, siNoHayTema: number): string {
 
 export type PasoEscala =
   | 'seccion' | 'titulo-pantalla' | 'saludo' | 'titulo-hero'
-  | 'bienvenida' | 'numero-bono' | 'cronometro';
+  | 'bienvenida' | 'numero-bono';
 
 // Las micro-etiquetas van en versalitas muy espaciadas. El `paddingLeft` iguala
 // al `letterSpacing`: sin él, el espaciado de la ÚLTIMA letra descuadra el

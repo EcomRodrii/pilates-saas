@@ -144,7 +144,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Escala tipográfica: valores EXACTOS de `typography.scale` en el
       // tokens.json que entregó diseño. Es token del tema, no constante del
       // producto — el portal usaba 24 y 30 en rótulos sin criterio.
-      escalaTexto: { seccion: 17, tituloPantalla: 30, saludo: 19, tituloHero: 25, bienvenida: 46, numeroBono: 60, cronometro: 40 },
+      escalaTexto: { seccion: 17, tituloPantalla: 30, saludo: 19, tituloHero: 25, bienvenida: 46, numeroBono: 60 },
       barraClasica: true,
       // Forma por bloque: rejilla de baldosas y la barra con las 4 etiquetas
       // y el icono activo relleno (`relleno: activo && esOliva` del prototipo).
@@ -187,7 +187,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Escala tipográfica: valores EXACTOS de `typography.scale` en el
       // tokens.json que entregó diseño. Es token del tema, no constante del
       // producto — el portal usaba 24 y 30 en rótulos sin criterio.
-      escalaTexto: { seccion: 20, tituloPantalla: 28, saludo: 19, tituloHero: 25, bienvenida: 33, numeroBono: 60, cronometro: 40 },
+      escalaTexto: { seccion: 20, tituloPantalla: 28, saludo: 19, tituloHero: 25, bienvenida: 33, numeroBono: 60 },
       // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
       // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
       // Cabecera con titular grande y retos con fondo de color propio.
@@ -236,7 +236,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Escala tipográfica: valores EXACTOS de `typography.scale` en el
       // tokens.json que entregó diseño. Es token del tema, no constante del
       // producto — el portal usaba 24 y 30 en rótulos sin criterio.
-      escalaTexto: { seccion: 17, tituloPantalla: 28, saludo: 24, tituloHero: 26, bienvenida: 40, numeroBono: 60, cronometro: 40 },
+      escalaTexto: { seccion: 17, tituloPantalla: 28, saludo: 24, tituloHero: 26, bienvenida: 40, numeroBono: 60 },
       // Accesos en CÍRCULO (el rasgo propio de Noir en el prototipo, frente a
       // las baldosas de Oliva/Bloom) y barra con las 4 etiquetas — pero sin
       // relleno: el icono activo de Noir es dorado, no macizo.

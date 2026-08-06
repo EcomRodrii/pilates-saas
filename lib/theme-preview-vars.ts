@@ -63,5 +63,4 @@ export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--portal-text-titulo-hero',
   '--portal-text-bienvenida',
   '--portal-text-numero-bono',
-  '--portal-text-cronometro',
 ]);

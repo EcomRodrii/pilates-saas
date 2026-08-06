@@ -213,8 +213,11 @@ const escalaTextoSchema = z.object({
   bienvenida: z.number().optional(),
   /** Número grande de sesiones restantes en Bonos. */
   numeroBono: z.number().optional(),
-  /** Cuenta atrás de la sesión guiada. */
-  cronometro: z.number().optional(),
+  // ⚠️ El `typography.scale` del encargo trae un séptimo paso, `timer`, para
+  // la cuenta atrás de la sesión guiada. NO se declara aquí: nuestro portal no
+  // tiene esa pantalla. Declararlo sería exactamente lo que este proyecto
+  // lleva pagando caro — un campo sin consumidor que parece que hace algo.
+  // Cuando exista la pantalla, se añade.
 }).strict();
 
 // Variantes de FORMA por bloque — el catálogo vive en theme-variantes.ts
