@@ -1,5 +1,6 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
+import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
@@ -4323,3 +4324,100 @@ export async function dbListarPenalizacionesPendientes(): Promise<PenalizacionPe
 
 
 
+
+// ── Devoluciones pendientes de revisar ──────────────────────────────────────
+//
+// Igual que `dbListarPenalizacionesPendientes`: cliente con RLS y SIN `studioId`
+// — el acotado por estudio y por rol lo hace la policy `devoluciones_lectura`
+// (`current_studio_id()` + `puede_ver_finanzas()`), no el parámetro.
+//
+// Trae de una vez todo lo que necesita la vista previa: el snapshot de lo que
+// entregó el cobro y el estado ACTUAL de la suscripción. La comparación entre
+// los dos es lo que decide si la reversión sigue siendo exacta, así que ninguno
+// de los dos puede faltar.
+
+export interface DevolucionPendiente {
+  id: string;
+  socioNombre: string;
+  origen: 'REEMBOLSO_TOTAL' | 'REEMBOLSO_PARCIAL' | 'CHARGEBACK';
+  importeCobrado: number;
+  importeDevuelto: number;
+  detectadaEn: string;
+  /** Lo que el cobro entregó, guardado al entregarlo. */
+  snapshot: Snapshot;
+  /** Cómo está la suscripción AHORA. `null` = ya no existe. */
+  actual: SuscripcionActual | null;
+  planNombre: string | null;
+}
+
+export async function dbListarDevolucionesPendientes(): Promise<DevolucionPendiente[]> {
+  const { data, error } = await supabase
+    .from('devoluciones')
+    .select('id, socio_id, suscripcion_id, recibo_id, origen, importe_cobrado, importe_devuelto, detectada_en')
+    .eq('estado', 'PENDIENTE_REVISION')
+    .order('detectada_en', { ascending: true }) as {
+      data: Array<{
+        id: string; socio_id: string | null; suscripcion_id: string | null; recibo_id: string;
+        origen: string; importe_cobrado: number; importe_devuelto: number; detectada_en: string;
+      }> | null;
+      error: { message: string } | null;
+    };
+  if (error) { reportDbError('[dbListarDevolucionesPendientes]', error); return []; }
+  if (!data?.length) return [];
+
+  // Joins a mano, como el resto del fichero: PostgREST no cruza sin FK-embed
+  // declarada y aquí son tres tablas.
+  const socioIds = [...new Set(data.map(d => d.socio_id).filter(Boolean))] as string[];
+  const susIds = [...new Set(data.map(d => d.suscripcion_id).filter(Boolean))] as string[];
+  const reciboIds = [...new Set(data.map(d => d.recibo_id))];
+
+  const [{ data: socios }, { data: suscripciones }, { data: recibos }] = await Promise.all([
+    socioIds.length
+      ? supabase.from('socios').select('id, nombre, apellidos').in('id', socioIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    susIds.length
+      ? supabase.from('suscripciones').select('id, plan_id, sesiones_restantes, fecha_fin, estado').in('id', susIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    supabase.from('recibos')
+      .select('id, entrega_tipo, entrega_aplicada, entrega_sesiones_antes, entrega_sesiones_despues, entrega_fecha_fin_antes, entrega_fecha_fin_despues, entrega_estado_antes')
+      .in('id', reciboIds),
+  ]);
+
+  const nombrePorSocio = new Map((socios ?? []).map(s => [s.id as string, `${s.nombre} ${s.apellidos}`.trim()]));
+  const susPorId = new Map((suscripciones ?? []).map(s => [s.id as string, s]));
+  const recPorId = new Map((recibos ?? []).map(r => [r.id as string, r]));
+
+  const planIds = [...new Set((suscripciones ?? []).map(s => s.plan_id as string).filter(Boolean))];
+  const { data: planes } = planIds.length
+    ? await supabase.from('planes_tarifa').select('id, nombre').in('id', planIds)
+    : { data: [] as Array<Record<string, unknown>> };
+  const planPorId = new Map((planes ?? []).map(p => [p.id as string, p.nombre as string]));
+
+  return data.map(d => {
+    const rec = recPorId.get(d.recibo_id);
+    const sus = d.suscripcion_id ? susPorId.get(d.suscripcion_id) : undefined;
+    return {
+      id: d.id,
+      socioNombre: (d.socio_id && nombrePorSocio.get(d.socio_id)) || 'Una clienta',
+      origen: d.origen as DevolucionPendiente['origen'],
+      importeCobrado: d.importe_cobrado,
+      importeDevuelto: d.importe_devuelto,
+      detectadaEn: d.detectada_en,
+      snapshot: {
+        tipo: (rec?.entrega_tipo ?? null) as Snapshot['tipo'],
+        aplicada: (rec?.entrega_aplicada ?? null) as boolean | null,
+        sesionesAntes: (rec?.entrega_sesiones_antes ?? null) as number | null,
+        sesionesDespues: (rec?.entrega_sesiones_despues ?? null) as number | null,
+        fechaFinAntes: (rec?.entrega_fecha_fin_antes ?? null) as string | null,
+        fechaFinDespues: (rec?.entrega_fecha_fin_despues ?? null) as string | null,
+        estadoAntes: (rec?.entrega_estado_antes ?? null) as string | null,
+      },
+      actual: sus ? {
+        sesionesRestantes: (sus.sesiones_restantes ?? null) as number | null,
+        fechaFin: (sus.fecha_fin ?? null) as string | null,
+        estado: (sus.estado ?? null) as string | null,
+      } : null,
+      planNombre: sus ? (planPorId.get(sus.plan_id as string) ?? null) : null,
+    };
+  });
+}

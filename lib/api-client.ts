@@ -598,6 +598,24 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<Cobro
   return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
+// Resuelve una devolución: deshace lo que entregó el cobro, o lo descarta.
+//
+// `huella` es lo que se le enseñó a la propietaria. El servidor recalcula y, si
+// no coincide, responde 409 con los números nuevos en vez de escribir algo que
+// ella no llegó a ver.
+export async function resolverDevolucion(
+  devolucionId: string, accion: 'REVERTIR' | 'DESCARTAR', huella?: string,
+): Promise<{ ok: true; accion: string } | { error: string }> {
+  const res = await fetch('/api/devoluciones/revertir', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ devolucionId, accion, huella }),
+  });
+  const data = await res.json().catch(() => null) as { accion?: string; error?: string } | null;
+  if (!res.ok) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+  return { ok: true, accion: data?.accion ?? accion };
+}
+
 // Manda (o vuelve a mandar) el email de invitación a alguien que ya está en el
 // equipo. Es una acción explícita a propósito: el alta ya NO envía nada sola.
 export async function invitarAlEquipo(instructorId: string): Promise<{ ok: true; email: string } | { error: string }> {
