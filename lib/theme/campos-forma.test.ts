@@ -93,3 +93,52 @@ test('el acento vacío se guarda como null (hereda), nunca como cadena vacía', 
 test('un id desconocido no escribe nada en vez de inventarse una clave del tema', () => {
   assert.equal(escrituraDeCampoForma({}, 'noExiste', 'x'), null);
 });
+
+// ── Esquinas por pieza (`radioTema`) ────────────────────────────────────────
+// El caso que obligó a inventar `numeroHeredado`: `--portal-radius-card` cae a
+// TRES números distintos según quién la lee (20/24/26), así que no hay defecto
+// que pintar y "vacío" tiene que significar hereda.
+
+test('las esquinas son numeroHeredado con porDefecto null, nunca un número', () => {
+  for (const pieza of ['card', 'boton', 'chip', 'acceso']) {
+    const c = campo(`radio_${pieza}`) as { tipo: string; porDefecto: unknown };
+    assert.ok(c, `falta radio_${pieza}`);
+    assert.equal(c.tipo, 'numeroHeredado');
+    assert.equal(c.porDefecto, null, 'un número aquí fijaría el valor al guardar');
+  }
+});
+
+test('un tema sin radioTema se lee como "hereda" en las cuatro piezas', () => {
+  const v = valoresFormaDesdeTema({});
+  for (const pieza of ['card', 'boton', 'chip', 'acceso']) {
+    assert.equal(v[`radio_${pieza}`], null);
+  }
+});
+
+test('fijar una esquina no toca las demás', () => {
+  const w = escrituraDeCampoForma({ radioTema: { card: 26 } }, 'radio_boton', 12);
+  assert.ok(w);
+  assert.equal(w.clave, 'radioTema');
+  assert.deepEqual(w.valor, { card: 26, boton: 12 });
+});
+
+test('vaciar una esquina la BORRA del objeto — no la deja en undefined', () => {
+  // `radioTema` es `.strict()` en el zod: una clave presente con `undefined`
+  // tumbaría el objeto entero y se perderían TODAS las esquinas de golpe.
+  const w = escrituraDeCampoForma({ radioTema: { card: 26, boton: 12 } }, 'radio_card', null);
+  assert.ok(w);
+  assert.deepEqual(w.valor, { boton: 12 });
+  assert.equal(Object.prototype.hasOwnProperty.call(w.valor as object, 'card'), false);
+});
+
+test('vaciar la última esquina quita el campo entero, sin dejar un objeto vacío', () => {
+  const w = escrituraDeCampoForma({ radioTema: { card: 26 } }, 'radio_card', null);
+  assert.ok(w);
+  assert.equal(w.valor, undefined);
+});
+
+test('el 0 es un valor real y sobrevive — esquina recta, no "hereda"', () => {
+  const w = escrituraDeCampoForma({}, 'radio_card', 0);
+  assert.deepEqual(w!.valor, { card: 0 });
+  assert.equal(valoresFormaDesdeTema({ radioTema: { card: 0 } }).radio_card, 0);
+});

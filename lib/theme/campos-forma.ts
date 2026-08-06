@@ -14,14 +14,14 @@
 // `app/portal/[slug]/login/page.tsx`, y ESO ya se controla de verdad con
 // `variantes.bienvenida`, que sí está expuesto abajo.
 //
-// ⚠️ **`radioTema` tampoco, y por otro motivo**: la misma var
-// (`--portal-radius-card`) cae a números DISTINTOS según la superficie que la
-// lee (26 en bonos, `radio.card` en el Inicio). No existe "el valor por
-// defecto", así que un campo `numero` pre-rellenado con un número concreto
-// mentiría, y guardarlo fijaría un valor donde antes había herencia — el
-// mismo error que `estilo` obliga a evitar en los bloques. Necesita un tipo
-// de campo `numeroHeredado` (nullable, como `colorHeredado`) que el motor
-// todavía no tiene; queda fuera de esta tanda a propósito.
+// ⚠️ **`radioTema` sí está, pero con `numeroHeredado`, no con `numero`.** La
+// misma var (`--portal-radius-card`) cae a TRES números distintos según la
+// superficie que la lee: 20 en `portal-tokens.ts`, 24 en `portal-design.ts` y
+// 26 escrito a mano en la vista de bonos. No existe "el valor por defecto",
+// así que un campo `numero` tendría que elegir uno y pintarlo — y guardarlo
+// fijaría un valor donde antes había herencia, el mismo error que `estilo`
+// obliga a evitar en los bloques. Con `numeroHeredado` la casilla puede estar
+// vacía de verdad y eso significa "hereda".
 
 import { VARIANTES_PORTAL, resolveVariantes, type EjeVariante } from '../theme-variantes.ts';
 import type { CampoSchema } from './campos.ts';
@@ -128,10 +128,39 @@ export const CAMPOS_ACENTO: readonly CampoSchema[] = [
   },
 ];
 
-/** Los tres grupos juntos — para los tests y para cualquier validación global. */
+/**
+ * Esquinas por pieza. Vacío = hereda, que NO es lo mismo que 0 — ver el aviso
+ * de arriba sobre los tres fallbacks de `--portal-radius-card`.
+ *
+ * `max: 40` no es arbitrario: por encima de eso una tarjeta de portal deja de
+ * leerse como tarjeta. El tope evita el "999" que convierte todo en píldoras
+ * sin querer.
+ */
+export const CAMPOS_RADIO: readonly CampoSchema[] = ([
+  ['card', 'Tarjetas'],
+  ['boton', 'Botones'],
+  ['chip', 'Etiquetas'],
+  ['acceso', 'Baldosas de accesos rápidos'],
+] as const).map(([id, etiqueta]) => ({
+  tipo: 'numeroHeredado' as const,
+  id: `radio_${id}`,
+  etiqueta,
+  porDefecto: null,
+  min: 0,
+  max: 40,
+  paso: 2,
+  marcadorHeredado: 'Del tema',
+}));
+
+/** Los grupos juntos — para los tests y para cualquier validación global. */
 export const CAMPOS_FORMA: readonly CampoSchema[] = [
-  ...CAMPOS_FORMA_PORTAL, ...CAMPOS_BARRA_PORTAL, ...CAMPOS_ACENTO,
+  ...CAMPOS_FORMA_PORTAL, ...CAMPOS_BARRA_PORTAL, ...CAMPOS_ACENTO, ...CAMPOS_RADIO,
 ];
+
+/** `radio_card` → `card`. Los ids llevan prefijo para no chocar en el plano. */
+const PIEZAS_RADIO = ['card', 'boton', 'chip', 'acceso'] as const;
+type PiezaRadio = (typeof PIEZAS_RADIO)[number];
+const ID_RADIO = new Map<string, PiezaRadio>(PIEZAS_RADIO.map((p) => [`radio_${p}`, p]));
 
 /** Los ids que van dentro de `variantes` y no son claves sueltas del tema. */
 const IDS_VARIANTE = new Set<string>(EJES_EXPUESTOS.map((e) => e.eje));
@@ -140,6 +169,7 @@ const IDS_VARIANTE = new Set<string>(EJES_EXPUESTOS.map((e) => e.eje));
 export function valoresFormaDesdeTema(tema: {
   variantes?: unknown; barraClasica?: boolean; barraFlotante?: boolean;
   barraOscura?: boolean; destacado?: string | null;
+  radioTema?: Partial<Record<PiezaRadio, number>>;
 }): Record<string, unknown> {
   // `resolveVariantes` ya devuelve el objeto COMPLETO con el aspecto de hoy en
   // los ejes ausentes — no hace falta (ni se debe) pasar esto por
@@ -151,6 +181,9 @@ export function valoresFormaDesdeTema(tema: {
     barraFlotante: tema.barraFlotante ?? false,
     barraOscura: tema.barraOscura ?? false,
     destacado: tema.destacado ?? null,
+    // `?? null` y NUNCA un número: ausente significa hereda. Poner aquí el
+    // fallback de alguna superficie fijaría ESE valor en cuanto se guardara.
+    ...Object.fromEntries(PIEZAS_RADIO.map((p) => [`radio_${p}`, tema.radioTema?.[p] ?? null])),
   };
 }
 
@@ -163,10 +196,22 @@ export function valoresFormaDesdeTema(tema: {
  * objeto entero, así que se parte del resuelto y se cambia una clave.
  */
 export function escrituraDeCampoForma(
-  tema: { variantes?: unknown },
+  tema: { variantes?: unknown; radioTema?: Partial<Record<PiezaRadio, number>> },
   campoId: string,
   valor: unknown,
 ): { clave: string; valor: unknown } | null {
+  const pieza = ID_RADIO.get(campoId);
+  if (pieza) {
+    // `radioTema` es `.strict()` en el zod: una clave con `undefined` dentro
+    // tumbaría el objeto entero. Vaciar una pieza la BORRA del objeto, que es
+    // exactamente lo que el esquema entiende por "hereda".
+    const siguiente = { ...(tema.radioTema ?? {}) };
+    if (typeof valor === 'number') siguiente[pieza] = valor;
+    else delete siguiente[pieza];
+    // Sin ninguna pieza fijada, el campo entero se va: `radioTema: {}` y
+    // `radioTema: undefined` pintan igual, pero el segundo no deja basura.
+    return { clave: 'radioTema', valor: Object.keys(siguiente).length > 0 ? siguiente : undefined };
+  }
   if (IDS_VARIANTE.has(campoId)) {
     return { clave: 'variantes', valor: { ...resolveVariantes(tema.variantes), [campoId]: valor } };
   }

@@ -24,7 +24,7 @@ import { resolveVariantes } from '@/lib/theme-variantes';
 import { CamposForm } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
 import {
-  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO,
+  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO, CAMPOS_RADIO,
   valoresFormaDesdeTema, escrituraDeCampoForma,
 } from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
@@ -432,18 +432,28 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'esquinas') {
     return (
-      <div className="flex gap-2">
-        {RADIOS.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setCampo('radius', r.id)}
-            className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-              draft.radius === r.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          {RADIOS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setCampo('radius', r.id)}
+              aria-pressed={draft.radius === r.id}
+              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                draft.radius === r.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="pt-1 border-t border-border space-y-2">
+          <p className="text-[11.5px] text-muted-foreground">
+            Y si quieres afinar una pieza concreta, en píxeles. Deja la casilla
+            vacía para que siga el tema.
+          </p>
+          <CamposDelTema campos={CAMPOS_RADIO} hook={hook} />
+        </div>
       </div>
     );
   }
