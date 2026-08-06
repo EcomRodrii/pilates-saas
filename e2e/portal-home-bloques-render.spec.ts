@@ -121,3 +121,38 @@ test.describe('Inicio del portal — bloques del catálogo (banner/texto/cta/faq
     expect(errores).toEqual([]);
   });
 });
+
+// ── El grupo, en el portal de la socia ─────────────────────────────────────
+test('un Grupo en fila pinta a sus dos hijos, lado a lado', async ({ page }) => {
+  await montarPortal(page, {
+    conSesion: true,
+    homeBloques: [
+      { id: 'g1', kind: 'contenedor', config: { titulo: 'Lo nuestro', direccion: 'fila', separacion: 'normal', reparto: 'iguales' },
+        hijos: [
+          // ⚠️ Textos que no sean substring de nada más de la pantalla: con
+          // "Una"/"Dos" el locator encontraba tres coincidencias.
+          { id: 'h1', kind: 'texto', config: { titulo: 'Izquierda', texto: 'Zurdo del grupo' } },
+          { id: 'h2', kind: 'texto', config: { titulo: 'Derecha', texto: 'Diestro del grupo' } },
+        ] },
+    ] as never,
+  });
+  await page.goto(`/portal/${SLUG}/home`);
+  await expect(page.getByText('Lo nuestro')).toBeVisible({ timeout: 30_000 });
+  const uno = await page.getByText('Zurdo del grupo').boundingBox();
+  const dos = await page.getByText('Diestro del grupo').boundingBox();
+  // En fila de verdad: el segundo empieza a la derecha del primero, no debajo.
+  expect(dos!.x).toBeGreaterThan(uno!.x + uno!.width - 1);
+  expect(Math.abs(dos!.y - uno!.y)).toBeLessThan(4);
+});
+
+test('un Grupo VACÍO no deja un hueco en el portal', async ({ page }) => {
+  await montarPortal(page, {
+    conSesion: true,
+    homeBloques: [
+      { id: 'g0', kind: 'contenedor', config: { titulo: 'No debería verse', direccion: 'columna', separacion: 'normal', reparto: 'iguales' }, hijos: [] },
+    ] as never,
+  });
+  await page.goto(`/portal/${SLUG}/home`);
+  await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('No debería verse')).toHaveCount(0);
+});

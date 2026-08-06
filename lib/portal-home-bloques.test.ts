@@ -8,7 +8,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER } from './portal-home-bloques.ts';
+  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
@@ -106,7 +106,7 @@ test('bloquesVisibles: filtra los ocultos', () => {
 
 test('BLOCK_CATALOG: no incluye bloques sistema (esos no se "añaden")', () => {
   assert.equal(BLOCK_CATALOG.some((b) => (b.kind as string) === 'sistema'), false);
-  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
+  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'contenedor', 'cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
 });
 
 test('getBlockCatalogEntry: id desconocido → undefined', () => {
@@ -198,12 +198,14 @@ const DEFAULTS_ESPERADOS: Record<string, unknown> = {
   galeria: { imagenes: [] },
   video: { titulo: '', url: '' },
   testimonios: { titulo: '', testimonios: [] },
+  contenedor: { titulo: '', direccion: 'columna', separacion: 'normal', reparto: 'iguales' },
 };
 
-test('defaultsDe(CAMPOS_X) coincide con el defaultConfig de hoy, para los 7 bloques', () => {
+test('defaultsDe(CAMPOS_X) coincide con el defaultConfig de hoy, para los 8 bloques', () => {
   const porKind: Record<string, readonly CampoSchema[]> = {
     banner: CAMPOS_BANNER, texto: CAMPOS_TEXTO, cta: CAMPOS_CTA, faq: CAMPOS_FAQ,
     galeria: CAMPOS_GALERIA, video: CAMPOS_VIDEO, testimonios: CAMPOS_TESTIMONIOS,
+    contenedor: CAMPOS_CONTENEDOR,
   };
   assert.deepEqual(Object.keys(porKind).sort(), BLOCK_CATALOG.map((b) => b.kind).sort());
   for (const [kind, campos] of Object.entries(porKind)) {
@@ -267,8 +269,13 @@ test('resolverConfig rellena un bloque guardado antes de existir un campo nuevo'
 // Los oráculos van copiados literales, NO importados de lo que comparan: un
 // test que deriva su expectativa de la misma fuente que prueba pasa siempre.
 
-test('BLOCK_CATALOG derivado es exactamente el catálogo de antes del registro', () => {
+test('BLOCK_CATALOG derivado es el catálogo de antes MÁS el contenedor', () => {
+  // El octavo (`contenedor`) es el primer bloque nuevo desde que existe el
+  // registro, y va PRIMERO porque es el que abre el anidamiento. Los siete de
+  // antes siguen byte a byte iguales — esa es la parte que este oráculo
+  // protege de verdad.
   assert.deepEqual(BLOCK_CATALOG, [
+    { kind: 'contenedor', label: 'Grupo', icono: 'Rows3', descripcion: 'Agrupa varios bloques y los coloca en fila o en columna.', defaultConfig: { titulo: '', direccion: 'columna', separacion: 'normal', reparto: 'iguales' } },
     { kind: 'banner', label: 'Banner', icono: 'Image', descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.', defaultConfig: { imagenUrl: '', titulo: '', texto: '', href: '' } },
     { kind: 'texto', label: 'Texto', icono: 'Type', descripcion: 'Un bloque de texto libre, con título opcional.', defaultConfig: { titulo: '', texto: '' } },
     { kind: 'cta', label: 'Llamada a la acción', icono: 'MousePointerClick', descripcion: 'Título y un botón que lleva a donde quieras.', defaultConfig: { titulo: '', textoBoton: '', href: '' } },

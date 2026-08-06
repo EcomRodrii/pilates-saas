@@ -334,8 +334,8 @@ de un estudio existente salvo donde se diga.
 
 | # | Etapa | Por qué primero |
 |---|---|---|
-| 1 | **Usar `visibleSi` y `grupo` en los 18 bloques** | Cero código nuevo: está construido y sin usar. Es la mejora de panel más barata que existe. |
-| 2 | **Bloque contenedor + comodín `@theme`** | Activa el anidamiento, que lleva 13 PRs construido y sin consumidores. Una entrada en el registro. |
+| 1 | **Usar `visibleSi` y `grupo`** ✅ | Cero código nuevo: estaba construido y sin usar. Se aplicó donde la condición es REAL (el panel de estilo), no en los 18 — los bloques de catálogo tienen 2-4 campos y agruparlos sería ruido. Las condiciones de verdad llegarán con el vocabulario de campos (etapa 7). |
+| 2 | **Bloque contenedor + comodín `@catalogo`** ✅ | Activa el anidamiento, que llevaba 13 PRs construido y sin consumidores. ⚠️ NO era "una entrada en el registro" como escribí: el modelo estaba, pero ni el render ni el editor sabían de `hijos`. Hubo que construir los dos. |
 | 3 | **`estatico` en la instancia** (sustituye `BLOQUES_FIJOS_POR_PANTALLA`) | Mata por construcción la clase de bug que ya nos costó un fix hoy. |
 | 4 | **Documento = mapa + orden** | Habilita duplicar y restaurar, imposibles con array plano. Requiere migración de lectura tolerante (ya tenemos el patrón). |
 | 5 | **Escala tipográfica y de espaciado** — `--font-size--*` fija + presets por elemento + `clamp()` derivado; `--spacing-scale` por breakpoint | Arregla los rótulos de 24-vs-30px de raíz: el problema no es qué número poner, es que hay números sueltos en vez de una escala. |

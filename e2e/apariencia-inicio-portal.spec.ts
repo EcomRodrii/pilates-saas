@@ -415,3 +415,58 @@ test.describe('Inspector — estilo por secciones y condiciones', () => {
     await expect(forma.getByText('Esquinas')).toBeVisible();
   });
 });
+
+// ── Etapa 2: el bloque contenedor ──────────────────────────────────────────
+test.describe('Grupo — bloques dentro de bloques', () => {
+  test('crear un Grupo, meterle dos bloques y reordenarlos', async ({ page }) => {
+    const { putsPorPantalla } = await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Grupo/ }).click();
+
+    // El botón de añadir dentro nombra a su padre: se ve DÓNDE va a caer.
+    const dentro = page.getByRole('button', { name: 'Añadir dentro de Grupo' });
+    await expect(dentro).toBeVisible();
+
+    await dentro.click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+    await dentro.click();
+    await page.getByRole('button', { name: /^Vídeo/ }).click();
+
+    // Los dos cuelgan del grupo, y el catálogo de dentro NO ofrece otro Grupo
+    // (el anidamiento es de un nivel).
+    await dentro.click();
+    await expect(page.getByRole('dialog', { name: 'Elegir una sección' }).getByRole('button', { name: /^Grupo/ })).toHaveCount(0);
+    // El picker se cierra pulsando fuera. `Escape` no lo cierra, y su fondo a
+    // pantalla completa se come todos los clics siguientes.
+    await page.locator('button.fixed.inset-0').click();
+
+    // Reordenar con las flechas: "Subir Vídeo" existe y "Subir Texto" no,
+    // porque Texto ya es el primero.
+    await expect(page.getByRole('button', { name: 'Subir Vídeo' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Subir Texto' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Subir Vídeo' }).click();
+    await expect(page.getByRole('button', { name: 'Subir Vídeo' })).toBeDisabled();
+
+    // Y todo eso viaja al borrador en el mismo autoguardado.
+    await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
+    const ultimo = putsPorPantalla.home.at(-1) as Array<{ kind: string; hijos?: unknown[] }>;
+    const grupo = ultimo.find((b) => b.kind === 'contenedor');
+    expect(grupo?.hijos).toHaveLength(2);
+  });
+
+  test('un hijo abre su propio panel de propiedades', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Grupo/ }).click();
+    await page.getByRole('button', { name: 'Añadir dentro de Grupo' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+
+    // Al añadirlo queda seleccionado: el panel es el del HIJO, no el del grupo.
+    await expect(page.locator('textarea').first()).toBeVisible();
+    await page.locator('textarea').first().fill('Dentro del grupo');
+    await expect(page.locator('textarea').first()).toHaveValue('Dentro del grupo');
+  });
+});

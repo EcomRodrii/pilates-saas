@@ -265,6 +265,25 @@ export const CAMPOS_ESTILO_BANNER = CAMPOS_ESTILO.map((c) =>
   : c,
 ) as readonly CampoSchema[];
 
+export const CAMPOS_CONTENEDOR = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  {
+    tipo: 'opciones', id: 'direccion', etiqueta: 'Disposición', porDefecto: 'columna', grupo: 'Disposición',
+    opciones: [{ id: 'columna', label: 'Una debajo de otra' }, { id: 'fila', label: 'En fila' }],
+  },
+  {
+    tipo: 'opciones', id: 'separacion', etiqueta: 'Separación', porDefecto: 'normal', grupo: 'Disposición',
+    opciones: [{ id: 'poca', label: 'Poca' }, { id: 'normal', label: 'Normal' }, { id: 'mucha', label: 'Mucha' }],
+  },
+  {
+    // Solo tiene sentido en fila: en columna todas ocupan el ancho.
+    tipo: 'opciones', id: 'reparto', etiqueta: 'Reparto', porDefecto: 'iguales', grupo: 'Disposición',
+    visibleSi: { campo: 'direccion', igual: 'fila' },
+    opciones: [{ id: 'iguales', label: 'Partes iguales' }, { id: 'ajustado', label: 'Al contenido' }],
+  },
+] as const satisfies readonly CampoSchema[];
+export type ContenedorConfig = ConfigDe<typeof CAMPOS_CONTENEDOR>;
+
 export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 
 // `hijos` solo lo llevan los bloques del CATÁLOGO, y de UN nivel: un hijo no
@@ -292,14 +311,29 @@ export type BloqueHome =
   | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'galeria'; config: GaleriaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'video'; config: VideoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
-  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] };
+  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'contenedor'; config: ContenedorConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] };
 
 /**
  * Un hijo es un bloque del catálogo SIN `hijos` propios — el tipo es quien
  * impide el segundo nivel, no una comprobación en tiempo de ejecución que se
  * pueda olvidar en algún camino.
  */
-export type BloqueHijo = Omit<Extract<BloqueHome, { kind: BloqueTipoCatalogo }>, 'hijos'>;
+/**
+ * ⚠️ `Omit` NO distribuye sobre uniones: `Omit<A | B, 'x'>` colapsa en UN
+ * objeto con la unión de todas las claves, y ahí `kind` deja de estar
+ * correlacionado con `config`. Este tipo llevaba varias PRs escrito así y
+ * nadie lo notó porque el anidamiento no tenía consumidores; salió a la luz al
+ * pintar el primer hijo de verdad. El `T extends unknown ?` fuerza el reparto.
+ */
+type SinHijos<T> = T extends unknown ? Omit<T, 'hijos'> : never;
+
+/**
+ * Un hijo es un bloque del catálogo SIN `hijos` propios, y nunca un
+ * contenedor — el TIPO es quien impide el segundo nivel, no una comprobación
+ * en tiempo de ejecución que se pueda olvidar en algún camino.
+ */
+export type BloqueHijo = SinHijos<Exclude<Extract<BloqueHome, { kind: BloqueTipoCatalogo }>, { kind: 'contenedor' }>>;
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
@@ -329,6 +363,28 @@ export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 // un campo.
 
 /** Agrupa el picker de "Añadir sección". Solo aplica a `origen: 'catalogo'`. */
+/**
+ * Comodín de `hijos.admite`: "acepto cualquier bloque público del catálogo".
+ *
+ * Sin él, cada contenedor tendría que enumerar todos los tipos, y un bloque
+ * nuevo no sería usable dentro de ninguno hasta editar a mano todos los
+ * padres. Es lo que hace que el catálogo crezca sin tocar nada más — y es la
+ * respuesta a "¿qué bloque debe aceptar hijos?": no hay que decidirlo bloque a
+ * bloque, se crea UN contenedor y acepta todo.
+ *
+ * No incluye al propio `contenedor`: el anidamiento es de un nivel (ver el
+ * comentario de `BloqueHome`), así que un contenedor dentro de otro no tendría
+ * dónde pintar a sus nietos.
+ */
+export const COMODIN_CATALOGO = '@catalogo' as const;
+
+/** Si `padre` admite un hijo de tipo `kind`, resolviendo el comodín. */
+export function admiteHijo(padre: DefinicionBloque, kind: BloqueTipoCatalogo): boolean {
+  if (!padre.hijos) return false;
+  if (kind === 'contenedor') return padre.hijos.admite.includes('contenedor');
+  return padre.hijos.admite.includes(kind) || padre.hijos.admite.includes(COMODIN_CATALOGO);
+}
+
 export type CategoriaBloque = 'texto' | 'multimedia' | 'interaccion';
 
 export const CATEGORIA_BLOQUE_LABEL: Record<CategoriaBloque, string> = {
@@ -362,7 +418,7 @@ export interface DefinicionBloque {
    * Qué bloques admite dentro y cuántos. Ausente = no admite ninguno, que es
    * el caso de los siete de hoy. Los `sistema` lo llevan siempre ausente.
    */
-  hijos?: { admite: readonly BloqueTipoCatalogo[]; max?: number };
+  hijos?: { admite: readonly (BloqueTipoCatalogo | typeof COMODIN_CATALOGO)[]; max?: number };
   /**
    * Cuándo el bloque tiene contenido suficiente para pintarse. Ausente =
    * siempre completo (es el caso de `banner`, que se pinta con o sin imagen).
@@ -514,6 +570,19 @@ export const CAMPOS_LISTADO_BONOS = [
 ] as const satisfies readonly CampoSchema[];
 
 export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
+  contenedor: {
+    id: 'contenedor', nombre: 'Grupo', icono: 'Rows3', origen: 'catalogo',
+    categoria: 'texto', estilizable: true, campos: CAMPOS_CONTENEDOR,
+    descripcion: 'Agrupa varios bloques y los coloca en fila o en columna.',
+    // El comodín: acepta cualquier bloque del catálogo sin enumerarlos. `max`
+    // no es estético — en fila, más de cuatro no caben en 390px sin que cada
+    // una quede ilegible.
+    hijos: { admite: [COMODIN_CATALOGO], max: 4 },
+    // Un grupo vacío no pinta nada: sin esto dejaría un hueco con su padding
+    // en el portal de la socia. Se comprueba sobre `hijos`, no sobre `config`,
+    // así que vive en el render (ver ContenedorBloque) — `completoSi` solo
+    // mira `config`.
+  },
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_BANNER,
@@ -790,7 +859,7 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
     ? b.hijos
         .map(resolverBloque)
         .filter((h): h is Extract<BloqueHome, { kind: BloqueTipoCatalogo }> =>
-          h !== null && h.kind !== 'sistema' && def.hijos!.admite.includes(h.kind))
+          h !== null && h.kind !== 'sistema' && admiteHijo(def, h.kind))
         .map(({ hijos: _descartado, ...resto }) => resto as BloqueHijo)
         .slice(0, def.hijos.max ?? Infinity)
     : [];
