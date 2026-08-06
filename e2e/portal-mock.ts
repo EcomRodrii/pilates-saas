@@ -258,6 +258,21 @@ export async function montarPortal(page: Page, opciones: {
   }));
   await page.route('**/api/public/session', route =>
     conSesion ? json(route, SOCIA) : json(route, { error: 'no' }, 401));
+  // Refresco de aforo (el tic de REFRESCO_ACTIVO_MS). Sin este mock lo atraparía
+  // el catch-all de '**/api/**' de arriba, que devuelve `{}`.
+  //
+  // Solo las sesiones FUTURAS, como en producción (el endpoint acota a los
+  // próximos AFORO_VENTANA_DIAS). Eso hace que este mock ejerza justo el punto
+  // delicado de `refrescarAforo`: las reservas de HISTORIAL quedan FUERA de la
+  // ventana y tienen que sobrevivir intactas al tic. Si algún día alguien
+  // convierte la fusión en un reemplazo, la pestaña «Pasadas» se vaciará sola a
+  // los 5 segundos y estos tests lo verán.
+  await page.route('**/api/public/aforo**', route => json(route, {
+    sesionIds: SESIONES.map(s => s.id),
+    aforoReservas: conSesion
+      ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]
+      : [],
+  }));
   await page.route('**/api/public/studio-data', route => json(route, {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,

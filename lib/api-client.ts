@@ -164,6 +164,21 @@ export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boole
   return res.json();
 }
 
+// Solo el aforo de las clases próximas — lo ÚNICO que necesita el tic de 5s del
+// portal. `cargarDatosPublicos` de arriba trae el catálogo entero del estudio y
+// el histórico financiero de la socia, que no cambian en cinco segundos.
+//
+// Sin cabecera de sesión a propósito: la respuesta no lleva ningún dato
+// personal, así que mandar el Bearer solo serviría para que la caché de la CDN
+// dejara de ser compartida entre socias del mismo estudio.
+export async function cargarAforoPublico(
+  slug: string,
+): Promise<{ sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null> {
+  const res = await fetch(`/api/public/aforo?slug=${encodeURIComponent(slug)}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 // "Renovar en un toque" (portal): garantiza en servidor que exista el recibo de
 // renovación del plan de la socia y devuelve su id, listo para pagarlo con el
 // checkout de recibos. La identidad va en el JWT; la suscripción se resuelve

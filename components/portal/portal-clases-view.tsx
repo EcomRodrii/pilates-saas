@@ -79,7 +79,7 @@ export function PortalClasesView({
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
-    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, recargarPublico,
+    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, refrescarAforo,
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
@@ -93,14 +93,19 @@ export function PortalClasesView({
   // montada corrige el caso real: la socia mirando el calendario mientras
   // alguien reserva a la vez. Se usa un ref para no reiniciar el intervalo en
   // cada render (recargarPublico es una función nueva por render).
-  const recargarRef = useRef(recargarPublico);
-  useEffect(() => { recargarRef.current = recargarPublico; });
+  //
+  // El tic pide SOLO el aforo (`refrescarAforo`), no `recargarPublico`: este
+  // último trae el catálogo entero del estudio y el histórico financiero de la
+  // socia, que no cambian en cinco segundos. Y se salta el tic con la pestaña
+  // oculta, porque entonces no lo ve nadie.
+  const recargarRef = useRef(refrescarAforo);
+  useEffect(() => { recargarRef.current = refrescarAforo; });
   useEffect(() => {
     if (!escribible) return; // preview: sin servidor real que consultar
     // Con la pestaña oculta no hay nadie mirando el aforo, así que el tic no
-    // aporta nada y sí cuesta (una petición del estudio entero cada 5s). Al
-    // volver a primer plano re-sincroniza el listener de `visibilitychange` de
-    // studio-context.tsx, así que pausar aquí no deja datos rancios a la vista.
+    // aporta nada y sí cuesta. Al volver a primer plano re-sincroniza el
+    // listener de `visibilitychange` de studio-context.tsx, así que pausar aquí
+    // no deja datos rancios a la vista.
     const id = setInterval(() => {
       if (document.hidden) return;
       recargarRef.current();
