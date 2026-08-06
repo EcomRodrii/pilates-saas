@@ -818,3 +818,50 @@ test('los defaults traen ya la marca — misma forma que lo que devuelve la lect
   );
   assert.deepEqual(DEFAULT_BLOQUES_POR_PANTALLA.clases.filter(esBloqueFijo), []);
 });
+
+// ── Etapa 4b: el lector acepta las dos formas ──────────────────────────────
+test('resolverBloques lee el documento {bloques, orden} igual que un array', () => {
+  const comoArray = [
+    { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } },
+    { id: 'b', kind: 'texto', config: { titulo: 'Dos', texto: '' } },
+  ];
+  const comoDocumento = { bloques: { a: comoArray[0], b: comoArray[1] }, orden: ['a', 'b'] };
+  assert.deepEqual(resolverBloques(comoDocumento), resolverBloques(comoArray));
+});
+
+test('resolverBloques respeta el ORDEN del documento, no el de las claves del mapa', () => {
+  const doc = {
+    bloques: {
+      b: { id: 'b', kind: 'texto', config: { titulo: 'Dos', texto: '' } },
+      a: { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } },
+    },
+    orden: ['a', 'b'],
+  };
+  assert.deepEqual(resolverBloques(doc).map((x) => x.id), ['a', 'b']);
+});
+
+test('un id del orden que no está en el mapa se ignora — dato a medio migrar', () => {
+  // Lo contrario sería un `undefined` colándose en el render, y la pantalla de
+  // la socia en blanco. Mismo criterio que el `kind` desconocido.
+  const doc = {
+    bloques: { a: { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } } },
+    orden: ['fantasma', 'a'],
+  };
+  assert.deepEqual(resolverBloques(doc).map((x) => x.id), ['a']);
+});
+
+test('lo que NO es ni array ni documento sigue devolviendo vacío', () => {
+  for (const basura of [null, undefined, 42, 'x', {}, { bloques: {} }, { orden: [] }]) {
+    assert.deepEqual(resolverBloques(basura), [], JSON.stringify(basura));
+  }
+});
+
+test('resolveBloquesPantalla entiende un borrador guardado como documento', () => {
+  // El camino completo, que es el que usa el servidor al pintar el portal.
+  const guardado = {
+    draft: { bloques: { t: { id: 't', kind: 'texto', config: { titulo: 'Hola', texto: '' } } }, orden: ['t'] },
+    publicado: [],
+  };
+  const r = resolveBloquesPantalla(guardado, 'clases');
+  assert.deepEqual(r.draft.map((b) => b.id), ['t']);
+});

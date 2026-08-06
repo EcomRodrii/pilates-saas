@@ -899,9 +899,37 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
 }
 
 /** Una lista de bloques crudos, sin los que no se puedan resolver. */
+/**
+ * Lee una pantalla guardada, venga en el formato que venga.
+ *
+ * Acepta DOS formas a propósito:
+ *  · **array** — como se ha guardado siempre;
+ *  · **`{ bloques, orden }`** — el documento (mapa + orden) de la etapa 4.
+ *
+ * ⚠️ El orden de una migración es lector primero, escritor después. Esta
+ * función es el lector: sale a producción sabiendo leer las dos formas ANTES
+ * de que nada escriba la nueva. Si se hicieran a la vez, un rollback dejaría
+ * datos que el código anterior no entiende — y aquí "no entiende" significa el
+ * Inicio en blanco en el portal de una socia.
+ *
+ * Un `orden` con un id que no está en `bloques` se ignora, igual que un `kind`
+ * desconocido: un dato a medio migrar no puede tumbar una pantalla.
+ */
 export function resolverBloques(raw: unknown): BloqueHome[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map(resolverBloque).filter((b): b is BloqueHome => b !== null);
+  if (Array.isArray(raw)) {
+    return raw.map(resolverBloque).filter((b): b is BloqueHome => b !== null);
+  }
+  if (raw && typeof raw === 'object') {
+    const doc = raw as { bloques?: unknown; orden?: unknown };
+    if (doc.bloques && typeof doc.bloques === 'object' && Array.isArray(doc.orden)) {
+      const mapa = doc.bloques as Record<string, unknown>;
+      return doc.orden
+        .filter((id): id is string => typeof id === 'string')
+        .map((id) => resolverBloque(mapa[id]))
+        .filter((b): b is BloqueHome => b !== null);
+    }
+  }
+  return [];
 }
 
 /**

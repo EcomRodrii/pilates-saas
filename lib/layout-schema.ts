@@ -41,8 +41,23 @@ export const bloqueHomeSchema: z.ZodType<BloqueHome> = zodDeBloques(
   CAMPOS_ESTILO,
 ) as z.ZodType<BloqueHome>;
 
+/**
+ * Una pantalla guardada: array (como siempre) o documento `{bloques, orden}`
+ * (etapa 4). El zod acepta las dos porque va por delante del escritor — ver
+ * el comentario de `resolverBloques`, que es quien las resuelve.
+ *
+ * ⚠️ Sin esta unión, el día que algo escriba un documento el zod lo
+ * RECHAZARÍA y `resolveLayout` caería al default: la propietaria vería su
+ * Inicio de fábrica y sus bloques "desaparecidos". Silencioso y difícil de
+ * diagnosticar.
+ */
+const pantallaGuardadaSchema = z.union([
+  z.array(bloqueHomeSchema),
+  z.object({ bloques: z.record(z.string(), bloqueHomeSchema), orden: z.array(z.string()) }),
+]);
+
 const bloquesShapeSchema = z
-  .object({ draft: z.array(bloqueHomeSchema), publicado: z.array(bloqueHomeSchema) })
+  .object({ draft: pantallaGuardadaSchema, publicado: pantallaGuardadaSchema })
   .default(DEFAULT_BLOQUES_SHAPE.home);
 
 // Constructor de bloques (Fase 3, generalizado en la Fase 1 del Theme

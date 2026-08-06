@@ -139,7 +139,12 @@ test('layoutConfigSchema: acepta `estilo` por bloque (fondo/color/alineación/es
   });
   assert.equal(r.success, true);
   if (r.success) {
-    const bloque = r.data.bloques.home.draft[0];
+    // `draft` es ahora una unión (array o documento) porque el zod acepta las
+    // dos formas — ver pantallaGuardadaSchema. Aquí el caso de prueba es un
+    // array, así que se estrecha explícitamente.
+    const draft = r.data.bloques.home.draft;
+    assert.ok(Array.isArray(draft));
+    const bloque = draft[0]!;
     assert.equal(bloque.kind, 'texto');
     if (bloque.kind === 'texto') {
       assert.deepEqual(bloque.estilo, { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' });
