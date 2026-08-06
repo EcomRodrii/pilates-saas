@@ -176,6 +176,35 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Calendario de clases', { exact: true })).toBeVisible();
   });
 
+  // Los ejes de FORMA (variantes, flags de barra) no tenían ningún control:
+  // solo se fijaban instalando un tema entero. Ahora salen del schema
+  // (lib/theme/campos-forma.ts) y los pinta el Inspector genérico.
+  test('"Forma del portal" cambia una variante y la guarda en el tema, sin perder las demás', async ({ page }) => {
+    await montar(page);
+    await page.getByRole('button', { name: 'Forma del portal' }).click();
+
+    // Los cinco ejes del panel, con nombre de negocio (no el id del catálogo).
+    await expect(page.getByText('Accesos rápidos', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Cabecera del Inicio')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Círculos', exact: true }).click();
+
+    // El tema se guarda al publicar; aquí basta con que el borrador lo haya
+    // recogido — se comprueba en el control, que refleja el estado real.
+    await expect(page.getByRole('button', { name: 'Círculos', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // Y el eje que NO se tocó sigue en su valor, que es el fallo clásico de
+    // escribir `{ [eje]: valor }` en vez del objeto entero.
+    await expect(page.getByRole('button', { name: 'Neutra', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
+    await montar(page);
+    await page.getByRole('button', { name: 'Navegación del portal' }).click();
+    await expect(page.getByText('Barra pegada abajo')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Barra oscura')).toBeVisible();
+    await expect(page.getByText('Texto bajo los iconos')).toBeVisible();
+  });
+
   // Al hacer seleccionables los módulos fijos, un clic dentro de la vista
   // previa deja de navegar. Eso no puede pasar en silencio: hay un
   // interruptor que lo dice con dos palabras, y arranca en "Editar" (que es

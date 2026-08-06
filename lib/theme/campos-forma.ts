@@ -1,0 +1,182 @@
+// Los ejes de FORMA del tema, declarados como schema.
+//
+// Hasta ahora estos campos no tenían NINGÚN control: solo se fijaban
+// instalando un tema de la biblioteca. Una propietaria podía elegir "Bloom" y
+// quedarse con su barra flotante, pero no podía poner la barra flotante sobre
+// su propia paleta. Con el motor de campos, exponerlos es declarar un array —
+// cero JSX nuevo, el Inspector genérico los pinta.
+//
+// ⚠️ **`tabBarStyle` NO está aquí, a propósito.** El plan lo listaba entre los
+// ejes sin control, pero `portal-nav.tsx` dejó de leerlo en el rediseño de
+// 2026-08 (un único look de barra para todos los estudios): un control de
+// "estilo de la barra" atado a él no movería la barra. Su único efecto vivo
+// hoy es una compuerta heredada de la pantalla de bienvenida en
+// `app/portal/[slug]/login/page.tsx`, y ESO ya se controla de verdad con
+// `variantes.bienvenida`, que sí está expuesto abajo.
+//
+// ⚠️ **`radioTema` tampoco, y por otro motivo**: la misma var
+// (`--portal-radius-card`) cae a números DISTINTOS según la superficie que la
+// lee (26 en bonos, `radio.card` en el Inicio). No existe "el valor por
+// defecto", así que un campo `numero` pre-rellenado con un número concreto
+// mentiría, y guardarlo fijaría un valor donde antes había herencia — el
+// mismo error que `estilo` obliga a evitar en los bloques. Necesita un tipo
+// de campo `numeroHeredado` (nullable, como `colorHeredado`) que el motor
+// todavía no tiene; queda fuera de esta tanda a propósito.
+
+import { VARIANTES_PORTAL, resolveVariantes, type EjeVariante } from '../theme-variantes.ts';
+import type { CampoSchema } from './campos.ts';
+
+/** Etiquetas de negocio de cada valor. Las claves son los ids del catálogo. */
+const ETIQUETA_VARIANTE: Record<string, string> = {
+  // cabeceraInicio
+  clasica: 'Clásica', saludo: 'Saludo', nombre: 'Nombre', titular: 'Titular',
+  // accesosRapidos
+  filas: 'Filas', rejilla: 'Rejilla', circulos: 'Círculos',
+  // barra
+  soloActiva: 'Solo la activa', todas: 'Todas', todasRelleno: 'Todas, icono relleno',
+  // retos
+  neutro: 'Neutra', color: 'Con color propio',
+  // tarjetaPrincipal
+  hero: 'Bloque grande', rotulada: 'Con rótulo encima',
+  // bienvenida
+  ninguna: 'Ninguna', foto: 'Sobre la foto', marca: 'Sobre el color de marca',
+};
+
+interface EjeExpuesto {
+  eje: EjeVariante;
+  etiqueta: string;
+  ayuda: string;
+}
+
+/**
+ * Los ejes que van al panel "Forma del portal". El orden es el que ve la
+ * propietaria: de lo que más se nota (la cabecera al abrir) a lo que menos.
+ *
+ * `barra` NO está aquí: se va con los flags de la barra al panel de
+ * navegación, que ya tiene un preview vivo del propio componente — así el
+ * control y su efecto se ven a la vez, en vez de en dos pantallas distintas.
+ */
+const EJES_FORMA: readonly EjeExpuesto[] = [
+  { eje: 'cabeceraInicio', etiqueta: 'Cabecera del Inicio', ayuda: 'Cómo se saluda a la socia al abrir el portal.' },
+  { eje: 'tarjetaPrincipal', etiqueta: 'Tarjeta principal', ayuda: 'La pieza grande del Inicio, con su próxima clase.' },
+  { eje: 'accesosRapidos', etiqueta: 'Accesos rápidos', ayuda: 'La forma de los cuatro atajos del Inicio.' },
+  { eje: 'retos', etiqueta: 'Retos', ayuda: 'Si cada reto lleva su propio color de fondo.' },
+  { eje: 'bienvenida', etiqueta: 'Bienvenida antes de entrar', ayuda: 'Pantalla previa al acceso de la socia.' },
+];
+
+const EJES_BARRA: readonly EjeExpuesto[] = [
+  { eje: 'barra', etiqueta: 'Texto bajo los iconos', ayuda: 'Si se ve en todas las pestañas o solo en la activa.' },
+];
+
+const EJES_EXPUESTOS: readonly EjeExpuesto[] = [...EJES_FORMA, ...EJES_BARRA];
+
+/**
+ * ⚠️ El PRIMER valor de cada eje es el aspecto de HOY (garantía de
+ * `VARIANTES_PORTAL`, con test propio). Por eso `porDefecto` sale de ahí y no
+ * de una constante escrita a mano que podría separarse del catálogo.
+ */
+function camposDeEjes(ejes: readonly EjeExpuesto[]): readonly CampoSchema[] {
+  return ejes.map(({ eje, etiqueta, ayuda }) => {
+  const valores = VARIANTES_PORTAL[eje] as readonly string[];
+  const opciones = valores.map((id) => ({ id, label: ETIQUETA_VARIANTE[id] ?? id }));
+  return {
+    // A partir de 4 valores el `<select>` nativo se lee mejor que una fila de
+    // botones que no cabe en la columna del Inspector — mismo criterio que
+    // documenta el propio motor de campos.
+    tipo: valores.length >= 4 ? 'select' : 'opciones',
+    id: eje,
+    etiqueta,
+    ayuda,
+    opciones,
+    porDefecto: valores[0],
+  } as CampoSchema;
+  });
+}
+
+/** Forma de las piezas del Inicio. Categoría propia. */
+export const CAMPOS_FORMA_PORTAL: readonly CampoSchema[] = camposDeEjes(EJES_FORMA);
+
+/** Todo lo de la barra inferior, junto a su preview en "Navegación del portal". */
+export const CAMPOS_BARRA_PORTAL: readonly CampoSchema[] = [
+  ...camposDeEjes(EJES_BARRA),
+  {
+    tipo: 'booleano', id: 'barraClasica', porDefecto: false,
+    etiqueta: 'Barra pegada abajo',
+    ayuda: 'En vez de flotar sobre el contenido, se apoya en el borde inferior.',
+  },
+  {
+    tipo: 'booleano', id: 'barraFlotante', porDefecto: false,
+    etiqueta: 'Barra despegada de los lados',
+    ayuda: 'Deja aire a izquierda y derecha, como una píldora.',
+  },
+  {
+    tipo: 'booleano', id: 'barraOscura', porDefecto: false,
+    etiqueta: 'Barra oscura',
+    ayuda: 'Fondo oscuro con iconos claros, aunque el portal sea claro.',
+  },
+];
+
+/**
+ * El acento va con los COLORES, no con la forma: es un color, y la
+ * propietaria lo busca donde están los demás.
+ */
+export const CAMPOS_ACENTO: readonly CampoSchema[] = [
+  {
+    tipo: 'colorHeredado', id: 'destacado', porDefecto: null,
+    etiqueta: 'Acento',
+    ayuda: 'Icono activo de la barra, borde de clase reservada y punto de aviso. Sin fijar, usa el color de marca.',
+  },
+];
+
+/** Los tres grupos juntos — para los tests y para cualquier validación global. */
+export const CAMPOS_FORMA: readonly CampoSchema[] = [
+  ...CAMPOS_FORMA_PORTAL, ...CAMPOS_BARRA_PORTAL, ...CAMPOS_ACENTO,
+];
+
+/** Los ids que van dentro de `variantes` y no son claves sueltas del tema. */
+const IDS_VARIANTE = new Set<string>(EJES_EXPUESTOS.map((e) => e.eje));
+
+/** Lo que el tema tiene hoy, en la forma plana que espera el Inspector. */
+export function valoresFormaDesdeTema(tema: {
+  variantes?: unknown; barraClasica?: boolean; barraFlotante?: boolean;
+  barraOscura?: boolean; destacado?: string | null;
+}): Record<string, unknown> {
+  // `resolveVariantes` ya devuelve el objeto COMPLETO con el aspecto de hoy en
+  // los ejes ausentes — no hace falta (ni se debe) pasar esto por
+  // `resolverConfig`, que es para la `config` de un bloque.
+  const v = resolveVariantes(tema.variantes) as Record<string, unknown>;
+  return {
+    ...Object.fromEntries(EJES_EXPUESTOS.map(({ eje }) => [eje, v[eje]])),
+    barraClasica: tema.barraClasica ?? false,
+    barraFlotante: tema.barraFlotante ?? false,
+    barraOscura: tema.barraOscura ?? false,
+    destacado: tema.destacado ?? null,
+  };
+}
+
+/**
+ * Traduce un campo tocado en el Inspector al `setCampo(clave, valor)` que
+ * espera el editor de temas. Devuelve `null` para un id desconocido en vez de
+ * inventar una escritura.
+ *
+ * Los ejes de `variantes` no se pueden escribir sueltos: hay que reenviar el
+ * objeto entero, así que se parte del resuelto y se cambia una clave.
+ */
+export function escrituraDeCampoForma(
+  tema: { variantes?: unknown },
+  campoId: string,
+  valor: unknown,
+): { clave: string; valor: unknown } | null {
+  if (IDS_VARIANTE.has(campoId)) {
+    return { clave: 'variantes', valor: { ...resolveVariantes(tema.variantes), [campoId]: valor } };
+  }
+  if (campoId === 'barraClasica' || campoId === 'barraFlotante' || campoId === 'barraOscura') {
+    return { clave: campoId, valor: Boolean(valor) };
+  }
+  if (campoId === 'destacado') {
+    // `''` desde un input de color vacío significa "sin fijar", igual que null
+    // — nunca se guarda la cadena vacía, que zod rechazaría por no ser hex.
+    return { clave: 'destacado', valor: valor === '' || valor === undefined ? null : valor };
+  }
+  return null;
+}
