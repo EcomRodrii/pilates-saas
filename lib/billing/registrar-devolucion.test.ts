@@ -1,0 +1,157 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  referenciaDevolucion, origenDeReembolso, estadoInicialDevolucion, registrarDevolucion,
+} from './registrar-devolucion.ts';
+
+// Lo que estos tests fijan es lo que decide si la propietaria se entera de una
+// devolución y si se le ofrece deshacer la entrega. Nada de esto lo puede cazar
+// un e2e: `page.route` mockea la red y los reintentos de Stripe no existen ahí.
+
+// ── La clave natural, que es lo que impide duplicar tarjetas ─────────────────
+
+test('un reintento del MISMO reembolso da la misma referencia', () => {
+  // Hace falta de verdad: `reclamarWebhookEvent` expira a los 120 s y falla
+  // abierto, así que el handler se re-ejecuta.
+  const a = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 4950 });
+  const b = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 4950 });
+  assert.equal(a, b);
+});
+
+test('un SEGUNDO parcial sí es un hecho nuevo', () => {
+  // El acumulado es distinto, así que crea fila — y debe crearla: son dos
+  // devoluciones reales sobre el mismo cobro.
+  const primero = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 4950 });
+  const segundo = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 9900 });
+  assert.notEqual(primero, segundo);
+});
+
+test('reembolsar DURANTE una disputa no genera dos tarjetas', () => {
+  // Stripe manda `charge.refunded` Y `charge.dispute.closed` con status
+  // `charge_refunded` por el mismo dinero. Los dos caminos tienen que caer en la
+  // misma referencia o la propietaria vería dos avisos y podría revertir dos veces.
+  const porReembolso = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 16500 });
+  const porDisputaReembolsada = referenciaDevolucion({ tipo: 'reembolso', chargeId: 'ch_1', acumuladoDevueltoCentimos: 16500 });
+  assert.equal(porReembolso, porDisputaReembolsada);
+  // El chargeback PERDIDO sí es otro hecho: ahí el dinero se pierde, no se devuelve.
+  assert.notEqual(porReembolso, referenciaDevolucion({ tipo: 'chargeback', disputeId: 'du_1' }));
+});
+
+// ── Total vs parcial ────────────────────────────────────────────────────────
+
+test('el parcial se reconoce como parcial, que es el caso hoy invisible', () => {
+  assert.equal(origenDeReembolso({ refunded: false, acumulado: 4950, total: 16500 }), 'REEMBOLSO_PARCIAL');
+  assert.equal(origenDeReembolso({ refunded: true, acumulado: 16500, total: 16500 }), 'REEMBOLSO_TOTAL');
+  // Sin el flag de Stripe pero con el acumulado al tope, también es total.
+  assert.equal(origenDeReembolso({ refunded: false, acumulado: 16500, total: 16500 }), 'REEMBOLSO_TOTAL');
+});
+
+// ── ¿Tiene sentido ofrecer deshacer? ────────────────────────────────────────
+
+test('cobro con entrega: se ofrece revisar', () => {
+  assert.equal(
+    estadoInicialDevolucion({ entrega_aplicada: true, suscripcion_id: 'sus-1' }),
+    'PENDIENTE_REVISION',
+  );
+});
+
+test('cobro que NO entregó nada: no se ofrece, y consta por qué', () => {
+  // El bono aún tenía saldo, así que la renovación fue un no-op. Ofrecer
+  // revertirlo sería ofrecer quitar sesiones que este cobro nunca puso.
+  assert.equal(
+    estadoInicialDevolucion({ entrega_aplicada: false, suscripcion_id: 'sus-1' }),
+    'OMITIDA_SIN_ENTREGA',
+  );
+});
+
+test('recibo sin suscripción (una penalización): tampoco', () => {
+  assert.equal(
+    estadoInicialDevolucion({ entrega_aplicada: true, suscripcion_id: null }),
+    'OMITIDA_SIN_ENTREGA',
+  );
+});
+
+test('cobro anterior al snapshot: "no lo sé" NO es "no entregó"', () => {
+  // Es la distinción que evita prometer una reversión exacta sobre un cobro del
+  // que no se guardó nada.
+  assert.equal(
+    estadoInicialDevolucion({ entrega_aplicada: null, suscripcion_id: 'sus-1' }),
+    'OMITIDA_SIN_INSTRUMENTAR',
+  );
+});
+
+// ── El registro contra la BD ────────────────────────────────────────────────
+
+type Fila = Record<string, unknown>;
+
+function fakeAdmin(opts: { recibo?: Fila | null; yaExistia?: boolean } = {}) {
+  const insertado: Fila[] = [];
+  const actualizado: Fila[] = [];
+  const api = {
+    from(tabla: string) {
+      return {
+        select() { return this; },
+        eq() { return this; },
+        maybeSingle() {
+          if (tabla === 'recibos') {
+            return Promise.resolve({ data: opts.recibo === undefined ? RECIBO : opts.recibo, error: null });
+          }
+          // Retorno del insert de devoluciones.
+          if (opts.yaExistia) return Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate' } });
+          return Promise.resolve({ data: { id: 'dev-1' }, error: null });
+        },
+        insert(fila: Fila) { insertado.push(fila); return this; },
+        update(fila: Fila) { actualizado.push(fila); return this; },
+        // supabase-js encadena `.update().eq().eq()` y se espera al final: el
+        // fake tiene que ser thenable, no devolver una promesa a media cadena.
+        then(res: (v: { error: null }) => unknown) { return Promise.resolve({ error: null }).then(res); },
+      };
+    },
+  };
+  return { admin: api as never, insertado, actualizado };
+}
+
+const RECIBO = {
+  id: 'rec-1', socio_id: 'soc-1', suscripcion_id: 'sus-1', importe: 165, entrega_aplicada: true,
+};
+
+const BASE = {
+  studioId: 'studio-1', reciboId: 'rec-1', origen: 'REEMBOLSO_PARCIAL' as const,
+  devueltoCentimos: 4950, referencia: 'ch_1:4950', stripeChargeId: 'ch_1',
+};
+
+test('una devolución nueva se anota y pone al día el acumulado del recibo', async () => {
+  const { admin, insertado, actualizado } = fakeAdmin();
+  const r = await registrarDevolucion(admin, BASE);
+
+  assert.ok(r, 'tiene que devolver la fila para que el llamante avise');
+  assert.equal(r.estado, 'PENDIENTE_REVISION');
+  assert.equal(r.importeDevuelto, 49.5);
+  assert.equal(insertado[0].origen, 'REEMBOLSO_PARCIAL');
+  assert.equal(insertado[0].importe_cobrado, 165, 'foto del recibo al detectar');
+  // Valor ABSOLUTO, no incremento: así un reintento lo deja igual.
+  assert.equal(actualizado[0].importe_devuelto, 49.5);
+});
+
+test('un reintento de Stripe no vuelve a avisar', async () => {
+  const { admin, actualizado } = fakeAdmin({ yaExistia: true });
+  const r = await registrarDevolucion(admin, BASE);
+
+  assert.equal(r, null, 'null = ya estaba, no hay nada nuevo que contar');
+  assert.equal(actualizado.length, 0, 'y no se toca el recibo otra vez');
+});
+
+test('una devolución de un recibo que no es de este estudio no se anota', async () => {
+  const { admin, insertado } = fakeAdmin({ recibo: null });
+  assert.equal(await registrarDevolucion(admin, BASE), null);
+  assert.equal(insertado.length, 0);
+});
+
+test('el estado inicial sale del recibo, no de quien llama', async () => {
+  const { admin, insertado } = fakeAdmin({
+    recibo: { ...RECIBO, entrega_aplicada: null },
+  });
+  const r = await registrarDevolucion(admin, BASE);
+  assert.equal(r?.estado, 'OMITIDA_SIN_INSTRUMENTAR');
+  assert.equal(insertado[0].estado, 'OMITIDA_SIN_INSTRUMENTAR');
+});
