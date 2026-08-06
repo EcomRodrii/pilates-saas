@@ -470,3 +470,32 @@ test.describe('Grupo — bloques dentro de bloques', () => {
     await expect(page.locator('textarea').first()).toHaveValue('Dentro del grupo');
   });
 });
+
+// ── Etapa 4: duplicar (primer consumidor del documento mapa+orden) ─────────
+test.describe('Duplicar un bloque', () => {
+  test('la copia cae JUSTO detrás, con su contenido, y queda seleccionada', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+    await page.locator('textarea').first().fill('Se copia conmigo');
+
+    await page.getByRole('button', { name: 'Duplicar Texto' }).first().click();
+
+    // Dos filas "Texto" en el rail, y el panel abierto es el de la COPIA con
+    // el contenido del original.
+    await expect(page.getByRole('button', { name: 'Duplicar Texto' })).toHaveCount(2);
+    await expect(page.locator('textarea').first()).toHaveValue('Se copia conmigo');
+
+    // Editar la copia NO toca al original: son identidades distintas.
+    await page.locator('textarea').first().fill('Solo la copia');
+    const valores = await page.locator('textarea').evaluateAll((els) => els.map((e) => (e as HTMLTextAreaElement).value));
+    expect(valores.filter((v) => v === 'Solo la copia')).toHaveLength(1);
+  });
+
+  test('un bloque de SISTEMA no se puede duplicar', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Duplicar Esta semana' })).toHaveCount(0);
+  });
+});

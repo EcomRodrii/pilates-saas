@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
   Image as ImageIcon, Type, MousePointerClick, HelpCircle,
-  GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown } from 'lucide-react';
+  GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -31,6 +31,7 @@ import {
   esBloqueFijo, admiteHijo, type BloqueHijo, type BloqueTipoCatalogo,
 } from '@/lib/portal-home-bloques';
 import { CamposForm } from '@/components/theme/inspector/campos-form';
+import { desdeArray, aArray, duplicar as duplicarEnDoc } from '@/lib/theme/documento';
 import { uid } from '@/lib/utils';
 import {
   crearHistorial, registrar, deshacer, rehacer, puedeDeshacer, puedeRehacer,
@@ -116,9 +117,10 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
 }
 
 function Fila({
-  bloque, activa, onSeleccionar, onToggle, onDelete,
+  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar,
 }: {
-  bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void; onDelete?: () => void;
+  bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void;
+  onDelete?: () => void; onDuplicar?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloque.id });
   return (
@@ -138,6 +140,11 @@ function Fila({
       <button onClick={onToggle} title={bloque.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={bloque.oculto ? `Mostrar ${labelDe(bloque)}` : `Ocultar ${labelDe(bloque)}`}>
         {bloque.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
+      {onDuplicar && (
+        <button onClick={onDuplicar} title="Duplicar" className="text-muted-foreground hover:text-foreground" aria-label={`Duplicar ${labelDe(bloque)}`}>
+          <Copy size={16} />
+        </button>
+      )}
       {onDelete && (
         <button onClick={onDelete} title="Eliminar" className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${labelDe(bloque)}`}>
           <Trash2 size={16} />
@@ -218,6 +225,23 @@ export function useBloquesEditor() {
   function toggle(pantalla: PantallaId, id: string) {
     setBloques(pantalla, (prev) => prev.map((b) => (b.id === id ? { ...b, oculto: !b.oculto } : b)));
     setAviso(null);
+  }
+
+  /**
+   * Duplica un bloque justo detrás del original. Pasa por `lib/theme/documento`
+   * en vez de manipular el array a mano: ahí está la regla de que los HIJOS
+   * también reciben ids nuevos, que es la parte fácil de olvidar — si la
+   * copia compartiera los ids de sus hijos, seleccionar uno marcaría los dos.
+   */
+  function duplicar(pantalla: PantallaId, id: string): string | null {
+    let nuevoIdCreado: string | null = null;
+    setBloques(pantalla, (prev) => {
+      const r = duplicarEnDoc(desdeArray(prev), id, uid);
+      nuevoIdCreado = r.id;
+      return aArray(r.doc);
+    });
+    setAviso(null);
+    return nuevoIdCreado;
   }
 
   function eliminar(pantalla: PantallaId, id: string) {
@@ -360,7 +384,7 @@ export function useBloquesEditor() {
 
   return {
     rol, bloquesPorPantalla, bloquesDe, estado, guardando, publicando, aviso,
-    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar,
+    onDragEnd, toggle, eliminar, duplicar, cambiar, anadir, guardar, publicar, restaurar,
     anadirHijo, eliminarHijo, moverHijo, cambiarHijo, localizar,
     descartarCambios,
     // Deshacer/rehacer de verdad, sobre las tres pantallas a la vez: "lo
@@ -478,6 +502,9 @@ export function BloquesSeccionesList({
                 onSeleccionar={() => onSeleccionar(b.id)}
                 onToggle={() => hook.toggle(pantalla, b.id)}
                 onDelete={b.kind === 'sistema' ? undefined : () => hook.eliminar(pantalla, b.id)}
+                // Un bloque de SISTEMA no se duplica: es un módulo de producto,
+                // no contenido. Dos "Esta semana" no significan nada.
+                onDuplicar={b.kind === 'sistema' ? undefined : () => { const id = hook.duplicar(pantalla, b.id); if (id) onSeleccionar(id); }}
               />
               {/* Los hijos cuelgan del padre, sangrados. Solo aparecen si el
                   bloque admite hijos — para los demás no cambia nada. */}
