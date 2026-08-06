@@ -263,6 +263,12 @@ export default function ReservarPage() {
     return () => clearInterval(t);
   }, []);
 
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const tabInicial = searchParams.get('tab');
+  const [tab, setTab] = useState<Tab>(
+    TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
+  );
+
   // Auto-resize del <iframe> embebido (audit de rendimiento de los widgets):
   // el código que se copia en tab-api.tsx fija un `height` en px por widget —
   // un contenido más corto o más largo que ese valor deja hueco muerto o
@@ -281,12 +287,6 @@ export default function ReservarPage() {
     obs.observe(document.documentElement);
     return () => obs.disconnect();
   }, [embedMode, slug, tab]);
-
-  const [filtroTipo, setFiltroTipo] = useState('');
-  const tabInicial = searchParams.get('tab');
-  const [tab, setTab] = useState<Tab>(
-    TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
-  );
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
