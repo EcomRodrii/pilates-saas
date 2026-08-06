@@ -58,6 +58,40 @@ function ColorHeredado({ label, value, onChange }: { label: string; value: strin
   );
 }
 
+
+/**
+ * Un número que puede estar vacío = "hereda". Hermano de `ColorHeredado`.
+ *
+ * ⚠️ La casilla vacía tiene que poder EXISTIR: un `<input type="number">` al
+ * que se le borra el contenido da `''`, y convertirlo a 0 —o al valor por
+ * defecto— destruiría la herencia sin que nadie lo pidiera. Por eso `''` se
+ * traduce a `null` explícitamente, y el marcador dice qué se hereda.
+ */
+function NumeroHeredado({
+  label, value, min, max, paso, marcador, onChange,
+}: {
+  label: string; value: number | null | undefined;
+  min?: number; max?: number; paso?: number; marcador?: string;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-[12.5px] font-medium text-foreground">{label}</span>
+      <input
+        type="number"
+        value={value ?? ''}
+        min={min}
+        max={max}
+        step={paso}
+        placeholder={marcador ?? 'Del tema'}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        className="w-24 text-[12px] px-2 py-1.5 rounded-lg border border-border bg-background"
+        aria-label={label}
+      />
+    </label>
+  );
+}
+
 /** Fila de botones para los campos de enum. */
 function FilaOpciones({
   etiqueta, opciones, activa, onElegir,
@@ -184,6 +218,18 @@ function CampoControl({
       // Lleva su etiqueta dentro (va en la misma fila que el control), así que
       // no pasa por `envoltorio`.
       return <ColorHeredado label={campo.etiqueta} value={valor as string | null} onChange={onChange} />;
+    case 'numeroHeredado':
+      return (
+        <NumeroHeredado
+          label={campo.etiqueta}
+          value={valor as number | null}
+          min={campo.min}
+          max={campo.max}
+          paso={campo.paso}
+          marcador={campo.marcadorHeredado}
+          onChange={onChange}
+        />
+      );
     case 'opciones':
       return <FilaOpciones etiqueta={campo.etiqueta} opciones={campo.opciones} activa={(valor as string) ?? campo.porDefecto} onElegir={onChange} />;
     case 'select':

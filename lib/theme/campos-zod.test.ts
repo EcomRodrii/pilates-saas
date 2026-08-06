@@ -183,3 +183,14 @@ const CAMPOS_ESTILO_VACIO = [] as const;
 const CAMPOS_TEXTO_MINI = [
   { tipo: 'texto', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
 ] as const;
+
+test('zod de numeroHeredado: acepta null (hereda) y un número, rechaza la cadena', () => {
+  const z = zodDeCampos([
+    { tipo: 'numeroHeredado', id: 'radioCard', etiqueta: 'Esquina', porDefecto: null },
+  ]);
+  assert.equal(z.safeParse({ radioCard: null }).success, true);
+  assert.equal(z.safeParse({ radioCard: 24 }).success, true);
+  // Sin esto, un "24" venido de un input se guardaría como texto y la var CSS
+  // saldría con comillas.
+  assert.equal(z.safeParse({ radioCard: '24' }).success, false);
+});

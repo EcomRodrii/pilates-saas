@@ -211,3 +211,43 @@ test('validarCampo: colorHeredado admite null (hereda) y rechaza un hex inválid
   assert.ok(validarCampo(c, 'azul'));
   assert.ok(validarCampo(c, '#ABC'));
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// `numeroHeredado` — el hermano de `colorHeredado` para los ejes donde
+// "ausente" no es cero ni ningún número concreto. Nació de un caso real:
+// `--portal-radius-card` cae a TRES valores distintos según quién la lee (20
+// en portal-tokens, 24 en portal-design, 26 escrito a mano en bonos), así que
+// no existe "el valor por defecto" que un campo `numero` tendría que pintar.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RADIO: CampoSchema = {
+  tipo: 'numeroHeredado', id: 'radioCard', etiqueta: 'Esquina de las tarjetas',
+  porDefecto: null, min: 0, max: 40,
+};
+
+test('numeroHeredado: su porDefecto es null — "hereda", no un número', () => {
+  assert.equal((RADIO as { porDefecto: unknown }).porDefecto, null);
+});
+
+test('validarCampo: numeroHeredado admite null (hereda) y respeta min/max', () => {
+  assert.equal(validarCampo(RADIO, null), null);
+  assert.equal(validarCampo(RADIO, 24), null);
+  assert.equal(validarCampo(RADIO, 0), null);
+  assert.ok(validarCampo(RADIO, -1));
+  assert.ok(validarCampo(RADIO, 41));
+});
+
+test('validarCampo: numeroHeredado rechaza lo que no es número ni null', () => {
+  assert.ok(validarCampo(RADIO, '24'));
+  assert.ok(validarCampo(RADIO, 'del tema'));
+});
+
+test('resolverConfig NO inventa un número donde había herencia', () => {
+  // La trampa que motiva este tipo: si `resolverConfig` rellenara con un
+  // número, guardar fijaría un valor y mataría la herencia sin que nadie lo
+  // pidiera. `porDefecto: null` garantiza que lo que se rellena es "hereda".
+  const r = resolverConfig([RADIO], {}) as Record<string, unknown>;
+  assert.equal(r.radioCard, null);
+  // Y un valor guardado de verdad no se pisa, ni siquiera el 0.
+  assert.equal((resolverConfig([RADIO], { radioCard: 0 }) as Record<string, unknown>).radioCard, 0);
+});

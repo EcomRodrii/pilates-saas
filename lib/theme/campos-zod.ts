@@ -32,6 +32,8 @@ function zodDeCampo(campo: CampoSchema): z.ZodTypeAny {
       return z.boolean();
     case 'numero':
       return z.number();
+    case 'numeroHeredado':
+      return z.number().nullable();
     case 'opciones':
     case 'select': {
       const ids = campo.opciones.map((o) => o.id);

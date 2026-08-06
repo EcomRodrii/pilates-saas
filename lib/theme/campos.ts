@@ -94,6 +94,18 @@ export type CampoSchema =
   | (CampoBase<'color'> & { porDefecto: string })
   /** Hex NULLABLE: `null` = "hereda del tema" (ver ColorFieldMini). */
   | (CampoBase<'colorHeredado'> & { porDefecto: null })
+  /**
+   * Número NULLABLE: `null` = "hereda". El hermano de `colorHeredado` para los
+   * ejes donde **ausente ≠ cero**, ni ≠ ningún número concreto.
+   *
+   * ⚠️ Existe porque un `numero` normal no puede expresar herencia: al pintarlo
+   * hay que poner ALGO en la casilla, y ese algo se acaba guardando. Donde el
+   * valor heredado no es único —`--portal-radius-card` cae a 26 en bonos y a
+   * otro número en el Inicio— cualquier número pre-rellenado miente, y
+   * guardarlo fija un valor donde antes había herencia. Mismo peligro que
+   * `estilo` en los bloques.
+   */
+  | (CampoBase<'numeroHeredado'> & { porDefecto: null; min?: number; max?: number; paso?: number; marcadorHeredado?: string })
   /** Fila de botones — para 2-4 valores. El PRIMERO es el aspecto de hoy. */
   | (CampoBase<'opciones'> & { opciones: readonly OpcionCampo[]; porDefecto: string })
   /** `<select>` nativo — a partir de 5 valores. */
@@ -143,6 +155,7 @@ export interface GrupoCampos {
 type ValorCampo<C extends CampoSchema> =
   C extends { tipo: 'texto' | 'textoLargo' | 'url' | 'imagen' | 'color' } ? string
   : C extends { tipo: 'colorHeredado' } ? string | null
+  : C extends { tipo: 'numeroHeredado' } ? number | null
   : C extends { tipo: 'booleano' } ? boolean
   : C extends { tipo: 'numero' } ? number
   : C extends { tipo: 'opciones' | 'select' } ? C['opciones'][number]['id']
@@ -278,9 +291,12 @@ export function validarCampo(campo: CampoSchema, valor: unknown): string | null 
   if (campo.tipo === 'colorHeredado' && valor != null && (typeof valor !== 'string' || !HEX.test(valor))) {
     return 'Usa un color en formato #RRGGBB, o déjalo vacío para heredar del tema';
   }
-  if (campo.tipo === 'numero' && typeof valor === 'number') {
+  if ((campo.tipo === 'numero' || campo.tipo === 'numeroHeredado') && typeof valor === 'number') {
     if (campo.min != null && valor < campo.min) return `El mínimo es ${campo.min}`;
     if (campo.max != null && valor > campo.max) return `El máximo es ${campo.max}`;
+  }
+  if (campo.tipo === 'numeroHeredado' && valor != null && typeof valor !== 'number') {
+    return 'Escribe un número, o déjalo vacío para heredar';
   }
   if ((campo.tipo === 'texto' || campo.tipo === 'textoLargo') && campo.maxLargo != null) {
     if (typeof valor === 'string' && valor.length > campo.maxLargo) {
