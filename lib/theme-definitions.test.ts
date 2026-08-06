@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { BLOQUES_SISTEMA_IDS } from './portal-home-bloques.ts';
 import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
-import { validarContrasteTheme } from './theme-runtime.ts';
+import { validarContrasteTheme, themeToCssVars } from './theme-runtime.ts';
 import { VARIANTES_PORTAL } from './theme-variantes.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
@@ -120,9 +120,10 @@ test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la ma
 });
 
 test('validarContrasteTheme: con barra flotante (sin oscura), el par destacado/marca NO se comprueba', () => {
-  // Solo `barraOscura` pinta `--portal-tabbar-bg` como la marca (varsBarra);
-  // la barra flotante deja el fondo de la pastilla activa en su claro de
-  // siempre — `destacado` nunca se pinta sobre `primary` ahí.
+  // Solo `barraOscura` pinta `destacado` SOBRE la marca (varsBarra). La barra
+  // flotante también tiene la marca de fondo desde que su pastilla activa es
+  // de marca, pero encima va el foreground autoderivado por contraste, no
+  // `destacado` — así que este par sigue sin aplicar ahí.
   const r = validarContrasteTheme({
     ...DEFAULT_THEME, ...getThemeDefinition('bloom')!.defaults,
     destacado: getThemeDefinition('bloom')!.defaults.primary, // a propósito, ilegible SI se comprobara
@@ -223,4 +224,48 @@ test('cabecera: Oliva `saludo`, Noir `nombre`, y solo Bloom `titular` (con titul
   assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.cabeceraInicio, 'titular');
   // Noir NO lleva titular grande — en el prototipo ese solo lo tiene Bloom.
   assert.equal(getThemeDefinition('noir')!.defaults.variantes?.cabeceraInicio, 'nombre');
+});
+
+// ── La barra inferior de los tres temas, contra el prototipo ────────────────
+// El encargo la resuelve con dos ejes (`tabPill` de Bloom y `barraOscura` de
+// Noir) y NINGUNO de los tres lleva la píldora blanca con sombra que el
+// componente trae de fábrica. Se comprobaba solo el fondo de la barra oscura,
+// así que las tres desviaciones convivieron sin que nada fallara.
+function varsDe(id: string): Record<string, string> {
+  return themeToCssVars({ ...DEFAULT_THEME, ...getThemeDefinition(id)!.defaults }) as Record<string, string>;
+}
+
+test('Oliva: barra pegada abajo SIN pastilla, activo del color de marca', () => {
+  const v = varsDe('oliva');
+  assert.equal(v['--portal-tabbar-active-bg'], 'transparent');
+  assert.equal(v['--portal-tabbar-active-shadow'], 'none');
+  assert.equal(v['--portal-tabbar-active-fg'], '#3D4A2F'); // = la marca del prototipo
+  assert.equal(v['--portal-tabbar-border'], undefined);    // sí lleva línea arriba
+});
+
+test('Bloom: la pastilla activa es de MARCA, no blanca, y el icono va encima en claro', () => {
+  const v = varsDe('bloom');
+  assert.equal(v['--portal-tabbar-active-bg'], '#7C5CFC');
+  assert.equal(v['--portal-tabbar-active-shadow'], 'none'); // la sombra es de la barra
+  assert.notEqual(v['--portal-tabbar-active-fg'], '#FF8FB1'); // el rosa NO es el icono activo
+  assert.equal(v['--portal-tabbar-radius'], '999px');
+  assert.equal(v['--portal-tabbar-height'], '66px');
+});
+
+test('Noir: barra oscura, activo dorado y SIN línea superior', () => {
+  const v = varsDe('noir');
+  assert.equal(v['--portal-tabbar-bg'], '#1E2B22');
+  assert.equal(v['--portal-tabbar-active-fg'], '#D9B166');
+  assert.equal(v['--portal-tabbar-active-bg'], 'transparent');
+  assert.equal(v['--portal-tabbar-border'], 'none');
+});
+
+test('un estudio sin ninguno de los tres ejes conserva la píldora blanca de siempre', () => {
+  // La regresión que más caro saldría: estos vars no deben declararse para el
+  // resto de estudios, que heredan el fallback del componente.
+  const v = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  for (const clave of ['--portal-tabbar-active-bg', '--portal-tabbar-active-shadow',
+                       '--portal-tabbar-active-fg', '--portal-tabbar-border']) {
+    assert.equal(v[clave], undefined, clave);
+  }
 });

@@ -141,7 +141,26 @@ function varsBarra(t: ThemeConfig): Record<string, string> {
     '--portal-tabbar-active-bg': 'transparent',
     '--portal-tabbar-active-shadow': 'none',
     '--portal-tabbar-active-fg': colorDestacado(t),
-    '--portal-tabbar-idle-fg': 'rgba(255,255,255,.55)',
+    '--portal-tabbar-idle-fg': 'rgba(246,245,240,.5)',
+    // El prototipo da borde superior a la barra clara y NINGUNO a la oscura
+    // (`borderTop: barraOscura ? 'none' : '1px solid ' + borde`): sobre el
+    // verde oscuro, esa línea se lee como un corte, no como una separación.
+    '--portal-tabbar-border': 'none',
+  };
+}
+
+// Barra pegada abajo (`barraClasica`: Oliva y Noir). El prototipo NO le pone
+// pastilla a la pestaña activa — la marca solo con color (y, en Oliva, con el
+// icono macizo). Sin esto la barra clásica heredaba el fallback del
+// componente, que es la píldora blanca con sombra de la barra flotante: sobre
+// un fondo también blanco quedaba una sombra suelta bajo la pestaña activa,
+// que no está en ningún tema del encargo.
+function varsBarraClasica(t: ThemeConfig): Record<string, string> {
+  if (!t.barraClasica) return {};
+  return {
+    '--portal-tabbar-active-bg': 'transparent',
+    '--portal-tabbar-active-shadow': 'none',
+    '--portal-tabbar-active-fg': colorDestacado(t),
   };
 }
 
@@ -151,13 +170,26 @@ function varsBarra(t: ThemeConfig): Record<string, string> {
 // temas desde el rediseño 2026-08 (position:absolute, inset con margen) —
 // esto solo cambia altura/radio/sombra/icono activo, que es lo que de
 // verdad distingue a Bloom. Sin `barraFlotante`, ninguna var.
-function varsBarraFlotante(t: ThemeConfig): Record<string, string> {
+function varsBarraFlotante(t: ThemeConfig, marcaForeground: string): Record<string, string> {
   if (!t.barraFlotante) return {};
   return {
     '--portal-tabbar-height': '66px',
     '--portal-tabbar-radius': '999px',
     '--portal-tabbar-shadow': '0 16px 40px -18px rgba(60,40,90,.4)',
-    '--portal-tabbar-active-fg': colorDestacado(t),
+    // ⚠️ La pastilla activa es de MARCA, con el icono y el texto encima en
+    // claro (`background: activo ? p.marca : 'transparent'`, `color: activo ?
+    // '#FFFFFF'` en el prototipo). Antes esto dejaba la pastilla en su blanco
+    // de siempre y pintaba el icono con `destacado` — en Bloom, rosa sobre
+    // blanco: los dos colores del tema salían, pero la firma del tema (la
+    // píldora lila que se ensancha) no se veía por ningún lado.
+    // El foreground NO se fija a '#FFFFFF': se usa el mismo autoderivado por
+    // contraste que ya usan los botones, así que un tema con marca clara
+    // sigue siendo legible sin depender del gate de publicación.
+    '--portal-tabbar-active-bg': t.primary,
+    '--portal-tabbar-active-fg': marcaForeground,
+    // La sombra vive en la BARRA, no en la pastilla: dos sombras apiladas
+    // ensucian el borde de la píldora.
+    '--portal-tabbar-active-shadow': 'none',
   };
 }
 
@@ -205,10 +237,13 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsTarjeta(t),
     // Titular del portal (galería de temas)
     ...varsTitularPortal(t),
+    // Barra inferior pegada abajo (Oliva y Noir) — antes que varsBarra a
+    // propósito: Noir lleva las dos, y la oscura es la que manda.
+    ...varsBarraClasica(t),
     // Barra inferior oscura (tema "Noir")
     ...varsBarra(t),
     // Barra flotante (tema "Bloom")
-    ...varsBarraFlotante(t),
+    ...varsBarraFlotante(t, marcaForeground),
     // Radio por pieza de las secciones nuevas
     ...varsRadioTema(t),
   };
@@ -253,11 +288,12 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // como enlaces/botones fantasma que pintan `--portal-brand` sobre `--background`.
   if (!cumpleContraste(t.primary, t.background, { grande: true }))
     errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
-  // Par que solo estrena la barra oscura: SOLO ahí `--portal-tabbar-bg` pasa
-  // a ser `primary` (varsBarra en theme-runtime.ts) — la barra flotante deja
-  // el fondo de la pastilla activa en su valor claro de siempre
-  // (`--portal-tabbar-active-bg` no lo toca `varsBarraFlotante`), así que
-  // `destacado` ahí nunca se pinta sobre la marca y este par no aplica.
+  // Par que solo estrena la barra oscura: SOLO ahí `destacado` se pinta sobre
+  // la marca (`--portal-tabbar-bg` pasa a ser `primary` en varsBarra). La
+  // barra flotante también pinta sobre la marca desde que su pastilla activa
+  // es de marca, pero ahí el texto es el foreground AUTODERIVADO por
+  // contraste, el mismo de los botones — cumple por construcción y no
+  // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
     errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
   return { ok: errores.length === 0, errores };

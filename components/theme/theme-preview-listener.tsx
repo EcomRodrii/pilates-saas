@@ -2,41 +2,10 @@
 
 import { useEffect } from 'react';
 
-// Claves de CSS var que el preview puede sobreescribir (whitelist — no se acepta
-// cualquier propiedad venida por postMessage).
-const CLAVES_PERMITIDAS = new Set([
-  '--portal-brand',
-  '--portal-brand-foreground',
-  '--portal-brand-secondary',
-  '--brand',
-  '--brand-foreground',
-  '--brand-secondary',
-  '--accent',
-  '--background',
-  '--foreground',
-  '--radius',
-  '--font-sans',
-  '--font-heading',
-  // buttonStyle/cardStyle 'solid'/'flat' no declaran estas 5 (ver
-  // lib/theme-runtime.ts) — por eso el listener las borra todas antes de
-  // aplicar el mensaje nuevo, no solo las que vengan en él.
-  '--portal-btn-bg',
-  '--portal-btn-fg',
-  '--portal-btn-border',
-  '--portal-card-border',
-  '--portal-card-shadow',
-  // Titular del portal (galería de temas) — 'instrumentSerif' no declara
-  // ninguna de las dos, mismo motivo que buttonStyle/cardStyle arriba.
-  '--portal-heading-font',
-  '--portal-heading-weight',
-  // Barra inferior oscura (tema "Noir") — mismo motivo otra vez: sin
-  // `barraOscura` el tema no declara ninguna de las cinco.
-  '--portal-tabbar-bg',
-  '--portal-tabbar-active-bg',
-  '--portal-tabbar-active-shadow',
-  '--portal-tabbar-active-fg',
-  '--portal-tabbar-idle-fg',
-]);
+// La whitelist vive en lib/ (módulo puro) para que un test pueda comprobar que
+// no se queda corta — ver el comentario de cabecera de ese fichero.
+import { CLAVES_PREVIEW_PERMITIDAS as CLAVES_PERMITIDAS } from '@/lib/theme-preview-vars';
+
 
 // Se monta en las superficies previsualizables (reservas). Cuando la página se
 // carga DENTRO de un iframe (el editor de marca), escucha el tema borrador por
