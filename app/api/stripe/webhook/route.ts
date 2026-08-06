@@ -21,6 +21,17 @@ type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
  * Todos los cargos de recibo se crean con `{ stripeAccount }` sobre la cuenta
  * conectada del estudio, así que en estos manejadores siempre viene informado.
  */
+// Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
+// tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
+//
+// ⚠️ Es una LISTA, no dos comparaciones sueltas, porque ya se olvidó una: al
+// añadir la metadata a las compras de plan por enlace público (`plan_web`) se
+// escribió el `reciboId` en el PaymentIntent pero NO se añadió el origen aquí,
+// así que los tres consumidores lo seguían descartando y la compra continuaba
+// siendo invisible a reembolsos y disputas — exactamente el agujero que ese
+// cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
+const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web']);
+
 async function studioDeCuentaConnect(admin: AdminClient, accountId: string | undefined): Promise<string | null> {
   if (!accountId) return null;
   const { data } = await admin.from('studios').select('id').eq('stripe_account_id', accountId).maybeSingle();
@@ -433,7 +444,7 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       // Solo un reembolso TOTAL anula el recibo. `charge.refunded` es true únicamente
       // cuando el cargo se devolvió entero; un reembolso PARCIAL (amount_refunded <
       // amount) marcaba el recibo DEVUELTO por error → ingresos infravalorados y estado
@@ -481,7 +492,7 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
@@ -517,7 +528,7 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
