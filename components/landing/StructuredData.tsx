@@ -16,6 +16,11 @@ export function StructuredData() {
     url: BASE_URL,
     description:
       'Software para estudios de Pilates en España: reservas, cobros, calendario, alumnas e instructoras, y sustituciones automáticas ante bajas.',
+    // TODO: añadir `aggregateRating` ({ '@type': 'AggregateRating', ratingValue,
+    // reviewCount }) en cuanto haya reseñas reales del SOFTWARE Tentare
+    // (p. ej. G2/Capterra, o un módulo de testimonios propio) — nunca un valor
+    // inventado, Google Rich Results lo penaliza. `lib/inngest/valoraciones.ts`
+    // es un sistema distinto: valora las CLASES de cada estudio, no el producto.
     offers: PLANS.map((plan) => ({
       '@type': 'Offer',
       name: plan.name,
