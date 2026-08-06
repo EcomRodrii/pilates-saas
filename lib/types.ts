@@ -623,6 +623,21 @@ export interface Recibo {
   sepaEstado?: string | null;
   // Dunning (0041): cuándo el barrido diario debe reintentar el cobro (null = sin reintento).
   proximoReintento?: string | null;
+  // Qué entregó este cobro, guardado al entregarlo. Sirve para poder OFRECER
+  // deshacerlo si se devuelve el dinero: `suscripciones` no guarda histórico, así
+  // que sin esto se pierde. `entregaAplicada` distingue tres cosas que no se
+  // infieren entre sí — true (cambió algo), false (se evaluó y no cambió nada),
+  // undefined/null (no se sabe: cobro anterior a esta instrumentación).
+  entregaTipo?: 'BONO' | 'MENSUAL' | 'ALTA_WEB' | 'NINGUNA' | null;
+  entregaAplicada?: boolean | null;
+  entregaAplicadaEn?: string | null;
+  entregaSesionesAntes?: number | null;
+  entregaSesionesDespues?: number | null;
+  entregaFechaFinAntes?: string | null;
+  entregaFechaFinDespues?: string | null;
+  entregaEstadoAntes?: string | null;
+  /** Acumulado devuelto, en euros. Incluye reembolsos parciales. */
+  importeDevuelto?: number | null;
 }
 
 // Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de

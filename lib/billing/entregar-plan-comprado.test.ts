@@ -16,6 +16,7 @@ type Fila = Record<string, unknown>;
 /** Supabase de mentira: guarda lo insertado para poder comprobarlo. */
 function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fallaEn?: string } = {}) {
   const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
+  const actualizado: Record<string, Fila[]> = { recibos: [] };
 
   const api = {
     from(tabla: string) {
@@ -33,11 +34,14 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
           insertado[tabla]?.push(fila);
           return Promise.resolve({ error: null });
         },
+        // El snapshot de la entrega va en un UPDATE aparte del insert, para que
+        // el orden de despliegue no pueda romper una entrega — ver el comentario
+        // en entregar-plan-comprado.ts.
+        update(fila: Fila) { actualizado[tabla]?.push(fila); return this; },
       };
     },
   };
-  // El módulo solo usa from().select().eq().maybeSingle() e insert().
-  return { admin: api as never, insertado };
+  return { admin: api as never, insertado, actualizado };
 }
 
 const COMPRA: CompraPlan = {
@@ -159,4 +163,26 @@ test('un plan sin caducidad entra sin fecha de fin', async () => {
   const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
   assert.equal(r.ok, true);
   assert.equal(insertado.suscripciones[0].fecha_fin, null);
+});
+
+test('deja constancia de qué entregó, para poder revertirlo si se devuelve', async () => {
+  // Es el caso limpio: la suscripción no existía antes de esta compra, así que
+  // "antes" es la nada y revertir es exacto.
+  const { admin, actualizado } = fakeAdmin();
+  await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  const snapshot = actualizado.recibos[0];
+  assert.equal(snapshot.entrega_tipo, 'ALTA_WEB');
+  assert.equal(snapshot.entrega_aplicada, true);
+  assert.equal(snapshot.entrega_sesiones_antes, null, 'antes de la compra no había nada');
+  assert.equal(snapshot.entrega_sesiones_despues, 10);
+});
+
+test('un fallo al guardar el snapshot NO tumba la entrega', async () => {
+  // El bono ya está entregado y el dinero cobrado: quedarse sin snapshot solo
+  // significa que después no se ofrecerá revertir. Devolver 500 aquí haría que
+  // Stripe reintentara una entrega que ya ocurrió.
+  const { admin } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+  assert.equal(r.ok, true);
 });

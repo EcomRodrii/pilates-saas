@@ -343,7 +343,16 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // supabase-js pierde la inferencia y se pierde toda la verificación EN SILENCIO.
 export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
-export type FilaReciboPanel = Omit<RowRecibos, 'proximo_reintento'>;
+// El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
+// entrega: son columnas que solo lee el dunning (servidor) y la card de
+// devoluciones, y meterlas aquí engordaría el payload de arranque de TODAS las
+// pantallas para nada (ver la fase B de "columnas, no consultas").
+export type FilaReciboPanel = Omit<RowRecibos,
+  | 'proximo_reintento'
+  | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
+  | 'entrega_sesiones_antes' | 'entrega_sesiones_despues'
+  | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
+  | 'entrega_estado_antes' | 'importe_devuelto'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
@@ -2338,6 +2347,38 @@ export async function dbMarcarCobrado(
   if (!data || data.length === 0) {
     return { ok: false, error: 'Este recibo ya no está pendiente (puede que ya se haya cobrado).', yaEstaba: true };
   }
+  return ESCRITURA_OK;
+}
+
+/**
+ * Guarda en el recibo QUÉ entregó su cobro. Escritor dedicado en vez de ampliar
+ * `dbUpdateRecibo` con ocho campos que no usa nadie más: esto lo escribe UNA
+ * vez cada camino de entrega y no se vuelve a tocar.
+ *
+ * El espejo de servidor vive en `lib/billing/renovacion-server.ts` (que lo
+ * escribe con service-role); esta es la del panel. Los dos tienen que guardar lo
+ * mismo o la reversión leerá dos formas distintas del mismo hecho.
+ */
+export async function dbGuardarEntrega(reciboId: string, entrega: {
+  tipo: 'BONO' | 'MENSUAL' | 'ALTA_WEB' | 'NINGUNA';
+  aplicada: boolean;
+  sesionesAntes: number | null;
+  sesionesDespues: number | null;
+  fechaFinAntes: string | null;
+  fechaFinDespues: string | null;
+  estadoAntes: string | null;
+}): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('recibos').update({
+    entrega_tipo: entrega.tipo,
+    entrega_aplicada: entrega.aplicada,
+    entrega_aplicada_en: new Date().toISOString(),
+    entrega_sesiones_antes: entrega.sesionesAntes,
+    entrega_sesiones_despues: entrega.sesionesDespues,
+    entrega_fecha_fin_antes: entrega.fechaFinAntes,
+    entrega_fecha_fin_despues: entrega.fechaFinDespues,
+    entrega_estado_antes: entrega.estadoAntes,
+  }).eq('id', reciboId);
+  if (error) return falloEscritura('[dbGuardarEntrega]', error);
   return ESCRITURA_OK;
 }
 
