@@ -5,7 +5,7 @@ import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import {
-  Inbox, Bell, MessageCircle, Send, Search, Check, CheckCheck,
+  Bell, MessageCircle, Send, Search, Check, CheckCheck,
   Info, AlertTriangle, CheckCircle, XCircle, Users, Heart, ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';

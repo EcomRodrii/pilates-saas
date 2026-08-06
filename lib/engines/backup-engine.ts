@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { r2Configurado, subirSnapshot, descargarSnapshot, borrarSnapshots } from '@/lib/r2';
-import { uid } from '@/lib/utils';
+// Imports relativos con extensión .ts explícita: es lo que necesita
+// `node --test --experimental-strip-types` para poder cargar este módulo (el
+// alias `@/` solo lo resuelve el bundler). Ver AGENTS.md / tentare-os.md.
+import { r2Configurado, subirSnapshot, descargarSnapshot, borrarSnapshots } from '../r2.ts';
+import { leerCatalogoCompleto } from '../migracion/catalogo.ts';
+import { uid } from '../utils.ts';
 
 // Todas las tablas de datos de un negocio, en el mismo orden en que las crean
 // las migraciones (o sea, en orden de dependencias: una tabla nunca
@@ -54,15 +58,40 @@ export interface BackupSnapshot {
   [table: string]: Record<string, unknown>[];
 }
 
+// Cuántas tablas se leen a la vez. Ni 1 (eran 44 viajes en serie: 4342 ms
+// medidos contra un estudio de 22 socias) ni 44 de golpe: un abanico así de
+// ancho se estorba a sí mismo — medido en este mismo proyecto, 52 consultas
+// simultáneas multiplican por ~19 lo que tarda cada una por separado.
+const TABLAS_A_LA_VEZ = 8;
+
 // Lee todas las filas de un negocio en cada tabla de BACKUP_TABLES. Requiere
 // el cliente admin (service role) porque tiene que leer sin restricciones de
 // RLS, sea quien sea quien lo dispare (staff logueado, o el cron sin sesión).
+//
+// ⚠️ Pagina con `leerCatalogoCompleto`. Antes hacía `.select('*')` a secas, y
+// PostgREST corta en `max_rows` (1000, supabase/config.toml:18) EN SILENCIO:
+// sin error y sin señal de que faltan filas. En un backup eso no es un informe
+// incompleto, es PÉRDIDA DE DATOS — `restaurarSnapshot` borra y reinserta el
+// snapshot tal cual, así que un estudio con más de 1000 reservas restauraba
+// habiendo perdido todo lo que no cupo. El repo ya conocía este fallo y lo
+// había arreglado en las lecturas del panel (`fetchAllRows`) y en los
+// importadores (este mismo helper); a los backups nunca llegó.
 export async function crearSnapshot(admin: SupabaseClient, studioId: string): Promise<BackupSnapshot> {
   const snapshot: BackupSnapshot = {};
-  for (const tabla of BACKUP_TABLES) {
-    const { data, error } = await admin.from(tabla).select('*').eq('studio_id', studioId);
-    if (error) throw new Error(`Error leyendo ${tabla}: ${error.message}`);
-    snapshot[tabla] = data ?? [];
+  for (let i = 0; i < BACKUP_TABLES.length; i += TABLAS_A_LA_VEZ) {
+    const lote = BACKUP_TABLES.slice(i, i + TABLAS_A_LA_VEZ);
+    await Promise.all(lote.map(async tabla => {
+      const { filas, truncado } = await leerCatalogoCompleto<Record<string, unknown>>(
+        (desde, hasta) => admin.from(tabla).select('*').eq('studio_id', studioId).range(desde, hasta),
+      ).catch((error: unknown) => {
+        throw new Error(`Error leyendo ${tabla}: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      // El tope de `leerCatalogoCompleto` es una red contra bucles infinitos.
+      // Si salta, el snapshot estaría incompleto — y guardar un backup
+      // incompleto como si fuera bueno es justo el fallo que arregla esto.
+      if (truncado) throw new Error(`Error leyendo ${tabla}: la tabla superó el tope de paginación, el backup habría quedado incompleto`);
+      snapshot[tabla] = filas;
+    }));
   }
   return snapshot;
 }

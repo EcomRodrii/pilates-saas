@@ -112,9 +112,12 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
   const ringStyle: CSSProperties = ring ? { boxShadow: `0 0 0 3px ${ring}` } : {};
   if (fotoUrl) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora, no un asset estático conocido en build (mismo criterio que components/ui/profile-avatar)
       <img
         src={fotoUrl}
         alt={nombre}
+        loading="lazy"
+        decoding="async"
         style={{ width: size, height: size, borderRadius: 999, objectFit: 'cover', flexShrink: 0, ...ringStyle }}
       />
     );
@@ -168,9 +171,12 @@ export function ReservaCalendario({
   );
 
   // Si el slot abierto desaparece (p. ej. la sesión ya pasó tras recargar), cierra.
-  useEffect(() => {
-    if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); }
-  }, [openSlotId, openSlot]);
+  //
+  // Ajuste en render, no efecto: con efecto se pintaba un frame con la hoja
+  // todavía abierta sobre un slot que ya no existe. La condición se
+  // auto-cancela —al poner `openSlotId` a null deja de cumplirse—, así que no
+  // hace falta guardar el valor anterior ni hay riesgo de bucle.
+  if (openSlotId && !openSlot) { setOpenSlotId(null); setSelectedSpot(null); setResultado(null); }
 
   function navegarSemana(dir: -1 | 1) {
     const nuevoAnchor = addDays(weekAnchor, dir * 7);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useDialogA11y } from './use-dialog-a11y';
 
 // Equivalente a DashboardSheet (components/ui/dashboard-sheet.tsx) para los
@@ -39,11 +39,16 @@ export function DashboardDrawer({
   const [rendered, setRendered] = useState(open);
   const [cerrando, setCerrando] = useState(false);
 
-  useEffect(() => {
+  // Ajuste en render (no efecto) sobre el CAMBIO de `open`: es lo que documenta
+  // React para reaccionar a que una prop cambie. Con efecto, al abrir se
+  // pintaba un frame sin el panel —`rendered` seguía en false— y la animación
+  // de entrada arrancaba un fotograma tarde.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
     if (open) { setRendered(true); setCerrando(false); }
     else if (rendered) setCerrando(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
   if (!rendered) return null;
 

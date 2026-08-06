@@ -54,7 +54,10 @@ export function CitasPublica({
   studioId, servicios, instructores, disponibilidad, misCitas,
   autenticada, onNeedLogin, onReservar, onCancelar, primary, primaryFg,
 }: CitasPublicaProps) {
-  const hoy = useMemo(() => new Date(), []);
+  // Estado y no useMemo: aquí `hoy` se usa como valor estable (semilla del
+  // calendario y corte de "citas futuras"), y React puede descartar un useMemo y
+  // recalcularlo cuando quiera — con useState el valor de montaje se conserva.
+  const [hoy] = useState(() => new Date());
   const [servicioId, setServicioId] = useState<string | null>(servicios.length === 1 ? servicios[0].id : null);
   const [instructorId, setInstructorId] = useState<string | null>(null);
   const [weekAnchor, setWeekAnchor] = useState<Date>(hoy);
@@ -83,6 +86,7 @@ export function CitasPublica({
 
   // Carga de huecos cuando hay servicio + instructora + día.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona con bandera de cancelación. El estado llega de la red, no se puede derivar en render.
     if (!servicioId || !instructorId) { setHuecos(null); return; }
     let cancelado = false;
     setLoadingHuecos(true);
@@ -111,7 +115,7 @@ export function CitasPublica({
   function cerrarSheet() { setBooking(null); setResultado(null); }
 
   const citasFuturas = misCitas
-    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > Date.now())
+    .filter(c => c.estado !== 'CANCELADA' && new Date(c.fin).getTime() > hoy.getTime())
     .sort((a, b) => a.inicio.localeCompare(b.inicio));
 
   if (servicios.length === 0) {

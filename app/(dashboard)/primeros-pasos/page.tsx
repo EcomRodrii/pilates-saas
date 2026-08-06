@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CheckCircle2, Circle, Clock, Lightbulb, ArrowRight, ChevronDown,
-  Rocket, CreditCard, Bot, Users, Smartphone, type LucideIcon,
+  Rocket, CreditCard, Bot, Users, Smartphone, Play, Compass, type LucideIcon,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { calcularOnboarding, type CategoriaOnboarding } from '@/lib/onboarding';
+import { useTour } from '@/lib/tour-context';
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from '@/components/ui/collapsible';
 import { PageHeader } from '@/components/ui/page-header';
 import { cn } from '@/lib/utils';
@@ -26,15 +27,32 @@ const ICONOS_CATEGORIA: Record<string, LucideIcon> = {
   portal: Smartphone,
 };
 
+// Ilustraciones (unDraw, recoloreadas al verde de marca) — de icono suelto a
+// algo con la cara que pide el spec original. Solo en esta página: la
+// tarjeta compacta del dashboard (onboarding-checklist.tsx) sigue siendo
+// solo icono, no hay sitio para una ilustración en una tira tan estrecha.
+const ILUSTRACIONES_CATEGORIA: Record<string, string> = {
+  'configuracion-inicial': '/ilustraciones/configuracion.svg',
+  pagos: '/ilustraciones/pagos.svg',
+  automatizaciones: '/ilustraciones/automatizaciones.svg',
+  equipo: '/ilustraciones/equipo.svg',
+  portal: '/ilustraciones/portal.svg',
+};
+
 export default function PrimerosPasosPage() {
   const {
     studio, instructores, tiposClase, sesiones, socios,
     salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
   } = useStudio();
+  const { iniciarTour } = useTour();
 
-  if (!studio) return null;
-
-  const { categorias, enlaces, recomendaciones, totalPasos, totalCompletados } = calcularOnboarding({
+  // Sin `studio` no hay nada que calcular, pero el early return NO puede ir
+  // aquí: los hooks de gamificación de más abajo dejarían de ejecutarse en el
+  // primer render y volverían a hacerlo en cuanto el contexto resuelve, que es
+  // exactamente el "Rendered more hooks than during the previous render" que
+  // tumba la pantalla. Se calcula condicionalmente y se sale DESPUÉS de todos
+  // los hooks.
+  const datos = studio ? calcularOnboarding({
     nif: studio.nif,
     stripeAccountId: studio.stripeAccountId,
     slug: studio.slug,
@@ -51,9 +69,35 @@ export default function PrimerosPasosPage() {
     numSuscripcionesActivas: suscripciones.filter(s => s.estado === 'ACTIVA').length,
     contenidoPortalPersonalizado: !!contenidoPortal?.mensajeDestacado,
     automatizacionesActivas: new Set(automationRules.filter(r => r.activa).map(r => r.trigger)),
-  });
+  }) : null;
 
+  const totalPasos = datos?.totalPasos ?? 0;
+  const totalCompletados = datos?.totalCompletados ?? 0;
   const pct = totalPasos === 0 ? 0 : Math.round((totalCompletados / totalPasos) * 100);
+
+  // Gamificación: detecta el instante en que se pasa de incompleto a
+  // completo (nunca al revés, y nunca en la primera carga) para disparar la
+  // confirmación con animación. Derivado en cliente por comparación de
+  // renders — no hay nada que persistir en BD: si recarga la página después
+  // de completarlo, ya no hay "antes" que comparar, y eso es correcto, la
+  // confirmación es un momento, no un estado.
+  const prevTotalRef = useRef<number | null>(null);
+  const [recienCompletado, setRecienCompletado] = useState(false);
+  const hayDatos = datos !== null;
+  useEffect(() => {
+    // Mientras el contexto no ha resuelto, los totales valen 0 y NO cuentan
+    // como un "antes": sin esta guarda, un estudio que ya lo tenía todo hecho
+    // vería la animación de recién completado nada más abrir la página (0 → 15
+    // se lee como si lo acabara de terminar), justo lo que dice el comentario
+    // de arriba que no debe pasar.
+    if (!hayDatos) return;
+    const prev = prevTotalRef.current;
+    if (prev !== null && prev < totalPasos && totalCompletados === totalPasos) setRecienCompletado(true);
+    prevTotalRef.current = totalCompletados;
+  }, [hayDatos, totalCompletados, totalPasos]);
+
+  if (!studio || !datos) return null;
+  const { categorias, enlaces, recomendaciones } = datos;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -64,13 +108,40 @@ export default function PrimerosPasosPage() {
         badge={<span className="text-[12px] font-semibold text-muted-foreground">{totalCompletados} de {totalPasos} completados</span>}
       />
 
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <button
+          onClick={iniciarTour}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-colors"
+        >
+          <Play size={15} /> Ver un tour guiado (3 minutos)
+        </button>
+        <Link
+          href="/explorar-funciones"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-card text-[13px] font-semibold text-foreground hover:bg-muted transition-colors"
+        >
+          <Compass size={15} /> Explorar todas las funciones
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-6 flex items-center gap-6 overflow-hidden">
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">{pct}% de tu estudio está listo</p>
+          <p className="text-[13px] text-muted-foreground mt-1">Ve completando lo que te falta a tu ritmo — no hace falta hacerlo todo hoy.</p>
+          <div className="h-2 rounded-full bg-muted overflow-hidden mt-4">
+            <div className="h-full rounded-full bg-brand-secondary transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/ilustraciones/hero.svg" alt="" className="hidden sm:block w-40 shrink-0" />
       </div>
 
       {totalCompletados === totalPasos ? (
-        <div className="rounded-2xl border border-border bg-card p-6 text-center">
-          <CheckCircle2 size={28} className="text-brand-secondary mx-auto mb-2" />
+        <div className={cn(
+          'rounded-2xl border border-border bg-card p-6 text-center',
+          recienCompletado && 'animate-in fade-in-0 zoom-in-95 duration-300',
+        )}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/ilustraciones/completado.svg" alt="" className="w-32 h-32 mx-auto mb-2" />
           <p className="text-[15px] font-semibold text-foreground">Configuración inicial completada</p>
           <p className="text-[13px] text-muted-foreground mt-1">Tu estudio ya está preparado para recibir reservas.</p>
         </div>
@@ -112,6 +183,17 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
   const [abierta, setAbierta] = useState(completados < total);
   const Icono = ICONOS_CATEGORIA[categoria.id] ?? Circle;
 
+  // Misma gamificación que a nivel de página, pero por categoría: un
+  // pequeño "✔ completada" que aparece una vez, al pasar de incompleta a
+  // completa, sin tocar lib/onboarding.ts (que sigue puro).
+  const prevRef = useRef<number | null>(null);
+  const [recienCompletada, setRecienCompletada] = useState(false);
+  useEffect(() => {
+    const prev = prevRef.current;
+    if (prev !== null && prev < total && completados === total) setRecienCompletada(true);
+    prevRef.current = completados;
+  }, [completados, total]);
+
   return (
     <Collapsible open={abierta} onOpenChange={setAbierta} className="rounded-2xl border border-border bg-card overflow-hidden">
       <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors">
@@ -119,12 +201,22 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
           <span className={cn(
             'flex size-8 items-center justify-center rounded-lg shrink-0',
             completados === total ? 'bg-brand-secondary/15 text-brand-secondary' : 'bg-brand/10 text-brand-secondary',
+            recienCompletada && 'animate-in zoom-in-50 duration-300',
           )}>
             <Icono size={16} />
           </span>
           <span className="text-[14px] font-semibold text-foreground">{categoria.label}</span>
+          {recienCompletada && (
+            <span className="text-[11px] font-semibold text-brand-secondary animate-in fade-in-0 slide-in-from-left-1 duration-300">
+              ¡Completada!
+            </span>
+          )}
         </span>
-        <span className="flex items-center gap-2 shrink-0">
+        <span className="flex items-center gap-3 shrink-0">
+          {ILUSTRACIONES_CATEGORIA[categoria.id] && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={ILUSTRACIONES_CATEGORIA[categoria.id]} alt="" className="hidden sm:block w-[72px] h-14 object-cover rounded-lg" />
+          )}
           <span className="text-[12px] text-muted-foreground">{completados}/{total}</span>
           <ChevronDown size={16} className={cn('text-muted-foreground transition-transform', abierta && 'rotate-180')} />
         </span>

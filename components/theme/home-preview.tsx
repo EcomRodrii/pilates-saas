@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { MarcoDispositivo } from './marco-dispositivo';
+import type { DispositivoId } from '@/lib/theme/dispositivos';
 import { fetchHomePreviewToken } from '@/lib/api-client';
 import { themeToCssVars } from '@/lib/theme-runtime';
+import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
 
@@ -44,6 +47,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
   bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador, irA,
+  dispositivo = 'movil', zoom = 1,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -70,6 +74,8 @@ export function HomePreview({
   // aunque `vista` sea la misma string que la última vez (ej. volver a pedir
   // Reservas tras haber navegado a Perfil a mano dentro del propio widget).
   irA?: { vista: VistaId; nonce: number } | null;
+  dispositivo?: DispositivoId;
+  zoom?: number;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -85,11 +91,6 @@ export function HomePreview({
   if (pantalla !== pantallaVista) {
     setPantallaVista(pantalla);
     if (PANTALLAS.some((p) => p.id === vista)) setVista(pantalla);
-  }
-
-  function elegirVista(id: VistaId) {
-    setVista(id);
-    if (id === 'home' || id === 'clases' || id === 'bonos') onPantallaChange(id);
   }
 
   // Mismo patrón que `pantallaVista` arriba (ajuste de estado DURANTE el
@@ -120,7 +121,16 @@ export function HomePreview({
     }
     if (temaBorrador) {
       ref.current?.contentWindow?.postMessage(
-        { type: 'tentare-theme-preview', vars: themeToCssVars(temaBorrador) as Record<string, string> },
+        {
+          type: MENSAJE_TEMA_PREVIEW,
+          vars: themeToCssVars(temaBorrador) as Record<string, string>,
+          // La mitad JS del tema (variantes de FORMA, barra) — ver
+          // lib/theme-preview-puente.ts. Sin esto, el iframe pintaba la paleta
+          // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
+          // 'clasica' y los retos salían blancos aunque el borrador dijera otra
+          // cosa. Lo aplica StudioProvider, que es donde vive `variantes`.
+          temaJs: resolveTemaJs(temaBorrador),
+        },
         window.location.origin,
       );
     }
@@ -151,40 +161,20 @@ export function HomePreview({
   }, [onBloqueSeleccionado]);
 
   if (!slug || !token) {
-    return (
-      <div className="mx-auto w-full max-w-[320px] aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
-        <p className="text-[12px] text-muted-foreground">La vista previa aparecerá en un momento.</p>
-      </div>
-    );
+    return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;
   }
 
   const ruta = TODAS_LAS_VISTAS.find((p) => p.id === vista)?.ruta ?? '';
 
   return (
-    <div className="mx-auto w-full max-w-[320px]">
-      <div className="flex flex-wrap justify-center gap-1 mb-3" role="tablist" aria-label="Pantalla a previsualizar">
-        {TODAS_LAS_VISTAS.map(p => (
-          <button
-            key={p.id}
-            type="button"
-            role="tab"
-            aria-selected={vista === p.id}
-            onClick={() => elegirVista(p.id)}
-            className={`px-3 py-1 rounded-full text-xs border ${vista === p.id ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
-          >
-            {p.etiqueta}
-          </button>
-        ))}
-      </div>
-      <div className="aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
-        <iframe
-          ref={ref}
-          src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
-          title="Vista previa de la app de socias"
-          onLoad={enviar}
-          className="w-full h-full border-0"
-        />
-      </div>
-    </div>
+    <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
+      <iframe
+        ref={ref}
+        src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
+        title="Vista previa de la app de socias"
+        onLoad={enviar}
+        className="w-full h-full border-0"
+      />
+    </MarcoDispositivo>
   );
 }

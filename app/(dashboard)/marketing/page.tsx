@@ -9,7 +9,7 @@ import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell,
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
-import type { Campana, Automatizacion, CodigoDescuento, TipoCampana, LeadStage } from '@/lib/types'
+import type { Campana, Automatizacion, TipoCampana, LeadStage, DestinatariosCampana } from '@/lib/types'
 import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
@@ -503,7 +503,10 @@ export default function MarketingPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateKey | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const CAMPANA_VACIA = {
-    nombre: '', tipo: 'EMAIL' as TipoCampana, asunto: '', destinatarios: 'TODAS',
+    // `destinatarios` va tipado aquí (y no con un `as any` al guardar): si se
+    // infiere como `string`, el estado acepta cualquier cadena y el error solo
+    // aparecería al escribir en la BD, con un valor que no existe en el enum.
+    nombre: '', tipo: 'EMAIL' as TipoCampana, asunto: '', destinatarios: 'TODAS' as DestinatariosCampana,
     contenido: '', objetivo: '', presupuesto: '',
     publicaciones: [] as PublicacionAsociada[],
   }
@@ -593,17 +596,16 @@ export default function MarketingPage() {
     .reduce((acc, r) => acc + (r.importe ?? 0), 0)
 
   // Recipient counts by destinatarios type
-  const socioIds = new Set(socios.map(s => s.id))
   const socioIdsConSuscripcionActiva = new Set(
     suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
   )
   const recipientCount: Record<string, number> = {
     TODAS: socios.length,
-    ACTIVAS: socios.filter(s => (s as any).activo !== false).length,
-    INACTIVAS: socios.filter(s => (s as any).activo === false).length,
+    ACTIVAS: socios.filter(s => s.activo !== false).length,
+    INACTIVAS: socios.filter(s => s.activo === false).length,
     SIN_PLAN: socios.filter(s => !socioIdsConSuscripcionActiva.has(s.id)).length,
     BONO: socioIdsConSuscripcionActiva.size,
-    VIP: socios.filter(s => (s as any).tags?.includes('VIP')).length,
+    VIP: socios.filter(s => s.tags?.includes('VIP')).length,
   }
 
   function abrirNuevaCampana() {
@@ -644,7 +646,7 @@ export default function MarketingPage() {
       // Con trim, como el resto: sin él se guardaba "   " y el email salía con
       // el asunto vacío (el guard de envío de abajo ya no lo dejaría pasar).
       asunto: newCampana.asunto.trim(),
-      destinatarios: newCampana.destinatarios as any,
+      destinatarios: newCampana.destinatarios,
       contenido: newCampana.contenido.trim(),
       objetivo: newCampana.objetivo.trim() || null,
       presupuesto: newCampana.presupuesto ? parseFloat(newCampana.presupuesto) : null,
@@ -1392,7 +1394,11 @@ export default function MarketingPage() {
                 <select
                   className={selectCls}
                   value={newCampana.destinatarios}
-                  onChange={e => setNewCampana(p => ({ ...p, destinatarios: e.target.value }))}
+                  // El DOM siempre devuelve `string`; la conversión va aquí, en
+                  // la frontera, porque las <option> de justo debajo SON el
+                  // enum completo. Es lo que antes se tapaba con un `as any`
+                  // al guardar, donde ya no se veía de dónde salía el valor.
+                  onChange={e => setNewCampana(p => ({ ...p, destinatarios: e.target.value as DestinatariosCampana }))}
                 >
                   <option value="TODAS">Todas las clientas</option>
                   <option value="ACTIVAS">Clientas activas</option>

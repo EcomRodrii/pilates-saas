@@ -21,7 +21,7 @@ import {
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbCancelarReservasPorSesiones,
-  dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
+  dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
@@ -104,14 +104,9 @@ import type {
   Cita,
   ServicioCita,
   DisponibilidadCita,
-  EstadoCita,
   ProductoPOS,
   VentaPOS,
-  ItemVentaPOS,
-  MetodoPago,
   Campana,
-  EstadoCampana,
-  TipoCampana,
   DestinatariosCampana,
   Automatizacion,
   CodigoDescuento,
@@ -128,7 +123,6 @@ import type {
   AchievementDefinition,
   AchievementProgress,
   AchievementHistory,
-  AchievementMetric,
   RewardTrigger,
   LevelDefinition,
   ChallengeDefinition,
@@ -142,7 +136,6 @@ import type {
   AutomationRule,
   AutomationLog,
   NotaProgreso,
-  ResultadoLog,
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
@@ -161,6 +154,7 @@ import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
+import { MENSAJE_TEMA_PREVIEW, resolveTemaJs, type TemaJs } from '@/lib/theme-preview-puente';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -608,6 +602,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
+  // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
+  // Estado APARTE del publicado, no un `setVariantes` desde el mensaje: la
+  // carga de datos públicos llega asíncrona y pisaría el borrador según quién
+  // ganase la carrera. Así el borrador manda siempre mientras el editor lo
+  // esté mandando, y `null` (fuera del editor) deja intacto lo publicado.
+  const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
@@ -692,6 +692,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   useEffect(() => {
     fijarEtiqueta('studio_id', studio?.id ?? undefined);
   }, [studio?.id]);
+
+  // Tema en borrador dentro del iframe del editor. Hermano JS de
+  // ThemePreviewListener: aquel aplica las CSS vars del mismo mensaje sobre
+  // :root, este resuelve los ejes que NO son CSS (ver
+  // lib/theme-preview-puente.ts) — hacen falta los dos porque el tema tiene
+  // las dos mitades desde `variantes`.
+  //
+  // Se monta aquí, y no en un provider propio de /portal-preview, porque
+  // `variantes`/`barraClasica`/`tabBarStyle` los sirve ESTE contexto: sus
+  // consumidores (PortalHomeView, PortalShell) los leen con useStudio() y así
+  // no se enteran de que existe un modo preview. Fuera de un iframe no hace
+  // absolutamente nada, que es el caso del panel y del portal real.
+  useEffect(() => {
+    if (window.self === window.top) return;
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { type?: string; temaJs?: unknown } | null;
+      if (!d || d.type !== MENSAJE_TEMA_PREVIEW) return;
+      const tema = resolveTemaJs(d.temaJs);
+      if (tema) setTemaJsPreview(tema);
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
 
   // El self-claim de una instructora (confirmar el correo de invitación) pasa
   // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
@@ -893,6 +917,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // como un toast de error real a cualquier visitante de la home pública.
     if (!studioIdOverride && !authUserId) {
       setCurrentStudioId('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos del estudio: marca dataLoaded para los casos en que no hay nada que pedir. El estado viene de la red.
       setDataLoaded(true);
       return;
     }
@@ -3848,6 +3873,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Notas de progreso: extraídas a useProgressNotesStore (Fase B).
 
+  // El borrador del editor pisa a lo publicado, y entero: `temaJs` es un objeto
+  // completo, así que no puede quedar la cabecera del borrador con los retos de
+  // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
+  const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
+  const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
+  const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
+
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
     salas,
@@ -3858,9 +3890,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     homeBloques,
     bloquesClases,
     bloquesBonos,
-    tabBarStyle,
-    barraClasica,
-    variantes,
+    tabBarStyle: tabBarStyleEfectivo,
+    barraClasica: barraClasicaEfectiva,
+    variantes: variantesEfectivas,
     navPortal,
     redesSociales,
     favoritos,
@@ -4066,11 +4098,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     updateAvatarAdmin,
     updateStudio,
     updateHorarioEstudio,
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps deliberately cover only state read by
-  // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
-  // functions themselves are intentionally excluded since they're recreated every render anyway.
+  // deps deliberately cover only state read by `value`'s ~80 inline functions
+  // (verified: every closed-over identifier is listed below); the functions
+  // themselves are intentionally excluded since they're recreated every render
+  // anyway.
+  //
+  // El disable va en la línea de justo antes del array, no encima del comentario:
+  // la regla señala esta línea, y las dos versiones anteriores (una arriba del
+  // todo y otra pegada al `]`) no tapaban nada y llevaban avisando sin que se
+  // notara.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, barraClasica, variantes, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
@@ -4092,7 +4131,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dataLoaded,
     studio,
     authUserId, publicSlug, studioIdOverride,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   function resetDatosPilates() {

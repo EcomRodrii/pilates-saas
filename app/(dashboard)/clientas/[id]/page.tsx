@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
+import { use, useState, useEffect, useRef, useMemo } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock,
-  ChevronDown, Send, CheckCircle2, Filter, RotateCcw, ShieldCheck, FileSignature,
+  Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
   Bot, Loader2, Mic,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
@@ -43,15 +43,6 @@ const TAGS_OPTIONS = [
   { label: 'Baja temp.', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
   { label: 'Online', bg: '#E0F2FE', text: '#3F5A7A' },
   { label: 'Profesora', bg: '#FEF9C3', text: '#713F12' },
-];
-
-const AVATAR_COLORS = [
-  { bg: '#FFF2F7', text: 'var(--brand)' },
-  { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
-  { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
-  { bg: '#FCE7F3', text: '#9D174D' },
-  { bg: '#E8EBDD', text: '#22251A' },
-  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D' },
 ];
 
 const BADGE_RECIBO: Record<string, string> = {
@@ -78,11 +69,6 @@ function tagStyle(label: string) {
   return TAGS_OPTIONS.find(t => t.label === label) ?? { bg: 'var(--muted)', text: 'var(--muted-foreground)' };
 }
 
-function avatarColor(id: string) {
-  const idx = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
-}
-
 function localDate(d: Date | string): string {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
@@ -99,7 +85,6 @@ function formatHora(iso: string) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-foreground transition-colors";
-const selectCls = inputCls + " appearance-none";
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   const { htmlFor, control } = useCampoAsociado(children);
@@ -251,6 +236,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   // Estable entre renders (solo cambia al montar): así el useMemo del resumen no
   // se invalida en cada tecleo por un `new Date()` nuevo.
@@ -326,6 +312,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     if (!id) return;
     // Se limpia YA, síncrono: cambiar de ficha no debe seguir enseñando el
     // historial de la clienta anterior mientras carga la nueva.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona del historial con bandera 'ignorar' para que una respuesta tardía no pinte datos de otra clienta. El estado viene de la red.
     setComunicaciones([]);
     let ignorar = false;
     // A partir de aquí, null (fallo de red/permiso) no pisa lo que ya había
@@ -510,7 +497,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         instructorId: yo?.id ?? instructores[0]?.id ?? '',
       });
       setAiResult(resultado);
-    } catch (err) {
+    } catch {
       setToast('Error al procesar con IA');
     } finally {
       setAiLoading(false);

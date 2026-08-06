@@ -43,9 +43,15 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
 
   // recargarPublico cambia de identidad en cada render (el contexto no memoiza);
   // lo guardamos en un ref para llamarlo sin meterlo en dependencias del efecto.
+  // La asignación va en un efecto, no en el cuerpo del render: escribir un ref
+  // mientras se renderiza rompe si React descarta ese render (lo que hace de
+  // continuo al ajustar estado en render, que es justo lo que hace el resto de
+  // este repo desde #708). El `useRef(...)` inicial ya deja el primer valor
+  // puesto, y `recargarRef.current` solo se lee dentro de callbacks asíncronos
+  // muy posteriores al montaje — nunca antes de que el efecto haya corrido.
   const { recargarPublico } = useStudio();
   const recargarRef = useRef(recargarPublico);
-  recargarRef.current = recargarPublico;
+  useEffect(() => { recargarRef.current = recargarPublico; }, [recargarPublico]);
 
   const resolver = useCallback(async () => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
@@ -80,6 +86,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, [slug]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Se suscribe a onAuthStateChange de Supabase. Sincronización con un sistema externo, que es para lo que existen los efectos.
     resolver(); // carga inicial (sesión ya existente o retorno del magic link)
     const { data: sub } = supabasePortal.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {

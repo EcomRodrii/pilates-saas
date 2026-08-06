@@ -168,7 +168,7 @@ test('THEME_DEFINITIONS: toda `variantes` declarada usa ejes y valores del catá
 test('Variantes exactas por tema, según el prototipo real', () => {
   // Oliva: baldosas + las 4 etiquetas con icono activo relleno.
   assert.deepEqual(getThemeDefinition('oliva')!.defaults.variantes,
-    { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
+    { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' });
   // Bloom es el único que conserva la píldora flotante → su barra se queda con
   // etiqueta solo en la activa (`conTexto: !tabPill || activo` del prototipo).
   assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.barra, undefined);
@@ -188,7 +188,22 @@ test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a varian
 
 test('los 3 temas suben de versión al ganar variantes (para poder avisar de que hay una nueva)', () => {
   for (const id of ['oliva', 'bloom', 'noir']) {
-    assert.equal(getThemeDefinition(id)!.version, 3, `"${id}" debería ir por la v3`);
+    assert.equal(getThemeDefinition(id)!.version, 4, `"${id}" debería ir por la v4`);
   }
   assert.equal(getThemeDefinition('editorial')!.version, 2);
+});
+
+test('los 3 temas piden la tarjeta principal rotulada (rótulo + estado vacío simple)', () => {
+  for (const id of ['oliva', 'bloom', 'noir']) {
+    assert.equal(getThemeDefinition(id)!.defaults.variantes?.tarjetaPrincipal, 'rotulada', id);
+  }
+  // Y el default sigue siendo el hero de siempre para todo lo demás.
+  assert.equal(getThemeDefinition('classic')!.defaults.variantes, undefined);
+});
+
+test('cabecera: Oliva `saludo`, Noir `nombre`, y solo Bloom `titular` (con titular grande)', () => {
+  assert.equal(getThemeDefinition('oliva')!.defaults.variantes?.cabeceraInicio, 'saludo');
+  assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.cabeceraInicio, 'titular');
+  // Noir NO lleva titular grande — en el prototipo ese solo lo tiene Bloom.
+  assert.equal(getThemeDefinition('noir')!.defaults.variantes?.cabeceraInicio, 'nombre');
 });

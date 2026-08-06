@@ -59,6 +59,18 @@ import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 // componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
 const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
 
+// Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
+// servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
+// y no `new Date()`: un `new Date()` en el cuerpo del componente es una
+// referencia distinta en cada render, así que los cinco useMemo que dependen de
+// `now` se recalculaban SIEMPRE — justo lo que la memoización pretendía evitar.
+// La fecha concreta da igual: todo lo que consume `now` antes de montar sale de
+// datos del estudio (sesiones/reservas/banners), que StudioProvider carga en un
+// efecto y por tanto están vacíos en ese momento. El único consumidor que
+// pintaría algo real sin datos —el saludo por hora— se resuelve con `ahora` ya
+// montado, no con esta constante.
+const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
+
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
 // hizo la query del servidor (fetchPublicStudioData) — esto solo resuelve la
@@ -110,6 +122,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     retosApuntados, retoConteos, toggleReto, variantes,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
+  // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
+  // cambia la jerarquía del texto entre ellas. La `clasica` (default, todo
+  // estudio sin tema) se queda exactamente como estaba.
+  const cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica';
+  const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
 
@@ -129,7 +146,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     const id = setInterval(() => setAhora(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
-  const now = ahora ?? new Date();
+  const now = ahora ?? FECHA_PLACEHOLDER_SSR;
   const bannersVigentes = useMemo(() => {
     // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
     // siguiente a medianoche local todavía cae en el día UTC anterior, y un
@@ -365,16 +382,41 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             efecto de scroll le escribe opacity/transform directamente (ver
             más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
         <div ref={saludoRef} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}>
-          {variantes.cabeceraInicio === 'titular' ? (
+          {cabeceraConAvatar ? (
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* El avatar sube a la cabecera (en la variante clásica vive solo
                   en la pestaña Perfil, y aquí abajo en un sr-only). */}
               <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="lg" />
               <div style={{ minWidth: 0 }}>
-                <div style={{ ...texto.meta, color: t.muted2 }}>{saludoPorHora(now)}</div>
-                <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {nombre}
-                </h1>
+                {/* `saludo` (Oliva) pone el nombre ARRIBA y grande, con la
+                    pregunta debajo; `titular` (Bloom/Noir) lo hace al revés:
+                    saludo por hora pequeño arriba y el nombre como encabezado.
+                    Es la única diferencia entre las dos — ambas llevan avatar. */}
+                {variantes.cabeceraInicio === 'saludo' ? (
+                  <>
+                    <h1 style={{ ...display(21), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Hola, {nombre}
+                    </h1>
+                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
+                      {homeCard.caso === 'PROXIMA_CLASE' ? '¿Lista para tu sesión de hoy?' : 'Tu sitio sigue aquí.'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {/* Con `ahora`, no con `now`: es lo ÚNICO de esta pantalla
+                        que pinta contenido real derivado solo de la hora (lo
+                        demás sale de datos del estudio, vacíos hasta montar).
+                        Con el placeholder saldría "Buenas noches" y cambiaría
+                        de golpe al montar; y leerlo del reloj del servidor
+                        (UTC) tampoco vale, porque la franja horaria de la socia
+                        puede caer en otro saludo y eso es un desajuste de
+                        hidratación. Mismo criterio que `fechaHoy` más abajo. */}
+                    <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
+                    <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {nombre}
+                    </h1>
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -399,10 +441,14 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               transition: transicion(['transform']),
             }}
           >
-            {/* El numeral queda en blanco mientras carga: el "0" del diseño es
-                una afirmación ("estás al día"), y todavía no se sabe. Mismo
-                criterio que el "Un momento…" de la pantalla de Avisos. */}
-            <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>
+            {/* Con avatar en la cabecera, la campana es un ICONO con punto
+                (prototipo); sin él sigue siendo el contador numérico de
+                siempre — el número necesita más peso cuando está solo.
+                El numeral queda en blanco mientras carga: el "0" del diseño es
+                una afirmación ("estás al día"), y todavía no se sabe. */}
+            {cabeceraConAvatar
+              ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+              : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
             {sinLeer !== null && sinLeer > 0 && (
               <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
             )}
@@ -420,6 +466,53 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
         <div style={{ height: 32 }} />
 
+        {/* Rótulo de sección encima de la tarjeta (prototipo): "Tu semana"
+            cuando no hay clase reservada, "Próxima clase" cuando la hay
+            ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
+            no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
+        {tarjetaRotulada && (
+          <h2 style={{ ...display(24), color: t.ink, marginBottom: 12 }}>
+            {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
+                palabra de diferencia que obligaría a exponer otro campo del
+                tema hasta aquí, así que se unifica. */}
+            {homeCard.caso === 'PROXIMA_CLASE' ? 'Próxima clase' : 'Tu semana'}
+          </h2>
+        )}
+
+        {/* Estado VACÍO en la variante rotulada: tarjeta sencilla en vez del
+            bloque grande. Con clase reservada se sigue usando el hero de
+            abajo, igual que hace el prototipo. */}
+        {tarjetaRotulada && homeCard.caso !== 'PROXIMA_CLASE' ? (
+          <Link
+            href={'href' in tarjeta ? tarjeta.href : `/portal/${slug}/clases`}
+            data-tarjeta="principal"
+            style={{
+              display: 'block', textDecoration: 'none', padding: 22,
+              background: t.surface,
+              border: `var(--portal-card-border, 1px solid ${t.line})`,
+              boxShadow: 'var(--portal-card-shadow, none)',
+              borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
+            }}
+          >
+            {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
+                estado vacío cambia de FORMA, no de mensaje. */}
+            <p style={{ ...display(19, false, 1.2), color: t.ink }}>{tarjeta.titulo}</p>
+            {tarjeta.meta[0] && (
+              <p style={{ ...texto.meta, color: t.muted2, marginTop: 7, lineHeight: 1.5 }}>{tarjeta.meta[0]}</p>
+            )}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
+              borderRadius: `var(--portal-radius-boton, ${radio.pill}px)`,
+              background: 'var(--portal-btn-bg, var(--portal-brand))',
+              color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
+              border: 'var(--portal-btn-border, none)',
+              ...texto.metaFuerte,
+            }}>
+              {tarjeta.cta}
+            </span>
+          </Link>
+        ) : (
+        <>
         {/* Tarjeta grande.
             Con foto del estudio, es exactamente el diseño: 476 px de imagen con
             la tarjeta de cristal flotando abajo. SIN foto —el caso de casi
@@ -511,6 +604,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             })()}
           </div>
         </div>
+        </>
+        )}
 
         {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
             cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
@@ -914,7 +1009,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
       {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
           Se deja este bloque fuera de la vista para que los lectores de pantalla
           sigan anunciando de quién es la sesión al entrar. */}
-      {variantes.cabeceraInicio !== 'titular' && (
+      {!cabeceraConAvatar && (
         <span className="sr-only">
           <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
         </span>

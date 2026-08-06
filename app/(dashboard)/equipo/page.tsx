@@ -390,7 +390,7 @@ export default function EquipoPage() {
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
 
   return (
-    <div className="space-y-5">
+    <div data-tour="equipo-vista" className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"
@@ -1049,9 +1049,17 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
     setMesAtras(0);
   }
 
+  // `mes`/`mesFin` salían de un `new Date()` leído en cada render, así que eran
+  // objetos nuevos cada vez y no podían ir en las dependencias del memo de
+  // abajo: llevaba `mesAtras` en su lugar. Funcionaba, pero el memo declaraba
+  // depender de algo distinto de lo que usa, y eso es lo que se rompe la
+  // próxima vez que alguien toque este cálculo. Con el año y el mes en
+  // primitivas, las dos fechas ya son estables y las deps pueden decir la verdad.
   const ref = new Date();
-  const mes = new Date(ref.getFullYear(), ref.getMonth() - mesAtras, 1);
-  const mesFin = new Date(ref.getFullYear(), ref.getMonth() - mesAtras + 1, 1);
+  const anioRef = ref.getFullYear();
+  const mesRef = ref.getMonth();
+  const mes = useMemo(() => new Date(anioRef, mesRef - mesAtras, 1), [anioRef, mesRef, mesAtras]);
+  const mesFin = useMemo(() => new Date(anioRef, mesRef - mesAtras + 1, 1), [anioRef, mesRef, mesAtras]);
 
   const filas = useMemo(() => {
     if (!instructor) return [];
@@ -1068,7 +1076,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
         const horas = Math.max(0, (new Date(s.fin).getTime() - ini.getTime()) / 3600000);
         return { id: s.id, inicio: ini, clase: tipoById.get(s.tipoClaseId)?.nombre ?? 'Clase', horas };
       });
-  }, [instructor, sesiones, tiposClase, mesAtras]);
+  }, [instructor, sesiones, tiposClase, mes, mesFin]);
 
   const totalHoras = filas.reduce((a, f) => a + f.horas, 0);
   const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });

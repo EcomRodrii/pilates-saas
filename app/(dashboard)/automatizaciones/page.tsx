@@ -9,7 +9,7 @@ import {
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
 } from 'lucide-react';
-import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
+import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
@@ -573,7 +573,7 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div className="max-w-4xl">
+    <div data-tour="automatizaciones-vista" className="max-w-4xl">
       <MorningBriefing logs={automationLogs} />
 
       {/* Pending admin actions */}

@@ -1,41 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
+import { puedeVerCentroNotificaciones } from '@/lib/permisos-reglas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { puedeVer, puedeVerCategoriaAvisos } from '@/lib/permisos-reglas';
-import { CATEGORIAS_NOTIFICACION } from '@/lib/notifications/types';
 
 // Notification Center (vista admin del estudio): TODAS las notificaciones del
 // estudio con su estado de entrega por canal. Datos para la tabla: fecha,
 // destinatario, tipo, prioridad, título, canales + resultado + errores.
 //
-// ⚠️ `verificarSesionStaff` acota al estudio pero acepta a CUALQUIER rol, y esta
-// pantalla enseña el título y el cuerpo de cada aviso: una instructora leía así
-// los de todas las socias y los de la propietaria. Es el patrón nº1 de las
-// auditorías de este repo (RLS bien, hueco de API encima) y el mismo hallazgo
-// que #561. Se comprueba el rol con la fuente de verdad que ya usa el menú, y
-// además por CATEGORÍA — dejar pasar la ruta entera seguía enseñando a MANAGER
-// el dinero que `/cobros` le tiene vedado.
+// Antes bastaba con `verificarSesionStaff` y NO se comprobaba el rol: cualquier
+// staff con token válido —la instructora incluida— se llevaba las 150 últimas
+// filas con `title` y `body` completos, o sea los avisos de la propietaria y de
+// todas las socias del estudio. Es el patrón "rol no comprobado en servidor",
+// el bug más repetido de las auditorías de este repo. Estar fuera del menú no
+// protegía nada: la ruta se llama con curl.
+//
+// La consulta va con service-role, así que la RLS de `notification` no opina
+// aquí — este `if` es la única cerradura de este camino, no una barrera de UI.
+// El criterio de quién entra (y por qué solo la propietaria) vive en
+// `puedeVerCentroNotificaciones`.
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const staff = await verificarSesionStaff(req);
   if (!staff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  if (!puedeVer(staff.rol, '/notificaciones')) {
-    return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
+  if (!puedeVerCentroNotificaciones(staff.rol)) {
+    return NextResponse.json({ error: 'Tu rol no puede ver el centro de notificaciones' }, { status: 403 });
   }
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ items: [] });
 
-  // El filtro va en la QUERY, no sobre el resultado: con `.limit(150)` aplicado
-  // antes de filtrar, un rol sin finanzas recibiría menos de 150 filas útiles y
-  // la tabla parecería vacía en un estudio con mucho movimiento de pagos.
-  const permitidas = CATEGORIAS_NOTIFICACION.filter(c => puedeVerCategoriaAvisos(staff.rol, c));
-
   const { data: notis } = await admin.from('notification')
     .select('id, recipient_role, recipient_socio_id, recipient_instructor_id, event_type, category, priority, title, body, created_at, read_at')
     .eq('studio_id', staff.studioId)
-    .in('category', permitidas)
     .order('created_at', { ascending: false })
     .limit(150);
 

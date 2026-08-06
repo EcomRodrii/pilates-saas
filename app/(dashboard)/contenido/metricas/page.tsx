@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import {
@@ -12,7 +11,7 @@ import {
   calcularResumen, serieEvolucion, comparativaRedes, type RangoDias,
 } from '@/lib/contenido/analytics';
 import {
-  Users, Eye, Heart, Play, Percent, Trophy, ArrowUpRight,
+  Users, Eye, Heart, Play, Percent, Trophy,
 } from 'lucide-react';
 
 const RANGOS: { v: RangoDias; label: string }[] = [

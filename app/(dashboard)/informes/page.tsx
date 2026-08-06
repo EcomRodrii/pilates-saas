@@ -14,6 +14,11 @@ import { useRol, puedeVerFinanzas, puedeGestionarEquipo } from '@/lib/permisos';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
+// Fecha fija con la que servidor y cliente pintan lo mismo hasta que monta
+// (guarda de hidratación). A nivel de módulo para que sea la MISMA referencia
+// en cada render.
+const FALLBACK_SSR = new Date('2026-06-29');
+
 function localDate(d: Date | string): string {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
@@ -160,12 +165,23 @@ export default function Informes() {
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
   const [retencion, setRetencion] = useState(0);
 
-  useEffect(() => setMounted(true), []);
-
-  const now = mounted ? new Date() : new Date('2026-06-29');
+  // `now` en estado en vez de `new Date()` en el cuerpo del render, mismo
+  // arreglo que dashboard y calendario. Aquí importaba doblemente: los cuatro
+  // memos de abajo llevaban `mounted` en las dependencias EN VEZ de `now`, o
+  // sea que declaraban depender de algo que solo cambia una vez. Con `now` de
+  // verdad en las deps, cruzar la medianoche (o el fin de mes) recalcula los
+  // KPIs y las cohortes en vez de dejarlas mostrando el período de ayer.
+  const [now, setNow] = useState(FALLBACK_SSR);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta FALLBACK_SSR y el cliente salta a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
+    setMounted(true);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ─── Period bounds ──────────────────────────────────────────────────────────
-  const periodStart = useMemo(() => getPeriodStart(period, now), [period, mounted]);
+  const periodStart = useMemo(() => getPeriodStart(period, now), [period, now]);
 
   // ─── Margen por clase: tarifas de instructora (dato salarial aparte) ────────
   const [tarifasInstructoras, setTarifasInstructoras] = useState<TarifaInstructor[]>([]);
@@ -239,7 +255,7 @@ export default function Informes() {
     });
 
     return buckets.map(b => ({ ...b, value: map[b.key] ?? 0 }));
-  }, [agg, period, mounted]);
+  }, [agg, period, now]);
 
   // ─── KPI: Total ingresos del período (server-side, F1) ──────────────────────
   const totalIngresos = agg?.total ?? 0;
@@ -320,7 +336,7 @@ export default function Informes() {
       });
     }
     return rows;
-  }, [socios, sesiones, reservas, period, mounted]);
+  }, [socios, sesiones, reservas, period, now]);
 
   // ─── Top 5 socias ───────────────────────────────────────────────────────────
   const topSocias = useMemo(() => {
@@ -384,7 +400,7 @@ export default function Informes() {
     a.click();
     URL.revokeObjectURL(url);
     setTimeout(() => { setCsvState('done'); setTimeout(() => setCsvState('idle'), 2500); }, 600);
-  }, [periodStart, mounted]);
+  }, [periodStart, now]);
 
   // Export real: abre el diálogo de impresión del navegador, desde el que se
   // puede "Guardar como PDF". Sin dependencias externas y funciona en todos los
@@ -447,7 +463,7 @@ export default function Informes() {
   const LABEL_SKIP = period === 'month' ? 4 : 1;
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
+    <div data-tour="informes-vista" className="space-y-6" style={{ backgroundColor: 'var(--background)', minHeight: '100%', padding: '0 0 40px' }}>
 
       <PageHeader
         className="pt-2"

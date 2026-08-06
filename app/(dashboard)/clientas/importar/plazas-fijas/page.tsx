@@ -56,7 +56,7 @@ export default function ImportarPlazasFijasPage() {
   const validadas = useMemo(() => (parsed ? validarFilasPlazaFija(parsed.rows, mapeo) : []), [parsed, mapeo]);
   const conteo = useMemo(() => {
     let ok = 0, err = 0;
-    for (const f of validadas) (f.estado === 'ok' ? ok++ : err++);
+    for (const f of validadas) { if (f.estado === 'ok') ok++; else err++; }
     return { ok, err };
   }, [validadas]);
 

@@ -17,9 +17,9 @@ import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2
+  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
 } from 'lucide-react';
-import { cn, formatFechaLarga as formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
@@ -58,10 +58,6 @@ const emptyForm = (): FormSocia => ({
 const RE_DIACRITICOS = /[̀-ͯ]/g;
 function normalizaBusqueda(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
-}
-
-function initials(nombre: string, apellidos: string) {
-  return `${nombre[0] ?? ''}${apellidos[0] ?? ''}`.toUpperCase();
 }
 
 function avatarColor(str: string) {
@@ -239,8 +235,9 @@ export default function Socios() {
   const [errorFila, setErrorFila] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
-  // Reset selection when filters change
-  useEffect(() => { setSelected(new Set()); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // (El reset de la selección al cambiar de filtro vive más abajo, junto al de
+  // la paginación: los dos vigilaban las mismas cuatro dependencias y ahora
+  // son un único ajuste en render.)
 
   // Auto-open create modal when ?nuevo=1 in URL (linked from dashboard)
   useEffect(() => {
@@ -248,11 +245,17 @@ export default function Socios() {
     // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
     // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
     if (params.get('nuevo') === '1' && gestionaClientas) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?nuevo=1). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render.
       setForm(emptyForm());
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
     }
-  }, []);
+    // `gestionaClientas` SÍ va en las dependencias, no es ruido: el rol se
+    // resuelve después del primer render, así que con `[]` el efecto corría una
+    // vez con el permiso todavía en false y el enlace `?nuevo=1` del dashboard
+    // no abría nada. Al volver a correr cuando el permiso llega, la URL sigue
+    // teniendo `?nuevo=1` (solo se limpia si se entró) y el alta se abre.
+  }, [gestionaClientas]);
 
   // ── Índices precomputados (P0-34) ──────────────────────────────────────────
   // Antes cada helper escaneaba suscripciones/reservas/sesiones ENTERAS, y se
@@ -297,10 +300,22 @@ export default function Socios() {
     return ultimaVisitaPorSocio.get(socioId) ?? null;
   }
 
+  // El "ahora" con el que se decide quién lleva 30 días sin venir se fija una
+  // vez al montar, en vez de leer el reloj en cada render. Sin intervalo a
+  // propósito: el umbral es de 30 días, no se cruza mientras la pantalla está
+  // abierta. `0` = todavía sin montar, y entonces nadie sale como inactiva
+  // (mejor no marcar a nadie que marcar a todas durante un frame).
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: leer el reloj en render daría valores distintos en servidor y cliente.
+    setAhoraMs(Date.now());
+  }, []);
+
   function isInactiva30d(socioId: string): boolean {
+    if (!ahoraMs) return false;
     const last = getLastVisit(socioId);
     if (!last) return true;
-    return Date.now() - new Date(last).getTime() > 30 * 86400000;
+    return ahoraMs - new Date(last).getTime() > 30 * 86400000;
   }
 
   function isBonoExpirado(socioId: string): boolean {
@@ -373,7 +388,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir]);
+  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir, ahoraMs]);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -381,8 +396,22 @@ export default function Socios() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  // Al cambiar filtros/búsqueda/orden, volver a la primera página.
-  useEffect(() => { setVisibles(PAGE); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // Al cambiar filtros/búsqueda/orden: volver a la primera página y vaciar la
+  // selección (no tendría sentido conservar marcadas clientas que ya no salen).
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // al teclear en el buscador se pintaba un frame con la lista nueva pero
+  // todavía la paginación y la selección viejas, y el reset entraba en un
+  // segundo render. Así React descarta el render en curso y rehace antes de
+  // tocar el DOM: ese frame intermedio no llega a existir.
+  const filtroActual = `${busqueda} ${smartFilter} ${sortKey} ${sortDir}`;
+  const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
+  if (filtroActual !== filtroPrevio) {
+    setFiltroPrevio(filtroActual);
+    setVisibles(PAGE);
+    setSelected(new Set());
+  }
   const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
 
   // ── Bulk helpers ───────────────────────────────────────────────────────────
@@ -584,7 +613,7 @@ export default function Socios() {
   ];
 
   return (
-    <div className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div data-tour="clientas-lista" className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {errorFila && (
         <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />

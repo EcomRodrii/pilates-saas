@@ -53,10 +53,10 @@ export function VistaSemana({
   // Mismo criterio que VistaDiaSalas: solo al abrir (eslint-disable a
   // propósito, ver ese componente). Sin "hoy" en la semana mostrada, no hay
   // "ahora" que perseguir — abre arriba del todo.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const min = hoyIndex != null ? ahoraMin ?? null : null;
     scrollRef.current?.scrollTo({ top: calcularScrollInicial(min, horaInicioMin, horaFinMin, pxPorHora) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `[]` a propósito, ver el comentario de arriba. La regla señala la línea del array de dependencias, no la del `useEffect`.
   }, []);
   const horas: { label: string; topPx: number }[] = [];
   for (let m = horaInicioMin; m <= horaFinMin; m += 60) {

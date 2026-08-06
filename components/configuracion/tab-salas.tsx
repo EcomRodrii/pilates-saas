@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ColorInput, ColorSwatch, ConfirmDialog, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useStudio } from '@/lib/studio-context';
@@ -167,7 +167,16 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   const canGuardar = form.nombre.trim() && form.capacidad;
 
   // F2 (B2.7): averías activas = sin fecha de arreglo, o con arreglo aún futuro.
-  const averiasActivas = bloqueosMaquina.filter(b => !b.hasta || Date.parse(b.hasta) > Date.now());
+  // El "ahora" se fija una vez al montar: leer el reloj en render es impuro y
+  // aquí no hace falta que se refresque solo — una avería que caduca mientras la
+  // pantalla está abierta desaparece al recargar, que es lo que se espera de una
+  // pantalla de configuración.
+  const [ahoraMs, setAhoraMs] = useState(0); // 0 = aún sin montar
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render; es justo lo que prohíbe la regla de pureza.
+    setAhoraMs(Date.now());
+  }, []);
+  const averiasActivas = bloqueosMaquina.filter(b => !b.hasta || Date.parse(b.hasta) > ahoraMs);
 
   const abrirAveria = useCallback(() => {
     setAveriaForm({ salaId: salas[0]?.id ?? '', motivo: '', hasta: '' });

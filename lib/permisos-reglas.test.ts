@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
-  puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCategoriaAvisos,
+  puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -258,6 +258,32 @@ test('la instructora ve Tentare Core, el resto Tentare Manager', () => {
   assert.equal(nombreAppPorRol('RECEPCION'), 'Tentare Manager');
 });
 
+// ── Notification Center (vista admin) ──────────────────────────────────────
+// La ruta `/api/notifications/admin` solo miraba que hubiera sesión de staff,
+// así que la instructora se llevaba título y cuerpo de los avisos de la
+// propietaria y de todas las socias. Solo la propietaria, porque la pantalla es
+// la unión de dominios vedados por separado al resto (dinero, decisiones,
+// salud, informes) — el razonamiento largo está junto a la función.
+test('el centro de notificaciones es solo de la propietaria', () => {
+  assert.equal(puedeVerCentroNotificaciones('PROPIETARIO'), true);
+  assert.equal(puedeVerCentroNotificaciones('MANAGER'), false);
+  assert.equal(puedeVerCentroNotificaciones('RECEPCION'), false);
+  assert.equal(puedeVerCentroNotificaciones('INSTRUCTOR'), false);
+});
+
+// La pantalla y su ruta de API tienen que decir lo mismo: si `puedeVer` dejara
+// entrar a quien la API rechaza con un 403, el manager llegaría a una tabla
+// vacía sin saber por qué (el bug que ya documenta el bloque ESPEJO, pero al
+// revés — aquí la UI sería MÁS blanda que el servidor).
+test('la pantalla de notificaciones se cierra igual que su API', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) {
+    assert.equal(
+      puedeVer(rol, '/notificaciones'), puedeVerCentroNotificaciones(rol),
+      `/notificaciones: la pantalla y la API no dicen lo mismo para ${rol}`,
+    );
+  }
+});
+
 test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instructora no', () => {
   assert.equal(puedeGestionarPortalHome('PROPIETARIO'), true);
   assert.equal(puedeGestionarPortalHome('MANAGER'), true);
@@ -272,32 +298,6 @@ test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instruct
 // de todas las socias y los de la propietaria. Mismo patrón que #561 (RLS bien,
 // hueco de API encima).
 
-test('la instructora no lee el centro de avisos del estudio, ni una categoría', () => {
-  for (const cat of ['reservas', 'clases', 'pagos', 'decisiones', 'sistema']) {
-    assert.equal(puedeVerCategoriaAvisos('INSTRUCTOR', cat), false, `no debería ver ${cat}`);
-  }
-});
 
-test('`decisiones` sigue el mismo criterio que /centro-de-control, donde vive', () => {
-  // En prod estos avisos son "Laura tiene 90€ pendientes de pago", con nombre y
-  // cifra. Dejar pasar la ruta entera se los habría enseñado a roles que tienen
-  // /centro-de-control bloqueado.
-  assert.equal(puedeVerCategoriaAvisos('PROPIETARIO', 'decisiones'), true);
-  assert.equal(puedeVerCategoriaAvisos('MANAGER', 'decisiones'), false);
-  assert.equal(puedeVerCategoriaAvisos('RECEPCION', 'decisiones'), false);
-});
 
-test('`pagos` sigue a puedeVerFinanzas: el manager no ve el dinero aquí tampoco', () => {
-  // /cobros está bloqueado para MANAGER; el centro de avisos no puede ser la
-  // puerta de atrás a lo mismo.
-  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
-    assert.equal(puedeVerCategoriaAvisos(rol, 'pagos'), puedeVerFinanzas(rol));
-  }
-});
 
-test('la operativa de mostrador la ve quien puede abrir la pantalla', () => {
-  for (const cat of ['reservas', 'clases', 'sustituciones', 'marketing', 'sistema']) {
-    assert.equal(puedeVerCategoriaAvisos('RECEPCION', cat), true, `recepción debería ver ${cat}`);
-    assert.equal(puedeVerCategoriaAvisos('MANAGER', cat), true, `manager debería ver ${cat}`);
-  }
-});

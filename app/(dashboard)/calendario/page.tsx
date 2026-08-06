@@ -66,6 +66,12 @@ import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
+// Fecha fija con la que pintan IGUAL servidor y cliente hasta que monta y salta
+// a la real (guarda de hidratación). A nivel de módulo, no dentro del
+// componente: dentro era un objeto nuevo en cada render, y es el valor inicial
+// de cuatro estados.
+const FALLBACK = new Date('2026-01-01T12:00:00');
+
 function addDays(date: Date, n: number) {
   const d = new Date(date);
   d.setDate(d.getDate() + n);
@@ -240,9 +246,12 @@ function ModalClasesRecurrentes({
   sesionesExistentes: SlotSesion[];
 }) {
   const uid = useId();
-  const today = new Date().toISOString().slice(0, 10);
-  const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+  // Las dos fechas por defecto se calculan DENTRO de emptyForm(), no en el
+  // cuerpo del componente: así solo se leen cuando el formulario se crea o se
+  // reinicia (al abrir el diálogo), en vez de en cada render. Antes, además de
+  // ser impuro, significaba que el diálogo abierto a las 23:59 proponía el día
+  // de ayer si el usuario tardaba un minuto en pulsar.
   const emptyForm = (): RecurringFormData => ({
     tipoClaseId: tiposClase[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
@@ -250,18 +259,22 @@ function ModalClasesRecurrentes({
     horaInicio: '10:00',
     duracion: 60,
     diasSemana: [1, 3],
-    fechaInicio: today,
-    fechaFin: inOneMonth,
+    fechaInicio: new Date().toISOString().slice(0, 10),
+    fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     aforoMaximo: salas[0]?.capacidad ?? 8,
   });
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
   const duracionInvalida = !form.duracion || form.duracion < 15;
 
-  useEffect(() => {
+  // Al abrir, el formulario vuelve a estar vacío. Ajuste en render, no efecto:
+  // con efecto el diálogo aparecía un frame con lo que se escribió la vez
+  // anterior y se limpiaba después.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
     if (open) setForm(emptyForm());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
   function toggleDia(day: number) {
     setForm(f => ({
@@ -454,7 +467,7 @@ export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
     suscripciones, planesTarifa,
-    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
+    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -495,7 +508,6 @@ export default function Calendario() {
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
-  const FALLBACK = new Date('2026-01-01T12:00:00');
 
   // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
   const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
@@ -503,15 +515,31 @@ export default function Calendario() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
+  // `now` vive en estado, no como `new Date()` en el cuerpo del render. Era un
+  // objeto nuevo en cada pasada, y está en las dependencias de tres cosas caras
+  // (el formulario vacío, el estado por sesión y las tarjetas): recalculaban
+  // todas en cada render, incluido uno tan ajeno como abrir un toast.
+  // Congelarlo tras montar tampoco vale —es la trampa que ya documenta
+  // dashboard/page.tsx— porque la línea roja de "ahora" y los badges EN_CURSO
+  // dejarían de moverse en una pestaña que se queda abierta. De ahí el
+  // intervalo de un minuto, igual que allí.
+  const [now, setNow] = useState(FALLBACK);
+
   useEffect(() => {
     const today = new Date();
+    // ⚠️ El disable va AQUÍ, sobre la llamada, y no encima del `useEffect`: la
+    // regla señala la línea del setState, no la del efecto, así que en un
+    // efecto multilínea un disable sobre el `useEffect(` no la tapa (pasó en
+    // este mismo sitio y se quedó avisando sin que se notara).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: los tres estados arrancan en FALLBACK (fecha fija) para que servidor y cliente pinten lo mismo, y saltan a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
     setMesVisto(today);
+    setNow(today);
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
   }, []);
-
-  const now = mounted ? new Date() : FALLBACK;
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);
@@ -1130,18 +1158,12 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  async function cancelarSerie() {
-    if (!sesionId) return;
-    const n = sesionesEnriquecidas.filter(s => {
-      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
-      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
-    }).length;
-    const guardado = await cancelarSerieDesde(sesionId);
-    if (!guardado.ok) { showToast(guardado.error); return; }
-    setSesionId(null);
-    showToast(`Serie cancelada · ${n} clases · clientas avisadas`);
-    void refrescarVista();
-  }
+  // OJO si vienes a reponer "cancelar la serie entera": la capacidad NO se ha
+  // borrado. `cancelarSerieDesde` sigue entera en studio-context (con aviso a
+  // las socias incluido); lo que había aquí era un envoltorio que ningún botón
+  // llamaba — editar serie sí tiene el suyo, cancelar serie no. Se quitó por
+  // estar muerto, no por estar de más: si se decide reponer el botón, llama
+  // directamente a `cancelarSerieDesde` desde el panel.
 
   async function eliminarSesion() {
     if (!sesionId) return;
@@ -1528,7 +1550,15 @@ export default function Calendario() {
     });
   }, [decisiones, datosVista, tiposClase, estadoPorSesion]);
 
-  useEffect(() => { setIndiceDecision(0); }, [decisiones.length]);
+  // Si cambia el número de decisiones, el índice actual puede apuntar fuera de
+  // la lista: se vuelve a la primera. Ajuste en render (patrón documentado por
+  // React para resetear estado al cambiar una dependencia) en vez de efecto,
+  // que pintaba un frame con el índice viejo sobre la lista nueva.
+  const [nDecisionesPrevio, setNDecisionesPrevio] = useState(decisiones.length);
+  if (decisiones.length !== nDecisionesPrevio) {
+    setNDecisionesPrevio(decisiones.length);
+    setIndiceDecision(0);
+  }
 
   function accionParaSesion(sesionId: string): TipoAccion | null {
     const it = itemsDecision.find(i => i.sesionId === sesionId);
@@ -1803,10 +1833,9 @@ export default function Calendario() {
   // gateado a las instructoras del piloto, no visible al resto.
   const enPiloto = enPilotoVoz(yo?.id);
   const [notaVozSocioId, setNotaVozSocioId] = useState<string | null>(null);
-  // Si la sesión activa cambia (o se cierra el drawer) sin pasar por el
-  // onClose del propio modal, no dejar el socio de la nota de voz colgado
-  // — al reabrir cualquier sesión, no debe reaparecer atado a la anterior.
-  useEffect(() => { setNotaVozSocioId(null); }, [sesionId]);
+  // (El reset de `notaVozSocioId` al cambiar de sesión vive más abajo, junto al
+  // del panel de preparación con IA: los dos vigilaban `sesionId` por separado
+  // y ahora son un único ajuste en render.)
 
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -1866,7 +1895,25 @@ export default function Calendario() {
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
 
-  useEffect(() => { setPrepIA(null); setPrepIAError(false); setShowAnadir(false); setBuscarSocia(''); }, [sesionId]);
+  // Al cambiar de sesión (o cerrar el drawer) se limpia todo lo que colgaba de
+  // la anterior: el socio de la nota de voz y el panel de preparación con IA.
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // el usuario veía un frame con los datos de la sesión ANTERIOR ya pintados y
+  // el reset llegaba en un segundo render. Así React descarta el render en
+  // curso y vuelve a renderizar antes de tocar el DOM: nunca se pinta.
+  // De paso, los dos efectos que vigilaban `sesionId` por separado pasan a ser
+  // uno solo.
+  const [sesionIdPrevia, setSesionIdPrevia] = useState(sesionId);
+  if (sesionId !== sesionIdPrevia) {
+    setSesionIdPrevia(sesionId);
+    setNotaVozSocioId(null);
+    setPrepIA(null);
+    setPrepIAError(false);
+    setShowAnadir(false);
+    setBuscarSocia('');
+  }
 
   async function prepararClaseIA() {
     if (!sesionActual) return;
@@ -1926,7 +1973,7 @@ export default function Calendario() {
     // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
     // h-14+mb-2 en escritorio) — mismo patrón ya usado en
     // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
-    <div className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
+    <div data-tour="calendario-vista" className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}

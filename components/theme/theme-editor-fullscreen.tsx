@@ -23,7 +23,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle,
+  ArrowLeft, ChevronDown, ChevronRight, ZoomIn, ZoomOut, Eye, EyeOff, RotateCcw, AlertTriangle, Undo2, Redo2,
+  Smartphone, Tablet, Monitor, type LucideIcon,
 } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
 import { PANTALLA_IDS, PANTALLA_LABEL, bloqueEstaCompleto, type PantallaId, type BloqueHome } from '@/lib/portal-home-bloques';
@@ -34,6 +35,8 @@ import { useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel } f
 import { useBloquesEditor, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
+import { SelectorPagina, type OpcionPagina } from './selector-pagina';
+import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import {
@@ -43,6 +46,10 @@ import { Button } from '@/components/ui/button';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const RUTA_BIBLIOTECA = '/configuracion/apariencia';
+
+const ICONO_DISPOSITIVO: Record<DispositivoId, LucideIcon> = {
+  movil: Smartphone, tablet: Tablet, completo: Monitor,
+};
 
 type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'reservas' | 'perfil';
 
@@ -62,15 +69,36 @@ const PANTALLAS_RAIL: { id: IdPantalla; label: string; desplegable: boolean }[] 
   ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({ id: p.id as IdPantalla, label: p.etiqueta, desplegable: false })),
 ];
 
+// Lo que ofrece el selector de página de la barra superior. Solo las que el
+// preview sabe enseñar: las demás llevarían a una caja gris (ver el
+// comentario de SelectorPagina).
+const OPCIONES_SELECTOR: OpcionPagina[] = [
+  { id: 'home', etiqueta: PANTALLA_LABEL.home, conSecciones: true, grupo: 'Portal de la socia' },
+  { id: 'clases', etiqueta: PANTALLA_LABEL.clases, conSecciones: true, grupo: 'Portal de la socia' },
+  { id: 'bonos', etiqueta: PANTALLA_LABEL.bonos, conSecciones: true, grupo: 'Portal de la socia' },
+  ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({
+    id: p.id, etiqueta: p.etiqueta, conSecciones: false, grupo: 'Solo se pueden ver',
+  })),
+];
+
 export function ThemeEditorFullscreen() {
   const { rol } = usePermisos();
   const [nodo, setNodo] = useState<Nodo>({ tipo: 'pantalla', id: 'home' });
   const [pantallaActiva, setPantallaActiva] = useState<PantallaId>('home');
+  // Qué enseña el iframe. NO es lo mismo que `pantallaActiva`: incluye
+  // Reservas y Perfil, que se pueden ver pero no tienen bloques. Y NO sigue
+  // siempre a la selección del rail — elegir "Inicio del panel" cambia lo que
+  // se edita y deja el preview donde estaba, porque esa página no tiene vista
+  // que enseñar. Es la misma regla que fija `vista` en lib/theme/
+  // editor-navegacion.ts, con su test.
+  const [pantallaMirada, setPantallaMirada] = useState<VistaId>('home');
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
   const [zoom, setZoom] = useState(1);
+  const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
   const [previewVivo, setPreviewVivo] = useState(true);
   const [comandoVista, setComandoVista] = useState<{ vista: VistaId; nonce: number } | null>(null);
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [confirmarDescartar, setConfirmarDescartar] = useState(false);
   const [publicandoTodo, setPublicandoTodo] = useState(false);
   const [avisoPublicar, setAvisoPublicar] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
   // Tema PUBLICADO (no el borrador) — solo para el badge "N sin publicar" y
@@ -84,23 +112,17 @@ export function ThemeEditorFullscreen() {
     return () => { vivo = false; };
   }, []);
 
-  // Los 6 hooks se llaman siempre, sin condicionar por `nodo` (reglas de
-  // hooks) — montar un hook no publica ni guarda nada por sí solo. Tres
-  // instancias de useBloquesEditor (una fija por pantalla) en vez de una sola
-  // controlada, para que Inicio/Clases/Bonos puedan estar los tres
-  // desplegados a la vez en el rail — cada una carga su propio borrador.
+  // Los hooks se llaman siempre, sin condicionar por `nodo` (reglas de
+  // hooks) — montar un hook no publica ni guarda nada por sí solo.
+  //
+  // UNA sola instancia de useBloquesEditor, que ya trae las tres pantallas.
+  // Antes había una por pantalla porque se creía que hacía falta para tenerlas
+  // las tres desplegadas a la vez en el rail; pero cada instancia cargaba las
+  // tres igualmente, así que eran nueve peticiones para los datos de tres.
   const ajustesHook = useThemeEditor();
-  const bloquesHomeHook = useBloquesEditor('home');
-  const bloquesClasesHook = useBloquesEditor('clases');
-  const bloquesBonosHook = useBloquesEditor('bonos');
+  const bloquesHook = useBloquesEditor();
   const homeHook = useHomeSeccionesEditor();
   const contenidoHook = useContenidoPortalEditor();
-
-  function bloquesHookDe(p: PantallaId) {
-    if (p === 'home') return bloquesHomeHook;
-    if (p === 'clases') return bloquesClasesHook;
-    return bloquesBonosHook;
-  }
 
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
     return <p className="p-6 text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden editar la apariencia.</p>;
@@ -109,7 +131,8 @@ export function ThemeEditorFullscreen() {
   function seleccionar(n: Nodo) {
     setNodo(n);
     const p = n.tipo === 'tema' ? null : n.tipo === 'item' && n.grupo !== 'contenido-portal' ? n.grupo : n.tipo === 'pantalla' && PANTALLA_IDS.includes(n.id as PantallaId) ? (n.id as PantallaId) : null;
-    if (p) setPantallaActiva(p);
+    if (p) { setPantallaActiva(p); setPantallaMirada(p); }
+    else if (n.tipo === 'pantalla' && (n.id === 'reservas' || n.id === 'perfil')) setPantallaMirada(n.id);
   }
 
   function alternarExpandido(id: IdPantalla) {
@@ -135,7 +158,7 @@ export function ThemeEditorFullscreen() {
     setAvisoPublicar(null);
     try {
       await guardarThemeBorrador(ajustesHook.draft);
-      await Promise.all(PANTALLA_IDS.map((p) => guardarBloquesBorradorApi(p, bloquesHookDe(p).bloques)));
+      await Promise.all(PANTALLA_IDS.map((p) => guardarBloquesBorradorApi(p, bloquesHook.bloquesDe(p))));
       const rTema = await publicarThemeApi();
       if (!rTema.ok) {
         setAvisoPublicar({ tipo: 'error', texto: rTema.errores.join(' ') });
@@ -155,18 +178,23 @@ export function ThemeEditorFullscreen() {
 
   const cambiosTema = temaPublicado ? contarCambios(ajustesHook.draft, temaPublicado) : 0;
   const bloquesIncompletos = PANTALLA_IDS.flatMap((p) =>
-    bloquesHookDe(p).bloques
+    bloquesHook.bloquesDe(p)
       .filter((b): b is Exclude<BloqueHome, { kind: 'sistema' }> => b.kind !== 'sistema')
       .filter((b) => !bloqueEstaCompleto(b))
       .map((b) => ({ pantalla: p, bloque: b })),
   );
   const puedePublicar = ajustesHook.contraste.ok && bloquesIncompletos.length === 0;
 
-  function deshacerActivo() {
+  // ⚠️ Esto NO es "deshacer": relee del servidor y tira TODAS las ediciones
+  // locales de esta sección. Antes se llamaba "Deshacer" y no preguntaba —
+  // quien llevaba veinte minutos ajustando una pantalla lo pulsaba esperando
+  // quitar lo último y lo perdía todo. Ahora se llama por su nombre y pide
+  // confirmación; deshacer de verdad son las flechas de al lado.
+  function descartarSeccionActiva() {
     if (nodo.tipo === 'tema') { ajustesHook.recargar(); return; }
     if (nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio') { homeHook.recargar(); return; }
     const p = nodo.tipo === 'item' && nodo.grupo !== 'contenido-portal' ? nodo.grupo : nodo.tipo === 'pantalla' && PANTALLA_IDS.includes(nodo.id as PantallaId) ? (nodo.id as PantallaId) : null;
-    if (p) bloquesHookDe(p).recargar();
+    if (p) bloquesHook.descartarCambios(p);
   }
 
   return (
@@ -187,7 +215,35 @@ export function ThemeEditorFullscreen() {
           </div>
         </div>
 
+        {/* Qué página se está mirando. En el centro y no en el rail porque es
+            la pregunta que se hace la propietaria más veces por sesión, y en
+            el rail quedaba enterrada entre las categorías del tema. */}
+        <div className="flex-1 min-w-0 flex justify-center">
+          {/* `as VistaId`: el selector es genérico y habla en `string`, pero
+              sus opciones salen de OPCIONES_SELECTOR, que solo lleva vistas
+              que el preview sabe enseñar. */}
+          <SelectorPagina opciones={OPCIONES_SELECTOR} activa={pantallaMirada} onElegir={(id) => irAVista(id as VistaId)} />
+        </div>
+
         <div className="flex items-center gap-1.5 flex-none">
+          <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Dispositivo">
+            {DISPOSITIVO_IDS.map((id) => {
+              const Icono = ICONO_DISPOSITIVO[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDispositivo(id)}
+                  aria-pressed={dispositivo === id}
+                  title={DISPOSITIVOS[id].etiqueta}
+                  aria-label={DISPOSITIVOS[id].etiqueta}
+                  className={`p-1.5 rounded-md ${dispositivo === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                >
+                  <Icono size={15} />
+                </button>
+              );
+            })}
+          </div>
           <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5">
             <button type="button" onClick={() => setZoom((z) => Math.max(0.75, z - 0.1))} aria-label="Alejar" className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom <= 0.75}>
               <ZoomOut size={14} />
@@ -204,8 +260,27 @@ export function ThemeEditorFullscreen() {
           >
             {previewVivo ? <Eye size={16} /> : <EyeOff size={16} />}
           </button>
-          <button type="button" onClick={deshacerActivo} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted">
-            <RotateCcw size={14} /> Deshacer
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button" onClick={bloquesHook.deshacer} disabled={!bloquesHook.puedeDeshacer}
+              title="Deshacer (los ajustes del tema todavía no entran)"
+              aria-label="Deshacer" className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              type="button" onClick={bloquesHook.rehacer} disabled={!bloquesHook.puedeRehacer}
+              title="Rehacer" aria-label="Rehacer"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+            >
+              <Redo2 size={16} />
+            </button>
+          </div>
+          <button
+            type="button" onClick={() => setConfirmarDescartar(true)}
+            className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+          >
+            <RotateCcw size={14} /> Descartar cambios
           </button>
           {nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' && (
             <button onClick={homeHook.guardar} disabled={homeHook.guardando} className="text-[13px] font-semibold px-3 py-1.5 rounded-lg border border-border disabled:opacity-50">
@@ -271,7 +346,7 @@ export function ThemeEditorFullscreen() {
                           // callback. `pantallaFila` es un binding nuevo, sí la conserva.
                           (() => { const pantallaFila = p.id; return (
                             <BloquesSeccionesList
-                              hook={bloquesHookDe(pantallaFila)} pantalla={pantallaFila}
+                              hook={bloquesHook} pantalla={pantallaFila}
                               seleccionId={nodo.tipo === 'item' && nodo.grupo === pantallaFila ? nodo.itemId : null}
                               onSeleccionar={(id) => seleccionar({ tipo: 'item', grupo: pantallaFila, itemId: id })}
                             />
@@ -296,9 +371,12 @@ export function ThemeEditorFullscreen() {
 
         {/* Preview central */}
         <div className="overflow-auto p-6 flex items-start justify-center bg-muted/30">
-          <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
+          {/* Ya NO se escala aquí: el zoom viaja al marco, que lo combina con
+              el encogido automático del dispositivo. Escalar dos veces (aquí y
+              dentro) multiplicaba los factores sin que nadie lo dijera. */}
+          <div className="w-full">
             {nodo.tipo === 'tema' ? (
-              <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} />
+              <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} dispositivo={dispositivo} zoom={zoom} />
             ) : nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
                 <p className="text-[12px] text-muted-foreground">Este panel es interno, no tiene vista previa.</p>
@@ -309,7 +387,7 @@ export function ThemeEditorFullscreen() {
               </div>
             ) : (
               <HomePreview
-                bloquesPorPantalla={{ home: bloquesHomeHook.bloques, clases: bloquesClasesHook.bloques, bonos: bloquesBonosHook.bloques }}
+                bloquesPorPantalla={bloquesHook.bloquesPorPantalla}
                 pantalla={pantallaActiva}
                 onPantallaChange={(p) => seleccionar({ tipo: 'pantalla', id: p })}
                 slug={ajustesHook.studio?.slug}
@@ -317,6 +395,8 @@ export function ThemeEditorFullscreen() {
                 onBloqueSeleccionado={(id) => seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id })}
                 temaBorrador={ajustesHook.draft}
                 irA={comandoVista}
+                dispositivo={dispositivo}
+                zoom={zoom}
               />
             )}
           </div>
@@ -336,7 +416,8 @@ export function ThemeEditorFullscreen() {
             <p className="text-[13px] text-muted-foreground">Cada campo se guarda solo, al escribirlo. Selecciona un banner de la izquierda para editarlo.</p>
           ) : (
             <BloquesConfigPanel
-              hook={bloquesHookDe(nodo.tipo === 'item' ? nodo.grupo as PantallaId : pantallaActiva)}
+              hook={bloquesHook}
+              pantalla={nodo.tipo === 'item' ? nodo.grupo as PantallaId : pantallaActiva}
               seleccionId={nodo.tipo === 'item' ? nodo.itemId : null}
             />
           )}
@@ -344,6 +425,27 @@ export function ThemeEditorFullscreen() {
       </div>
 
       {/* Antes de publicar */}
+      <Dialog open={confirmarDescartar} onOpenChange={setConfirmarDescartar}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Descartar los cambios de esta sección?</DialogTitle>
+            <DialogDescription>
+              Se pierde todo lo que has editado aquí desde la última vez que guardaste, no solo lo último.
+              Para deshacer un paso, usa la flecha de la barra.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmarDescartar(false)}>Seguir editando</Button>
+            <Button
+              onClick={() => { descartarSeccionActiva(); setConfirmarDescartar(false); }}
+              className="bg-destructive text-destructive-foreground hover:brightness-95"
+            >
+              Descartar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -353,7 +455,7 @@ export function ThemeEditorFullscreen() {
           <div className="space-y-2 text-[13px] text-foreground">
             <p>{cambiosTema > 0 ? `Tema: ${cambiosTema} cambio${cambiosTema === 1 ? '' : 's'} sin publicar.` : 'Tema: sin cambios.'}</p>
             {PANTALLA_IDS.map((p) => {
-              const n = bloquesHookDe(p).bloques.filter((b) => b.kind !== 'sistema').length;
+              const n = bloquesHook.bloquesDe(p).filter((b) => b.kind !== 'sistema').length;
               return <p key={p}>{PANTALLA_LABEL[p]}: {n} bloque{n === 1 ? '' : 's'} del catálogo.</p>;
             })}
             <p className="text-muted-foreground">El contenido del portal (mensaje destacado y banners) se guarda solo — no forma parte de esta publicación.</p>

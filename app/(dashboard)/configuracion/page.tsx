@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
@@ -275,6 +275,7 @@ export default function ConfiguracionPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
 
   // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids
@@ -288,11 +289,9 @@ export default function ConfiguracionPage() {
       setGamificacionSub(tab);
       setActiveTab('gamificacion');
     } else if (SUB_CLASES_SALAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClasesSalasSub(SUB_CLASES_SALAS.get(tab));
       setActiveTab('clases-salas');
     } else if (SUB_CITAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCitasSub(SUB_CITAS.get(tab));
       setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
@@ -307,7 +306,7 @@ export default function ConfiguracionPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="configuracion-vista" className="space-y-6">
       <PageHeader
         title="Configuración"
         description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"

@@ -1,25 +1,19 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
-import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
+// (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
+// no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
+// —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
+// de cliente— pero eran una arista latente: bastaba con que alguien usara una
+// de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
+// layout raíz, que es cliente.)
 import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
-import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
-import { calcularMetrica } from '@/lib/engines/achievement-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
-import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
-import { planMasElegido } from '@/lib/estudio-publico';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -111,7 +105,6 @@ import type {
   Factura,
   Instructor,
   Integracion,
-  TipoIntegracion,
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
@@ -135,7 +128,6 @@ import type {
   RewardHistory,
   RewardRedemption,
   RewardRule,
-  RewardTrigger,
   Sala,
   BloqueoMaquina,
   PlazaFija,
@@ -161,10 +153,6 @@ import type {
   VentaPOS,
   VideoOnDemand,
 } from '@/lib/types';
-import {
-  generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
-  type IntervaloOcupado, type HuecoCita,
-} from '@/lib/citas/slots';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -1311,26 +1299,6 @@ function reciboToDb(rec: Recibo) {
   };
 }
 
-function facturaToDb(fac: Factura) {
-  return {
-    id: fac.id,
-    studio_id: fac.studioId ?? STUDIO_ID,
-    recibo_id: fac.reciboId,
-    numero_completo: fac.numeroCompleto,
-    fecha_emision: fac.fechaEmision,
-    receptor_nombre: fac.receptorNombre,
-    receptor_nif: fac.receptorNIF ?? null,
-    base_imponible: fac.baseImponible,
-    tipo_iva: fac.tipoIVA,
-    cuota_iva: fac.cuotaIVA,
-    total: fac.total,
-    verifactu_hash: fac.verifactuHash ?? null,
-    verifactu_prev_hash: fac.verifactuPrevHash ?? null,
-    verifactu_ts: fac.verifactuTs ?? null,
-    verifactu_seq: fac.verifactuSeq ?? null,
-  };
-}
-
 function citaToDb(cita: Cita) {
   return {
     id: cita.id,
@@ -2399,7 +2367,12 @@ export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
 
 // NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
 // /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
-// saltaría la huella encadenada. facturaToDb se conserva para los backups.
+// saltaría la huella encadenada.
+//
+// Antes esta nota decía además que `facturaToDb` se conservaba "para los
+// backups". No era cierto: el motor de backups copia filas crudas por nombre
+// de tabla (`BACKUP_TABLES` en lib/engines/backup-engine.ts) y nunca pasó por
+// ese mapeador. Llevaba sin usarse desde entonces, así que se ha borrado.
 
 export async function dbInsertCita(cita: Cita): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
@@ -3503,6 +3476,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbPrioridad' in changes) db.onb_prioridad = changes.onbPrioridad;
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
+  if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
@@ -3777,6 +3751,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     onbPrioridad: r.onb_prioridad ?? null,
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
+    tourVistoEn: r.tour_visto_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
   } as Studio;
 }
@@ -3876,6 +3851,14 @@ export async function fetchCriticalStudioData(studioId?: string) {
     mandatosSepaRes,
     contenidoPortalRes,
     bannersPortalRes,
+    // Añadido AL FINAL de la lista a propósito: el desestructurado es
+    // posicional, así que meterlo en medio desplazaría las 52 posiciones
+    // siguientes. Antes esta consulta se hacía DESPUÉS del Promise.all
+    // (dentro de hidratarTiposDePlanes), o sea un viaje de red entero en
+    // serie colgando del arranque del panel, cuando en realidad solo
+    // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
+    // memoria, no la consulta.
+    planTiposClaseRes,
   ] = await Promise.all([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
@@ -3952,11 +3935,16 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // gestionarlos — el filtro para lo que se muestra en el portal vive en
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
+    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
   // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
-  const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
+  // El cruce es en memoria; la consulta ya vino arriba, en paralelo con el resto.
+  const planesConTiposPanel = unirTiposAPlanes(
+    (planesTarifaRes.data ?? []).map(mapPlanTarifa),
+    planTiposClaseRes.data as { plan_id: string; tipo_clase_id: string }[] | null,
+  );
   return {
     studio: studioRes.data ? mapStudio(studioRes.data, studioHorarioRes.data ?? undefined) : null,
     // Política/términos persistidos (0107); null = el cliente aplica el texto por
@@ -4184,9 +4172,20 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
     from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string }[] | null }> } };
   };
   const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', studioId);
-  if (!data || data.length === 0) return planes;
+  return unirTiposAPlanes(planes, data);
+}
+
+// El cruce en memoria, separado de la consulta. Lo comparten
+// `hidratarTiposDePlanes` (que consulta y cruza, para quien no tiene ya las
+// filas) y `fetchCriticalStudioData` (que trae las filas dentro de su
+// Promise.all y solo necesita cruzar). Misma lógica en un único sitio.
+export function unirTiposAPlanes(
+  planes: PlanTarifa[],
+  filas: { plan_id: string; tipo_clase_id: string }[] | null,
+): PlanTarifa[] {
+  if (planes.length === 0 || !filas || filas.length === 0) return planes;
   const porPlan = new Map<string, string[]>();
-  for (const f of data) {
+  for (const f of filas) {
     const arr = porPlan.get(f.plan_id) ?? [];
     arr.push(f.tipo_clase_id);
     porPlan.set(f.plan_id, arr);

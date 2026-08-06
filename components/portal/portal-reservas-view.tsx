@@ -9,7 +9,7 @@
 // mostrando los estados vacíos reales de cada pestaña), pero se guarda igual
 // por si el estudio prueba con una sesión real desde otra pestaña del navegador.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
@@ -28,6 +28,18 @@ async function pedirPaseDeMuestra(): Promise<DatosPase> {
 }
 
 type Tab = 'PROXIMAS' | 'PASADAS' | 'CANCELADAS' | 'ESPERA';
+
+// Valor de "ahora" hasta que el efecto de montaje fija el de verdad (render del
+// servidor y primer render del cliente). Es una constante de MÓDULO, no un
+// `new Date()` en el cuerpo del componente: ese daba una referencia nueva en
+// cada render y `porTab` —el reparto Próximas/Pasadas, los cuatro contadores de
+// las pestañas y la tarjeta del pase— se recalculaba entero cada vez, con lo
+// que su useMemo no memoizaba nada. Además servidor y navegador nunca coinciden
+// en "ahora", así que un valor fijo es también lo único que garantiza que los
+// dos pinten el mismo HTML. Qué fecha sea da igual: los datos del estudio
+// (StudioProvider los carga en un efecto) todavía están vacíos en ese instante,
+// así que las cuatro listas salen vacías con cualquier valor.
+const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
 const ESTADO_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   CONFIRMADA: { label: 'Confirmada', variant: 'success' },
@@ -60,7 +72,17 @@ export function PortalReservasView({
   // a la socia creyendo que había cancelado, con la plaza todavía suya.
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
   const socioId = session?.socioId;
-  const now = new Date();
+  // Sin `setInterval`, a diferencia del reloj del Inicio: aquí no se pinta
+  // ninguna cuenta atrás, "ahora" solo decide de qué lado del corte cae cada
+  // reserva. Basta con fijarlo una vez al montar.
+  const [now, setNow] = useState(FECHA_PLACEHOLDER_SSR);
+  useEffect(() => {
+    // Un render de más al montar, a cambio de que servidor y cliente pinten lo
+    // mismo: la hora real solo se puede leer ya en el navegador, y hacerlo en
+    // el cuerpo del render es justo lo que rompía la memoización de `porTab`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leer el reloj del navegador exige estar montada; el valor inicial es la constante determinista que comparten servidor y cliente.
+    setNow(new Date());
+  }, []);
 
   const misReservas = useMemo(() =>
     reservas

@@ -163,14 +163,22 @@ incluya y cuyo usuario lo tenga activado. **La lógica de negocio no cambia.**
 
 ### …crear/editar plantillas
 Viven en `PLANTILLAS` (código, con variables `{clase}`, `{cuando}`, `{socia}`,
-`{importe}`…), resueltas por `plantillaDe(evento, rol)` en `catalog.ts`.
+`{importe}`…), y hoy **solo ahí**: `plantillaDe()` (`lib/notifications/catalog.ts`)
+lee el catálogo estático y nada más.
 
-⚠️ **`notification_template` no la lee nadie.** La tabla existe desde 0092 con su
-RLS y sus grants, pero no hay un solo camino de ejecución que la consulte:
-insertar una fila **no tiene ningún efecto**. Si algún día hacen falta overrides
-por estudio, hay que implementarlos en `plantillaDe`. Ojo con la confusión: los
-overrides de plantilla que **sí** funcionan son los de los emails
-transaccionales, y son otra tabla (`plantillas_email`, vía
+⚠️ La tabla `notification_template` existe en el esquema desde la 0092 pero
+**está muerta**: cero referencias en `app/`, `lib/` y `components/`. El motor NO
+prefiere ningún override sobre el global — esa frase estuvo aquí y era falsa.
+Su política de escritura se cerró a propósito
+(`20260805195400_notification_rls_higiene_delivery_template.sql`) para que
+conectar overrides por estudio obligue a decidir explícitamente quién puede
+escribirlos, en vez de heredar el `FOR ALL TO authenticated` de la 0092 —que
+dejaba a cualquier instructora reescribir el texto que reciben todas las socias—.
+Si algún día se conectan: añadir la policy a propósito (`puede_gestionar_equipo()`
+es el candidato razonable) **y** enseñarle a `plantillaDe()` a leer la tabla.
+
+Ojo con la confusión: los overrides de plantilla que **sí** funcionan son los de
+los emails transaccionales, y son otra tabla (`plantillas_email`, vía
 `lib/emails/plantillas-server.ts`), ajena a este motor.
 
 ### …crear automatizaciones (recordatorios, umbrales)

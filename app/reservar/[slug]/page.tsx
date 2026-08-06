@@ -1,12 +1,12 @@
 'use client';
 import { queImparten } from '@/lib/equipo';
 
-import { useState, useMemo, useEffect, useRef, useId } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
-import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
+import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
@@ -230,7 +230,21 @@ export default function ReservarPage() {
   const embedMode = searchParams.get('embed') === '1';
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // `now` en estado, con reloj de un minuto. Antes era
+  // `useMemo(() => now.getTime(), [mounted])`, o sea que quedaba CONGELADO en
+  // el instante del montaje — y de él sale `slots`, que filtra `inicio > nowMs`
+  // para decidir qué clases se pueden reservar. Una pestaña abierta un rato
+  // seguía ofreciendo clases que ya habían empezado, y la reserva fallaba
+  // después contra el servidor. Es exactamente la trampa que documenta
+  // dashboard/page.tsx al descartar `useMemo([mounted])`.
+  const [now, setNow] = useState(FECHA_PLACEHOLDER_SSR);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO; derivarlo en render rompería la hidratación.
+    setMounted(true);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   const tabInicial = searchParams.get('tab');
@@ -280,12 +294,9 @@ export default function ReservarPage() {
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
 
-  // Antes de montar se renderiza el esqueleto, así que este valor no llega a
-  // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
-  const now = mounted ? new Date() : FECHA_PLACEHOLDER_SSR;
-  // Marca temporal estable durante la vida del componente: new Date() daría una
-  // identidad nueva en cada render y recalcularía `slots` sin necesidad.
-  const nowMs = useMemo(() => now.getTime(), [mounted]);
+  // `now` es estable entre ticks del reloj (viene de estado), así que esto no
+  // necesita memo: solo cambia de identidad cuando cambia de verdad la hora.
+  const nowMs = now.getTime();
 
   // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
   // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
@@ -302,6 +313,7 @@ export default function ReservarPage() {
     if (sesionDeepLink) {
       if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
       deepLinkHecho.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
       openBooking(sesionDeepLink);
     } else if (searchParams.get('acceso') === '1') {

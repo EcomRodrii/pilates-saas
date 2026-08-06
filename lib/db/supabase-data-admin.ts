@@ -1,9 +1,9 @@
 import 'server-only';
-
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
@@ -13,153 +13,44 @@ import { uid } from '@/lib/utils';
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import {
-  siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia,
+  contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
-import { idEstudioDe } from '@/lib/id-estudio';
-import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
-import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  RowAchievementDefinitions,
-  RowAchievementHistory,
-  RowAchievementProgress,
-  RowActividadReciente,
-  RowAutomationLogs,
-  RowAutomationRules,
-  RowAutomatizaciones,
-  RowBackups,
-  RowCampanas,
-  RowChallengeDefinitions,
-  RowChallengeHistory,
-  RowChallengeProgress,
-  RowCitas,
   RowCitasServicios,
   RowCitasDisponibilidad,
   RowFavoritosClase,
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
-  RowCodigosDescuento,
-  RowCreditTransactions,
-  RowDashboardCharts,
   RowFacturas,
   RowInstructores,
-  RowIntegraciones,
-  RowLevelDefinitions,
   RowMemberCredits,
-  RowMensajesEquipo,
-  RowCanalesEquipo,
   RowCondicionesSalud,
-  RowRespuestasSesion,
-  RowNotasInternas,
-  RowNotasProgreso,
-  RowNotificaciones,
-  RowPlanesTarifa,
-  RowPostsComunidad,
-  RowPreferenciasSocio,
-  RowProductosPos,
-  RowRecibos,
   RowReservas,
-  RowRewardActions,
   RowRewardCatalog,
-  RowRewardHistory,
-  RowRewardRedemptions,
-  RowRewardRules,
-  RowSalas,
-  RowBloqueosMaquina,
-  RowPlazasFijas,
-  RowRecuperaciones,
-  RowSocioExcepciones,
-  RowSesiones,
   RowSocios,
-  RowCamposPersonalizados,
-  RowPlantillasEmail,
-  RowInstructorDependencySnapshots,
-  RowSpots,
   RowStudios,
-  RowMandatosSepa,
-  RowSuscripciones,
-  RowTiposClase,
-  RowUsuarios,
-  RowVentasPos,
-  RowVideosOnDemand,
 } from '@/lib/db-types';
 import type {
-  AchievementDefinition,
-  AchievementHistory,
-  AchievementProgress,
-  ActividadReciente,
   AutomationLog,
-  AutomationRule,
-  Automatizacion,
-  BackupMeta,
-  Campana,
-  ChallengeDefinition,
-  ChallengeHistory,
-  ChallengeProgress,
-  Cita,
-  ServicioCita,
-  DisponibilidadCita,
-  TipoCita,
-  CodigoDescuento,
-  CreditTransaction,
-  DashboardChart,
-  Factura,
   Instructor,
-  Integracion,
   TipoIntegracion,
-  LevelDefinition,
-  MemberCredits,
-  MensajeEquipo,
-  CanalEquipo,
-  MetodoCobro,
-  CondicionSalud,
-  RespuestaSesionRow,
-  NotaInterna,
-  NotaProgreso,
-  Notificacion,
-  NivelSemaforo,
-  PlanTarifa,
-  PostComunidad,
-  ComentarioComunidad,
-  PreferenciasSocio,
-  ProductoPOS,
-  Recibo,
   Reserva,
-  RewardAction,
-  RewardCatalogItem,
-  RewardHistory,
-  RewardRedemption,
-  RewardRule,
   RewardTrigger,
-  Sala,
-  BloqueoMaquina,
-  PlazaFija,
-  Recuperacion,
-  SocioExcepcion,
   Sesion,
   Socio,
-  CampoPersonalizado,
-  PlantillaEmail,
-  InstructorDependencySnapshot,
-  Spot,
-  Studio,
-  MandatoSEPA,
   Suscripcion,
-  TipoClase,
-  Usuario,
-  VentaPOS,
-  VideoOnDemand,
 } from '@/lib/types';
 import {
   generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
@@ -177,41 +68,20 @@ import {
   mapSuscripcion,
   mapSesion,
   mapReserva,
-  mapMensajeEquipo,
   mapAchievementDefinition,
-  mapAchievementHistory,
   mapAchievementProgress,
-  mapActividadReciente,
-  mapAutomationLog,
-  mapAutomationRule,
-  mapAutomatizacion,
-  mapBackupMeta,
-  mapBloqueoMaquina,
-  mapCampana,
   mapChallengeDefinition,
-  mapChallengeHistory,
   mapChallengeProgress,
   mapCita,
-  mapCodigoDescuento,
   mapCondicionSalud,
   mapCreditTransaction,
-  mapDashboardChart,
   mapDisponibilidadCita,
   mapFactura,
-  mapIntegracion,
   mapLevelDefinition,
-  mapMandatoSepa,
   mapMemberCredits,
-  mapNotaInterna,
-  mapNotaProgreso,
-  mapNotificacion,
   mapPlazaFija,
-  mapPostComunidad,
   mapPreferenciasSocio,
-  mapProductoPOS,
   mapRecibo,
-  mapRecuperacion,
-  mapRespuestaSesion,
   mapRewardAction,
   mapRewardCatalogItem,
   mapRewardHistory,
@@ -223,11 +93,8 @@ import {
   mapContenidoPortal,
   mapBannerPortal,
   mapServicioCita,
-  mapSocioExcepcion,
   mapSpot,
   mapTipoClase,
-  mapUsuario,
-  mapVentaPOS,
   mapVideoOnDemand,
 } from '@/lib/supabase-data';
 
@@ -829,18 +696,42 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
 }
 
 
+// Cuánto histórico mira el barrido. El cron corre a diario (vercel.json:
+// `0 23 * * *`), así que 30 días absorben una caída larguísima del cron sin
+// dejar reservas sin marcar. Acotar es necesario: sin cota, la consulta
+// re-escanea el histórico de TODA la plataforma cada noche y su coste crece
+// para siempre, aunque el trabajo útil sea siempre el del último día.
+const VENTANA_NO_SHOWS_DIAS = 30;
+
 export async function barrerNoShows(nowISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data: sesiones, error } = await admin
-    .from('sesiones')
-    .select('id')
-    .eq('cancelada', false)
-    .lt('fin', nowISO);
-  if (error) throw new Error(error.message);
+  // ⚠️ Esta consulta no lleva `studio_id` (es global, la dispara el cron), así
+  // que antes no la cubría ningún índice y, peor, no paginaba NI ordenaba:
+  // PostgREST cortaba en 1000 filas en silencio y SIN `ORDER BY` las 1000 que
+  // llegaban eran arbitrarias (orden físico, típicamente las más antiguas).
+  // O sea: pasadas las 1000 sesiones pasadas, las RECIENTES — las únicas que
+  // hay que barrer — eran justo las que se quedaban fuera. Un fallo de
+  // corrección nacido de un patrón de rendimiento.
+  const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
+  const { filas: sesiones, truncado } = await leerCatalogoCompleto<{ id: string }>(
+    (desde, hasta) => admin
+      .from('sesiones')
+      .select('id')
+      .eq('cancelada', false)
+      .lt('fin', nowISO)
+      .gte('fin', desdeISO)
+      .order('fin', { ascending: true })
+      .range(desde, hasta),
+  );
+  if (truncado) {
+    capturarMensaje('barrerNoShows: se alcanzó el tope de paginación, quedan sesiones sin barrer', 'warning', {
+      tags: { area: 'cron-no-shows' }, extra: { desdeISO, nowISO },
+    });
+  }
 
-  const ids = (sesiones ?? []).map(s => s.id as string);
+  const ids = sesiones.map(s => s.id);
   let marcadas = 0;
   // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
   for (let i = 0; i < ids.length; i += 200) {
@@ -1396,8 +1287,11 @@ export async function aceptarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data, error } = await admin.rpc('aceptar_oferta_lista_espera', {
-    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+  // La RPC solo tiene una salida no-excepcional (`select 'CONFIRMADA'`); todo
+  // lo demás sale por `raise exception` y se lee abajo en `error`. Por eso no
+  // se mira el `data`: no lleva nada que no sepamos ya.
+  const { error } = await admin.rpc('aceptar_oferta_lista_espera', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId
   });
   if (error) {
     if (error.message.includes('OFERTA_CADUCADA')) return { error: 'Esta oferta ya ha caducado' };
@@ -1428,7 +1322,7 @@ export async function expirarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) return;
   const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
-    p_studio_id: params.studioId, p_reserva_id: params.reservaId,
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId
   });
   if (error) {
     console.error('[expirarOfertaListaEspera]', error.message);
@@ -1437,7 +1331,7 @@ export async function expirarOfertaListaEspera(params: {
   const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
   await emitirReservaCancelada(admin, {
     studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId,
-    reservaId: params.reservaId, motivo: 'oferta_caducada',
+    reservaId: params.reservaId, motivo: 'oferta_caducada'
   });
 
   const row = Array.isArray(data) ? data[0] : data;
@@ -1445,7 +1339,7 @@ export async function expirarOfertaListaEspera(params: {
     const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
     await emitirOfertaListaEspera(admin, {
       studioId: params.studioId, sesionId: params.sesionId,
-      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string
     });
   }
 }
@@ -1515,7 +1409,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
         tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
         data: { ...datos, bonoDevuelto: true },
         studioId: params.studioId,
-        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`,
+        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`
       });
     }
   }
@@ -1575,7 +1469,7 @@ export async function ejecutarCancelacionReserva(
 ): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
-    p_omitir_penalizacion: params.omitirPenalizacion ?? false,
+    p_omitir_penalizacion: params.omitirPenalizacion ?? false
   });
   if (error) {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };
