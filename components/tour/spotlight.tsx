@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useTour } from '@/lib/tour-context';
 import { PASOS_TOUR } from '@/lib/tour-pasos';
 import { useStudio } from '@/lib/studio-context';
+
+const MARGEN_VIEWPORT = 12;
 
 // Overlay + tarjeta del tour guiado. Se monta UNA vez en DashboardShell,
 // fuera del árbol de cada página — cada página solo pone un atributo
@@ -21,6 +23,10 @@ export function Spotlight() {
   const pathname = usePathname();
   const [rect, setRect] = useState<DOMRect | null>(null);
   const intentosRef = useRef(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Posición final de la tarjeta, recortada a lo que cabe en pantalla — ver
+  // el efecto de medición más abajo. null hasta la primera medición real.
+  const [cardPos, setCardPos] = useState<{ top: number; left: number } | null>(null);
 
   const paso = activo ? PASOS_TOUR[pasoActual] : null;
 
@@ -78,10 +84,37 @@ export function Spotlight() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paso, pathname]);
 
+  // ⚠️ Bug real reportado en producción: la tarjeta se pegaba a
+  // rect.top/rect.bottom sin comprobar si cabía en la ventana. Con un
+  // objetivo grande (el lienzo del calendario, por ejemplo, que ocupa casi
+  // toda la altura de la pantalla), "Siguiente" quedaba renderizado por
+  // debajo de window.innerHeight — invisible y sin forma de hacer scroll
+  // hasta él, porque el overlay es `fixed`. La solución no puede ser
+  // adivinar una altura de tarjeta a mano (el texto de cada paso varía de
+  // largo): se coloca una posición provisional, se MIDE la tarjeta ya
+  // renderizada (altura real, no estimada) y se recorta dentro de
+  // [MARGEN_VIEWPORT, innerHeight - alturaTarjeta - MARGEN_VIEWPORT] antes
+  // de que el usuario llegue a verla — mismo patrón para el eje horizontal.
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- getBoundingClientRect solo existe tras el pintado; no hay forma de conocer el alto real de la tarjeta antes de que el DOM la tenga montada.
+    if (!rect) { setCardPos(null); return; }
+    const el = cardRef.current;
+    if (!el) return;
+
+    const alto = el.offsetHeight;
+    const ancho = el.offsetWidth;
+    const cabeAbajo = rect.bottom + MARGEN_VIEWPORT * 2 + alto <= window.innerHeight;
+    const provisionalTop = cabeAbajo ? rect.bottom + MARGEN_VIEWPORT : rect.top - MARGEN_VIEWPORT - alto;
+    const provisionalLeft = rect.left;
+
+    const top = Math.min(Math.max(provisionalTop, MARGEN_VIEWPORT), window.innerHeight - alto - MARGEN_VIEWPORT);
+    const left = Math.min(Math.max(provisionalLeft, MARGEN_VIEWPORT), window.innerWidth - ancho - MARGEN_VIEWPORT);
+    setCardPos({ top, left });
+  }, [rect]);
+
   if (!paso || !rect) return null;
 
   const pad = 8;
-  const arriba = rect.top > 220;
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-label={`Tour guiado: ${paso.titulo}`}>
@@ -97,11 +130,15 @@ export function Spotlight() {
         }}
       />
       <div
-        className="absolute rounded-2xl border border-border bg-card p-4 shadow-lg w-[300px] animate-in fade-in-0 zoom-in-95"
+        ref={cardRef}
+        className="absolute rounded-2xl border border-border bg-card p-4 shadow-lg w-[300px] animate-in fade-in-0 zoom-in-95 duration-150"
         style={{
-          left: Math.min(Math.max(rect.left, 16), window.innerWidth - 316),
-          top: arriba ? rect.top - pad - 8 : rect.bottom + pad + 8,
-          transform: arriba ? 'translateY(-100%)' : undefined,
+          // Mientras no hay medición real (primer render de este paso), se
+          // pinta fuera de la pantalla en vez de en (0,0) — evita un parpadeo
+          // visible en la esquina antes de que useLayoutEffect la recoloque.
+          top: cardPos?.top ?? -9999,
+          left: cardPos?.left ?? -9999,
+          visibility: cardPos ? 'visible' : 'hidden',
         }}
       >
         <div className="flex items-start justify-between gap-2">
