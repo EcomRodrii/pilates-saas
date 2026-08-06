@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { BLOQUES_SISTEMA_IDS } from './portal-home-bloques.ts';
 import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
 import { validarContrasteTheme } from './theme-runtime.ts';
@@ -98,10 +99,15 @@ test('radioTema completo (card+boton) por tema, con los valores exactos del prot
   assert.deepEqual(getThemeDefinition('noir')!.defaults.radioTema, { card: 24, boton: 18, chip: 999 });
 });
 
-test('cardStyle: solo Bloom tiene sombra de tarjeta — Oliva y Noir son planas, como el prototipo', () => {
+test('cardStyle: Bloom y Noir con sombra, Oliva plana — según la tabla del encargo', () => {
+  // ⚠️ Noir estaba en `flat` con el comentario "plana como Oliva a propósito —
+  // el prototipo solo da sombra a Bloom". Era una lectura del prototipo que
+  // contradecía la tabla de `entrega/HANDOFF-temas.md` §1, que dice `elevated`
+  // para Noir. Manda la tabla: el propio encargo pide "sácalos de aquí, no del
+  // ojo". Corregido a petición expresa.
   assert.equal(getThemeDefinition('oliva')!.defaults.cardStyle, 'flat');
   assert.equal(getThemeDefinition('bloom')!.defaults.cardStyle, 'elevated');
-  assert.equal(getThemeDefinition('noir')!.defaults.cardStyle, 'flat');
+  assert.equal(getThemeDefinition('noir')!.defaults.cardStyle, 'elevated');
 });
 
 test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la marca se rechaza', () => {
@@ -135,7 +141,10 @@ test('validarContrasteTheme: sin `destacado`, el gate cae a `secondary` (tema gu
 });
 
 test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids reales de bloques sistema', () => {
-  const idsValidos = new Set(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal', 'retos']);
+  // Derivado, NO escrito a mano: la lista a mano se quedó desfasada en cuanto
+  // se añadió `proximaClase` y este test falló por su propia copia, no por un
+  // id malo de verdad.
+  const idsValidos = new Set<string>(BLOQUES_SISTEMA_IDS);
   for (const id of ['oliva', 'bloom', 'noir']) {
     const def = getThemeDefinition(id)!;
     assert.ok(def.bloquesHome && def.bloquesHome.length > 0, `"${id}" no trae bloquesHome`);
@@ -145,7 +154,12 @@ test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids rea
   }
   // Retos sí se construyó de verdad (conteo real, ver lib/retos-portal.ts) —
   // Bloom lo instala primero, antes de "Accesos rápidos".
-  assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['retos', 'accesosRapidos', 'contenidoEstudio']);
+  // `proximaClase` va PRIMERO en los tres, como manda el diseño aprobado. Se
+  // había caído de los tres porque ese bloque no existía todavía.
+  assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['proximaClase', 'retos', 'accesosRapidos', 'contenidoEstudio']);
+  for (const id of ['oliva', 'bloom', 'noir']) {
+    assert.equal(getThemeDefinition(id)!.bloquesHome![0], 'proximaClase', id);
+  }
 });
 
 // ── Variantes de forma por bloque ───────────────────────────────────────────
@@ -186,10 +200,13 @@ test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a varian
   assert.equal(getThemeDefinition('editorial')!.defaults.variantes?.bienvenida, 'foto');
 });
 
-test('los 3 temas suben de versión al ganar variantes (para poder avisar de que hay una nueva)', () => {
-  for (const id of ['oliva', 'bloom', 'noir']) {
-    assert.equal(getThemeDefinition(id)!.version, 4, `"${id}" debería ir por la v4`);
-  }
+test('cada cambio de defaults sube la versión — `defaults` NO es retroactivo', () => {
+  // Sin subirla, un estudio que ya tenga el tema instalado se queda con los
+  // valores viejos para siempre y sin enterarse. Noir va por la 5 desde que su
+  // `cardStyle` pasó a `elevated`.
+  assert.equal(getThemeDefinition('oliva')!.version, 4);
+  assert.equal(getThemeDefinition('bloom')!.version, 4);
+  assert.equal(getThemeDefinition('noir')!.version, 5);
   assert.equal(getThemeDefinition('editorial')!.version, 2);
 });
 

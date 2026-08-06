@@ -160,7 +160,10 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
         { id: 'b-1', kind: 'texto', config: { titulo: 'Aviso', texto: 'x' } },
       ],
     });
-    await expect(page.getByText('Aviso').or(page.getByText('Texto'))).toBeVisible({ timeout: 30_000 });
+    // ⚠️ `getByText('Aviso')` coincidía por SUBCADENA con el grupo del rail
+    // "Avisos y banners" (#747), así que resolvía a dos elementos. Se acota al
+    // botón de la fila, que es lo que este test quiere de verdad.
+    await expect(page.getByRole('button', { name: 'Texto', exact: true })).toBeVisible({ timeout: 30_000 });
     // Los bloques `sistema` no tienen botón de eliminar; el nuevo sí.
     await expect(page.getByRole('button', { name: /Eliminar Esta semana/ })).toHaveCount(0);
     const eliminar = page.getByRole('button', { name: /Eliminar Texto/ });

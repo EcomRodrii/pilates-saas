@@ -142,13 +142,18 @@ test.describe('Biblioteca de temas', () => {
     expect(body.primary).toBe('#1E2B22');
     expect(body.secondary).toBe('#A9B79B');
     expect(body.destacado).toBe('#D9B166');
-    expect(body.cardStyle).toBe('flat');
+    // Noir con sombra: lo dice la tabla del encargo (HANDOFF-temas §1). Estaba
+    // en `flat` por una lectura del prototipo que la contradecía.
+    expect(body.cardStyle).toBe('elevated');
     expect(body.radioTema).toEqual({ card: 24, boton: 18, chip: 999 });
     // Noir es el ÚNICO con accesos en círculo, y su barra lleva las 4
     // etiquetas pero SIN relleno (su icono activo es dorado, no macizo).
     // Noir NO lleva titular grande — ése solo lo tiene Bloom en el prototipo.
     expect(body.variantes).toEqual({ cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' });
-    expect(body.themeVersion).toBe(4);
+    // Noir va por la v5 desde que su cardStyle pasó a `elevated`: `defaults` no
+    // es retroactivo, así que subir la versión es lo que hace que el cambio
+    // llegue a quien ya lo tenga instalado.
+    expect(body.themeVersion).toBe(5);
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {

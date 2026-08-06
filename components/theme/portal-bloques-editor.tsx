@@ -29,6 +29,7 @@ import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   getDefinicionBloque, CAMPOS_ESTILO,
   type BloqueHome, type PantallaId, type EstiloBloque,
+  esBloqueFijo,
 } from '@/lib/portal-home-bloques';
 import { CamposForm } from '@/components/theme/inspector/campos-form';
 import { uid } from '@/lib/utils';
@@ -361,7 +362,12 @@ export function BloquesSeccionesList({
   seleccionId: string | null;
   onSeleccionar: (id: string) => void;
 }) {
-  const bloques = hook.bloquesDe(pantalla);
+  const todos = hook.bloquesDe(pantalla);
+  // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
+  // editan pero no se mueven ni se ocultan. Meterlos en la lista arrastrable
+  // pintaría una agarradera y un ojo que no hacen nada.
+  const fijos = todos.filter((b) => b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId));
+  const bloques = todos.filter((b) => !(b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId)));
   const [picker, setPicker] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -370,6 +376,22 @@ export function BloquesSeccionesList({
 
   return (
     <div className="space-y-3">
+      {fijos.length > 0 && (
+        <div className="space-y-1">
+          {fijos.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => onSeleccionar(b.id)}
+              className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left ${seleccionId === b.id ? 'border-brand bg-brand/5' : 'border-border'}`}
+            >
+              <span className="text-[12.5px] font-medium text-foreground flex-1">{labelDe(b)}</span>
+              <span className="text-[10.5px] text-muted-foreground/70">siempre arriba</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <p className="text-[12.5px] text-muted-foreground">
         Arrastra para reordenar, usa el ojo para ocultar, y añade bloques nuevos del catálogo. {DESCRIPCION_PANTALLA[pantalla]}
       </p>

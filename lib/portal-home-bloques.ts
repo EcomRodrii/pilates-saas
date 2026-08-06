@@ -35,6 +35,10 @@ export const PANTALLA_LABEL: Record<PantallaId, string> = {
 };
 
 export const BLOQUES_SISTEMA_IDS = [
+  // FIJOS: la mitad de arriba del Inicio. Se listan y se editan, pero no se
+  // arrastran ni se ocultan — ver `fijo` en el registro y el comentario de
+  // BLOQUES_FIJOS_POR_PANTALLA.
+  'cabecera', 'proximaClase',
   'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
   // Tema "Oliva"/"Noir"/"Bloom" — ver lib/theme-definitions.ts (bloquesHome).
   // Ninguno aparece en un estudio que no los active a mano o instale uno de
@@ -52,10 +56,35 @@ export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
+  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
 };
+
+/**
+ * Los bloques que existen SIEMPRE y no se mueven.
+ *
+ * ⚠️ El saludo y la tarjeta grande son el 48 % del alto del Inicio —medido en
+ * un estudio real— y hasta ahora no estaban en el editor: ni listados, ni
+ * seleccionables, ni editables. Era la mitad de la pantalla, y la primera que
+ * ve la socia.
+ *
+ * No entran en el contenedor flex que ordena los demás con CSS `order`: los
+ * efectos de scroll de portal-home-view.tsx dependen de esa estructura, y
+ * "el saludo y tu próxima clase se mantienen siempre arriba" es una decisión
+ * de producto, no una limitación. Así que se listan y se editan, pero sin
+ * agarradera de arrastre ni ojo de ocultar: mentirían.
+ */
+export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
+  home: ['cabecera', 'proximaClase'],
+  clases: [],
+  bonos: [],
+};
+
+/** Si un bloque es de los que existen siempre y no se reordenan. */
+export function esBloqueFijo(pantalla: PantallaId, sistemaId: string): boolean {
+  return (BLOQUES_FIJOS_POR_PANTALLA[pantalla] as readonly string[]).includes(sistemaId);
+}
 
 // ── Schemas de campo ────────────────────────────────────────────────────────
 // La forma de cada bloque se declara UNA vez y de ahí se derivan el tipo TS
@@ -330,6 +359,65 @@ export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
 // Lo que NO se expone: nada que el render no honre. Un campo que no mueva
 // nada es peor que su ausencia, porque la propietaria lo toca y no pasa nada.
 
+
+/**
+ * La cabecera. Dos frases según si la socia tiene clase hoy o no.
+ *
+ * ⚠️ La frase "con clase" tiene DOS literales distintos hoy según la variante
+ * de cabecera del tema ('¿Lista para tu sesión de hoy?' en la clásica, 'Hoy
+ * tienes una cita contigo.' en las demás). Por eso el `porDefecto` va vacío y
+ * cada sitio del render pasa el suyo: sin tocar nada, cada tema conserva su
+ * texto; en cuanto el estudio escribe uno, manda el suyo en todas.
+ */
+export const CAMPOS_CABECERA = [
+  {
+    tipo: 'texto', id: 'fraseSinClase', etiqueta: 'Frase cuando no tiene clase hoy',
+    porDefecto: 'Tu sitio sigue aquí.', maxLargo: 60,
+  },
+  {
+    tipo: 'texto', id: 'fraseConClase', etiqueta: 'Frase cuando sí tiene clase hoy',
+    porDefecto: '', maxLargo: 60,
+    ayuda: 'Vacío = la frase que traiga tu tema.',
+  },
+] as const satisfies readonly CampoSchema[];
+
+/**
+ * La tarjeta grande. Un solo componente con SEIS situaciones; el diseño solo
+ * dibuja la primera, las demás cambian el texto y el destino.
+ *
+ * Están las seis a propósito: son la voz con la que el estudio habla a una
+ * socia que no viene, a la que se le acaba el bono o a la que está a punto de
+ * perder su racha. Era la misma para todos los estudios.
+ *
+ * Lo que NO se expone es lo que sale de los datos (el nombre de la clase, la
+ * hora, "Racha de N semanas"): un campo ahí sería un control que no mueve
+ * nada, o peor, que borra un dato real.
+ */
+export const CAMPOS_PROXIMA_CLASE = [
+  // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
+  // propia vista previa.
+  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Sin clases · Etiqueta', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
+  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Sin clases · Titular', porDefecto: 'Empieza por aquí', maxLargo: 50 },
+  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Sin clases · Texto', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
+  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Sin clases · Botón', porDefecto: 'Ver la agenda', maxLargo: 30 },
+  // Con próxima clase — titular y detalles salen de la reserva.
+  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Próxima clase · Etiqueta', porDefecto: 'Tu próxima clase', maxLargo: 40 },
+  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Próxima clase · Botón', porDefecto: 'Ver mi acceso', maxLargo: 30 },
+  // Se le acaba el bono.
+  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Bono acabándose · Etiqueta', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
+  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Bono acabándose · Titular', porDefecto: 'Te queda una sesión', maxLargo: 50 },
+  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Bono acabándose · Texto', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
+  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Bono acabándose · Botón', porDefecto: 'Renovar mi bono', maxLargo: 30 },
+  // Racha en riesgo — la etiqueta lleva el número de semanas, no se toca.
+  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Racha en riesgo · Titular', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
+  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Racha en riesgo · Texto', porDefecto: 'Reserva esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Racha en riesgo · Botón', porDefecto: 'Buscar mi clase', maxLargo: 30 },
+  // Lleva tiempo sin venir — la etiqueta lleva los días, no se toca.
+  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Sin venir · Titular', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
+  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Sin venir · Texto', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Sin venir · Botón', porDefecto: 'Volver a reservar', maxLargo: 30 },
+] as const satisfies readonly CampoSchema[];
+
 export const CAMPOS_ESTA_SEMANA = [
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Esta semana', maxLargo: 40 },
   {
@@ -430,6 +518,18 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   // existen siempre. Los `nombre` son los de siempre, con sus paréntesis
   // explicativos: describen lo que la propietaria ve en pantalla, y hay e2e
   // que buscan por ese texto exacto.
+  cabecera: {
+    id: 'sistema', sistemaId: 'cabecera', nombre: 'Cabecera (saludo y frase)',
+    icono: 'Hand', origen: 'sistema', estilizable: false, campos: CAMPOS_CABECERA,
+  },
+  // ⚠️ Se llama `proximaClase` y no `tarjetaPrincipal` por dos motivos: es el
+  // nombre que usa el diseño aprobado en el `bloquesHome` de los tres temas, y
+  // `tarjetaPrincipal` YA EXISTE como eje de `variantes` (hero | rotulada).
+  // Dos cosas distintas con el mismo id habrían sido un enredo garantizado.
+  proximaClase: {
+    id: 'sistema', sistemaId: 'proximaClase', nombre: 'Tarjeta de próxima clase',
+    icono: 'Square', origen: 'sistema', estilizable: false, campos: CAMPOS_PROXIMA_CLASE,
+  },
   estaSemana: {
     id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
     icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: CAMPOS_ESTA_SEMANA,
@@ -550,10 +650,15 @@ function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
 // Por defecto (ningún estudio ha tocado esto todavía): los bloques `sistema`
 // de cada pantalla, en su orden por defecto, visibles salvo los que se
 // activan por tema (ver SISTEMA_OCULTO_POR_DEFECTO arriba).
+// ⚠️ Pasan por `resolverBloque`, no por `bloqueSistema` a secas: desde que los
+// bloques de sistema tienen campos, resolverlos les rellena su `config` con los
+// textos de fábrica. Sin esto, el default y lo que devuelve
+// `resolveBloquesPantalla` dejaban de ser iguales — y hay tests que comparan
+// justo esas dos cosas, que fueron los que lo cazaron.
 export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
-  home: BLOQUES_SISTEMA_POR_PANTALLA.home.map(bloqueSistema),
-  clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map(bloqueSistema),
-  bonos: BLOQUES_SISTEMA_POR_PANTALLA.bonos.map(bloqueSistema),
+  home: BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!),
+  clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!),
+  bonos: BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!),
 };
 /** @deprecated usar DEFAULT_BLOQUES_POR_PANTALLA.home */
 export const DEFAULT_HOME_BLOQUES: BloqueHome[] = DEFAULT_BLOQUES_POR_PANTALLA.home;
@@ -670,6 +775,28 @@ export function resolverBloques(raw: unknown): BloqueHome[] {
  * datos. Clases y Bonos no tienen legado que migrar — si no hay nada
  * guardado, arrancan siempre con su único bloque sistema.
  */
+/**
+ * Añade los bloques FIJOS que falten, al principio y en su orden.
+ *
+ * ⚠️ Sin esto, un bloque de sistema nuevo NUNCA llega a un estudio que ya tiene
+ * su Inicio guardado: `resolveBloquesPantalla` devuelve lo guardado tal cual.
+ * Es lo que pasó con `tiraSemana`/`progresoSemanal`/`retos`, que solo aparecen
+ * si instalas un tema que los siembre — y el comentario de arriba decía "se
+ * añaden al final" cuando en realidad no se añadían.
+ *
+ * Solo se hace con los FIJOS: son los que existen siempre por definición. Los
+ * reordenables no se inyectan, porque un estudio puede haberlos quitado a
+ * propósito y volver a metérselos sería deshacerle una decisión.
+ */
+function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
+  const fijos = BLOQUES_FIJOS_POR_PANTALLA[pantalla];
+  if (fijos.length === 0) return bloques;
+  const presentes = new Set(bloques.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
+  const faltan = fijos.filter((id) => !presentes.has(id));
+  if (faltan.length === 0) return bloques;
+  return [...faltan.map((id) => resolverBloque(bloqueSistema(id))!), ...bloques];
+}
+
 export function resolveBloquesPantalla(
   raw: unknown,
   pantallaId: PantallaId,
@@ -680,17 +807,32 @@ export function resolveBloquesPantalla(
   const publicado = resolverBloques(obj.publicado);
 
   if (draft.length > 0 || publicado.length > 0) {
-    return { draft: draft.length > 0 ? draft : publicado, publicado };
+    return {
+      draft: conFijos(draft.length > 0 ? draft : publicado, pantallaId),
+      publicado: conFijos(publicado, pantallaId),
+    };
   }
 
   if (pantallaId === 'home' && legacyPortalHome) {
-    const sistemaIds = BLOQUES_SISTEMA_POR_PANTALLA.home;
+    // ⚠️ Los FIJOS se excluyen aquí y se ponen delante con `conFijos` al final.
+    // Si entraran en esta lista, el orden legacy los empujaría al MEDIO —
+    // detrás de lo que el estudio hubiera reordenado— y el saludo acabaría
+    // pintado entre dos módulos. Lo cazó un test que ya existía.
+    const fijosHome = BLOQUES_FIJOS_POR_PANTALLA.home as readonly string[];
+    const sistemaIds = BLOQUES_SISTEMA_POR_PANTALLA.home.filter((id) => !fijosHome.includes(id));
     const legacyOcultos = new Set(legacyPortalHome.ocultos);
     const ordenLegacy = [
       ...legacyPortalHome.orden.filter((id): id is BloqueSistemaId => (sistemaIds as readonly string[]).includes(id)),
       ...sistemaIds.filter((id) => !legacyPortalHome.orden.includes(id)),
     ];
-    const sintetizado = ordenLegacy.map((id) => (legacyOcultos.has(id) ? { ...bloqueSistema(id), oculto: true } : bloqueSistema(id)));
+    const sintetizado = conFijos(
+      // `resolverBloque` también aquí: si no, los bloques sintetizados desde el
+      // layout antiguo salían SIN su `config`, y el mismo estudio veía un texto
+      // u otro según por qué rama entrara. Dos lecturas distintas del mismo
+      // dato otra vez.
+      ordenLegacy.map((id) => resolverBloque(legacyOcultos.has(id) ? { ...bloqueSistema(id), oculto: true } : bloqueSistema(id))!),
+      'home',
+    );
     return { draft: sintetizado, publicado: sintetizado };
   }
 

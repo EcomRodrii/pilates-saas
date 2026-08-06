@@ -203,7 +203,24 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   };
   const txt = (sistemaId: BloqueSistemaId, campo: string, siVacio = ''): string => {
     const v = cfgSistema(sistemaId)[campo];
-    return typeof v === 'string' ? v : siVacio;
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
+  };
+
+  /**
+   * El id de un bloque FIJO, para que el editor pueda seleccionarlo desde la
+   * vista previa. Estos dos no entran en el contenedor que ordena los demás
+   * con CSS `order` —el saludo y la tarjeta se mantienen siempre arriba, y los
+   * efectos de scroll dependen de esa estructura— así que no pasan por
+   * `wrap()` y necesitan su propio enganche.
+   */
+  const idFijo = (sistemaId: BloqueSistemaId): string | undefined => {
+    const b = homeBloques.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    return b?.id;
   };
 
   const bloquesPersonalizados = useMemo(
@@ -332,7 +349,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         const h = Math.floor(mins / 60);
         const esHoy = inicio.toDateString() === now.toDateString();
         return {
-          volanta: 'Tu próxima clase',
+          volanta: txt('proximaClase', 'proximaVolanta', 'Tu próxima clase'),
           contador: ahora ? (h > 0 ? `EN ${h} H ${mins % 60} MIN` : `EN ${mins} MIN`) : null,
           titulo: homeCard.tipo?.nombre ?? 'Clase',
           meta: [
@@ -340,38 +357,38 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             homeCard.instructor?.nombre,
             homeCard.sala?.nombre,
           ].filter(Boolean) as string[],
-          cta: 'Ver mi acceso',
+          cta: txt('proximaClase', 'proximaBoton', 'Ver mi acceso'),
           href: `/portal/${slug}/reservas`,
           abrePase: true,
         };
       }
       case 'ULTIMA_SESION':
         return {
-          volanta: 'Tu bono se acaba', contador: null,
-          titulo: 'Te queda una sesión',
-          meta: [plan?.nombre, 'Renuévalo y sigues igual'].filter(Boolean) as string[],
-          cta: 'Renovar mi bono', href: `/portal/${slug}/compras`,
+          volanta: txt('proximaClase', 'bonoVolanta', 'Tu bono se acaba'), contador: null,
+          titulo: txt('proximaClase', 'bonoTitulo', 'Te queda una sesión'),
+          meta: [plan?.nombre, txt('proximaClase', 'bonoTexto', 'Renuévalo y sigues igual')].filter(Boolean) as string[],
+          cta: txt('proximaClase', 'bonoBoton', 'Renovar mi bono'), href: `/portal/${slug}/compras`,
         };
       case 'RACHA_EN_RIESGO':
         return {
           volanta: `Racha de ${homeCard.semanas} semanas`, contador: null,
-          titulo: 'No la pierdas ahora',
-          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, 'Reserva esta semana'],
-          cta: 'Buscar mi clase', href: `/portal/${slug}/clases`,
+          titulo: txt('proximaClase', 'rachaTitulo', 'No la pierdas ahora'),
+          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, txt('proximaClase', 'rachaTexto', 'Reserva esta semana')],
+          cta: txt('proximaClase', 'rachaBoton', 'Buscar mi clase'), href: `/portal/${slug}/clases`,
         };
       case 'INACTIVA':
         return {
           volanta: `${homeCard.diasSinVenir} días sin venir`, contador: null,
-          titulo: 'Tu sitio te espera',
-          meta: ['Hay clases con hueco esta semana'],
-          cta: 'Volver a reservar', href: `/portal/${slug}/clases`,
+          titulo: txt('proximaClase', 'inactivaTitulo', 'Tu sitio te espera'),
+          meta: [txt('proximaClase', 'inactivaTexto', 'Hay clases con hueco esta semana')],
+          cta: txt('proximaClase', 'inactivaBoton', 'Volver a reservar'), href: `/portal/${slug}/clases`,
         };
       default:
         return {
-          volanta: 'Sin clases reservadas', contador: null,
-          titulo: 'Empieza por aquí',
-          meta: ['Elige el día que mejor te venga'],
-          cta: 'Ver la agenda', href: `/portal/${slug}/clases`,
+          volanta: txt('proximaClase', 'vaciaVolanta', 'Sin clases reservadas'), contador: null,
+          titulo: txt('proximaClase', 'vaciaTitulo', 'Empieza por aquí'),
+          meta: [txt('proximaClase', 'vaciaTexto', 'Elige el día que mejor te venga')],
+          cta: txt('proximaClase', 'vaciaBoton', 'Ver la agenda'), href: `/portal/${slug}/clases`,
         };
     }
   })();
@@ -412,7 +429,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             ⚠️ `saludoRef` se queda SIEMPRE en este envoltorio exterior: el
             efecto de scroll le escribe opacity/transform directamente (ver
             más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
-        <div ref={saludoRef} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}>
+        <div
+          ref={saludoRef}
+          data-bloque-sistema="cabecera"
+          data-bloque-id={idFijo('cabecera')}
+          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}
+        >
           {cabeceraConAvatar ? (
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* El avatar sube a la cabecera (en la variante clásica vive solo
@@ -429,7 +451,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       Hola, {nombre}
                     </h1>
                     <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
-                      {homeCard.caso === 'PROXIMA_CLASE' ? '¿Lista para tu sesión de hoy?' : 'Tu sitio sigue aquí.'}
+                      {homeCard.caso === 'PROXIMA_CLASE'
+                        ? txt('cabecera', 'fraseConClase', '¿Lista para tu sesión de hoy?')
+                        : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
                     </p>
                   </>
                 ) : (
@@ -457,7 +481,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               Hola, {nombre}.
             </h1>
             <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
-              {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+              {homeCard.caso === 'PROXIMA_CLASE'
+              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
+              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
             </p>
           </div>
           )}
@@ -491,7 +517,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             subtítulo, ascendido), no una frase de marketing de la maqueta. */}
         {variantes.cabeceraInicio === 'titular' && (
           <p style={{ ...display(30, false, 1.18), color: t.ink, marginTop: 20 }}>
-            {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+            {homeCard.caso === 'PROXIMA_CLASE'
+              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
+              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
           </p>
         )}
 
@@ -513,6 +541,8 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         {/* Estado VACÍO en la variante rotulada: tarjeta sencilla en vez del
             bloque grande. Con clase reservada se sigue usando el hero de
             abajo, igual que hace el prototipo. */}
+        {/* Las DOS ramas de la tarjeta llevan la misma marca: para el editor
+            es el mismo bloque, aunque el tema decida pintarlo de otra forma. */}
         {tarjetaRotulada && homeCard.caso !== 'PROXIMA_CLASE' ? (
           <Link
             href={'href' in tarjeta ? tarjeta.href : `/portal/${slug}/clases`}
@@ -555,6 +585,12 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           // ni texto propio con el que localizarla (el titular cambia según el
           // caso), y colgar el test de su estructura lo rompe al primer div.
           data-tarjeta="principal"
+          // Se marca AQUÍ y no en un envoltorio nuevo: la rama grande es un
+          // fragment con varios hijos directos del contenedor con padding, y
+          // meterles un div encima cambiaría el layout de la pieza más visible
+          // del portal. Este ancla ya existía para las pruebas de geometría.
+          data-bloque-sistema="proximaClase"
+          data-bloque-id={idFijo('proximaClase')}
           style={{
             position: 'relative',
             height: conFoto ? altura.heroCard : undefined,
