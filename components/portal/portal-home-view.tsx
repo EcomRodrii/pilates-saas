@@ -188,6 +188,24 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
       hidden: i === -1,
     };
   };
+  /**
+   * La config de un bloque de SISTEMA, ya resuelta.
+   *
+   * Los textos de estos bloques estaban escritos a fuego aquí — el titular de
+   * "Invita a una amiga" era copy de un estudio concreto servido a todos. Ahora
+   * salen del bloque guardado, y `resolverBloques` ya ha rellenado con el texto
+   * de siempre lo que el estudio no haya tocado: sin config guardada esto
+   * devuelve EXACTAMENTE lo que se pintaba antes.
+   */
+  const cfgSistema = (sistemaId: BloqueSistemaId): Record<string, unknown> => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    return (b && b.kind === 'sistema' && b.config) || {};
+  };
+  const txt = (sistemaId: BloqueSistemaId, campo: string, siVacio = ''): string => {
+    const v = cfgSistema(sistemaId)[campo];
+    return typeof v === 'string' ? v : siVacio;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -635,9 +653,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               <>
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(30), color: t.ink }}>Esta semana</h2>
+                  <h2 style={{ ...display(30), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
                   <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
-                    Agenda →
+                    {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
                 </div>
                 {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
@@ -680,9 +698,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
               estudio sin tema, y no se refactoriza de paso. */}
           <div {...wrap('accesosRapidos')}>
             <div style={{ height: 40 }} />
-            {rotuloAccesos(variantes.accesosRapidos) && (
+            {/* El rótulo del estudio manda sobre el del tema; vacío en los dos
+                = sin rótulo, que es lo que hacen las variantes que no lo llevan. */}
+            {(txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)) && (
               <h2 style={{ ...display(24), color: t.ink, marginBottom: 14 }}>
-                {rotuloAccesos(variantes.accesosRapidos)}
+                {txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)}
               </h2>
             )}
             {variantes.accesosRapidos === 'filas' && filas.map((f, i) => (
@@ -781,12 +801,16 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
               }} />
               <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>Trae a quien quieras</span>
+                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
+                  {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
+                </span>
                 <div>
                   <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
-                    La calma se comparte mejor.
+                    {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
                   </div>
-                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>Invita a una amiga y ganáis las dos</div>
+                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
+                    {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
+                  </div>
                 </div>
               </div>
               <span aria-hidden style={{

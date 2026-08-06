@@ -71,13 +71,14 @@ export function labelDe(b: BloqueHome): string {
 // eran siete componentes de formulario más una cadena de siete `if`, con la
 // forma de cada bloque duplicada respecto al tipo, al zod y al render.
 function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: BloqueHome, campoId?: string) => void }) {
-  if (bloque.kind === 'sistema') return null;
-  const def = getDefinicionBloque(bloque.kind);
-  if (!def) return null;
+  // El registro se busca por `sistemaId` en los módulos de producto y por
+  // `kind` en el catálogo — es la misma clave del registro, ver ClaveBloque.
+  const def = getDefinicionBloque(bloque.kind === 'sistema' ? bloque.sistemaId : bloque.kind);
+  if (!def || def.campos.length === 0) return null;
   return (
     <CamposForm
       campos={def.campos}
-      valores={bloque.config as Record<string, unknown>}
+      valores={(bloque.config ?? {}) as Record<string, unknown>}
       // Los repetidores (preguntas, imágenes, testimonios) van sin rótulo
       // encima, igual que antes: dentro de la lista el marcador de cada
       // casilla ya dice qué es, y un "Preguntas" suelto solo añadía ruido.
@@ -423,11 +424,25 @@ export function BloquesConfigPanel({
 }) {
   const bloque = hook.bloquesDe(pantalla).find((b) => b.id === seleccionId);
   if (!bloque) return <p className="text-[13px] text-muted-foreground">Selecciona un bloque de la izquierda para configurarlo.</p>;
-  if (bloque.kind === 'sistema') return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} no tiene ajustes propios — solo se puede reordenar u ocultar.</p>;
+  // ⚠️ Aquí había un `return` en seco para los bloques de sistema: "no tiene
+  // ajustes propios — solo se puede reordenar u ocultar". Como el estado por
+  // defecto de las tres pantallas es 100 % bloques de sistema, ESA frase era
+  // lo primero y lo único que veía una propietaria al abrir el editor.
+  //
+  // Ahora los que tienen campos abren su panel como cualquier otro. Los que
+  // todavía no —su contenido sale entero de los datos del estudio— siguen
+  // diciéndolo, pero sin `estilo`: el fondo y las esquinas de un módulo de
+  // producto los decide el tema, no la propietaria bloque a bloque.
+  const def = getDefinicionBloque(bloque.kind === 'sistema' ? bloque.sistemaId : bloque.kind);
+  if (bloque.kind === 'sistema' && (!def || def.campos.length === 0)) {
+    return <p className="text-[13px] text-muted-foreground">{labelDe(bloque)} se alimenta de los datos de tu estudio — aquí solo puedes reordenarlo u ocultarlo.</p>;
+  }
   return (
     <div>
       <ConfigForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
-      <EstiloForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
+      {bloque.kind !== 'sistema' && (
+        <EstiloForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
+      )}
     </div>
   );
 }

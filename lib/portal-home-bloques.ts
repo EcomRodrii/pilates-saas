@@ -219,7 +219,10 @@ export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 // Aditivo y opcional: el jsonb de los estudios que ya existen no cambia de
 // forma, y un bloque sin `hijos` se comporta exactamente igual que antes.
 export type BloqueHome =
-  | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; oculto?: boolean }
+  // ⚠️ `config` es ADITIVA y opcional también aquí: un bloque de sistema
+  // guardado antes de que existieran estos campos se lee igual que siempre,
+  // porque `resolverConfig` rellena las claves ausentes con el texto de hoy.
+  | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; config?: Record<string, unknown>; oculto?: boolean }
   | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
@@ -308,6 +311,49 @@ export interface DefinicionBloque {
  */
 export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campos de los bloques del SISTEMA.
+//
+// Hasta ahora los nueve tenían `campos: []`, así que una propietaria abría el
+// editor y solo podía reordenarlos y ocultarlos — y como el estado por defecto
+// de las tres pantallas es 100 % bloques de sistema, eso era LO ÚNICO que
+// podía hacer hasta que añadiera un bloque de catálogo. "No estoy editando un
+// tema, solo estoy reordenando bloques" describía el producto con exactitud.
+//
+// ⚠️ **Cada `porDefecto` es LITERALMENTE el texto que hoy está escrito a fuego
+// en el render.** Esa es la garantía de que abrir esto no cambia el portal de
+// ningún estudio: sin config guardada, `resolverConfig` devuelve exactamente
+// lo que se pintaba antes. Si algún día se cambia un texto en el render, hay
+// que cambiarlo aquí — hay un test que lo fija.
+//
+// Lo que NO se expone: nada que el render no honre. Un campo que no mueva
+// nada es peor que su ausencia, porque la propietaria lo toca y no pasa nada.
+
+export const CAMPOS_ESTA_SEMANA = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Esta semana', maxLargo: 40 },
+  {
+    tipo: 'texto', id: 'enlaceTexto', etiqueta: 'Enlace de la derecha',
+    porDefecto: 'Agenda →', maxLargo: 24,
+    ayuda: 'Lleva al calendario de clases.',
+  },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_ACCESOS_RAPIDOS = [
+  {
+    tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '', maxLargo: 40,
+    ayuda: 'Déjalo vacío para que la sección no lleve rótulo.',
+  },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_INVITAR_AMIGA = [
+  { tipo: 'texto', id: 'antetitulo', etiqueta: 'Texto pequeño de arriba', porDefecto: 'Trae a quien quieras', maxLargo: 40 },
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Titular', porDefecto: 'La calma se comparte mejor.', maxLargo: 70 },
+  { tipo: 'texto', id: 'subtitulo', etiqueta: 'Texto de apoyo', porDefecto: 'Invita a una amiga y ganáis las dos', maxLargo: 80 },
+] as const satisfies readonly CampoSchema[];
+
+export const CAMPOS_CONTENIDO_ESTUDIO = [] as const satisfies readonly CampoSchema[];
+
 export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
@@ -360,16 +406,16 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   // que buscan por ese texto exacto.
   estaSemana: {
     id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
-    icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: CAMPOS_ESTA_SEMANA,
   },
   accesosRapidos: {
     id: 'sistema', sistemaId: 'accesosRapidos',
     nombre: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
-    icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: CAMPOS_ACCESOS_RAPIDOS,
   },
   invitarAmiga: {
     id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',
-    icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: [],
+    icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: CAMPOS_INVITAR_AMIGA,
   },
   contenidoEstudio: {
     id: 'sistema', sistemaId: 'contenidoEstudio',
@@ -536,7 +582,17 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
     if (typeof b.sistemaId !== 'string') return null;
     const def = getDefinicionBloque(b.sistemaId);
     if (!def || def.origen !== 'sistema') return null;
-    return { id: b.id, kind: 'sistema', sistemaId: b.sistemaId as BloqueSistemaId, ...oculto };
+    // Mismas reglas que el catálogo: claves ausentes al valor de hoy, claves
+    // desconocidas conservadas. Un bloque de sistema SIN campos (los que
+    // todavía no se han abierto) sigue resolviendo a `{}` y se omite, para no
+    // ensuciar el jsonb de todos los estudios con objetos vacíos.
+    const guardadaSis = b.config && typeof b.config === 'object' && !Array.isArray(b.config)
+      ? (b.config as Record<string, unknown>)
+      : {};
+    const resuelta = def.campos.length > 0
+      ? { config: resolverConfig(def.campos, guardadaSis) as Record<string, unknown> }
+      : {};
+    return { id: b.id, kind: 'sistema', sistemaId: b.sistemaId as BloqueSistemaId, ...resuelta, ...oculto };
   }
 
   const def = getDefinicionBloque(b.kind);

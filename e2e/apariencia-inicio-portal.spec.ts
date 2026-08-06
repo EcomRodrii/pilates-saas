@@ -176,6 +176,30 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Calendario de clases', { exact: true })).toBeVisible();
   });
 
+  // LA queja de fondo: el estado por defecto de las tres pantallas es 100 %
+  // bloques de sistema, y todos tenían `campos: []`. Una propietaria abría el
+  // editor y solo podía reordenar y ocultar — no editar NADA — hasta que
+  // añadiera un bloque de catálogo. Estos tests no lo cazaban porque todos
+  // empiezan añadiendo un bloque de texto: probaban el camino que funciona.
+  test('un bloque de SISTEMA abre su panel de propiedades, con los textos de hoy', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Invita a una amiga')).toBeVisible({ timeout: 30_000 });
+
+    // Sin añadir nada: se selecciona un módulo de los que vienen de fábrica.
+    await page.getByText('Invita a una amiga').click();
+
+    // Y aparecen sus campos, rellenos con el texto que hasta ahora estaba
+    // escrito a fuego en portal-home-view.tsx para TODOS los estudios.
+    const titular = page.getByLabel('Titular', { exact: true });
+    await expect(titular).toBeVisible();
+    await expect(titular).toHaveValue('La calma se comparte mejor.');
+    await expect(page.getByLabel('Texto pequeño de arriba')).toHaveValue('Trae a quien quieras');
+
+    // Y se puede cambiar de verdad.
+    await titular.fill('Ven con quien tú quieras');
+    await expect(titular).toHaveValue('Ven con quien tú quieras');
+  });
+
   // Los ejes de FORMA (variantes, flags de barra) no tenían ningún control:
   // solo se fijaban instalando un tema entero. Ahora salen del schema
   // (lib/theme/campos-forma.ts) y los pinta el Inspector genérico.
