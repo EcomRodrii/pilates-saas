@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   crearHistorial, registrar, deshacer, rehacer, puedeDeshacer, puedeRehacer,
   TOPE_HISTORIAL, VENTANA_FUSION_MS,
+  pilaADeshacer,
+  pilaARehacer,
 } from './editor-historial.ts';
 
 test('recién creado no se puede deshacer ni rehacer', () => {
@@ -144,4 +146,35 @@ test('funciona con objetos, no solo con cadenas — es lo que va a guardar', () 
   assert.equal(h.presente, bloques2);
   h = deshacer(h);
   assert.equal(h.presente, bloques1, 'devuelve la MISMA referencia, no una copia');
+});
+
+// ── Dos pilas, un botón ─────────────────────────────────────────────────────
+
+test('pilaADeshacer elige la del paso MÁS RECIENTE, no la primera con pasos', () => {
+  const bloques = { id: 'bloques', puedeDeshacer: true, puedeRehacer: false, instante: 1_000 };
+  const ajustes = { id: 'ajustes', puedeDeshacer: true, puedeRehacer: false, instante: 5_000 };
+  // Las dos tienen pasos; deshacer la de bloques sería deshacer algo de hace
+  // cinco minutos mientras lo último sigue en pantalla.
+  assert.equal(pilaADeshacer([bloques, ajustes])?.id, 'ajustes');
+  assert.equal(pilaADeshacer([ajustes, bloques])?.id, 'ajustes');
+});
+
+test('pilaADeshacer ignora las que no pueden deshacer, aunque sean más recientes', () => {
+  const bloques = { id: 'bloques', puedeDeshacer: true, puedeRehacer: false, instante: 1_000 };
+  const ajustes = { id: 'ajustes', puedeDeshacer: false, puedeRehacer: false, instante: 9_000 };
+  assert.equal(pilaADeshacer([bloques, ajustes])?.id, 'bloques');
+});
+
+test('pilaADeshacer devuelve null si ninguna puede — el botón va desactivado', () => {
+  assert.equal(pilaADeshacer([
+    { id: 'a', puedeDeshacer: false, puedeRehacer: true, instante: 9_000 },
+    { id: 'b', puedeDeshacer: false, puedeRehacer: false, instante: 1_000 },
+  ]), null);
+});
+
+test('pilaARehacer solo mira las que tienen futuro', () => {
+  const a = { id: 'a', puedeDeshacer: true, puedeRehacer: false, instante: 9_000 };
+  const b = { id: 'b', puedeDeshacer: false, puedeRehacer: true, instante: 1_000 };
+  assert.equal(pilaARehacer([a, b])?.id, 'b');
+  assert.equal(pilaARehacer([a]), null);
 });
