@@ -78,15 +78,56 @@ function nodoDeEstado(e: EstadoEditor): Nodo {
   return { tipo: 'pantalla', id: e.pagina };
 }
 
-const PANTALLAS_RAIL: { id: IdPantalla; label: string; desplegable: boolean }[] = [
-  { id: 'home', label: PANTALLA_LABEL.home, desplegable: true },
-  { id: 'clases', label: PANTALLA_LABEL.clases, desplegable: true },
-  { id: 'bonos', label: PANTALLA_LABEL.bonos, desplegable: true },
-  { id: 'dashboard-inicio', label: 'Inicio del panel', desplegable: true },
-  { id: 'contenido-portal', label: 'Contenido del portal', desplegable: true },
-  // Solo navegación (ver PANTALLAS_SOLO_NAVEGABLES en home-preview.tsx): no
-  // tienen constructor de bloques, clicarlas solo mueve el preview.
-  ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({ id: p.id as IdPantalla, label: p.etiqueta, desplegable: false })),
+interface FilaRail {
+  id: IdPantalla;
+  label: string;
+  desplegable: boolean;
+  /** Se pinta a la derecha: dice qué se puede hacer aquí sin tener que probar. */
+  nota?: string;
+}
+
+/**
+ * El rail, agrupado por A QUÉ PERTENECE cada cosa.
+ *
+ * Antes era una lista plana bajo un solo rótulo, "Pantallas", donde convivían
+ * tres productos distintos: el portal de la socia, el panel del equipo y el
+ * contenido del estudio. Nada decía cuál era cuál, así que "Inicio" e "Inicio
+ * del panel" parecían variantes de lo mismo y no lo son: uno lo ve la clienta
+ * en su móvil y el otro lo ve la recepcionista en el mostrador.
+ *
+ * Los grupos son la respuesta a "¿esto de quién es?", que es la pregunta que
+ * uno se hace al abrir el editor y no tenía dónde leerse.
+ */
+const GRUPOS_RAIL: { titulo: string; ayuda: string; filas: FilaRail[] }[] = [
+  {
+    titulo: 'Portal de la socia',
+    ayuda: 'Lo que ve tu clienta en su móvil.',
+    filas: [
+      { id: 'home', label: PANTALLA_LABEL.home, desplegable: true },
+      { id: 'clases', label: PANTALLA_LABEL.clases, desplegable: true },
+      { id: 'bonos', label: PANTALLA_LABEL.bonos, desplegable: true },
+      // Sin constructor de bloques: clicarlas solo mueve el preview. La nota lo
+      // dice en vez de dejar a la propietaria buscando un desplegable que no
+      // existe. Ver PANTALLAS_SOLO_NAVEGABLES en home-preview.tsx.
+      ...PANTALLAS_SOLO_NAVEGABLES.map((p) => ({
+        id: p.id as IdPantalla, label: p.etiqueta, desplegable: false, nota: 'solo ver',
+      })),
+    ],
+  },
+  {
+    // ⚠️ NO se llama "Contenido del estudio": así se llama ya el BLOQUE de
+    // Inicio que hace de hueco donde esto se pinta. Dos cosas distintas con la
+    // misma etiqueta en la misma pantalla es exactamente la confusión que este
+    // reagrupado viene a quitar. Aquí se ESCRIBEN; allí se decide dónde caen.
+    titulo: 'Avisos y banners',
+    ayuda: 'Lo que anuncias a tus clientas. Se ve dentro del portal, pero no es una pantalla.',
+    filas: [{ id: 'contenido-portal', label: 'Mensaje y banners', desplegable: true }],
+  },
+  {
+    titulo: 'Panel del equipo',
+    ayuda: 'Lo que ves tú y tu equipo al entrar. No lo ve ninguna clienta.',
+    filas: [{ id: 'dashboard-inicio', label: 'Inicio del panel', desplegable: true }],
+  },
 ];
 
 // Lo que ofrece el selector de página de la barra superior. Solo las que el
@@ -408,10 +449,12 @@ export function ThemeEditorFullscreen() {
             </div>
           </div>
 
-          <div>
-            <p className="px-2 pb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Pantallas</p>
+          {GRUPOS_RAIL.map((grupo) => (
+          <div key={grupo.titulo}>
+            <p className="px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{grupo.titulo}</p>
+            <p className="px-2 pb-1.5 pt-0.5 text-[11px] text-muted-foreground/80 leading-snug">{grupo.ayuda}</p>
             <div className="space-y-0.5">
-              {PANTALLAS_RAIL.map((p) => {
+              {grupo.filas.map((p) => {
                 const activa = (nodo.tipo === 'pantalla' && nodo.id === p.id) || (nodo.tipo === 'item' && ((p.id === nodo.grupo) || (p.id === 'contenido-portal' && nodo.grupo === 'contenido-portal')));
                 const expandido = expandidos.has(p.id);
                 return (
@@ -428,6 +471,9 @@ export function ThemeEditorFullscreen() {
                         className={`flex-1 text-left py-2 pr-2.5 text-[13px] font-medium ${activa ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                       >
                         {p.label}
+                        {p.nota && (
+                          <span className="ml-1.5 text-[10.5px] font-normal text-muted-foreground/70">{p.nota}</span>
+                        )}
                       </button>
                     </div>
                     {p.desplegable && expandido && (
@@ -460,6 +506,7 @@ export function ThemeEditorFullscreen() {
               })}
             </div>
           </div>
+          ))}
         </div>
 
         {/* Preview central */}

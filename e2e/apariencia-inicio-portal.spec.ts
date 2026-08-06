@@ -176,6 +176,31 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Calendario de clases', { exact: true })).toBeVisible();
   });
 
+  // El rail era una lista plana bajo un solo rótulo, "Pantallas", donde
+  // convivían tres productos distintos. "Inicio" e "Inicio del panel" parecían
+  // variantes de lo mismo y no lo son: uno lo ve la clienta en su móvil y el
+  // otro la recepcionista en el mostrador.
+  test('el rail agrupa por a QUIÉN pertenece cada cosa, no en una lista plana', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+
+    for (const grupo of ['Portal de la socia', 'Avisos y banners', 'Panel del equipo']) {
+      await expect(page.getByText(grupo, { exact: true })).toBeVisible();
+    }
+    // Y el grupo NO se llama igual que el bloque "Contenido del estudio" que
+    // vive dentro de Inicio: son cosas distintas (aquí se escriben, allí se
+    // decide dónde caen) y compartir nombre era la confusión que esto quita.
+    await expect(page.getByText('Contenido del estudio', { exact: true })).toHaveCount(0);
+
+    // Y cada grupo dice de quién es, sin tener que probarlo.
+    await expect(page.getByText('Lo que ve tu clienta en su móvil.')).toBeVisible();
+    await expect(page.getByText(/No lo ve ninguna clienta/)).toBeVisible();
+
+    // Las pantallas sin bloques lo dicen, en vez de dejar buscando un
+    // desplegable que no existe.
+    await expect(page.getByText('solo ver').first()).toBeVisible();
+  });
+
   // LA queja de fondo: el estado por defecto de las tres pantallas es 100 %
   // bloques de sistema, y todos tenían `campos: []`. Una propietaria abría el
   // editor y solo podía reordenar y ocultar — no editar NADA — hasta que
