@@ -190,46 +190,80 @@ export type TestimoniosConfig = ConfigDe<typeof CAMPOS_TESTIMONIOS>;
 // El `porDefecto` de cada campo es sólo "qué opción sale marcada en el panel"
 // — exactamente el `?? 'redondeada'` que hoy escribe a mano `EstiloForm` — y
 // sólo se persiste cuando la propietaria pulsa.
+// Estilo del bloque. Ocho controles: en lista plana no se lee de un vistazo,
+// así que van en tres secciones con el orden canónico color → disposición →
+// forma (el mismo que usan todos los contenedores del tema de referencia).
+//
+// ⚠️ "Esquinas" es el primer campo del portal con condición REAL: sobre un
+// bloque transparente y sin sombra, redondear las esquinas no se ve. El dato
+// ya estaba en el render (`estilo?.esquinas ? … : (estilo?.fondo ? … )`), solo
+// que no estaba en el schema. Banner es la excepción y trae el suyo, abajo.
 export const CAMPOS_ESTILO = [
-  { tipo: 'colorHeredado', id: 'fondo', etiqueta: 'Fondo', porDefecto: null },
-  { tipo: 'colorHeredado', id: 'color', etiqueta: 'Texto', porDefecto: null },
+  { tipo: 'colorHeredado', id: 'fondo', etiqueta: 'Fondo', porDefecto: null, grupo: 'Color' },
+  { tipo: 'colorHeredado', id: 'color', etiqueta: 'Texto', porDefecto: null, grupo: 'Color' },
   {
-    tipo: 'opciones', id: 'alineacion', etiqueta: 'Alineación', porDefecto: 'izquierda',
+    tipo: 'opciones', id: 'alineacion', etiqueta: 'Alineación', porDefecto: 'izquierda', grupo: 'Disposición',
     opciones: [
       { id: 'izquierda', label: 'Izquierda' }, { id: 'centro', label: 'Centro' }, { id: 'derecha', label: 'Derecha' },
     ],
   },
   {
-    tipo: 'opciones', id: 'espaciado', etiqueta: 'Espaciado', porDefecto: 'normal',
+    tipo: 'opciones', id: 'ancho', etiqueta: 'Ancho', porDefecto: 'completo', grupo: 'Disposición',
+    opciones: [
+      { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'espaciado', etiqueta: 'Espaciado', porDefecto: 'normal', grupo: 'Disposición',
     opciones: [
       { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
     ],
   },
   {
-    tipo: 'opciones', id: 'tamanoTexto', etiqueta: 'Tamaño del texto', porDefecto: 'normal',
+    tipo: 'opciones', id: 'tamanoTexto', etiqueta: 'Tamaño del texto', porDefecto: 'normal', grupo: 'Disposición',
     opciones: [
       { id: 'pequeno', label: 'Pequeño' }, { id: 'normal', label: 'Normal' }, { id: 'grande', label: 'Grande' },
     ],
   },
   {
-    tipo: 'opciones', id: 'esquinas', etiqueta: 'Esquinas', porDefecto: 'redondeada',
-    opciones: [
-      { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
-    ],
-  },
-  {
-    tipo: 'opciones', id: 'sombra', etiqueta: 'Sombra', porDefecto: 'ninguna',
+    tipo: 'opciones', id: 'sombra', etiqueta: 'Sombra', porDefecto: 'ninguna', grupo: 'Forma',
     opciones: [
       { id: 'ninguna', label: 'Ninguna' }, { id: 'suave', label: 'Suave' }, { id: 'marcada', label: 'Marcada' },
     ],
   },
   {
-    tipo: 'opciones', id: 'ancho', etiqueta: 'Ancho', porDefecto: 'completo',
+    tipo: 'opciones', id: 'esquinas', etiqueta: 'Esquinas', porDefecto: 'redondeada', grupo: 'Forma',
+    // Sin fondo NI sombra no hay nada cuyo borde redondear.
+    //
+    // ⚠️ `{ campo: 'sombra', distinto: 'ninguna' }` a secas NO vale, y el test
+    // lo cazó: en `estilo` no se rellenan defaults (ausente = "hereda"), así
+    // que `sombra` llega `undefined` y `undefined !== 'ninguna'` es cierto —
+    // la condición se cumplía siempre. Hay que exigir además que exista. Es la
+    // misma trampa de "ausente no es el valor por defecto" de todo este módulo.
+    visibleSi: {
+      alguna: [
+        { campo: 'fondo', noVacio: true },
+        { todas: [{ campo: 'sombra', noVacio: true }, { campo: 'sombra', distinto: 'ninguna' }] },
+      ],
+    },
     opciones: [
-      { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+      { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
     ],
   },
 ] as const satisfies readonly CampoSchema[];
+
+// Banner tiene su propia geometría (una foto a sangre con altura fija), así
+// que sus dos excepciones al estilo común son de verdad, no un capricho:
+//  · las esquinas SIEMPRE se ven —recortan la imagen—, sin condición;
+//  · el fondo solo sirve si NO hay foto, porque la imagen tapa el bloque
+//    entero. Esa frase ya estaba escrita en un comentario de
+//    bloque-home-render.tsx; aquí pasa a ser schema, y el panel deja de
+//    ofrecer un color que no se vería.
+export const CAMPOS_ESTILO_BANNER = CAMPOS_ESTILO.map((c) =>
+  c.id === 'esquinas' ? { ...c, visibleSi: undefined }
+  : c.id === 'fondo' ? { ...c, visibleSi: { campo: 'imagenUrl', igual: '' } as const }
+  : c,
+) as readonly CampoSchema[];
 
 export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 
@@ -318,6 +352,12 @@ export interface DefinicionBloque {
   campos: readonly CampoSchema[];
   /** Si admite `estilo` propio. Los `sistema` son UI de producto, no. */
   estilizable: boolean;
+  /**
+   * Schema de estilo propio. Ausente = `CAMPOS_ESTILO`, el común. Existe
+   * porque un bloque puede tener geometría propia y entonces las condiciones
+   * del estilo común son falsas para él (ver `CAMPOS_ESTILO_BANNER`).
+   */
+  camposEstilo?: readonly CampoSchema[];
   /**
    * Qué bloques admite dentro y cuántos. Ausente = no admite ninguno, que es
    * el caso de los siete de hoy. Los `sistema` lo llevan siempre ausente.
@@ -477,6 +517,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_BANNER,
+    camposEstilo: CAMPOS_ESTILO_BANNER,
     // Sin `completoSi`: un banner se pinta con o sin imagen y sin enlace.
     descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
   },

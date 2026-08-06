@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { camposVisibles, agruparCampos } from './theme/campos.ts';
 import {
   DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG,
   resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto,
@@ -7,8 +8,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type BloqueHijo, type FaqConfig,
-} from './portal-home-bloques.ts';
+  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
@@ -737,4 +737,42 @@ test('⚠️ un campo con porDefecto VACÍO no debe borrar el texto del render',
   // Y la que sí tiene texto propio lo conserva.
   const sin = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseSinClase') as { porDefecto: unknown };
   assert.equal(sin.porDefecto, 'Tu sitio sigue aquí.');
+});
+
+// ── Etapa 1: condiciones y grupos en el estilo ──────────────────────────────
+test('estilo: "Esquinas" se esconde sin fondo NI sombra — no hay nada que redondear', () => {
+  const ids = (v: Record<string, unknown>) => camposVisibles(CAMPOS_ESTILO, v).map((c) => c.id);
+  assert.equal(ids({}).includes('esquinas'), false);
+  assert.equal(ids({ sombra: 'ninguna' }).includes('esquinas'), false);
+  assert.equal(ids({ fondo: '#FFEEDD' }).includes('esquinas'), true);
+  assert.equal(ids({ sombra: 'suave' }).includes('esquinas'), true);
+});
+
+test('estilo: la condición NO esconde nada más — los otros 7 salen siempre', () => {
+  // Una condición mal puesta que oculte de más es peor que no tenerla: la
+  // propietaria pierde controles sin saber por qué.
+  const visibles = camposVisibles(CAMPOS_ESTILO, {}).map((c) => c.id);
+  assert.deepEqual(visibles.sort(), ['alineacion', 'ancho', 'color', 'espaciado', 'fondo', 'sombra', 'tamanoTexto']);
+});
+
+test('estilo del BANNER: esquinas siempre (recortan la foto) y fondo solo sin foto', () => {
+  const ids = (v: Record<string, unknown>) => camposVisibles(CAMPOS_ESTILO_BANNER, v).map((c) => c.id);
+  // Sin fondo ni sombra, banner SÍ enseña esquinas — su geometría es propia.
+  assert.equal(ids({ imagenUrl: '' }).includes('esquinas'), true);
+  // Con foto, el fondo no se vería nunca: el panel deja de ofrecerlo.
+  assert.equal(ids({ imagenUrl: 'https://x/foto.jpg' }).includes('fondo'), false);
+  assert.equal(ids({ imagenUrl: '' }).includes('fondo'), true);
+});
+
+test('estilo: los 8 controles quedan en 3 secciones, ninguno suelto', () => {
+  const r = agruparCampos(CAMPOS_ESTILO, { fondo: '#000000' });
+  assert.deepEqual(r.sueltos, []);
+  assert.deepEqual(r.grupos.map((g) => g.titulo), ['Color', 'Disposición', 'Forma']);
+});
+
+test('REGISTRO_BLOQUES: solo banner declara camposEstilo propio', () => {
+  // Si otro bloque lo necesitara habría que justificarlo: el estilo común es
+  // lo que hace que el panel se sienta igual en todos.
+  const conPropio = Object.values(REGISTRO_BLOQUES).filter((d) => d.camposEstilo).map((d) => d.id);
+  assert.deepEqual(conPropio, ['banner']);
 });

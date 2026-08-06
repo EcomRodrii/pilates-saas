@@ -387,3 +387,31 @@ test.describe('Inspector — secciones', () => {
     await expect(page.getByLabel('Titular')).toHaveCount(2);
   });
 });
+
+// ── Etapa 1: el panel de estilo, agrupado y condicional ─────────────────────
+test.describe('Inspector — estilo por secciones y condiciones', () => {
+  test('"Esquinas" aparece SOLO al poner un fondo', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+
+    // Las tres secciones del estilo existen; "Forma" llega plegada.
+    for (const t of ['Color', 'Disposición', 'Forma']) {
+      await expect(page.getByRole('button', { name: t, exact: true })).toBeVisible();
+    }
+    // ⚠️ Acotado a la SECCIÓN "Forma": "Esquinas" es además una categoría del
+    // tema en el rail izquierdo, así que un getByText suelto la encuentra
+    // siempre y el test pasaría por el motivo equivocado.
+    const forma = page.locator('section').filter({ has: page.getByRole('button', { name: 'Forma', exact: true }) });
+    await page.getByRole('button', { name: 'Forma', exact: true }).click();
+    await expect(forma.getByText('Sombra')).toBeVisible();
+    // Sin fondo ni sombra no hay nada que redondear: el control no está.
+    await expect(forma.getByText('Esquinas')).toHaveCount(0);
+
+    // Al poner un fondo, aparece. (La sección "Color" ya llega abierta: es la
+    // primera. Clicarla la CERRARÍA.)
+    await page.getByLabel('Fondo', { exact: true }).fill('#FFEEDD');
+    await expect(forma.getByText('Esquinas')).toBeVisible();
+  });
+});

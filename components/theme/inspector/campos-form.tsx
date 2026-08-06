@@ -279,10 +279,18 @@ function CampoControl({
  * que su valor guardado desaparezca**.
  */
 export function CamposForm({
-  campos, valores, onChange, etiquetaListaSinTitulo,
+  campos, valores, valoresCondicion, onChange, etiquetaListaSinTitulo,
 }: {
   campos: readonly CampoSchema[];
   valores: Valores;
+  /**
+   * Contra qué se evalúan los `visibleSi`. Ausente = contra `valores`, que es
+   * lo normal. Se pasa aparte cuando el panel EDITA una cosa y la condición
+   * depende de OTRA: el estilo de un banner se guarda en `estilo`, pero que su
+   * color de fondo sirva o no depende de si hay foto, que vive en `config`.
+   * Sin esta separación, esa condición sería inexpresable.
+   */
+  valoresCondicion?: Valores;
   /**
    * `campoId` dice QUÉ campo se tocó. El historial lo usa para fundir
    * pulsaciones seguidas sobre el mismo campo en un solo paso — sin él,
@@ -292,7 +300,7 @@ export function CamposForm({
   /** Oculta la etiqueta de un campo `lista` que ya se explica por su bloque. */
   etiquetaListaSinTitulo?: boolean;
 }) {
-  const { sueltos, grupos } = agruparCampos(campos, valores);
+  const { sueltos, grupos } = agruparCampos(campos, valoresCondicion ?? valores);
   const control = (campo: CampoSchema) => (
     <CampoControl
       key={campo.id}

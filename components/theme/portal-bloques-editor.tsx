@@ -104,8 +104,12 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Estilo de esta sección</p>
       <p className="text-[11px] text-muted-foreground -mt-1">Pisa el tema global solo aquí. Vacío = hereda del tema.</p>
       <CamposForm
-        campos={CAMPOS_ESTILO}
+        campos={getDefinicionBloque(bloque.kind)?.camposEstilo ?? CAMPOS_ESTILO}
         valores={(bloque.estilo ?? {}) as Record<string, unknown>}
+        // El estilo se GUARDA solo, pero sus condiciones miran también la
+        // config del bloque (ver `valoresCondicion`): el fondo de un banner
+        // depende de si hay foto.
+        valoresCondicion={{ ...(bloque.config as Record<string, unknown>), ...(bloque.estilo ?? {}) }}
         onChange={(estilo, campoId) => onChange({ ...bloque, estilo: estilo as EstiloBloque }, `estilo:${campoId}`)}
       />
     </div>
