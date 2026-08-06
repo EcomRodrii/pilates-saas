@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { CAMPOS_PROXIMA_CLASE } from '../portal-home-bloques.ts';
 import {
   cumpleCondicion,
   defaultsDe,
   resolverConfig,
   camposVisibles,
   validarCampo,
-  type CampoSchema,
-} from './campos.ts';
+  type CampoSchema, agruparCampos } from './campos.ts';
 
 // Schema de juguete con un campo de cada familia — sirve de banco de pruebas
 // sin atarse a ningún bloque real.
@@ -250,4 +250,62 @@ test('resolverConfig NO inventa un número donde había herencia', () => {
   assert.equal(r.radioCard, null);
   // Y un valor guardado de verdad no se pisa, ni siquiera el 0.
   assert.equal((resolverConfig([RADIO], { radioCard: 0 }) as Record<string, unknown>).radioCard, 0);
+});
+
+// ── agruparCampos ───────────────────────────────────────────────────────────
+test('agruparCampos: sin `grupo`, todo sale suelto y en orden (el panel de siempre)', () => {
+  const campos = [
+    { tipo: 'texto', id: 'a', etiqueta: 'A', porDefecto: '' },
+    { tipo: 'texto', id: 'b', etiqueta: 'B', porDefecto: '' },
+  ] as const satisfies readonly CampoSchema[];
+  const r = agruparCampos(campos, {});
+  assert.deepEqual(r.sueltos.map((c) => c.id), ['a', 'b']);
+  assert.deepEqual(r.grupos, []);
+});
+
+test('agruparCampos: los sueltos van primero aunque estén DESPUÉS en el schema', () => {
+  const campos = [
+    { tipo: 'texto', id: 'enGrupo', etiqueta: 'X', grupo: 'Uno', porDefecto: '' },
+    { tipo: 'texto', id: 'suelto', etiqueta: 'Y', porDefecto: '' },
+  ] as const satisfies readonly CampoSchema[];
+  const r = agruparCampos(campos, {});
+  assert.deepEqual(r.sueltos.map((c) => c.id), ['suelto']);
+  assert.deepEqual(r.grupos.map((g) => g.titulo), ['Uno']);
+});
+
+test('agruparCampos: campos del mismo grupo se juntan aunque estén salteados, y el orden del grupo es el de su PRIMER campo', () => {
+  const campos = [
+    { tipo: 'texto', id: 'a1', etiqueta: 'A1', grupo: 'A', porDefecto: '' },
+    { tipo: 'texto', id: 'b1', etiqueta: 'B1', grupo: 'B', porDefecto: '' },
+    { tipo: 'texto', id: 'a2', etiqueta: 'A2', grupo: 'A', porDefecto: '' },
+  ] as const satisfies readonly CampoSchema[];
+  const r = agruparCampos(campos, {});
+  assert.deepEqual(r.grupos.map((g) => g.titulo), ['A', 'B']);
+  assert.deepEqual(r.grupos[0].campos.map((c) => c.id), ['a1', 'a2']);
+});
+
+test('agruparCampos: respeta `visibleSi` y `obsoleto` — un grupo que se queda sin campos NO aparece', () => {
+  // Si no, la propietaria vería una sección vacía que no puede abrir a nada.
+  const campos = [
+    { tipo: 'booleano', id: 'avanzado', etiqueta: 'Avanzado', porDefecto: false },
+    { tipo: 'texto', id: 'x', etiqueta: 'X', grupo: 'Solo si avanzado', porDefecto: '',
+      visibleSi: { campo: 'avanzado', igual: true } },
+    { tipo: 'texto', id: 'viejo', etiqueta: 'Viejo', grupo: 'Retirado', porDefecto: '', obsoleto: true },
+  ] as const satisfies readonly CampoSchema[];
+
+  const cerrado = agruparCampos(campos, { avanzado: false });
+  assert.deepEqual(cerrado.grupos, []);
+
+  const abierto = agruparCampos(campos, { avanzado: true });
+  assert.deepEqual(abierto.grupos.map((g) => g.titulo), ['Solo si avanzado']);
+});
+
+test('agruparCampos: el bloque de la próxima clase queda en 5 secciones y ninguna suelta', () => {
+  // Es el caso que motivó esto: 16 campos en lista plana. Si alguna sección
+  // creciera sola o un campo se quedara sin `grupo`, vuelve el muro.
+  // (Escribí "seis" de memoria al documentarlo; son cinco. Este test lo fijó.)
+  const r = agruparCampos(CAMPOS_PROXIMA_CLASE, {});
+  assert.deepEqual(r.sueltos, []);
+  assert.equal(r.grupos.length, 5);
+  for (const g of r.grupos) assert.ok(g.campos.length <= 4, `"${g.titulo}" tiene ${g.campos.length} campos`);
 });

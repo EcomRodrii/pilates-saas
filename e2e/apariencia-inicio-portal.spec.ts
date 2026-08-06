@@ -341,3 +341,49 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(editar).toHaveAttribute('aria-pressed', 'false');
   });
 });
+
+// ── El Inspector agrupa (punto 4 del encargo) ───────────────────────────────
+// "Al seleccionar un bloque debe abrirse un panel con TODAS sus propiedades"
+// ya se cumplía; lo que faltaba era que ese panel tuviera forma. La tarjeta de
+// próxima clase son 16 campos, y en lista plana no es "todo a la vista", es un
+// muro: solo una de sus cinco situaciones se da a la vez.
+test.describe('Inspector — secciones', () => {
+  test('los bloques fijos SIGUEN en la lista después de cargar el borrador', async ({ page }) => {
+    // ⚠️ Regresión real: el borrador guardado no contiene los bloques fijos
+    // (se añadieron después), y el editor cargaba el GET tal cual. El bloque
+    // parpadeaba una vez y desaparecía: la propietaria lo veía en su portal y
+    // en la vista previa, pero no podía ni seleccionarlo. El render ya lo
+    // arreglaba con `conFijos`; faltaba aplicarlo también al cargar.
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    const fijo = page.getByRole('button', { name: /Tarjeta de próxima clase/ });
+    await expect(fijo).toBeVisible();
+    await page.waitForTimeout(2500); // más que el autoguardado (1,5 s)
+    await expect(fijo).toBeVisible();
+  });
+
+  test('la tarjeta de próxima clase abre por secciones, con la primera desplegada', async ({ page }) => {
+    await montar(page);
+    // Esperar a que el rail asiente antes de clicar: mientras carga se
+    // re-renderiza y el botón se desengancha del DOM a media pulsación.
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Tarjeta de próxima clase/ }).click();
+
+    const panel = page.getByRole('button', { name: 'Sin clases' });
+    await expect(panel).toBeVisible({ timeout: 30_000 });
+    await expect(panel).toHaveAttribute('aria-expanded', 'true');
+
+    // Las otras cuatro existen y llegan plegadas.
+    for (const titulo of ['Próxima clase', 'Bono acabándose', 'Racha en riesgo', 'Sin venir']) {
+      const s = page.getByRole('button', { name: titulo, exact: true });
+      await expect(s).toBeVisible();
+      await expect(s).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    // Plegada = su contenido NO está en el DOM (no es solo `display:none`):
+    // así el panel se recorre de un vistazo y no hay 16 controles a la vez.
+    await expect(page.getByLabel('Titular')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Bono acabándose' }).click();
+    await expect(page.getByLabel('Titular')).toHaveCount(2);
+  });
+});

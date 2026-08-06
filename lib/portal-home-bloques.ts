@@ -393,29 +393,34 @@ export const CAMPOS_CABECERA = [
  * hora, "Racha de N semanas"): un campo ahí sería un control que no mueve
  * nada, o peor, que borra un dato real.
  */
+// ⚠️ 16 campos: es el bloque más grande del portal, y en lista plana era un
+// muro. `grupo` los reparte en las CINCO situaciones distintas que puede vivir
+// la socia — solo una se da a la vez, así que el Inspector abre la primera y
+// pliega el resto. El prefijo que antes llevaba cada etiqueta ("Sin clases ·
+// Titular") lo pone ahora el título de la sección.
 export const CAMPOS_PROXIMA_CLASE = [
   // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
   // propia vista previa.
-  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Sin clases · Etiqueta', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
-  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Sin clases · Titular', porDefecto: 'Empieza por aquí', maxLargo: 50 },
-  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Sin clases · Texto', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
-  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Sin clases · Botón', porDefecto: 'Ver la agenda', maxLargo: 30 },
+  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Etiqueta', grupo: 'Sin clases', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
+  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Titular', grupo: 'Sin clases', porDefecto: 'Empieza por aquí', maxLargo: 50 },
+  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Texto', grupo: 'Sin clases', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
+  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Botón', grupo: 'Sin clases', porDefecto: 'Ver la agenda', maxLargo: 30 },
   // Con próxima clase — titular y detalles salen de la reserva.
-  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Próxima clase · Etiqueta', porDefecto: 'Tu próxima clase', maxLargo: 40 },
-  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Próxima clase · Botón', porDefecto: 'Ver mi acceso', maxLargo: 30 },
+  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Etiqueta', grupo: 'Próxima clase', porDefecto: 'Tu próxima clase', maxLargo: 40 },
+  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Botón', grupo: 'Próxima clase', porDefecto: 'Ver mi acceso', maxLargo: 30 },
   // Se le acaba el bono.
-  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Bono acabándose · Etiqueta', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
-  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Bono acabándose · Titular', porDefecto: 'Te queda una sesión', maxLargo: 50 },
-  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Bono acabándose · Texto', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
-  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Bono acabándose · Botón', porDefecto: 'Renovar mi bono', maxLargo: 30 },
+  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Etiqueta', grupo: 'Bono acabándose', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
+  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Titular', grupo: 'Bono acabándose', porDefecto: 'Te queda una sesión', maxLargo: 50 },
+  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Texto', grupo: 'Bono acabándose', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
+  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Botón', grupo: 'Bono acabándose', porDefecto: 'Renovar mi bono', maxLargo: 30 },
   // Racha en riesgo — la etiqueta lleva el número de semanas, no se toca.
-  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Racha en riesgo · Titular', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
-  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Racha en riesgo · Texto', porDefecto: 'Reserva esta semana', maxLargo: 70 },
-  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Racha en riesgo · Botón', porDefecto: 'Buscar mi clase', maxLargo: 30 },
+  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Titular', grupo: 'Racha en riesgo', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
+  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Texto', grupo: 'Racha en riesgo', porDefecto: 'Reserva esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Botón', grupo: 'Racha en riesgo', porDefecto: 'Buscar mi clase', maxLargo: 30 },
   // Lleva tiempo sin venir — la etiqueta lleva los días, no se toca.
-  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Sin venir · Titular', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
-  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Sin venir · Texto', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
-  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Sin venir · Botón', porDefecto: 'Volver a reservar', maxLargo: 30 },
+  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Titular', grupo: 'Sin venir', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
+  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Texto', grupo: 'Sin venir', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Botón', grupo: 'Sin venir', porDefecto: 'Volver a reservar', maxLargo: 30 },
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_ESTA_SEMANA = [
@@ -788,7 +793,18 @@ export function resolverBloques(raw: unknown): BloqueHome[] {
  * reordenables no se inyectan, porque un estudio puede haberlos quitado a
  * propósito y volver a metérselos sería deshacerle una decisión.
  */
-function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
+/**
+ * Antepone los bloques FIJOS de la pantalla que falten. Un estudio que guardó
+ * su borrador antes de que un bloque fijo existiera no lo tiene en el jsonb, y
+ * sin esto se quedaría fuera para siempre.
+ *
+ * ⚠️ Exportada porque hacen falta DOS llamadas, no una: el render la aplica
+ * dentro de `resolveBloquesPantalla` (servidor) y el EDITOR tiene que aplicar
+ * la misma al cargar el borrador por la API (`fetchBloquesBorrador`). Cuando
+ * solo la aplicaba el render, la propietaria veía el bloque en su portal y en
+ * la vista previa pero NO en el panel: imposible de seleccionar y de editar.
+ */
+export function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
   const fijos = BLOQUES_FIJOS_POR_PANTALLA[pantalla];
   if (fijos.length === 0) return bloques;
   const presentes = new Set(bloques.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));

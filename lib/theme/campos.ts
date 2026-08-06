@@ -71,6 +71,17 @@ interface CampoBase<T extends string> {
   etiqueta: string;
   /** Texto de apoyo bajo el control. */
   ayuda?: string;
+  /**
+   * Título de la sección del Inspector donde va este campo. Ausente = arriba
+   * del todo, suelto, que es como se pintaba TODO antes de existir esto y
+   * sigue siendo lo correcto para un bloque de 3 o 4 campos.
+   *
+   * Es una etiqueta en el propio campo y no una lista de ids en el bloque a
+   * propósito: una lista aparte puede desincronizarse del schema y perder un
+   * campo en silencio (mismo problema que ya tuvimos con `completoSi` escrito
+   * dos veces). Así un campo no puede quedarse fuera de ninguna sección.
+   */
+  grupo?: string;
   marcador?: string;
   /**
    * Oculta el control cuando la condición no se cumple. NUNCA borra el valor
@@ -274,6 +285,30 @@ export function camposVisibles(
   valores: Record<string, unknown>,
 ): CampoSchema[] {
   return campos.filter((c) => !c.obsoleto && cumpleCondicion(c.visibleSi, valores));
+}
+
+/**
+ * Reparte los campos VISIBLES en las secciones del Inspector. Los sueltos van
+ * primero; las secciones, en el orden en que aparecen en el schema.
+ *
+ * Un panel de 16 campos en lista plana no es "todas las propiedades a la
+ * vista", es un muro — el bloque de la próxima clase tiene seis estados
+ * distintos y solo uno le importa a la propietaria en cada momento.
+ */
+export function agruparCampos(
+  campos: readonly CampoSchema[],
+  valores: Record<string, unknown>,
+): { sueltos: CampoSchema[]; grupos: { titulo: string; campos: CampoSchema[] }[] } {
+  const visibles = camposVisibles(campos, valores);
+  const sueltos: CampoSchema[] = [];
+  const grupos: { titulo: string; campos: CampoSchema[] }[] = [];
+  for (const campo of visibles) {
+    if (!campo.grupo) { sueltos.push(campo); continue; }
+    const ya = grupos.find((g) => g.titulo === campo.grupo);
+    if (ya) ya.campos.push(campo);
+    else grupos.push({ titulo: campo.grupo, campos: [campo] });
+  }
+  return { sueltos, grupos };
 }
 
 /**

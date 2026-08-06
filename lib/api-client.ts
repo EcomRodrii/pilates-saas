@@ -5,7 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
-import { resolverBloques, type BloqueHome, type PantallaId } from '@/lib/portal-home-bloques';
+import { resolverBloques, type BloqueHome, type PantallaId, conFijos } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
@@ -109,7 +109,11 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   // No se notaba con los bloques del catálogo porque su config siempre venía
   // entera del servidor; salió al abrir campos en los bloques de sistema,
   // cuyo jsonb no tiene `config` en ningún estudio existente.
-  return resolverBloques(await res.json());
+  // `conFijos` por el mismo motivo que `resolverBloques`: el editor tiene que
+  // ver EXACTAMENTE lo mismo que el render. El GET devuelve el borrador crudo
+  // tal cual está guardado; el camino del servidor le añade los fijos que
+  // falten, y sin esta llamada el panel se los comía.
+  return conFijos(resolverBloques(await res.json()), pantalla);
 }
 
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {

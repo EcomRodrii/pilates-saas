@@ -1,8 +1,9 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import {
-  camposVisibles, validarCampo,
+  agruparCampos, validarCampo,
   type CampoSchema, type CampoSchemaSinLista,
 } from '@/lib/theme/campos';
 
@@ -273,7 +274,7 @@ function CampoControl({
 }
 
 /**
- * El panel entero de un schema. `camposVisibles` aplica los `visibleSi` y
+ * El panel entero de un schema. `agruparCampos` aplica los `visibleSi` y
  * esconde los `obsoleto`, así que un campo retirado deja de pintarse **sin
  * que su valor guardado desaparezca**.
  */
@@ -291,17 +292,48 @@ export function CamposForm({
   /** Oculta la etiqueta de un campo `lista` que ya se explica por su bloque. */
   etiquetaListaSinTitulo?: boolean;
 }) {
+  const { sueltos, grupos } = agruparCampos(campos, valores);
+  const control = (campo: CampoSchema) => (
+    <CampoControl
+      key={campo.id}
+      campo={campo}
+      valor={valores[campo.id]}
+      sinEtiqueta={etiquetaListaSinTitulo && campo.tipo === 'lista'}
+      onChange={(v) => onChange({ ...valores, [campo.id]: v }, campo.id)}
+    />
+  );
   return (
     <div className="space-y-2">
-      {camposVisibles(campos, valores).map((campo) => (
-        <CampoControl
-          key={campo.id}
-          campo={campo}
-          valor={valores[campo.id]}
-          sinEtiqueta={etiquetaListaSinTitulo && campo.tipo === 'lista'}
-          onChange={(v) => onChange({ ...valores, [campo.id]: v }, campo.id)}
-        />
+      {sueltos.map(control)}
+      {grupos.map((g, i) => (
+        // La primera abierta y el resto plegadas: la sección de arriba es lo
+        // que la propietaria viene a tocar, y las de abajo son estados que
+        // solo se dan de uno en uno (sin clases / con próxima clase / bono
+        // acabándose…). Abrirlas todas devolvería el muro que esto arregla.
+        <Seccion key={g.titulo} titulo={g.titulo} abiertaAlEmpezar={i === 0}>
+          {g.campos.map(control)}
+        </Seccion>
       ))}
     </div>
+  );
+}
+
+function Seccion({ titulo, abiertaAlEmpezar, children }: {
+  titulo: string; abiertaAlEmpezar: boolean; children: React.ReactNode;
+}) {
+  const [abierta, setAbierta] = useState(abiertaAlEmpezar);
+  return (
+    <section className="border-t border-border pt-2 mt-1 first:border-t-0 first:mt-0">
+      <button
+        type="button"
+        onClick={() => setAbierta((v) => !v)}
+        aria-expanded={abierta}
+        className="w-full flex items-center justify-between gap-2 py-1.5 text-left"
+      >
+        <span className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</span>
+        <ChevronDown size={14} className={`text-muted-foreground transition-transform ${abierta ? 'rotate-180' : ''}`} />
+      </button>
+      {abierta && <div className="space-y-2 pb-1">{children}</div>}
+    </section>
   );
 }
