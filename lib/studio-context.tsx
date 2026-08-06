@@ -140,7 +140,8 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { fusionarAforo } from '@/lib/portal-aforo';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -524,6 +525,12 @@ interface StudioContextValue {
   dataLoaded: boolean;
   // Recarga los datos en ruta pública (tras el login de la socia).
   recargarPublico: () => void;
+  /**
+   * Refresca SOLO el aforo de las clases próximas. Es lo que usa el tic de
+   * REFRESCO_ACTIVO_MS; `recargarPublico` se reserva para el montaje y la
+   * vuelta a primer plano.
+   */
+  refrescarAforo: () => void;
 
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
@@ -877,6 +884,39 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRetosApuntados(socia?.retosApuntados ?? []);
       setDataLoaded(true);
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
+  }
+
+  /**
+   * Refresco barato del aforo, para el tic de REFRESCO_ACTIVO_MS.
+   *
+   * POR QUÉ EXISTE: el tic llamaba a `cargarPublico()`, que trae el catálogo
+   * completo del estudio y el histórico financiero de la socia —varios MB— doce
+   * veces por minuto. Lo único que cambia en cinco segundos es quién ha cogido
+   * plaza.
+   *
+   * ⚠️ FUSIONA, NO REEMPLAZA. `reservas` se construye entera desde
+   * `aforoReservas` (ver cargarPublico), así que hacer `setReservas(nuevas)` con
+   * una ventana de 60 días BORRARÍA todas las reservas pasadas de la socia —y
+   * con ellas su pestaña «Pasadas», Progreso y Retos— sin dar ningún error.
+   * Por eso se retiran solo las filas de las sesiones que la ventana cubre
+   * (`sesionIds`) y se dejan intactas todas las demás.
+   *
+   * La identidad de sus reservas se conserva reaplicando el `socioId` que ya
+   * había en memoria: el endpoint devuelve filas anónimas a propósito (así su
+   * respuesta es cacheable en CDN y compartida entre socias). Una reserva que
+   * ella haga en OTRO dispositivo llegará aquí sin dueño hasta el siguiente
+   * `cargarPublico()` completo — no afecta al aforo, que es lo que este tic
+   * mantiene fresco.
+   */
+  function refrescarAforo() {
+    if (!publicSlug) return;
+    cargarAforoPublico(publicSlug).then(res => {
+      // Se exigen las DOS listas antes de tocar nada. Una respuesta a medias
+      // (un proxy que devuelve `{}`, un mock incompleto) haría que la ventana
+      // se considerase vacía y se borrasen reservas que sí existen.
+      if (!res || !Array.isArray(res.sesionIds) || !Array.isArray(res.aforoReservas)) return;
+      setReservas(prev => fusionarAforo(prev, res.sesionIds, res.aforoReservas, studioIdOverride ?? ''));
+    }).catch(err => { console.error('Error refrescando aforo:', err); });
   }
 
   // El portal es una PWA/SPA que la clienta deja abierta. cargarPublico() solo
@@ -4151,6 +4191,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dataLoaded,
     planMasElegidoId,
     recargarPublico: cargarPublico,
+    refrescarAforo,
     studio,
     updateAvatarAdmin,
     updateStudio,

@@ -25,17 +25,17 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, recargarPublico } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, refrescarAforo } = useStudio();
   const { t } = useModo();
 
   // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
   // studio-context.tsx): esta pantalla también deja reservar, así que
-  // también necesita el aforo fresco mientras está abierta.
-  const recargarRef = useRef(recargarPublico);
-  useEffect(() => { recargarRef.current = recargarPublico; });
+  // también necesita el aforo fresco mientras está abierta. Igual que allí:
+  // solo el aforo (`refrescarAforo`, no `recargarPublico`), y nada con la
+  // pestaña oculta, porque entonces no lo mira nadie.
+  const recargarRef = useRef(refrescarAforo);
+  useEffect(() => { recargarRef.current = refrescarAforo; });
   useEffect(() => {
-    // Ver PortalClasesView: con la pestaña oculta el tic no lo ve nadie y sí
-    // cuesta una petición del estudio entero cada 5s.
     const id = setInterval(() => {
       if (document.hidden) return;
       recargarRef.current();

@@ -262,6 +262,70 @@ export async function resolverStudioPorSlug(
   return { row, slugActual: (row as { slug: string }).slug };
 }
 
+/**
+ * Ventana del refresco de aforo. El portal permite navegar semanas hacia
+ * delante; más allá de esto se sigue viendo el aforo del último
+ * `cargarPublico()` completo (montaje o vuelta a primer plano), que es
+ * exactamente el comportamiento que había ANTES de que existiera el tic.
+ */
+export const AFORO_VENTANA_DIAS = 60;
+
+/**
+ * Aforo público de las clases de la ventana próxima. Es lo ÚNICO que necesita
+ * el tic de 5s del portal, frente a `fetchPublicStudioData`, que devuelve el
+ * catálogo entero del estudio más el histórico financiero de la socia.
+ *
+ * Devuelve exactamente lo que ya es público hoy en `base.aforoReservas`
+ * (`id, sesion_id, estado, spot_id`): sin `socio_id`, sin nombres, sin nada
+ * personal. Por eso este endpoint NO necesita autenticación y su respuesta es
+ * idéntica para cualquier visitante del mismo estudio — que es lo que permite
+ * cachearla en CDN y colapsar el sondeo de N socias en una sola lectura.
+ *
+ * `sesionIds` viaja en la respuesta a propósito: el cliente necesita saber qué
+ * sesiones cubre la ventana para poder RETIRAR filas obsoletas. Una clase de la
+ * que se cancelan todas las reservas no aparece en `aforoReservas` —sin la
+ * lista de sesiones, el cliente no podría distinguir "sin reservas" de "fuera
+ * de la ventana" y se quedaría enseñando el aforo viejo.
+ */
+export async function fetchAforoPublico(slug: string): Promise<
+  { sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
+
+  const resuelto = await resolverStudioPorSlug(admin as never, slug);
+  if (!resuelto) return null;
+  const studioId = (resuelto.row as unknown as RowStudios).id;
+
+  const ahora = new Date();
+  const hasta = new Date(ahora.getTime() + AFORO_VENTANA_DIAS * 24 * 60 * 60 * 1000);
+  // Por `fin`, no por `inicio`: una clase que ya empezó pero no ha terminado
+  // sigue siendo relevante (la socia puede estar mirándola), y filtrar por
+  // `inicio >= ahora` la haría desaparecer del refresco a mitad de sesión.
+  const { data: sesionesData } = await admin
+    .from('sesiones').select('id')
+    .eq('studio_id', studioId)
+    .gte('fin', ahora.toISOString())
+    .lte('inicio', hasta.toISOString());
+
+  const sesionIds = (sesionesData ?? []).map((s) => s.id as string);
+  if (sesionIds.length === 0) return { sesionIds: [], aforoReservas: [] };
+
+  // Paginado: PostgREST corta en 1000 filas EN SILENCIO, y un estudio lleno
+  // puede pasar de mil reservas en 60 días. Sin esto el aforo de las clases
+  // sobrantes volvería a cero y se pintarían como libres — el mismo fallo que
+  // ya costó el truncado de los backups (#684), pero mostrando plazas que no
+  // existen.
+  const { data: aforoReservas } = await fetchAllRows(studioId, 'reservas', (from, to) =>
+    admin.from('reservas').select('id, sesion_id, estado, spot_id')
+      .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to));
+
+  return {
+    sesionIds,
+    aforoReservas: (aforoReservas ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
+  };
+}
+
 
 export async function fetchPublicStudioData(
   slug: string,
