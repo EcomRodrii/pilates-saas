@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
     socioId?: string | null;
     socioEmail?: string | null;
     socioNombre?: string;
+    // Desde dónde se paga. Decide a qué pantalla devuelve Stripe, y NADA más:
+    // es una etiqueta de una lista blanca, nunca una URL (ver origen-pago.ts).
+    origen?: string;
     // Pagos España (PR-5): ofrecer Bizum además de tarjeta en pagos PUNTUALES
     // (clase suelta / bono / primer pago). Bizum no es recurrente ni guardable,
     // así que activarlo desactiva el guardado de tarjeta (setup_future_usage).
@@ -131,6 +135,13 @@ export async function POST(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
   const slugEstudio = studio.slug as string | null;
+  const retorno = urlsDeRetorno({
+    origen: parsearOrigenPago(body.origen),
+    appUrl,
+    slug: slugEstudio,
+    esCompraDePlan: !!body.planId && !body.reciboId,
+    reciboId: body.reciboId,
+  });
 
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(Math.round(importe * 100));
@@ -171,18 +182,12 @@ export async function POST(req: NextRequest) {
         ...(body.reciboId ? { metadata: { reciboId: body.reciboId, origen: 'tarjeta_recibo', studioId: body.studioId } } : {}),
       },
       metadata,
-      // Quien paga un PLAN desde el enlace público es una clienta, no el estudio:
-      // mandarla a /cobros la dejaba en el panel del staff (que además le pide
-      // login). Los cobros de recibo sí los inicia el estudio desde su panel.
-      ...(body.planId && !body.reciboId
-        ? {
-            success_url: `${appUrl}/reservar/${slugEstudio ?? ''}?compra=ok`,
-            cancel_url: `${appUrl}/reservar/${slugEstudio ?? ''}?compra=cancelada`,
-          }
-        : {
-            success_url: `${appUrl}/cobros?tab=pendientes&stripe_success=1${body.reciboId ? `&recibo=${body.reciboId}` : ''}`,
-            cancel_url: `${appUrl}/cobros?tab=pendientes&stripe_cancel=1`,
-          }),
+      // A dónde vuelve la persona: lo resuelve `urlsDeRetorno` a partir de
+      // `origen` (lista blanca) + si es compra de plan. Antes esto asumía que
+      // todo lo que llevara `reciboId` lo iniciaba el estudio desde su panel, y
+      // dejaba a la socia que paga desde el portal en el login del staff.
+      success_url: retorno.successUrl,
+      cancel_url: retorno.cancelUrl,
       locale: 'es',
     }, { stripeAccount: studio.stripe_account_id });
 

@@ -168,11 +168,15 @@ export async function montarPortal(page: Page, opciones: {
   retoConteos?: Record<string, number>;
   /** Retos a los que YA está apuntada la socia en sesión. Sin esto, ninguno. */
   retosApuntados?: string[];
+  /** Recibos de la socia. Sin esto, los de siempre (uno COBRADO y uno
+   *  PENDIENTE). Se pasa cuando el test necesita un estado concreto —p. ej.
+   *  FALLIDO, que es el que el dunning deja al agotar los reintentos. */
+  recibos?: typeof RECIBOS;
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [] } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS } = opciones;
   const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
 
   if (conSesion) {
@@ -283,7 +287,7 @@ export async function montarPortal(page: Page, opciones: {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : [SUSCRIPCION],
-      recibos: RECIBOS, facturas: FACTURAS, preferenciasSocio: [],
+      recibos, facturas: FACTURAS, preferenciasSocio: [],
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
