@@ -152,7 +152,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     // tira de los 7 días, luego lo del estudio. `estaSemana`/`invitarAmiga`
     // no están en la lista → se instalan OCULTOS, no borrados (el encargo no
     // los pide en el Inicio de Oliva; la propietaria los puede reactivar).
-    bloquesHome: ['accesosRapidos', 'tiraSemana', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'accesosRapidos', 'tiraSemana', 'contenidoEstudio'],
   },
   {
     id: 'bloom',
@@ -188,11 +188,14 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
     // de apuntadas por estudio (nunca la cifra de marketing del prototipo).
-    bloquesHome: ['retos', 'accesosRapidos', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'retos', 'accesosRapidos', 'contenidoEstudio'],
   },
   {
     id: 'noir',
-    version: 4,
+    // 4 → 5: `cardStyle` pasa de flat a elevated. Sube la versión porque
+    // `defaults` NO es retroactivo — sin esto, un estudio que ya tenga Noir
+    // instalado se queda con las tarjetas planas para siempre y sin enterarse.
+    version: 5,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -212,8 +215,12 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       portalHeadingFontId: 'instrumentSansBold',
       radius: 'rounded',
       buttonStyle: 'solid',
-      // Plana como Oliva a propósito — el prototipo solo da sombra a Bloom.
-      cardStyle: 'flat',
+      // ⚠️ Aquí decía `flat`, con el comentario "plana como Oliva a propósito —
+      // el prototipo solo da sombra a Bloom". Era una lectura del prototipo que
+      // contradice la tabla de valores del encargo (`entrega/HANDOFF-temas.md`,
+      // §1), que para Noir dice `elevated` explícitamente. Manda la tabla:
+      // es la fuente que el diseño da como "sácalos de aquí, no del ojo".
+      cardStyle: 'elevated',
       barraOscura: true,
       barraClasica: true,
       // Valores exactos del prototipo (paleta() → radCard/radBoton de Noir).
@@ -224,7 +231,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       variantes: { cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' },
     },
     // El anillo de progreso semanal primero, luego accesos rápidos.
-    bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
   },
 ];
 

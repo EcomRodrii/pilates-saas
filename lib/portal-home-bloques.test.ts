@@ -11,11 +11,15 @@ import {
 } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
-test('DEFAULT_BLOQUES_POR_PANTALLA.home: los 4 módulos de siempre, en orden, sin ocultar', () => {
+test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
   const idsVisibles = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => !b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(idsVisibles, ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  // ⚠️ `cabecera` y `proximaClase` son nuevos, y NO cambian nada de lo que se
+  // pinta: ya se pintaban, escritos a fuego encima del contenedor de bloques.
+  // Lo que cambia es que ahora EXISTEN para el editor. Los 4 de siempre siguen
+  // en su orden, detrás.
+  assert.deepEqual(idsVisibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal/retos existen pero OCULTOS (solo Oliva/Noir/Bloom los activan)', () => {
@@ -33,7 +37,7 @@ test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque siste
 test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de siempre', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(visibles, ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio']);
   assert.deepEqual(r.draft, r.publicado);
 });
 
@@ -46,7 +50,9 @@ test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal/retos llegan OCUL
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: ['contenidoEstudio', 'estaSemana'], ocultos: ['invitarAmiga'] });
   const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(visibles, ['contenidoEstudio', 'estaSemana', 'accesosRapidos']);
+  // Los fijos van DELANTE, no en el orden legacy: el saludo y la tarjeta se
+  // mantienen arriba pase lo que pase. El resto conserva su orden guardado.
+  assert.deepEqual(visibles, ['cabecera', 'proximaClase', 'contenidoEstudio', 'estaSemana', 'accesosRapidos']);
   const invitar = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'invitarAmiga');
   assert.equal(invitar?.oculto, true);
   // tiraSemana/progresoSemanal/retos no estaban en el legacy (no existían) →
@@ -60,7 +66,10 @@ test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) �
 test('resolveBloquesPantalla: Home, una vez hay bloques guardado, YA NO mira portalHome (es la fuente de verdad)', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveBloquesPantalla(guardado, 'home', { orden: ['contenidoEstudio'], ocultos: ['estaSemana'] });
-  assert.deepEqual(r.publicado, guardado.publicado);
+  // Sigue sin mirar el legacy: lo guardado manda. Lo único que se añade son
+  // los bloques FIJOS, que existen siempre por definición.
+  const suyos = r.publicado.filter((b) => !(b.kind === 'sistema' && ['cabecera', 'proximaClase'].includes(b.sistemaId)));
+  assert.deepEqual(suyos, guardado.publicado);
 });
 
 test('resolveBloquesPantalla: Home, raw inválido/basura no lanza, cae al default', () => {
@@ -272,6 +281,8 @@ test('BLOCK_CATALOG derivado es exactamente el catálogo de antes del registro',
 
 test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan ese texto', () => {
   assert.deepEqual(BLOQUE_SISTEMA_LABEL, {
+    cabecera: 'Cabecera (saludo y frase)',
+    proximaClase: 'Tarjeta de próxima clase',
     estaSemana: 'Esta semana',
     accesosRapidos: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
     invitarAmiga: 'Invita a una amiga',
@@ -512,7 +523,11 @@ test('resolveBloquesPantalla ya no deja pasar basura al render', () => {
     { draft: [{ id: 'ok', kind: 'texto', config: { titulo: 'A', texto: '' } }, { id: 'malo', kind: 'zzz' }], publicado: [] },
     'home',
   );
-  assert.deepEqual(shape.draft.map((b) => b.id), ['ok']);
+  // La basura se cae; lo bueno sobrevive. Los fijos se añaden delante (existen
+  // siempre), así que lo que este test protege es que `zzz` NO pasa.
+  const ids = shape.draft.map((b) => b.id);
+  assert.equal(ids.includes('malo'), false);
+  assert.equal(ids.includes('ok'), true);
 });
 
 // ── Anidamiento de un nivel, solo en bloques de catálogo ───────────────────
@@ -624,4 +639,86 @@ test('un bloque de sistema SIN campos abiertos no gana un `config` vacío', () =
   const b = resolverBloque({ id: 'x', kind: 'sistema', sistemaId: 'contenidoEstudio' });
   assert.ok(b && b.kind === 'sistema');
   assert.equal('config' in b, false);
+});
+
+// ── El Hero: cabecera + tarjeta de próxima clase ────────────────────────────
+// Medido en un estudio real: el saludo y la tarjeta grande son el 48 % del alto
+// del Inicio, y hasta ahora no estaban en el editor — ni listados, ni
+// seleccionables, ni editables. Y el diseño aprobado los pone PRIMEROS en el
+// `bloquesHome` de los tres temas, con el nombre `proximaClase`.
+
+test('la cabecera y la tarjeta existen como bloques, con campos', () => {
+  assert.ok(getDefinicionBloque('cabecera')!.campos.length > 0);
+  assert.ok(getDefinicionBloque('proximaClase')!.campos.length > 0);
+});
+
+test('se llama `proximaClase`, no `tarjetaPrincipal` — ese id YA es un eje de variantes', () => {
+  // `variantes.tarjetaPrincipal` (hero | rotulada) existe desde antes. Dos
+  // cosas distintas con el mismo id habrían sido un enredo garantizado, y
+  // además `proximaClase` es el nombre que usa el diseño aprobado.
+  assert.equal(getDefinicionBloque('tarjetaPrincipal'), undefined);
+  assert.ok(getDefinicionBloque('proximaClase'));
+});
+
+test('⚠️ los porDefecto de los seis estados SON los literales del render', () => {
+  const c = (id: string) =>
+    (getDefinicionBloque('proximaClase')!.campos.find((x) => x.id === id) as { porDefecto: unknown }).porDefecto;
+  assert.equal(c('vaciaVolanta'), 'Sin clases reservadas');
+  assert.equal(c('vaciaTitulo'), 'Empieza por aquí');
+  assert.equal(c('vaciaTexto'), 'Elige el día que mejor te venga');
+  assert.equal(c('vaciaBoton'), 'Ver la agenda');
+  assert.equal(c('proximaVolanta'), 'Tu próxima clase');
+  assert.equal(c('proximaBoton'), 'Ver mi acceso');
+  assert.equal(c('bonoTitulo'), 'Te queda una sesión');
+  assert.equal(c('rachaTitulo'), 'No la pierdas ahora');
+  assert.equal(c('inactivaTitulo'), 'Tu sitio te espera');
+});
+
+test('la frase "con clase" va VACÍA por defecto — hay dos literales según el tema', () => {
+  // '¿Lista para tu sesión de hoy?' en la cabecera clásica y 'Hoy tienes una
+  // cita contigo.' en las demás. Un porDefecto aquí impondría uno de los dos a
+  // todos los temas; vacío, cada sitio conserva el suyo.
+  const c = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseConClase') as { porDefecto: unknown };
+  assert.equal(c.porDefecto, '');
+});
+
+test('⚠️ un estudio que YA tiene su Inicio guardado recibe los bloques fijos', () => {
+  // Sin esto no aparecerían NUNCA: `resolveBloquesPantalla` devolvía lo
+  // guardado tal cual. Es lo que dejó fuera a tiraSemana/progresoSemanal/retos
+  // de todo estudio que no instalara uno de los tres temas.
+  const guardado = {
+    draft: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }],
+    publicado: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }],
+  };
+  const r = resolveBloquesPantalla(guardado, 'home');
+  const ids = r.draft.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId);
+  assert.deepEqual(ids.slice(0, 2), ['cabecera', 'proximaClase'], 'van delante, en su orden');
+  assert.ok(ids.includes('accesosRapidos'), 'y no se pierde lo que ya tenía');
+});
+
+test('los fijos NO se duplican si ya estaban guardados', () => {
+  const guardado = {
+    draft: [
+      { id: 'c', kind: 'sistema', sistemaId: 'cabecera' },
+      { id: 'p', kind: 'sistema', sistemaId: 'proximaClase' },
+      { id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' },
+    ],
+    publicado: [],
+  };
+  const ids = resolveBloquesPantalla(guardado, 'home').draft.map((b) => b.id);
+  assert.deepEqual(ids, ['c', 'p', 'a']);
+});
+
+test('un bloque reordenable que el estudio quitó NO se le vuelve a meter', () => {
+  // Solo se inyectan los FIJOS. Reinyectar los demás sería deshacerle una
+  // decisión a la propietaria cada vez que abre el editor.
+  const guardado = { draft: [{ id: 'a', kind: 'sistema', sistemaId: 'accesosRapidos' }], publicado: [] };
+  const ids = resolveBloquesPantalla(guardado, 'home').draft.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId);
+  assert.equal(ids.includes('invitarAmiga'), false);
+  assert.equal(ids.includes('estaSemana'), false);
+});
+
+test('en Clases y Bonos no hay fijos: su lista guardada sale intacta', () => {
+  const guardado = { draft: [{ id: 'l', kind: 'sistema', sistemaId: 'listadoClases' }], publicado: [] };
+  assert.deepEqual(resolveBloquesPantalla(guardado, 'clases').draft.map((b) => b.id), ['l']);
 });

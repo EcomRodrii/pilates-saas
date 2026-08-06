@@ -29,13 +29,21 @@ test('resolveLayout: config válida se respeta', () => {
 test('resolveLayout: resuelve bloques.home (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveBloquesPantalla', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveLayout({ bloques: { home: guardado } });
-  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+  // Los bloques FIJOS (cabecera y tarjeta de próxima clase) se añaden delante
+  // siempre: existen por definición, no son algo que el estudio pueda no tener.
+  // Lo que este test protege es que SUS bloques salen intactos.
+  const suyos = r.bloques.home.publicado.filter((b) => b.kind !== 'sistema');
+  assert.deepEqual(suyos, guardado.publicado);
 });
 
 test('resolveLayout: homeBloques legacy (antes de la Fase 1 del Theme Builder) se sigue leyendo como bloques.home', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveLayout({ homeBloques: guardado });
-  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+  // Los bloques FIJOS (cabecera y tarjeta de próxima clase) se añaden delante
+  // siempre: existen por definición, no son algo que el estudio pueda no tener.
+  // Lo que este test protege es que SUS bloques salen intactos.
+  const suyos = r.bloques.home.publicado.filter((b) => b.kind !== 'sistema');
+  assert.deepEqual(suyos, guardado.publicado);
 });
 
 test('resolveLayout: resuelve bloques.clases/bonos de forma independiente', () => {
