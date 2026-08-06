@@ -12,7 +12,15 @@ const ANCLAS_LANDING = ['#precio', '#faq', '#sustituciones', '#migracion'];
 // Guías reales de /recursos/<slug> (páginas indexables de verdad, a
 // diferencia de las anclas de arriba). Añadir aquí cada vez que se publique
 // una guía nueva bajo app/recursos/.
-const GUIAS_RECURSOS = ['cubrir-baja-instructora', 'facturacion-electronica-verifactu', 'precios-reformer-mat', 'estudios-pilates-de-exito'];
+const GUIAS_RECURSOS = [
+  'cubrir-baja-instructora',
+  'facturacion-electronica-verifactu',
+  'precios-reformer-mat',
+  'estudios-pilates-de-exito',
+  'ocupacion-clases-valle',
+  'reducir-cancelaciones-ultima-hora',
+  'checklist-elegir-software-estudio',
+];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const legales = ['/legal', '/privacidad', '/terminos', '/cookies'].map((p) => ({
