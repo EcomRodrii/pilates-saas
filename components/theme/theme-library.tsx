@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Check, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -103,6 +104,7 @@ function Colores({ config }: { config: ThemeConfig }) {
 }
 
 export function ThemeLibrary() {
+  const router = useRouter();
   const hook = useThemeEditor();
   const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste } = hook;
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
@@ -130,7 +132,19 @@ export function ThemeLibrary() {
     await fetchThemePublicado().then(setPublicado).catch(() => {});
   }
 
-  async function instalar(def: ThemeDefinition) {
+  /**
+   * `irAlEditor` es lo que arregla "Personalizar".
+   *
+   * ⚠️ Ese botón era un `Link` FIJO a la ruta del editor, sin el id del tema de
+   * su fila. Daba igual en cuál pulsaras: entrabas al editor con TU tema. Por
+   * eso Oliva, Bloom y Noir se veían los tres iguales — no porque los temas lo
+   * fueran (declaran cabecera, accesos y bloques distintos), sino porque nunca
+   * llegabas a verlos.
+   *
+   * Instala en el BORRADOR, que es exactamente lo que ya hacía "Usar": no
+   * publica nada, y se deshace con "Volver a lo publicado".
+   */
+  async function instalar(def: ThemeDefinition, irAlEditor = false) {
     setInstalando(def.id);
     setErrorInstalar(null);
     const nuevo: ThemeConfig = {
@@ -151,6 +165,7 @@ export function ThemeLibrary() {
         await guardarBloquesBorradorApi('home', sembrarBloquesHome(actuales, def.bloquesHome));
       }
       elegirTema(def); // refleja en pantalla lo que ya está guardado
+      if (irAlEditor) router.push(RUTA_EDITOR);
     } catch (e) {
       setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
     } finally {
@@ -283,9 +298,21 @@ export function ThemeLibrary() {
                   <p className="text-[12.5px] text-muted-foreground mt-1 line-clamp-1">{def.description}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-none">
-                  <Link href={RUTA_EDITOR} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    Personalizar
-                  </Link>
+                  {enUso ? (
+                    <Link href={RUTA_EDITOR} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                      Personalizar
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={instalando !== null}
+                      onClick={() => instalar(def, true)}
+                      title={`Pone ${def.label} en tu borrador y abre el editor. No publica nada.`}
+                    >
+                      {instalando === def.id ? 'Abriendo…' : 'Personalizar'}
+                    </Button>
+                  )}
                   {!enUso && (
                     <Button size="sm" disabled={instalando !== null} onClick={() => instalar(def)}>
                       {instalando === def.id ? 'Instalando…' : 'Usar'}

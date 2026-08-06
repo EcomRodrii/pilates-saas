@@ -226,7 +226,35 @@ test.describe('Biblioteca de temas', () => {
     expect(body.some((b) => b.kind === 'texto' && b.id === 'b-texto-1')).toBe(true);
   });
 
-  test('"Personalizar" lleva al editor', async ({ page }) => {
+  // ⚠️ "Personalizar" era un Link FIJO a la ruta del editor, SIN el id del
+  // tema de su fila: pulsaras el que pulsaras, entrabas con TU tema. Por eso
+  // Oliva, Bloom y Noir parecían el mismo tema — nunca llegabas a verlos.
+  test('"Personalizar" en un tema que NO tienes lo instala y abre el editor', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    const fila = filaTema(page, 'noir');
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      fila.getByRole('button', { name: 'Personalizar' }).click(),
+    ]);
+
+    // Se instala EL DE SU FILA, no el que ya tenías.
+    expect(puts.at(-1)!.themeId).toBe('noir');
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 15_000 });
+  });
+
+  test('"Personalizar" del tema EN USO sigue siendo un enlace directo, sin reinstalar', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+    // Sin themeId guardado el tema en uso es "classic".
+    await filaTema(page, 'classic').getByRole('link', { name: 'Personalizar' }).click();
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 15_000 });
+    // Reinstalarlo pisaría los ajustes finos que la propietaria ya tuviera.
+    expect(puts).toHaveLength(0);
+  });
+
+  test('"Personalizar" (arriba, Tu tema) lleva al editor', async ({ page }) => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('link', { name: 'Personalizar' }).first().click();
