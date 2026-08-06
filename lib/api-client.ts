@@ -135,13 +135,18 @@ export async function fetchHomePreviewToken(): Promise<string> {
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
-export async function cargarDatosPublicos(slug: string) {
+//
+// `liviano` (audit de rendimiento de los widgets embebibles): /reservar/[slug]
+// nunca lee vídeos/recompensas/niveles/logros/retos/contenido de portal — solo
+// el portal instalable (app/portal/[slug]) los usa. Sin esta señal el servidor
+// no puede distinguir quién llama al mismo endpoint compartido.
+export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean }) {
   // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
   // deriva sus datos del token. Sin sesión → solo catálogo público.
   const res = await fetch('/api/public/studio-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),
   });
   if (!res.ok) return null;
   return res.json();
