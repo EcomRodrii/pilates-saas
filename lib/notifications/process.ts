@@ -73,20 +73,63 @@ async function entregarCanales(
 export async function entregarExternos(
   admin: SupabaseClient, notificationIds: string[],
 ): Promise<{ entregadas: number; deliveries: number }> {
+  // ⚠️ Se deduplica la entrada ANTES de nada. Antes esto era un bucle que
+  // releía `notification_delivery` en cada vuelta, así que un id repetido en la
+  // lista se frenaba solo: la segunda vuelta veía el delivery que escribió la
+  // primera. Al leer los deliveries UNA vez por lotes esa protección
+  // desaparecería y el id repetido mandaría dos push. Deduplicar la restaura, y
+  // de paso hace explícito lo que antes era un efecto lateral.
+  const ids = [...new Set(notificationIds)];
+  if (ids.length === 0) return { entregadas: 0, deliveries: 0 };
+
+  const [{ data: notis }, { data: previos }] = await Promise.all([
+    admin.from('notification').select('*').in('id', ids),
+    // Misma guarda de siempre, en una sola consulta: si una notificación ya
+    // tiene algún delivery que no sea INAPP, no se repite. La ruta es pública
+    // para el propio servidor y `publish()` podría llamarla dos veces por el
+    // mismo hecho; esto es lo que evita el push duplicado.
+    admin.from('notification_delivery')
+      .select('notification_id').in('notification_id', ids).neq('channel', 'INAPP'),
+  ]);
+
+  const yaEntregadas = new Set((previos ?? []).map(p => p.notification_id as string));
+  const orden = new Map(ids.map((id, i) => [id, i]));
+  const pendientes = (notis ?? [])
+    .filter(n => REGLAS[n.event_type as string] && !yaEntregadas.has(n.id as string))
+    // `.in()` no garantiza orden; se restaura el de la lista de entrada para
+    // que dos ejecuciones con los mismos ids hagan lo mismo en el mismo orden.
+    .sort((a, b) => (orden.get(a.id as string) ?? 0) - (orden.get(b.id as string) ?? 0));
+  if (pendientes.length === 0) return { entregadas: 0, deliveries: 0 };
+
+  // Contactos y preferencias, agrupados por tipo de destinatario. Cada persona
+  // se pide UNA vez aunque tenga varias notificaciones en la misma tanda.
+  const unicos = <T>(v: (T | null | undefined)[]) => [...new Set(v.filter((x): x is T => !!x))];
+  const socioIds = unicos(pendientes.map(n => n.recipient_socio_id as string | null));
+  const instructorIds = unicos(pendientes.filter(n => !n.recipient_socio_id).map(n => n.recipient_instructor_id as string | null));
+  const studioIds = unicos(pendientes.filter(n => !n.recipient_socio_id && !n.recipient_instructor_id).map(n => n.studio_id as string));
+  const userIds = unicos(pendientes.map(n => n.recipient_user_id as string | null));
+  const categorias = unicos(pendientes.map(n => REGLAS[n.event_type as string]?.category));
+
+  const vacio = { data: [] as Record<string, unknown>[] };
+  const [socRes, insRes, stRes, prefRes] = await Promise.all([
+    socioIds.length ? admin.from('socios').select('id, email, telefono').in('id', socioIds) : vacio,
+    instructorIds.length ? admin.from('instructores').select('id, email').in('id', instructorIds) : vacio,
+    studioIds.length ? admin.from('studios').select('id, email, telefono').in('id', studioIds) : vacio,
+    userIds.length && categorias.length
+      ? admin.from('notification_preference')
+          .select('user_id, category, inapp, push, email, whatsapp, sms')
+          .in('user_id', userIds).in('category', categorias)
+      : vacio,
+  ]);
+
+  const porId = (filas: Record<string, unknown>[] | null) =>
+    new Map((filas ?? []).map(r => [r.id as string, r]));
+  const socios = porId(socRes.data), instructores = porId(insRes.data), studios = porId(stRes.data);
+  const prefs = new Map((prefRes.data ?? []).map(p => [`${p.user_id}|${p.category}`, p]));
+
   let entregadas = 0, deliveries = 0;
-  for (const id of notificationIds) {
-    const { data: noti } = await admin.from('notification').select('*').eq('id', id).maybeSingle();
-    if (!noti) continue;
+  for (const noti of pendientes) {
     const regla = REGLAS[noti.event_type as string];
-    if (!regla) continue;
-
-    // Si ya hay deliveries externos de esta notificación, no repetir. La ruta
-    // es pública para el propio servidor y `publish()` podría llamarla dos veces
-    // por el mismo hecho; esta guarda es lo que evita el push duplicado.
-    const { data: previos } = await admin.from('notification_delivery')
-      .select('channel').eq('notification_id', id).neq('channel', 'INAPP');
-    if (previos && previos.length > 0) continue;
-
     const dest: Recipient = {
       role: noti.recipient_role,
       userId: noti.recipient_user_id,
@@ -95,20 +138,26 @@ export async function entregarExternos(
     };
     // Email/teléfono para los canales externos (la fila no los guarda).
     if (dest.socioId) {
-      const { data: soc } = await admin.from('socios').select('email, telefono').eq('id', dest.socioId).maybeSingle();
+      const soc = socios.get(dest.socioId);
       dest.email = (soc?.email as string | null) ?? null;
       dest.telefono = (soc?.telefono as string | null) ?? null;
     } else if (dest.instructorId) {
-      const { data: ins } = await admin.from('instructores').select('email').eq('id', dest.instructorId).maybeSingle();
-      dest.email = (ins?.email as string | null) ?? null;
+      dest.email = (instructores.get(dest.instructorId)?.email as string | null) ?? null;
     } else {
-      const { data: st } = await admin.from('studios').select('email, telefono').eq('id', noti.studio_id).maybeSingle();
+      const st = studios.get(noti.studio_id as string);
       dest.email = (st?.email as string | null) ?? null;
       dest.telefono = (st?.telefono as string | null) ?? null;
     }
 
     const critica = regla.priority === 'CRITICA';
-    const pref = dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : PREF_DEFECTO;
+    const fila = dest.userId ? prefs.get(`${dest.userId}|${regla.category}`) : undefined;
+    // Sin fila guardada se aplica el default, igual que hacía `preferenciaDe`.
+    const pref: Preferencia = fila
+      ? {
+          inapp: fila.inapp as boolean, push: fila.push as boolean, email: fila.email as boolean,
+          whatsapp: fila.whatsapp as boolean, sms: fila.sms as boolean,
+        }
+      : PREF_DEFECTO;
     const canales = canalesExtraDe(regla, pref, critica);
     const n = await entregarCanales(admin, mapRow(noti), dest, canales);
     if (n > 0) entregadas++;
