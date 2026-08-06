@@ -7,8 +7,8 @@
 // sabe lo que implica al activarla).
 //
 // Cadencia cada 15 min: no es una guardia de seguridad tipo Fase 2a (nadie
-// puede "hacer trampa" esperando a que no se alcance el mínimo), así que no
-// necesita el minuto a minuto de reservas-pendientes.ts. Con ventana de
+// puede "hacer trampa" esperando a que no se alcance el mínimo), así que puede
+// ir más holgada que reservas-pendientes.ts (5 min). Con ventana de
 // detección de 15 min el desfase máximo sobre el corte de 2h es tolerable —
 // más ajustado que los 30 min de confirmacion-riesgo CORTE porque aquí el
 // coste de un desfase es mayor: cuanta más gente confirme en esos minutos,
