@@ -84,16 +84,24 @@ entregar ya no.
 | `push_subscription` | Endpoints Web Push del usuario (endpoint, p256dh, auth). Los usa el canal PUSH (PR2). | `studio_id → studios` (su única FK; `user_id` es `uuid NOT NULL` pero **sin FK**); único por `endpoint`. |
 | `notification_template` | Override de plantilla por estudio. **⚠️ Tabla muerta: ningún código la lee** (ver "…crear/editar plantillas"). | `studio_id → studios`; dos únicos parciales: `(studio_id, event_type, locale)` con estudio, y `(event_type, locale)` para el global. |
 
-**RLS:** cada quien lee lo suyo (`recipient_user_id = auth.uid()`); el staff del
-estudio ve todo lo del estudio (Notification Center) vía `current_studio_id()`.
-El UPDATE es **solo del destinatario** (`20260729161500`): no existe ningún caso
-de "marcar leída la notificación de otra persona". El motor escribe con
-**service-role** (salta RLS). Preferencias y suscripciones las gobierna el propio
-usuario (`user_id = auth.uid()`).
+**RLS:** cada quien lee y escribe **solo lo suyo** —
+`recipient_user_id = auth.uid()`, en SELECT y en UPDATE por igual (verificado en
+vivo contra `pg_policies`). El motor escribe con **service-role** (salta RLS).
+Preferencias y suscripciones las gobierna el propio usuario (`user_id =
+auth.uid()`).
 
-⚠️ **La RLS no puede ser la única cerradura aquí**, porque las rutas usan
-service-role y ahí `auth.uid()` es NULL. Dos reglas viven por tanto en la API, y
-hay que mantenerlas al añadir cualquier endpoint nuevo sobre `notification`:
+⚠️ **No hay ningún `OR studio_id = current_studio_id()`, a propósito.** Esa
+cláusula existió (0092) pensada para que el staff leyera el Notification Center
+directo por RLS, y se quitó al comprobar que **ningún** camino la necesitaba:
+los tres puntos que leen o escriben esta tabla —la campana de cada cual
+(`/api/notifications`), la vista admin (`/api/notifications/admin`) y el motor
+(`engine.ts`)— usan **service-role**, que se salta la RLS entera. La cláusula
+era superficie de ataque sin un solo consumidor legítimo.
+
+⚠️ **Precisamente por eso la RLS no puede ser la única cerradura**: con
+service-role `auth.uid()` es NULL, así que las dos reglas de acceso reales viven
+en la API, no en la base de datos, y hay que mantenerlas al añadir cualquier
+endpoint nuevo sobre `notification`:
 
 - **Ámbito** (`lib/notifications/ambito.ts`): el centro se lee como `socia`
   (acotado a ese estudio y a `recipient_role = 'SOCIA'`) o como `staff` (todo lo
@@ -102,12 +110,16 @@ hay que mantenerlas al añadir cualquier endpoint nuevo sobre `notification`:
   mismo estudio con la misma cuenta — sin esto, el portal le enseñaba los avisos
   de su panel y el "marcar todo leído" de esa bandeja se los borraba de la
   campana. Se aplica en el GET **y en las cuatro acciones** del PATCH.
-- **Rol y categoría** en el Notification Center (`/api/notifications/admin`): esa
-  pantalla enseña el título y el CUERPO de cada aviso, así que no basta con
-  exigir sesión de staff. `puedeVerCategoriaAvisos` deja fuera a INSTRUCTOR, y
-  reserva `decisiones` a quien pueda ver `/centro-de-control` y `pagos` a quien
-  pase `puedeVerFinanzas` — si no, la pantalla es una puerta de atrás a lo que
-  `/cobros` y `/centro-de-control` ya le niegan a ese rol.
+- **Rol** en el Notification Center (`/api/notifications/admin`,
+  `puedeVerCentroNotificaciones` en `lib/permisos-reglas.ts`): esa pantalla
+  enseña el título y el CUERPO de cada aviso —los de la propietaria y los de
+  todas las socias—, así que no basta con exigir sesión de staff. Es **solo de
+  PROPIETARIO**: la pantalla es la unión de dominios ya vedados por separado al
+  resto (`pagos` → dinero, `decisiones` → Decision OS), así que dejar entrar a
+  MANAGER/RECEPCION sería una puerta de atrás a lo que `/cobros` y
+  `/centro-de-control` ya les niegan de frente. La ruta y el menú
+  (`BLOQUEADO_MANAGER`/`BLOQUEADO_RECEPCION`) tienen que decir lo mismo — hay un
+  test que lo comprueba.
 
 ## Prioridades
 
