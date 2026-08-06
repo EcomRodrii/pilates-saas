@@ -1,5 +1,5 @@
 import type { Page, Route } from '@playwright/test';
-import { resolveBloquesPantalla, type BloqueHome } from '../lib/portal-home-bloques.ts';
+import { resolveBloquesPantalla, sembrarBloquesHome, type BloqueHome } from '../lib/portal-home-bloques.ts';
 import type { VariantesPortal } from '../lib/theme-variantes.ts';
 import { getThemeDefinition } from '../lib/theme-definitions.ts';
 import { DEFAULT_THEME } from '../lib/theme-schema.ts';
@@ -207,7 +207,15 @@ export async function montarPortal(page: Page, opciones: {
       document.addEventListener('DOMContentLoaded', aplicar);
     }, Object.entries(vars));
   }
-  const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+  const definicionTema = tema ? getThemeDefinition(tema) : undefined;
+  let bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+  // ⚠️ Un tema NO es solo colores y variantes: también siembra QUÉ bloques del
+  // Inicio se ven y en qué orden (`bloquesHome`). Sin esto, montar un tema en
+  // un e2e enseñaba el Inicio POR DEFECTO con su paleta encima — parecido
+  // pero con otros bloques y otro orden, que es justo lo que hay que comparar.
+  if (!homeBloques && definicionTema?.bloquesHome?.length) {
+    bloquesResueltos = sembrarBloquesHome(bloquesResueltos, [...definicionTema.bloquesHome]);
+  }
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {

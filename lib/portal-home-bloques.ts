@@ -877,3 +877,26 @@ export function bloqueEstaCompleto(b: Exclude<BloqueHome, { kind: 'sistema' }>):
   if (!def) return false;
   return cumpleCondicion(def.completoSi, b.config as Record<string, unknown>);
 }
+
+/**
+ * Reordena/oculta los bloques `sistema` del Inicio según `bloquesHome` de un
+ * `ThemeDefinition` — los que aparecen en la lista pasan a visibles, en ese
+ * orden; los que no, se ocultan (nunca se borran: un bloque `sistema` no se
+ * puede quitar del todo). Los bloques del CATÁLOGO se preservan tal cual, al
+ * final — "cambiar de tema no debe borrar tu contenido".
+ */
+export function sembrarBloquesHome(actuales: BloqueHome[], orden: string[]): BloqueHome[] {
+  const sistema = actuales.filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => b.kind === 'sistema');
+  const catalogo = actuales.filter((b) => b.kind !== 'sistema');
+  const porId = new Map(sistema.map((b) => [b.sistemaId, b]));
+
+  const listados = orden
+    .map((id) => porId.get(id as Extract<BloqueHome, { kind: 'sistema' }>['sistemaId']))
+    .filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => !!b)
+    .map((b) => ({ ...b, oculto: false }));
+  const noListados = sistema
+    .filter((b) => !orden.includes(b.sistemaId))
+    .map((b) => ({ ...b, oculto: true }));
+
+  return [...listados, ...noListados, ...catalogo];
+}

@@ -12,6 +12,7 @@
 // `elegirTema` del hook que ya usaba el editor) y deja que la propietaria lo
 // mire y decida. Publicar sigue siendo un acto aparte y explícito.
 
+import { sembrarBloquesHome } from '@/lib/portal-home-bloques';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -60,28 +61,6 @@ function nombreTitular(id: ThemeConfig['portalHeadingFontId']): string {
   return ESTILOS_TITULAR_PORTAL.find((f) => f.id === id)?.label ?? id;
 }
 
-/**
- * Reordena/oculta los bloques `sistema` del Inicio según `bloquesHome` de un
- * `ThemeDefinition` — los que aparecen en la lista pasan a visibles, en ese
- * orden; los que no, se ocultan (nunca se borran: un bloque `sistema` no se
- * puede quitar del todo). Los bloques del CATÁLOGO se preservan tal cual, al
- * final — "cambiar de tema no debe borrar tu contenido".
- */
-function sembrarBloquesHome(actuales: BloqueHome[], orden: string[]): BloqueHome[] {
-  const sistema = actuales.filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => b.kind === 'sistema');
-  const catalogo = actuales.filter((b) => b.kind !== 'sistema');
-  const porId = new Map(sistema.map((b) => [b.sistemaId, b]));
-
-  const listados = orden
-    .map((id) => porId.get(id as Extract<BloqueHome, { kind: 'sistema' }>['sistemaId']))
-    .filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => !!b)
-    .map((b) => ({ ...b, oculto: false }));
-  const noListados = sistema
-    .filter((b) => !orden.includes(b.sistemaId))
-    .map((b) => ({ ...b, oculto: true }));
-
-  return [...listados, ...noListados, ...catalogo];
-}
 
 /** La fila de los cinco colores del tema. */
 function Colores({ config }: { config: ThemeConfig }) {
