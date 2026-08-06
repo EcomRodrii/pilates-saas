@@ -332,13 +332,44 @@ export function mapUsuario(r: RowUsuarios): Usuario {
   } as Usuario;
 }
 
-export function mapSocio(r: RowSocios): Socio {
+
+// ─── Filas del ARRANQUE del panel ────────────────────────────────────────────
+// El bootstrap pide columnas concretas, no `select('*')`. Estos tipos son el
+// contrato de esa lista: si el select se queda corto, `tsc` falla NOMBRANDO la
+// columna que falta, en vez de que llegue `undefined` en tiempo de ejecución.
+//
+// ⚠️ Para que esa comprobación exista, la cadena del select tiene que ser UN
+// literal de UNA línea. Partirla en `'a,b' + 'c,d'` la degrada a `string`,
+// supabase-js pierde la inferencia y se pierde toda la verificación EN SILENCIO.
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en'>;
+export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
+export type FilaReciboPanel = Omit<RowRecibos, 'proximo_reintento'>;
+
+export function mapSocio(r: FilaSocioPanel): Socio {
+  // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
+  //
+  // `socios.aceptacion_version` no guarda un número de versión: guarda el TEXTO
+  // LEGAL COMPLETO que aceptó la socia (`textoLegalCompleto()`), unos 2,7 KB por
+  // fila e idéntico para todas. Viajaba al navegador con cada socia y no lo leía
+  // NADIE: el panel solo usa `.firma`, `.fecha`, `.origen` y `.introducidaPor`
+  // (ver clientas/[id]/page.tsx) y la existencia del objeto, que depende de
+  // `aceptacion_fecha`, no de este campo. Sacarlo del select bajó `socios` un 79 %.
+  //
+  // Su único lector real es el guard de consentimiento del cron de penalizaciones
+  // (`lib/inngest/penalizaciones.ts:44`), que hace su PROPIO select en servidor
+  // con la columna incluida — así que sigue comparando contra el texto completo.
+  //
+  // Si algún día hace falta en el panel, hay que volver a pedir la columna en el
+  // select de `fetchCriticalStudioData`, no leer este campo esperando contenido.
   const aceptacionContrato =
     r.aceptacion_fecha
       ? {
           fecha: r.aceptacion_fecha,
           firma: r.aceptacion_firma ?? '',
-          versionTexto: r.aceptacion_version ?? '',
+          // Vacío a propósito, y ahora también por tipo: `FilaSocioPanel` excluye
+          // `aceptacion_version`, así que esto no puede volver a leerse por
+          // descuido — habría que reponer la columna en el select primero.
+          versionTexto: '',
           ...(r.aceptacion_origen ? { origen: r.aceptacion_origen as 'PORTAL' | 'MOSTRADOR' } : {}),
           ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
@@ -801,7 +832,7 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
 }
 
 
-export function mapSesion(r: RowSesiones): Sesion {
+export function mapSesion(r: FilaSesionPanel): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -835,7 +866,7 @@ export function mapReserva(r: RowReservas): Reserva {
   } as Reserva;
 }
 
-export function mapRecibo(r: RowRecibos): Recibo {
+export function mapRecibo(r: FilaReciboPanel): Recibo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -3869,17 +3900,17 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('*').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
