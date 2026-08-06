@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { tenantAutorizado } from '@/lib/billing/webhook-tenant';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -123,6 +124,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
       }
 
+      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+      // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+      // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+      if (!tenantAutorizado(studioDeCuenta, studioId)) {
+        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
+          level: 'error',
+          extra: { sessionId: session.id, eventAccount: event.account, studioIdMetadata: studioId, studioDeCuenta },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+      }
+
       // El recibo es lo crítico (confirma el cobro). Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
       if (reciboId) {
@@ -134,24 +147,13 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
         }
-        const [{ data: reciboRow }, { data: studioRow }] = await Promise.all([
-          admin.from('recibos').select('id, importe, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle(),
-          admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
-        ]);
+        const { data: reciboRow } = await admin
+          .from('recibos').select('id, importe, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
         if (!reciboRow) {
           Sentry.captureMessage('[stripe webhook] checkout.session apunta a recibo inexistente o de otro estudio', {
             level: 'warning', extra: { reciboId, studioId, sessionId: session.id },
           });
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
-        }
-        // La cuenta Connect que emite el evento debe ser la del estudio dueño del
-        // recibo: si no, un estudio podría confirmar el recibo de otro.
-        if (event.account && studioRow?.stripe_account_id && event.account !== studioRow.stripe_account_id) {
-          Sentry.captureMessage('[stripe webhook] cuenta Connect no coincide con el estudio del recibo', {
-            level: 'error',
-            extra: { reciboId, studioId, eventAccount: event.account, expectedAccount: studioRow.stripe_account_id },
-          });
-          return NextResponse.json({ error: 'Cuenta Connect no autorizada para este recibo' }, { status: 403 });
         }
         const esperadoCentimos = Math.round(Number(reciboRow.importe) * 100);
         if (typeof session.amount_total !== 'number' || session.amount_total < esperadoCentimos) {
@@ -220,6 +222,10 @@ export async function POST(req: NextRequest) {
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
           nombre: session.customer_details?.name ?? null,
+          // Lo cobrado DE VERDAD, no el precio de catálogo releído ahora: entre
+          // abrir el checkout y llegar este webhook el estudio puede haber
+          // cambiado el precio del plan.
+          importeCobradoCentimos: typeof session.amount_total === 'number' ? session.amount_total : null,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -233,6 +239,27 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ received: true, entregado: false, motivo: entrega.motivo });
           }
           return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
+        }
+        // Sin esto, una compra de plan por el enlace público es INVISIBLE a
+        // reembolsos y disputas: sus handlers leen `pi.metadata.reciboId`, y el
+        // PaymentIntent de una compra de plan nace sin metadata porque el recibo
+        // todavía no existía al crear la sesión. Se devolvía el dinero y el
+        // `rec-web-…` se quedaba COBRADO para siempre, con la suscripción activa.
+        // Best-effort: el bono ya está entregado y el cobro registrado, así que
+        // un fallo aquí no puede tumbar el evento — pero sí queda en Sentry.
+        if (typeof session.payment_intent === 'string') {
+          try {
+            await stripe.paymentIntents.update(
+              session.payment_intent,
+              { metadata: { reciboId: entrega.reciboId, origen: 'plan_web', studioId } },
+              event.account ? { stripeAccount: event.account } : undefined,
+            );
+          } catch (err) {
+            Sentry.captureMessage('[stripe webhook] plan entregado pero sin metadata en el PaymentIntent', {
+              level: 'warning',
+              extra: { sessionId: session.id, reciboId: entrega.reciboId, studioId, detalle: String(err) },
+            });
+          }
         }
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
