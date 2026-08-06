@@ -42,7 +42,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       # tsc --noEmit con "incremental": true escribe tsconfig.tsbuildinfo. Sin
@@ -94,7 +102,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       # Caché de compilación entre runs (docs de Next: "CI Build Caching").
@@ -153,7 +169,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Descargar salida del build
@@ -209,7 +233,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
 
       - name: Descargar reportes parciales
