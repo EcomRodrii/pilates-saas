@@ -97,7 +97,14 @@ export function PortalClasesView({
   useEffect(() => { recargarRef.current = recargarPublico; });
   useEffect(() => {
     if (!escribible) return; // preview: sin servidor real que consultar
-    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    // Con la pestaña oculta no hay nadie mirando el aforo, así que el tic no
+    // aporta nada y sí cuesta (una petición del estudio entero cada 5s). Al
+    // volver a primer plano re-sincroniza el listener de `visibilitychange` de
+    // studio-context.tsx, así que pausar aquí no deja datos rancios a la vista.
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current();
+    }, REFRESCO_ACTIVO_MS);
     return () => clearInterval(id);
   }, [escribible]);
 

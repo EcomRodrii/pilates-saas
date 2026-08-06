@@ -34,7 +34,12 @@ export default function ClaseDetallePage() {
   const recargarRef = useRef(recargarPublico);
   useEffect(() => { recargarRef.current = recargarPublico; });
   useEffect(() => {
-    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    // Ver PortalClasesView: con la pestaña oculta el tic no lo ve nadie y sí
+    // cuesta una petición del estudio entero cada 5s.
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current();
+    }, REFRESCO_ACTIVO_MS);
     return () => clearInterval(id);
   }, []);
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
