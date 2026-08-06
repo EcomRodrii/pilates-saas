@@ -6,6 +6,7 @@ import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado } from '@/lib/billing/webhook-tenant';
+import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
@@ -445,13 +446,21 @@ export async function POST(req: NextRequest) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
       const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
-      // Solo un reembolso TOTAL anula el recibo. `charge.refunded` es true únicamente
-      // cuando el cargo se devolvió entero; un reembolso PARCIAL (amount_refunded <
-      // amount) marcaba el recibo DEVUELTO por error → ingresos infravalorados y estado
-      // incoherente (recibo "devuelto" pero renovación/bono ya aplicados). Los parciales
-      // se dejan COBRADO (requieren ajuste manual del estudio).
-      const reembolsoTotal = charge.refunded === true || (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
-      if (reciboId && esRecibo && reembolsoTotal) {
+      // Solo un reembolso TOTAL anula el recibo: marcar DEVUELTO un parcial
+      // infravaloraría los ingresos y dejaría un estado incoherente (recibo
+      // "devuelto" con el bono ya aplicado).
+      //
+      // ⚠️ Pero el parcial SÍ entra aquí. Antes esta condición lo dejaba fuera
+      // del handler entero: no marcaba nada, no avisaba a nadie y no dejaba
+      // rastro — y es el caso más habitual, el que hace una propietaria sensata
+      // cuando la socia ya usó parte del bono. El comentario decía que
+      // "requieren ajuste manual del estudio", pero nada le decía al estudio que
+      // hubiera algo que ajustar.
+      const acumuladoDevuelto = charge.amount_refunded ?? 0;
+      const origen = origenDeReembolso({
+        refunded: charge.refunded === true, acumulado: acumuladoDevuelto, total: charge.amount ?? 0,
+      });
+      if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund)');
@@ -464,18 +473,38 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        const { data: rec, error } = await admin.from('recibos')
-          .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
-          .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
-        if (error) {
-          console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
-          return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+        if (origen === 'REEMBOLSO_TOTAL') {
+          const { data: rec, error } = await admin.from('recibos')
+            .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
+            // `.neq('estado','DEVUELTO')` para que un reintento de Stripe no
+            // reescriba la fecha_devolucion original con la de hoy.
+            .eq('id', reciboId).eq('studio_id', studioId).neq('estado', 'DEVUELTO')
+            .select('id').maybeSingle();
+          if (error) {
+            console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
+            return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+          }
+          // 0 filas ya no es un error: puede ser el reintento del mismo evento.
+          if (!rec) {
+            Sentry.captureMessage('[stripe webhook] devolución sin efecto (recibo ya devuelto, inexistente o de otro estudio)', {
+              level: 'warning', extra: { reciboId, studioId, eventAccount: event.account },
+            });
+          }
         }
-        if (!rec) {
-          Sentry.captureMessage('[stripe webhook] devolución apunta a recibo inexistente o de otro estudio', {
-            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+        // Se anota SIEMPRE, total o parcial, y solo se avisa si es un hecho
+        // nuevo (`null` = ya estaba registrada por un reintento).
+        const dev = await registrarDevolucion(admin, {
+          studioId, reciboId, origen, devueltoCentimos: acumuladoDevuelto,
+          referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
+          stripeChargeId: charge.id,
+        });
+        if (dev) {
+          const { emitirDevolucion } = await import('@/lib/notifications/emit');
+          const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
+          await emitirDevolucion(admin, {
+            studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
+            devolucionId: dev.id, importe: dev.importeDevuelto, origen,
           });
-          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
       }
     }
@@ -551,6 +580,34 @@ export async function POST(req: NextRequest) {
         if (error) {
           console.error('[stripe webhook] no se pudo cerrar la disputa', reciboId, error);
           return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
+        }
+
+        // Hasta ahora este cierre era MUDO: el estudio se enteraba de que le
+        // abrían una disputa (`dispute.created` avisa con ALTA + push + email)
+        // pero nunca de que la perdía — y es cuando el dinero se va de verdad y
+        // la socia se queda con lo entregado.
+        //
+        // ⚠️ `charge_refunded` = el estudio reembolsó DURANTE la disputa. Ese
+        // dinero ya lo anota `charge.refunded` con la misma referencia
+        // (`chargeId:acumulado`), así que aquí no se vuelve a encolar: si no, la
+        // propietaria vería dos tarjetas por el mismo dinero y podría revertir
+        // dos veces.
+        if (dispute.status === 'lost') {
+          const cargoId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+          const dev = await registrarDevolucion(admin, {
+            studioId, reciboId, origen: 'CHARGEBACK',
+            devueltoCentimos: dispute.amount ?? 0,
+            referencia: referenciaDevolucion({ tipo: 'chargeback', disputeId: dispute.id }),
+            stripeChargeId: cargoId,
+          });
+          if (dev) {
+            const { emitirDevolucion } = await import('@/lib/notifications/emit');
+            const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
+            await emitirDevolucion(admin, {
+              studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
+              devolucionId: dev.id, importe: dev.importeDevuelto, origen: 'CHARGEBACK',
+            });
+          }
         }
       }
     }

@@ -218,6 +218,44 @@ export async function emitirPenalizacionBloqueada(
   }
 }
 
+// Se ha devuelto dinero (reembolso total o parcial) o se ha perdido una
+// disputa. Lo accionable NO es el dinero —ya se movió en Stripe pase lo que
+// pase— sino que la socia conserva lo que se le entregó (el bono recargado, el
+// mes extendido) hasta que alguien lo revise.
+//
+// `dedupKey` por DEVOLUCIÓN y no por recibo: un mismo cobro puede tener dos
+// reembolsos parciales, o un parcial y luego un chargeback, y cada uno es un
+// hecho que hay que contar.
+export async function emitirDevolucion(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; socioId: string | null; devolucionId: string;
+    importe: number; origen: 'REEMBOLSO_TOTAL' | 'REEMBOLSO_PARCIAL' | 'CHARGEBACK';
+  },
+): Promise<void> {
+  try {
+    const { data: socio } = p.socioId
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
+      : { data: null };
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta';
+    const esChargeback = p.origen === 'CHARGEBACK';
+    await publish({
+      type: esChargeback ? EVENTOS.PAGO_CHARGEBACK_PERDIDO : EVENTOS.PAGO_DEVUELTO,
+      studioId: p.studioId,
+      data: {
+        importe: p.importe, socia, socioId: p.socioId,
+        // Solo se nombra cuando es parcial: en una devolución normal, decir
+        // "(total)" es ruido.
+        tipoTexto: p.origen === 'REEMBOLSO_PARCIAL' ? ' (devolución parcial)' : '',
+      },
+      resource: { type: 'devolucion', id: p.devolucionId },
+      dedupKey: `devolucion:${p.devolucionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDevolucion:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Disputa/chargeback de Stripe: el cargo ya se había cobrado y ahora la
 // socia lo impugna ante su banco. `plazoUnix` es evidence_details.due_by de
 // Stripe (segundos epoch, puede venir null si Stripe aún no lo ha fijado).

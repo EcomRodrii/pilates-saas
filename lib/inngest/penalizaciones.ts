@@ -17,7 +17,6 @@ import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   terminosServicioPorDefecto, politicaPrivacidadPorDefecto, textoLegalCompleto,
 } from '@/lib/legal-textos';
-import { uid } from '@/lib/utils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number }) {
@@ -91,20 +90,63 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   const nombreClase = tipo?.nombre ?? 'la clase';
   const motivo = pen.tipo === 'NO_SHOW' ? 'no presentada' : 'cancelación tardía';
 
-  const reciboId = `rec-penaliz-${uid()}`;
+  const automatico = studio.penalizacion_cobro_automatico === true;
+
+  // ⚠️ Id DETERMINISTA, derivado de la penalización — no `uid()`.
+  //
+  // Una penalización tiene exactamente un recibo, así que su id puede salir del
+  // suyo. Con `uid()` aleatorio el reintento era un doble cobro real: la
+  // penalización solo sale de DETECTADA con el UPDATE de abajo, y si ese UPDATE
+  // fallaba (o el proceso moría entre insert y update, o Inngest reintentaba el
+  // `step.run` que envuelve el bucle entero), la fila seguía DETECTADA y el
+  // barrido de 10 minutos después creaba OTRO recibo con OTRO id — y por tanto
+  // otra `idempotencyKey` en `cobrarReciboOffSession`
+  // (`offsession-cobro-<reciboId>-i<intento>`), que Stripe no puede deduplicar.
+  // Cargo repetido a la socia.
+  //
+  // Con el id derivado, el reintento reinserta la MISMA fila (23505, que se
+  // trata como "ya existía") y converge en la misma clave de idempotencia.
+  // Mismo patrón que `renovaciones.ts`, que ya usaba `rec-renov-<susId>-<mes>`.
+  const reciboId = `rec-penaliz-${pen.id}`;
   const hoy = new Date().toISOString().slice(0, 10);
   const { error: errRecibo } = await admin.from('recibos').insert({
     id: reciboId, studio_id: pen.studio_id, socio_id: pen.socio_id, suscripcion_id: null,
     concepto: `Penalización — ${motivo}: ${nombreClase}`, importe: pen.importe, estado: 'PENDIENTE',
     fecha_vencimiento: hoy, fecha_cobro: null, fecha_devolucion: null, intentos_reintento: 0,
+    // ⚠️ Solo en modo AUTOMÁTICO. El comentario de más abajo afirmaba que el
+    // recibo "hereda el dunning gratis", y era falso: el barrido filtra
+    // `.not('proximo_reintento','is',null)` (dunning.ts) y el adoptador de
+    // huérfanos exige `suscripcion_id IS NOT NULL` **y** `concepto LIKE
+    // 'Renovación%'` (renovaciones.ts) — este recibo fallaba los tres. Un cobro
+    // fallido se quedaba PENDIENTE para siempre: sin reintento, sin pasar nunca
+    // a FALLIDO y sin aviso de impago.
+    //
+    // En modo MANUAL se deja a null a propósito: el estudio ha elegido revisar
+    // cada cargo antes de tocar la tarjeta, y meterlo en el dunning lo cobraría
+    // solo, saltándose justamente esa decisión.
+    proximo_reintento: automatico ? new Date().toISOString() : null,
   });
-  if (errRecibo) { console.error('[penalizaciones] insert recibo', errRecibo.message); return; }
+  // 23505 = ya existía de un intento anterior. No es un fallo: se sigue, que es
+  // lo que hace converger el reintento.
+  if (errRecibo && errRecibo.code !== '23505') {
+    console.error('[penalizaciones] insert recibo', errRecibo.message);
+    return;
+  }
 
-  const automatico = studio.penalizacion_cobro_automatico === true;
-  await admin.from('penalizaciones').update({
+  // El resultado SÍ se comprueba: es lo único que saca a la penalización de
+  // DETECTADA, y tragárselo era lo que dejaba la puerta abierta al reintento.
+  const { error: errEstado } = await admin.from('penalizaciones').update({
     recibo_id: reciboId,
     estado: automatico ? 'RECIBO_CREADO' : 'PENDIENTE_APROBACION',
   }).eq('id', pen.id);
+  if (errEstado) {
+    // Se sale sin cobrar. El recibo ya existe con su id derivado, así que el
+    // próximo barrido lo reinserta (23505 → sigue), vuelve a intentar este
+    // UPDATE, y solo entonces cobra. Cobrar ahora dejaría un cargo hecho sobre
+    // una penalización que sigue DETECTADA — el escenario del doble cobro.
+    console.error('[penalizaciones] no se pudo marcar la penalización', pen.id, errEstado.message);
+    return;
+  }
 
   if (automatico) {
     const resultado = await cobrarReciboOffSession({ reciboId, socioId: pen.socio_id, studioId: pen.studio_id });
@@ -119,8 +161,10 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
       const { emitirPagoPenalizacion } = await import('@/lib/notifications/emit');
       await emitirPagoPenalizacion(admin, { studioId: pen.studio_id, socioId: pen.socio_id, importe: pen.importe, penalizacionId: pen.id });
     }
-    // Si falla, no reintentar aquí: el recibo ya nació PENDIENTE con los
-    // mismos campos que cualquier otro, hereda el dunning gratis.
+    // Si falla, no se reintenta aquí: el recibo nació con `proximo_reintento`,
+    // así que el barrido de dunning lo recoge. (Antes NO: nacía sin esa
+    // columna y el barrido lo filtraba, con lo que se quedaba PENDIENTE
+    // eternamente — ver el comentario del insert.)
   }
 }
 
