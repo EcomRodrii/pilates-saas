@@ -35,6 +35,10 @@ export const PANTALLA_LABEL: Record<PantallaId, string> = {
 };
 
 export const BLOQUES_SISTEMA_IDS = [
+  // FIJOS: la mitad de arriba del Inicio. Se listan y se editan, pero no se
+  // arrastran ni se ocultan — ver `fijo` en el registro y el comentario de
+  // BLOQUES_FIJOS_POR_PANTALLA.
+  'saludo', 'tarjetaPrincipal',
   'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos',
   // Tema "Oliva"/"Noir"/"Bloom" — ver lib/theme-definitions.ts (bloquesHome).
   // Ninguno aparece en un estudio que no los active a mano o instale uno de
@@ -52,10 +56,35 @@ export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
+  home: ['saludo', 'tarjetaPrincipal', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
 };
+
+/**
+ * Los bloques que existen SIEMPRE y no se mueven.
+ *
+ * ⚠️ El saludo y la tarjeta grande son el 48 % del alto del Inicio —medido en
+ * un estudio real— y hasta ahora no estaban en el editor: ni listados, ni
+ * seleccionables, ni editables. Era la mitad de la pantalla, y la primera que
+ * ve la socia.
+ *
+ * No entran en el contenedor flex que ordena los demás con CSS `order`: los
+ * efectos de scroll de portal-home-view.tsx dependen de esa estructura, y
+ * "el saludo y tu próxima clase se mantienen siempre arriba" es una decisión
+ * de producto, no una limitación. Así que se listan y se editan, pero sin
+ * agarradera de arrastre ni ojo de ocultar: mentirían.
+ */
+export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
+  home: ['saludo', 'tarjetaPrincipal'],
+  clases: [],
+  bonos: [],
+};
+
+/** Si un bloque es de los que existen siempre y no se reordenan. */
+export function esBloqueFijo(pantalla: PantallaId, sistemaId: string): boolean {
+  return (BLOQUES_FIJOS_POR_PANTALLA[pantalla] as readonly string[]).includes(sistemaId);
+}
 
 // ── Schemas de campo ────────────────────────────────────────────────────────
 // La forma de cada bloque se declara UNA vez y de ahí se derivan el tipo TS
@@ -330,6 +359,65 @@ export type ClaveBloque = BloqueTipoCatalogo | BloqueSistemaId;
 // Lo que NO se expone: nada que el render no honre. Un campo que no mueva
 // nada es peor que su ausencia, porque la propietaria lo toca y no pasa nada.
 
+
+/**
+ * El saludo. Dos frases según si la socia tiene clase hoy o no.
+ *
+ * ⚠️ La frase "con clase" tiene DOS literales distintos hoy según la variante
+ * de cabecera del tema ('¿Lista para tu sesión de hoy?' en la clásica, 'Hoy
+ * tienes una cita contigo.' en las demás). Por eso el `porDefecto` va vacío y
+ * cada sitio del render pasa el suyo: sin tocar nada, cada tema conserva su
+ * texto; en cuanto el estudio escribe uno, manda el suyo en todas.
+ */
+export const CAMPOS_SALUDO = [
+  {
+    tipo: 'texto', id: 'fraseSinClase', etiqueta: 'Frase cuando no tiene clase hoy',
+    porDefecto: 'Tu sitio sigue aquí.', maxLargo: 60,
+  },
+  {
+    tipo: 'texto', id: 'fraseConClase', etiqueta: 'Frase cuando sí tiene clase hoy',
+    porDefecto: '', maxLargo: 60,
+    ayuda: 'Vacío = la frase que traiga tu tema.',
+  },
+] as const satisfies readonly CampoSchema[];
+
+/**
+ * La tarjeta grande. Un solo componente con SEIS situaciones; el diseño solo
+ * dibuja la primera, las demás cambian el texto y el destino.
+ *
+ * Están las seis a propósito: son la voz con la que el estudio habla a una
+ * socia que no viene, a la que se le acaba el bono o a la que está a punto de
+ * perder su racha. Era la misma para todos los estudios.
+ *
+ * Lo que NO se expone es lo que sale de los datos (el nombre de la clase, la
+ * hora, "Racha de N semanas"): un campo ahí sería un control que no mueve
+ * nada, o peor, que borra un dato real.
+ */
+export const CAMPOS_TARJETA_PRINCIPAL = [
+  // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
+  // propia vista previa.
+  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Sin clases · Etiqueta', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
+  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Sin clases · Titular', porDefecto: 'Empieza por aquí', maxLargo: 50 },
+  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Sin clases · Texto', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
+  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Sin clases · Botón', porDefecto: 'Ver la agenda', maxLargo: 30 },
+  // Con próxima clase — titular y detalles salen de la reserva.
+  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Próxima clase · Etiqueta', porDefecto: 'Tu próxima clase', maxLargo: 40 },
+  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Próxima clase · Botón', porDefecto: 'Ver mi acceso', maxLargo: 30 },
+  // Se le acaba el bono.
+  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Bono acabándose · Etiqueta', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
+  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Bono acabándose · Titular', porDefecto: 'Te queda una sesión', maxLargo: 50 },
+  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Bono acabándose · Texto', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
+  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Bono acabándose · Botón', porDefecto: 'Renovar mi bono', maxLargo: 30 },
+  // Racha en riesgo — la etiqueta lleva el número de semanas, no se toca.
+  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Racha en riesgo · Titular', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
+  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Racha en riesgo · Texto', porDefecto: 'Reserva esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Racha en riesgo · Botón', porDefecto: 'Buscar mi clase', maxLargo: 30 },
+  // Lleva tiempo sin venir — la etiqueta lleva los días, no se toca.
+  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Sin venir · Titular', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
+  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Sin venir · Texto', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Sin venir · Botón', porDefecto: 'Volver a reservar', maxLargo: 30 },
+] as const satisfies readonly CampoSchema[];
+
 export const CAMPOS_ESTA_SEMANA = [
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Esta semana', maxLargo: 40 },
   {
@@ -430,6 +518,14 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   // existen siempre. Los `nombre` son los de siempre, con sus paréntesis
   // explicativos: describen lo que la propietaria ve en pantalla, y hay e2e
   // que buscan por ese texto exacto.
+  saludo: {
+    id: 'sistema', sistemaId: 'saludo', nombre: 'Saludo',
+    icono: 'Hand', origen: 'sistema', estilizable: false, campos: CAMPOS_SALUDO,
+  },
+  tarjetaPrincipal: {
+    id: 'sistema', sistemaId: 'tarjetaPrincipal', nombre: 'Tarjeta principal',
+    icono: 'Square', origen: 'sistema', estilizable: false, campos: CAMPOS_TARJETA_PRINCIPAL,
+  },
   estaSemana: {
     id: 'sistema', sistemaId: 'estaSemana', nombre: 'Esta semana',
     icono: 'CalendarDays', origen: 'sistema', estilizable: false, campos: CAMPOS_ESTA_SEMANA,
