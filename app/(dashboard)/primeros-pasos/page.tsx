@@ -164,11 +164,8 @@ export default function PrimerosPasosPage() {
       <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
         <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 pb-1">Ya en marcha, para cuando quieras mirarlas</p>
         {enlaces.map(e => (
-          <Link key={e.id} href={e.href} className="flex items-center justify-between gap-3 text-[13px] text-foreground hover:bg-muted rounded-xl px-3 py-2.5 transition-colors">
-            <span className="min-w-0">
-              <span className="font-medium">{e.label}</span>
-              <span className="text-muted-foreground"> — {e.descripcion}</span>
-            </span>
+          <Link key={e.id} href={e.href} title={e.descripcion} className="flex items-center justify-between gap-3 text-[13px] font-medium text-foreground hover:bg-muted rounded-xl px-3 py-2.5 transition-colors">
+            {e.label}
             <ArrowRight size={14} className="text-muted-foreground shrink-0" />
           </Link>
         ))}
@@ -194,32 +191,31 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
     prevRef.current = completados;
   }, [completados, total]);
 
+  const ilustracion = ILUSTRACIONES_CATEGORIA[categoria.id];
+
   return (
     <Collapsible open={abierta} onOpenChange={setAbierta} className="rounded-2xl border border-border bg-card overflow-hidden">
-      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors">
-        <span className="flex items-center gap-3">
-          <span className={cn(
-            'flex size-8 items-center justify-center rounded-lg shrink-0',
-            completados === total ? 'bg-brand-secondary/15 text-brand-secondary' : 'bg-brand/10 text-brand-secondary',
-            recienCompletada && 'animate-in zoom-in-50 duration-300',
-          )}>
-            <Icono size={16} />
+      <CollapsibleTrigger className="flex w-full items-center gap-4 p-4 hover:bg-muted/50 transition-colors">
+        {ilustracion ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ilustracion} alt="" className={cn('w-16 h-16 object-contain shrink-0', recienCompletada && 'animate-in zoom-in-50 duration-300')} />
+        ) : (
+          <span className={cn('flex size-16 items-center justify-center rounded-xl shrink-0', 'bg-brand/10 text-brand-secondary')}>
+            <Icono size={24} />
           </span>
-          <span className="text-[14px] font-semibold text-foreground">{categoria.label}</span>
-          {recienCompletada && (
-            <span className="text-[11px] font-semibold text-brand-secondary animate-in fade-in-0 slide-in-from-left-1 duration-300">
-              ¡Completada!
-            </span>
-          )}
+        )}
+        <span className="flex-1 min-w-0 text-left">
+          <span className="flex items-center gap-2">
+            <span className="text-[15px] font-semibold text-foreground">{categoria.label}</span>
+            {recienCompletada && (
+              <span className="text-[11px] font-semibold text-brand-secondary animate-in fade-in-0 slide-in-from-left-1 duration-300">
+                ¡Completada!
+              </span>
+            )}
+          </span>
+          <span className="block text-[12px] text-muted-foreground mt-0.5">{completados} de {total} hechos</span>
         </span>
-        <span className="flex items-center gap-3 shrink-0">
-          {ILUSTRACIONES_CATEGORIA[categoria.id] && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={ILUSTRACIONES_CATEGORIA[categoria.id]} alt="" className="hidden sm:block w-[72px] h-14 object-cover rounded-lg" />
-          )}
-          <span className="text-[12px] text-muted-foreground">{completados}/{total}</span>
-          <ChevronDown size={16} className={cn('text-muted-foreground transition-transform', abierta && 'rotate-180')} />
-        </span>
+        <ChevronDown size={18} className={cn('text-muted-foreground transition-transform shrink-0', abierta && 'rotate-180')} />
       </CollapsibleTrigger>
       <CollapsiblePanel>
         <div className="divide-y divide-muted border-t border-border">
@@ -229,24 +225,20 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
               href={paso.href}
               target={paso.externo ? '_blank' : undefined}
               rel={paso.externo ? 'noreferrer' : undefined}
-              className="flex items-start gap-3 px-4 py-3 pl-[52px] hover:bg-muted/50 transition-colors"
+              title={paso.descripcion}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
             >
               {paso.done
-                ? <CheckCircle2 size={18} className="text-brand-secondary shrink-0 mt-[1px]" />
-                : <Circle size={18} className="text-[#D4D4CC] shrink-0 mt-[1px]" />}
-              <span className="min-w-0">
-                <span className={cn('block text-[13px]', paso.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium')}>
-                  {paso.label}
-                </span>
-                {!paso.done && paso.descripcion && (
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
-                    {paso.descripcion}
-                    <span className="inline-flex items-center gap-0.5 shrink-0 ml-1">
-                      <Clock size={10} /> {paso.minutos} min
-                    </span>
-                  </span>
-                )}
+                ? <CheckCircle2 size={18} className="text-brand-secondary shrink-0" />
+                : <Circle size={18} className="text-[#D4D4CC] shrink-0" />}
+              <span className={cn('flex-1 min-w-0 text-[13px]', paso.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium')}>
+                {paso.label}
               </span>
+              {!paso.done && (
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                  <Clock size={10} /> {paso.minutos} min
+                </span>
+              )}
             </Link>
           ))}
         </div>
