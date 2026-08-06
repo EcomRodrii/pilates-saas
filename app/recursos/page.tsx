@@ -37,6 +37,13 @@ type Article = {
 const ARTICLES: Article[] = [
   {
     category: 'rentabilidad',
+    title: 'Qué puedes aprender de los estudios de pilates que más crecen',
+    body: 'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
+    href: '/recursos/estudios-pilates-de-exito',
+    meta: '9 min · ago 2026',
+  },
+  {
+    category: 'rentabilidad',
     title: 'Reformer vs. mat: cómo poner precio a cada clase',
     body: 'Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa.',
     href: '/recursos/precios-reformer-mat',
