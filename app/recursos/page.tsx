@@ -6,6 +6,8 @@ import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { RecursosBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 type Category = 'todos' | 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
 
@@ -92,7 +94,9 @@ const FEATURED = {
 
 export default function RecursosPage() {
   const [cat, setCat] = useState<Category>('todos');
-  const [query, setQuery] = useState('');
+  // Lee ?q= una vez al montar para que el SearchAction del WebSite JSON-LD
+  // (components/OrganizationStructuredData.tsx) sea real, no solo declarado.
+  const [query, setQuery] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('q') ?? ''));
 
   const q = query.trim().toLowerCase();
   const filtered = useMemo(
@@ -104,6 +108,8 @@ export default function RecursosPage() {
 
   return (
     <PageShell>
+      <OrganizationStructuredData />
+      <RecursosBreadcrumb />
       <SiteNav backHref="/recursos" backLabel="Recursos" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { LEGAL } from '@/lib/legal-info';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 // Chrome compartido de las páginas legales públicas (/legal, /privacidad,
 // /terminos, /cookies). Vive bajo el RootLayout (html/body/fuentes/providers),
@@ -16,6 +17,7 @@ const PAGINAS = [
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: '#ffffff', color: '#1a1d21', minHeight: '100vh' }}>
+      <OrganizationStructuredData />
       <header
         style={{
           borderBottom: '1px solid #e4e7ea',
