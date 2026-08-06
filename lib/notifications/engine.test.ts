@@ -207,6 +207,71 @@ test('un evento → varios roles con plantilla distinta (pago fallido)', async (
   assert.equal(owner.priority, 'ALTA');
 });
 
+// ── El desempate por bandeja, cableado de verdad ─────────────────────────────
+// `dedup.test.ts` prueba `claveDedup` en aislamiento, pero quien calcula el set
+// de identidades dobles y se lo pasa es `crearInApp`. Ese cable no lo cubre
+// ningún test unitario: si un refactor dejara de pasar `dobles` (o lo pasara
+// vacío), toda la batería de dedup.test.ts seguiría en verde y el bug volvería
+// entero. Estos dos van por el camino completo, con el fake que simula el 23505.
+
+test('misma cuenta staff+socia: pago fallido crea las DOS filas, no una', async () => {
+  const { admin, notifs } = fakeAdmin();
+  const r = await procesarEvento(admin, {
+    type: EVENTOS.PAGO_FALLIDO, studioId: 'st1',
+    data: { concepto: 'Cuota mensual', importe: 45, socia: 'María Soler', slug: 'mar' },
+    // El mismo userId en los dos: quien es propietaria Y socia del mismo
+    // estudio. El test de arriba usa dos userId DISTINTOS, y por eso pasaba en
+    // verde mientras el bug vivía debajo.
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-dual' },
+      { role: 'SOCIA', userId: 'u-dual', socioId: 's1' },
+    ],
+    dedupKey: 'pago-fallido:rec1',
+  });
+  assert.equal(r.creadas, 2, 'una de las dos bandejas se ha vuelto a quedar sin su fila');
+  assert.equal(r.omitidas, 0);
+  assert.equal(notifs.find(n => n.recipient_role === 'SOCIA')!.title, 'Problema con tu pago');
+});
+
+test('misma cuenta instructora+socia: la clase cancelada llega a sus dos bandejas', async () => {
+  // El otro cruce: `socias-e-instructora-de-la-sesion`. Orden igual que
+  // `recipients.ts` (`[...socias, ...instructora]`), que es lo que hacía que la
+  // fila perdida fuese la de INSTRUCTOR.
+  const { admin, notifs } = fakeAdmin();
+  const r = await procesarEvento(admin, {
+    type: EVENTOS.CLASE_CANCELADA, studioId: 'st1',
+    data: { clase: 'Reformer', cuando: 'lunes a las 9:00', slug: 'mar', sesionId: 'ses1' },
+    recipients: [
+      { role: 'SOCIA', userId: 'u-dual', socioId: 's1' },
+      { role: 'INSTRUCTOR', userId: 'u-dual', instructorId: 'i1' },
+    ],
+    dedupKey: 'clase-cancelada:ses1',
+  });
+  assert.equal(r.creadas, 2);
+  const instructora = notifs.find(n => n.recipient_role === 'INSTRUCTOR');
+  assert.ok(instructora, 'sin esta fila, quien imparte no se entera de que su clase se cae');
+  assert.equal(instructora.title, 'Se ha cancelado tu clase');
+});
+
+test('mostrador con dos roles de la misma cuenta: UNA sola fila, no dos', async () => {
+  // El reverso: `mostrador` resuelve por dos vías (propietaria + recepcionistas),
+  // así que la dueña con ficha de RECEPCION llega dos veces. Las dos se leen en
+  // la MISMA campana → deduplicar es lo correcto. Esto es lo que se habría roto
+  // desempatando por el rol crudo en vez de por bandeja.
+  const { admin, notifs } = fakeAdmin();
+  const r = await procesarEvento(admin, {
+    type: EVENTOS.RESERVA_PENDIENTE_APROBACION, studioId: 'st1',
+    data: { socia: 'María', clase: 'Mat', cuando: 'hoy', sesionId: 'ses1' },
+    recipients: [
+      { role: 'PROPIETARIO', userId: 'u-dual' },
+      { role: 'RECEPCION', userId: 'u-dual', instructorId: 'i1' },
+    ],
+    dedupKey: 'reserva-pendiente:ses1:s1',
+  });
+  assert.equal(r.creadas, 1, 'la misma persona no debe recibir dos veces el mismo aviso');
+  assert.equal(notifs.length, 1);
+});
+
 test('destinatario sin cuenta: in-app se omite (no puede iniciar sesión)', async () => {
   const { admin, deliveries } = fakeAdmin();
   const event: NotificationEvent = {

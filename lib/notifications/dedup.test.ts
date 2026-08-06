@@ -64,6 +64,39 @@ test('sin colisión, la clave es EXACTAMENTE la de antes del arreglo', () => {
   );
 });
 
+test('la instructora con plaza en su propia clase se entera por las dos vías', () => {
+  // El OTRO cruce de frontera, además de `mostrador-y-socia`:
+  // `socias-e-instructora-de-la-sesion` (clase.cancelada / clase.modificada).
+  // Aquí la que se perdía era la de INSTRUCTOR, no la de socia — `recipients.ts`
+  // devuelve `[...socias, ...instructora]`, así que la fila de socia entra
+  // primero y la de quien imparte se comía el 23505. Resultado: su clase se
+  // cancelaba y en el panel no aparecía el "no hace falta que vayas".
+  for (const base of ['clase-cancelada:ses-1', 'clase-modificada:ses-1:lunes:Sala A:']) {
+    const dests = [
+      dest('SOCIA', { socioId: 'soc-1' }),        // primero, como en recipients.ts
+      dest('INSTRUCTOR', { instructorId: 'ins-1' }),
+    ];
+    const dobles = identidadesEnDosBandejas(dests);
+    const claves = dests.map(d => claveDedup(base, d, dobles));
+    assert.equal(new Set(claves).size, 2, `${base}: la fila de INSTRUCTOR vuelve a perderse`);
+  }
+});
+
+test('esa instructora sin cuenta no necesita desempate: ya son identidades distintas', () => {
+  // `instructoraDeSesion` descarta a quien no tiene cuenta, pero la socia SÍ se
+  // resuelve sin ella (su fila ancla los canales externos). Si el mismo evento
+  // trae a las dos y la socia va por socioId, no hay identidad compartida y la
+  // clave se queda como estaba — nada que desempatar.
+  const dests = [
+    dest('SOCIA', { userId: null, socioId: 'soc-1' }),
+    dest('INSTRUCTOR', { instructorId: 'ins-1' }),
+  ];
+  const dobles = identidadesEnDosBandejas(dests);
+  assert.equal(dobles.size, 0);
+  assert.equal(claveDedup('clase-cancelada:ses-1', dests[0], dobles), 'clase-cancelada:ses-1:soc-1');
+  assert.equal(claveDedup('clase-cancelada:ses-1', dests[1], dobles), `clase-cancelada:ses-1:${UID}`);
+});
+
 test('identidadesEnDosBandejas solo señala a quien está en las dos', () => {
   const dobles = identidadesEnDosBandejas([
     dest('PROPIETARIO'),                                    // dual
