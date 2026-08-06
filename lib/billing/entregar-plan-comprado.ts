@@ -174,5 +174,31 @@ export async function entregarPlanComprado(
     return { ok: false, motivo: 'error', detalle: errRec.message };
   }
 
+  // Snapshot de la entrega, en un UPDATE aparte y best-effort A PROPÓSITO.
+  //
+  // Aquí es el caso limpio: la suscripción NO existía antes de esta compra, así
+  // que "antes" es la nada y revertir es exacto (`sesiones_restantes: 0`,
+  // `estado: CANCELADA`).
+  //
+  // ⚠️ Va FUERA del insert de arriba, y no dentro, para que el orden de
+  // despliegue no pueda romper una entrega: si el código sale antes que la
+  // migración que crea estas columnas, un insert que las incluyera fallaría
+  // ENTERO → el webhook devolvería 500, Stripe reintentaría, y el bono no se
+  // entregaría nunca con el dinero ya cobrado. Así, lo peor que pasa es quedarse
+  // sin snapshot (que se lee como "no lo sé" y simplemente no ofrece revertir).
+  const { error: errEntrega } = await admin.from('recibos').update({
+    entrega_tipo: 'ALTA_WEB',
+    entrega_aplicada: true,
+    entrega_aplicada_en: ahora,
+    entrega_sesiones_antes: null,
+    entrega_sesiones_despues: plan.sesiones ?? null,
+    entrega_fecha_fin_antes: null,
+    entrega_fecha_fin_despues: fechaFin,
+    entrega_estado_antes: null,
+  }).eq('id', ids.reciboId).eq('studio_id', compra.studioId);
+  if (errEntrega) {
+    console.error('[entregarPlanComprado] sin snapshot de entrega:', errEntrega.message);
+  }
+
   return { ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada };
 }

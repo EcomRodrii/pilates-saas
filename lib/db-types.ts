@@ -430,6 +430,17 @@ export interface RowRecibos {
   metodo_cobro: string | null;
   sepa_estado: string | null;
   proximo_reintento: string | null;
+  // Snapshot de la entrega (ver migr 20260806160000). NULL en entrega_aplicada
+  // = "no se sabe", distinto de false = "se evaluó y no cambió nada".
+  entrega_tipo: string | null;
+  entrega_aplicada: boolean | null;
+  entrega_aplicada_en: string | null;
+  entrega_sesiones_antes: number | null;
+  entrega_sesiones_despues: number | null;
+  entrega_fecha_fin_antes: string | null;
+  entrega_fecha_fin_despues: string | null;
+  entrega_estado_antes: string | null;
+  importe_devuelto: number | null;
 }
 
 export interface RowPenalizaciones {

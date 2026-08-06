@@ -14,6 +14,7 @@ import {
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
+  dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
@@ -2829,9 +2830,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         creadaEn: new Date().toISOString(),
       }, ...prev]);
     };
-    if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
+    // Se guarda QUÉ entregó este cobro (ver `dbGuardarEntrega` y la migración
+    // 20260806160000). Sin esto, si el dinero se devuelve no hay forma de saber
+    // qué habría que deshacer. Es best-effort: un fallo aquí no puede tumbar una
+    // renovación ya aplicada, solo deja el recibo sin snapshot ("no lo sé").
+    const anotarEntrega = (e: Parameters<typeof dbGuardarEntrega>[1]) =>
+      void dbGuardarEntrega(recibo.id, e);
+
+    if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') {
+      if (sus.sesionesRestantes !== 0) {
+        anotarEntrega({
+          tipo: 'BONO', aplicada: false,
+          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+          fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
+          estadoAntes: sus.estado ?? null,
+        });
+        return;
+      }
       const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
       if (!res.ok) { avisarFallo(res.error); return; }
+      anotarEntrega({
+        tipo: 'BONO', aplicada: true,
+        sesionesAntes: 0, sesionesDespues: plan.sesiones ?? null,
+        // Esta rama no toca fechaFin: antes y después iguales, o la
+        // comprobación de interferencia daría un falso positivo.
+        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
+        estadoAntes: sus.estado ?? null,
+      });
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
       ));
@@ -2839,8 +2864,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const nuevaFin = new Date();
       nuevaFin.setMonth(nuevaFin.getMonth() + 1);
       const fechaFin = nuevaFin.toISOString().slice(0, 10);
+      // ⚠️ Este guard FALTABA aquí, y sí está en el espejo de servidor
+      // (`renovacion-server.ts`). Sin él, cobrar una renovación de una
+      // suscripción cuya fecha_fin estaba MÁS LEJOS se la ACORTABA: la socia
+      // pagaba y perdía días. Y de paso, sin el guard el snapshot habría
+      // registrado como entrega algo que en realidad quitó tiempo.
+      if (sus.fechaFin && sus.fechaFin >= fechaFin) {
+        anotarEntrega({
+          tipo: 'MENSUAL', aplicada: false,
+          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+          fechaFinAntes: sus.fechaFin, fechaFinDespues: sus.fechaFin,
+          estadoAntes: sus.estado ?? null,
+        });
+        return;
+      }
       const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
       if (!res.ok) { avisarFallo(res.error); return; }
+      anotarEntrega({
+        tipo: 'MENSUAL', aplicada: true,
+        sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: fechaFin,
+        estadoAntes: sus.estado ?? null,
+      });
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
       ));
@@ -3009,9 +3054,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setFacturas(prev => [...prev, ...nuevasFacturas]);
       for (const fac of nuevasFacturas) void sellarFacturaYActualizar(fac);
     }
-    // Refill bonos / extend mensual for every recibo being paid
+    // Refill de bonos / extensión del mensual de cada recibo cobrado.
+    //
+    // ⚠️ EN SERIE y con `await`. Sin él, dos recibos MENSUALES de la MISMA
+    // suscripción cobrados a la vez leían los dos la misma `fechaFin` y ambos
+    // escribían hoy+1mes: la socia pagaba dos meses y recibía uno. Además ahora
+    // cada pasada escribe el snapshot de la entrega, y concurrentes se pisarían
+    // entre sí dejando un registro que no describe lo que pasó.
     for (const recibo of cobradosAhora) {
-      aplicarRenovacionSuscripcion(recibo);
+      await aplicarRenovacionSuscripcion(recibo);
     }
     return res;
   }
