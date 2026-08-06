@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/db/supabase';
+import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
 
 // Fotos de perfil de socias — bucket público "avatars" en Supabase Storage.
 // Se sobrescribe siempre el mismo path (sin extensión) para no tener que
@@ -38,9 +39,10 @@ export function validarFotoPerfil(file: File): string | null {
 }
 
 export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(socioId, file, { upsert: true, contentType: file.type });
+    .upload(socioId, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -60,9 +62,10 @@ export async function eliminarFotoPerfil(socioId: string): Promise<{ ok: true } 
 // path con prefijo distinto para no colisionar con IDs de socias.
 export async function subirFotoClase(tipoClaseId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `clase-${tipoClaseId}`;
+  const img = await redimensionarImagen(file, LADO_FOTO_CLASE);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -85,9 +88,12 @@ export async function subirBannerEstudio(bannerId: string, file: File): Promise<
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };
   const path = `banner-${bannerId}`;
+  // La validación de arriba mira el fichero ORIGINAL a propósito: el límite es
+  // un contrato con quien sube, no algo que debamos esquivar encogiendo después.
+  const img = await redimensionarImagen(file, LADO_BANNER);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -105,9 +111,10 @@ export async function eliminarBannerEstudio(bannerId: string): Promise<{ ok: tru
 // para no colisionar con el path de socias (que no llevan prefijo).
 export async function subirFotoAdmin(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `admin-${studioId}`;
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -124,9 +131,10 @@ export async function eliminarFotoAdmin(studioId: string): Promise<{ ok: true } 
 // Foto de perfil de instructora — mismo bucket público, prefijo propio.
 export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `instructor-${instructorId}`;
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -142,6 +150,12 @@ export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok
 
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
 // en el portal público de reservas cuando existe.
+//
+// ⚠️ SIN redimensionar, a diferencia de las cinco funciones de foto de arriba.
+// No es un olvido: `validarImagenMarca` admite SVG e ICO, y pasar un SVG por
+// canvas lo rasteriza — se perdería el vector justo en el activo que más
+// necesita escalar bien. Un logo tampoco tiene el problema de tamaño de las
+// fotos de móvil: ya está acotado a 2 MB (y el favicon a 512 KB).
 export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };
