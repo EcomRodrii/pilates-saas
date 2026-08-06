@@ -70,6 +70,24 @@ async function entregarCanales(
 // notificaciones que YA existen (las creó publish() de forma síncrona).
 // Recalcula los canales desde la regla + las preferencias del destinatario, así
 // que no hace falta transportarlos en el evento.
+// PostgREST mete los valores de `.in()` en la URL como query string. Un aviso a
+// todo un estudio genera una notificación por destinatario, así que la lista
+// puede ser de cientos de UUID: a ~37 bytes cada uno, 300 ids son ~11 KB de URL
+// y muchos servidores/proxies cortan en 8 KB — un 414 que el bucle original,
+// al ir de uno en uno, no podía provocar nunca. Se trocea para que el tamaño de
+// la tanda no pueda romper nada.
+const IDS_POR_CONSULTA = 100;
+
+async function enLotes<T>(ids: string[], consulta: (lote: string[]) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  if (ids.length === 0) return [];
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += IDS_POR_CONSULTA) {
+    const { data } = await consulta(ids.slice(i, i + IDS_POR_CONSULTA));
+    if (data) out.push(...data);
+  }
+  return out;
+}
+
 export async function entregarExternos(
   admin: SupabaseClient, notificationIds: string[],
 ): Promise<{ entregadas: number; deliveries: number }> {
@@ -82,17 +100,17 @@ export async function entregarExternos(
   const ids = [...new Set(notificationIds)];
   if (ids.length === 0) return { entregadas: 0, deliveries: 0 };
 
-  const [{ data: notis }, { data: previos }] = await Promise.all([
-    admin.from('notification').select('*').in('id', ids),
-    // Misma guarda de siempre, en una sola consulta: si una notificación ya
-    // tiene algún delivery que no sea INAPP, no se repite. La ruta es pública
-    // para el propio servidor y `publish()` podría llamarla dos veces por el
-    // mismo hecho; esto es lo que evita el push duplicado.
-    admin.from('notification_delivery')
-      .select('notification_id').in('notification_id', ids).neq('channel', 'INAPP'),
+  const [notis, previos] = await Promise.all([
+    enLotes<Record<string, unknown>>(ids, lote => admin.from('notification').select('*').in('id', lote)),
+    // Misma guarda de siempre: si una notificación ya tiene algún delivery que
+    // no sea INAPP, no se repite. La ruta es pública para el propio servidor y
+    // `publish()` podría llamarla dos veces por el mismo hecho; esto es lo que
+    // evita el push duplicado.
+    enLotes<Record<string, unknown>>(ids, lote => admin.from('notification_delivery')
+      .select('notification_id').in('notification_id', lote).neq('channel', 'INAPP')),
   ]);
 
-  const yaEntregadas = new Set((previos ?? []).map(p => p.notification_id as string));
+  const yaEntregadas = new Set(previos.map(p => p.notification_id as string));
   const orden = new Map(ids.map((id, i) => [id, i]));
   const pendientes = (notis ?? [])
     .filter(n => REGLAS[n.event_type as string] && !yaEntregadas.has(n.id as string))
@@ -110,31 +128,30 @@ export async function entregarExternos(
   const userIds = unicos(pendientes.map(n => n.recipient_user_id as string | null));
   const categorias = unicos(pendientes.map(n => REGLAS[n.event_type as string]?.category));
 
-  const vacio = { data: [] as Record<string, unknown>[] };
-  const [socRes, insRes, stRes, prefRes] = await Promise.all([
-    socioIds.length ? admin.from('socios').select('id, email, telefono').in('id', socioIds) : vacio,
-    instructorIds.length ? admin.from('instructores').select('id, email').in('id', instructorIds) : vacio,
-    studioIds.length ? admin.from('studios').select('id, email, telefono').in('id', studioIds) : vacio,
-    userIds.length && categorias.length
-      ? admin.from('notification_preference')
-          .select('user_id, category, inapp, push, email, whatsapp, sms')
-          .in('user_id', userIds).in('category', categorias)
-      : vacio,
+  type Fila = Record<string, unknown>;
+  const [socFilas, insFilas, stFilas, prefFilas] = await Promise.all([
+    enLotes<Fila>(socioIds, lote => admin.from('socios').select('id, email, telefono').in('id', lote)),
+    enLotes<Fila>(instructorIds, lote => admin.from('instructores').select('id, email').in('id', lote)),
+    enLotes<Fila>(studioIds, lote => admin.from('studios').select('id, email, telefono').in('id', lote)),
+    // `categorias` está acotado por el catálogo de reglas, no por el tamaño de
+    // la tanda: solo se trocean los user_id.
+    enLotes<Fila>(userIds, lote => admin.from('notification_preference')
+      .select('user_id, category, inapp, push, email, whatsapp, sms')
+      .in('user_id', lote).in('category', categorias)),
   ]);
 
-  const porId = (filas: Record<string, unknown>[] | null) =>
-    new Map((filas ?? []).map(r => [r.id as string, r]));
-  const socios = porId(socRes.data), instructores = porId(insRes.data), studios = porId(stRes.data);
-  const prefs = new Map((prefRes.data ?? []).map(p => [`${p.user_id}|${p.category}`, p]));
+  const porId = (filas: Fila[]) => new Map(filas.map(r => [r.id as string, r]));
+  const socios = porId(socFilas), instructores = porId(insFilas), studios = porId(stFilas);
+  const prefs = new Map(prefFilas.map(p => [`${p.user_id}|${p.category}`, p]));
 
   let entregadas = 0, deliveries = 0;
   for (const noti of pendientes) {
     const regla = REGLAS[noti.event_type as string];
     const dest: Recipient = {
-      role: noti.recipient_role,
-      userId: noti.recipient_user_id,
-      socioId: noti.recipient_socio_id,
-      instructorId: noti.recipient_instructor_id,
+      role: noti.recipient_role as Recipient['role'],
+      userId: noti.recipient_user_id as string | null,
+      socioId: noti.recipient_socio_id as string | null,
+      instructorId: noti.recipient_instructor_id as string | null,
     };
     // Email/teléfono para los canales externos (la fila no los guarda).
     if (dest.socioId) {
