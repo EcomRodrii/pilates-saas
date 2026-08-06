@@ -4,8 +4,8 @@
 //
 // Sustituye a la categoría "Tema" que vivía dentro del editor (una rejilla de
 // botones con solo el nombre y una frase): un tema se elige mirándolo, no
-// leyéndolo, así que aquí cada uno se ve pintado (ThemeThumb) antes de
-// instalarlo. El afinado campo a campo sigue viviendo en el editor
+// leyéndolo, así que aquí cada uno se ve pintado (ThemeThumbVivo: el portal de
+// verdad en pequeño, no un dibujo) antes de instalarlo. El afinado campo a campo sigue viviendo en el editor
 // (/configuracion/apariencia/editor), al que se llega con "Personalizar".
 //
 // Instalar un tema NO publica: vuelca sus `defaults` en el BORRADOR (mismo
@@ -20,9 +20,9 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
-import { ThemeThumb } from './theme-thumb';
+import { ThemeThumbVivo } from './theme-thumb-vivo';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
-import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi } from '@/lib/api-client';
+import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
@@ -109,11 +109,23 @@ export function ThemeLibrary() {
   const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste } = hook;
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [instalando, setInstalando] = useState<string | null>(null);
+  // El token de la vista previa se pide UNA vez y lo comparten las seis
+  // miniaturas: es del estudio, no del tema. Era la mitad de la objeción que
+  // el dibujo a mano documentaba contra usar iframes aquí.
+  const [tokenPreview, setTokenPreview] = useState<string | null>(null);
+  // Los bloques del Inicio que el estudio tiene AHORA — la base sobre la que
+  // cada tema siembra los suyos para la miniatura.
+  const [bloquesActuales, setBloquesActuales] = useState<BloqueHome[] | null>(null);
   const [errorInstalar, setErrorInstalar] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
     fetchThemePublicado().then((t) => { if (vivo) setPublicado(t); }).catch(() => {});
+    // Un token para todas las miniaturas, y los bloques de partida. Si algo de
+    // esto falla, las miniaturas se quedan en su hueco gris: la biblioteca
+    // sigue siendo usable (nombre, descripción, colores, Usar/Personalizar).
+    fetchHomePreviewToken().then((t) => { if (vivo) setTokenPreview(t); }).catch(() => {});
+    fetchBloquesBorrador('home').then((b) => { if (vivo) setBloquesActuales(b); }).catch(() => {});
     return () => { vivo = false; };
   }, []);
 
@@ -165,6 +177,9 @@ export function ThemeLibrary() {
         await guardarBloquesBorradorApi('home', sembrarBloquesHome(actuales, def.bloquesHome));
       }
       elegirTema(def); // refleja en pantalla lo que ya está guardado
+      // La base de las miniaturas acaba de cambiar: sin esto seguirían
+      // sembrando sobre los bloques de antes de instalar.
+      fetchBloquesBorrador('home').then(setBloquesActuales).catch(() => {});
       if (irAlEditor) router.push(RUTA_EDITOR);
     } catch (e) {
       setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
@@ -202,7 +217,11 @@ export function ThemeLibrary() {
         <h2 className="text-[15px] font-bold text-foreground">Tu tema</h2>
         <Card className="p-4">
           <div className="flex gap-4 items-start">
-            <ThemeThumb config={draft} ancho={96} />
+            <ThemeThumbVivo
+              config={draft} bloques={bloquesActuales}
+              slug={hook.studio?.slug ?? null} token={tokenPreview}
+              ancho={96} etiqueta={definicion?.label ?? 'tu tema'}
+            />
             <div className="flex-1 min-w-0 space-y-2.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[15px] font-bold text-foreground">
@@ -284,7 +303,17 @@ export function ThemeLibrary() {
                 data-tema={def.id}
                 className={`flex gap-4 items-center p-4 hover:bg-muted/40 transition-colors ${i > 0 ? 'border-t border-border' : ''}`}
               >
-                <ThemeThumb config={config} ancho={96} />
+                {/* Los bloques que dejaría ESTE tema al instalarse — misma
+                    función que usa `instalar()`, así que la miniatura enseña
+                    exactamente lo que va a pasar al pulsar "Usar". */}
+                <ThemeThumbVivo
+                  config={config}
+                  bloques={bloquesActuales && def.bloquesHome?.length
+                    ? sembrarBloquesHome(bloquesActuales, def.bloquesHome)
+                    : bloquesActuales}
+                  slug={hook.studio?.slug ?? null} token={tokenPreview}
+                  ancho={96} etiqueta={def.label}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[14px] font-bold text-foreground">{def.label}</span>

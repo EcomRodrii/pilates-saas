@@ -74,6 +74,18 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     }
     return json(route, bloquesHomeActuales);
   });
+  // Las miniaturas son iframes del portal real y necesitan token. Sin este
+  // mock caen en el `**/api/**` genérico, que devuelve `{}` — y sin token la
+  // miniatura pinta su hueco gris, que es justo lo que NO se quiere probar.
+  await page.route('**/api/theme/home-preview-token**', route => json(route, { token: 'token-e2e' }));
+  // Y el contenido de las miniaturas se stubea: seis iframes renderizando el
+  // portal de verdad contra `next dev` atascan la página entera — tumbaba
+  // incluso el test de navegación de "Personalizar", que no toca miniaturas.
+  // Lo que se prueba aquí es el ARMAZÓN (que hay un iframe por fila, al portal
+  // de ese estudio y sin interacción); que el portal renderice bien es cosa de
+  // los e2e del portal.
+  await page.route('**/portal-preview/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>preview</body></html>' }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
@@ -89,6 +101,26 @@ function filaTema(page: Page, id: string) {
 }
 
 test.describe('Biblioteca de temas', () => {
+  // La miniatura pasa a ser el portal REAL en pequeño (ThemeThumbVivo), no un
+  // dibujo a mano. El dibujo reflejaba color, accesos y barra — pero NO la
+  // cabecera, ni la tarjeta principal, ni `bloquesHome`, que es justo lo que
+  // separa un tema de una paleta.
+  test('cada tema enseña el portal de verdad, con los bloques que ESE tema dejaría', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    // Un iframe por fila, apuntando al portal real del estudio.
+    // La miniatura no se monta hasta que se ve (IntersectionObserver): sin
+    // acercar la fila, el test comprueba un iframe que a propósito no existe.
+    await filaTema(page, 'oliva').scrollIntoViewIfNeeded();
+    const marcoOliva = filaTema(page, 'oliva').locator('iframe');
+    await expect(marcoOliva).toHaveCount(1);
+    await expect(marcoOliva).toHaveAttribute('src', /\/portal-preview\/studio-carmen/);
+
+    // No se navega dentro de una miniatura de 96 px.
+    await expect(marcoOliva).toHaveCSS('pointer-events', 'none');
+  });
+
   test('lista los temas de la galería, con el activo marcado "En uso"', async ({ page }) => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
