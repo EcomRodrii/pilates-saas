@@ -1,4 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -3861,6 +3862,47 @@ export function mapInstructor(r: RowInstructores): Instructor {
 // mapInstructor() se usaba ahí directamente y sí la llevaba (el mismo mapper
 // que alimenta el panel interno, nunca pensado para salir del estudio).
 
+// Cuántas de las consultas del arranque se resuelven a la vez.
+//
+// POR QUÉ NO TODAS DE GOLPE. `Promise.all` sobre las ~53 consultas lanzaba un
+// abanico de 55 peticiones simultáneas desde el navegador. Medido en producción
+// con la Resource Timing API sobre el dashboard real: una consulta SOLA tarda
+// 107-117 ms, y dentro de ese abanico la mediana sube a 1.452 ms — un factor
+// ~13. No son consultas lentas: se estorban entre ellas. La ventana completa
+// era de 9,4 s.
+//
+// Es el MISMO hallazgo que ya está documentado en backup-engine.ts
+// (`TABLAS_A_LA_VEZ = 8`): «52 consultas simultáneas multiplican por ~19 lo que
+// tarda cada una por separado». Aquel lo aprendió para los backups; al arranque
+// del panel, que es la pantalla que abre todo el mundo, nunca llegó.
+//
+// Ni 1 (serían ~53 viajes en serie) ni 53. Se usa el mismo 8 ya medido en este
+// proyecto contra esta misma base de datos.
+const CONSULTAS_A_LA_VEZ = 8;
+
+/**
+ * Resuelve una lista de consultas con un límite de concurrencia, devolviendo
+ * una TUPLA con la misma forma que `Promise.all` — el desestructurado
+ * posicional de abajo (53 posiciones) depende de eso, y un `T[]` genérico
+ * colapsaría los tipos a una unión.
+ *
+ * Funciona porque los builders de supabase-js son PEREZOSOS: `db.from(...)
+ * .select(...)` no dispara ninguna petición hasta que se espera — el `fetch`
+ * vive dentro de `then()` (PostgrestBuilder). Verificado en el fuente de
+ * @supabase/postgrest-js 2.110.2 antes de escribir esto. Por eso se puede
+ * construir la lista entera y resolverla por tandas sin tocar ni una consulta.
+ */
+async function enTandas<T extends readonly unknown[] | []>(
+  consultas: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  const res = await mapLimit(
+    consultas as unknown as unknown[],
+    CONSULTAS_A_LA_VEZ,
+    (q) => Promise.resolve(q),
+  );
+  return res as { -readonly [P in keyof T]: Awaited<T[P]> };
+}
+
 export async function fetchCriticalStudioData(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
   // Decision-OS / crons: esta carga la invoca también código de SERVIDOR sin
@@ -3932,7 +3974,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
     // memoria, no la consulta.
     planTiposClaseRes,
-  ] = await Promise.all([
+  ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -4093,7 +4135,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     challengeHistoryRes,
     notasProgresoRes,
     backupsRes,
-  ] = await Promise.all([
+  ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
     // fetch). Se cargan acotados a los más recientes en vez de años de filas.
@@ -4220,6 +4262,8 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 
 
 export async function fetchAllStudioData(studioId?: string) {
+  // Aquí sí `Promise.all`: estos dos elementos ya son llamadas INVOCADAS (no
+  // builders perezosos), así que arrancan igual. Cada una limita por dentro.
   const [critical, deferred] = await Promise.all([
     fetchCriticalStudioData(studioId),
     fetchDeferredStudioData(studioId),
