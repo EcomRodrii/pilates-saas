@@ -2,7 +2,7 @@
 
 import { PortalHomeView } from './portal-home-view';
 import { SESION_MUESTRA } from '@/lib/theme/preview-sesion-muestra';
-import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado } from './portal-preview-bridge';
+import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado, usePreviewMedidas } from './portal-preview-bridge';
 
 // Sesión de muestra: esta ruta nunca tiene una socia real (ver
 // app/portal-preview/[slug]/layout.tsx, sin PortalAuthProvider). Sin
@@ -17,6 +17,8 @@ import { usePreviewBloques, usePreviewClickToSelect, usePreviewResaltado } from 
 export function PortalPreviewHomeClient() {
   const { bloques, seleccionId, modo } = usePreviewBloques('home');
   usePreviewClickToSelect(modo);
+  // Solo en modo edición: navegando, el overlay del padre no se pinta.
+  usePreviewMedidas(modo === 'editar');
   usePreviewResaltado(seleccionId);
   // `escribible={false}`: el preview corre en un iframe del MISMO origen, así
   // que comparte localStorage con /portal/[slug]. Si la propietaria entró
