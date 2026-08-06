@@ -43,7 +43,33 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
 const COMPRA: CompraPlan = {
   sessionId: 'cs_test_abc123def456ghi789', studioId: 'studio-1', planId: 'plan-1',
   socioId: null, email: 'nueva@example.com', nombre: 'María Soler',
+  // Lo que Stripe cobró de verdad. Igual al precio del plan salvo en el test
+  // que comprueba precisamente que mandan los céntimos cobrados.
+  importeCobradoCentimos: 13000,
 };
+
+test('el recibo registra lo COBRADO, no el precio del plan releído ahora', async () => {
+  // Entre abrir el checkout y llegar el webhook, el estudio puede subir el
+  // precio. Antes se registraba el precio de catálogo del momento del webhook:
+  // la socia pagaba 20 € y quedaba un recibo COBRADO de 65 €, y sobre ese
+  // importe se calculaban la factura y los ingresos.
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente', importeCobradoCentimos: 2000,
+  });
+
+  assert.equal(r.ok, true);
+  assert.equal(insertado.recibos[0].importe, 20, 'debe registrar los 20 € cobrados');
+});
+
+test('sin importe cobrado se cae al precio del plan (comportamiento de siempre)', async () => {
+  const { admin, insertado } = fakeAdmin();
+  await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente', importeCobradoCentimos: null,
+  });
+
+  assert.equal(insertado.recibos[0].importe, 130, 'el precio del plan del fake');
+});
 
 test('una compra entrega bono Y recibo cobrado, no solo cobra', async () => {
   const { admin, insertado } = fakeAdmin();

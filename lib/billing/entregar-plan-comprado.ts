@@ -27,6 +27,19 @@ export interface CompraPlan {
   email: string | null;
   /** Nombre que puso en Stripe, si lo puso. */
   nombre: string | null;
+  /**
+   * Lo que Stripe cobró DE VERDAD, en céntimos (`session.amount_total`).
+   *
+   * El recibo se registraba con `plan.precio`, releído en el momento del
+   * webhook: si el estudio cambia el precio mientras la sesión de checkout está
+   * abierta, la socia paga 20 € y queda registrado un recibo COBRADO de 65 €
+   * —y sobre ese importe se calculan la factura y los ingresos—. El camino de
+   * recibo sí valida el importe contra la BD; este no validaba nada.
+   *
+   * `null` = no se sabe (no debería ocurrir en un pago completado); ahí se cae a
+   * `plan.precio`, que es el comportamiento anterior.
+   */
+  importeCobradoCentimos: number | null;
 }
 
 export type ResultadoEntrega =
@@ -70,6 +83,9 @@ export async function entregarPlanComprado(
 
   const ids = idsDe(compra.sessionId);
   const ahora = new Date().toISOString();
+  const importeReal = compra.importeCobradoCentimos != null
+    ? compra.importeCobradoCentimos / 100
+    : Number(plan.precio);
   const hoy = ahora.slice(0, 10);
 
   // ── 1. La socia ────────────────────────────────────────────────────────────
@@ -144,7 +160,9 @@ export async function entregarPlanComprado(
     socio_id: socioId,
     suscripcion_id: ids.suscripcionId,
     concepto: `Alta web — ${plan.nombre}`,
-    importe: plan.precio,
+    // Lo cobrado manda sobre el precio de catálogo: entre que se abre el
+    // checkout y llega el webhook, el estudio puede haber cambiado el precio.
+    importe: importeReal,
     estado: 'COBRADO',
     fecha_vencimiento: hoy,
     fecha_cobro: ahora,
