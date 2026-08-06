@@ -205,6 +205,27 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText('Texto bajo los iconos')).toBeVisible();
   });
 
+  // Las esquinas por pieza usan `numeroHeredado`: la casilla VACÍA es un
+  // estado real ("sigue el tema"), no un cero. Si se pintara pre-rellenada,
+  // guardar fijaría ese número donde antes había herencia.
+  test('las esquinas por pieza llegan vacías, y vaciarlas vuelve a heredar', async ({ page }) => {
+    await montar(page);
+    await page.getByRole('button', { name: 'Esquinas' }).click();
+
+    const tarjetas = page.getByLabel('Tarjetas', { exact: true });
+    await expect(tarjetas).toBeVisible({ timeout: 30_000 });
+    // Vacía de verdad, no un número por defecto.
+    await expect(tarjetas).toHaveValue('');
+    await expect(tarjetas).toHaveAttribute('placeholder', 'Del tema');
+
+    await tarjetas.fill('26');
+    await expect(tarjetas).toHaveValue('26');
+    // Y se puede volver atrás: vaciar tiene que ser posible, o la herencia
+    // sería un billete de ida.
+    await tarjetas.fill('');
+    await expect(tarjetas).toHaveValue('');
+  });
+
   // Al hacer seleccionables los módulos fijos, un clic dentro de la vista
   // previa deja de navegar. Eso no puede pasar en silencio: hay un
   // interruptor que lo dice con dos palabras, y arranca en "Editar" (que es
