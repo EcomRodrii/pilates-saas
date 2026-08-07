@@ -157,12 +157,20 @@ export function HojaReserva({
         aria-modal={abierta}
         aria-label={clase ? `Reservar ${clase.nombre}` : 'Reservar'}
         style={{
-          position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 41,
+          position: 'fixed', left: 12, right: 12, zIndex: 41,
+          // ⚠️ Por encima de la barra de abajo, no detrás. Con `bottom: 12` la
+          // hoja llegaba hasta el borde de la pantalla y sus últimos ~70px
+          // quedaban debajo del menú — en una sala con plazas numeradas la
+          // lista crece y el botón de CONFIRMAR es justo lo último: la socia
+          // elegía su plaza y no veía el botón. Sale de la altura real de la
+          // barra (la fija el tema, `--portal-tabbar-height`) más su hueco,
+          // así que vale igual para la barra flotante y para la clásica.
+          bottom: 'calc(12px + var(--portal-tabbar-height, 64px) + 22px + env(safe-area-inset-bottom))',
           maxWidth: 456, margin: '0 auto',
           background: t.bg, borderRadius: radio.hoja,
           border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
           boxShadow: sombra.sheet, padding: '16px 24px 24px',
-          maxHeight: 'calc(100dvh - 24px)', overflowY: 'auto',
+          maxHeight: 'calc(100dvh - var(--portal-tabbar-height, 64px) - 56px)', overflowY: 'auto',
           opacity: abierta ? 1 : 0,
           pointerEvents: abierta ? 'auto' : 'none',
           transform: abierta ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',

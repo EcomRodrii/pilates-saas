@@ -29,13 +29,14 @@ import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
-import { PortalProvider, type AlCancelarPortal, type AlPagarPortal, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
+import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
 import { useViewModel } from '@/components/portal-tema/store/useViewModel';
 import { Home } from '@/components/portal-tema/screens/Home';
 import { Schedule } from '@/components/portal-tema/screens/Schedule';
 import { Bookings } from '@/components/portal-tema/screens/Bookings';
 import { Passes } from '@/components/portal-tema/screens/Passes';
+import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
@@ -61,9 +62,17 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   calendario: 'clases',
 };
 
+/**
+ * Las que el kit pinta. `detalle` no tiene ruta propia y no está en
+ * `RUTA_A_PANTALLA`: se abre desde dentro de Clases (o de Reservas, o del
+ * Inicio) y es la ÚNICA pantalla desde la que se reserva.
+ */
 const PANTALLAS = {
-  inicio: Home, clases: Schedule, reservas: Bookings, bonos: Passes,
+  inicio: Home, clases: Schedule, reservas: Bookings, bonos: Passes, detalle: ClassDetail,
 } as const;
+
+/** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
+const PANTALLAS_DE_RUTA = Object.values(RUTA_A_PANTALLA);
 
 /**
  * `null` = esta ruta NO la cubre el kit y tiene que seguir con el portal
@@ -83,7 +92,7 @@ export function PortalTemaMarco() {
   const { session } = usePortalAuth();
   const {
     studio, sesiones, reservas, tiposClase, salas, instructores,
-    planesTarifa, suscripciones, socios, themeIdPublicado, cancelarReserva,
+    planesTarifa, suscripciones, socios, themeIdPublicado, cancelarReserva, addReserva,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -112,20 +121,19 @@ export function PortalTemaMarco() {
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
   }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId]);
 
-  const navegar = useMemo(() => (destino: DestinoPortal) => {
+  const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
-    // Destino que el kit todavía no tiene como ruta (detalle de clase,
-    // checkout, sesión guiada): no se navega, en vez de caer al Inicio — que
-    // sería peor, porque la socia creería que ha pasado algo. Se irán
-    // conectando pantalla a pantalla.
-    if (!ruta) return;
+    // `false` = "esta no la tengo como ruta"; la abre el store dentro de la
+    // ruta actual. Es el caso del detalle de una clase, que vive dentro de
+    // Clases igual que la hoja de reserva del portal de siempre.
+    if (!ruta) return false;
     const destinoUrl = `/portal/${slug}/${ruta}`;
     // Ya estamos aquí: navegar apilaría una entrada de historial idéntica y
     // el botón atrás dejaría de funcionar como espera la socia. Lo que sí
     // cambia (el día, la pestaña) ya lo ha aplicado el store antes de
     // llamarnos — ver `ir()` en `PortalStore`.
-    if (pathname === destinoUrl) return;
-    router.push(destinoUrl);
+    if (pathname !== destinoUrl) router.push(destinoUrl);
+    return true;
   }, [router, slug, pathname]);
 
   // El cobro de verdad: Checkout alojado de Stripe, el mismo camino que
@@ -149,6 +157,29 @@ export function PortalTemaMarco() {
     return r.error;
   }, [studioId, socioId, socia?.email, socia?.nombre]);
 
+  // Reservar de verdad: `addReserva` del contexto, la MISMA vía que el portal
+  // de siempre — que espera la respuesta del servidor entera antes de decir
+  // nada, porque este endpoint rechaza legítimamente en seis sitios (sin bono,
+  // bono que no cubre el tipo, clase empezada, cancelada, tope de simultáneas,
+  // límite semanal) y durante un tiempo ninguno de esos rechazos llegó a la
+  // pantalla: la socia leía "Reservada" y en el panel no había nada (#500).
+  const alReservar: AlReservarPortal = useCallback(async (sesionId) => {
+    if (!socioId) return { ok: false as const, error: 'Entra en tu cuenta para reservar.' };
+    const r = await addReserva(sesionId, socioId, null);
+    if (!r.ok) return { ok: false as const, error: r.error };
+    // El estado lo decide la base de datos bloqueando la fila de la sesión, no
+    // lo que se viera al pulsar: con dos socias peleando por la última plaza,
+    // la pantalla decía CONFIRMADA y la BD LISTA_ESPERA.
+    return {
+      ok: true as const,
+      mensaje: r.estado === 'LISTA_ESPERA'
+        ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
+        : r.estado === 'PENDIENTE_APROBACION'
+          ? 'Reserva enviada: queda pendiente de aprobación.'
+          : 'Reservada. Te esperamos.',
+    };
+  }, [addReserva, socioId]);
+
   const alCancelar: AlCancelarPortal = useCallback(async (reservaId) => {
     // `cancelarReserva` del contexto: la MISMA vía que el portal de siempre
     // (RPC transaccional, promociona la lista de espera, devuelve bono según
@@ -157,33 +188,47 @@ export function PortalTemaMarco() {
     return res.ok ? null : res.error;
   }, [cancelarReserva]);
 
+  // `portal-tema` acota TODO el CSS del kit a este subárbol. Sin ella no se
+  // pinta nada del kit — y con ella, nada del kit se escapa al resto del
+  // portal (ver la cabecera de `01-base.css`).
   return (
+    <div className="portal-tema" style={{ display: 'contents' }}>
     <TemaProvider tema={tema}>
       <PortalProvider
         datos={datos}
         navegar={navegar}
         alPagar={alPagar}
         alCancelar={alCancelar}
+        alReservar={alReservar}
+        pantallasDeRuta={PANTALLAS_DE_RUTA}
         pantalla={pantalla}
         // El día de HOY en la semana del estudio, no el 4 de la demo.
         diaPorDefecto={hoy}
         // Nada de barra de estado falsa ni isla dinámica: esto es un móvil de
         // verdad y ya tiene las suyas.
         cromoDemo={false}
+        // Nada de piezas de maqueta: aquí paga una socia de verdad.
+        esDemo={false}
       >
-        <Pantalla nombre={pantalla} />
+        <Pantalla />
       </PortalProvider>
     </TemaProvider>
+    </div>
   );
 }
 
 /**
- * Aparte y no en línea porque `useViewModel` solo puede llamarse DENTRO del
- * provider, y este es el primer componente que lo está.
+ * Aparte y no en línea porque `usePortal`/`useViewModel` solo pueden llamarse
+ * DENTRO del provider, y este es el primer componente que lo está.
+ *
+ * ⚠️ La pantalla la dice el STORE, no la ruta. Casi siempre son la misma cosa
+ * (el store la copia de `pantalla`), pero el detalle de una clase no tiene
+ * ruta: si esto leyera la ruta, abrir una clase no pintaría nada.
  */
-function Pantalla({ nombre }: { nombre: keyof typeof PANTALLAS }) {
+function Pantalla() {
+  const { screen } = usePortal();
   const vm = useViewModel();
-  const Screen = PANTALLAS[nombre];
+  const Screen = PANTALLAS[screen as keyof typeof PANTALLAS] ?? PANTALLAS.inicio;
   return (
     <div className="screen">
       <Screen vm={vm} />

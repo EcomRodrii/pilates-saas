@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
 import type { DatosPortal } from "@/lib/portal-tema/tipos";
-import { repartirDestino } from "@/lib/portal-tema/navegacion";
+import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
@@ -137,7 +137,16 @@ export interface DestinoPortal {
   day?: number;
 }
 
-export type NavegarPortal = (destino: DestinoPortal) => void;
+/**
+ * Devuelve `true` si de verdad ha navegado. `false` = "esta pantalla no la
+ * tengo como ruta", y entonces el store la abre él mismo.
+ *
+ * ⚠️ Antes esto devolvía `void` y el marco se limitaba a no hacer nada con lo
+ * que no reconocía. El resultado era que tocar una clase —en el horario, en
+ * Inicio o en "Ver clase" desde Reservas— no hacía absolutamente nada: el
+ * detalle es la única pantalla desde la que se reserva, y no tenía ruta.
+ */
+export type NavegarPortal = (destino: DestinoPortal) => boolean;
 
 /** Las cuatro pantallas que además son pestaña de la barra. */
 const ES_PESTANA = (p: ScreenId): p is TabId =>
@@ -153,6 +162,19 @@ export function useCromoDemo(): boolean {
 }
 
 /**
+ * `true` = esto es la maqueta del kit (la previsualización de temas), donde
+ * las piezas que todavía no existen de verdad pueden enseñarse porque nadie
+ * espera que funcionen. En el portal real es `false` y esas piezas no se
+ * pintan: enseñar una "sesión guiada" que no reproduce nada, en una app por
+ * la que una socia paga, es peor que no tenerla.
+ */
+const DemoCtx = createContext(true);
+
+export function useEsDemo(): boolean {
+  return useContext(DemoCtx);
+}
+
+/**
  * Arranca el cobro real de un plan. Devuelve `null` si ya va camino de Stripe
  * (la pestaña se va) o el mensaje de error si no se pudo ni empezar.
  */
@@ -165,6 +187,17 @@ export type AlPagarPortal = (planId: string) => Promise<string | null>;
 export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
 
 /**
+ * Reserva de verdad.
+ *
+ * Devuelve el mensaje ya redactado en los dos casos, no un booleano: quien
+ * sabe si la plaza quedó CONFIRMADA, en LISTA_ESPERA o PENDIENTE_APROBACION es
+ * el servidor, y "Reservada. Te esperamos" no vale para las tres. Nunca se
+ * dice nada sin esta respuesta (bug #500).
+ */
+export type AlReservarPortal = (sesionId: string) =>
+  Promise<{ ok: true; mensaje: string } | { ok: false; error: string }>;
+
+/**
  * `datos` es lo que cambia de un estudio a otro (clases, semana, planes, bono,
  * socia). Por defecto, los de muestra: así la previsualización de temas — donde
  * no hay estudio ni sesión — sigue funcionando sin pasar nada.
@@ -174,9 +207,12 @@ export function PortalProvider({
   navegar,
   alPagar,
   alCancelar,
+  alReservar,
   pantalla,
+  pantallasDeRuta,
   diaPorDefecto,
   cromoDemo = true,
+  esDemo = true,
   children,
 }: {
   datos?: DatosPortal;
@@ -186,6 +222,8 @@ export function PortalProvider({
    *  en la demo y en la previsualización; en el portal de verdad son un
    *  adorno que finge ser el sistema operativo, encima con la hora mal. */
   cromoDemo?: boolean;
+  /** `false` en el portal real: apaga lo que todavía es maqueta. Ver `DemoCtx`. */
+  esDemo?: boolean;
   /** Sin esto, navegar es cambiar el estado (el comportamiento de la demo). */
   navegar?: NavegarPortal;
   /** Sin esto, "Continuar al pago" abre la maqueta de tarjeta del kit en vez
@@ -193,9 +231,17 @@ export function PortalProvider({
   alPagar?: AlPagarPortal;
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
+  /** Sin esto, "Reservar mi plaza" es un `setTimeout`. */
+  alReservar?: AlReservarPortal;
   /** La pantalla que manda desde fuera. Con `navegar` por rutas, el estado
    *  interno nunca cambia de pantalla: la dice la ruta. */
   pantalla?: ScreenId;
+  /**
+   * Qué pantallas SÍ son una ruta. Solo esas las manda `pantalla`; las que no
+   * (el detalle de una clase) las gobierna el estado, o abrir una clase se
+   * desharía en el mismo render.
+   */
+  pantallasDeRuta?: readonly ScreenId[];
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(
@@ -266,6 +312,11 @@ export function PortalProvider({
     alCancelarRef.current = alCancelar;
   }, [alCancelar]);
 
+  const alReservarRef = useRef(alReservar);
+  useEffect(() => {
+    alReservarRef.current = alReservar;
+  }, [alReservar]);
+
   const ir = useCallback((destino: DestinoPortal) => {
     const fuera = navegarRef.current;
     if (!fuera) return set(destino);
@@ -281,7 +332,10 @@ export function PortalProvider({
     // en la base de datos— parecían no existir.
     const { estado } = repartirDestino(destino);
     if (estado) set(estado);
-    fuera(destino);
+    // Si fuera no sabe llevarla ahí, la abrimos aquí. La ruta sigue siendo la
+    // de la sección (Clases), y el detalle vive dentro — igual que la hoja de
+    // reserva del portal de siempre, que tampoco tiene URL propia.
+    if (!fuera(destino)) set({ screen: destino.screen });
   }, [set]);
 
   const notify = useCallback(
@@ -353,6 +407,24 @@ export function PortalProvider({
         // verdad (semana sin programar) o la clase haberse cancelado mientras
         // la socia tenía la pantalla abierta.
         if (!cls) return;
+
+        // La vía de verdad. El `setTimeout` de abajo es la maqueta del kit y
+        // solo corre en la previsualización: aquí no se anuncia nada que el
+        // servidor no haya confirmado (bug #500). Cancelar desde el detalle va
+        // por `cancel`, que ya tiene su propio camino real.
+        const reservar = alReservarRef.current;
+        if (reservar) {
+          const reservada = (datosRef.current.reservadas ?? []).find((r) => r.classId === s.classId);
+          if (reservada) return self.cancel(s.classId, reservada.reservaId);
+          if (s.loading) return;
+          set({ loading: true });
+          reservar(s.classId).then((r) => {
+            set({ loading: false });
+            notify(r.ok ? r.mensaje : r.error);
+          });
+          return;
+        }
+
         if (s.booked.includes(s.classId)) {
           set({ booked: s.booked.filter((x) => x !== s.classId) });
           return notify("Reserva anulada");
@@ -489,11 +561,18 @@ export function PortalProvider({
   // ⚠️ Arrastra también `tab`, no solo `screen`. Sin esto se navegaba a Clases
   // y la barra seguía marcando Inicio: `tab` vive en el store y con la
   // navegación por rutas nadie lo actualizaba.
-  const estado = pantalla
+  //
+  // ⚠️ Y solo cuando la pantalla ABIERTA es una ruta. Si la socia ha abierto el
+  // detalle de una clase —que no tiene ruta propia— pisarlo con la pantalla de
+  // la ruta lo cerraría en el mismo render en el que se abre: el detalle
+  // parpadearía y volvería al horario.
+  const gobiernaLaRuta = mandaLaRuta(state.screen, pantallasDeRuta);
+  const estado = pantalla && gobiernaLaRuta
     ? { ...state, screen: pantalla, ...(ES_PESTANA(pantalla) ? { tab: pantalla } : null) }
     : state;
 
   return (
+    <DemoCtx.Provider value={esDemo}>
     <CromoDemoCtx.Provider value={cromoDemo}>
     <DatosCtx.Provider value={datos}>
       <StateCtx.Provider value={estado}>
@@ -501,6 +580,7 @@ export function PortalProvider({
       </StateCtx.Provider>
     </DatosCtx.Provider>
     </CromoDemoCtx.Provider>
+    </DemoCtx.Provider>
   );
 }
 

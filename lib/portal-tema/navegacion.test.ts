@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { repartirDestino } from './navegacion.ts';
+import { mandaLaRuta, repartirDestino } from './navegacion.ts';
 
 // ⚠️ Regresión de un fallo que llegó a producción. El portal manda destinos
 // completos; el marco de Next solo sabe de rutas. Todo lo que no era pantalla
@@ -38,4 +38,22 @@ test('una clave presente pero undefined no pisa lo que ya había', () => {
 test('conserva el día aunque valga 0 (no confundir vacío con falsy)', () => {
   const { estado } = repartirDestino({ screen: 'clases', day: 0 });
   assert.deepEqual(estado, { day: 0 });
+});
+
+// ── Quién manda la pantalla ─────────────────────────────────────────────────
+
+const RUTAS = ['inicio', 'clases', 'reservas', 'bonos', 'perfil'] as const;
+
+test('estando en una sección, manda la ruta', () => {
+  assert.equal(mandaLaRuta('clases', RUTAS), true);
+});
+
+test('con el detalle de una clase abierto, manda el estado', () => {
+  // ⚠️ Si esto devolviera `true`, el detalle se cerraría en el mismo render en
+  // el que se abre y NO SE PODRÍA RESERVAR: es la única pantalla con el botón.
+  assert.equal(mandaLaRuta('detalle', RUTAS), false);
+});
+
+test('sin lista de rutas, manda la ruta (la previsualización de temas)', () => {
+  assert.equal(mandaLaRuta('detalle', undefined), true);
 });

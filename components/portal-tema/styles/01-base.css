@@ -1,11 +1,21 @@
-/* 01-base.css — reset, tipografía y utilidades. Todo cuelga de los tokens. */
+/* 01-base.css — reset, tipografía y utilidades. Todo cuelga de los tokens.
+ *
+ * ⚠️ TODO va acotado a `.portal-tema`, y no por gusto: el reset de este kit
+ * era GLOBAL (`button { text-align: left; padding: 0; border: 0 }`, `body`,
+ * `a`, `img`…) y esta hoja se importa desde `portal-tema-marco.tsx`, que
+ * `portal-shell.tsx` carga de forma estática. Resultado: el reset se aplicaba
+ * en TODAS las páginas del portal de CUALQUIER estudio —tuviera o no un tema
+ * del kit, y con el kit apagado— y dejaba el botón "Entrar" del acceso con el
+ * texto pegado al borde izquierdo y sin relleno. Comprobado en el navegador
+ * sobre `/portal/<slug>/login`, que no monta ni una línea del kit.
+ *
+ * La clase la ponen el marco (`PortalTemaMarco`) y la previsualización, que
+ * son los dos únicos sitios donde el kit pinta algo. Si alguna vez el kit
+ * renderiza desde un tercer sitio, ese sitio tiene que ponerla también. */
 
-*, *::before, *::after { box-sizing: border-box; }
+:where(.portal-tema), :where(.portal-tema) *, :where(.portal-tema) *::before, :where(.portal-tema) *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
-
-body {
-  margin: 0;
+.portal-tema {
   background: var(--desk);
   color: var(--ink);
   font-family: var(--font-body);
@@ -15,12 +25,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, p, figure { margin: 0; }
+:where(.portal-tema) :is(h1, h2, h3, h4, p, figure) { margin: 0; }
 
-a { color: var(--brand); text-decoration: none; }
-a:hover { color: var(--ink); }
+:where(.portal-tema) a { color: var(--brand); text-decoration: none; }
+:where(.portal-tema) a:hover { color: var(--ink); }
 
-button {
+:where(.portal-tema) button {
   font: inherit;
   color: inherit;
   border: 0;
@@ -31,46 +41,46 @@ button {
   text-align: left;
 }
 
-img, svg { display: block; max-width: 100%; }
+:where(.portal-tema) :is(img, svg) { display: block; max-width: 100%; }
 
-::selection { background: var(--support); color: var(--ink); }
+:where(.portal-tema) ::selection { background: var(--support); color: var(--ink); }
 
-:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+:where(.portal-tema) :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
   border-radius: 6px;
 }
 
 /* Scroll sin barras visibles dentro del teléfono, con scroll real. */
-.no-scrollbar { scrollbar-width: none; }
-.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
+:where(.portal-tema) .no-scrollbar { scrollbar-width: none; }
+:where(.portal-tema) .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; }
 
 /* ── Tipografía del theme ────────────────────────────────────────────────── */
-.display {
+:where(.portal-tema) .display {
   font-family: var(--font-display);
   font-weight: var(--weight-display);
   line-height: 1.1;
   letter-spacing: -.02em;
   color: var(--ink);
 }
-.body { font-family: var(--font-body); color: var(--muted); }
-.ink { color: var(--ink); }
-.muted { color: var(--muted); }
+:where(.portal-tema) .body { font-family: var(--font-body); color: var(--muted); }
+:where(.portal-tema) .ink { color: var(--ink); }
+:where(.portal-tema) .muted { color: var(--muted); }
 
-.link {
+:where(.portal-tema) .link {
   font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 500;
   color: var(--muted);
   cursor: pointer;
 }
-.link:hover { color: var(--ink); }
+:where(.portal-tema) .link:hover { color: var(--ink); }
 
 /* ── Pulsación coherente ─────────────────────────────────────────────────── */
-.is-pressable { transition: transform .12s ease, opacity .12s ease; }
-.is-pressable.is-pressed { transform: scale(.965); opacity: .9; }
+:where(.portal-tema) .is-pressable { transition: transform .12s ease, opacity .12s ease; }
+:where(.portal-tema) .is-pressable.is-pressed { transform: scale(.965); opacity: .9; }
 
-.sr-only {
+:where(.portal-tema) .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }

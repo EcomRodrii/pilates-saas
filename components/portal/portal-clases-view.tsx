@@ -542,7 +542,15 @@ export function PortalClasesView({
               )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
                 {!reservada && (
-                  <AforoIndicator libres={c.libres} umbralUrgencia={3} style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }} />
+                  <AforoIndicator
+                    libres={c.libres}
+                    umbralUrgencia={3}
+                    // El hueco de la derecha es para la estrella de favorita,
+                    // que va en `position:absolute` arriba a la derecha de la
+                    // tarjeta: sin él, "8 plazas libres" (el texto más largo)
+                    // pasaba por debajo del icono y se leía tachado.
+                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', paddingRight: socioId && c.tipo ? 22 : 0 }}
+                  />
                 )}
                 {reservada ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>

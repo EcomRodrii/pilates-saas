@@ -45,3 +45,27 @@ export function repartirDestino<D extends ConPantalla>(destino: D): {
   }
   return { screen, estado };
 }
+
+/**
+ * Quién manda la pantalla: la ruta o el estado del portal.
+ *
+ * Casi siempre la ruta — el portal real navega con URLs y el store se limita a
+ * copiarla. La excepción es la pantalla que NO tiene ruta: el detalle de una
+ * clase, que vive dentro de Clases igual que la hoja de reserva del portal de
+ * siempre.
+ *
+ * ⚠️ Sin esta excepción, abrir una clase se deshace en el mismo render en el
+ * que se abre: el store pone `detalle`, la ruta sigue siendo `/clases`, y el
+ * `pantalla` de fuera lo pisa. La socia ve un parpadeo y sigue en el horario —
+ * y como el detalle es la ÚNICA pantalla desde la que se reserva, no puede
+ * reservar.
+ */
+export function mandaLaRuta<P extends string>(
+  pantallaAbierta: P,
+  pantallasDeRuta: readonly P[] | undefined,
+): boolean {
+  // Sin lista, el llamador no distingue: se comporta como siempre (manda la
+  // ruta). Es lo que hace la previsualización de temas, que no navega por URL.
+  if (!pantallasDeRuta) return true;
+  return pantallasDeRuta.includes(pantallaAbierta);
+}
