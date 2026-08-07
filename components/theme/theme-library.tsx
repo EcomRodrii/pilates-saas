@@ -23,7 +23,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
-import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
+import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
@@ -173,12 +173,41 @@ export function ThemeLibrary() {
   // ya están viendo — la vuelta atrás de quien ha probado algo y no le
   // convence. Distinto de `hook.restaurar()`, que vuelve al tema del SISTEMA
   // (y que por eso se queda en el editor, con el resto del ajuste fino).
+  /**
+   * Deshace TODO lo que se haya probado: colores, forma y secciones.
+   *
+   * ⚠️ Antes solo deshacía el tema. Construía una definición sintética sin
+   * `bloquesHome`, así que `instalar()` se saltaba la siembra y el borrador se
+   * quedaba con las secciones del tema que estabas probando. Probar Bloom y
+   * volver atrás te dejaba los colores de Noir con los retos de Bloom — un
+   * generador de "el editor enseña una cosa y el portal otra". Encontrado
+   * probándolo en un estudio real.
+   *
+   * Las secciones se restauran TAL CUAL están publicadas, no sembrando desde
+   * la lista del tema: volver atrás es volver a lo que ven las socias, incluso
+   * si la propietaria había reordenado a mano.
+   */
   async function volverAPublicado() {
     if (!publicado) return;
-    await instalar({
-      id: publicado.themeId, version: publicado.themeVersion,
-      label: '', description: '', capabilities: [], defaults: publicado,
-    });
+    setInstalando(publicado.themeId);
+    setErrorInstalar(null);
+    try {
+      const nuevo = instalarTema(draft, publicado, {
+        themeId: publicado.themeId, themeVersion: publicado.themeVersion,
+      });
+      await guardarThemeBorrador(nuevo);
+      const bloquesPub = await fetchBloquesPublicado('home');
+      await guardarBloquesBorradorApi('home', bloquesPub);
+      setBloquesActuales(bloquesPub);
+      elegirTema({
+        id: publicado.themeId, version: publicado.themeVersion,
+        label: '', description: '', capabilities: [], defaults: publicado,
+      });
+    } catch (e) {
+      setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
+    } finally {
+      setInstalando(null);
+    }
   }
 
   return (
