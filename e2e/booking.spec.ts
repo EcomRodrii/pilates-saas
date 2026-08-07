@@ -37,7 +37,7 @@ function studioDataFixture(socia?: { socioId: string; nombre: string; email: str
       ? {
           socio: { id: socia.socioId, studioId: 'studio-test', nombre: socia.nombre, apellidos: '', email: socia.email, activo: true,
             aceptacionContrato: { fecha: `${FECHA}T00:00:00`, firma: socia.nombre, versionTexto: 'v1.1' } },
-          suscripciones: [], reservas: [], recibos: [], facturas: [], preferenciasSocio: [],
+          suscripciones: [], reservas: [], recibos: [], facturas: [],
           memberCredits: [], rewardHistory: [], rewardRedemptions: [], achievementProgress: [], challengeProgress: [], creditTransactions: [],
         }
       : null,

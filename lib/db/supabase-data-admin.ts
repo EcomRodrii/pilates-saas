@@ -80,7 +80,6 @@ import {
   mapLevelDefinition,
   mapMemberCredits,
   mapPlazaFija,
-  mapPreferenciasSocio,
   mapRecibo,
   mapRewardAction,
   mapRewardCatalogItem,
@@ -512,12 +511,11 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
+  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-      admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_redemptions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -558,7 +556,6 @@ export async function fetchPublicStudioData(
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
       facturas: (facData ?? []).map(mapFactura),
-      preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
       rewardRedemptions: (redRes.data ?? []).map(mapRewardRedemption),
@@ -922,7 +919,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
         admin.from('socio_excepciones').select('socio_id').eq('tipo', 'SIN_RECORDATORIO').in('socio_id', socioIds),
       ])
     : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }, { data: [] as { socio_id: string }[] }];
-  // Sin fila de preferencias = valores por defecto (true), igual que mapPreferenciasSocio.
+  // Sin fila de preferencias = valores por defecto (true).
   const prefsPorSocio = new Map((prefsR ?? []).map(p => [p.socio_id, p]));
   const exentosRecordatorio = new Set((excR ?? []).map(e => e.socio_id as string));
 
@@ -963,8 +960,13 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
       const socia = sociaPorId.get(r.socio_id);
       if (!socia) continue;
       if (exentosRecordatorio.has(r.socio_id)) continue; // "a esta jamás" (B2.9)
-      // Preferencias del portal (app/portal/[slug]/perfil): sin fila = valores
-      // por defecto (true), igual que mapPreferenciasSocio en el resto de la app.
+      // notif_email/notif_whatsapp de preferencias_socio: sin fila = valores por
+      // defecto (true). ⚠️ Sin UI que los ponga a false hoy — se retiró la
+      // pantalla "Preferencias" del portal (era cosmética en todo lo demás,
+      // ver auditoría de onboarding/2026-08) y nunca tuvo un control para
+      // estos dos campos. Quedan como el único freno posible si algún día se
+      // escriben a mano en BD; si se quiere un control real, hace falta UI
+      // nueva, no reintroducir la pantalla borrada.
       const prefs = prefsPorSocio.get(r.socio_id);
       const quiereEmail = prefs?.notif_email ?? true;
       const quiereWhatsapp = prefs?.notif_whatsapp ?? true;
@@ -2133,44 +2135,6 @@ export async function actualizarSociaPublica(params: {
   return { ok: true as const };
 }
 
-
-export async function guardarPreferenciasPublica(params: {
-  studioId: string; socioId: string; email: string; cambios: Record<string, unknown>;
-}) {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
-  if (!socia) return { error: 'No autorizado' as const };
-
-  const { data: existente } = await admin
-    .from('preferencias_socio').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).maybeSingle();
-  // I8: los cambios llegan en camelCase desde el portal (notifEmail,
-  // instructorFavoritoId…). Antes se hacían spread DIRECTO al upsert → columnas
-  // inexistentes → el write fallaba en silencio. Mapeamos camel→snake con lista
-  // blanca (misma correspondencia que dbUpsertPreferenciasSocio); las claves
-  // desconocidas se ignoran en vez de intentar escribir una columna que no existe.
-  const COLUMNA_PREF: Record<string, string> = {
-    disponibilidad: 'disponibilidad',
-    instructorFavoritoId: 'instructor_favorito_id',
-    tipoClaseFavorita: 'tipo_clase_favorita',
-    duracionPreferida: 'duracion_preferida',
-    nivel: 'nivel',
-    notifEmail: 'notif_email',
-    notifWhatsapp: 'notif_whatsapp',
-  };
-  const cambiosSnake: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(params.cambios)) {
-    const col = COLUMNA_PREF[k];
-    if (col) cambiosSnake[col] = v;
-  }
-  const fila = {
-    socio_id: params.socioId, studio_id: params.studioId,
-    ...(existente ?? {}), ...cambiosSnake, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await admin.from('preferencias_socio').upsert(fila, { onConflict: 'socio_id' });
-  if (error) return { error: error.message };
-  return { ok: true as const };
-}
 
 // Canjea una recompensa del catálogo con los créditos de la socia. Valida
 // identidad, disponibilidad/stock/saldo (reward-engine) y actualiza el saldo.

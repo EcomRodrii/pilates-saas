@@ -393,19 +393,6 @@ export interface RowPostsComunidad {
   creado_en: string | null;
 }
 
-export interface RowPreferenciasSocio {
-  socio_id: string;
-  studio_id: string;
-  disponibilidad: any;
-  instructor_favorito_id: string | null;
-  tipo_clase_favorita: string | null;
-  duracion_preferida: number | null;
-  nivel: string | null;
-  notif_email: boolean;
-  notif_whatsapp: boolean;
-  actualizado_en: string;
-}
-
 export interface RowProductosPos {
   id: string;
   studio_id: string;
