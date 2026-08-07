@@ -1,6 +1,5 @@
 "use client";
 
-import { THEME } from "@/theme/config";
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Divider, Pill } from "@/components/portal-tema/components/ui/primitives";
 import { MEDIA, StatusBar } from "@/components/portal-tema/components/layout/chrome";
@@ -36,7 +35,7 @@ function FavouriteButton({ fav, glass, size }: { fav: boolean; glass?: boolean; 
  */
 export function ClassDetail({ vm }: { vm: ViewModel }) {
   const actions = useActions();
-  const bleed = THEME.features.detail_style === "bleed";
+  const bleed = vm.features.detail_style === "bleed";
   const d = vm.detail;
 
   return (

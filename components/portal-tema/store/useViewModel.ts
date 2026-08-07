@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { THEME } from "@/theme/config";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
   CHALLENGES, CLASSES, DAYS, EXERCISES, FILTERS, NOTIFICATIONS, PASS, PLANS,
   QUICK_LINKS, TABS, WEEK_BARS, dayLabel, findClass, plural,
 } from "@/components/portal-tema/data/studio";
 import { usePortal, type PortalState } from "./PortalStore";
+import { useTema } from "./TemaContext";
 
 /** Rejilla del mes: cinco semanas desde el lunes anterior al día 1. */
 function buildCalendar(state: PortalState) {
@@ -31,12 +31,17 @@ const money = (n: number) => n.toFixed(2).replace(".", ",") + " €";
 /**
  * Traduce el estado a lo que pinta cada pantalla. Toda la lógica de
  * presentación vive aquí; los componentes solo colocan.
+ *
+ * Es también el ÚNICO sitio que lee el tema del contexto: lo expone en
+ * `theme`/`features` y todos los demás componentes tiran de ahí. Dos lecturas
+ * del mismo dato por caminos distintos es el patrón de bug que más veces ha
+ * mordido en este repo.
  */
 export function useViewModel() {
   const state = usePortal();
+  const cfg = useTema();
 
   return useMemo(() => {
-    const cfg = THEME;
     const f = cfg.features;
     const cls = findClass(state.classId);
     const booked = state.booked.includes(state.classId);
@@ -161,6 +166,7 @@ export function useViewModel() {
         showLabel: f.tab_bar_style !== "floating" || state.tab === t.key,
       })),
       showTabBar: (["inicio", "clases", "calendario", "reservas", "perfil", "bonos"] as string[]).includes(state.screen),
+      tabBarFloating: f.tab_bar_style === "floating",
 
       welcome: cfg.welcome,
 
@@ -180,7 +186,7 @@ export function useViewModel() {
       toast: state.toast,
       toastId: state.toastId,
     };
-  }, [state]);
+  }, [state, cfg]);
 }
 
 export type ViewModel = ReturnType<typeof useViewModel>;

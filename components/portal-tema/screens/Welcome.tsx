@@ -1,6 +1,5 @@
 "use client";
 
-import { THEME } from "@/theme/config";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { MEDIA, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
@@ -12,7 +11,7 @@ import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
  */
 export function Welcome({ vm }: { vm: ViewModel }) {
   const actions = useActions();
-  const f = THEME.features;
+  const f = vm.features;
 
   return (
     <div className="welcome">

@@ -3,7 +3,7 @@
  * viven en tokens.css, y todo lo que decide comportamiento o composición
  * (bloques del Inicio, estilo de barra, cabecera del detalle) vive aquí.
  */
-import type { ThemeConfig } from "./types";
+import type { ThemeConfig } from "../../components/portal-tema/tipos-tema";
 
 export const THEME: ThemeConfig = {
   "id": "bloom",

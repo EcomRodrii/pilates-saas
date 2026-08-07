@@ -3,7 +3,9 @@
 import { PhoneFrame, TabBar } from "@/components/portal-tema/components/layout/chrome";
 import { Toast } from "@/components/portal-tema/components/ui/overlays";
 import { PortalProvider } from "@/components/portal-tema/store/PortalStore";
+import { TemaProvider } from "@/components/portal-tema/store/TemaContext";
 import { useViewModel } from "@/components/portal-tema/store/useViewModel";
+import type { ThemeConfig } from "@/components/portal-tema/tipos-tema";
 
 import { Welcome } from "@/components/portal-tema/screens/Welcome";
 import { Login, Register } from "@/components/portal-tema/screens/Auth";
@@ -41,7 +43,7 @@ function Portal() {
       {/* La clave fuerza el remontaje: cada pantalla entra animada. */}
       <div className="screen is-enter" key={vm.screen} data-screen-label={vm.screen}>
         <Screen vm={vm} />
-        {vm.showTabBar ? <TabBar tabs={vm.tabs} /> : null}
+        {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
       </div>
       <Toast text={vm.toast} id={vm.toastId} />
     </>
@@ -50,13 +52,20 @@ function Portal() {
 
 /**
  * El portal completo.
- *   <PortalApp />        marco de teléfono, para la demo y el editor de temas.
- *   <PortalApp bare />   sin marco, para montarlo en la ruta real del portal.
+ *   <PortalApp tema={…} />        marco de teléfono, para la demo y el editor.
+ *   <PortalApp tema={…} bare />   sin marco, para la ruta real del portal.
+ *
+ * El tema entra como dato, no se importa: quien monta el portal es quien sabe
+ * qué estudio es. Se resuelve el id contra `themes/registro.ts` FUERA de aquí,
+ * para que este código compartido no dependa de los temas concretos — es lo
+ * que permite que sea una sola copia y no tres.
  */
-export function PortalApp({ bare }: { bare?: boolean }) {
+export function PortalApp({ tema, bare }: { tema: ThemeConfig; bare?: boolean }) {
   return (
-    <PortalProvider>
-      {bare ? <Portal /> : <PhoneFrame><Portal /></PhoneFrame>}
-    </PortalProvider>
+    <TemaProvider tema={tema}>
+      <PortalProvider>
+        {bare ? <Portal /> : <PhoneFrame><Portal /></PhoneFrame>}
+      </PortalProvider>
+    </TemaProvider>
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { THEME } from "@/theme/config";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Status } from "@/components/portal-tema/components/ui/primitives";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
@@ -21,13 +20,16 @@ export function Island() {
   return <div className="island"></div>;
 }
 
+// `floating` llega por prop y no del tema: este componente no recibe el view
+// model, y el view model ya es el único que lee el tema (`vm.tabBarFloating`).
 export function TabBar({
   tabs,
+  floating,
 }: {
   tabs: { key: string; label: string; icon: Parameters<typeof Icon>[0]["name"]; active: boolean; fill: string; stroke: number; showLabel: boolean }[];
+  floating: boolean;
 }) {
   const actions = useActions();
-  const floating = THEME.features.tab_bar_style === "floating";
   return (
     <nav className={("tab-bar " + (floating ? "tab-bar--floating" : "")).trim()} aria-label="Navegación principal">
       {tabs.map((item) => (

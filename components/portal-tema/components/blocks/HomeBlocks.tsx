@@ -1,6 +1,5 @@
 "use client";
 
-import { THEME } from "@/theme/config";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Card, EmptyState, SectionHead, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
 import { DayStrip, MEDIA } from "@/components/portal-tema/components/layout/chrome";
@@ -43,7 +42,7 @@ function NextClass({ vm }: { vm: ViewModel }) {
           <span className="hero__photo"><img src={MEDIA + "clase.svg"} alt="" /></span>
           <span className="hero__veil"></span>
           <span className="hero__body">
-            {THEME.features.hero_badge ? (
+            {vm.features.hero_badge ? (
               <span className="hero__badge"><Icon name="calendar" stroke={1.8} /></span>
             ) : null}
             <span className="hero__title">{vm.next.name}</span>
@@ -131,7 +130,7 @@ function Challenges({ vm }: { vm: ViewModel }) {
 /** Accesos rápidos. Tarjetas en Oliva y Bloom, círculos en Noir. */
 function QuickLinks({ vm }: { vm: ViewModel }) {
   const actions = useActions();
-  const bare = THEME.features.quick_links_style === "bare";
+  const bare = vm.features.quick_links_style === "bare";
   return (
     <section>
       <SectionTitle>{vm.quickLinksHeading}</SectionTitle>
@@ -162,11 +161,16 @@ function WeekStrip({ vm }: { vm: ViewModel }) {
   );
 }
 
-/** Banner del estudio. Bloque de contenido que la propietaria edita. */
+/**
+ * Banner del estudio. Bloque de contenido que la propietaria edita — de ahí
+ * que `title`/`text` entren por prop: hoy los rellenan los textos de muestra,
+ * y al conectar la capa de datos vendrán de sus bloques guardados. Declara
+ * `vm` como el resto del registro aunque no lo use, para que la firma encaje.
+ */
 function StudioBanner({
   title = "Nueva sala de reformer",
   text = "Seis máquinas nuevas desde el lunes.",
-}: { title?: string; text?: string }) {
+}: { vm: ViewModel; title?: string; text?: string }) {
   const actions = useActions();
   return (
     <section>
@@ -199,7 +203,7 @@ const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode>
 export function HomeBlocks({ vm }: { vm: ViewModel }) {
   return (
     <>
-      {THEME.home_blocks.map((name) => {
+      {vm.theme.home_blocks.map((name) => {
         const Block = REGISTRY[name];
         return Block ? <Block key={name} vm={vm} /> : null;
       })}
