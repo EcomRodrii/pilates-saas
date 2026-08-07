@@ -114,7 +114,22 @@ export function PortalNav({
           // cuando es la única que lo lleva; con todas etiquetadas, ensancharla
           // dejaría a las otras tres apretadas y sin razón.
           flex: todasConTexto ? '1 1 0%' : (active ? '2.4 1 0%' : '1 1 0%'),
-          height: altura.tabbar - 12, borderRadius: radio.pastilla,
+          // ⚠️ El alto sale de la MISMA fuente que el de la barra, y con tope.
+          //
+          // Antes era la constante de JS (`altura.tabbar - 12` = 46px) mientras
+          // la barra tomaba el suyo de `--portal-tabbar-height`, que el tema
+          // puede subir. Si además la barra es clásica —pegada abajo, con el
+          // hueco de la isla dinámica sumado al relleno— esos 66px INCLUYEN el
+          // relleno (`box-sizing: border-box`), el hueco interior se queda en
+          // ~20px y las pastillas de 46 asomaban por encima del borde.
+          //
+          // Pasó de verdad: un estudio con `themeId: bloom` guardado con
+          // `barraClasica` Y `barraFlotante` a la vez (residuo de instalar un
+          // tema encima de otro, arreglado ya en `instalarTema`). El dato
+          // guardado sigue ahí, así que la barra tiene que aguantarlo.
+          height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) - 12px)`,
+          maxHeight: '100%',
+          borderRadius: radio.pastilla,
           background: active ? `var(--portal-tabbar-active-bg, ${noche ? t.surface2 : '#FFFFFF'})` : 'transparent',
           boxShadow: active ? `var(--portal-tabbar-active-shadow, ${sombra.pastilla})` : 'none',
           color: active ? `var(--portal-tabbar-active-fg, ${t.ink})` : `var(--portal-tabbar-idle-fg, ${t.muted})`,
