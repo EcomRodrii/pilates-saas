@@ -74,7 +74,7 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
      de fotogramas de conteo justo a quien pidió menos movimiento.
    - Las 5 `<img>` colapsan en **un** `FotoTema` en `chrome.tsx`, con un solo
      disable razonado (mismo patrón que ya usa `app/portal/[slug]/…`). Cuando
-     entren las fotos reales (punto 7) hay un único sitio que reconsiderar.
+     entren las fotos reales (punto 8) hay un único sitio que reconsiderar.
 3. ~~**Que se vea.**~~ **HECHO.** `/portal-tema-preview/{oliva,bloom,noir}`,
    con `components/portal-tema/portal-tema.css` cableando tokens + hojas y los
    7 SVG en `public/media/`. Se cae en producción (`VERCEL_ENV`) y se borra
@@ -95,20 +95,53 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    Verificado además que la hoja del portal **no se filtra** al resto de la app:
    en `/login` no está cargada, `data-theme` vuelve a `null` y el `body` no
    cambia ni de fondo ni de fuente.
-4. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
+4. ~~**La capa de datos.**~~ **HECHA la mitad de arriba.** `lib/portal-tema/`
+   traduce el dominio de Tentare (`Sesion`, `TipoClase`, `Suscripcion`…) a lo
+   que pinta el portal, en funciones puras con 22 tests. El portal ya no
+   importa los datos de muestra: entran por `PortalProvider` (`datos`), y los
+   de muestra son solo el valor por defecto de la previsualización.
+   ⚠️ Lo que sacó a la luz, y que con datos inventados no existía:
+   - **La lista de clases puede venir VACÍA.** `findClass` devolvía
+     `CLASSES[0]` cuando no encontraba nada; con un estudio real eso es
+     `undefined` y la pantalla de detalle revienta al leerle el nombre. Ahora
+     `buscarClase` devuelve `null` y el detalle tiene estado vacío propio.
+     Mismo caso con `PLANS[0]` (un estudio sin tarifas) y con dividir por
+     `PASS.total` (sin bono, `NaN`).
+   - **El aforo lo decide `plazasOcupadas`**, no un conteo propio. El primer
+     intento contaba solo `CONFIRMADA` y se dejaba `ASISTIDA`: una clase
+     pasada habría aparecido con plazas libres que no existen.
+   - **La semana se calcula en Europe/Madrid.** En UTC, una clase de las 00:30
+     cae el día anterior y el horario la enseña donde no es — el mismo bug que
+     ya arregló la migración 0105. Hay test para eso.
+   El consumidor es `/portal-tema-preview/[tema]?estudio=<slug>`: pinta el
+   catálogo público real de ese estudio, sin socia ni datos personales.
+   ⚠️ **Pasarle datos de verdad encontró dos fallos que los tests no vieron**,
+   porque los fixtures los escribí yo con la misma cabeza que el código:
+   - **Se colaban clases de otro mes.** El filtro iba por día del mes y al
+     adaptador le llegan TODAS las sesiones del estudio: el 5 de septiembre
+     tiene el mismo `day` que el 5 de agosto. Ahora filtra por fecha completa.
+   - **`nivel` salía como el enum crudo** ("PRINCIPIANTE" en la píldora del
+     detalle y en «Nivel …»). Los datos de muestra ya traían texto humano, así
+     que no se veía. Hay mapa a palabras — y es el quinto del repo con distinta
+     redacción; unificarlos es un cambio aparte.
+   Lo que **falta** de esta pieza: la pantalla de **Calendario**, que sigue con
+   el mes de muestra fijado a "Septiembre 2026" — marcar días reales sobre una
+   rejilla inventada quedaría medio bien, que es peor que quedar claramente
+   falso.
+5. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
-5. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
+6. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
    en `store/PortalStore.tsx` son `setTimeout`. Sustituir el cuerpo por la RPC
    real **manteniendo el estado de carga**: no es decorativo — el botón pasa por
    «Reservando…» con rueda antes de «Reservada», y de ahí dependen el bono, el
    anillo y el marcado en el horario. Si la RPC responde en 80 ms, mantener un
    **mínimo visible de ~400 ms**.
-6. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
+7. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-7. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
+8. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
    neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
    velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
    ilegible aunque el CSS esté bien.

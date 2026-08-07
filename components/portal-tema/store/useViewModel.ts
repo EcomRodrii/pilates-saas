@@ -3,13 +3,21 @@
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
-  CHALLENGES, CLASSES, DAYS, EXERCISES, FILTERS, NOTIFICATIONS, PASS, PLANS,
-  QUICK_LINKS, TABS, WEEK_BARS, dayLabel, findClass, plural,
+  CHALLENGES, CLASSES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, WEEK_BARS,
+  buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
-import { usePortal, type PortalState } from "./PortalStore";
+import { usePortal, useDatos, type PortalState } from "./PortalStore";
 import { useTema } from "./TemaContext";
 
-/** Rejilla del mes: cinco semanas desde el lunes anterior al día 1. */
+/**
+ * Rejilla del mes: cinco semanas desde el lunes anterior al día 1.
+ *
+ * ⚠️ Sigue siendo de MUESTRA a propósito, y por eso importa `CLASSES` y no los
+ * datos reales: el mes está fijado a "Septiembre 2026" y a 30 días. Marcar los
+ * días con clase de verdad sobre una rejilla inventada quedaría medio bien y
+ * eso es peor que quedar claramente falso — se ve real y no lo es. La pantalla
+ * de Calendario necesita su propia pasada; hasta entonces, no se toca.
+ */
 function buildCalendar(state: PortalState) {
   const cells = [];
   for (let i = -2; i <= 32; i++) {
@@ -40,20 +48,24 @@ const money = (n: number) => n.toFixed(2).replace(".", ",") + " €";
 export function useViewModel() {
   const state = usePortal();
   const cfg = useTema();
+  const datos = useDatos();
 
   return useMemo(() => {
     const f = cfg.features;
-    const cls = findClass(state.classId);
+    const cls = buscarClase(datos, state.classId);
     const booked = state.booked.includes(state.classId);
     const fav = state.favourites.includes(state.classId);
-    const next = state.booked.length ? findClass(state.booked[0]) : null;
-    const dayList = CLASSES.filter((c) => c.day === state.day && (state.filter === "todas" || c.type === state.filter));
+    const next = state.booked.length ? buscarClase(datos, state.booked[0]) : null;
+    const dayList = datos.clases.filter((c) => c.day === state.day && (state.filter === "todas" || c.type === state.filter));
     const done = state.booked.length;
     const goal = 4;
     const exercise = EXERCISES[state.exercise];
-    const passLeft = Math.max(0, PASS.total - state.booked.length);
-    const plan = PLANS.find((p) => p.key === state.plan) || PLANS[0];
-    const vat = Math.round(plan.price * 0.21 * 100) / 100;
+    const passLeft = Math.max(0, datos.bono.total - state.booked.length);
+    // ⚠️ `planes` puede venir vacío (un estudio que aún no ha creado tarifas),
+    // así que `plan` es nullable. Con los datos de muestra siempre había uno y
+    // `PLANS[0]` parecía seguro.
+    const plan = datos.planes.find((p) => p.key === state.plan) ?? datos.planes[0] ?? null;
+    const vat = plan ? Math.round(plan.price * 0.21 * 100) / 100 : 0;
 
     return {
       theme: cfg,
@@ -63,9 +75,12 @@ export function useViewModel() {
       tab: state.tab,
 
       greeting: {
-        micro: f.greeting_style === "display-first" ? "Hola, Laura" : "Buenos días",
-        name: f.greeting_style === "display-first" ? "¿Lista para tu sesión de hoy?" : cfg.member_name,
-        initial: cfg.member_initial,
+        // El nombre sale de la socia real; el tema solo decide la jerarquía.
+        // `member_name`/`member_initial` de `config.ts` quedan de respaldo para
+        // la previsualización, donde no hay sesión de nadie.
+        micro: f.greeting_style === "display-first" ? `Hola, ${datos.socia.short || cfg.member_name}` : "Buenos días",
+        name: f.greeting_style === "display-first" ? "¿Lista para tu sesión de hoy?" : (datos.socia.name || cfg.member_name),
+        initial: datos.socia.initial || cfg.member_initial,
         headline: cfg.headline,
         hasAlert: !state.alertsSeen,
       },
@@ -95,13 +110,13 @@ export function useViewModel() {
       quickLinks: QUICK_LINKS.map((q) => ({ label: q.label, action: q.action, icon: q.icon as IconName })),
       quickLinksHeading: cfg.id === "oliva" ? "Mis accesos rápidos" : "Accesos rápidos",
 
-      week: DAYS.map((d) => ({
+      week: datos.dias.map((d) => ({
         label: d.label, num: d.num,
         active: state.day === d.num,
-        hasClass: CLASSES.some((c) => c.day === d.num),
+        hasClass: datos.clases.some((c) => c.day === d.num),
       })),
 
-      filters: FILTERS.map((x) => ({ key: x.key, label: x.label, active: state.filter === x.key })),
+      filters: datos.filtros.map((x) => ({ key: x.key, label: x.label, active: state.filter === x.key })),
       classes: dayList.map((c) => {
         const isBooked = state.booked.includes(c.id);
         return {
@@ -114,12 +129,19 @@ export function useViewModel() {
       }),
       classCount: plural(dayList.length, "clase", "clases"),
 
-      bookings: state.booked.map((id) => {
-        const c = findClass(id);
-        return { id: c.id, name: c.name, time: c.time, day: dayLabel(c.day), meta: c.room + " · " + c.teacher };
+      // Una reserva cuya clase ya no está (cancelada, o de otra semana) se cae
+      // de la lista en vez de pintarse a medias.
+      bookings: state.booked.flatMap((id) => {
+        const c = buscarClase(datos, id);
+        if (!c) return [];
+        return [{ id: c.id, name: c.name, time: c.time, day: etiquetaDia(datos, c.day), meta: c.room + " · " + c.teacher }];
       }),
 
-      pass: { name: PASS.name, left: passLeft, expires: PASS.expires, percent: Math.round((passLeft / PASS.total) * 100) },
+      pass: {
+        name: datos.bono.name, left: passLeft, expires: datos.bono.expires,
+        // Sin bono no hay porcentaje que enseñar, y dividir por cero daría NaN.
+        percent: datos.bono.total ? Math.round((passLeft / datos.bono.total) * 100) : 0,
+      },
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
       metrics: [
         { value: state.booked.length, label: "reservas" },
@@ -127,7 +149,10 @@ export function useViewModel() {
         { value: state.favourites.length, label: "favoritas" },
       ],
 
-      detail: {
+      // ⚠️ `null` cuando la clase no existe. Con los datos de muestra siempre
+      // había una, así que la pantalla de detalle podía darla por hecha; con un
+      // estudio real la semana puede venir vacía o la clase estar cancelada.
+      detail: !cls ? null : {
         id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
@@ -170,14 +195,14 @@ export function useViewModel() {
 
       welcome: cfg.welcome,
 
-      plans: PLANS.map((p) => ({ ...p, selected: state.plan === p.key })),
+      plans: datos.planes.map((p) => ({ ...p, selected: state.plan === p.key })),
       checkout: {
-        plan: plan.name,
-        price: money(plan.price),
+        plan: plan?.name ?? "",
+        price: money(plan?.price ?? 0),
         vat: money(vat),
-        total: money(plan.price + vat),
+        total: money((plan?.price ?? 0) + vat),
         paying: state.paying,
-        cta: state.paying ? "Procesando pago…" : "Pagar " + money(plan.price + vat),
+        cta: state.paying ? "Procesando pago…" : "Pagar " + money((plan?.price ?? 0) + vat),
       },
 
       auth: { working: state.authWorking },
@@ -186,7 +211,7 @@ export function useViewModel() {
       toast: state.toast,
       toastId: state.toastId,
     };
-  }, [state, cfg]);
+  }, [state, cfg, datos]);
 }
 
 export type ViewModel = ReturnType<typeof useViewModel>;
