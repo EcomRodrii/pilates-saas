@@ -11,17 +11,40 @@ import { test, expect } from '@playwright/test';
 
 const MOVIL = { width: 375, height: 812 };
 
-/** Deja el portal abierto en una pantalla concreta sin pasar por la bienvenida. */
+/**
+ * Deja el portal abierto en una pantalla concreta sin pasar por la bienvenida.
+ *
+ * ⚠️ `addInitScript`, NO `evaluate` + `reload`. Sembrar el almacenamiento
+ * DESPUÉS de cargar y recargar es una carrera: el store del kit se hidrata en
+ * un efecto, y si la recarga no llega a tiempo la pantalla se queda en la
+ * bienvenida. En local pasaba siempre; en CI, contra el build de producción,
+ * fallaba — el informe de Playwright enseñaba "Empieza tu camino a la fuerza"
+ * en vez de Bonos, y el test lo contaba como "el botón de pago no existe".
+ *
+ * `addInitScript` corre ANTES que cualquier script de la página, en esta
+ * navegación y en las siguientes: cuando el store se hidrata, el dato ya está.
+ */
 async function abrir(page: import('@playwright/test').Page, tema: string, pantalla: string) {
   await page.setViewportSize(MOVIL);
-  await page.goto(`/portal-tema-preview/${tema}`);
-  await page.evaluate((p) => {
+  await page.addInitScript((p) => {
     localStorage.setItem('tentare-portal', JSON.stringify({ screen: p, tab: 'perfil' }));
   }, pantalla);
-  await page.reload();
+  await page.goto(`/portal-tema-preview/${tema}`);
 }
 
 test.describe('Armazón del portal del kit', () => {
+  // ⚠️ Margen de verdad. La aserción de más abajo espera hasta 30s, que era
+  // también el límite POR DEFECTO del test entero — así que nunca podía
+  // usarlos: la navegación y el `reload` ya se comen parte, y en una tanda
+  // lenta el test moría con un "Test timeout exceeded" opaco antes de que la
+  // espera diera de sí. Pasó en CI (E2E 6/6) con un cambio que no tocaba nada
+  // de esto; el botón estaba, comprobado en el navegador, 62px.
+  //
+  // El límite del test va ahora POR ENCIMA del de la aserción a propósito: si
+  // el botón falta de verdad, lo que se lee es "element(s) not found" y no un
+  // cronómetro.
+  test.setTimeout(90_000);
+
   test('el botón de pago cumple el mínimo táctil aunque la pantalla no quepa', async ({ page }) => {
     // `.canvas` es flex en columna con scroll. Sin `flex-shrink: 0` en sus
     // hijos, el navegador reparte el déficit aplastándolos: con 941px de

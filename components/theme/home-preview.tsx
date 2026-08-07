@@ -22,7 +22,11 @@ const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
 // `pantalla`/`onPantallaChange` que controla el padre (PortalBloquesEditor),
 // solo de la navegación interna de este widget. Compras queda fuera a
 // propósito (dinero real) — ver PortalPreviewReservasClient/PerfilClient.
-export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas'; ruta: string; etiqueta: string }[] = [
+export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas' | 'bienvenida'; ruta: string; etiqueta: string }[] = [
+  // ⚠️ La bienvenida va PRIMERA porque es lo primero que ve una socia — y
+  // porque hasta ahora no estaba: la única forma de comprobarla era
+  // publicarla, o sea enseñársela antes a las clientas que a la propietaria.
+  { id: 'bienvenida', ruta: 'bienvenida', etiqueta: 'Bienvenida' },
   { id: 'reservas', ruta: 'reservas', etiqueta: 'Reservas' },
   { id: 'perfil', ruta: 'perfil', etiqueta: 'Perfil' },
 ];

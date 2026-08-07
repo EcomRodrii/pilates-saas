@@ -27,11 +27,19 @@ export function PortalPreviewMarco({ slug, children }: { slug: string; children:
   const { navPortal, barraClasica, variantes } = useStudio();
   const pathname = usePathname() ?? '';
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
+  // La bienvenida es ANTERIOR al acceso: ahí todavía no hay menú, igual que en
+  // el portal de verdad. Pintarlo sería justo la clase de mentira que esta
+  // previsualización existe para evitar.
+  const esBienvenida = pathname.endsWith('/bienvenida');
 
   // La pestaña marcada. En la miniatura de la biblioteca siempre es la
   // primera (solo se previsualiza el Inicio); en el editor a pantalla completa
   // sigue a la ruta, igual que en el portal.
   const activo = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal-preview/${slug}/${seg}`));
+
+  if (esBienvenida) {
+    return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
+  }
 
   return (
     <div className="flex flex-col overflow-hidden" style={{ height: '100dvh', position: 'relative' }}>
