@@ -297,12 +297,16 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 // arranca vacía: en el portal real la socia no veía ni una de sus reservas,
 // con todas guardadas en la base de datos. Y "Cancelar" solo borraba la fila.
 
+// Sin `as StudioClass`: el cast tapaba que el objeto no encajaba (sobraba
+// `tag`, faltaba `initial`) y lo cazó CI, no mi tsc — que corrí antes de
+// escribir esto. Que el compilador compruebe el molde es justo lo que quiero
+// aquí: si `StudioClass` gana un campo, este ayudante tiene que enterarse.
 function clase(id: string): StudioClass {
   return {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
-    duration: '55 min', room: 'Sala 1', teacher: 'Ana', level: 'Todos los niveles',
-    seats: 3, tag: '', description: '',
-  } as StudioClass;
+    duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
+    level: 'Todos los niveles', seats: 3, description: '',
+  };
 }
 
 test('reservadasDe: empareja cada reserva viva con su clase', () => {
