@@ -71,7 +71,12 @@ function restore(): PortalState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return base;
-    return { ...base, ...JSON.parse(raw), loading: false, toast: "", running: false, paying: false, authWorking: false };
+    // ⚠️ `day` NO se restaura: es el día del MES, así que el 4 guardado hace
+    // dos semanas señala un día que ya no es el de esa semana. Con los datos de
+    // muestra daba igual (el mes estaba congelado); con un estudio real, la
+    // socia abría Clases en un día cualquiera del pasado.
+    const { day: _descartado, ...guardado } = JSON.parse(raw) as Partial<PortalState>;
+    return { ...base, ...guardado, loading: false, toast: "", running: false, paying: false, authWorking: false };
   } catch {
     return base;
   }
@@ -131,9 +136,18 @@ export interface DestinoPortal {
 
 export type NavegarPortal = (destino: DestinoPortal) => void;
 
+/** Las cuatro pantallas que además son pestaña de la barra. */
+const ES_PESTANA = (p: ScreenId): p is TabId =>
+  p === "inicio" || p === "clases" || p === "reservas" || p === "perfil";
+
 const StateCtx = createContext<PortalState | null>(null);
 const ActionsCtx = createContext<PortalActions | null>(null);
 const DatosCtx = createContext<DatosPortal>(DATOS_DE_MUESTRA);
+const CromoDemoCtx = createContext(true);
+
+export function useCromoDemo(): boolean {
+  return useContext(CromoDemoCtx);
+}
 
 /**
  * `datos` es lo que cambia de un estudio a otro (clases, semana, planes, bono,
@@ -144,9 +158,17 @@ export function PortalProvider({
   datos = DATOS_DE_MUESTRA,
   navegar,
   pantalla,
+  diaPorDefecto,
+  cromoDemo = true,
   children,
 }: {
   datos?: DatosPortal;
+  /** Día del mes que sale seleccionado al abrir. Sin esto, el de la demo. */
+  diaPorDefecto?: number;
+  /** La barra de estado falsa y la isla dinámica del marco de teléfono. Van
+   *  en la demo y en la previsualización; en el portal de verdad son un
+   *  adorno que finge ser el sistema operativo, encima con la hora mal. */
+  cromoDemo?: boolean;
   /** Sin esto, navegar es cambiar el estado (el comportamiento de la demo). */
   navegar?: NavegarPortal;
   /** La pantalla que manda desde fuera. Con `navegar` por rutas, el estado
@@ -154,7 +176,11 @@ export function PortalProvider({
   pantalla?: ScreenId;
   children: React.ReactNode;
 }) {
-  const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const [state, dispatch] = useReducer(
+    reducer,
+    diaPorDefecto,
+    (dia) => (dia === undefined ? initialState() : { ...initialState(), day: dia }),
+  );
 
   // Los datos también por ref, y por el mismo motivo que el estado: las
   // acciones se construyen UNA vez. Si entraran en las dependencias del
@@ -370,14 +396,21 @@ export function PortalProvider({
   // Con la navegación por rutas, el estado interno nunca cambia de pantalla:
   // la dice quien monta el provider. Se pisa aquí y no en el reducer para que
   // el resto del estado (reservas, favoritas, filtro) siga siendo del store.
-  const estado = pantalla ? { ...state, screen: pantalla } : state;
+  // ⚠️ Arrastra también `tab`, no solo `screen`. Sin esto se navegaba a Clases
+  // y la barra seguía marcando Inicio: `tab` vive en el store y con la
+  // navegación por rutas nadie lo actualizaba.
+  const estado = pantalla
+    ? { ...state, screen: pantalla, ...(ES_PESTANA(pantalla) ? { tab: pantalla } : null) }
+    : state;
 
   return (
+    <CromoDemoCtx.Provider value={cromoDemo}>
     <DatosCtx.Provider value={datos}>
       <StateCtx.Provider value={estado}>
         <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
       </StateCtx.Provider>
     </DatosCtx.Provider>
+    </CromoDemoCtx.Provider>
   );
 }
 
