@@ -1,23 +1,18 @@
 /**
- * Datos del estudio. En producción llegan de la API de Tentare; aquí es un
- * módulo con la misma forma, para que sustituirlo sea cambiar la fuente.
+ * Los datos de muestra que entregó diseño.
+ *
+ * Ya NO es la fuente del portal: lo que se pinta llega por `PortalProvider`
+ * (`datos`), y esto es solo el valor por defecto — lo que se ve en la
+ * previsualización de temas, donde no hay estudio ni sesión. El adaptador que
+ * produce los de verdad es `lib/portal-tema/datos.ts`.
+ *
+ * Los tipos viven en `lib/portal-tema/tipos.ts` para que el adaptador (puro y
+ * con tests) no tenga que importar nada de `components/`.
  */
 
-export interface StudioClass {
-  id: string;
-  name: string;
-  type: "reformer" | "suelo" | "prenatal";
-  day: number;
-  time: string;
-  end: string;
-  duration: string;
-  room: string;
-  level: string;
-  teacher: string;
-  initial: string;
-  seats: number;
-  description: string;
-}
+import type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
+
+export type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
 
 export const DAYS = [
   { key: "lun", label: "LUN", num: 3 },
@@ -117,6 +112,28 @@ export const FAQ = [
 export const PASS = { name: "Bono 10 clases", total: 10, expires: "30 de septiembre" };
 export const MEMBER = { name: "Laura Ortega", short: "Laura", initial: "L" };
 
-export const findClass = (id: string): StudioClass => CLASSES.find((c) => c.id === id) || CLASSES[0];
-export const dayLabel = (num: number): string => (DAYS.find((d) => d.num === num) || DAYS[0]).label;
+/**
+ * ⚠️ Devuelve `null` y no "la primera clase" como hacía la versión de muestra.
+ *
+ * Con los datos inventados siempre había una primera clase; con los de un
+ * estudio real la lista puede estar VACÍA (una semana sin programar, un
+ * estudio recién dado de alta), y `CLASSES[0]` habría sido `undefined` — con
+ * la pantalla de detalle reventando al leerle el nombre.
+ */
+export const buscarClase = (datos: DatosPortal, id: string): StudioClass | null =>
+  datos.clases.find((c) => c.id === id) ?? null;
+
+export const etiquetaDia = (datos: DatosPortal, num: number): string =>
+  datos.dias.find((d) => d.num === num)?.label ?? "";
+
 export const plural = (n: number, one: string, many: string) => n + " " + (n === 1 ? one : many);
+
+/** Lo que ve la previsualización de temas: no hay estudio del que tirar. */
+export const DATOS_DE_MUESTRA: DatosPortal = {
+  clases: CLASSES,
+  dias: [...DAYS],
+  filtros: [...FILTERS],
+  planes: PLANS,
+  bono: PASS,
+  socia: MEMBER,
+};

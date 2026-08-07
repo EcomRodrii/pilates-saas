@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { CLASSES, EXERCISES, NOTIFICATIONS, findClass, plural } from "@/components/portal-tema/data/studio";
+import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
+import type { DatosPortal } from "@/lib/portal-tema/tipos";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
@@ -108,9 +109,27 @@ export interface PortalActions {
 
 const StateCtx = createContext<PortalState | null>(null);
 const ActionsCtx = createContext<PortalActions | null>(null);
+const DatosCtx = createContext<DatosPortal>(DATOS_DE_MUESTRA);
 
-export function PortalProvider({ children }: { children: React.ReactNode }) {
+/**
+ * `datos` es lo que cambia de un estudio a otro (clases, semana, planes, bono,
+ * socia). Por defecto, los de muestra: así la previsualización de temas — donde
+ * no hay estudio ni sesión — sigue funcionando sin pasar nada.
+ */
+export function PortalProvider({
+  datos = DATOS_DE_MUESTRA,
+  children,
+}: { datos?: DatosPortal; children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+
+  // Los datos también por ref, y por el mismo motivo que el estado: las
+  // acciones se construyen UNA vez. Si entraran en las dependencias del
+  // `useMemo`, cada refresco de datos crearía acciones nuevas y volvería a
+  // renderizar todo el portal para nada.
+  const datosRef = useRef(datos);
+  useEffect(() => {
+    datosRef.current = datos;
+  }, [datos]);
 
   // El espejo del estado para leerlo sin capturarlo en una clausura vieja: las
   // acciones se construyen una vez (`useMemo`) y el intervalo de la sesión
@@ -205,7 +224,11 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
 
       reserve: () => {
         const s = stateRef.current;
-        const cls = findClass(s.classId);
+        const cls = buscarClase(datosRef.current, s.classId);
+        // Sin clase no hay nada que reservar: la lista puede estar vacía de
+        // verdad (semana sin programar) o la clase haberse cancelado mientras
+        // la socia tenía la pantalla abierta.
+        if (!cls) return;
         if (s.booked.includes(s.classId)) {
           set({ booked: s.booked.filter((x) => x !== s.classId) });
           return notify("Reserva anulada");
@@ -285,10 +308,16 @@ export function PortalProvider({ children }: { children: React.ReactNode }) {
   }, [set, notify]);
 
   return (
-    <StateCtx.Provider value={state}>
-      <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
-    </StateCtx.Provider>
+    <DatosCtx.Provider value={datos}>
+      <StateCtx.Provider value={state}>
+        <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
+      </StateCtx.Provider>
+    </DatosCtx.Provider>
   );
+}
+
+export function useDatos(): DatosPortal {
+  return useContext(DatosCtx);
 }
 
 export function usePortal(): PortalState {
@@ -302,6 +331,3 @@ export function useActions(): PortalActions {
   if (!value) throw new Error("useActions fuera de <PortalProvider>");
   return value;
 }
-
-/** Días con clase, para la tira de la semana y el calendario. */
-export const daysWithClass = new Set(CLASSES.map((c) => c.day));

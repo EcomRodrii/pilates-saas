@@ -1,7 +1,7 @@
 "use client";
 
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
-import { Avatar, Button, Divider, Pill } from "@/components/portal-tema/components/ui/primitives";
+import { Avatar, Button, Divider, EmptyState, Pill } from "@/components/portal-tema/components/ui/primitives";
 import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -37,6 +37,30 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   const bleed = vm.features.detail_style === "bleed";
   const d = vm.detail;
+
+  // La clase ya no está: la ha cancelado el estudio, o la socia llegó aquí con
+  // el horario de otra semana. Con los datos de muestra este caso no existía.
+  if (!d) {
+    return (
+      <>
+        <StatusBar />
+        <div className="topbar">
+          <button className="icon-btn is-pressable" onClick={actions.back} aria-label="Atrás">
+            <Icon name="back" stroke={1.9} />
+          </button>
+          <p className="topbar__title">Detalle de clase</p>
+        </div>
+        <div className="canvas">
+          <EmptyState
+            title="Esta clase ya no está"
+            text="Puede que el estudio la haya cancelado. Mira el horario para buscar otra."
+            cta="Ver horario"
+            onAction={actions.goSchedule}
+          />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
