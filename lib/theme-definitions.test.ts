@@ -22,25 +22,8 @@ test('THEME_DEFINITIONS: cada "defaults" es un ThemeDraft válido (nada que romp
   }
 });
 
-test('getThemeDefinition: "geometric" fija portalHeadingFontId a outfit y declara la capability', () => {
-  const geo = getThemeDefinition('geometric');
-  assert.ok(geo);
-  assert.equal(geo!.defaults.portalHeadingFontId, 'outfit');
-  assert.ok(geo!.capabilities.includes('typography'));
-});
-
 test('getThemeDefinition: id desconocido → undefined', () => {
   assert.equal(getThemeDefinition('no-existe'), undefined);
-});
-
-test('getThemeDefinition: "editorial" fija tipografía negrita, botón/tarjeta y barra de pestaña activa', () => {
-  const ed = getThemeDefinition('editorial');
-  assert.ok(ed);
-  assert.equal(ed!.defaults.portalHeadingFontId, 'instrumentSansBold');
-  assert.equal(ed!.defaults.buttonStyle, 'solid');
-  assert.equal(ed!.defaults.cardStyle, 'elevated');
-  assert.equal(ed!.defaults.tabBarStyle, 'pestanaActiva');
-  assert.deepEqual(ed!.capabilities.sort(), ['buttons', 'cards', 'nav', 'typography']);
 });
 
 // ── Tanda Oliva/Bloom/Noir ──────────────────────────────────────────────────
@@ -64,11 +47,19 @@ test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar
   }
 });
 
-test('THEME_DEFINITIONS: siguen estando los temas anteriores a esta tanda', () => {
-  // Un estudio que ya eligió `geometric`/`editorial` tiene ese id guardado en su
-  // ThemeConfig; borrarlos del registro dejaría su tema sin nombre en la galería.
-  for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
-    assert.ok(getThemeDefinition(id), `Falta el tema "${id}" en el registro`);
+test('la biblioteca es el predeterminado y los tres temas de diseño, nada más', () => {
+  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['classic', 'oliva', 'bloom', 'noir']);
+});
+
+// ⚠️ Antes había una guardia que exigía lo contrario ("siguen estando los
+// temas anteriores"), porque borrar un id deja sin nombre al estudio que lo
+// tenga guardado. Se retiran igualmente por decisión de producto: la
+// biblioteca debe ser el predeterminado y los tres temas de diseño. Lo que sí
+// sigue prohibido es RECICLAR un id — a un estudio con 'editorial' guardado le
+// cambiaría el tema por sorpresa, que es mucho peor que quedarse sin nombre.
+test('los ids retirados no se reciclan para otro tema', () => {
+  for (const id of ['geometric', 'editorial']) {
+    assert.equal(getThemeDefinition(id), undefined, `"${id}" ha vuelto al registro`);
   }
 });
 
@@ -194,13 +185,6 @@ test('Variantes exactas por tema, según el prototipo real', () => {
     THEME_DEFINITIONS.filter((t) => t.defaults.variantes?.accesosRapidos === 'circulos').length, 1);
 });
 
-test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a variantes', () => {
-  // Sin esto, un estudio que instale Editorial DESPUÉS de esta fase perdería
-  // la bienvenida. (Los que ya la tienen instalada se cubren con el OR de
-  // tabBarStyle en login/page.tsx: `defaults` no es retroactivo.)
-  assert.equal(getThemeDefinition('editorial')!.defaults.variantes?.bienvenida, 'foto');
-});
-
 test('cada cambio de defaults sube la versión — `defaults` NO es retroactivo', () => {
   // Sin subirla, un estudio que ya tenga el tema instalado se queda con los
   // valores viejos para siempre y sin enterarse. Los tres suben con
@@ -209,7 +193,6 @@ test('cada cambio de defaults sube la versión — `defaults` NO es retroactivo'
   assert.equal(getThemeDefinition('oliva')!.version, 5);
   assert.equal(getThemeDefinition('bloom')!.version, 5);
   assert.equal(getThemeDefinition('noir')!.version, 6);
-  assert.equal(getThemeDefinition('editorial')!.version, 2);
 });
 
 test('los 3 temas piden la tarjeta principal rotulada (rótulo + estado vacío simple)', () => {

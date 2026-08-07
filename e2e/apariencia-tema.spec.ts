@@ -125,9 +125,13 @@ test.describe('Biblioteca de temas', () => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    // Los tres temas con paleta propia de la última tanda, y los previos.
-    for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
+    // El predeterminado y los tres temas de diseño. Ni uno más: 'geometric' y
+    // 'editorial' se retiraron de la biblioteca.
+    for (const id of ['classic', 'oliva', 'bloom', 'noir']) {
       await expect(filaTema(page, id)).toBeVisible();
+    }
+    for (const id of ['geometric', 'editorial']) {
+      await expect(filaTema(page, id)).toHaveCount(0);
     }
     // Sin themeId guardado, el tema resuelto es "classic" → es el que está en uso.
     await expect(filaTema(page, 'classic').getByText('En uso')).toBeVisible();
@@ -135,7 +139,7 @@ test.describe('Biblioteca de temas', () => {
   });
 
   test('"Tu tema" muestra el tema instalado con su versión', async ({ page }) => {
-    await montar(page, { themeId: 'editorial', themeVersion: 1 });
+    await montar(page, { themeId: 'oliva', themeVersion: 1 });
     await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('v1').first()).toBeVisible();
   });
@@ -145,15 +149,15 @@ test.describe('Biblioteca de temas', () => {
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
     // "Usar" solo aparece en los temas que NO están en uso.
-    const usarGeometrico = filaTema(page, 'geometric').getByRole('button', { name: 'Usar' });
+    const usarOliva = filaTema(page, 'oliva').getByRole('button', { name: 'Usar' });
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
-      usarGeometrico.click(),
+      usarOliva.click(),
     ]);
 
     const body = puts.at(-1)!;
-    expect(body.themeId).toBe('geometric');
-    expect(body.themeVersion).toBe(1);
+    expect(body.themeId).toBe('oliva');
+    expect(body.themeVersion).toBe(5);
     expect(body.portalHeadingFontId).toBe('outfit');
     expect(body.themeCustomized).toBe(false);
   });
