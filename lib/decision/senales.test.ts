@@ -6,6 +6,7 @@ import {
   construirIndices, frecuenciaHabitual, frecuenciaHabitualPorTipoClase, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
   pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
+  variacionOcupacionFranja, type FranjaRecurrente,
 } from './senales.ts';
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
@@ -305,4 +306,32 @@ test('intentosFallidosRecientes: fuera de la ventana no cuenta', () => {
   });
   const idx = construirIndices(snap);
   assert.equal(intentosFallidosRecientes('a', idx, NOW, 14), 0);
+});
+
+// ── variacionOcupacionFranja ────────────────────────────────────────────────
+
+function franjaConOcupaciones(ocupaciones: number[]): FranjaRecurrente {
+  return { clave: 'x', sesionesOrdenadas: [], ocupaciones };
+}
+
+test('variacionOcupacionFranja: menos de 2n ocurrencias → null (nunca extrapola)', () => {
+  assert.equal(variacionOcupacionFranja(franjaConOcupaciones([0.2, 0.2, 0.3, 0.3, 0.5]), 3), null);
+});
+
+test('variacionOcupacionFranja: caída real, últimas 3 más bajas que las 3 anteriores', () => {
+  // más reciente primero: 0.2,0.2,0.2 (media 0.2) vs 0.5,0.5,0.5 (media 0.5) → cayó 60%
+  const v = variacionOcupacionFranja(franjaConOcupaciones([0.2, 0.2, 0.2, 0.5, 0.5, 0.5]), 3);
+  assert.ok(v);
+  assert.ok(Math.abs(v.mediaReciente - 0.2) < 1e-9);
+  assert.ok(Math.abs(v.mediaAnterior - 0.5) < 1e-9);
+  assert.ok(Math.abs(v.pctVariacion - -0.6) < 1e-9);
+});
+
+test('variacionOcupacionFranja: sin cambio → pctVariacion 0', () => {
+  const v = variacionOcupacionFranja(franjaConOcupaciones([0.3, 0.3, 0.3, 0.3, 0.3, 0.3]), 3);
+  assert.equal(v?.pctVariacion, 0);
+});
+
+test('variacionOcupacionFranja: media anterior 0 → null (división por cero, nada que comparar)', () => {
+  assert.equal(variacionOcupacionFranja(franjaConOcupaciones([0.1, 0.1, 0.1, 0, 0, 0]), 3), null);
 });
