@@ -170,7 +170,7 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
       // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
       // Cabecera con titular grande y retos con fondo de color propio.
-      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' },
+      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
     },
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
