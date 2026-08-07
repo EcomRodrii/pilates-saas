@@ -3766,6 +3766,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
+    portalReact: r.portal_react ?? false,
     logoUrl: r.logo_url ?? null,
     ivaPorDefecto: r.iva_por_defecto ?? 21,
     depUmbralAlto: r.dep_umbral_alto ?? 25,

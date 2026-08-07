@@ -26,10 +26,12 @@ import { sans, altura, radio } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
 import { PortalNav } from './portal-nav';
+import { PortalTemaMarco, pantallaDeRuta } from './portal-tema-marco';
+import { esTemaPortal } from '@/themes/registro';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal, barraClasica, variantes } = useStudio();
+  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -127,6 +129,30 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const segActual = pathname?.startsWith(`/portal/${slug}/compras`) ? 'bonos' : null;
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
+
+  // El portal en React (el kit de diseño), detrás de `studios.portal_react`.
+  //
+  // Se exige ADEMÁS que el tema instalado sea uno de los tres del kit: con
+  // `classic` no hay juego de tokens que montar, y servirle a esa socia un
+  // portal a medio tintar sería peor que dejarle el de siempre. Así, encender
+  // la bandera en un estudio sin tema del kit no rompe nada: no pasa nada.
+  //
+  // ⚠️ TEMPORAL. Esta rama y el portal viejo se van juntos cuando acabe el
+  // despliegue por fases; no dejar que eche raíces.
+  //
+  // Y solo en las CINCO rutas que el kit cubre: `/progreso`, `/compras`,
+  // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
+  // `/videos` no tienen pantalla equivalente y se quedan con el portal de
+  // siempre. Encender la bandera no puede dejar a nadie sin esas pantallas.
+  if (portalReact && esTemaPortal(themeIdPublicado) && pantallaDeRuta(pathname, slug)) {
+    return (
+      <div className="fixed inset-0" style={{ background: t.bg }}>
+        <div className="flex flex-col overflow-hidden" style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}>
+          <PortalTemaMarco />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>

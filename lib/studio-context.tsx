@@ -263,6 +263,11 @@ interface StudioContextValue {
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
+  /** Tema instalado (`oliva`/`bloom`/`noir`/`classic`…). El portal en React
+   *  elige con esto cuál de los tres juegos de tokens monta. */
+  themeIdPublicado: string | null;
+  /** TEMPORAL: `true` = este estudio ve el portal en React. Ver `Studio.portalReact`. */
+  portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
   instructores: Instructor[];
@@ -617,6 +622,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // esté mandando, y `null` (fuera del editor) deja intacto lo publicado.
   const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
+  const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
+  const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -852,6 +859,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // completo — un valor corrupto en un eje no arrastra a los demás.
       setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
+      setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
+      setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
       setRedesSociales({
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
         facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
@@ -3991,6 +4000,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     barraClasica: barraClasicaEfectiva,
     variantes: variantesEfectivas,
     navPortal,
+    themeIdPublicado,
+    portalReact,
     redesSociales,
     favoritos,
     toggleFavorito,
