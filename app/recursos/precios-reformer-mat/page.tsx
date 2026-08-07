@@ -3,6 +3,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 
 export const metadata: Metadata = {
   title: 'Reformer vs. mat: cómo poner precio a cada clase — Tentare',
@@ -56,6 +57,12 @@ function PriceTable() {
 export default function PreciosReformerPage() {
   return (
     <PageShell>
+      <ArticleStructuredData
+        title="Reformer vs. mat: cómo poner precio a cada clase"
+        description="Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios de Pilates reformer y mat que reflejen la diferencia."
+        slug="precios-reformer-mat"
+        datePublished="2026-07-01"
+      />
       <ArticleShell
         category="Rentabilidad"
         coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"

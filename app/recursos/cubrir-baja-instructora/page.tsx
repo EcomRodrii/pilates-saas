@@ -3,6 +3,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 
 export const metadata: Metadata = {
   title: 'Cómo cubrir una baja de instructora sin hacer una llamada — Tentare',
@@ -34,6 +35,12 @@ const FAQ = [
 export default function CubrirBajaPage() {
   return (
     <PageShell>
+      <ArticleStructuredData
+        title="Cómo cubrir una baja de instructora sin hacer una llamada"
+        description="El proceso que roba noches a las propietarias de estudios de Pilates y cómo automatizarlo paso a paso, hasta que la baja se cubre sola."
+        slug="cubrir-baja-instructora"
+        datePublished="2026-07-01"
+      />
       <ArticleShell
         category="Sustituciones y equipo"
         coverGradient="linear-gradient(140deg,#191C11,#343825)"

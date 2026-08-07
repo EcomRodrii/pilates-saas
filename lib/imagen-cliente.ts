@@ -59,7 +59,21 @@ export async function redimensionarImagen(file: File, ladoMaximo: number): Promi
 
   let bitmap: ImageBitmap | null = null;
   try {
-    bitmap = await createImageBitmap(file);
+    // `imageOrientation: 'from-image'` NO es opcional aquí.
+    //
+    // Una foto de móvil casi nunca está guardada "de pie": el sensor graba en
+    // horizontal y añade una etiqueta EXIF de orientación que el visor aplica al
+    // pintarla. Al pasarla por canvas se pierde esa etiqueta — el resultado se
+    // guarda con los píxeles tal cual salieron del sensor, ya sin nada que diga
+    // cómo hay que girarlos. O sea: un retrato subido desde el móvil podía
+    // quedarse TUMBADO para siempre.
+    //
+    // El valor por defecto de esta opción ha ido cambiando en la especificación
+    // y no es el mismo en todos los navegadores, así que dejarlo implícito era
+    // confiar en que a todo el mundo le tocara el bueno. Pedido explícitamente,
+    // `createImageBitmap` aplica la rotación ANTES de que dibujemos, y lo que se
+    // sube ya está derecho sin depender de ninguna etiqueta.
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     const escala = Math.min(1, ladoMaximo / Math.max(bitmap.width, bitmap.height));
 
     // Ya cabe en el lado máximo y además no pesa: dejarla como está.

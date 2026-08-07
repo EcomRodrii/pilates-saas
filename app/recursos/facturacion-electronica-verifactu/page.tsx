@@ -3,6 +3,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { IconCheck } from '@/components/landing/icons';
 import { ACC } from '@/components/landing/theme';
 
@@ -37,6 +38,12 @@ const FAQ = [
 export default function VerifactuPage() {
   return (
     <PageShell>
+      <ArticleStructuredData
+        title="Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu"
+        description="Qué es Veri*factu, cuándo es obligatorio (2027) y qué debe tener cada factura de tu estudio de Pilates."
+        slug="facturacion-electronica-verifactu"
+        datePublished="2026-07-01"
+      />
       <ArticleShell
         category="España y fiscalidad"
         coverGradient="linear-gradient(140deg,#22251A,#5A6142)"

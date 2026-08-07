@@ -182,6 +182,12 @@ export type EventoOutcome = 'APROBADA' | 'RECHAZADA' | 'IGNORADA' | 'EJECUTADA';
 export type ResultadoOutcome = 'POSITIVO' | 'NEGATIVO' | 'NEUTRO' | 'PENDIENTE';
 export type SenalObservada = 'RESERVO' | 'PAGO' | 'RENOVO' | 'CANCELO' | 'SIN_RESPUESTA';
 
+// MEDIDO = `impactoReal` es una cifra con respaldo real (dinero cobrado, plan
+// renovado). NO_MEDIBLE = este tipo/resultado no tiene una señal financiera
+// limpia que atribuirle — no se inventa un número donde solo hay "no pasó
+// nada" o "se fue" (migr 20260806213813).
+export type ConfianzaMedicion = 'MEDIDO' | 'NO_MEDIBLE';
+
 export interface Outcome {
   id: string;
   studioId: string;
@@ -191,6 +197,8 @@ export interface Outcome {
   senalObservada: SenalObservada | null;
   ventanaDias: number;
   medidoEn: string | null;
+  impactoReal: Impacto | null;
+  confianzaMedicion: ConfianzaMedicion | null;
 }
 
 // ── Decision Session (DECISION-OS-MODELO-DATOS.md §2.13) ───────────────────

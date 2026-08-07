@@ -9,6 +9,19 @@ const BASE_URL = 'https://tentare.app';
 // reales, esta lista se sustituye por esas.
 const ANCLAS_LANDING = ['#precio', '#faq', '#sustituciones', '#migracion'];
 
+// Guías reales de /recursos/<slug> (páginas indexables de verdad, a
+// diferencia de las anclas de arriba). Añadir aquí cada vez que se publique
+// una guía nueva bajo app/recursos/.
+const GUIAS_RECURSOS = [
+  'cubrir-baja-instructora',
+  'facturacion-electronica-verifactu',
+  'precios-reformer-mat',
+  'estudios-pilates-de-exito',
+  'ocupacion-clases-valle',
+  'reducir-cancelaciones-ultima-hora',
+  'checklist-elegir-software-estudio',
+];
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const legales = ['/legal', '/privacidad', '/terminos', '/cookies'].map((p) => ({
     url: `${BASE_URL}${p}`,
@@ -20,12 +33,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
+  const guias = GUIAS_RECURSOS.map((slug) => ({
+    url: `${BASE_URL}/recursos/${slug}`,
+    changeFrequency: 'monthly' as const,
+    priority: 0.7,
+  }));
   return [
     {
       url: BASE_URL,
       changeFrequency: 'weekly',
       priority: 1,
     },
+    {
+      url: `${BASE_URL}/recursos`,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    ...guias,
     ...anclas,
     ...legales,
   ];
