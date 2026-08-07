@@ -59,7 +59,7 @@ const ICONO_DISPOSITIVO: Record<DispositivoId, LucideIcon> = {
   movil: Smartphone, tablet: Tablet, completo: Monitor,
 };
 
-type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'reservas' | 'perfil';
+type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'bienvenida' | 'reservas' | 'perfil';
 
 type Nodo =
   | { tipo: 'tema'; categoria: AjustesCategoriaId }
