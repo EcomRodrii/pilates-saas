@@ -6,7 +6,7 @@
 // colores y el resto de la paleta se deriva de forma armónica (derivarPaleta).
 // Puro, sin dependencias de runtime → importable en cliente y testeable en node.
 
-import { hexARgb } from './wcag-contrast.ts';
+import { hexARgb, cumpleContraste } from './wcag-contrast.ts';
 
 export type Hsl = { h: number; s: number; l: number };
 
@@ -103,4 +103,26 @@ export function derivarPaleta(primary: string): PaletaDerivada {
     background: hslToHex({ h: hsl.h, s: 12, l: 96 }),
     text: hslToHex({ h: hsl.h, s: 15, l: 12 }),
   };
+}
+
+/**
+ * Un color, garantizado legible como TEXTO sobre un fondo casi blanco — el uso
+ * real de `--brand-secondary` en el PANEL (badges, pestañas activas, iconos;
+ * nunca relleno sólido). En los temas de la galería (Oliva/Bloom/Noir), ese
+ * mismo campo `secondary` tiene otro papel — "superficie suave", no texto — y
+ * puede ser deliberadamente pastel; `destacado` tampoco sirve de sustituto
+ * genérico (en Bloom es un rosa claro pensado para ir SOBRE la marca, no sobre
+ * blanco). Por eso esto no reemplaza el valor del tema: se aplica solo en el
+ * punto donde `--brand-secondary` se convierte en texto del panel, oscureciendo
+ * progresivamente hasta cumplir AA si hace falta. Un hex inválido nunca sale
+ * tal cual (dejaría `--brand-secondary` con un valor CSS roto): cae al oscuro
+ * por defecto, igual que el resto de fallbacks de este módulo.
+ */
+export function colorLegibleSobreClaro(hex: string): string {
+  if (cumpleContraste(hex, '#FFFFFF', { grande: true })) return hex;
+  for (let delta = -10; delta >= -70; delta -= 10) {
+    const candidato = ajustarLuminosidad(hex, delta);
+    if (cumpleContraste(candidato, '#FFFFFF', { grande: true })) return candidato;
+  }
+  return '#131313';
 }

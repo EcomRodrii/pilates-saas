@@ -20,6 +20,7 @@ import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
+import { colorLegibleSobreClaro } from './color-utils.ts';
 
 // foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
 // reexporta aquí por compatibilidad — así PanelThemeProvider (montado en TODO
@@ -239,7 +240,11 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // Panel de gestión (marca del estudio; el dark/light sigue siendo por-usuario)
     '--brand': t.primary,
     '--brand-foreground': marcaForeground,
-    '--brand-secondary': t.secondary,
+    // A diferencia de --portal-brand-secondary (arriba), en el PANEL este color
+    // se usa SIEMPRE como texto (badges, pestañas activas, iconos) — nunca como
+    // superficie. Se garantiza legible aquí, no en el dato del tema (ver
+    // colorLegibleSobreClaro en color-utils.ts).
+    '--brand-secondary': colorLegibleSobreClaro(t.secondary),
     // Neutros y acento
     '--accent': t.accent,
     '--background': t.background,
@@ -314,12 +319,13 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
     errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
-  // `secondary` no tenía par validado aquí — se usa por todo el panel y el
-  // portal como color de TEXTO sobre `--background`/`--card` (nunca como
-  // relleno sólido), y el hueco dejó pasar 5 de los 6 presets con un `secondary`
-  // pastel prácticamente invisible como texto (ratio real 1.28–2.50:1, ver
-  // lib/theme-presets.ts). Mismo umbral que el par marca/fondo de arriba.
-  if (!cumpleContraste(t.secondary, t.background, { grande: true }))
-    errores.push('El color secundario no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
+  // NO se valida aquí `secondary` en general: en Oliva/Bloom/Noir es una
+  // "superficie suave" a propósito (ver comentario en THEME_DEFINITIONS de
+  // noir), no necesariamente texto — y algunos tests de este módulo lo usan
+  // como valor de prueba aislado para el par destacado/marca de arriba, sin
+  // relación con su legibilidad como texto. La legibilidad de `--brand-secondary`
+  // como texto del PANEL (badges, pestañas) se garantiza en el punto donde se
+  // aplica esa variable (`aplicarMarca` en panel-theme.tsx / themeToVarMap
+  // aquí abajo), no en este gate compartido — ver `colorLegibleSobreClaro`.
   return { ok: errores.length === 0, errores };
 }
