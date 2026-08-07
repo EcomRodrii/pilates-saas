@@ -51,7 +51,6 @@ import type {
   RowNotificaciones,
   RowPlanesTarifa,
   RowPostsComunidad,
-  RowPreferenciasSocio,
   RowProductosPos,
   RowRecibos,
   RowReservas,
@@ -121,7 +120,6 @@ import type {
   PlanTarifa,
   PostComunidad,
   ComentarioComunidad,
-  PreferenciasSocio,
   ProductoPOS,
   Recibo,
   Reserva,
@@ -428,21 +426,6 @@ function mapCampoPersonalizado(r: RowCamposPersonalizados): CampoPersonalizado {
     orden: r.orden ?? 0,
     activo: r.activo ?? true,
   };
-}
-
-export function mapPreferenciasSocio(r: RowPreferenciasSocio): PreferenciasSocio {
-  return {
-    socioId: r.socio_id,
-    studioId: r.studio_id,
-    disponibilidad: r.disponibilidad ?? {},
-    instructorFavoritoId: r.instructor_favorito_id ?? null,
-    tipoClaseFavorita: r.tipo_clase_favorita ?? null,
-    duracionPreferida: r.duracion_preferida ?? null,
-    nivel: r.nivel ?? null,
-    notifEmail: r.notif_email ?? true,
-    notifWhatsapp: r.notif_whatsapp ?? true,
-    actualizadoEn: r.actualizado_en,
-  } as PreferenciasSocio;
 }
 
 export function mapRewardRule(r: RowRewardRules): RewardRule {
@@ -2535,23 +2518,6 @@ export async function dbInsertMensajeEquipo(m: MensajeEquipo): Promise<boolean> 
   return true;
 }
 
-export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {
-  const row = {
-    socio_id: p.socioId,
-    studio_id: p.studioId ?? STUDIO_ID,
-    disponibilidad: p.disponibilidad,
-    instructor_favorito_id: p.instructorFavoritoId ?? null,
-    tipo_clase_favorita: p.tipoClaseFavorita ?? null,
-    duracion_preferida: p.duracionPreferida ?? null,
-    nivel: p.nivel ?? null,
-    notif_email: p.notifEmail,
-    notif_whatsapp: p.notifWhatsapp,
-    actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await supabase.from('preferencias_socio').upsert(row, { onConflict: 'socio_id' });
-  if (error) reportDbError('[dbUpsertPreferenciasSocio]', error);
-}
-
 // ─── Gamificación: créditos y recompensas ────────────────────────────────────
 
 export async function dbInsertRewardRule(r: RewardRule): Promise<ResultadoEscritura> {
@@ -3948,7 +3914,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     respuestasSesionRes,
     integracionesRes,
     mensajesEquipoRes,
-    preferenciasSocioRes,
     rewardRulesRes,
     rewardActionsRes,
     memberCreditsRes,
@@ -4028,7 +3993,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // para no romper el desestructurado posicional de abajo, pero acotado para
     // no traer el histórico completo en cada arranque.
     db.from('mensajes_equipo').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(1),
-    db.from('preferencias_socio').select('*').eq('studio_id', sid),
     db.from('reward_rules').select('*').eq('studio_id', sid),
     db.from('reward_actions').select('*').eq('studio_id', sid),
     db.from('member_credits').select('*').eq('studio_id', sid),
@@ -4102,7 +4066,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     respuestasSesion: (respuestasSesionRes.data ?? []).map(mapRespuestaSesion),
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
-    preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
     rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
     rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
     memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),

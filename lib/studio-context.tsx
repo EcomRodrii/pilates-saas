@@ -113,7 +113,6 @@ import type {
   CodigoDescuento,
   ActividadReciente,
   TipoActividad,
-  PreferenciasSocio,
   RewardRule,
   RewardAction,
   RewardHistory,
@@ -170,7 +169,6 @@ import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
-import { useMemberPrefsStore } from '@/lib/stores/use-member-prefs-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -430,8 +428,6 @@ interface StudioContextValue {
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
-  preferenciasSocio: PreferenciasSocio[];
-  upsertPreferenciasSocio: (socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) => void;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
   rewardHistory: RewardHistory[];
@@ -676,8 +672,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const { dashboardCharts } = dashboardChartsStore;
   const progressNotesStore = useProgressNotesStore();
   const { notasProgreso } = progressNotesStore;
-  const memberPrefsStore = useMemberPrefsStore();
-  const { preferenciasSocio } = memberPrefsStore;
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
   const [rewardActions, setRewardActions] = useState<RewardAction[]>([]);
   const [rewardHistory, setRewardHistory] = useState<RewardHistory[]>([]);
@@ -881,7 +875,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setPlazasFijas(socia?.plazasFijas ?? []);
       setRecibos(socia?.recibos ?? []);
       setFacturas(socia?.facturas ?? []);
-      memberPrefsStore.setPreferenciasSocio(socia?.preferenciasSocio ?? []);
       setMemberCredits(socia?.memberCredits ?? []);
       setRewardHistory(socia?.rewardHistory ?? []);
       setRewardRedemptions(socia?.rewardRedemptions ?? []);
@@ -1032,7 +1025,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setMemberCredits(data.memberCredits ?? []);
@@ -1709,17 +1701,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     } finally {
       cargarPublico(); // re-sincroniza el estado desde el servidor
     }
-  }
-
-  // Preferencias de la socia: en público van por endpoint; si no, al store.
-  function upsertPreferenciasSocioPub(socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) {
-    const cpub = ctxPublico();
-    if (cpub) {
-      memberPrefsStore.upsertPreferenciasSocio(socioId, changes); // optimista (estado local)
-      postPublico('/api/public/socio', { accion: 'preferencias', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
-      return;
-    }
-    memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
   }
 
   async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
@@ -4145,8 +4126,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleLikePost: content.toggleLikePost,
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
-    preferenciasSocio,
-    upsertPreferenciasSocio: upsertPreferenciasSocioPub,
     rewardRules,
     rewardActions,
     rewardHistory,
@@ -4227,7 +4206,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     actividadReciente, notificaciones,
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
     integrationsStore.integraciones,
-    memberPrefsStore.preferenciasSocio,
     rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
     rewardCatalog, rewardRedemptions,
     achievementDefinitions, achievementProgress, achievementHistory,
@@ -4277,7 +4255,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setRewardHistory(data.rewardHistory ?? []);

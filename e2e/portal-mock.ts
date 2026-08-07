@@ -341,7 +341,7 @@ export async function montarPortal(page: Page, opciones: {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : [SUSCRIPCION],
-      recibos, facturas: FACTURAS, preferenciasSocio: [],
+      recibos, facturas: FACTURAS,
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
