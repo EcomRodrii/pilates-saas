@@ -786,7 +786,7 @@ export default function ReservarPage() {
   // servidor, así que el header se pinta al instante.
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[var(--portal-bg)]">
+      <div className="min-h-dvh bg-[var(--portal-bg)]">
         <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">

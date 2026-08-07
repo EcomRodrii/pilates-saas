@@ -192,7 +192,7 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#EEEEE8' }}>
+    <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: '#EEEEE8' }}>
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">

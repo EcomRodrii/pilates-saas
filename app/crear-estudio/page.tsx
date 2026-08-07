@@ -90,7 +90,7 @@ export default function CrearEstudioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#EEEEE8] flex items-center justify-center px-4 py-10">
+    <div className="min-h-dvh bg-[#EEEEE8] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           {/* Dos puntos, no tres: el texto dice «Paso 1 de 2» y el tercer punto

@@ -46,7 +46,7 @@ export function AceptarForm({
       conflicto_horario: { icono: '🗓️', titulo: 'No puede ser', texto: 'Parece que ya tienes otra clase asignada justo en ese horario, así que no podemos confirmarte esta. Avisamos al estudio para que lo resuelva.' },
     }[estado];
     return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
           <div className="text-5xl mb-3">{conf.icono}</div>
           <h1 className="text-xl font-semibold text-slate-900">{conf.titulo}</h1>
@@ -57,7 +57,7 @@ export function AceptarForm({
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-7 shadow-sm">
         <p className="text-[15px] text-slate-500">Hola {instructorNombre},</p>
         <h1 className="text-xl font-bold text-slate-900 mt-1 leading-snug">¿Puedes cubrir esta clase?</h1>

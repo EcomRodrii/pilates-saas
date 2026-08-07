@@ -39,7 +39,7 @@ export function ValorarForm({
 
   if (estado === 'enviada') {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
           <div className="text-5xl mb-3">🙌</div>
           <h1 className="text-xl font-semibold text-slate-900">¡Gracias por tu valoración!</h1>
@@ -57,7 +57,7 @@ export function ValorarForm({
   const etiqueta = ['', 'Mejorable', 'Regular', 'Bien', 'Muy bien', '¡Increíble!'][nivel] ?? '';
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-7 shadow-sm">
         <h1 className="text-xl font-bold text-slate-900 leading-snug">
           ¿Qué tal la clase{instructorNombre ? <> con <span className="text-brand-medio">{instructorNombre}</span></> : null}?

@@ -57,7 +57,7 @@ export default function PaginaInvitacion() {
 
   if (error) {
     return (
-      <main className="min-h-screen grid place-items-center px-6">
+      <main className="min-h-dvh grid place-items-center px-6">
         <div className={caja}>
           <h1 className="text-[17px] font-bold text-foreground">Invitación no disponible</h1>
           <p className="text-[13.5px] text-muted-foreground">{error}</p>
@@ -69,7 +69,7 @@ export default function PaginaInvitacion() {
 
   if (!inv) {
     return (
-      <main className="min-h-screen grid place-items-center px-6">
+      <main className="min-h-dvh grid place-items-center px-6">
         <p className="text-[13.5px] text-muted-foreground">Abriendo tu invitación…</p>
       </main>
     );
@@ -77,7 +77,7 @@ export default function PaginaInvitacion() {
 
   if (inv.yaVinculada) {
     return (
-      <main className="min-h-screen grid place-items-center px-6">
+      <main className="min-h-dvh grid place-items-center px-6">
         <div className={caja}>
           <h1 className="text-[17px] font-bold text-foreground">Ya tienes cuenta</h1>
           <p className="text-[13.5px] text-muted-foreground">
@@ -92,7 +92,7 @@ export default function PaginaInvitacion() {
   }
 
   return (
-    <main className="min-h-screen grid place-items-center px-6">
+    <main className="min-h-dvh grid place-items-center px-6">
       <div className={caja}>
         <p className="text-[12px] font-bold uppercase tracking-wide text-brand-medio">Invitación</p>
         <h1 className="text-[19px] font-bold text-foreground leading-tight">

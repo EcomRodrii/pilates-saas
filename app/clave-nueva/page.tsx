@@ -59,7 +59,7 @@ export default function ClaveNueva() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-6 bg-background">
+    <div className="min-h-dvh grid place-items-center px-6 bg-background">
       <div className="w-full max-w-sm flex flex-col items-center gap-3 text-center">
         <span className="w-11 h-11 rounded-full bg-brand/10 text-brand-medio grid place-items-center">
           <KeyRound size={20} />
