@@ -1,0 +1,142 @@
+/* Convertido de `:root` a `[data-theme="noir"]` para que los tres temas
+ * convivan: el activo se elige poniendo el atributo en <html>, no cargando
+ * una hoja u otra. Ver "Cómo convertir esto en un tema instalable" del
+ * encargo. Salvo ese selector, el fichero es el que entregó diseño.
+ * ═══════════════════════════════════════════════════════════════════════
+ * Noir — tokens de diseño
+ * Fuente única de verdad del tema. Ningún componente escribe un color, un
+ * radio o una duración a mano: todo sale de aquí.
+ * Generado desde tokens/tokens.json.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="noir"] {
+  /* ── Marca ─────────────────────────────────────────────────────────── */
+  --brand: #1E2B22;
+  --brand-hover: #36433A;
+  --on-brand: #F6F5F0;
+  --support: #A9B79B;
+  --support-soft: color-mix(in srgb, #A9B79B 26%, #FFFFFF);
+  --accent: #D9B166;
+  --accent-soft: color-mix(in srgb, #D9B166 18%, #FFFFFF);
+  --accent-ink: #D9B166;
+
+  /* ── Superficies y texto ───────────────────────────────────────────── */
+  --bg: #F6F5F0;
+  --surface: #FFFFFF;
+  --border: #E9E7DD;
+  --ink: #17201A;
+  --muted: #6E7668;
+  --card-hover-border: color-mix(in srgb, #17201A 26%, #E9E7DD);
+  --focus-ring: color-mix(in srgb, #1E2B22 22%, transparent);
+
+  /* ── Semánticos ────────────────────────────────────────────────────── */
+  --success: #2F6B4F;
+  --warning: #8A6B22;
+  --danger: #A33B3B;
+  --dot: #D9B166;
+  --fav: #D9B166;
+  --done-bg: rgba(217,177,102,.18);
+  --done-ink: #8A6B22;
+  --track: #E9E7DD;
+
+  /* ── Tipografía ────────────────────────────────────────────────────── */
+  --font-display: 'Instrument Sans', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --weight-display: 700;
+
+  --size-section: 17px;
+  --size-screen-title: 28px;
+  --size-greeting: 24px;
+  --size-hero-title: 26px;
+  --size-pass-name: 24px;
+  --size-detail-label: 18px;
+
+  /* ── Espaciado ─────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --canvas-gap: 20px;
+
+  /* ── Rejilla ───────────────────────────────────────────────────────── */
+  --page-width: 1200px;
+  --gutter: 24px;
+  --grid-gap: 22px;
+  --section-pad-block: 84px;
+
+  /* ── Radios ────────────────────────────────────────────────────────── */
+  --radius-card: 24px;
+  --radius-button: 18px;
+  --radius-chip: 999px;
+  --radius-input: 14px;
+  --radius-quick-link: 20px;
+
+  /* ── Sombras ───────────────────────────────────────────────────────── */
+  --shadow-card: 0 12px 30px -24px rgba(23,32,26,.5);
+  --shadow-card-hover: 0 18px 40px -26px rgba(20,28,22,.45);
+  --shadow-float: 0 16px 40px -18px rgba(20,28,22,.4);
+  --shadow-control: 0 14px 30px -12px rgba(30,43,34,.5);
+
+  /* ── Teléfono ──────────────────────────────────────────────────────── */
+  --phone-width: 392px;
+  --phone-height: 812px;
+  --bezel: #2B2F2A;
+  --desk: #EEEEE8;
+  --desk-ink: #1A1A1A;
+  --desk-muted: #8E8E86;
+
+  /* ── Componentes ───────────────────────────────────────────────────── */
+  --chip-height: 36px;
+  --chip-bg: #FFFFFF;
+  --tab-bar-bg: #1E2B22;
+  --tab-bar-border: none;
+  --tab-active: #D9B166;
+  --tab-idle: rgba(246,245,240,.5);
+  --bell-bg: #FFFFFF;
+  --bell-border: 1px solid #E9E7DD;
+  --photo-bg: #8E9C93;
+  --control-bg: #F6F5F0;
+  --control-border: 1px solid #E9E7DD;
+
+  /* ── Próxima clase ─────────────────────────────────────────────────── */
+  --hero-bg: #A9B79B;
+  --hero-veil: linear-gradient(96deg,#A9B79B 0%,#A9B79B 45%,rgba(169,183,155,.66) 62%,rgba(169,183,155,.04) 100%);
+  --hero-ink: #1E2B22;
+  --hero-ink-soft: rgba(30,43,34,.66);
+  --hero-ink-strong: rgba(30,43,34,.86);
+  --hero-cta-bg: #1E2B22;
+  --hero-cta-ink: #F6F5F0;
+  --hero-arrow: #D9B166;
+  --hero-arrow-opacity: 1;
+
+  /* ── Bienvenida ────────────────────────────────────────────────────── */
+  --welcome-bg: #16211A;
+  --welcome-veil: linear-gradient(180deg,rgba(22,33,26,.35) 0%,rgba(22,33,26,.55) 40%,rgba(22,33,26,.94) 76%,#16211A 100%);
+  --welcome-ink: #FFFFFF;
+  --welcome-ink-soft: rgba(255,255,255,.86);
+  --welcome-accent: #D9B166;
+  --welcome-pad: 0 28px 38px;
+  --welcome-measure: none;
+  --welcome-leading: 1.06;
+  --size-welcome: 40px;
+  --size-welcome-text: 15px;
+  --welcome-cta-bg: #D9B166;
+  --welcome-cta-ink: #16211A;
+  --welcome-cta-height: 62px;
+  --welcome-cta-justify: center;
+  --welcome-cta-pad: 0 24px;
+  --welcome-cta-shadow: none;
+  --welcome-dots: flex-start;
+  --welcome-dot-on: #D9B166;
+  --welcome-dot-off: rgba(255,255,255,.45);
+
+  /* ── Hero de la web pública ────────────────────────────────────────── */
+  --hero-section-veil: linear-gradient(180deg,rgba(22,33,26,.35) 0%,rgba(22,33,26,.55) 40%,rgba(22,33,26,.94) 76%,#16211A 100%);
+  --hero-section-ink: #FFFFFF;
+  --hero-section-ink-soft: rgba(255,255,255,.86);
+}

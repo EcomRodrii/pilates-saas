@@ -391,3 +391,108 @@ paso.
 **El séptimo paso, `timer`, no se declara.** El portal no tiene pantalla de
 sesión guiada. Declararlo sería justo lo que este proyecto lleva pagando caro:
 un campo sin consumidor que parece que hace algo.
+
+
+## 8. El admin de temas de Shopify, observado en vivo (no en el ZIP)
+
+Sesión real sobre la tienda del fundador (Horizon 4.1.3, 2026-08-07). Esto NO
+sale del export: son decisiones de producto del admin, y varias contradicen lo
+que yo había supuesto.
+
+### 8.1 La lista de temas
+
+Menú `···` del tema **activo**: `Preview` · `Rename` · `Duplicate` · ─── ·
+`Edit code` · `Edit default theme content` · `Download theme file`.
+
+Dos ausencias que dicen más que las presencias: **no hay "Publicar" ni
+"Eliminar"** en el tema activo. Las acciones del menú dependen del ESTADO del
+tema, no son una lista fija.
+
+**Exportar es `Download theme file`** — y lo que baja es el mismo ZIP que se
+sube con `Import`. El ciclo importar/exportar está cerrado sobre **un único
+formato**, que es justo lo que permite que un tema viaje entre tiendas.
+
+`Import` ofrece solo dos vías: **subir un ZIP** o **conectar un repo de
+GitHub**. No hay "pegar código". Y al lado, "Generate a custom storefront" con
+un campo de texto libre: la generación por IA es una tercera vía de entrada al
+mismo formato.
+
+⚠️ **Lo que NO se pudo observar**: la fila de un tema no publicado, que es donde
+viven `Publicar` y `Eliminar`. La tienda solo tiene un tema activo. Se ofreció
+importar uno de los paquetes de Tentare para verlo y **el fundador lo descartó
+con razón**: esos paquetes declaran `engine: tentare-themes`, no son temas de
+Shopify. La suposición era mía y estaba escrita en el propio manifest.
+
+### 8.2 Los ajustes del tema
+
+Las 18 categorías del panel coinciden EXACTAMENTE con los grupos de
+`config/settings_schema.json`… menos una: **`Custom CSS` aparece en el editor y
+no está en el schema del tema**. La inyecta la plataforma.
+
+Es una decisión de producto que merece copiarse: Shopify garantiza un escape
+hatch de CSS libre en **todos** los temas, sin que el autor tenga que preverlo
+ni declararlo. El tema no puede "olvidarse" de ofrecerlo.
+
+### 8.3 El editor
+
+- **La barra superior**: salir · tres modos (secciones / ajustes / apps) ·
+  centro: nombre del tema + píldora **Active** + selector de página · derecha:
+  vistas, móvil, deshacer/rehacer, `···`, y **Guardar con desplegable**.
+  Prácticamente lo que ya construimos.
+- ⚠️ **El Inspector se abre DENTRO del rail izquierdo**, empujando la lista de
+  secciones hacia abajo, con su propia cabecera (icono · nombre · `···` · ✕).
+  Nosotros lo abrimos en un panel derecho. La diferencia no es estética: así
+  **nunca pierdes de vista dónde estás en el árbol** mientras editas.
+- La selección se marca en la preview con una **etiqueta pegada a la esquina**
+  de la sección — igual que nuestro overlay.
+- ⚠️ **El rail tiene TRES grupos** —`Encabezado` · `Template` · `Pie de
+  página`— y **cada uno con su propio "Add section"**. En el plan descarté esa
+  estructura diciendo que dos grupos quedarían vacíos para siempre. Es falso
+  para Shopify (tiene section groups) y **también para nosotros**: el portal
+  tiene cabecera fija y barra inferior. Decisión a reabrir.
+
+### 8.4 El picker de secciones
+
+Tres cosas que no tenemos y una confirmación:
+
+- **Previsualización grande al recorrer la lista.** Al pasar por una entrada
+  aparece a la derecha una IMAGEN de cómo queda esa sección. El nuestro es una
+  rejilla de nombre + descripción, a ciegas. Es lo que convierte "elegir de una
+  lista" en "elegir viendo".
+- **Buscador arriba del todo + categorías colapsables** (`Banners`,
+  `Colecciones`, `Diseño`, `Formularios`, `Narrativa`…). Con 137 componentes,
+  sin buscador el picker no se puede usar — y nuestro catálogo va a crecer.
+- **Pestañas `Sections` / `Apps`**: el `@theme` / `@app` del schema convertido
+  en UI. Más un botón `Generate` (IA) para crear una sección desde ahí mismo.
+- **Confirmado en vivo el punto 2.5**: la lista muestra *Hero*, *Hero: alineado
+  abajo* y *Hero: marquesina* — tres entradas del MISMO fichero. Un preset es
+  una entrada del catálogo, no un componente.
+
+Nota: `Liquid personalizado` y `Sección personalizada` viven en la categoría
+`Diseño`. El escape hatch de código libre existe también a nivel de sección, no
+solo el Custom CSS global.
+
+### 8.5 El árbol anidado del rail — cuatro decisiones, tres nos corrigen
+
+1. ⚠️ **El hijo muestra su TIPO y su CONTENIDO**: `Encabezado — *Browse our
+   latest pr…*`, tipo en negro y contenido en cursiva gris. Nosotros solo
+   pintamos el tipo (`labelDe`). Con dos bloques "Texto" dentro de un Grupo, el
+   nuestro es indistinguible. **Es el cambio más barato y más útil de todo lo
+   observado.**
+2. ⚠️ **`Add block` va ARRIBA de los hijos**, no debajo. Yo lo puse debajo. El
+   suyo es mejor: la posición del botón no se mueve al añadir, así que se
+   pueden encadenar varios sin recolocar el ratón.
+3. ⚠️ **Las acciones (papelera, ojo) solo aparecen al pasar por encima.**
+   Nosotros las mostramos siempre: con 8 bloques son 24 iconos compitiendo.
+4. **Sangría sin línea vertical**, y los hijos no llevan chevron. Confirma que
+   un nivel de anidamiento se lee sin adornos.
+
+### 8.6 La inserción en la preview
+
+Al señalar una sección aparecen **dos círculos `+` azules**, en el borde
+superior e inferior, centrados. Es el mismo afford que construimos con
+`huecosDeInsercion` — confirmado que la posición correcta es el LÍMITE entre
+secciones, no el centro de la sección.
+
+Y la selección se marca con una **etiqueta pegada a la esquina superior
+izquierda** de la sección, no con un contorno alrededor.

@@ -1,0 +1,142 @@
+/* Convertido de `:root` a `[data-theme="oliva"]` para que los tres temas
+ * convivan: el activo se elige poniendo el atributo en <html>, no cargando
+ * una hoja u otra. Ver "Cómo convertir esto en un tema instalable" del
+ * encargo. Salvo ese selector, el fichero es el que entregó diseño.
+ * ═══════════════════════════════════════════════════════════════════════
+ * Oliva — tokens de diseño
+ * Fuente única de verdad del tema. Ningún componente escribe un color, un
+ * radio o una duración a mano: todo sale de aquí.
+ * Generado desde tokens/tokens.json.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+[data-theme="oliva"] {
+  /* ── Marca ─────────────────────────────────────────────────────────── */
+  --brand: #3D4A2F;
+  --brand-hover: #556247;
+  --on-brand: #F5F3ED;
+  --support: #A8B394;
+  --support-soft: color-mix(in srgb, #A8B394 26%, #FFFFFF);
+  --accent: #3D4A2F;
+  --accent-soft: color-mix(in srgb, #3D4A2F 18%, #FFFFFF);
+  --accent-ink: #3D4A2F;
+
+  /* ── Superficies y texto ───────────────────────────────────────────── */
+  --bg: #F5F3ED;
+  --surface: #FFFFFF;
+  --border: #E6E3D9;
+  --ink: #2A2E22;
+  --muted: #7C8070;
+  --card-hover-border: color-mix(in srgb, #2A2E22 26%, #E6E3D9);
+  --focus-ring: color-mix(in srgb, #3D4A2F 22%, transparent);
+
+  /* ── Semánticos ────────────────────────────────────────────────────── */
+  --success: #2F6B4F;
+  --warning: #8A6B22;
+  --danger: #A33B3B;
+  --dot: #3D4A2F;
+  --fav: #3D4A2F;
+  --done-bg: #A8B394;
+  --done-ink: #3D4A2F;
+  --track: #E6E3D9;
+
+  /* ── Tipografía ────────────────────────────────────────────────────── */
+  --font-display: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --weight-display: 700;
+
+  --size-section: 17px;
+  --size-screen-title: 30px;
+  --size-greeting: 19px;
+  --size-hero-title: 25px;
+  --size-pass-name: 26px;
+  --size-detail-label: 14px;
+
+  /* ── Espaciado ─────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --canvas-gap: 18px;
+
+  /* ── Rejilla ───────────────────────────────────────────────────────── */
+  --page-width: 1200px;
+  --gutter: 24px;
+  --grid-gap: 22px;
+  --section-pad-block: 84px;
+
+  /* ── Radios ────────────────────────────────────────────────────────── */
+  --radius-card: 26px;
+  --radius-button: 20px;
+  --radius-chip: 999px;
+  --radius-input: 16px;
+  --radius-quick-link: 20px;
+
+  /* ── Sombras ───────────────────────────────────────────────────────── */
+  --shadow-card: none;
+  --shadow-card-hover: 0 18px 40px -26px rgba(20,28,22,.45);
+  --shadow-float: 0 16px 40px -18px rgba(20,28,22,.4);
+  --shadow-control: 0 14px 30px -12px rgba(30,43,34,.5);
+
+  /* ── Teléfono ──────────────────────────────────────────────────────── */
+  --phone-width: 392px;
+  --phone-height: 812px;
+  --bezel: #DEDCD4;
+  --desk: #EEEEE8;
+  --desk-ink: #1A1A1A;
+  --desk-muted: #8E8E86;
+
+  /* ── Componentes ───────────────────────────────────────────────────── */
+  --chip-height: 36px;
+  --chip-bg: #FFFFFF;
+  --tab-bar-bg: #FFFFFF;
+  --tab-bar-border: 1px solid #E6E3D9;
+  --tab-active: #3D4A2F;
+  --tab-idle: #7C8070;
+  --bell-bg: transparent;
+  --bell-border: none;
+  --photo-bg: #8E9C93;
+  --control-bg: #F5F3ED;
+  --control-border: 1px solid #E6E3D9;
+
+  /* ── Próxima clase ─────────────────────────────────────────────────── */
+  --hero-bg: #3D4A2F;
+  --hero-veil: linear-gradient(96deg,#3D4A2F 0%,#3D4A2F 45%,rgba(61,74,47,.72) 62%,rgba(61,74,47,.06) 100%);
+  --hero-ink: #FFFFFF;
+  --hero-ink-soft: rgba(255,255,255,.74);
+  --hero-ink-strong: rgba(255,255,255,.92);
+  --hero-cta-bg: #F5F3ED;
+  --hero-cta-ink: #3D4A2F;
+  --hero-arrow: inherit;
+  --hero-arrow-opacity: 0.7;
+
+  /* ── Bienvenida ────────────────────────────────────────────────────── */
+  --welcome-bg: #C8C2B4;
+  --welcome-veil: linear-gradient(180deg,rgba(28,32,22,.06) 0%,rgba(28,32,22,.12) 46%,rgba(28,32,22,.66) 100%);
+  --welcome-ink: #FFFFFF;
+  --welcome-ink-soft: rgba(255,255,255,.86);
+  --welcome-accent: inherit;
+  --welcome-pad: 0 28px 38px;
+  --welcome-measure: none;
+  --welcome-leading: 1.06;
+  --size-welcome: 46px;
+  --size-welcome-text: 15px;
+  --welcome-cta-bg: #3D4A2F;
+  --welcome-cta-ink: #F5F3ED;
+  --welcome-cta-height: 62px;
+  --welcome-cta-justify: center;
+  --welcome-cta-pad: 0 24px;
+  --welcome-cta-shadow: none;
+  --welcome-dots: center;
+  --welcome-dot-on: #FFFFFF;
+  --welcome-dot-off: rgba(255,255,255,.45);
+
+  /* ── Hero de la web pública ────────────────────────────────────────── */
+  --hero-section-veil: linear-gradient(180deg,rgba(28,32,22,.06) 0%,rgba(28,32,22,.12) 46%,rgba(28,32,22,.66) 100%);
+  --hero-section-ink: #FFFFFF;
+  --hero-section-ink-soft: rgba(255,255,255,.86);
+}

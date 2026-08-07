@@ -1,0 +1,114 @@
+/* 09-welcome.css — bienvenida, login y registro.
+ *
+ * La bienvenida es la primera impresión del tema y por eso cada uno la resuelve
+ * distinto: Oliva con un titular enorme sobre foto, Bloom con fondo rosa y
+ * trazos, Noir en verde profundo con el sello y el dorado como acento.
+ */
+
+.welcome {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--welcome-bg);
+}
+.welcome__media { position: absolute; inset: 0; }
+.welcome__media img { width: 100%; height: 100%; object-fit: cover; }
+.welcome__veil { position: absolute; inset: 0; background: var(--welcome-veil); }
+.welcome__curves {
+  position: absolute; left: 0; right: 0; top: 130px;
+  height: 430px; width: 100%;
+  pointer-events: none;
+}
+.welcome__seal {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: rgba(217,177,102,.1);
+  display: grid; place-items: center;
+}
+.welcome__seal-row { position: relative; display: flex; justify-content: flex-end; padding: 10px 22px 0; }
+
+.welcome__footer { position: relative; margin-top: auto; padding: var(--welcome-pad); }
+.welcome__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-welcome); line-height: var(--welcome-leading);
+  letter-spacing: -.03em;
+  color: var(--welcome-ink);
+  max-width: var(--welcome-measure);
+}
+.welcome__accent { color: var(--welcome-accent); }
+.welcome__text {
+  margin-top: 15px;
+  font-size: var(--size-welcome-text); line-height: 1.5;
+  white-space: pre-line;
+  color: var(--welcome-ink-soft);
+  max-width: 32ch;
+}
+.welcome__cta {
+  margin-top: 26px;
+  width: 100%;
+  height: var(--welcome-cta-height);
+  border-radius: 999px;
+  background: var(--welcome-cta-bg);
+  color: var(--welcome-cta-ink);
+  display: flex; align-items: center; justify-content: var(--welcome-cta-justify);
+  gap: 12px;
+  padding: var(--welcome-cta-pad);
+  font-size: 16px; font-weight: 600;
+  box-shadow: var(--welcome-cta-shadow);
+  transition: transform .18s ease, box-shadow .22s ease;
+}
+.welcome__cta:hover { box-shadow: var(--shadow-float); }
+.welcome__cta-arrow { font-size: 17px; opacity: .82; }
+.welcome__cta-arrow--circle {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--brand); color: var(--on-brand);
+  display: grid; place-items: center;
+  opacity: 1;
+}
+.welcome__dots { display: flex; gap: 7px; justify-content: var(--welcome-dots); margin-top: 24px; }
+.welcome__dot {
+  display: block;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--welcome-dot-off);
+}
+.welcome__dot.is-active { width: 24px; background: var(--welcome-dot-on); }
+
+/* ── Acceso y registro ─────────────────────────────────────────────────── */
+.auth {
+  flex: 1; min-height: 0;
+  scrollbar-width: none;
+  display: flex; flex-direction: column;
+  padding: 8px 26px calc(30px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.auth::-webkit-scrollbar { width: 0; height: 0; }
+.auth__head { margin-top: 18px; }
+.auth__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 32px; line-height: 1.08; letter-spacing: -.03em; color: var(--ink);
+}
+.auth__text { margin-top: 10px; font-size: 13.5px; line-height: 1.55; color: var(--muted); max-width: 34ch; }
+.auth__form { margin-top: 26px; display: flex; flex-direction: column; gap: 14px; }
+.auth__actions { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; }
+.auth__divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 22px 0;
+  font-size: 11.5px; font-weight: 500; color: var(--muted);
+}
+.auth__divider::before, .auth__divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.auth__foot { margin-top: auto; padding-top: 24px; font-size: 12.5px; color: var(--muted); text-align: center; }
+.auth__foot button { font-weight: 600; color: var(--brand); }
+
+.steps { display: flex; gap: 6px; margin-top: 20px; }
+.step {
+  flex: 1; height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background .3s ease;
+}
+.step.is-done { background: var(--brand); }
