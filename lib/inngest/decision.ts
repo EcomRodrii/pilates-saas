@@ -19,17 +19,17 @@ import { personalizarMensajeSocia } from '@/lib/decision/personalizacion';
 import { generarCodigoReactivacion } from '@/lib/codigos-descuento';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { ALGORITHM_VERSION } from '@/lib/decision/version';
-import { elegirMensajeDelDia } from '@/lib/decision/umbral';
+import { elegirMensajeDelDia, type ImpactoRealCalibracion } from '@/lib/decision/umbral';
 import { emitirDecisionMensajeDia } from '@/lib/notifications/emit';
 import {
   dbInsertDecisionSession, dbFinalizarDecisionSession, dbUpsertRecomendacion, dbTransicionarRecomendacion,
   dbListPendientes, dbListResueltas90d, dbListMemoriaRows, construirMapaMemoria, dbUpsertResumenDiario, dbUpsertHechoMemoria,
   dbInsertOutcome, dbActualizarOutcome, dbGetRecomendacion, dbGetOutcomePorRecomendacion, construirRecomendacion,
   dbLogActividadReciente, dbGetAutonomiaConfig, dbCountAutonomasHoy, dbListMensajesRecientes, dbUpsertMensajeDia,
-  dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo,
+  dbListFeatureFlagRows, dbCalcularSeguimientoPorTipo, dbCalcularImpactoRealPorTipo,
 } from '@/lib/decision/db';
 import { seleccionarAutonomas } from '@/lib/decision/autonomia';
-import type { Recomendacion, EspecialistaId } from '@/lib/decision/tipos';
+import type { Recomendacion, EspecialistaId, TipoRecomendacion } from '@/lib/decision/tipos';
 import type { CandidataPriorizada } from '@/lib/decision/prioridad';
 
 const MS_DIA = 86400000;
@@ -203,9 +203,18 @@ export const analizarEstudio = inngest.createFunction(
       const tasasPorTipo = new Map(
         (await dbCalcularSeguimientoPorTipo(studioId, now)).map(t => [t.tipo, { total: t.total, seguidas: t.seguidas }])
       );
+      // Fase 3 del Umbral (Pilar 3 de "Tentare 2030"): refina la puerta de
+      // impacto con € realmente medidos, cuando hay evidencia suficiente. Mismo
+      // motivo que tasasPorTipo para construirlo aquí dentro y no devolverlo de
+      // step.run: no aplica el gotcha de Maps serializándose a `{}` en el replay.
+      const impactoRealPorTipo = new Map<TipoRecomendacion, ImpactoRealCalibracion>(
+        (await dbCalcularImpactoRealPorTipo(studioId, now)).map(t => [
+          t.tipo, { nMedido: t.nMedido, promedioReal: t.promedioReal, promedioEstimadoOriginal: t.promedioEstimadoOriginal },
+        ])
+      );
 
       const veredicto = elegirMensajeDelDia(
-        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas, tasasPorTipo
+        resultado.candidatasFinales, snapshot.contexto, historialReciente, dedupeKeysAutoResueltas, tasasPorTipo, impactoRealPorTipo
       );
 
       if (veredicto.tipo === 'SILENCIO') {
@@ -443,6 +452,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
         await step.run('outcome-ejecutada', () => dbInsertOutcome({
           studioId: recomendacion.studioId, recomendacionId, evento: 'EJECUTADA', outcome: 'PENDIENTE',
           senalObservada: null, ventanaDias: ventanaDiasDe(recomendacion.tipo), medidoEn: null,
+          impactoReal: null, confianzaMedicion: null, // aún no medido — lo rellena medirOutcomeFn
         }));
         await step.sendEvent('programar-medicion', { name: EVENTS.DECISION_MEASURE, data: { recomendacionId } });
         // Traza visible en el feed "Actividad" del Centro (antes aprobar no dejaba
@@ -466,10 +476,14 @@ export const ejecutarRecomendacion = inngest.createFunction(
 // ═══════════════════════════════════════════════════════════════════════════
 async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> {
   if (r.tipo === 'RECUPERAR_PAGOS' && r.accion.tipo === 'COBRAR_RECIBOS') {
-    const { data: recibos } = await requireSupabaseAdmin().from('recibos').select('estado').in('id', r.accion.reciboIds);
+    const { data: recibos } = await requireSupabaseAdmin().from('recibos').select('estado, importe').in('id', r.accion.reciboIds);
     const total = recibos?.length ?? 0;
-    const cobrados = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO').length;
-    return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
+    const cobradosFilas = (recibos ?? []).filter((x: { estado: string }) => x.estado === 'COBRADO');
+    const importeCobradoEur = cobradosFilas.reduce((suma: number, x: { importe: number }) => suma + Number(x.importe), 0);
+    return {
+      reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
+      recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
+    };
   }
 
   // COBRAR_PENDIENTE (reclamo manual, sin reciboIds): antes caía a la rama de
@@ -478,29 +492,51 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
   // ya COBRADO tras la ventana de medición.
   if (r.tipo === 'COBRAR_PENDIENTE' && r.socioId) {
     const { data: recibos } = await requireSupabaseAdmin()
-      .from('recibos').select('estado, fecha_vencimiento').eq('socio_id', r.socioId);
+      .from('recibos').select('estado, fecha_vencimiento, importe').eq('socio_id', r.socioId);
     const corte = new Date(r.resueltoEn ?? 0).getTime();
     const relevantes = (recibos ?? []).filter((x: { fecha_vencimiento: string }) => new Date(x.fecha_vencimiento).getTime() <= corte);
     const total = relevantes.length;
-    const cobrados = relevantes.filter((x: { estado: string }) => x.estado === 'COBRADO').length;
-    return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: cobrados, recibosTotal: total };
+    const cobradosFilas = relevantes.filter((x: { estado: string }) => x.estado === 'COBRADO');
+    const importeCobradoEur = cobradosFilas.reduce((suma: number, x: { importe: number }) => suma + Number(x.importe), 0);
+    return {
+      reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
+      recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
+    };
   }
 
-  if (!r.socioId) return { reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false, recibosCobrados: 0, recibosTotal: 0 };
+  if (!r.socioId) {
+    return {
+      reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
+      recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur: null,
+    };
+  }
 
   const resueltoEnISO = r.resueltoEn ?? new Date(0).toISOString();
   const [{ data: reservas }, { data: suscripciones }] = await Promise.all([
     requireSupabaseAdmin().from('reservas').select('creado_en').eq('socio_id', r.socioId).eq('estado', 'ASISTIDA').gt('creado_en', resueltoEnISO),
-    requireSupabaseAdmin().from('suscripciones').select('estado, fecha_inicio').eq('socio_id', r.socioId),
+    requireSupabaseAdmin().from('suscripciones').select('estado, fecha_inicio, plan_id').eq('socio_id', r.socioId),
   ]);
 
   const reservaAsistidaPosterior = (reservas ?? []).length > 0;
   const suscripcionCancelada = (suscripciones ?? []).some((s: { estado: string }) => s.estado === 'CANCELADA');
-  const suscripcionRenovada = (suscripciones ?? []).some((s: { estado: string; fecha_inicio: string }) =>
+  const renovada = (suscripciones ?? []).find((s: { estado: string; fecha_inicio: string }) =>
     s.estado === 'ACTIVA' && new Date(s.fecha_inicio).getTime() >= new Date(resueltoEnISO).getTime()
-  );
+  ) as { plan_id: string } | undefined;
 
-  return { reservaAsistidaPosterior, suscripcionCancelada, suscripcionRenovada, recibosCobrados: 0, recibosTotal: 0 };
+  // Precio del plan de la suscripción renovada — solo se consulta cuando hace
+  // falta (no en cada medición), para no pagar una query extra en el caso
+  // mayoritario (sin renovación).
+  let precioMensualPlanEur: number | null = null;
+  if (renovada?.plan_id) {
+    const { data: plan } = await requireSupabaseAdmin()
+      .from('planes_tarifa').select('precio').eq('id', renovada.plan_id).maybeSingle();
+    precioMensualPlanEur = plan?.precio != null ? Number(plan.precio) : null;
+  }
+
+  return {
+    reservaAsistidaPosterior, suscripcionCancelada, suscripcionRenovada: !!renovada,
+    recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur,
+  };
 }
 
 export const medirOutcomeFn = inngest.createFunction(
@@ -518,13 +554,17 @@ export const medirOutcomeFn = inngest.createFunction(
     await step.sleepUntil('esperar-ventana', fechaMedicion);
 
     const senal = await step.run('construir-senal', () => construirSenalMedicion(recomendacion));
-    const { outcome, senalObservada } = medirOutcome(recomendacion.tipo, senal);
+    const { outcome, senalObservada, impactoReal, confianzaMedicion } = medirOutcome(recomendacion.tipo, senal);
 
     await step.run('actualizar-outcome', async () => {
       const outcomeRow = await dbGetOutcomePorRecomendacion(recomendacionId, 'EJECUTADA');
-      if (outcomeRow) await dbActualizarOutcome(outcomeRow.id, { outcome, senalObservada, medidoEn: new Date().toISOString() });
+      if (outcomeRow) {
+        await dbActualizarOutcome(outcomeRow.id, {
+          outcome, senalObservada, medidoEn: new Date().toISOString(), impactoReal, confianzaMedicion,
+        });
+      }
     });
 
-    return { outcome, senalObservada };
+    return { outcome, senalObservada, impactoReal, confianzaMedicion };
   }
 );
