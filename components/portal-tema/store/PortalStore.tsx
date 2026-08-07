@@ -107,6 +107,30 @@ export interface PortalActions {
   nextExercise(): void;
 }
 
+/**
+ * A dónde quiere ir el portal. Quien manda la navegación decide CÓMO se llega.
+ *
+ * El kit venía con la navegación dentro del store: pulsar "Clases" hacía
+ * `set({ screen: 'clases' })`. Eso funciona en la demo, pero dentro de Tentare
+ * manda `PortalShell` con las rutas de Next, y por dos motivos que no son de
+ * gusto: las 7 pantallas que el kit no trae (`/progreso`, `/compras`,
+ * `/preferencias`…) siguen siendo rutas, y una URL tiene que poder identificar
+ * una clase — con la pantalla en el estado no se puede compartir ni guardar el
+ * enlace de una clase, ni volver con el botón atrás del navegador.
+ *
+ * Por eso las doce acciones que navegaban pasan por aquí. Por defecto sigue
+ * siendo el estado (la previsualización de temas se comporta igual que la
+ * demo); el portal real pasa su propia función y empuja rutas.
+ */
+export interface DestinoPortal {
+  screen: ScreenId;
+  tab?: TabId;
+  classId?: string;
+  day?: number;
+}
+
+export type NavegarPortal = (destino: DestinoPortal) => void;
+
 const StateCtx = createContext<PortalState | null>(null);
 const ActionsCtx = createContext<PortalActions | null>(null);
 const DatosCtx = createContext<DatosPortal>(DATOS_DE_MUESTRA);
@@ -118,8 +142,18 @@ const DatosCtx = createContext<DatosPortal>(DATOS_DE_MUESTRA);
  */
 export function PortalProvider({
   datos = DATOS_DE_MUESTRA,
+  navegar,
+  pantalla,
   children,
-}: { datos?: DatosPortal; children: React.ReactNode }) {
+}: {
+  datos?: DatosPortal;
+  /** Sin esto, navegar es cambiar el estado (el comportamiento de la demo). */
+  navegar?: NavegarPortal;
+  /** La pantalla que manda desde fuera. Con `navegar` por rutas, el estado
+   *  interno nunca cambia de pantalla: la dice la ruta. */
+  pantalla?: ScreenId;
+  children: React.ReactNode;
+}) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
 
   // Los datos también por ref, y por el mismo motivo que el estado: las
@@ -166,6 +200,20 @@ export function PortalProvider({
 
   const set = useCallback((patch: Partial<PortalState>) => dispatch({ type: "patch", patch }), []);
 
+  // Mismo motivo que `datosRef`: `navegar` cambia de identidad en cada render
+  // del portal real (se construye con el router), y no puede reconstruir las
+  // acciones cada vez.
+  const navegarRef = useRef(navegar);
+  useEffect(() => {
+    navegarRef.current = navegar;
+  }, [navegar]);
+
+  const ir = useCallback((destino: DestinoPortal) => {
+    const fuera = navegarRef.current;
+    if (fuera) return fuera(destino);
+    set(destino);
+  }, [set]);
+
   const notify = useCallback(
     (text: string) => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -205,21 +253,27 @@ export function PortalProvider({
     };
 
     const self: PortalActions = {
-      enter: () => set({ screen: "inicio", tab: "inicio" }),
-      goTab: (tab) => set({ tab, screen: tab }),
-      goSchedule: () => set({ tab: "clases", screen: "clases" }),
-      goBookings: () => set({ tab: "reservas", screen: "reservas" }),
-      goProfile: () => set({ tab: "perfil", screen: "perfil" }),
-      goto: (screen) => set({ screen }),
-      openClass: (id) => set({ screen: "detalle", classId: id || stateRef.current.classId }),
-      back: () => set({ screen: stateRef.current.tab, running: false }),
+      enter: () => ir({ screen: "inicio", tab: "inicio" }),
+      goTab: (tab) => ir({ tab, screen: tab }),
+      goSchedule: () => ir({ tab: "clases", screen: "clases" }),
+      goBookings: () => ir({ tab: "reservas", screen: "reservas" }),
+      goProfile: () => ir({ tab: "perfil", screen: "perfil" }),
+      goto: (screen) => ir({ screen }),
+      openClass: (id) => ir({ screen: "detalle", classId: id || stateRef.current.classId }),
+      back: () => {
+        // El cronómetro se para aquí y no en el destino: si la navegación la
+        // lleva una ruta, el store de esta pantalla se desmonta y nadie más
+        // lo pararía.
+        set({ running: false });
+        ir({ screen: stateRef.current.tab });
+      },
       reset: () => {
         if (toastTimer.current) clearTimeout(toastTimer.current);
         if (reserveTimer.current) clearTimeout(reserveTimer.current);
         dispatch({ type: "reset" });
       },
 
-      selectDay: (num) => set({ day: Number(num), tab: "clases", screen: "clases" }),
+      selectDay: (num) => ir({ day: Number(num), tab: "clases", screen: "clases" }),
       setFilter: (key) => set({ filter: key }),
 
       reserve: () => {
@@ -274,7 +328,7 @@ export function PortalProvider({
       },
 
       selectPlan: (key) => set({ plan: key }),
-      checkout: () => set({ screen: "checkout" }),
+      checkout: () => ir({ screen: "checkout" }),
       pay: () => {
         if (stateRef.current.paying) return;
         set({ paying: true });
@@ -294,8 +348,14 @@ export function PortalProvider({
         }, 900);
       },
 
-      startSession: () => set({ screen: "sesion", exercise: 0, seconds: EXERCISES[0].seconds, running: true }),
-      exitSession: () => set({ screen: "detalle", running: false }),
+      startSession: () => {
+        set({ exercise: 0, seconds: EXERCISES[0].seconds, running: true });
+        ir({ screen: "sesion" });
+      },
+      exitSession: () => {
+        set({ running: false });
+        ir({ screen: "detalle" });
+      },
       playPause: () => {
         const s = stateRef.current;
         if (!s.seconds) return set({ exercise: 0, seconds: EXERCISES[0].seconds, running: true });
@@ -305,11 +365,16 @@ export function PortalProvider({
       nextExercise: () => skip(1),
     };
     return self;
-  }, [set, notify]);
+  }, [set, notify, ir]);
+
+  // Con la navegación por rutas, el estado interno nunca cambia de pantalla:
+  // la dice quien monta el provider. Se pisa aquí y no en el reducer para que
+  // el resto del estado (reservas, favoritas, filtro) siga siendo del store.
+  const estado = pantalla ? { ...state, screen: pantalla } : state;
 
   return (
     <DatosCtx.Provider value={datos}>
-      <StateCtx.Provider value={state}>
+      <StateCtx.Provider value={estado}>
         <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
       </StateCtx.Provider>
     </DatosCtx.Provider>

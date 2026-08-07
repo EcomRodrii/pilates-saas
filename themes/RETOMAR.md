@@ -74,7 +74,7 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
      de fotogramas de conteo justo a quien pidió menos movimiento.
    - Las 5 `<img>` colapsan en **un** `FotoTema` en `chrome.tsx`, con un solo
      disable razonado (mismo patrón que ya usa `app/portal/[slug]/…`). Cuando
-     entren las fotos reales (punto 8) hay un único sitio que reconsiderar.
+     entren las fotos reales (punto 9) hay un único sitio que reconsiderar.
 3. ~~**Que se vea.**~~ **HECHO.** `/portal-tema-preview/{oliva,bloom,noir}`,
    con `components/portal-tema/portal-tema.css` cableando tokens + hojas y los
    7 SVG en `public/media/`. Se cae en producción (`VERCEL_ENV`) y se borra
@@ -128,20 +128,33 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    el mes de muestra fijado a "Septiembre 2026" — marcar días reales sobre una
    rejilla inventada quedaría medio bien, que es peor que quedar claramente
    falso.
-5. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
+5. **DECIDIDO: manda `PortalShell`, no `PortalApp`.** Las pantallas del kit se
+   montan una por ruta de Next; se tiran el enrutador y la navegación por
+   estado del kit. Motivo, medido: el portal actual tiene **19 rutas** y el kit
+   **12 pantallas** — siete no tienen equivalente y no son cascarones
+   (`/progreso` 509 líneas, `/compras` 436, `/preferencias` 255, `/videos` 211,
+   `/notificaciones` 170, `/invitar` 123, `/instructores` 93). Además, con la
+   pantalla en el estado una URL no identifica una clase: no se puede compartir
+   ni guardar el enlace, ni funciona el botón atrás del navegador.
+   **Esas siete se quedan como están** (decisión del fundador): el portal se
+   verá mezclado un tiempo, unas pantallas con el tema nuevo y otras no.
+   ~~Costura de navegación~~ **HECHA**: las doce acciones que navegaban pasan
+   por `ir()`, y `PortalProvider` acepta `navegar`/`pantalla`. Por defecto
+   sigue siendo el estado, así que la previsualización se comporta igual.
+6. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
-6. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
+7. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
    en `store/PortalStore.tsx` son `setTimeout`. Sustituir el cuerpo por la RPC
    real **manteniendo el estado de carga**: no es decorativo — el botón pasa por
    «Reservando…» con rueda antes de «Reservada», y de ahí dependen el bono, el
    anillo y el marcado en el horario. Si la RPC responde en 80 ms, mantener un
    **mínimo visible de ~400 ms**.
-7. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
+8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-8. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
+9. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
    neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
    velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
    ilegible aunque el CSS esté bien.
