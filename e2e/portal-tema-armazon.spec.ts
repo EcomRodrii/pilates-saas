@@ -22,6 +22,18 @@ async function abrir(page: import('@playwright/test').Page, tema: string, pantal
 }
 
 test.describe('Armazón del portal del kit', () => {
+  // ⚠️ Margen de verdad. La aserción de más abajo espera hasta 30s, que era
+  // también el límite POR DEFECTO del test entero — así que nunca podía
+  // usarlos: la navegación y el `reload` ya se comen parte, y en una tanda
+  // lenta el test moría con un "Test timeout exceeded" opaco antes de que la
+  // espera diera de sí. Pasó en CI (E2E 6/6) con un cambio que no tocaba nada
+  // de esto; el botón estaba, comprobado en el navegador, 62px.
+  //
+  // El límite del test va ahora POR ENCIMA del de la aserción a propósito: si
+  // el botón falta de verdad, lo que se lee es "element(s) not found" y no un
+  // cronómetro.
+  test.setTimeout(90_000);
+
   test('el botón de pago cumple el mínimo táctil aunque la pantalla no quepa', async ({ page }) => {
     // `.canvas` es flex en columna con scroll. Sin `flex-shrink: 0` en sus
     // hijos, el navegador reparte el déficit aplastándolos: con 941px de
