@@ -421,6 +421,31 @@ export function agruparFranjasRecurrentes(idx: IndicesSenal, s: SnapshotEstudio,
   return resultado;
 }
 
+export interface VariacionOcupacion {
+  /** (mediaReciente - mediaAnterior) / mediaAnterior — ej. -0.11 = cayó 11%. */
+  pctVariacion: number;
+  mediaReciente: number;
+  mediaAnterior: number;
+}
+
+/**
+ * Variación de ocupación entre dos ventanas consecutivas de `n` ocurrencias de
+ * una misma franja recurrente (últimas n vs. las n inmediatamente anteriores).
+ * Null si no hay las 2n ocurrencias completas — nunca extrapola con muestra
+ * parcial, mismo principio anti-injusticia que confianza.ts. `n` se pasa desde
+ * el caller (agenda.ts, OCURRENCIAS_MINIMAS) en vez de fijarse aquí, para
+ * mantener esa constante en un único sitio.
+ */
+export function variacionOcupacionFranja(franja: FranjaRecurrente, n: number): VariacionOcupacion | null {
+  if (franja.ocupaciones.length < n * 2) return null;
+  const reciente = franja.ocupaciones.slice(0, n);
+  const anterior = franja.ocupaciones.slice(n, n * 2);
+  const mediaReciente = reciente.reduce((a, b) => a + b, 0) / n;
+  const mediaAnterior = anterior.reduce((a, b) => a + b, 0) / n;
+  if (mediaAnterior === 0) return null;
+  return { pctVariacion: (mediaReciente - mediaAnterior) / mediaAnterior, mediaReciente, mediaAnterior };
+}
+
 /** Clave de franja recurrente de una sesión (mismo formato que agruparFranjasRecurrentes). */
 export function claveFranjaDe(se: Sesion): string {
   const inicio = new Date(se.inicio);

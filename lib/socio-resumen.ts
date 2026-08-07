@@ -34,6 +34,11 @@ export interface ResumenSocio {
   pendientesImporte: number;
   cumpleanos: string | null;
   sparklineWeeks: boolean[];
+  // Distinto de `pendientes` (PENDIENTE = en pleno ciclo de reintento, puede
+  // resolverse solo): FALLIDO es el estado TERMINAL tras agotar los
+  // reintentos de dunning (+1/+3/+7 días) — mezclar los dos en la misma
+  // suma perdería la distinción que el propio dunning ya calcula.
+  pagosFallidos: Recibo[];
 }
 
 export function resumenSocio({
@@ -58,6 +63,7 @@ export function resumenSocio({
   const bonosComprados = suscripciones.filter(s => s.socioId === id).length;
   const totalGastado = misRecibos.filter(r => r.estado === 'COBRADO').reduce((acc, r) => acc + r.importe, 0);
   const pendientes = misRecibos.filter(r => r.estado === 'PENDIENTE');
+  const pagosFallidos = misRecibos.filter(r => r.estado === 'FALLIDO');
 
   const ultimaAsistidaFecha = misReservas
     .filter(r => r.estado === 'ASISTIDA')
@@ -94,6 +100,6 @@ export function resumenSocio({
   return {
     suscripcion, plan, tags, proximasReservas, asistidas, estesMes, bonosComprados,
     totalGastado, pendientes, diasSinVenir, planActivo, bonosActivos,
-    pendientesImporte, cumpleanos, sparklineWeeks,
+    pendientesImporte, cumpleanos, sparklineWeeks, pagosFallidos,
   };
 }

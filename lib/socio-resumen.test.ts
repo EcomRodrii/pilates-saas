@@ -24,6 +24,7 @@ const misRecibos = [
   { estado: 'COBRADO', importe: 50 },
   { estado: 'COBRADO', importe: 30 },
   { estado: 'PENDIENTE', importe: 20 },
+  { estado: 'FALLIDO', importe: 15 },
 ] as unknown as Recibo[];
 
 const suscripciones = [
@@ -45,6 +46,16 @@ test('resumenSocio: cuenta asistidas, gasto y pendientes', () => {
   assert.equal(r.asistidas, 2);
   assert.equal(r.estesMes, 2);
   assert.equal(r.totalGastado, 80);
+  assert.equal(r.pendientes.length, 1);
+  assert.equal(r.pendientesImporte, 20);
+});
+
+test('resumenSocio: pagosFallidos es DISTINTO de pendientes (FALLIDO es terminal, PENDIENTE no)', () => {
+  const r = resumenSocio(base);
+  assert.equal(r.pagosFallidos.length, 1);
+  assert.equal(r.pagosFallidos[0].importe, 15);
+  // FALLIDO no debe colarse en pendientes/pendientesImporte — mezclar los dos
+  // estados perdería la distinción que el dunning ya calcula.
   assert.equal(r.pendientes.length, 1);
   assert.equal(r.pendientesImporte, 20);
 });

@@ -50,9 +50,10 @@ const BADGE_RECIBO: Record<string, string> = {
   PENDIENTE: 'bg-warning/10 text-warning',
   DEVUELTO: 'bg-destructive/10 text-destructive',
   EN_CURSO: 'bg-info/10 text-info',
+  FALLIDO: 'bg-destructive/10 text-destructive',
 };
 const LABEL_RECIBO: Record<string, string> = {
-  COBRADO: 'Cobrado', PENDIENTE: 'Pendiente', DEVUELTO: 'Devuelto', EN_CURSO: 'En curso',
+  COBRADO: 'Cobrado', PENDIENTE: 'Pendiente', DEVUELTO: 'Devuelto', EN_CURSO: 'En curso', FALLIDO: 'Fallido',
 };
 
 const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }> = {
@@ -367,7 +368,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const {
     suscripcion, plan, tags, proximasReservas, asistidas, estesMes, bonosComprados,
     totalGastado, pendientes, diasSinVenir, planActivo, bonosActivos,
-    pendientesImporte, cumpleanos, sparklineWeeks,
+    pendientesImporte, cumpleanos, sparklineWeeks, pagosFallidos,
   } = resumen;
 
   // Filtered reservas for "Reservas" tab
@@ -1268,6 +1269,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {SEMAFORO_META[semaforoSocio].label}
                 </button>
               )}
+              {verFinanzas && pagosFallidos.length > 0 && (
+                <button
+                  onClick={() => setActiveTab('pagos')}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2 hover:brightness-95 cursor-pointer"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}
+                  title="Ver pagos"
+                >
+                  <AlertTriangle size={12} aria-hidden />
+                  {pagosFallidos.length === 1 ? 'Pago fallido' : `${pagosFallidos.length} pagos fallidos`}
+                </button>
+              )}
             </div>
 
             {/* Contact info */}
@@ -1394,6 +1406,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {pendientesImporte.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
                 </span>
               </div>
+              {pagosFallidos.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pagos fallidos</span>
+                  <span className="text-xs font-bold" style={{ color: 'var(--destructive)' }}>
+                    {pagosFallidos.reduce((acc, r) => acc + r.importe, 0).toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
+                  </span>
+                </div>
+              )}
               {cumpleanos && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Cumpleaños</span>

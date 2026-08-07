@@ -5,7 +5,7 @@
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
 import {
   construirIndices, agruparFranjasRecurrentes, hayProximaSesionEnFranja, precioMedioSesion,
-  type IndicesSenal, type FranjaRecurrente,
+  variacionOcupacionFranja, type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural, confianzaMoverHorario } from '../confianza.ts';
 
@@ -38,6 +38,27 @@ function ocupacionMediaUltimas(franja: FranjaRecurrente, n: number): number {
   return u.length === 0 ? 0 : u.reduce((a, b) => a + b, 0) / u.length;
 }
 
+// Umbral de magnitud: por debajo de esto es indistinguible del ruido de
+// muestra pequeña (aforo típico de Pilates ~8-12, así que una sola persona de
+// diferencia entre semanas ya mueve la media un 8-10%).
+const TENDENCIA_CAIDA_MINIMA = 0.10;
+
+/**
+ * Frase opcional con el % de caída de ocupación, solo cuando el propio motor
+ * ya confía lo bastante (patrón sostenido ≥5 semanas — el mismo umbral que
+ * sube la confianza a ALTA en confianza.ts) y la caída supera el ruido de
+ * muestra pequeña. Vacía en caso contrario: el texto principal (ocupación
+ * media de hoy) es siempre calculable con solo 3 ocurrencias, esto solo lo
+ * complementa cuando hay más certeza — nunca lo sustituye.
+ */
+function fraseTendencia(franja: FranjaRecurrente, ocurrenciasVacias: number): string {
+  if (ocurrenciasVacias < 5) return '';
+  const variacion = variacionOcupacionFranja(franja, OCURRENCIAS_MINIMAS);
+  if (!variacion || variacion.pctVariacion > -TENDENCIA_CAIDA_MINIMA) return '';
+  const pct = Math.abs(Math.round(variacion.pctVariacion * 100));
+  return ` La ocupación cayó un ${pct}% respecto a las ${OCURRENCIAS_MINIMAS} semanas anteriores.`;
+}
+
 /**
  * A3 · Franja medio vacía pero el MISMO tipo de clase se llena en otra hora →
  * MOVER_HORARIO. Distinto de A1/A2 (fusionar/eliminar): aquí la demanda EXISTE,
@@ -49,6 +70,12 @@ function reglaA3(clave: string, franja: FranjaRecurrente, franjas: Map<string, F
   const ultimas3 = franja.ocupaciones.slice(0, OCURRENCIAS_MINIMAS);
   if (!ultimas3.every(o => o <= UMBRAL_VACIA)) return null;
   if (!hayProximaSesionEnFranja(clave, s, now)) return null;
+
+  let ocurrenciasVaciasA3 = 0;
+  for (const o of franja.ocupaciones) {
+    if (o <= UMBRAL_VACIA) ocurrenciasVaciasA3++;
+    else break;
+  }
 
   const referencia = franja.sesionesOrdenadas[0];
   const tipoClaseId = referencia.tipoClaseId;
@@ -77,7 +104,7 @@ function reglaA3(clave: string, franja: FranjaRecurrente, franjas: Map<string, F
   const precioMedio = precioMedioSesion(s, idx);
   const valor = redondear2(plazasVacias * precioMedio * 4.33);
 
-  const motivoMotor = `Tu ${tipo?.nombre ?? 'clase'} del ${aqui.diaSemana} a las ${aqui.hora} va medio vacía, pero la del ${alli.diaSemana} a las ${alli.hora} se llena (${Math.round(alternativa.media * 100)}%). La demanda está ahí — a lo mejor el problema es la hora, no la clase. Probaría a moverla a una franja parecida a la que sí funciona.`;
+  const motivoMotor = `Tu ${tipo?.nombre ?? 'clase'} del ${aqui.diaSemana} a las ${aqui.hora} va medio vacía, pero la del ${alli.diaSemana} a las ${alli.hora} se llena (${Math.round(alternativa.media * 100)}%).${fraseTendencia(franja, ocurrenciasVaciasA3)} La demanda está ahí — a lo mejor el problema es la hora, no la clase. Probaría a moverla a una franja parecida a la que sí funciona.`;
 
   return {
     especialista: 'AGENDA',
@@ -142,7 +169,7 @@ function reglaA1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
   // Coste de oportunidad mensual de las plazas que quedan sin vender en la franja.
   const valor = redondear2(plazasVacias * precioMedio * 4.33);
 
-  const motivoMotor = `Lleva ${ocurrenciasVacias} semanas con una media de ${asistentesMedios} personas (de ${referencia.aforoMaximo} plazas). O la promocionamos o la fusionamos con otra — así no pagas sala e instructora para media clase.`;
+  const motivoMotor = `Lleva ${ocurrenciasVacias} semanas con una media de ${asistentesMedios} personas (de ${referencia.aforoMaximo} plazas).${fraseTendencia(franja, ocurrenciasVacias)} O la promocionamos o la fusionamos con otra — así no pagas sala e instructora para media clase.`;
 
   return {
     especialista: 'AGENDA',
