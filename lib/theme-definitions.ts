@@ -86,37 +86,16 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     capabilities: [],
     defaults: {},
   },
-  {
-    id: 'geometric',
-    version: 1,
-    label: 'Geométrico',
-    description: 'Titulares en Outfit, una geométrica de trazo limpio. Mismos colores de marca.',
-    capabilities: ['typography'],
-    defaults: { portalHeadingFontId: 'outfit' },
-  },
-  {
-    id: 'editorial',
-    version: 2,
-    label: 'Editorial',
-    // Sin la palabra "tarjetas" a propósito: colisionaba con el encabezado
-    // de esa sección en "Personalizar" (getByText('Tarjetas') dejaba de ser
-    // único, e2e/apariencia-boton-tarjeta.spec.ts).
-    description: 'Titulares en negrita, contenido destacado y barra inferior con pestaña expandible.',
-    capabilities: ['typography', 'buttons', 'cards', 'nav'],
-    defaults: {
-      portalHeadingFontId: 'instrumentSansBold',
-      buttonStyle: 'solid',
-      cardStyle: 'elevated',
-      tabBarStyle: 'pestanaActiva',
-      // Editorial YA enseñaba la bienvenida antes del login, con el gate
-      // `tabBarStyle === 'pestanaActiva'`. Al pasar ese gate a `variantes`, hay
-      // que declararlo aquí — ⚠️ pero eso NO basta para los estudios que ya lo
-      // tienen instalado: `defaults` no es retroactivo (instalar() los congela
-      // en el borrador). Por eso el gate mantiene el OR con `tabBarStyle`,
-      // ver app/portal/[slug]/login/page.tsx.
-      variantes: { bienvenida: 'foto' },
-    },
-  },
+  // ⚠️ Aquí vivían 'geometric' y 'editorial'. Se retiran a propósito: la
+  // biblioteca queda con el PREDETERMINADO ('classic') y los tres temas de
+  // diseño (Oliva, Bloom, Noir), que es lo que se pidió.
+  //
+  // Los ids NO se reciclan nunca para otro tema. Un estudio puede tener
+  // 'editorial' guardado en su borrador (lo tiene Pilates doll a fecha de
+  // hoy): sus colores no se pierden —se guardan en su fila, no se buscan por
+  // id— pero `getThemeDefinition` devuelve `undefined` y la biblioteca deja de
+  // marcarle ninguna tarjeta como "En uso". Reutilizar el id le cambiaría el
+  // tema por sorpresa, que es mucho peor.
   {
     id: 'oliva',
     version: 5,
