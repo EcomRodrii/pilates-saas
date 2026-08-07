@@ -22,6 +22,25 @@ import type {
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 const CLAVE_DIA = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+/**
+ * El nivel, en palabras. `tipos_clase.nivel` es un enum
+ * (`TODOS`/`PRINCIPIANTE`/`MEDIO`/`AVANZADO`) y el portal lo pinta tal cual en
+ * la píldora del detalle y en «Nivel …» — con datos de muestra no se vio
+ * porque traían ya texto humano ("Intermedio", "Suave").
+ *
+ * ⚠️ Es el QUINTO sitio del repo con este mismo mapa (`reserva-calendario`,
+ * `tab-clases`, `portal/[slug]/videos`, `portal/[slug]/clases/[sesionId]` y
+ * aquí), y cada uno con su redacción. Unificarlos es un cambio aparte que toca
+ * pantallas vivas; aquí se copia la redacción del PORTAL, que es la que ve la
+ * misma persona.
+ */
+const NIVEL: Record<string, string> = {
+  TODOS: 'Todos los niveles',
+  PRINCIPIANTE: 'Iniciación',
+  MEDIO: 'Intermedio',
+  AVANZADO: 'Avanzado',
+};
+
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -47,9 +66,8 @@ export function horaLocal(iso: string, tz = TZ_ESTUDIO): string {
  * `StudioClass.day`. Cuando la semana cruza de mes los números no se repiten
  * dentro de ella (29, 30, 1, 2…), así que sigue sirviendo de clave.
  */
-export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
-  const hoyLocal = fechaLocalDe(ahora, tz);
-  const { anio, mes, dia } = partes(hoyLocal);
+function diasDeLaSemana(ahora: Date, tz: string): { fecha: string; dia: DiaPortal }[] {
+  const { anio, mes, dia } = partes(fechaLocalDe(ahora, tz));
   // Mediodía UTC para que sumar/restar días nunca cruce de día por el cambio
   // de hora (a las 00:00 sí puede).
   const base = new Date(Date.UTC(anio, mes - 1, dia, 12));
@@ -58,8 +76,13 @@ export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
     const d = new Date(base);
     d.setUTCDate(d.getUTCDate() - diaSemana + i);
     const idx = d.getUTCDay();
-    return { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate() };
+    const fecha = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    return { fecha, dia: { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate() } };
   });
+}
+
+export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
+  return diasDeLaSemana(ahora, tz).map((d) => d.dia);
 }
 
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
@@ -77,7 +100,10 @@ export function inicialDe(nombre: string): string {
 export interface FuenteDatosPortal {
   ahora: Date;
   sesiones: Sesion[];
-  reservas: Reserva[];
+  // Solo se miran `sesionId` y `estado` (ver `plazasOcupadas`). El camino
+  // público trae una fila recortada a propósito, para no sacar PII de nadie
+  // que no sea quien mira; pedir la `Reserva` entera obligaría a castear.
+  reservas: Pick<Reserva, 'sesionId' | 'estado'>[];
   tiposClase: TipoClase[];
   salas: Sala[];
   instructores: Instructor[];
@@ -97,7 +123,12 @@ export interface FuenteDatosPortal {
  */
 export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
   const tz = f.tz ?? TZ_ESTUDIO;
-  const dias = new Set(semanaDe(f.ahora, tz).map((d) => d.num));
+  // ⚠️ El filtro va por FECHA completa ('2026-08-05'), no por día del mes.
+  // Filtrar por `day` parecía bastar —dentro de una semana los números no se
+  // repiten— pero al adaptador le llegan TODAS las sesiones del estudio, no
+  // solo las de esta semana: una clase del 5 de septiembre tiene `day` 5 igual
+  // que el 5 de agosto y se colaba en el horario. Salió mirando datos reales.
+  const fechas = new Set(diasDeLaSemana(f.ahora, tz).map((d) => d.fecha));
   const porTipo = new Map(f.tiposClase.map((t) => [t.id, t]));
   const porSala = new Map(f.salas.map((s) => [s.id, s]));
   const porInstructor = new Map(f.instructores.map((i) => [i.id, i]));
@@ -105,10 +136,10 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
   return f.sesiones
     .filter((s) => !s.cancelada)
     .map((s) => {
-      const { dia } = partes(fechaLocalDe(new Date(s.inicio), tz));
-      return { s, dia };
+      const fecha = fechaLocalDe(new Date(s.inicio), tz);
+      return { s, fecha, dia: partes(fecha).dia };
     })
-    .filter(({ dia }) => dias.has(dia))
+    .filter(({ fecha }) => fechas.has(fecha))
     .sort((a, b) => a.s.inicio.localeCompare(b.s.inicio))
     .map(({ s, dia }) => {
       const tipo = porTipo.get(s.tipoClaseId);
@@ -127,7 +158,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         end: horaLocal(s.fin, tz),
         duration: `${minutos} min`,
         room: sala?.nombre ?? '',
-        level: tipo?.nivel ?? '',
+        level: tipo ? (NIVEL[tipo.nivel] ?? '') : '',
         teacher: nombreInstructor,
         initial: inicialDe(nombreInstructor),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),

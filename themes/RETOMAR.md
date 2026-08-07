@@ -113,9 +113,18 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    - **La semana se calcula en Europe/Madrid.** En UTC, una clase de las 00:30
      cae el día anterior y el horario la enseña donde no es — el mismo bug que
      ya arregló la migración 0105. Hay test para eso.
-   Lo que **falta** de esta pieza: quién llama a `construirDatosPortal` (hoy
-   nadie: el adaptador está probado pero sin consumidor real hasta que el
-   portal se monte en la ruta), y la pantalla de **Calendario**, que sigue con
+   El consumidor es `/portal-tema-preview/[tema]?estudio=<slug>`: pinta el
+   catálogo público real de ese estudio, sin socia ni datos personales.
+   ⚠️ **Pasarle datos de verdad encontró dos fallos que los tests no vieron**,
+   porque los fixtures los escribí yo con la misma cabeza que el código:
+   - **Se colaban clases de otro mes.** El filtro iba por día del mes y al
+     adaptador le llegan TODAS las sesiones del estudio: el 5 de septiembre
+     tiene el mismo `day` que el 5 de agosto. Ahora filtra por fecha completa.
+   - **`nivel` salía como el enum crudo** ("PRINCIPIANTE" en la píldora del
+     detalle y en «Nivel …»). Los datos de muestra ya traían texto humano, así
+     que no se veía. Hay mapa a palabras — y es el quinto del repo con distinta
+     redacción; unificarlos es un cambio aparte.
+   Lo que **falta** de esta pieza: la pantalla de **Calendario**, que sigue con
    el mes de muestra fijado a "Septiembre 2026" — marcar días reales sobre una
    rejilla inventada quedaría medio bien, que es peor que quedar claramente
    falso.

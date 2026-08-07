@@ -96,7 +96,10 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
   assert.deepEqual(clases[0], {
     id: 'x1', name: 'Reformer', type: 't1', day: 3,
     time: '18:00', end: '18:50', duration: '50 min',
-    room: 'Sala 2', level: 'MEDIO', teacher: 'Marta Gómez', initial: 'M',
+    // ⚠️ 'Intermedio', no 'MEDIO': el portal pinta este campo tal cual en la
+    // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
+    // porque ya traían texto humano.
+    room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
     seats: 10, description: 'Fuerza y control',
   });
 });
@@ -114,6 +117,24 @@ test('clasesDeLaSemana: fuera de la semana, canceladas y orden', () => {
     tiposClase: [tipo('t1', 'Reformer')],
   });
   assert.deepEqual(clases.map((c) => c.id), ['pronto', 'tarde']);
+});
+
+// ⚠️ Encontrado mirando datos reales, no razonando: al adaptador le llegan
+// TODAS las sesiones del estudio. Filtrar por día del mes parecía bastar
+// —dentro de una semana los números no se repiten— pero el 5 de septiembre
+// tiene el mismo `day` que el 5 de agosto y se colaba en el horario.
+test('clasesDeLaSemana: una clase de otro mes con el mismo día NO se cuela', () => {
+  const clases = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'), // semana del 31/08 al 06/09
+    sesiones: [
+      sesion('de-esta-semana', '2026-09-02T16:00:00.000Z', '2026-09-02T17:00:00.000Z'),
+      sesion('mismo-dia-otro-mes', '2026-10-02T16:00:00.000Z', '2026-10-02T17:00:00.000Z'),
+      sesion('mismo-dia-mes-anterior', '2026-08-02T16:00:00.000Z', '2026-08-02T17:00:00.000Z'),
+    ],
+    tiposClase: [tipo('t1', 'Reformer')],
+  });
+  assert.deepEqual(clases.map((c) => c.id), ['de-esta-semana']);
 });
 
 // El aforo lo decide `plazasOcupadas`. La lista de espera y las pendientes de

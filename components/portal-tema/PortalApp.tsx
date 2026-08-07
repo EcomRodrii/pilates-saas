@@ -6,6 +6,7 @@ import { PortalProvider } from "@/components/portal-tema/store/PortalStore";
 import { TemaProvider } from "@/components/portal-tema/store/TemaContext";
 import { useViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { ThemeConfig } from "@/components/portal-tema/tipos-tema";
+import type { DatosPortal } from "@/lib/portal-tema/tipos";
 
 import { Welcome } from "@/components/portal-tema/screens/Welcome";
 import { Login, Register } from "@/components/portal-tema/screens/Auth";
@@ -60,10 +61,14 @@ function Portal() {
  * para que este código compartido no dependa de los temas concretos — es lo
  * que permite que sea una sola copia y no tres.
  */
-export function PortalApp({ tema, bare }: { tema: ThemeConfig; bare?: boolean }) {
+export function PortalApp({
+  tema, datos, bare,
+}: { tema: ThemeConfig; datos?: DatosPortal; bare?: boolean }) {
   return (
     <TemaProvider tema={tema}>
-      <PortalProvider>
+      {/* Sin `datos` se usan los de muestra: es lo que ve la previsualización
+          cuando no se le pasa ningún estudio. */}
+      <PortalProvider datos={datos}>
         {bare ? <Portal /> : <PhoneFrame><Portal /></PhoneFrame>}
       </PortalProvider>
     </TemaProvider>
