@@ -81,11 +81,27 @@ export function VistaSemana({
             {columnas.map((c, i) => {
               const esHoy = hoyIndex === i;
               return (
+                // HOY se marcaba solo con `var(--muted)` de fondo y el nombre
+                // del día en color de marca: un gris que se perdía entre siete
+                // columnas iguales. Ahora lleva tres señales que se leen de un
+                // vistazo y no dependen del color (daltonismo): una barra
+                // superior, el número dentro de una píldora rellena, y la
+                // palabra HOY.
                 <div
                   key={c.dia}
-                  className="min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
-                  style={{ background: esHoy ? 'var(--muted)' : undefined, minWidth: ANCHO_MIN_COLUMNA_PX }}
+                  className="relative min-w-0 flex-1 overflow-hidden border-l border-border/60 px-2 py-2 text-center"
+                  style={{
+                    background: esHoy ? 'color-mix(in srgb, var(--brand-medio) 10%, var(--card))' : undefined,
+                    minWidth: ANCHO_MIN_COLUMNA_PX,
+                  }}
                 >
+                  {esHoy && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-0 top-0 h-[3px]"
+                      style={{ background: 'var(--brand-medio)' }}
+                    />
+                  )}
                   <p className="flex items-center justify-center gap-1.5 min-w-0">
                     {c.hayAtencion && <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: 'var(--destructive)' }} />}
                     <span
@@ -94,10 +110,24 @@ export function VistaSemana({
                     >
                       {DIAS[i]}
                     </span>
-                    <span className="text-sm font-bold tracking-tight text-foreground">{fechasSemana[i]?.getDate()}</span>
+                    {esHoy ? (
+                      <span
+                        className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full px-1 text-sm font-bold tabular-nums tracking-tight text-white"
+                        style={{ background: 'var(--brand-medio)' }}
+                      >
+                        {fechasSemana[i]?.getDate()}
+                      </span>
+                    ) : (
+                      <span className="text-sm font-bold tracking-tight text-foreground">{fechasSemana[i]?.getDate()}</span>
+                    )}
                   </p>
-                  <p className="mt-0.5 truncate text-[10.5px] text-muted-foreground">
-                    {c.cerrado ? 'Cerrado' : c.vacio ? 'Sin clases' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
+                  <p
+                    className="mt-0.5 truncate text-[10.5px]"
+                    style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)', fontWeight: esHoy ? 700 : undefined }}
+                  >
+                    {esHoy
+                      ? `HOY · ${c.cerrado ? 'Cerrado' : c.vacio ? 'sin clases' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}`
+                      : c.cerrado ? 'Cerrado' : c.vacio ? 'Sin clases' : `${c.sesiones.length} ${c.sesiones.length === 1 ? 'clase' : 'clases'}`}
                   </p>
                 </div>
               );
@@ -124,7 +154,11 @@ export function VistaSemana({
                   data-dia-index={i}
                   className="relative min-w-0 overflow-hidden border-l border-border/60"
                   style={{
-                    background: hoyIndex === i ? 'color-mix(in srgb, var(--muted) 60%, var(--card))' : undefined,
+                    // Mismo tinte de marca que la cabecera, mucho más flojo:
+                    // la columna de hoy tiene que leerse como una sola pieza
+                    // con su cabecera, sin competir con las clases que lleva
+                    // dentro (que ahora sí tienen color propio).
+                    background: hoyIndex === i ? 'color-mix(in srgb, var(--brand-medio) 4%, var(--card))' : undefined,
                     backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px ${pxPorHora}px)`,
                     cursor: onClickVacio ? 'pointer' : undefined,
                   }}

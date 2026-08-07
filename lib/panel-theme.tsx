@@ -2,10 +2,12 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { authHeader } from '@/lib/api-client';
-// Directo de wcag-contrast.ts (cero dependencias), NO de theme-runtime.ts: ese
-// módulo importa theme-schema.ts (zod) y PanelThemeProvider está montado en
-// TODAS las rutas del panel — importar desde ahí bundlaría zod en las 22.
+// Directo de wcag-contrast.ts/color-utils.ts (cero dependencias cada uno), NO
+// de theme-runtime.ts: ese módulo importa theme-schema.ts (zod) y
+// PanelThemeProvider está montado en TODAS las rutas del panel — importar
+// desde ahí bundlaría zod en las 22.
 import { foregroundParaFondo } from '@/lib/wcag-contrast';
+import { colorLegibleSobreClaro } from '@/lib/color-utils';
 import type { ThemeConfig } from '@/lib/theme-schema';
 
 const DARK_KEY = 'panel-dark-mode';
@@ -27,7 +29,7 @@ export function usePanelTheme(): PanelThemeValue {
 function aplicarMarca(el: HTMLElement, theme: ThemeConfig) {
   el.style.setProperty('--brand', theme.primary);
   el.style.setProperty('--brand-foreground', foregroundParaFondo(theme.primary));
-  el.style.setProperty('--brand-secondary', theme.secondary);
+  el.style.setProperty('--brand-secondary', colorLegibleSobreClaro(theme.secondary));
 }
 
 function leerMarcaCacheada(): ThemeConfig | null {
