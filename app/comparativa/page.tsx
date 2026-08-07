@@ -5,6 +5,8 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 export const metadata: Metadata = {
   title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
@@ -39,6 +41,8 @@ const ROWS: { feature: string; tentare: [Verdict, string]; bsport: [Verdict, str
 export default function ComparativaPage() {
   return (
     <PageShell>
+      <OrganizationStructuredData />
+      <PageBreadcrumb path="/comparativa" name="Comparativa" />
       <SiteNav backHref="/" backLabel="Volver a Tentare" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>

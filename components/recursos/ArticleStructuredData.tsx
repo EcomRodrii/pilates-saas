@@ -62,3 +62,17 @@ export function RecursosBreadcrumb() {
   };
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />;
 }
+
+// BreadcrumbList genérico de un nivel (Inicio > página) para páginas sueltas
+// como /comparativa o /seguridad, que no cuelgan de /recursos.
+export function PageBreadcrumb({ path, name }: { path: string; name: string }) {
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: LEGAL.url },
+      { '@type': 'ListItem', position: 2, name, item: `${LEGAL.url}${path}` },
+    ],
+  };
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />;
+}

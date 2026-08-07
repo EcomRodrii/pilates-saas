@@ -5,6 +5,8 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 export const metadata: Metadata = {
   title: 'Seguridad y privacidad — Tentare',
@@ -70,6 +72,8 @@ const NEVER = [
 export default function SeguridadPage() {
   return (
     <PageShell>
+      <OrganizationStructuredData />
+      <PageBreadcrumb path="/seguridad" name="Seguridad" />
       <SiteNav backHref="/" backLabel="Volver a Tentare" />
 
       <header style={{ position: 'relative', background: '#0F0F0F', color: '#E8E8E4', overflow: 'hidden', padding: 'clamp(52px,7vw,92px) clamp(20px,4vw,44px) clamp(44px,6vw,72px)' }}>
