@@ -314,5 +314,12 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
     errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
+  // `secondary` no tenía par validado aquí — se usa por todo el panel y el
+  // portal como color de TEXTO sobre `--background`/`--card` (nunca como
+  // relleno sólido), y el hueco dejó pasar 5 de los 6 presets con un `secondary`
+  // pastel prácticamente invisible como texto (ratio real 1.28–2.50:1, ver
+  // lib/theme-presets.ts). Mismo umbral que el par marca/fondo de arriba.
+  if (!cumpleContraste(t.secondary, t.background, { grande: true }))
+    errores.push('El color secundario no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
   return { ok: errores.length === 0, errores };
 }

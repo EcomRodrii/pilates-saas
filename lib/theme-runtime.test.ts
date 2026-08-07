@@ -64,6 +64,21 @@ test('validarContrasteTheme: texto sin contraste falla con mensaje', () => {
   assert.ok(r.errores.some((e) => e.includes('texto')));
 });
 
+// `secondary` se usa por todo el panel/portal como color de TEXTO sobre fondos
+// claros (nunca como relleno sólido) — antes de este par, un `secondary` pastel
+// (p.ej. #C4B5FD del preset "Ciruela") pasaba el gate sin avisar y quedaba
+// invisible en el badge "Recomendación" y en las pestañas de Membresías.
+test('validarContrasteTheme: secundario pastel sin contraste falla con mensaje', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, secondary: '#C4B5FD', background: '#FFFFFF' });
+  assert.equal(r.ok, false);
+  assert.ok(r.errores.some((e) => e.includes('secundario')));
+});
+
+test('validarContrasteTheme: secundario oscuro (post-fix del preset Ciruela) pasa el gate', () => {
+  const r = validarContrasteTheme({ ...DEFAULT_THEME, secondary: '#402964', background: '#FFFFFF' });
+  assert.equal(r.ok, true);
+});
+
 test('presetAThemeConfig: deriva un tema válido del preset viejo', () => {
   const t = presetAThemeConfig('teal');
   assert.equal(themeConfigSchema.safeParse(t).success, true);
