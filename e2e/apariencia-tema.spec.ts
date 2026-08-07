@@ -182,10 +182,12 @@ test.describe('Biblioteca de temas', () => {
     // etiquetas pero SIN relleno (su icono activo es dorado, no macizo).
     // Noir NO lleva titular grande — ése solo lo tiene Bloom en el prototipo.
     expect(body.variantes).toEqual({ cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' });
-    // Noir va por la v5 desde que su cardStyle pasó a `elevated`: `defaults` no
-    // es retroactivo, así que subir la versión es lo que hace que el cambio
-    // llegue a quien ya lo tenga instalado.
-    expect(body.themeVersion).toBe(5);
+    // ⚠️ La versión se afirma en DOS sitios (aquí y en theme-definitions.test.ts)
+    // y al subirlas por `escalaTexto` solo actualicé el unitario. Noir va una
+    // por delante desde que su cardStyle pasó a `elevated`. `defaults` no es
+    // retroactivo: subir la versión es lo que hace que el cambio llegue a quien
+    // ya lo tenga instalado.
+    expect(body.themeVersion).toBe(6);
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
@@ -209,7 +211,7 @@ test.describe('Biblioteca de temas', () => {
     const variantesBloom = body.variantes as Record<string, string>;
     expect(variantesBloom.barra).toBeUndefined();
     expect(variantesBloom.retos).toBe('color');
-    expect(body.themeVersion).toBe(4);
+    expect(body.themeVersion).toBe(5);
   });
 
   test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {
@@ -228,7 +230,7 @@ test.describe('Biblioteca de temas', () => {
     expect(body.cardStyle).toBe('flat');
     expect(body.radioTema).toEqual({ card: 26, boton: 20, chip: 999, acceso: 20 });
     expect(body.variantes).toEqual({ cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' });
-    expect(body.themeVersion).toBe(4);
+    expect(body.themeVersion).toBe(5);
   });
 
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {

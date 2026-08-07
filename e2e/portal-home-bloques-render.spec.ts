@@ -156,3 +156,55 @@ test('un Grupo VACÍO no deja un hueco en el portal', async ({ page }) => {
   await expect(page.getByRole('navigation', { name: 'Secciones' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('No debería verse')).toHaveCount(0);
 });
+
+// ── Etapa 6: el texto no puede quedarse ilegible sobre un fondo propio ─────
+test('un bloque con fondo OSCURO escribe en claro, sin que nadie se lo diga', async ({ page }) => {
+  // El agujero que cierra esta etapa: `EstiloBloque.fondo` deja poner
+  // cualquier color, y el texto se quedaba con el del tema (oscuro).
+  await montarPortal(page, {
+    conSesion: true,
+    homeBloques: [
+      { id: 't1', kind: 'texto', config: { titulo: 'Sobre oscuro', texto: 'Cuerpo del bloque' },
+        estilo: { fondo: '#1E2B22' } },
+    ] as never,
+  });
+  await page.goto(`/portal/${SLUG}/home`);
+  const titulo = page.getByText('Sobre oscuro');
+  await expect(titulo).toBeVisible({ timeout: 30_000 });
+
+  const { color, fondo } = await titulo.evaluate((e) => {
+    const s = getComputedStyle(e);
+    const caja = (e.closest('[style*="background"]') as HTMLElement) ?? e;
+    return { color: s.color, fondo: getComputedStyle(caja).backgroundColor };
+  });
+  // Se mide el CONTRASTE real, no un color concreto: lo que importa es que se
+  // lea, no qué hex salió.
+  const lum = (c: string) => {
+    const [r, g, b] = c.match(/\d+/g)!.slice(0, 3).map(Number) as [number, number, number];
+    const f = (v: number) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const a = lum(color), b = lum(fondo);
+  const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+});
+
+test('con fondo CLARO el bloque conserva el color del tema, no salta a negro', async ({ page }) => {
+  // Si esto fallara, la etapa se notaría donde no debe: cualquier fondo suave
+  // perdería el carácter del tema.
+  // ⚠️ Comparativo y no absoluto: `t.ink` es la tinta del PORTAL, no el
+  // `text` del tema (asumirlo me dio un falso rojo). Lo que hay que sostener
+  // es que un fondo claro NO cambia el color respecto a no tener fondo.
+  await montarPortal(page, {
+    conSesion: true, tema: 'oliva',
+    homeBloques: [
+      { id: 't2', kind: 'texto', config: { titulo: 'Sobre claro', texto: '' }, estilo: { fondo: '#F5F3ED' } },
+      { id: 't3', kind: 'texto', config: { titulo: 'Sin fondo', texto: '' } },
+    ] as never,
+  });
+  await page.goto(`/portal/${SLUG}/home`);
+  const conFondo = page.getByText('Sobre claro');
+  await expect(conFondo).toBeVisible({ timeout: 30_000 });
+  const esperado = await page.getByText('Sin fondo').evaluate((e) => getComputedStyle(e).color);
+  await expect(conFondo).toHaveCSS('color', esperado);
+});
