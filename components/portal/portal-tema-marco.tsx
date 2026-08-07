@@ -30,7 +30,7 @@ import { Passes } from '@/components/portal-tema/screens/Passes';
 import { Profile } from '@/components/portal-tema/screens/Profile';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { construirDatosPortal } from '@/lib/portal-tema/datos';
+import { construirDatosPortal, diaDelMesHoy } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
 
@@ -78,6 +78,10 @@ export function PortalTemaMarco() {
   const pantalla = pantallaDeRuta(pathname, slug) ?? 'inicio';
   const tema = esTemaPortal(themeIdPublicado) ? TEMAS_PORTAL[themeIdPublicado] : TEMAS_PORTAL.oliva;
 
+  // El día de HOY en la zona del estudio. Sin esto sale el 4 de la demo, que
+  // con datos reales es un día cualquiera del pasado.
+  const hoy = useMemo(() => diaDelMesHoy(new Date()), []);
+
   const socioId = session?.socioId ?? null;
   const datos = useMemo(() => construirDatosPortal({
     ahora: new Date(),
@@ -101,7 +105,16 @@ export function PortalTemaMarco() {
 
   return (
     <TemaProvider tema={tema}>
-      <PortalProvider datos={datos} navegar={navegar} pantalla={pantalla}>
+      <PortalProvider
+        datos={datos}
+        navegar={navegar}
+        pantalla={pantalla}
+        // El día de HOY en la semana del estudio, no el 4 de la demo.
+        diaPorDefecto={hoy}
+        // Nada de barra de estado falsa ni isla dinámica: esto es un móvil de
+        // verdad y ya tiene las suyas.
+        cromoDemo={false}
+      >
         <Pantalla nombre={pantalla} />
       </PortalProvider>
     </TemaProvider>

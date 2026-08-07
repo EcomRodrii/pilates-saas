@@ -85,6 +85,12 @@ export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
   return diasDeLaSemana(ahora, tz).map((d) => d.dia);
 }
 
+/** El día del MES de hoy en la zona del estudio. La clave con la que casan
+ *  las clases (`StudioClass.day`) y la tira de la semana. */
+export function diaDelMesHoy(ahora: Date, tz = TZ_ESTUDIO): number {
+  return partes(fechaLocalDe(ahora, tz)).dia;
+}
+
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
 export function fechaLarga(iso: string | null | undefined, tz = TZ_ESTUDIO): string {
   if (!iso) return '';
