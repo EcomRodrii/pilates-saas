@@ -73,6 +73,14 @@ export interface SociaPortal {
  * Se irán moviendo aquí según tengan de dónde salir; meterlos antes solo
  * disfrazaría de real algo que sigue inventado.
  */
+/** Una reserva viva de la socia, atada a la clase que ocupa. */
+export interface ReservaPortal {
+  /** El id de la SESIÓN, que es lo que el portal llama "clase". */
+  classId: string;
+  /** El id de la RESERVA, que es lo que hay que mandar para cancelarla. */
+  reservaId: string;
+}
+
 export interface DatosPortal {
   clases: StudioClass[];
   dias: DiaPortal[];
@@ -80,4 +88,15 @@ export interface DatosPortal {
   planes: PlanPortal[];
   bono: BonoPortal;
   socia: SociaPortal;
+  /**
+   * Las reservas VIVAS de la socia.
+   *
+   * ⚠️ `undefined` = no hay nadie identificado (la previsualización de temas),
+   * y solo entonces el portal usa su lista de demostración. Un array vacío es
+   * un dato: "no tiene ninguna reserva". Confundir los dos es lo que hacía que
+   * la pantalla de Reservas del kit saliera SIEMPRE vacía en el portal de
+   * verdad, con las reservas de la socia perfectamente guardadas en la base de
+   * datos.
+   */
+  reservadas?: ReservaPortal[];
 }

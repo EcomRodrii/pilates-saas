@@ -23,8 +23,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, prepararRenovacionPlan } from '@/lib/api-client';
-import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import { iniciarDomiciliacionSepa, sepaDisponibleParaEstudio, crearCheckoutStripe, crearCheckoutPlan, prepararRenovacionPlan } from '@/lib/api-client';
 import { abrirFacturaPDF } from '@/lib/factura-pdf';
 import { precioPorClase } from '@/lib/estudio-publico';
 import { fechaLarga } from '@/lib/bonos-portal';
@@ -87,26 +86,17 @@ export default function ComprasPage() {
     if (!studio?.id || comprando) return;
     setComprando(plan.id);
     setError(null);
-    try {
-      const res = await fetch('/api/stripe/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studioId: studio.id, planId: plan.id, socioId,
-          socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
-          origen: 'portal',
-        }),
-      });
-      // `res.ok` ANTES del cuerpo: un 500 de Next responde HTML, así que
-      // `res.json()` lanzaba y el fallo del SERVIDOR se le contaba a la socia
-      // como un problema de su conexión.
-      const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
-      if (!res.ok) { setError(mensajeSeguro(data?.error, mensajeHttp(res.status))); }
-      else if (data?.url) { window.location.assign(data.url); return; }
-      else setError(mensajeSeguro(data?.error, 'No se ha podido iniciar el pago.'));
-    } catch {
-      setError('No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.');
-    }
+    // El manejo de errores (incluido el "res.ok antes del cuerpo", que se
+    // arregló tras contarle a una socia un 500 nuestro como fallo de SU red)
+    // vive en `crearCheckoutPlan`, compartido con la pantalla de Bonos del kit
+    // de temas. Dos pantallas de compra, un solo camino de pago.
+    const r = await crearCheckoutPlan({
+      studioId: studio.id, planId: plan.id, socioId,
+      socioEmail: socia?.email ?? null, socioNombre: socia?.nombre ?? 'Socia',
+      origen: 'portal',
+    });
+    if ('url' in r) { window.location.assign(r.url); return; }
+    setError(r.error);
     setComprando(null);
   }
 

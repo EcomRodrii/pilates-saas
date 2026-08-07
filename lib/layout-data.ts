@@ -13,6 +13,7 @@
 import { z } from 'zod';
 import { cache } from 'react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { invalidarCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   resolveLayout,
@@ -65,6 +66,20 @@ export const getLayout = cache(async (studioId: string): Promise<LayoutConfig> =
   return resolveLayout(await leerConfig(admin, alcance));
 });
 
+/**
+ * Todas las sedes a las que afecta una escritura de este alcance.
+ *
+ * ⚠️ En una cadena la escritura es UNA sobre la cadena, pero el catálogo
+ * público está cacheado POR SEDE: invalidar solo la sede desde la que se
+ * publicó dejaría a las demás sirviendo el layout anterior. Es una consulta
+ * más en una acción manual y rara (publicar), no en el camino de lectura.
+ */
+async function sedesDelAlcance(admin: SupabaseClient, alcance: Alcance): Promise<string[]> {
+  if (alcance.tipo === 'estudio') return [alcance.id];
+  const { data } = await admin.from('studios').select('id').eq('cadena_id', alcance.id);
+  return (data ?? []).map((r) => (r as { id: string }).id);
+}
+
 /** Escribe la config final resuelta, en cadena o en la sede suelta según el alcance. */
 async function escribirConfig(admin: SupabaseClient, alcance: Alcance, final: LayoutConfig): Promise<void> {
   if (alcance.tipo === 'cadena') {
@@ -110,6 +125,9 @@ export async function guardarLayout(studioId: string, parche: LayoutDraft): Prom
   });
 
   await escribirConfig(admin, alcance, final);
+  // Se aplica en vivo (este esquema no tiene borrador), así que el catálogo
+  // cacheado queda obsoleto en el mismo instante en que se escribe.
+  invalidarCatalogoPublico(...(await sedesDelAlcance(admin, alcance)));
   return final;
 }
 
@@ -165,5 +183,6 @@ export async function publicarBloques(studioId: string, pantalla: PantallaId): P
     bloques: { ...actual.bloques, [pantalla]: { draft: publicado, publicado } },
   });
   await escribirConfig(admin, alcance, final);
+  invalidarCatalogoPublico(...(await sedesDelAlcance(admin, alcance)));
   return publicado;
 }

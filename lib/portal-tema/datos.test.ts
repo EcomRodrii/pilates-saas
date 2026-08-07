@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  horaLocal, inicialDe, planesDe, semanaDe, sociaDe,
+  horaLocal, inicialDe, planesDe, reservadasDe, semanaDe, sociaDe,
 } from './datos.ts';
+import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
 
 // ── Fixtures mínimos. Solo lo que el adaptador mira. ────────────────────────
@@ -287,4 +288,67 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
     tiposClase: [tipo('t1', 'Reformer'), tipo('t9', 'Nunca programado')],
   });
   assert.deepEqual(datos.filtros.map((f) => f.key), ['todas', 't1']);
+});
+
+// ── Reservas de la socia ────────────────────────────────────────────────────
+//
+// ⚠️ Regresión. La pantalla de Reservas del kit leía `state.booked`, la lista
+// de MENTIRA del store (la rellena un `setTimeout`, no el servidor), que
+// arranca vacía: en el portal real la socia no veía ni una de sus reservas,
+// con todas guardadas en la base de datos. Y "Cancelar" solo borraba la fila.
+
+function clase(id: string): StudioClass {
+  return {
+    id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
+    duration: '55 min', room: 'Sala 1', teacher: 'Ana', level: 'Todos los niveles',
+    seats: 3, tag: '', description: '',
+  } as StudioClass;
+}
+
+test('reservadasDe: empareja cada reserva viva con su clase', () => {
+  const r = reservadasDe(
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CONFIRMADA' }],
+    [clase('ses-a')],
+  );
+  // El id que viaja al servidor para cancelar es el de la RESERVA, no el de la
+  // clase: confundirlos cancela algo que no es (o nada).
+  assert.deepEqual(r, [{ classId: 'ses-a', reservaId: 'res-1' }]);
+});
+
+test('reservadasDe: una cancelada no cuenta como reserva', () => {
+  const r = reservadasDe(
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CANCELADA' }],
+    [clase('ses-a')],
+  );
+  assert.deepEqual(r, []);
+});
+
+test('reservadasDe: la lista de espera SÍ se ve', () => {
+  // Tiene que poder verla para salirse de la cola. No ocupa aforo, pero existe.
+  const r = reservadasDe(
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'LISTA_ESPERA' }],
+    [clase('ses-a')],
+  );
+  assert.equal(r.length, 1);
+});
+
+test('reservadasDe: una reserva sin clase en pantalla se cae de la lista', () => {
+  // La clase se canceló, o es de otra semana: pintar media fila (sin hora ni
+  // sala) es peor que no pintarla.
+  const r = reservadasDe(
+    [{ id: 'res-1', sesionId: 'ses-fantasma', estado: 'CONFIRMADA' }],
+    [clase('ses-a')],
+  );
+  assert.deepEqual(r, []);
+});
+
+test('construirDatosPortal: sin socia identificada, `reservadas` es undefined', () => {
+  // ⚠️ `undefined` y `[]` NO son lo mismo: `[]` significa "identificada y sin
+  // reservas" y hace que el portal deje de usar la lista de demostración.
+  const datos = construirDatosPortal({
+    ahora: new Date('2026-08-07T10:00:00Z'),
+    sesiones: [], reservas: [], tiposClase: [], salas: [], instructores: [],
+    socio: null, suscripciones: [], planes: [],
+  });
+  assert.equal(datos.reservadas, undefined);
 });

@@ -27,7 +27,7 @@ import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guarda
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
-  DEFAULT_THEME, FUENTES, ESTILOS_TITULAR_PORTAL, type ThemeConfig,
+  DEFAULT_THEME, FUENTES, ESTILOS_TITULAR_PORTAL, instalarTema, type ThemeConfig,
 } from '@/lib/theme-schema';
 
 const RUTA_EDITOR = '/configuracion/apariencia/editor';
@@ -138,17 +138,9 @@ export function ThemeLibrary() {
   async function instalar(def: ThemeDefinition, irAlEditor = false) {
     setInstalando(def.id);
     setErrorInstalar(null);
-    const nuevo: ThemeConfig = {
-      ...draft, ...def.defaults,
-      // El spread es superficial: sin clonar, `variantes`/`radioTema`
-      // compartirían referencia con la constante del módulo. Hoy no muerde
-      // (se serializa a JSON al guardar), pero muerde el día que el editor
-      // deje tocar una variante in place — y ese bug sería invisible hasta
-      // que un tema empezara a "contagiar" al siguiente.
-      ...(def.defaults.variantes ? { variantes: { ...def.defaults.variantes } } : {}),
-      ...(def.defaults.radioTema ? { radioTema: { ...def.defaults.radioTema } } : {}),
-      themeId: def.id, themeVersion: def.version, themeCustomized: false,
-    };
+    // Instalar un tema SUSTITUYE el estado, no lo fusiona. Ver `instalarTema`
+    // y el bug de los tres ejes de barra conviviendo que lo motivó.
+    const nuevo = instalarTema(draft, def.defaults, { themeId: def.id, themeVersion: def.version });
     try {
       await guardarThemeBorrador(nuevo);
       if (def.bloquesHome && def.bloquesHome.length > 0) {
