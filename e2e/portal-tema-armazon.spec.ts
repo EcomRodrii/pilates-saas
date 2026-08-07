@@ -40,6 +40,18 @@ test.describe('Armazón del portal del kit', () => {
     ).toBeGreaterThanOrEqual(44);
   });
 
+  // ⚠️ AQUÍ FALTA un test del desbordamiento de las barras del progreso, y se
+  // deja escrito a propósito en vez de dejar uno que no sirve.
+  //
+  // El fallo es real y está arreglado en `06-home.css`: `.bars` tenía
+  // `height: 34px` —la altura de la barra más alta, no la de la columna— y el
+  // sobrante se metía encima de «0 de 4 clases». Pero las dos aserciones que
+  // escribí para fijarlo PASABAN CON EL FALLO PUESTO (comprobado saboteando el
+  // CSS y volviendo a ejecutar), así que no protegían nada.
+  //
+  // Un test verde que no cae al reintroducir el bug es peor que no tenerlo:
+  // da permiso para romperlo. Queda pendiente de escribirlo bien.
+
   test('a tamaño de móvil no se pinta una barra de estado falsa', async ({ page }) => {
     // El marco de teléfono desaparece por debajo de 900px, pero la barra seguía
     // dibujando "9:41" y la señal encima de las de verdad del móvil. El HUECO sí
