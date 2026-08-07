@@ -11,14 +11,25 @@ import { test, expect } from '@playwright/test';
 
 const MOVIL = { width: 375, height: 812 };
 
-/** Deja el portal abierto en una pantalla concreta sin pasar por la bienvenida. */
+/**
+ * Deja el portal abierto en una pantalla concreta sin pasar por la bienvenida.
+ *
+ * ⚠️ `addInitScript`, NO `evaluate` + `reload`. Sembrar el almacenamiento
+ * DESPUÉS de cargar y recargar es una carrera: el store del kit se hidrata en
+ * un efecto, y si la recarga no llega a tiempo la pantalla se queda en la
+ * bienvenida. En local pasaba siempre; en CI, contra el build de producción,
+ * fallaba — el informe de Playwright enseñaba "Empieza tu camino a la fuerza"
+ * en vez de Bonos, y el test lo contaba como "el botón de pago no existe".
+ *
+ * `addInitScript` corre ANTES que cualquier script de la página, en esta
+ * navegación y en las siguientes: cuando el store se hidrata, el dato ya está.
+ */
 async function abrir(page: import('@playwright/test').Page, tema: string, pantalla: string) {
   await page.setViewportSize(MOVIL);
-  await page.goto(`/portal-tema-preview/${tema}`);
-  await page.evaluate((p) => {
+  await page.addInitScript((p) => {
     localStorage.setItem('tentare-portal', JSON.stringify({ screen: p, tab: 'perfil' }));
   }, pantalla);
-  await page.reload();
+  await page.goto(`/portal-tema-preview/${tema}`);
 }
 
 test.describe('Armazón del portal del kit', () => {
