@@ -59,6 +59,12 @@ export const EVENTOS = {
   // RESERVA_CONFIRMADA (emitirReserva) y la caducidad de la oferta reutiliza
   // RESERVA_CANCELADA (emitirReservaCancelada, motivo 'oferta_caducada').
   RESERVA_OFERTA_LISTA_ESPERA: 'reserva.oferta_lista_espera',
+  // Cron de plazas fijas (materializar-plazas): esta semana NO se ha podido
+  // generar la reserva automática de "tu reformer fijo" — sesión cancelada,
+  // suscripción pausada, o sin aforo tras priorizar por antigüedad. Distinto
+  // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
+  // a crearse ninguna, así que ese evento mentiría.
+  RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -130,6 +136,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RESERVA_LISTA_ESPERA]:  { category: 'reservas', priority: 'MEDIA',  canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_CANCELADA]:     { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // MEDIA + PUSH: informativo (no hay plazo que cumplir), pero merece
+  // notarse — es la feature premium "tu reformer fijo" fallando en silencio
+  // si no se avisa, y la socia puede reservar manualmente en su lugar.
+  [EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH a propósito: a diferencia de RESERVA_CREADA (informativa),
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
@@ -285,6 +295,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_CANCELADA}#SOCIA`]: {
     title: 'Reserva cancelada',
     body: 'Se ha cancelado tu reserva de {clase} del {cuando}.{motivoTexto}',
+  },
+  // {motivoTexto} explica por qué, igual que en RESERVA_CANCELADA — mismo
+  // patrón, tres motivos posibles según plazas_fijas_sin_materializar.
+  [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
+    title: 'Tu plaza fija no se ha reservado esta semana',
+    body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
   },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {
