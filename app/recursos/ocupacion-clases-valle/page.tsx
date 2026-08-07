@@ -64,7 +64,7 @@ export default function OcupacionClasesVallePage() {
 
         <h2 id="s1">Por qué una clase vacía cuesta igual que una llena</h2>
         <p>
-          La sala, la instructora y la luz están pagadas exista o no exista una alumna dentro. El coste es fijo; el ingreso, no. Por eso una clase al 30% de aforo no es "un poco menos rentable" — es casi pura pérdida frente a su coste de oportunidad. Y el efecto se nota más en reformer que en mat: las clases de reformer suelen llenar bastante más aforo que las de mat en un estudio boutique medio, según los datos que reunimos en{' '}
+          La sala, la instructora y la luz están pagadas exista o no exista una alumna dentro. El coste es fijo; el ingreso, no. Por eso una clase al 30% de aforo no es &quot;un poco menos rentable&quot; — es casi pura pérdida frente a su coste de oportunidad. Y el efecto se nota más en reformer que en mat: las clases de reformer suelen llenar bastante más aforo que las de mat en un estudio boutique medio, según los datos que reunimos en{' '}
           <a href="/recursos/precios-reformer-mat">nuestra guía de precios reformer vs. mat</a>
           , así que un hueco de reformer vacío duele más que uno de mat.
         </p>
@@ -76,7 +76,7 @@ export default function OcupacionClasesVallePage() {
           . En la práctica, una clase en horario valle puede costar entre un 30% y un 50% menos en créditos que la misma clase en hora punta, de acuerdo con las guías de uso de la plataforma.
         </p>
         <p>
-          El dato importante no es "usa ClassPass". Es que la plataforma con más datos del sector boutique ha decidido que <strong>el precio variable por franja funciona mejor que el descuento plano</strong> para llenar huecos sin malacostumbrar a nadie a pagar menos siempre.
+          El dato importante no es &quot;usa ClassPass&quot;. Es que la plataforma con más datos del sector boutique ha decidido que <strong>el precio variable por franja funciona mejor que el descuento plano</strong> para llenar huecos sin malacostumbrar a nadie a pagar menos siempre.
         </p>
 
         <StatBlock
@@ -96,8 +96,8 @@ export default function OcupacionClasesVallePage() {
           items={[
             <><strong>Bono propio para esa franja</strong> — un paquete de 5 clases valle más barato que 5 clases sueltas, visible solo al reservar esa hora, no en tu web pública.</>,
             <><strong>Doble check-in</strong>: una alumna que trae a una amiga a la clase valle entra gratis esa vez. Cuesta menos que un descuento y capta gente nueva.</>,
-            <><strong>Acuerdo con negocios cercanos</strong> — oficinas o coworkings a los que ofrecer esa franja como "clase de empresa" a un precio de grupo.</>,
-            <><strong>Comunicación distinta, no solo precio</strong>: una clase valle con grupo reducido es, en realidad, casi una sesión semi-privada — véndela como eso, no como "la clase que sobra".</>,
+            <><strong>Acuerdo con negocios cercanos</strong> — oficinas o coworkings a los que ofrecer esa franja como &quot;clase de empresa&quot; a un precio de grupo.</>,
+            <><strong>Comunicación distinta, no solo precio</strong>: una clase valle con grupo reducido es, en realidad, casi una sesión semi-privada — véndela como eso, no como &quot;la clase que sobra&quot;.</>,
           ]}
         />
 
