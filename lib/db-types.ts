@@ -725,6 +725,19 @@ export interface RowSuscripciones {
   stripe_subscription_id: string | null;
 }
 
+export interface RowCadenaTiposClase {
+  id: string;
+  cadena_id: string;
+  nombre: string;
+  color: string | null;
+  duracion_minutos: number | null;
+  descripcion: string | null;
+  nivel: string | null;
+  foto_url: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
 export interface RowTiposClase {
   id: string;
   studio_id: string;

@@ -767,6 +767,44 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
   return { condicionesActivas: condiciones.length, recordatorios: recordatorios.length, notificacionesCreadas: recordatorios.length };
 }
 
+// Copia el catálogo de tipos de clase de la cadena (cadena_tipos_clase) a los
+// tipos_clase REALES de una sede — nunca un vínculo vivo, solo "insertar lo
+// que falte por nombre". Se usa en dos sitios: al crear una sede nueva
+// (app/api/cadena/sedes/route.ts) y en el botón "Aplicar catálogo" para
+// sedes ya existentes (app/api/cadena/tipos-clase/aplicar/route.ts). Nunca
+// sobrescribe ni borra un tipo_clase que la sede ya tenga, aunque su nombre
+// coincida con uno de la plantilla y lo hayan editado localmente —
+// deliberadamente sin detección de diff/conflicto, ver diseño en
+// .claude/tentare-os.md.
+export async function aplicarCatalogoCadena(params: { cadenaId: string; studioId: string }): Promise<{ aplicados: number }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const [{ data: plantilla }, { data: existentes }] = await Promise.all([
+    admin.from('cadena_tipos_clase').select('*').eq('cadena_id', params.cadenaId),
+    admin.from('tipos_clase').select('nombre').eq('studio_id', params.studioId),
+  ]);
+  if (!plantilla?.length) return { aplicados: 0 };
+
+  const nombresExistentes = new Set((existentes ?? []).map(t => (t.nombre as string).toLowerCase()));
+  const faltantes = plantilla.filter(p => !nombresExistentes.has((p.nombre as string).toLowerCase()));
+  if (faltantes.length === 0) return { aplicados: 0 };
+
+  const filas = faltantes.map(p => ({
+    id: `tc-${uid()}`,
+    studio_id: params.studioId,
+    nombre: p.nombre,
+    color: p.color,
+    duracion_minutos: p.duracion_minutos,
+    descripcion: p.descripcion,
+    nivel: p.nivel,
+    foto_url: p.foto_url,
+  }));
+  const { error } = await admin.from('tipos_clase').insert(filas);
+  if (error) throw new Error(`aplicarCatalogoCadena: ${error.message}`);
+  return { aplicados: filas.length };
+}
+
 // Barrido de no-shows: marca NO_ASISTIO toda reserva que siga CONFIRMADA en una
 // sesión ya terminada (fin < ahora) y no cancelada. Sin esto, las reservas sin
 // check-in se quedan CONFIRMADA para siempre y las métricas de ausencias mienten.
