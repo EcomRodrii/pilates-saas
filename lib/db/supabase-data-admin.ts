@@ -786,12 +786,36 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
 // semanas. Lo dispara el cron nocturno. Todo el trabajo (emparejamiento por hora
 // local, aforo, idempotencia) es set-based en la RPC. Devuelve cuántas creó.
 
-export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number }> {
+export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: horizonteDias });
   if (error) throw new Error(error.message);
-  return { creadas: (data as number) ?? 0 };
+
+  // Tras materializar, detecta qué plazas fijas NO se pudieron confirmar esta
+  // semana (sesión cancelada / suscripción pausada / sin aforo) y avisa a la
+  // socia — antes fallaba en silencio, sin que nadie se enterara. Best-effort:
+  // un fallo aquí no debe tumbar el cron que sí generó reservas reales.
+  let noMaterializadas = 0;
+  try {
+    const { data: gaps, error: gapsError } = await admin.rpc('plazas_fijas_sin_materializar', { p_horizonte_dias: horizonteDias });
+    if (gapsError) throw new Error(gapsError.message);
+    const filas = (gaps as { studio_id: string; socio_id: string; sesion_id: string; motivo: string }[]) ?? [];
+    noMaterializadas = filas.length;
+    if (filas.length > 0) {
+      const { emitirPlazaFijaNoMaterializada } = await import('@/lib/notifications/emit');
+      for (const f of filas) {
+        await emitirPlazaFijaNoMaterializada(admin, {
+          studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id,
+          motivo: f.motivo as 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo',
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[materializarPlazasFijas] aviso de huecos:', e instanceof Error ? e.message : e);
+  }
+
+  return { creadas: (data as number) ?? 0, noMaterializadas };
 }
 
 

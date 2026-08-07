@@ -99,6 +99,33 @@ export async function emitirReservaCancelada(
   }
 }
 
+// Plaza fija no materializada: el cron nocturno (materializar-plazas) no ha
+// podido generar la reserva de esta semana para "tu reformer fijo". dedupKey
+// por (sesión, socia) — con el UNIQUE(studio_id, dedup_key) del motor, cada
+// semana que falla genera como mucho un aviso, para siempre, sin necesidad de
+// un "último periodo avisado" tipo Fase 2b de gestoría.
+export async function emitirPlazaFijaNoMaterializada(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; motivo: 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo' },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const motivoTexto = p.motivo === 'sesion_cancelada'
+      ? ' Esa clase está cancelada esta semana.'
+      : p.motivo === 'suscripcion_pausada'
+        ? ' Tu suscripción está en pausa, así que no la hemos reservado por ti.'
+        : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
+    await publish({
+      type: EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, motivoTexto },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `plaza-fija-no-materializada:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPlazaFijaNoMaterializada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
 // recepción) de que hace falta decidir antes de que empiece la clase.
 export async function emitirReservaPendienteAprobacion(
