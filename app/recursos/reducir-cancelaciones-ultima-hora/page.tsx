@@ -59,7 +59,7 @@ export default function ReducirCancelacionesPage() {
         toc={TOC}
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>
-          Hay una diferencia importante entre "no reservó" y "reservó, canceló tarde y dejó el hueco muerto". La primera nunca ocupó el sitio. La segunda lo bloqueó justo el tiempo suficiente para que nadie más pudiera cogerlo. Es el peor escenario para tu ocupación real, y casi ningún estudio pequeño tiene una política clara para desincentivarlo.
+          Hay una diferencia importante entre «no reservó» y «reservó, canceló tarde y dejó el hueco muerto». La primera nunca ocupó el sitio. La segunda lo bloqueó justo el tiempo suficiente para que nadie más pudiera cogerlo. Es el peor escenario para tu ocupación real, y casi ningún estudio pequeño tiene una política clara para desincentivarlo.
         </p>
 
         <h2 id="s1">Por qué una cancelación tardía es peor que una plaza vacía desde el principio</h2>
@@ -79,7 +79,7 @@ export default function ReducirCancelacionesPage() {
           eyebrow="Políticas reales de cancelación tardía · cadenas de fitness boutique"
           items={[
             <><strong>SoulCycle</strong> — 20$ de recargo si cancelas con menos de 12h de antelación.</>,
-            <><strong>Barry's Bootcamp</strong> — 20$ de recargo por no presentarte sin cancelar dentro de las 12h previas.</>,
+            <><strong>Barry’s Bootcamp</strong> — 20$ de recargo por no presentarte sin cancelar dentro de las 12h previas.</>,
             <><strong>CorePower</strong> — 15$ de recargo, con una ventana más corta: basta avisar con 2h de margen.</>,
             <><strong>Y7</strong> — 10$ de recargo con 12h de ventana.</>,
             <><strong>F45</strong> — 15$ si cancelas dentro de las 2h previas, 20$ si no te presentas.</>,
@@ -115,7 +115,7 @@ export default function ReducirCancelacionesPage() {
           eyebrow="Principios para no sonar a castigo"
           items={[
             <><strong>Ventana de al menos 8-12h</strong>, no de 1h — da tiempo real a que otra alumna coja el hueco.</>,
-            <><strong>Explica el motivo</strong>, no solo el cargo: "para poder ofrecer tu plaza a otra persona a tiempo".</>,
+            <><strong>Explica el motivo</strong>, no solo el cargo: «para poder ofrecer tu plaza a otra persona a tiempo».</>,
             <><strong>Un margen de cortesía</strong> las primeras veces, especialmente con socias nuevas que aún no conocen la política.</>,
             <><strong>Recordatorio antes que castigo</strong>: manda el aviso automático primero — muchas cancelaciones tardías ni siquiera llegarán a producirse.</>,
           ]}

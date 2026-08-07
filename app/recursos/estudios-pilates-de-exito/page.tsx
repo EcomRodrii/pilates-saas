@@ -75,7 +75,7 @@ export default function EstudiosPilatesExitoPage() {
         <p>
           En Estados Unidos, el mercado de estudios de pilates se estima en unos 4.800 millones de dólares y crece a un ritmo cercano al 9,7% anual, según{' '}
           <a href="https://schedulingkit.com/statistics/pilates-industry-statistics" target="_blank" rel="noopener noreferrer nofollow">Scheduling Kit</a>
-          . Y el capital lo ha notado: <strong>Riser</strong> ha levantado 72 millones de dólares para invertir en el sector, <strong>Aligned Fitness</strong> ha llegado a 55 estudios a base de adquisiciones, y <strong>SLT</strong> (Strengthen Lengthen Tone) anunció en 2026 planes para comprar estudios de reformer independientes por todo el país tras una inyección millonaria — su directora de operaciones lo resumió diciendo que "la consolidación en la categoría llevaba tiempo pendiente", según recoge{' '}
+          . Y el capital lo ha notado: <strong>Riser</strong> ha levantado 72 millones de dólares para invertir en el sector, <strong>Aligned Fitness</strong> ha llegado a 55 estudios a base de adquisiciones, y <strong>SLT</strong> (Strengthen Lengthen Tone) anunció en 2026 planes para comprar estudios de reformer independientes por todo el país tras una inyección millonaria — su directora de operaciones lo resumió diciendo que «la consolidación en la categoría llevaba tiempo pendiente», según recoge{' '}
           <a href="https://thepilatesbusiness.com/private-equity-pilates-consolidation-accelerates-in-2026/" target="_blank" rel="noopener noreferrer nofollow">The Pilates Business</a>
           .
         </p>
@@ -136,7 +136,7 @@ export default function EstudiosPilatesExitoPage() {
         <p>
           Los estudios que combinan un software de reservas propio con canales de descubrimiento como ClassPass vieron sus reservas crecer un 9,9% interanual en enero de 2025, frente a una caída del 1,6% en los estudios sin esa combinación, según datos recogidos por{' '}
           <a href="https://athletechnews.com/is-classpass-good-for-fitness-studios/" target="_blank" rel="noopener noreferrer nofollow">Athletech News</a>
-          . El dato no dice "usa ClassPass" — dice algo más simple: la fricción para reservar es hoy la diferencia entre crecer y quedarte plano. Una alumna que no encuentra hueco en 30 segundos prueba con el estudio de al lado.
+          . El dato no dice «usa ClassPass» — dice algo más simple: la fricción para reservar es hoy la diferencia entre crecer y quedarte plano. Una alumna que no encuentra hueco en 30 segundos prueba con el estudio de al lado.
         </p>
 
         <h2 id="s6">Qué puedes aplicar mañana si eres un estudio pequeño</h2>

@@ -90,7 +90,7 @@ export default function ChecklistSoftwarePage() {
         />
 
         <Callout title="La idea clave">
-          El problema número uno que reportan las propietarias reales no es "le falta una función". Es el contrato: cuánto tarda en subir el precio, y qué tan difícil es salir. Pregunta eso ANTES de preguntar por funcionalidades — casi todas las plataformas grandes ya las tienen todas.
+          El problema número uno que reportan las propietarias reales no es «le falta una función». Es el contrato: cuánto tarda en subir el precio, y qué tan difícil es salir. Pregunta eso ANTES de preguntar por funcionalidades — casi todas las plataformas grandes ya las tienen todas.
         </Callout>
 
         <h2 id="s3">Las preguntas que hay que hacer en la demo</h2>
@@ -111,9 +111,9 @@ export default function ChecklistSoftwarePage() {
           eyebrow="Si ves esto, para y pregunta más"
           items={[
             <>Solo ofrecen contrato anual, sin ninguna opción de mes a mes aunque sea más cara.</>,
-            <>El precio "no se puede decir" sin hablar antes con ventas — para funciones básicas de gestión, no debería hacer falta.</>,
+            <>El precio «no se puede decir» sin hablar antes con ventas — para funciones básicas de gestión, no debería hacer falta.</>,
             <>No hay periodo de prueba real, solo una demo grabada o guiada por comercial.</>,
-            <>La migración de datos "la haces tú" sin ningún acompañamiento ni checklist.</>,
+            <>La migración de datos «la haces tú» sin ningún acompañamiento ni checklist.</>,
           ]}
         />
 
