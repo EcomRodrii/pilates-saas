@@ -149,6 +149,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
       <div className="fixed inset-0" style={{ background: t.bg }}>
         <div className="flex flex-col overflow-hidden" style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}>
           <PortalTemaMarco />
+          {/* ⚠️ El mismo componente que la rama de siempre, no una copia: es lo
+              que avisa de "añade a pantalla de inicio para recibir avisos", y
+              al montar el kit desapareció sin que nadie lo decidiera. Va aquí
+              fuera del marco porque se posiciona contra la pantalla completa
+              (`fixed`), no contra el lienzo de la pantalla activa. */}
+          <PushPrompt />
         </div>
       </div>
     );

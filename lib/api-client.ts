@@ -555,6 +555,29 @@ async function postCheckout(ruta: string, params: unknown): Promise<{ url: strin
   return { url: data.url };
 }
 
+/**
+ * Contratar un PLAN (bono o suscripción) desde el portal: abre el Checkout
+ * alojado de Stripe. El importe lo deriva SIEMPRE el servidor del plan real —
+ * lo que se manda desde aquí no es superficie de fraude.
+ *
+ * Existe como función compartida porque el portal tiene ahora dos pantallas de
+ * compra (la de siempre, `/compras`, y la de Bonos del kit de temas) y la
+ * segunda no podía volver a escribir a mano el manejo de errores de la
+ * primera: el "leer `res.ok` ANTES del cuerpo" de ahí abajo se arregló tras un
+ * fallo real en el que un 500 del servidor se le contaba a la socia como un
+ * problema de SU conexión.
+ */
+export async function crearCheckoutPlan(params: {
+  studioId: string;
+  planId: string;
+  socioId: string | null;
+  socioEmail: string | null;
+  socioNombre: string;
+  origen?: OrigenPago;
+}): Promise<{ url: string } | { error: string }> {
+  return postCheckout('/api/stripe/checkout', params);
+}
+
 export async function crearCheckoutStripe(params: {
   reciboId: string;
   socioId: string;

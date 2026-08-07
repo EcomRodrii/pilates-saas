@@ -6,6 +6,10 @@ import {
   DEFAULT_THEME,
   FUENTES,
   RADIOS,
+  instalarTema,
+  CAMPOS_DEL_TEMA,
+  CAMPOS_DEL_ESTUDIO,
+  type ThemeConfig,
 } from './theme-schema.ts';
 
 test('themeConfigSchema acepta un tema completo válido', () => {
@@ -270,4 +274,62 @@ test('resolveTheme: `variantes` corrupto cae a undefined (dirección segura: el 
   // Y uno válido sí se respeta.
   const ok = resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED', variantes: { retos: 'color' } });
   assert.deepEqual(ok.variantes, { retos: 'color' });
+});
+
+
+// ── Instalar un tema SUSTITUYE, no fusiona ──────────────────────────────────
+//
+// ⚠️ El bug que motivó esto se encontró en un estudio REAL: su borrador tenía
+// `barraOscura`, `barraClasica` Y `barraFlotante` a `true` a la vez, con
+// `themeId: 'oliva'`. `instalar()` hacía `{ ...draft, ...defaults }` y ese
+// `...draft` conservaba todo eje que el tema nuevo no declarase. El gate de
+// contraste llegó a avisar de "la barra oscura" en un tema que no la tiene.
+
+test('instalarTema: los ejes del tema anterior NO sobreviven', () => {
+  const conNoir: ThemeConfig = {
+    ...DEFAULT_THEME, themeId: 'noir', barraOscura: true, destacado: '#D9B166',
+  };
+  const oliva = instalarTema(conNoir, { barraClasica: true, primary: '#3D4A2F' },
+    { themeId: 'oliva', themeVersion: 5 });
+
+  assert.equal(oliva.barraOscura, false, 'la barra oscura de Noir ha sobrevivido');
+  assert.equal(oliva.barraFlotante, false);
+  assert.equal(oliva.barraClasica, true);
+  assert.equal(oliva.destacado, null, 'el destacado de Noir ha sobrevivido');
+  assert.equal(oliva.primary, '#3D4A2F');
+  assert.equal(oliva.themeId, 'oliva');
+  assert.equal(oliva.themeCustomized, false);
+});
+
+test('instalarTema: lo que es del ESTUDIO y no del tema sí sobrevive', () => {
+  const draft: ThemeConfig = {
+    ...DEFAULT_THEME,
+    faviconUrl: 'https://estudio/favicon.png',
+    redesSociales: { instagram: '@miestudio', facebook: '', whatsapp: '600' },
+  };
+  const noir = instalarTema(draft, { barraOscura: true }, { themeId: 'noir', themeVersion: 6 });
+
+  // Cambiar de tema no puede borrarle el favicon ni las redes al estudio.
+  assert.equal(noir.faviconUrl, 'https://estudio/favicon.png');
+  assert.equal(noir.redesSociales.instagram, '@miestudio');
+});
+
+test('instalarTema: clona los objetos anidados del tema', () => {
+  const defaults = { variantes: { barra: 'todasRelleno' as const }, radioTema: { card: 26 } };
+  const a = instalarTema(DEFAULT_THEME, defaults, { themeId: 'oliva', themeVersion: 5 });
+  const b = instalarTema(DEFAULT_THEME, defaults, { themeId: 'oliva', themeVersion: 5 });
+  a.variantes!.barra = 'etiquetas';
+  // Sin clonar, los dos estudios compartirían la referencia de la constante
+  // del módulo y tocar uno cambiaría el otro.
+  assert.equal(b.variantes!.barra, 'todasRelleno');
+});
+
+// ⚠️ EL GUARDIÁN DE FUTURO. Sin esto, añadir un campo a `ThemeConfig` y
+// olvidarse de clasificarlo reabre el bug en silencio: si es del tema y no se
+// resetea, se acumula; si es del estudio y se resetea, se le borra al cliente.
+test('todo campo de ThemeConfig está clasificado: o del tema, o del estudio', () => {
+  const clasificados = new Set<string>([...CAMPOS_DEL_TEMA, ...CAMPOS_DEL_ESTUDIO]);
+  const sinClasificar = Object.keys(DEFAULT_THEME).filter((k) => !clasificados.has(k));
+  assert.deepEqual(sinClasificar, [],
+    'campos nuevos en ThemeConfig sin decidir si los borra o los conserva instalar un tema');
 });

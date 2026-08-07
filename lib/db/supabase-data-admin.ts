@@ -2,7 +2,7 @@ import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
@@ -366,7 +366,7 @@ export async function fetchPublicStudioData(
   // app/reservar/[slug]/page.tsx: cero referencias a esos campos. Se saltan
   // esas 11 queries y sus campos vuelven vacíos/null — misma forma del objeto,
   // así que el portal (que sí pide el modo completo) no cambia en nada.
-  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}:${liviano ? 'liviano' : 'completo'}`, async () => {
+  const catalogo = await conCacheCatalogo(claveCatalogoPublico(studioId, liviano), async () => {
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,

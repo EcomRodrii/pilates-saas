@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
 import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
 import type { DatosPortal } from "@/lib/portal-tema/tipos";
+import { repartirDestino } from "@/lib/portal-tema/navegacion";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
@@ -95,7 +96,9 @@ export interface PortalActions {
   selectDay(num: number): void;
   setFilter(key: string): void;
   reserve(): void;
-  cancel(id: string): void;
+  /** `reservaId` es lo que se manda al servidor; sin él solo se puede
+   *  simular (la demo). Ver el comentario de `cancel` más abajo. */
+  cancel(id: string, reservaId?: string): void;
   toggleFavourite(): void;
   showFavourites(): void;
   toggleChallenge(key: string): void;
@@ -150,6 +153,18 @@ export function useCromoDemo(): boolean {
 }
 
 /**
+ * Arranca el cobro real de un plan. Devuelve `null` si ya va camino de Stripe
+ * (la pestaña se va) o el mensaje de error si no se pudo ni empezar.
+ */
+export type AlPagarPortal = (planId: string) => Promise<string | null>;
+
+/**
+ * Cancela una reserva de verdad. Devuelve `null` si el servidor lo confirmó, o
+ * el mensaje de error si no — nunca se avisa de éxito sin esa confirmación.
+ */
+export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
+
+/**
  * `datos` es lo que cambia de un estudio a otro (clases, semana, planes, bono,
  * socia). Por defecto, los de muestra: así la previsualización de temas — donde
  * no hay estudio ni sesión — sigue funcionando sin pasar nada.
@@ -157,6 +172,8 @@ export function useCromoDemo(): boolean {
 export function PortalProvider({
   datos = DATOS_DE_MUESTRA,
   navegar,
+  alPagar,
+  alCancelar,
   pantalla,
   diaPorDefecto,
   cromoDemo = true,
@@ -171,6 +188,11 @@ export function PortalProvider({
   cromoDemo?: boolean;
   /** Sin esto, navegar es cambiar el estado (el comportamiento de la demo). */
   navegar?: NavegarPortal;
+  /** Sin esto, "Continuar al pago" abre la maqueta de tarjeta del kit en vez
+   *  de cobrar. Solo lo pasa el portal real. */
+  alPagar?: AlPagarPortal;
+  /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
+  alCancelar?: AlCancelarPortal;
   /** La pantalla que manda desde fuera. Con `navegar` por rutas, el estado
    *  interno nunca cambia de pantalla: la dice la ruta. */
   pantalla?: ScreenId;
@@ -234,10 +256,32 @@ export function PortalProvider({
     navegarRef.current = navegar;
   }, [navegar]);
 
+  const alPagarRef = useRef(alPagar);
+  useEffect(() => {
+    alPagarRef.current = alPagar;
+  }, [alPagar]);
+
+  const alCancelarRef = useRef(alCancelar);
+  useEffect(() => {
+    alCancelarRef.current = alCancelar;
+  }, [alCancelar]);
+
   const ir = useCallback((destino: DestinoPortal) => {
     const fuera = navegarRef.current;
-    if (fuera) return fuera(destino);
-    set(destino);
+    if (!fuera) return set(destino);
+
+    // ⚠️ Solo la PANTALLA es ruta. El día elegido, la pestaña y la clase
+    // abierta son estado de esta pantalla, y delegarlos enteros al navegador
+    // de fuera los tiraba a la basura.
+    //
+    // Es el fallo que reportó el fundador: pulsar el día 7 en la tira manda
+    // `{ screen: 'clases', day: 7 }`, el portal se quedaba solo con 'clases',
+    // y como YA estaba en Clases el `router.push` no hacía nada. Resultado:
+    // el día seleccionado no se movía y sus clases del 7 y del 8 —que existen
+    // en la base de datos— parecían no existir.
+    const { estado } = repartirDestino(destino);
+    if (estado) set(estado);
+    fuera(destino);
   }, [set]);
 
   const notify = useCallback(
@@ -322,9 +366,26 @@ export function PortalProvider({
           notify("Reservada · " + cls.time + " en " + cls.room);
         }, 800);
       },
-      cancel: (id) => {
-        set({ booked: stateRef.current.booked.filter((x) => x !== id) });
-        notify("Reserva cancelada");
+      // ⚠️ Esto anunciaba "Reserva cancelada" SIN hablar con el servidor: la
+      // socia se iba tranquila, el estudio le seguía guardando la plaza y podía
+      // acabar con un no-show. Es el patrón de fallo más caro de este repo
+      // (#500), y aquí estaba en una pantalla que el portal real ya montaba.
+      //
+      // Con `alCancelar` (lo pasa el portal real) se cancela de verdad y solo
+      // se avisa cuando el servidor lo confirma. Sin él —la previsualización,
+      // donde no hay ninguna reserva que cancelar— se queda la maqueta.
+      cancel: (id, reservaId) => {
+        const cancelar = alCancelarRef.current;
+        if (!cancelar) {
+          set({ booked: stateRef.current.booked.filter((x) => x !== id) });
+          return notify("Reserva cancelada");
+        }
+        if (!reservaId || stateRef.current.loading) return;
+        set({ loading: true });
+        cancelar(reservaId).then((error) => {
+          set({ loading: false });
+          notify(error ?? "Reserva cancelada");
+        });
       },
       toggleFavourite: () => {
         const s = stateRef.current;
@@ -354,7 +415,36 @@ export function PortalProvider({
       },
 
       selectPlan: (key) => set({ plan: key }),
-      checkout: () => ir({ screen: "checkout" }),
+
+      // ⚠️ "Continuar al pago" era un botón muerto en el portal de verdad, y
+      // por dos motivos a la vez: `checkout` no tenía ruta (el `router.push`
+      // no encontraba a dónde ir y no pasaba nada), y la pantalla a la que
+      // apuntaba es el formulario de tarjeta DE MENTIRA del kit — pedía número
+      // y CVC en nuestro propio DOM y no cobraba nada.
+      //
+      // Con `alPagar` (el portal real lo pasa) se va al Checkout alojado de
+      // Stripe, que es donde se cobra de verdad y el único sitio donde puede
+      // teclearse una tarjeta. Sin él —la previsualización de temas, donde no
+      // hay estudio ni socia— se queda la maqueta de siempre.
+      checkout: () => {
+        const pagar = alPagarRef.current;
+        if (!pagar) return ir({ screen: "checkout" });
+
+        const s = stateRef.current;
+        if (s.paying) return; // doble pulsación: un solo intento de cobro
+        if (!s.plan) return notify("Elige antes un bono o un plan");
+
+        set({ paying: true });
+        // Nada de escritura optimista con dinero: el estado solo se suelta si
+        // el servidor NO nos manda a Stripe. Si sí, la pestaña se va y dejar
+        // `paying` puesto es lo correcto (el botón queda bloqueado hasta que
+        // el navegador cambia de página).
+        pagar(s.plan).then((error) => {
+          if (!error) return;
+          set({ paying: false });
+          notify(error);
+        });
+      },
       pay: () => {
         if (stateRef.current.paying) return;
         set({ paying: true });

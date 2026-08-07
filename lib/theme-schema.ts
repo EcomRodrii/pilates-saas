@@ -338,6 +338,61 @@ export const DEFAULT_THEME: ThemeConfig = {
 };
 
 /**
+ * Lo que NO es del tema: sobrevive a instalar otro.
+ *
+ * `faviconUrl` es el icono del estudio; `navPortal` y `redesSociales` son
+ * decisiones suyas sobre qué enseña su portal. Cambiar de Oliva a Noir no
+ * puede borrarle el favicon ni reordenarle el menú.
+ *
+ * Todo lo demás de `ThemeConfig` es aspecto y se REEMPLAZA por completo.
+ */
+export const CAMPOS_DEL_ESTUDIO = ['faviconUrl', 'navPortal', 'redesSociales'] as const;
+
+/** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
+ *  quedarse desactualizada al añadir un campo. */
+export const CAMPOS_DEL_TEMA = (Object.keys(DEFAULT_THEME) as (keyof ThemeConfig)[])
+  .filter((k) => !(CAMPOS_DEL_ESTUDIO as readonly string[]).includes(k));
+
+/**
+ * Instalar un tema es SUSTITUIR, no fusionar.
+ *
+ * ⚠️ Antes era `{ ...draft, ...defaults }`, y ese `...draft` es el bug: todo
+ * eje que el tema nuevo no declarase sobrevivía del anterior. Noir declara
+ * `barraOscura: true`; Oliva declara `barraClasica: true` pero no pone la
+ * oscura a `false`, así que se quedaba. Encontrado en un estudio real con
+ * `barraOscura`, `barraClasica` Y `barraFlotante` a `true` a la vez, y el
+ * gate de contraste avisando de "la barra oscura" en un tema que no la tiene.
+ *
+ * Ahora: se parte de los valores por defecto (reset), se conserva únicamente
+ * lo que es del ESTUDIO y no del tema, y encima se aplica el tema elegido.
+ *
+ * Los objetos anidados se CLONAN: sin eso, dos estudios con el mismo tema
+ * compartirían la referencia de la constante del módulo y editar una variante
+ * en uno la cambiaría en el otro.
+ */
+export function instalarTema(
+  draft: ThemeConfig,
+  defaults: Partial<ThemeConfig>,
+  meta: { themeId: string; themeVersion: number },
+): ThemeConfig {
+  const base: ThemeConfig = { ...DEFAULT_THEME };
+  for (const campo of CAMPOS_DEL_ESTUDIO) {
+    (base as Record<string, unknown>)[campo] = draft[campo];
+  }
+  return {
+    ...base,
+    ...defaults,
+    ...(defaults.variantes ? { variantes: { ...defaults.variantes } } : {}),
+    ...(defaults.radioTema ? { radioTema: { ...defaults.radioTema } } : {}),
+    ...(defaults.escalaTexto ? { escalaTexto: { ...defaults.escalaTexto } } : {}),
+    ...(defaults.redesSociales ? { redesSociales: { ...defaults.redesSociales } } : {}),
+    themeId: meta.themeId,
+    themeVersion: meta.themeVersion,
+    themeCustomized: false,
+  };
+}
+
+/**
  * Fallback robusto: convierte cualquier valor crudo (jsonb de la DB, null,
  * parcial o corrupto) en un tema válido completo, tomando el default por CADA
  * token que falte o no valide. Nunca lanza.
