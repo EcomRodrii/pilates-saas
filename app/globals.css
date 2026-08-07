@@ -146,6 +146,18 @@
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
      transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
   --brand-borde: transparent;
+  /* Cuánto tiñe el color del TIPO de clase el bloque del calendario
+     (components/calendario/bloque-clase.tsx, solo estado PROGRAMADA).
+     Son DOS valores porque un solo porcentaje no sirve a los dos modos, y eso
+     se midió con los colores REALES que hay hoy en `tipos_clase` — que son
+     pasteles (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro:
+       · En CLARO un pastel al 18 % es indistinguible del blanco (era el bug:
+         "el calendario no tiene color"). Al 50 % se ve claramente y el peor
+         contraste con el texto sigue en 5,1:1 (AA pide 4,5).
+       · En OSCURO pasa lo contrario: un pastel claro sobre fondo oscuro se ve
+         con MENOS mezcla, y al 50 % el peor contraste caía a 3,6:1 — rompía
+         AA. Al 35 % se ve de sobra y el peor sube a 5,4:1. */
+  --calendario-tinte-clase: 50%;
 
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
@@ -203,6 +215,9 @@
   --accent-foreground: #A8B37A;
   --ring: #8A9165;
   --brand-medio: #A8B37A;
+  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y el 50 %
+     rompía el contraste AA del texto sobre el bloque. */
+  --calendario-tinte-clase: 35%;
 }
 
 /* Logo de marca en tinta `auto` (components/marca/logo-tentare.tsx). Vive aquí
