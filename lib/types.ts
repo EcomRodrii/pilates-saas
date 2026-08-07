@@ -64,6 +64,9 @@ export interface Studio {
   gmailEmail: string | null;
   zoomEmail: string | null;
   gestoriaEmail: string | null;
+  // 'trimestral' = el cron manda el Cierre del trimestre a gestoriaEmail el
+  // día 1 del mes siguiente, sin que nadie pulse el botón manual.
+  gestoriaEnvioAutomatico: 'desactivado' | 'trimestral';
   // Sede de una cadena multi-centro (plan CADENA). null = estudio independiente.
   cadenaId: string | null;
   // Suscripción de la plataforma (Stripe Billing — el SaaS cobra al estudio).
