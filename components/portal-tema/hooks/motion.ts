@@ -2,14 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 
+function prefiereMenosMovimiento() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** Cuenta de 0 al valor final. Respeta `prefers-reduced-motion`. */
 export function useCountUp(to: number, ms = 460) {
+  // Se decide al montar y no dentro del efecto: escribir estado ahí
+  // (`set-state-in-effect`) provoca un render extra, y hacerlo en un segundo
+  // efecto dejaría correr un par de fotogramas de conteo justo a quien ha
+  // pedido menos movimiento. En servidor da `false`, pero el valor pintado es
+  // `to` en ambas ramas, así que la hidratación no cambia de resultado.
+  const [reduced] = useState(prefiereMenosMovimiento);
   const [value, setValue] = useState(to);
   const frame = useRef<number>(0);
 
   useEffect(() => {
-    const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return setValue(to);
+    if (reduced) return;
 
     const start = performance.now();
     const step = (now: number) => {
@@ -20,9 +29,9 @@ export function useCountUp(to: number, ms = 460) {
     };
     frame.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame.current);
-  }, [to, ms]);
+  }, [to, ms, reduced]);
 
-  return value;
+  return reduced ? to : value;
 }
 
 /** True cuando el sistema pide menos movimiento. */

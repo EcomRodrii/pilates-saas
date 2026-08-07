@@ -1,9 +1,9 @@
 # Portal en React — dónde se quedó y cómo seguir
 
-Rama: `feat/portal-tema-react`. **`tsc --noEmit` ya pasa limpio**; lo que aún no
-pasa es `eslint --max-warnings 0`, que es lo que corre CI (ver "Lo que falta",
-punto 2). Sigue siendo andamiaje: el portal no está montado en ninguna ruta ni
-conectado a datos reales.
+Rama: `feat/portal-tema-react`. **`tsc --noEmit`, `eslint --max-warnings 0` y
+los 1885 unitarios pasan limpios.** Sigue siendo andamiaje: el portal no está
+montado en ninguna ruta ni conectado a datos reales — nada de esto se ve
+todavía desde el navegador.
 
 ## Lo que está hecho y verificado
 
@@ -61,16 +61,21 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    El `data-theme` lo pone `TemaProvider` en `<html>` con un efecto — **en la
    ruta real hay que renderizarlo también en servidor** desde el layout del
    portal, o se ve un parpadeo sin tintar en el primer pintado.
-2. **Dejar verde `eslint --max-warnings 0`** (lo que corre CI). Son 2 errores y
-   5 avisos, todos del código tal cual vino de diseño, ninguno introducido al
+2. ~~**Dejar verde `eslint --max-warnings 0`.**~~ **HECHO.** Eran 2 errores y 5
+   avisos, todos del código tal cual vino de diseño, ninguno introducido al
    integrarlo:
-   - `store/PortalStore.tsx:115` — `stateRef.current = state` en render
-     (`react-hooks/refs`). Mover a un efecto es seguro: las acciones leen el ref
-     desde manejadores de evento, siempre después del commit.
-   - `hooks/motion.ts:13` — `set-state-in-effect` en `useCountUp`.
-   - 5 avisos `@next/next/no-img-element` en `ClassDetail`/`Welcome`/
-     `GuidedSession`. Son las imágenes marcador del punto 6; decidir junto con
-     ese punto si pasan a `next/image` o llevan un disable razonado.
+   - `PortalStore.tsx` — `stateRef.current = state` en render. Pasa a un
+     efecto: todo el que lee ese ref (manejadores de evento, el callback del
+     intervalo) corre después del commit, así que no cambia nada salvo dejar de
+     escribir en un render que React puede descartar.
+   - `hooks/motion.ts` — `useCountUp` escribía estado dentro del efecto para el
+     caso de movimiento reducido. Ahora la decisión se toma al montar
+     (`useState(prefiereMenosMovimiento)`) y el hook devuelve el valor final
+     directo. ⚠️ Resolverlo con un segundo efecto habría dejado correr un par
+     de fotogramas de conteo justo a quien pidió menos movimiento.
+   - Las 5 `<img>` colapsan en **un** `FotoTema` en `chrome.tsx`, con un solo
+     disable razonado (mismo patrón que ya usa `app/portal/[slug]/…`). Cuando
+     entren las fotos reales (punto 6) hay un único sitio que reconsiderar.
 3. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se

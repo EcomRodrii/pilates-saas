@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { MEDIA, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -13,7 +13,7 @@ export function GuidedSession({ vm }: { vm: ViewModel }) {
   return (
     <>
       <div className="session-photo">
-        <div className="detail-photo__media"><img src={MEDIA + "ejercicio.svg"} alt="" /></div>
+        <div className="detail-photo__media"><FotoTema nombre="ejercicio.svg" /></div>
         <div className="session-photo__veil"></div>
         <StatusBar over />
         <div className="session-top">

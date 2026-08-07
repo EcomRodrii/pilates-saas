@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Card, EmptyState, SectionHead, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
-import { DayStrip, MEDIA } from "@/components/portal-tema/components/layout/chrome";
+import { DayStrip, FotoTema } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { HomeBlockName } from "@/components/portal-tema/tipos-tema";
@@ -39,7 +39,7 @@ function NextClass({ vm }: { vm: ViewModel }) {
       <SectionTitle>{vm.nextHeading}</SectionTitle>
       {vm.next ? (
         <button className="hero is-pressable" onClick={() => actions.openClass(vm.next!.id)}>
-          <span className="hero__photo"><img src={MEDIA + "clase.svg"} alt="" /></span>
+          <span className="hero__photo"><FotoTema nombre="clase.svg" /></span>
           <span className="hero__veil"></span>
           <span className="hero__body">
             {vm.features.hero_badge ? (

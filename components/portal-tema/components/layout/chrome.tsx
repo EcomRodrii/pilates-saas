@@ -7,6 +7,20 @@ import { useActions } from "@/components/portal-tema/store/PortalStore";
 /** Ruta de las imágenes del tema. En Next viven en /public/media. */
 export const MEDIA = "/media/";
 
+/**
+ * Las fotos del tema, en un solo sitio.
+ *
+ * Hoy son los SVG marcador que entregó diseño y van con `<img>`: `next/image`
+ * exige medidas y monta el optimizador para un placeholder decorativo. Cuando
+ * entren las fotos reales del estudio hay que reconsiderarlo aquí — y solo
+ * aquí, que es la razón de que esto sea un componente y no cinco `<img>`
+ * sueltos con cinco disables iguales.
+ */
+export function FotoTema({ nombre, alt = "" }: { nombre: string; alt?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- ver comentario de arriba
+  return <img src={MEDIA + nombre} alt={alt} />;
+}
+
 export function StatusBar({ over }: { over?: boolean }) {
   return (
     <div className={("status-bar " + (over ? "status-bar--over" : "")).trim()}>

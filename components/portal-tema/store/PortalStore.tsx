@@ -111,8 +111,17 @@ const ActionsCtx = createContext<PortalActions | null>(null);
 
 export function PortalProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+
+  // El espejo del estado para leerlo sin capturarlo en una clausura vieja: las
+  // acciones se construyen una vez (`useMemo`) y el intervalo de la sesión
+  // guiada corre fuera de React. Se actualiza en un efecto y no en el render
+  // (`react-hooks/refs`): todos los que lo leen — manejadores de evento y el
+  // callback del intervalo — corren después del commit, así que nunca ven un
+  // valor viejo por esto.
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const hydrated = useRef(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
