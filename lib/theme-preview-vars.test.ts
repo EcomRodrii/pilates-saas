@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CLAVES_PREVIEW_PERMITIDAS } from './theme-preview-vars.ts';
+import { CLAVES_PREVIEW_PERMITIDAS, varsDePreview } from './theme-preview-vars.ts';
 // `themeToCssVars` es literalmente lo que HomePreview/ThemeThumbVivo mandan
 // por postMessage — mejor oráculo que la interna que lo alimenta.
 import { themeToCssVars } from './theme-runtime.ts';
@@ -69,4 +69,39 @@ test('la whitelist no tiene claves que el motor ya no emita', () => {
 
   const sobran = [...CLAVES_PREVIEW_PERMITIDAS].filter((c) => !emitidas.has(c)).sort();
   assert.deepEqual(sobran, []);
+});
+
+// ── Lo que se escribe en el preview ─────────────────────────────────────────
+//
+// ⚠️ Regresión del fallo que reportó el fundador: "el editor de temas no
+// muestra el tema que se va a publicar, muestra otra cosa". Con Noir
+// publicado, las miniaturas de Clásico, Oliva y Bloom salían las tres con la
+// barra negra de Noir. Comprobado en el navegador: la propiedad de línea
+// estaba vacía y la calculada venía del `<style>` del tema publicado.
+
+test('varsDePreview: lo que el tema declara, se aplica', () => {
+  const r = varsDePreview({ '--portal-brand': '#7C5CFC' }, new Set(['--portal-brand']));
+  assert.equal(r['--portal-brand'], '#7C5CFC');
+});
+
+test('varsDePreview: lo que el tema NO declara se neutraliza, no se omite', () => {
+  // Omitirlo (o borrarlo) deja ver el valor del tema PUBLICADO, que vive en
+  // una regla `:root` por debajo. `initial` hace que cada `var(--x, respaldo)`
+  // use su respaldo, igual que en un portal sin esa var.
+  const r = varsDePreview({ '--portal-brand': '#7C5CFC' }, new Set(['--portal-brand', '--portal-tabbar-bg']));
+  assert.equal(r['--portal-tabbar-bg'], 'initial');
+});
+
+test('varsDePreview: escribe TODAS las claves permitidas, siempre', () => {
+  // El listener recorre lo que devuelve esto: si una clave faltara, esa var se
+  // quedaría con el valor del mensaje anterior o del tema publicado.
+  const permitidas = new Set(['--a', '--b', '--c']);
+  assert.deepEqual(Object.keys(varsDePreview({}, permitidas)).sort(), ['--a', '--b', '--c']);
+});
+
+test('varsDePreview: un valor que no es texto no se cuela', () => {
+  // El mensaje llega de otra ventana: un número o un objeto no puede acabar
+  // en `setProperty`.
+  const r = varsDePreview({ '--portal-brand': 42 }, new Set(['--portal-brand']));
+  assert.equal(r['--portal-brand'], 'initial');
 });

@@ -64,3 +64,33 @@ export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--portal-text-bienvenida',
   '--portal-text-numero-bono',
 ]);
+
+/**
+ * Lo que hay que ESCRIBIR en `:root` para que la previsualización enseñe este
+ * tema y solo este tema.
+ *
+ * ⚠️ Una clave que el tema no declara se pone a `initial`, NO se borra. Y ahí
+ * estaba el fallo que hacía que el editor "mostrara otra cosa": el listener
+ * borraba la propiedad EN LÍNEA, pero el tema publicado no vive ahí — vive en
+ * una regla `:root` de un `<style>` que pinta el servidor. Quitar la de arriba
+ * descubría la de debajo, así que cada tema se veía sobre los restos del
+ * publicado: en la biblioteca, con Noir publicado, las miniaturas de Clásico,
+ * Oliva y Bloom salían todas con la barra negra de Noir. Comprobado en vivo en
+ * el navegador (`--portal-tabbar-bg` calculada `#1E2B22` en las cuatro, con la
+ * de línea vacía).
+ *
+ * `initial` en una custom property es el valor "inválido garantizado": hace
+ * que cada `var(--x, loQueSea)` use su propio respaldo, que es exactamente lo
+ * que pasa en un portal donde el tema nunca declaró esa var.
+ */
+export function varsDePreview(
+  entrantes: Record<string, unknown>,
+  permitidas: ReadonlySet<string> = CLAVES_PREVIEW_PERMITIDAS,
+): Record<string, string> {
+  const salida: Record<string, string> = {};
+  for (const clave of permitidas) {
+    const v = entrantes[clave];
+    salida[clave] = typeof v === 'string' ? v : 'initial';
+  }
+  return salida;
+}
