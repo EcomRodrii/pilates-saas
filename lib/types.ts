@@ -30,6 +30,20 @@ export interface Studio {
   telefono: string;
   colorPrimario: string;
   temaPortal: string;
+  /**
+   * TEMPORAL (migr 20260807120000). `true` = las socias de este estudio ven el
+   * portal en React (`components/portal-tema`), el kit de diseño, en vez del
+   * portal actual.
+   *
+   * ⚠️ Tiene fecha de caducidad por decisión explícita: piloto en un estudio,
+   * y si pasa una semana sin incidencias se enciende en el resto y se retira
+   * el portal viejo EN EL MISMO PR que borra esta bandera. Un flag sin fecha
+   * se queda para siempre y acabamos manteniendo dos portales.
+   *
+   * Opcional en el tipo porque hay decenas de fixtures que construyen `Studio`
+   * a mano y ninguno tiene por qué saber de esto.
+   */
+  portalReact?: boolean;
   logoUrl: string | null;
   // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
   // este tipo solo cambia el desglose base/cuota de la factura, no el total.
