@@ -102,7 +102,15 @@
 }
 .donut__label { font-size: 8.5px; font-weight: 500; color: var(--muted); }
 
-.bars { display: flex; align-items: flex-end; gap: 7px; margin-top: 12px; height: 34px; }
+/* ⚠️ `height: 34px` era la altura de la BARRA MÁS ALTA, no la de la columna.
+ * Cada `.bar` es fill + 5px de hueco + etiqueta de 9px: con el fill al máximo
+ * la columna mide 48px dentro de una caja de 34, y el sobrante se desbordaba
+ * hacia arriba metiéndose en «0 de 4 clases / Aún sin reservas».
+ *
+ * El alto lo pone ahora el contenido. `align-items: flex-end` sigue alineando
+ * las columnas por su base, así que las etiquetas quedan a la misma línea y
+ * los fills crecen hacia arriba desde ahí, que es lo que se quería. */
+.bars { display: flex; align-items: flex-end; gap: 7px; margin-top: 12px; }
 .bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .bar__fill {
   display: block; width: 100%; max-width: 8px;
