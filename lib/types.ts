@@ -473,6 +473,24 @@ export interface Spot {
   activo: boolean;
 }
 
+// Plantilla de catálogo a nivel de cadena (primera pieza de configuración
+// centralizada, ver .claude/tentare-os.md). Se COPIA a `tipos_clase` de una
+// sede al crearla o al pulsar "Aplicar catálogo" — nunca es un vínculo vivo,
+// y deliberadamente no lleva ninguna columna de política de reserva/
+// cancelación/penalización: esas siguen siendo 100% decisión de cada sede.
+export interface CadenaTipoClase {
+  id: string;
+  cadenaId: string;
+  nombre: string;
+  color: string;
+  duracionMinutos: number;
+  descripcion: string | null;
+  nivel: NivelClase;
+  fotoUrl: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
 export interface TipoClase {
   id: string;
   studioId: string;

@@ -74,6 +74,7 @@ import type {
   RowStudioHorario,
   RowMandatosSepa,
   RowSuscripciones,
+  RowCadenaTiposClase,
   RowTiposClase,
   RowFavoritosClase,
   RowRetoParticipaciones,
@@ -143,6 +144,7 @@ import type {
   DiaHorario,
   MandatoSEPA,
   Suscripcion,
+  CadenaTipoClase,
   TipoClase,
   FavoritoClase,
   RetoParticipacion,
@@ -3202,6 +3204,56 @@ export async function dbUpsertIntegracion(intg: Integracion) {
   };
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) reportDbError('[dbUpsertIntegracion]', error);
+}
+
+// ─── Catálogo de tipos de clase de la cadena (plantilla, ver lib/types.ts) ───
+
+function mapCadenaTipoClase(r: RowCadenaTiposClase): CadenaTipoClase {
+  return {
+    id: r.id,
+    cadenaId: r.cadena_id,
+    nombre: r.nombre,
+    color: r.color ?? '#4F46E5',
+    duracionMinutos: r.duracion_minutos ?? 60,
+    descripcion: r.descripcion ?? null,
+    nivel: (r.nivel as CadenaTipoClase['nivel']) ?? 'TODOS',
+    fotoUrl: r.foto_url ?? null,
+    creadoEn: r.creado_en,
+    actualizadoEn: r.actualizado_en,
+  };
+}
+
+export async function dbListCadenaTiposClase(cadenaId: string): Promise<CadenaTipoClase[]> {
+  const { data, error } = await supabase.from('cadena_tipos_clase').select('*').eq('cadena_id', cadenaId).order('nombre');
+  if (error) { reportDbError('[dbListCadenaTiposClase]', error); return []; }
+  return (data ?? []).map(mapCadenaTipoClase);
+}
+
+export async function dbInsertCadenaTipoClase(t: CadenaTipoClase): Promise<ResultadoEscritura> {
+  const row = {
+    id: t.id, cadena_id: t.cadenaId, nombre: t.nombre, color: t.color,
+    duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
+    foto_url: t.fotoUrl ?? null,
+  };
+  const { error } = await supabase.from('cadena_tipos_clase').insert(row);
+  return error ? falloEscritura('[dbInsertCadenaTipoClase]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateCadenaTipoClase(id: string, changes: Partial<CadenaTipoClase>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('color' in changes) db.color = changes.color;
+  if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('nivel' in changes) db.nivel = changes.nivel;
+  if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  const { error } = await supabase.from('cadena_tipos_clase').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateCadenaTipoClase]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteCadenaTipoClase(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('cadena_tipos_clase').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteCadenaTipoClase]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritura> {
