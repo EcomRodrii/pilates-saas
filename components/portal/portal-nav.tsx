@@ -80,7 +80,17 @@ export function PortalNav({
         // `barraFlotante` el tema no declara estas vars (ver varsBarra/
         // varsBarraFlotante en lib/theme-runtime.ts) y la barra se ve
         // exactamente igual que antes, en claro y en oscuro.
-        height: `var(--portal-tabbar-height, ${altura.tabbar}px)`,
+        // ⚠️ El hueco de la pantalla (isla dinámica, barra de gestos) se SUMA
+        // al alto, no se come de él.
+        //
+        // Con `height: 58px` y `padding-bottom: calc(6px + safe-area)`, y
+        // `box-sizing: border-box` de fábrica, en un iPhone con 34px de hueco
+        // sólo quedaban 12px para iconos y etiquetas: la barra salía aplastada
+        // y el contenido, recortado. La barra flotante no lo sufre porque no
+        // lleva ese relleno (flota por encima del hueco, no dentro de él).
+        height: flotante && interactive
+          ? `var(--portal-tabbar-height, ${altura.tabbar}px)`
+          : `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + env(safe-area-inset-bottom))`,
         zIndex: interactive ? 14 : undefined,
         borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
         background: `var(--portal-tabbar-bg, ${t.tabbar})`,
