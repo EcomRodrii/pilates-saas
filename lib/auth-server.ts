@@ -40,53 +40,59 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   // apoyarse en RLS/auth.uid() porque corre dentro de la sesión del usuario).
   // Si la sede elegida ya no pertenece al usuario (revocado, cadena borrada),
   // se ignora sin más y cae al criterio determinista de siempre.
-  const { data: activa } = await db
-    .from('sesion_activa')
-    .select('studio_id')
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-  if (activa?.studio_id) {
-    const [{ data: comoInstructor }, { data: comoOwner }] = await Promise.all([
-      // `activo`: dar de baja tiene que revocar el acceso, y aquí importa el
-      // doble — este camino corre con SERVICE-ROLE, que se salta la RLS entera.
-      // Sin este filtro, la migración 0130 cerraría la puerta de la base de
-      // datos y las rutas de API seguirían abriendo la suya.
-      db.from('instructores').select('rol, nombre').eq('auth_user_id', user.id).eq('studio_id', activa.studio_id).neq('activo', false).maybeSingle(),
-      db.from('studios').select('nombre').eq('owner_auth_user_id', user.id).eq('id', activa.studio_id).maybeSingle(),
-    ]);
+  // Las TRES lecturas van en paralelo y se resuelven en memoria.
+  //
+  // Antes eran hasta CUATRO viajes en serie: `sesion_activa`, luego —según lo
+  // que devolviera— `instructores` y `studios` acotados a esa sede, o si no
+  // `instructores` y después `studios`. Y esto lo ejecuta la PRIMERA LÍNEA de
+  // cada ruta de staff, así que se pagaba entero en cada llamada: medido en
+  // producción, /api/billing/status tardaba 2.265 ms y /api/layout 1.191 ms
+  // siendo consultas triviales — el tiempo se iba aquí, no en su trabajo.
+  //
+  // Los tres son lecturas independientes del MISMO usuario, así que nada obliga
+  // a encadenarlas. Se piden todas las filas (sin `limit(1)`) porque la
+  // resolución de "sede activa" necesita poder buscar una sede concreta entre
+  // ellas; una persona tiene una o dos, no es volumen.
+  //
+  // ⚠️ Lo que NO cambia, y no puede cambiar:
+  //   · `neq('activo', false)` sobre instructores. Este camino corre con
+  //     SERVICE-ROLE, que se salta la RLS entera: sin ese filtro, la migración
+  //     0130 cerraría la puerta de la base de datos y las rutas de API
+  //     seguirían abriendo la suya. Y es `neq(false)` y no `eq(true)` a
+  //     propósito: solo una baja EXPLÍCITA revoca, un nulo accidental no deja
+  //     a nadie fuera (mismo criterio que el `coalesce(activo, true)` de 0130).
+  //   · El ORDEN (`studio_id` / `id` ascendente) para que, con varias sedes,
+  //     se elija siempre la misma de forma determinista.
+  const [{ data: activa }, { data: instructores }, { data: studios }] = await Promise.all([
+    db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
+    db.from('instructores').select('studio_id, rol, nombre')
+      .eq('auth_user_id', user.id).neq('activo', false).order('studio_id', { ascending: true }),
+    db.from('studios').select('id, nombre')
+      .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
+  ]);
+
+  // Sede activa elegida explícitamente (selector multi-sede de una cadena). Se
+  // resuelve con service-role, así que la validación de acceso se hace aquí en
+  // TS: si la sede elegida ya no pertenece al usuario (revocada, cadena
+  // borrada), simplemente no aparece entre sus filas y se cae al criterio
+  // determinista de siempre.
+  const sedeActiva = activa?.studio_id as string | undefined;
+  if (sedeActiva) {
+    const comoInstructor = instructores?.find(i => i.studio_id === sedeActiva);
     if (comoInstructor) {
-      return { userId: user.id, studioId: activa.studio_id, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo', email: user.email ?? null };
+      return { userId: user.id, studioId: sedeActiva, rol: comoInstructor.rol, nombre: comoInstructor.nombre || 'Equipo', email: user.email ?? null };
     }
+    const comoOwner = studios?.find(s => s.id === sedeActiva);
     if (comoOwner) {
-      return { userId: user.id, studioId: activa.studio_id, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio', email: user.email ?? null };
+      return { userId: user.id, studioId: sedeActiva, rol: 'PROPIETARIO', nombre: comoOwner.nombre || 'Estudio', email: user.email ?? null };
     }
   }
 
-  // limit(1) en vez de maybeSingle(): un mismo usuario puede estar vinculado a
-  // varios estudios (instructor en dos centros, o dueño de varias sedes —el plan
-  // CADENA). maybeSingle() lanzaba error con >1 fila y bloqueaba el acceso. El
-  // orden por id es determinista para elegir siempre el mismo estudio primario.
-  const { data: instructores } = await db
-    .from('instructores')
-    .select('studio_id, rol, nombre')
-    .eq('auth_user_id', user.id)
-    // `neq('activo', false)` y no `eq('activo', true)`: solo una baja EXPLÍCITA
-    // revoca. Un nulo accidental no debe dejar a nadie fuera sin que nadie lo
-    // haya decidido — mismo criterio que el `coalesce(activo, true)` de la 0130.
-    .neq('activo', false)
-    .order('studio_id', { ascending: true })
-    .limit(1);
   const instructor = instructores?.[0];
   if (instructor) {
     return { userId: user.id, studioId: instructor.studio_id, rol: instructor.rol, nombre: instructor.nombre || 'Equipo', email: user.email ?? null };
   }
 
-  const { data: studios } = await db
-    .from('studios')
-    .select('id, nombre')
-    .eq('owner_auth_user_id', user.id)
-    .order('id', { ascending: true })
-    .limit(1);
   const studio = studios?.[0];
   if (studio) {
     return { userId: user.id, studioId: studio.id, rol: 'PROPIETARIO', nombre: studio.nombre || 'Estudio', email: user.email ?? null };

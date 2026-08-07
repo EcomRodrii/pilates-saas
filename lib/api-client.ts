@@ -29,10 +29,41 @@ export async function portalAuthHeader(): Promise<Record<string, string>> {
 }
 
 // ── Tema white-label (editor de marca, solo propietario) ─────────────────────
+// ─── Deduplicación de peticiones EN VUELO ────────────────────────────────────
+//
+// Varias piezas del panel piden lo mismo al montar: `fetchLayout` lo llaman el
+// sidebar, el dashboard, el editor de temas y studio-context — cuatro sitios,
+// sin saber unos de otros. Medido en producción, eso son dos peticiones
+// idénticas por carga a /api/layout, /api/theme y /api/billing/status. Cada una
+// arrastra además `verificarSesionStaff` entero en el servidor.
+//
+// Esto NO es una caché: la entrada se borra en cuanto la petición termina, así
+// que solo pueden compartirla las llamadas literalmente simultáneas. No puede
+// servir un dato viejo ni retrasar una invalidación — el peor caso es que no
+// coincidan y se hagan las dos, exactamente como ahora.
+//
+// Por eso no lleva TTL: un TTL sí introduciría staleness, y estos tres datos
+// (menú, tema, estado de suscripción) los reescribe el propio panel y tienen
+// que verse al instante.
+const enVuelo = new Map<string, Promise<unknown>>();
+
+function unaVez<T>(clave: string, hacer: () => Promise<T>): Promise<T> {
+  const yaVa = enVuelo.get(clave);
+  if (yaVa) return yaVa as Promise<T>;
+  // `finally` y no `then`: la entrada también tiene que soltarse si la petición
+  // falla, o un fallo puntual dejaría a todo el mundo pegado a una promesa
+  // rechazada para siempre.
+  const p = hacer().finally(() => { enVuelo.delete(clave); });
+  enVuelo.set(clave, p);
+  return p;
+}
+
 export async function fetchThemeBorrador(): Promise<ThemeConfig> {
-  const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el tema');
-  return res.json();
+  return unaVez('theme-borrador', async () => {
+    const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 // El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
@@ -73,9 +104,11 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
 
 // ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
 export async function fetchLayout(): Promise<LayoutConfig> {
-  const res = await fetch('/api/layout', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el menú');
-  return res.json();
+  return unaVez('layout', async () => {
+    const res = await fetch('/api/layout', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el menú');
+    return res.json() as Promise<LayoutConfig>;
+  });
 }
 
 export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfig> {
@@ -653,13 +686,15 @@ export interface EstadoBilling {
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
 // no-bloqueado para no dejar a nadie fuera por un error de red.
 export async function estadoBilling(): Promise<EstadoBilling | null> {
-  try {
-    const res = await fetch('/api/billing/status', { headers: { ...(await authHeader()) } });
-    if (!res.ok) return null;
-    return (await res.json()) as EstadoBilling;
-  } catch {
-    return null;
-  }
+  return unaVez('billing-status', async () => {
+    try {
+      const res = await fetch('/api/billing/status', { headers: { ...(await authHeader()) } });
+      if (!res.ok) return null;
+      return (await res.json()) as EstadoBilling;
+    } catch {
+      return null;
+    }
+  });
 }
 
 // Abre el Checkout de Stripe para suscribir el estudio al plan elegido.
@@ -696,6 +731,8 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
 import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija } from '@/lib/csv';
+
+
 
 export interface ResultadoImport {
   // Migración Mágica: aviso si el lote no quedó registrado para deshacer.
