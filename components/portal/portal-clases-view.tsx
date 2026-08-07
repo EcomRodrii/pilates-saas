@@ -540,16 +540,23 @@ export function PortalClasesView({
                   <img src={c.tipo.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: completa || c.pasada ? 0.6 : 1 }} />
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+              {/* ⚠️ El hueco de arriba es para el icono de favorita, que va en
+                  `position: absolute` en la esquina (top 10, alto 26). Antes
+                  se apartaba el texto de plazas hacia la IZQUIERDA con un
+                  relleno, y eso depende de lo largo que sea el texto: con
+                  "8 plazas libres" el icono seguía cayéndole encima. Apartarlo
+                  hacia ABAJO no depende de nada — el icono acaba en el píxel
+                  36 y esta columna empieza después, mida lo que mida. */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+                justifyContent: 'space-between', gap: 8,
+                paddingTop: socioId && c.tipo ? 30 : 0,
+              }}>
                 {!reservada && (
                   <AforoIndicator
                     libres={c.libres}
                     umbralUrgencia={3}
-                    // El hueco de la derecha es para la estrella de favorita,
-                    // que va en `position:absolute` arriba a la derecha de la
-                    // tarjeta: sin él, "8 plazas libres" (el texto más largo)
-                    // pasaba por debajo del icono y se leía tachado.
-                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap', paddingRight: socioId && c.tipo ? 22 : 0 }}
+                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
                   />
                 )}
                 {reservada ? (

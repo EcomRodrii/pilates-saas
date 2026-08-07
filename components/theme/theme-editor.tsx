@@ -598,7 +598,11 @@ export function AjustesCategoriaPanel({
             usa portal-shell.tsx, así que lo que se ve aquí es exacto). */}
         <div style={themeToCssVars(draft)} className="rounded-2xl border border-border bg-muted/40 p-4">
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Así se ve</p>
-          <div style={{ position: 'relative', height: altura.tabbar }}>
+          {/* Alto de la MISMA variable que la barra: con la altura fija de
+              antes, un tema que la sube (Bloom, 66px) se salía de su caja en
+              esta previsualización — y esta caja es justo donde la propietaria
+              comprueba cómo queda. */}
+          <div style={{ position: 'relative', height: `var(--portal-tabbar-height, ${altura.tabbar}px)` }}>
             <PortalNav
               items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
               activeIndex={0}
