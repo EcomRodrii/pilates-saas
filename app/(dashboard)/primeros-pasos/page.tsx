@@ -220,26 +220,32 @@ function Categoria({ categoria }: { categoria: CategoriaOnboarding }) {
       <CollapsiblePanel>
         <div className="divide-y divide-muted border-t border-border">
           {categoria.pasos.map(paso => (
-            <Link
-              key={paso.id}
-              href={paso.href}
-              target={paso.externo ? '_blank' : undefined}
-              rel={paso.externo ? 'noreferrer' : undefined}
-              title={paso.descripcion}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              {paso.done
-                ? <CheckCircle2 size={18} className="text-brand-secondary shrink-0" />
-                : <Circle size={18} className="text-[#D4D4CC] shrink-0" />}
-              <span className={cn('flex-1 min-w-0 text-[13px]', paso.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium')}>
-                {paso.label}
-              </span>
+            <div key={paso.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors">
+              <Link
+                href={paso.href}
+                target={paso.externo ? '_blank' : undefined}
+                rel={paso.externo ? 'noreferrer' : undefined}
+                title={paso.descripcion}
+                className="flex flex-1 min-w-0 items-center gap-3"
+              >
+                {paso.done
+                  ? <CheckCircle2 size={18} className="text-brand-secondary shrink-0" />
+                  : <Circle size={18} className="text-[#D4D4CC] shrink-0" />}
+                <span className={cn('flex-1 min-w-0 text-[13px]', paso.done ? 'text-muted-foreground line-through' : 'text-foreground font-medium')}>
+                  {paso.label}
+                </span>
+              </Link>
+              {!paso.done && paso.hrefSecundario && (
+                <Link href={paso.hrefSecundario} className="text-[11px] font-medium text-brand-secondary hover:underline shrink-0">
+                  {paso.labelSecundario}
+                </Link>
+              )}
               {!paso.done && (
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
                   <Clock size={10} /> {paso.minutos} min
                 </span>
               )}
-            </Link>
+            </div>
           ))}
         </div>
       </CollapsiblePanel>

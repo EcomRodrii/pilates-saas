@@ -39,6 +39,13 @@ export interface PasoOnboarding {
   href: string;
   /** Solo el paso final de cada estudio: abre la página pública en pestaña nueva. */
   externo?: boolean;
+  /** Enlace secundario opcional junto al principal — hoy solo lo usa
+   * «clientes» para ofrecer /migracion como alternativa al alta manual. El
+   * wizard de bienvenida ya ofrece importar si contestas que sí, pero quien
+   * dijo que no (o llega directo al checklist sin pasar por el wizard) no
+   * tenía ningún camino de vuelta a la importación desde aquí. */
+  labelSecundario?: string;
+  hrefSecundario?: string;
 }
 
 export interface CategoriaOnboarding {
@@ -98,7 +105,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases-salas' },
     { id: 'horario', label: 'Programa tus horarios', descripcion: 'Las sesiones concretas que tus clientas van a poder reservar.', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
-    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
+    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
     { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/configuracion?tab=planes' },
   ];
   const reservasHecho = configuracionInicial.every(p => p.done) && !!d.stripeAccountId;
