@@ -1,9 +1,8 @@
 # Portal en React — dónde se quedó y cómo seguir
 
-Rama: `feat/portal-tema-react`. **`tsc --noEmit`, `eslint --max-warnings 0` y
-los 1885 unitarios pasan limpios.** Sigue siendo andamiaje: el portal no está
-montado en ninguna ruta ni conectado a datos reales — nada de esto se ve
-todavía desde el navegador.
+Estado: mergeado en `main` (#786) y ya **visible en el navegador** en
+`/portal-tema-preview/{oliva,bloom,noir}`. Sigue sin estar conectado a datos
+reales ni montado en la ruta del portal.
 
 ## Lo que está hecho y verificado
 
@@ -16,7 +15,7 @@ metadatos. Por eso aquí hay **una sola copia** del código y tres juegos de dat
   `screens/` (12 pantallas), `store/`, `hooks/`, `styles/`, `data/`,
   `PortalApp.tsx` y `tipos-tema.ts`.
 - `themes/{oliva,bloom,noir}/` — `config.ts` + `tokens.css` por tema.
-- Los tres `tokens.css` convertidos de `:root` a `[data-theme="…"]`, 103 tokens
+- Los tres `tokens.css` convertidos de `:root` a `html[data-theme="…"]`, 103 tokens
   cada uno. Conviven en el bundle: cambiar de tema es cambiar un atributo, no
   cargar otra hoja.
 - `themes/registro.ts` — `TEMAS_PORTAL`, y el mapeo de los controles de la
@@ -75,21 +74,44 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
      de fotogramas de conteo justo a quien pidió menos movimiento.
    - Las 5 `<img>` colapsan en **un** `FotoTema` en `chrome.tsx`, con un solo
      disable razonado (mismo patrón que ya usa `app/portal/[slug]/…`). Cuando
-     entren las fotos reales (punto 6) hay un único sitio que reconsiderar.
-3. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
+     entren las fotos reales (punto 7) hay un único sitio que reconsiderar.
+3. ~~**Que se vea.**~~ **HECHO.** `/portal-tema-preview/{oliva,bloom,noir}`,
+   con `components/portal-tema/portal-tema.css` cableando tokens + hojas y los
+   7 SVG en `public/media/`. Se cae en producción (`VERCEL_ENV`) y se borra
+   entera cuando el portal esté montado detrás de su flag.
+   ⚠️ Tres cosas que salieron SOLO al mirarlo, ninguna visible con `tsc`/lint:
+   - **`.phone__screen` no existía en ninguna de las 17 hojas** del kit, con lo
+     que la bienvenida (única pantalla `position:absolute`) medía 0px de alto y
+     salía el titular en blanco sobre crema. Pasa igual en los tres proyectos
+     originales. Regla añadida en `02-phone.css`.
+   - **Colisión de `--font-display`**: el layout raíz la declara (Instrument
+     Serif) en `<html>` con una clase de `next/font`; los tokens del tema la
+     declaran también. Misma especificidad → decidía el orden de los chunks.
+     Por eso el selector es `html[data-theme="…"]` y no `[data-theme="…"]`.
+     Comprobado en vivo: sin el atributo sale Instrument Serif, con él Outfit.
+   - Las **fuentes ya estaban todas cargadas** por el layout raíz vía
+     `next/font`. El `<link>` a `fonts.googleapis.com` del proyecto de diseño
+     sobra y contradice una decisión explícita del repo.
+   Verificado además que la hoja del portal **no se filtra** al resto de la app:
+   en `/login` no está cargada, `data-theme` vuelve a `null` y el `body` no
+   cambia ni de fondo ni de fuente.
+4. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
-4. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
+5. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
    en `store/PortalStore.tsx` son `setTimeout`. Sustituir el cuerpo por la RPC
    real **manteniendo el estado de carga**: no es decorativo — el botón pasa por
    «Reservando…» con rueda antes de «Reservada», y de ahí dependen el bono, el
    anillo y el marcado en el horario. Si la RPC responde en 80 ms, mantener un
    **mínimo visible de ~400 ms**.
-5. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
+6. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-6. **Sustituir las imágenes marcador** de `public/media/*.svg`.
+7. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
+   neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
+   velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
+   ilegible aunque el CSS esté bien.
 
 ## Reglas del encargo que no se pueden saltar
 
