@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -56,7 +57,7 @@ export default function VerifactuPage() {
 
         <h2 id="s1">Qué es Veri*factu y por qué te afecta</h2>
         <p>Veri*factu es el sistema que exige la <strong>Ley Antifraude</strong> (desarrollada en el Real Decreto 1007/2023) para que el software de facturación no pueda ocultar, modificar ni eliminar ventas. Cada factura que emites queda <strong>encadenada a la anterior mediante un hash</strong> y lleva un <strong>código QR</strong> de verificación. Si tu sistema está en modalidad Veri*factu, además puede enviar el registro a la Agencia Tributaria en el momento de emitirla.</p>
-        <p>En la práctica, para tu estudio esto significa una cosa: <strong>el programa que uses para facturar bonos, mensualidades y clases sueltas tiene que cumplirlo</strong>. No es una casilla más en tu declaración — es un requisito técnico del propio software.</p>
+        <p>En la práctica, para tu estudio esto significa una cosa: <strong>el programa que uses para facturar bonos, mensualidades y clases sueltas tiene que cumplirlo</strong>. No es una casilla más en tu declaración — es un requisito técnico del propio software. (Definición corta en el <Link href="/glosario#verifactu" style={{ color: ACC }}>glosario</Link>.)</p>
 
         <h2 id="s2">Cuándo es obligatorio</h2>
         <p>El calendario se ha movido más de una vez. Tras el aplazamiento aprobado por el Real Decreto-ley 15/2025 (2 de diciembre de 2025), las fechas vigentes hoy son:</p>

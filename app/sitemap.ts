@@ -59,6 +59,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    {
+      url: `${BASE_URL}/glosario`,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
     ...guias,
     ...anclas,
     ...legales,

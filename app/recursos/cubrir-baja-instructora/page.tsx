@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ACC } from '@/components/landing/theme';
 
 export const metadata: Metadata = {
   title: 'Cómo cubrir una baja de instructora sin hacer una llamada — Tentare',
@@ -54,7 +56,7 @@ export default function CubrirBajaPage() {
 
         <h2 id="s1">El problema: por qué una baja te roba la noche</h2>
         <p>Cubrir una baja parece una tarea de cinco minutos, pero rara vez lo es. El problema no es la baja en sí, sino <strong>todo lo que cuelga de ella</strong>: saber quién puede dar esa clase concreta, contactar a las candidatas una por una, esperar respuestas, actualizar el calendario y avisar a las alumnas antes de que se presenten a una clase que ha cambiado.</p>
-        <p>Cada uno de esos pasos es una fuente de error y de estrés. Y todos dependen de ti, normalmente a la peor hora.</p>
+        <p>Cada uno de esos pasos es una fuente de error y de estrés. Y todos dependen de ti, normalmente a la peor hora. (Este proceso completo tiene nombre — <Link href="/glosario#sustitucion-de-instructoras" style={{ color: ACC }}>sustitución de instructoras</Link> — y está en el glosario.)</p>
 
         <StatBlock
           eyebrow="El coste real de una clase caída · ejemplo"

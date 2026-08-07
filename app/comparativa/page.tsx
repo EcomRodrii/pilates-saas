@@ -114,7 +114,7 @@ export default function ComparativaPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter links={[{ href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }, { href: '/glosario', label: 'Glosario' }]} />
 
       <style>{`
         .cmp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

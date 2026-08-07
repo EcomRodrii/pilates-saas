@@ -227,7 +227,7 @@ export default function RecursosPage() {
         </div>
       </div>
 
-      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }]} />
+      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }, { href: '/glosario', label: 'Glosario' }]} />
 
       <style>{`
         .rec-feat { display: grid; grid-template-columns: 1.08fr .92fr; gap: 0; }
