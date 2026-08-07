@@ -56,6 +56,29 @@
   box-shadow: 0 30px 70px -28px rgba(40,44,32,.45), inset 0 0 0 1.5px rgba(0,0,0,.24);
 }
 
+/* ⚠️ Esta regla NO venía en el kit y sin ella la bienvenida no se ve.
+ *
+ * `PhoneFrame` envuelve el contenido en `.phone__screen`, pero ese selector no
+ * aparecía en ninguna de las 17 hojas: quedaba en `display:block` y con alto
+ * automático. Las pantallas normales colaban porque su contenido le daba alto,
+ * pero `.welcome` es `position:absolute; inset:0` — no aporta ninguno—, así que
+ * el contenedor medía 0 y la foto de portada se quedaba en 0px de alto. El
+ * resultado era el titular en blanco sobre el crema del propio teléfono, que no
+ * se lee. Medido en el navegador: `.phone` 812px, `.phone__screen` 0px.
+ *
+ * Pasa igual en los tres proyectos tal y como los entregó diseño — no es algo
+ * que se rompiera al integrarlos.
+ *
+ * `position: relative` para que el `inset: 0` de `.welcome` se resuelva contra
+ * el área de pantalla y no contra el marco (con bisel incluido). */
+.phone__screen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .island {
   position: absolute;
   top: 12px; left: 50%; transform: translateX(-50%);

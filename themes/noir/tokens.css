@@ -1,7 +1,27 @@
-/* Convertido de `:root` a `[data-theme="noir"]` para que los tres temas
+/* Convertido de `:root` a `html[data-theme="…"]` para que los tres temas
  * convivan: el activo se elige poniendo el atributo en <html>, no cargando
  * una hoja u otra. Ver "Cómo convertir esto en un tema instalable" del
- * encargo. Salvo ese selector, el fichero es el que entregó diseño.
+ * encargo. Salvo ese selector y las dos fuentes, el fichero es el que
+ * entregó diseño.
+ *
+ * ⚠️ Dos cosas que NO se pueden simplificar aquí:
+ *
+ * 1. `html[...]` y no `[...]` a secas. El layout raíz ya declara
+ *    `--font-display` (Instrument Serif, del portal actual) en <html> con una
+ *    clase de `next/font`. Clase y atributo pesan lo mismo, así que a secas
+ *    ganaría el que el bundler pusiera último — y el tema se vería con la
+ *    tipografía del otro portal según el día. Con `html[…]` gana siempre este.
+ *
+ * 2. Las fuentes van por `var(--font-…)` y no por nombre de familia. Este repo
+ *    ya las sirve con `next/font` desde nuestro propio dominio (a propósito:
+ *    cero petición a fonts.googleapis.com), así que el `<link>` a Google que
+ *    traía el proyecto de diseño sobra. Pedir 'Outfit' por su nombre también
+ *    resolvería —`next/font` registra la familia con su nombre real—, pero por
+ *    la variable se gana la familia de respaldo con métricas ajustadas que
+ *    genera `next/font`, y sobre todo queda atado a lo que el layout carga de
+ *    verdad: si algún día deja de cargarla, esto se ve, en vez de degradarse a
+ *    system-ui en silencio.
+ * ═══════════════════════════════════════════════════════════════════════
  * ═══════════════════════════════════════════════════════════════════════
  * Noir — tokens de diseño
  * Fuente única de verdad del tema. Ningún componente escribe un color, un
@@ -9,7 +29,7 @@
  * Generado desde tokens/tokens.json.
  * ═══════════════════════════════════════════════════════════════════════ */
 
-[data-theme="noir"] {
+html[data-theme="noir"] {
   /* ── Marca ─────────────────────────────────────────────────────────── */
   --brand: #1E2B22;
   --brand-hover: #36433A;
@@ -40,8 +60,8 @@
   --track: #E9E7DD;
 
   /* ── Tipografía ────────────────────────────────────────────────────── */
-  --font-display: 'Instrument Sans', system-ui, sans-serif;
-  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: var(--font-ui), system-ui, sans-serif;
+  --font-body: var(--font-jakarta), system-ui, sans-serif;
   --weight-display: 700;
 
   --size-section: 17px;
