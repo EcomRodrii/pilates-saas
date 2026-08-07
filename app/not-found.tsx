@@ -5,7 +5,7 @@ import Link from 'next/link';
 // probando el flujo de alta como una propietaria real.
 export default function NotFound() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-background">
+    <main className="min-h-dvh flex items-center justify-center px-6 bg-background">
       <div className="max-w-sm text-center">
         <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">404</p>
         <h1 className="mt-2 text-2xl font-bold text-foreground">Esta página no existe.</h1>
