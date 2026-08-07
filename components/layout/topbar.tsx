@@ -19,7 +19,13 @@ export function Topbar() {
   const [lanzadorAbierto, setLanzadorAbierto] = useState(false);
 
   return (
-    <div className="hidden lg:flex sticky top-0 z-10 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
+    // z-30, no z-10: `position: sticky` + `z-index` crea un contexto de
+    // apilamiento propio, así que el z-20 del dropdown de ProfileMenu solo
+    // compite DENTRO de este contenedor — frente al resto de la página queda
+    // limitado al z-index del propio contenedor. Las cabeceras sticky del
+    // calendario (vista-semana.tsx/vista-dia-salas.tsx) usan z-10 y, al pintarse
+    // más tarde en el DOM, ganaban el empate y tapaban el menú de usuario.
+    <div className="hidden lg:flex sticky top-0 z-30 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-sm">
       <div className="flex items-center gap-2 flex-1 max-w-md">
         <button
           onClick={() => setLanzadorAbierto(true)}

@@ -182,9 +182,17 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
                   className="w-11 h-6 rounded-full transition-colors relative shrink-0"
                   style={{ backgroundColor: activa ? 'var(--foreground)' : 'var(--border)' }}
                 >
+                  {/* `left` con calc(100% - ...), no `translateX(22px)` fijo: la
+                      posición activa dependía de que el track midiera EXACTAMENTE
+                      44px (w-11) para no salirse — cualquier diferencia real de
+                      ancho (zoom del navegador, herencia de fuente) dejaba el
+                      thumb asomando por el borde derecho del track. Con `left`
+                      relativo al 100% del propio contenedor, el thumb nunca puede
+                      desbordar, mida lo que mida el track de verdad. Mismo patrón
+                      ya usado en app/(dashboard)/marketing/page.tsx. */}
                   <span
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-card transition-transform"
-                    style={{ transform: activa ? 'translateX(22px)' : 'translateX(2px)' }}
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-card transition-all"
+                    style={{ left: activa ? 'calc(100% - 1.25rem - 0.125rem)' : '0.125rem' }}
                   />
                 </button>
               </div>

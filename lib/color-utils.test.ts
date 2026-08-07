@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hexToHsl, hslToHex, ajustarLuminosidad, derivarPaleta } from './color-utils.ts';
+import { hexToHsl, hslToHex, ajustarLuminosidad, derivarPaleta, colorLegibleSobreClaro } from './color-utils.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 
 test('hexToHsl: negro/blanco/rojo puro', () => {
@@ -63,4 +63,23 @@ test('derivarPaleta: marca inválida → paleta por defecto', () => {
     background: '#EEEEE8',
     text: '#1A1A1A',
   });
+});
+
+test('colorLegibleSobreClaro: ya legible → se devuelve tal cual', () => {
+  assert.equal(colorLegibleSobreClaro('#402964'), '#402964');
+});
+
+test('colorLegibleSobreClaro: pastel (secondary del preset "Ciruela") se oscurece hasta cumplir AA', () => {
+  const r = colorLegibleSobreClaro('#C4B5FD');
+  assert.notEqual(r, '#C4B5FD');
+  assert.equal(cumpleContraste(r, '#FFFFFF', { grande: true }), true);
+});
+
+test('colorLegibleSobreClaro: pastel casi blanco (secondary de Bloom) también sale legible', () => {
+  const r = colorLegibleSobreClaro('#EFEAFF');
+  assert.equal(cumpleContraste(r, '#FFFFFF', { grande: true }), true);
+});
+
+test('colorLegibleSobreClaro: hex inválido → cae al oscuro por defecto (nunca deja `--brand-secondary` con un valor CSS roto)', () => {
+  assert.equal(colorLegibleSobreClaro('no-es-un-color'), '#131313');
 });
