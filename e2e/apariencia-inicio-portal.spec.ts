@@ -341,3 +341,161 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(editar).toHaveAttribute('aria-pressed', 'false');
   });
 });
+
+// ── El Inspector agrupa (punto 4 del encargo) ───────────────────────────────
+// "Al seleccionar un bloque debe abrirse un panel con TODAS sus propiedades"
+// ya se cumplía; lo que faltaba era que ese panel tuviera forma. La tarjeta de
+// próxima clase son 16 campos, y en lista plana no es "todo a la vista", es un
+// muro: solo una de sus cinco situaciones se da a la vez.
+test.describe('Inspector — secciones', () => {
+  test('los bloques fijos SIGUEN en la lista después de cargar el borrador', async ({ page }) => {
+    // ⚠️ Regresión real: el borrador guardado no contiene los bloques fijos
+    // (se añadieron después), y el editor cargaba el GET tal cual. El bloque
+    // parpadeaba una vez y desaparecía: la propietaria lo veía en su portal y
+    // en la vista previa, pero no podía ni seleccionarlo. El render ya lo
+    // arreglaba con `conFijos`; faltaba aplicarlo también al cargar.
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    const fijo = page.getByRole('button', { name: /Tarjeta de próxima clase/ });
+    await expect(fijo).toBeVisible();
+    await page.waitForTimeout(2500); // más que el autoguardado (1,5 s)
+    await expect(fijo).toBeVisible();
+  });
+
+  test('la tarjeta de próxima clase abre por secciones, con la primera desplegada', async ({ page }) => {
+    await montar(page);
+    // Esperar a que el rail asiente antes de clicar: mientras carga se
+    // re-renderiza y el botón se desengancha del DOM a media pulsación.
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Tarjeta de próxima clase/ }).click();
+
+    const panel = page.getByRole('button', { name: 'Sin clases' });
+    await expect(panel).toBeVisible({ timeout: 30_000 });
+    await expect(panel).toHaveAttribute('aria-expanded', 'true');
+
+    // Las otras cuatro existen y llegan plegadas.
+    for (const titulo of ['Próxima clase', 'Bono acabándose', 'Racha en riesgo', 'Sin venir']) {
+      const s = page.getByRole('button', { name: titulo, exact: true });
+      await expect(s).toBeVisible();
+      await expect(s).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    // Plegada = su contenido NO está en el DOM (no es solo `display:none`):
+    // así el panel se recorre de un vistazo y no hay 16 controles a la vez.
+    await expect(page.getByLabel('Titular')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Bono acabándose' }).click();
+    await expect(page.getByLabel('Titular')).toHaveCount(2);
+  });
+});
+
+// ── Etapa 1: el panel de estilo, agrupado y condicional ─────────────────────
+test.describe('Inspector — estilo por secciones y condiciones', () => {
+  test('"Esquinas" aparece SOLO al poner un fondo', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+
+    // Las tres secciones del estilo existen; "Forma" llega plegada.
+    for (const t of ['Color', 'Disposición', 'Forma']) {
+      await expect(page.getByRole('button', { name: t, exact: true })).toBeVisible();
+    }
+    // ⚠️ Acotado a la SECCIÓN "Forma": "Esquinas" es además una categoría del
+    // tema en el rail izquierdo, así que un getByText suelto la encuentra
+    // siempre y el test pasaría por el motivo equivocado.
+    const forma = page.locator('section').filter({ has: page.getByRole('button', { name: 'Forma', exact: true }) });
+    await page.getByRole('button', { name: 'Forma', exact: true }).click();
+    await expect(forma.getByText('Sombra')).toBeVisible();
+    // Sin fondo ni sombra no hay nada que redondear: el control no está.
+    await expect(forma.getByText('Esquinas')).toHaveCount(0);
+
+    // Al poner un fondo, aparece. (La sección "Color" ya llega abierta: es la
+    // primera. Clicarla la CERRARÍA.)
+    await page.getByLabel('Fondo', { exact: true }).fill('#FFEEDD');
+    await expect(forma.getByText('Esquinas')).toBeVisible();
+  });
+});
+
+// ── Etapa 2: el bloque contenedor ──────────────────────────────────────────
+test.describe('Grupo — bloques dentro de bloques', () => {
+  test('crear un Grupo, meterle dos bloques y reordenarlos', async ({ page }) => {
+    const { putsPorPantalla } = await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Grupo/ }).click();
+
+    // El botón de añadir dentro nombra a su padre: se ve DÓNDE va a caer.
+    const dentro = page.getByRole('button', { name: 'Añadir dentro de Grupo' });
+    await expect(dentro).toBeVisible();
+
+    await dentro.click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+    await dentro.click();
+    await page.getByRole('button', { name: /^Vídeo/ }).click();
+
+    // Los dos cuelgan del grupo, y el catálogo de dentro NO ofrece otro Grupo
+    // (el anidamiento es de un nivel).
+    await dentro.click();
+    await expect(page.getByRole('dialog', { name: 'Elegir una sección' }).getByRole('button', { name: /^Grupo/ })).toHaveCount(0);
+    // El picker se cierra pulsando fuera. `Escape` no lo cierra, y su fondo a
+    // pantalla completa se come todos los clics siguientes.
+    await page.locator('button.fixed.inset-0').click();
+
+    // Reordenar con las flechas: "Subir Vídeo" existe y "Subir Texto" no,
+    // porque Texto ya es el primero.
+    await expect(page.getByRole('button', { name: 'Subir Vídeo' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Subir Texto' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Subir Vídeo' }).click();
+    await expect(page.getByRole('button', { name: 'Subir Vídeo' })).toBeDisabled();
+
+    // Y todo eso viaja al borrador en el mismo autoguardado.
+    await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
+    const ultimo = putsPorPantalla.home.at(-1) as Array<{ kind: string; hijos?: unknown[] }>;
+    const grupo = ultimo.find((b) => b.kind === 'contenedor');
+    expect(grupo?.hijos).toHaveLength(2);
+  });
+
+  test('un hijo abre su propio panel de propiedades', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Grupo/ }).click();
+    await page.getByRole('button', { name: 'Añadir dentro de Grupo' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+
+    // Al añadirlo queda seleccionado: el panel es el del HIJO, no el del grupo.
+    await expect(page.locator('textarea').first()).toBeVisible();
+    await page.locator('textarea').first().fill('Dentro del grupo');
+    await expect(page.locator('textarea').first()).toHaveValue('Dentro del grupo');
+  });
+});
+
+// ── Etapa 4: duplicar (primer consumidor del documento mapa+orden) ─────────
+test.describe('Duplicar un bloque', () => {
+  test('la copia cae JUSTO detrás, con su contenido, y queda seleccionada', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Añadir bloque' }).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+    await page.locator('textarea').first().fill('Se copia conmigo');
+
+    await page.getByRole('button', { name: 'Duplicar Texto' }).first().click();
+
+    // Dos filas "Texto" en el rail, y el panel abierto es el de la COPIA con
+    // el contenido del original.
+    await expect(page.getByRole('button', { name: 'Duplicar Texto' })).toHaveCount(2);
+    await expect(page.locator('textarea').first()).toHaveValue('Se copia conmigo');
+
+    // Editar la copia NO toca al original: son identidades distintas.
+    await page.locator('textarea').first().fill('Solo la copia');
+    const valores = await page.locator('textarea').evaluateAll((els) => els.map((e) => (e as HTMLTextAreaElement).value));
+    expect(valores.filter((v) => v === 'Solo la copia')).toHaveLength(1);
+  });
+
+  test('un bloque de SISTEMA no se puede duplicar', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Duplicar Esta semana' })).toHaveCount(0);
+  });
+});

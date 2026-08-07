@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { camposVisibles, agruparCampos } from './theme/campos.ts';
 import {
   DEFAULT_BLOQUES_POR_PANTALLA, resolveBloquesPantalla, bloquesVisibles, getBlockCatalogEntry, BLOCK_CATALOG,
   resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto,
@@ -7,8 +8,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type BloqueHijo, type FaqConfig,
-} from './portal-home-bloques.ts';
+  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
@@ -106,7 +106,7 @@ test('bloquesVisibles: filtra los ocultos', () => {
 
 test('BLOCK_CATALOG: no incluye bloques sistema (esos no se "añaden")', () => {
   assert.equal(BLOCK_CATALOG.some((b) => (b.kind as string) === 'sistema'), false);
-  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
+  assert.deepEqual(BLOCK_CATALOG.map((b) => b.kind).sort(), ['banner', 'contenedor', 'cta', 'faq', 'galeria', 'testimonios', 'texto', 'video']);
 });
 
 test('getBlockCatalogEntry: id desconocido → undefined', () => {
@@ -198,12 +198,14 @@ const DEFAULTS_ESPERADOS: Record<string, unknown> = {
   galeria: { imagenes: [] },
   video: { titulo: '', url: '' },
   testimonios: { titulo: '', testimonios: [] },
+  contenedor: { titulo: '', direccion: 'columna', separacion: 'normal', reparto: 'iguales' },
 };
 
-test('defaultsDe(CAMPOS_X) coincide con el defaultConfig de hoy, para los 7 bloques', () => {
+test('defaultsDe(CAMPOS_X) coincide con el defaultConfig de hoy, para los 8 bloques', () => {
   const porKind: Record<string, readonly CampoSchema[]> = {
     banner: CAMPOS_BANNER, texto: CAMPOS_TEXTO, cta: CAMPOS_CTA, faq: CAMPOS_FAQ,
     galeria: CAMPOS_GALERIA, video: CAMPOS_VIDEO, testimonios: CAMPOS_TESTIMONIOS,
+    contenedor: CAMPOS_CONTENEDOR,
   };
   assert.deepEqual(Object.keys(porKind).sort(), BLOCK_CATALOG.map((b) => b.kind).sort());
   for (const [kind, campos] of Object.entries(porKind)) {
@@ -267,8 +269,13 @@ test('resolverConfig rellena un bloque guardado antes de existir un campo nuevo'
 // Los oráculos van copiados literales, NO importados de lo que comparan: un
 // test que deriva su expectativa de la misma fuente que prueba pasa siempre.
 
-test('BLOCK_CATALOG derivado es exactamente el catálogo de antes del registro', () => {
+test('BLOCK_CATALOG derivado es el catálogo de antes MÁS el contenedor', () => {
+  // El octavo (`contenedor`) es el primer bloque nuevo desde que existe el
+  // registro, y va PRIMERO porque es el que abre el anidamiento. Los siete de
+  // antes siguen byte a byte iguales — esa es la parte que este oráculo
+  // protege de verdad.
   assert.deepEqual(BLOCK_CATALOG, [
+    { kind: 'contenedor', label: 'Grupo', icono: 'Rows3', descripcion: 'Agrupa varios bloques y los coloca en fila o en columna.', defaultConfig: { titulo: '', direccion: 'columna', separacion: 'normal', reparto: 'iguales' } },
     { kind: 'banner', label: 'Banner', icono: 'Image', descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.', defaultConfig: { imagenUrl: '', titulo: '', texto: '', href: '' } },
     { kind: 'texto', label: 'Texto', icono: 'Type', descripcion: 'Un bloque de texto libre, con título opcional.', defaultConfig: { titulo: '', texto: '' } },
     { kind: 'cta', label: 'Llamada a la acción', icono: 'MousePointerClick', descripcion: 'Título y un botón que lleva a donde quieras.', defaultConfig: { titulo: '', textoBoton: '', href: '' } },
@@ -737,4 +744,124 @@ test('⚠️ un campo con porDefecto VACÍO no debe borrar el texto del render',
   // Y la que sí tiene texto propio lo conserva.
   const sin = getDefinicionBloque('cabecera')!.campos.find((x) => x.id === 'fraseSinClase') as { porDefecto: unknown };
   assert.equal(sin.porDefecto, 'Tu sitio sigue aquí.');
+});
+
+// ── Etapa 1: condiciones y grupos en el estilo ──────────────────────────────
+test('estilo: "Esquinas" se esconde sin fondo NI sombra — no hay nada que redondear', () => {
+  const ids = (v: Record<string, unknown>) => camposVisibles(CAMPOS_ESTILO, v).map((c) => c.id);
+  assert.equal(ids({}).includes('esquinas'), false);
+  assert.equal(ids({ sombra: 'ninguna' }).includes('esquinas'), false);
+  assert.equal(ids({ fondo: '#FFEEDD' }).includes('esquinas'), true);
+  assert.equal(ids({ sombra: 'suave' }).includes('esquinas'), true);
+});
+
+test('estilo: la condición NO esconde nada más — los otros 7 salen siempre', () => {
+  // Una condición mal puesta que oculte de más es peor que no tenerla: la
+  // propietaria pierde controles sin saber por qué.
+  const visibles = camposVisibles(CAMPOS_ESTILO, {}).map((c) => c.id);
+  assert.deepEqual(visibles.sort(), ['alineacion', 'ancho', 'color', 'espaciado', 'fondo', 'sombra', 'tamanoTexto']);
+});
+
+test('estilo del BANNER: esquinas siempre (recortan la foto) y fondo solo sin foto', () => {
+  const ids = (v: Record<string, unknown>) => camposVisibles(CAMPOS_ESTILO_BANNER, v).map((c) => c.id);
+  // Sin fondo ni sombra, banner SÍ enseña esquinas — su geometría es propia.
+  assert.equal(ids({ imagenUrl: '' }).includes('esquinas'), true);
+  // Con foto, el fondo no se vería nunca: el panel deja de ofrecerlo.
+  assert.equal(ids({ imagenUrl: 'https://x/foto.jpg' }).includes('fondo'), false);
+  assert.equal(ids({ imagenUrl: '' }).includes('fondo'), true);
+});
+
+test('estilo: los 8 controles quedan en 3 secciones, ninguno suelto', () => {
+  const r = agruparCampos(CAMPOS_ESTILO, { fondo: '#000000' });
+  assert.deepEqual(r.sueltos, []);
+  assert.deepEqual(r.grupos.map((g) => g.titulo), ['Color', 'Disposición', 'Forma']);
+});
+
+test('REGISTRO_BLOQUES: solo banner declara camposEstilo propio', () => {
+  // Si otro bloque lo necesitara habría que justificarlo: el estilo común es
+  // lo que hace que el panel se sienta igual en todos.
+  const conPropio = Object.values(REGISTRO_BLOQUES).filter((d) => d.camposEstilo).map((d) => d.id);
+  assert.deepEqual(conPropio, ['banner']);
+});
+
+// ── Etapa 3: "fijo" vive en la instancia ───────────────────────────────────
+test('conFijos MARCA los bloques fijos que ya estaban sin la marca', () => {
+  // Un borrador guardado antes de que la marca existiera. Sin marcarlo, sus
+  // bloques fijos pasarían de golpe a ser arrastrables y borrables.
+  const viejo: BloqueHome[] = [
+    { id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera' },
+    { id: 'sistema-proximaClase', kind: 'sistema', sistemaId: 'proximaClase' },
+    { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+  ];
+  const r = conFijos(viejo, 'home');
+  assert.equal(r.length, 3, 'no debe duplicar los que ya estaban');
+  assert.deepEqual(r.filter(esBloqueFijo).map((b) => b.id), ['sistema-cabecera', 'sistema-proximaClase']);
+  // El que no es fijo se queda intacto, sin marca.
+  assert.equal(esBloqueFijo(r.find((b) => b.id === 'sistema-estaSemana')!), false);
+});
+
+test('esBloqueFijo pregunta al BLOQUE, no a una tabla por pantalla', () => {
+  // Ese cambio de firma es el punto de la etapa: el llamador ya no puede
+  // consultar la pantalla equivocada, que es como se coló el bug de los
+  // bloques fijos invisibles en el editor.
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'sistema', sistemaId: 'cabecera', fijo: true }), true);
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'sistema', sistemaId: 'cabecera' }), false);
+  assert.equal(esBloqueFijo({ id: 'x', kind: 'texto', config: { titulo: '', texto: '' } }), false);
+});
+
+test('los defaults traen ya la marca — misma forma que lo que devuelve la lectura', () => {
+  // Si los defaults salieran sin marca, un estudio nuevo y uno con borrador
+  // guardado tendrían bloques distintos para la MISMA pantalla.
+  assert.deepEqual(
+    DEFAULT_BLOQUES_POR_PANTALLA.home.filter(esBloqueFijo).map((b) => (b as { sistemaId: string }).sistemaId),
+    ['cabecera', 'proximaClase'],
+  );
+  assert.deepEqual(DEFAULT_BLOQUES_POR_PANTALLA.clases.filter(esBloqueFijo), []);
+});
+
+// ── Etapa 4b: el lector acepta las dos formas ──────────────────────────────
+test('resolverBloques lee el documento {bloques, orden} igual que un array', () => {
+  const comoArray = [
+    { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } },
+    { id: 'b', kind: 'texto', config: { titulo: 'Dos', texto: '' } },
+  ];
+  const comoDocumento = { bloques: { a: comoArray[0], b: comoArray[1] }, orden: ['a', 'b'] };
+  assert.deepEqual(resolverBloques(comoDocumento), resolverBloques(comoArray));
+});
+
+test('resolverBloques respeta el ORDEN del documento, no el de las claves del mapa', () => {
+  const doc = {
+    bloques: {
+      b: { id: 'b', kind: 'texto', config: { titulo: 'Dos', texto: '' } },
+      a: { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } },
+    },
+    orden: ['a', 'b'],
+  };
+  assert.deepEqual(resolverBloques(doc).map((x) => x.id), ['a', 'b']);
+});
+
+test('un id del orden que no está en el mapa se ignora — dato a medio migrar', () => {
+  // Lo contrario sería un `undefined` colándose en el render, y la pantalla de
+  // la socia en blanco. Mismo criterio que el `kind` desconocido.
+  const doc = {
+    bloques: { a: { id: 'a', kind: 'texto', config: { titulo: 'Uno', texto: '' } } },
+    orden: ['fantasma', 'a'],
+  };
+  assert.deepEqual(resolverBloques(doc).map((x) => x.id), ['a']);
+});
+
+test('lo que NO es ni array ni documento sigue devolviendo vacío', () => {
+  for (const basura of [null, undefined, 42, 'x', {}, { bloques: {} }, { orden: [] }]) {
+    assert.deepEqual(resolverBloques(basura), [], JSON.stringify(basura));
+  }
+});
+
+test('resolveBloquesPantalla entiende un borrador guardado como documento', () => {
+  // El camino completo, que es el que usa el servidor al pintar el portal.
+  const guardado = {
+    draft: { bloques: { t: { id: 't', kind: 'texto', config: { titulo: 'Hola', texto: '' } } }, orden: ['t'] },
+    publicado: [],
+  };
+  const r = resolveBloquesPantalla(guardado, 'clases');
+  assert.deepEqual(r.draft.map((b) => b.id), ['t']);
 });

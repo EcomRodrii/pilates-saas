@@ -87,7 +87,13 @@ export function PortalNav({
         ...(flotante ? cristal(desenfoque.tabbar, 170) : {}),
         border: flotante
           ? `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`
-          : `1px solid ${t.line}`,
+          // `--portal-tabbar-border` es la LÍNEA entera, no solo su color: la
+          // barra oscura la quita del todo (ver varsBarra) y con un color
+          // transparente seguiría reservando su píxel de alto.
+          : `var(--portal-tabbar-border, 1px solid ${t.line})`,
+        // Con `--portal-tabbar-border: none` el estilo del borde ya es `none`,
+        // así que este ancho no pinta nada — solo acota la línea al lado de
+        // arriba cuando SÍ hay borde.
         borderWidth: flotante ? '1px' : '1px 0 0 0',
         boxShadow: flotante ? `var(--portal-tabbar-shadow, ${sombra.tabbar})` : 'none',
         display: 'flex', alignItems: 'center', padding: 6,

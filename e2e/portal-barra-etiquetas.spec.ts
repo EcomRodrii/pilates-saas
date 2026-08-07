@@ -70,3 +70,75 @@ test.describe('Barra inferior — etiquetas por variante', () => {
     for (const f of rellenos) expect(f).toBe('none');
   });
 });
+
+// ── La barra de los tres temas, con el tema montado de verdad ───────────────
+// Estos cuatro no miran etiquetas: miran el ESTILO CALCULADO por el navegador
+// con las CSS vars del tema puestas. Es el eslabón que faltaba — hasta ahora
+// todo e2e del portal corría con los fallbacks del componente, así que la
+// píldora blanca con sombra pasaba por buena en los tres temas.
+test.describe('Barra inferior — el estilo real de cada tema', () => {
+  async function abrir(page: import('@playwright/test').Page, tema: string) {
+    await montarPortal(page, { conSesion: true, tema });
+    await page.goto(`/portal/${SLUG}/home`);
+    // Se espera a la BARRA, no al saludo: cada tema tiene su propia cabecera
+    // (`cabeceraInicio`: 'saludo'/'titular'/'nombre'), así que "Hola," solo
+    // aparece en Oliva.
+    const nav = page.getByRole('navigation', { name: 'Secciones' });
+    await expect(nav).toBeVisible({ timeout: 30_000 });
+    const activa = nav.locator('a').first();
+    return { nav, activa };
+  }
+
+  test('Oliva: sin pastilla ni sombra bajo la pestaña activa', async ({ page }) => {
+    const { activa } = await abrir(page, 'oliva');
+    const css = await activa.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, sombra: s.boxShadow, color: s.color };
+    });
+    expect(css.bg).toBe('rgba(0, 0, 0, 0)');
+    expect(css.sombra).toBe('none');
+    expect(css.color).toBe('rgb(61, 74, 47)'); // #3D4A2F, la marca del encargo
+  });
+
+  test('Bloom: la pastilla activa es LILA con el texto en claro, y la barra flota', async ({ page }) => {
+    const { nav, activa } = await abrir(page, 'bloom');
+    const pastilla = await activa.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, color: s.color };
+    });
+    expect(pastilla.bg).toBe('rgb(124, 92, 252)');  // #7C5CFC
+    expect(pastilla.color).not.toBe('rgb(255, 143, 177)'); // el rosa NO va aquí
+    const barra = await nav.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { alto: s.height, radio: s.borderTopLeftRadius, sombra: s.boxShadow };
+    });
+    expect(barra.alto).toBe('66px');
+    expect(parseFloat(barra.radio)).toBeGreaterThan(30); // píldora, no tarjeta
+    expect(barra.sombra).not.toBe('none');
+  });
+
+  test('Noir: barra verde oscuro, activo dorado y sin línea superior', async ({ page }) => {
+    const { nav, activa } = await abrir(page, 'noir');
+    const barra = await nav.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, borde: s.borderTopStyle };
+    });
+    expect(barra.bg).toBe('rgb(30, 43, 34)');  // #1E2B22
+    expect(barra.borde).toBe('none');
+    await expect(activa).toHaveCSS('color', 'rgb(217, 177, 102)'); // #D9B166
+  });
+
+  test('un estudio sin tema de esta tanda conserva la píldora blanca de siempre', async ({ page }) => {
+    // La regresión cara: estos temas no deben cambiarle la barra a nadie más.
+    await montarPortal(page, { conSesion: true });
+    await page.goto(`/portal/${SLUG}/home`);
+    await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({ timeout: 30_000 });
+    const activa = page.getByRole('navigation', { name: 'Secciones' }).locator('a').first();
+    const css = await activa.evaluate((e) => {
+      const s = getComputedStyle(e);
+      return { bg: s.backgroundColor, sombra: s.boxShadow };
+    });
+    expect(css.bg).toBe('rgb(255, 255, 255)');
+    expect(css.sombra).not.toBe('none');
+  });
+});

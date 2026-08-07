@@ -1,6 +1,9 @@
 import type { Page, Route } from '@playwright/test';
-import { resolveBloquesPantalla, type BloqueHome } from '../lib/portal-home-bloques.ts';
+import { resolveBloquesPantalla, sembrarBloquesHome, type BloqueHome } from '../lib/portal-home-bloques.ts';
 import type { VariantesPortal } from '../lib/theme-variantes.ts';
+import { getThemeDefinition } from '../lib/theme-definitions.ts';
+import { DEFAULT_THEME } from '../lib/theme-schema.ts';
+import { themeToCssVars } from '../lib/theme-runtime.ts';
 
 // Montaje del portal de la clienta con datos deterministas, compartido por los
 // tests de las dos pantallas del diseño v2. Vive fuera de un `.spec` porque
@@ -172,12 +175,47 @@ export async function montarPortal(page: Page, opciones: {
    *  PENDIENTE). Se pasa cuando el test necesita un estado concreto —p. ej.
    *  FALLIDO, que es el que el dunning deja al agotar los reintentos. */
   recibos?: typeof RECIBOS;
+  /**
+   * Id de un tema de la galería ('oliva'|'bloom'|'noir'|...). Monta el portal
+   * COMO SI ese tema estuviera publicado: sus `variantes`/`barraClasica` por
+   * studio-data (igual que el servidor) y sus CSS vars en `:root`.
+   *
+   * ⚠️ Sin esto, un e2e del portal corre SIEMPRE con los fallbacks del
+   * componente: las vars las emite `ThemeStyle`, que es servidor y lee
+   * Supabase, así que aquí no llega ninguna. Ese hueco dejó pasar tres
+   * desviaciones de la barra inferior respecto al encargo sin que ningún test
+   * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
+   */
+  tema?: string;
 }) {
   const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS } = opciones;
-  const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
+
+  // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
+  // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
+  // el portal se ve a medias — que es exactamente lo que pasaba en el editor.
+  const temaConfig = tema ? { ...DEFAULT_THEME, ...getThemeDefinition(tema)!.defaults } : null;
+  if (temaConfig) {
+    const vars = themeToCssVars(temaConfig) as Record<string, string>;
+    await page.addInitScript((pares: [string, string][]) => {
+      const aplicar = () => {
+        for (const [k, v] of pares) document.documentElement.style.setProperty(k, v);
+      };
+      if (document.documentElement) aplicar();
+      document.addEventListener('DOMContentLoaded', aplicar);
+    }, Object.entries(vars));
+  }
+  const definicionTema = tema ? getThemeDefinition(tema) : undefined;
+  let bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+  // ⚠️ Un tema NO es solo colores y variantes: también siembra QUÉ bloques del
+  // Inicio se ven y en qué orden (`bloquesHome`). Sin esto, montar un tema en
+  // un e2e enseñaba el Inicio POR DEFECTO con su paleta encima — parecido
+  // pero con otros bloques y otro orden, que es justo lo que hay que comparar.
+  if (!homeBloques && definicionTema?.bloquesHome?.length) {
+    bloquesResueltos = sembrarBloquesHome(bloquesResueltos, [...definicionTema.bloquesHome]);
+  }
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -289,7 +327,8 @@ export async function montarPortal(page: Page, opciones: {
     portalHome,
     homeBloques: bloquesResueltos,
     tabBarStyle,
-    variantes: variantes ?? null,
+    barraClasica: temaConfig?.barraClasica ?? false,
+    variantes: variantes ?? temaConfig?.variantes ?? null,
     retoConteos: retoConteosVivos,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en

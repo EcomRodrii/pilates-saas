@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
   Image as ImageIcon, Type, MousePointerClick, HelpCircle,
-  GalleryHorizontal, Video, Quote, type LucideIcon,
-} from 'lucide-react';
+  GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown, Copy } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -29,9 +28,10 @@ import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   getDefinicionBloque, CAMPOS_ESTILO,
   type BloqueHome, type PantallaId, type EstiloBloque,
-  esBloqueFijo,
+  esBloqueFijo, admiteHijo, type BloqueHijo, type BloqueTipoCatalogo,
 } from '@/lib/portal-home-bloques';
 import { CamposForm } from '@/components/theme/inspector/campos-form';
+import { desdeArray, aArray, duplicar as duplicarEnDoc } from '@/lib/theme/documento';
 import { uid } from '@/lib/utils';
 import {
   crearHistorial, registrar, deshacer, rehacer, puedeDeshacer, puedeRehacer,
@@ -104,8 +104,12 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
       <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Estilo de esta sección</p>
       <p className="text-[11px] text-muted-foreground -mt-1">Pisa el tema global solo aquí. Vacío = hereda del tema.</p>
       <CamposForm
-        campos={CAMPOS_ESTILO}
+        campos={getDefinicionBloque(bloque.kind)?.camposEstilo ?? CAMPOS_ESTILO}
         valores={(bloque.estilo ?? {}) as Record<string, unknown>}
+        // El estilo se GUARDA solo, pero sus condiciones miran también la
+        // config del bloque (ver `valoresCondicion`): el fondo de un banner
+        // depende de si hay foto.
+        valoresCondicion={{ ...(bloque.config as Record<string, unknown>), ...(bloque.estilo ?? {}) }}
         onChange={(estilo, campoId) => onChange({ ...bloque, estilo: estilo as EstiloBloque }, `estilo:${campoId}`)}
       />
     </div>
@@ -113,9 +117,10 @@ function EstiloForm({ bloque, onChange }: { bloque: Exclude<BloqueHome, { kind: 
 }
 
 function Fila({
-  bloque, activa, onSeleccionar, onToggle, onDelete,
+  bloque, activa, onSeleccionar, onToggle, onDelete, onDuplicar,
 }: {
-  bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void; onDelete?: () => void;
+  bloque: BloqueHome; activa: boolean; onSeleccionar: () => void; onToggle: () => void;
+  onDelete?: () => void; onDuplicar?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: bloque.id });
   return (
@@ -135,6 +140,11 @@ function Fila({
       <button onClick={onToggle} title={bloque.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={bloque.oculto ? `Mostrar ${labelDe(bloque)}` : `Ocultar ${labelDe(bloque)}`}>
         {bloque.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
+      {onDuplicar && (
+        <button onClick={onDuplicar} title="Duplicar" className="text-muted-foreground hover:text-foreground" aria-label={`Duplicar ${labelDe(bloque)}`}>
+          <Copy size={16} />
+        </button>
+      )}
       {onDelete && (
         <button onClick={onDelete} title="Eliminar" className="text-muted-foreground hover:text-destructive" aria-label={`Eliminar ${labelDe(bloque)}`}>
           <Trash2 size={16} />
@@ -217,6 +227,23 @@ export function useBloquesEditor() {
     setAviso(null);
   }
 
+  /**
+   * Duplica un bloque justo detrás del original. Pasa por `lib/theme/documento`
+   * en vez de manipular el array a mano: ahí está la regla de que los HIJOS
+   * también reciben ids nuevos, que es la parte fácil de olvidar — si la
+   * copia compartiera los ids de sus hijos, seleccionar uno marcaría los dos.
+   */
+  function duplicar(pantalla: PantallaId, id: string): string | null {
+    let nuevoIdCreado: string | null = null;
+    setBloques(pantalla, (prev) => {
+      const r = duplicarEnDoc(desdeArray(prev), id, uid);
+      nuevoIdCreado = r.id;
+      return aArray(r.doc);
+    });
+    setAviso(null);
+    return nuevoIdCreado;
+  }
+
   function eliminar(pantalla: PantallaId, id: string) {
     setBloques(pantalla, (prev) => prev.filter((b) => b.id !== id));
     setAviso(null);
@@ -229,6 +256,66 @@ export function useBloquesEditor() {
       campoId ? `${pantalla}:${actualizado.id}:${campoId}` : undefined,
     );
     setAviso(null);
+  }
+
+  // ── Hijos ────────────────────────────────────────────────────────────────
+  // Todas pasan por `setBloques`, así que entran en el historial igual que
+  // cualquier otra edición: deshacer alcanza a los hijos sin nada extra.
+  function conHijos(pantalla: PantallaId, padreId: string, f: (hijos: BloqueHijo[]) => BloqueHijo[], clave?: string) {
+    setBloques(pantalla, (prev) => prev.map((b) => (
+      b.id === padreId && b.kind !== 'sistema' ? { ...b, hijos: f(b.hijos ?? []) } : b
+    )), clave);
+    setAviso(null);
+  }
+
+  function anadirHijo(pantalla: PantallaId, padreId: string, kind: BloqueTipoCatalogo): string | null {
+    const padre = bloquesDe(pantalla).find((b) => b.id === padreId);
+    const def = padre && padre.kind !== 'sistema' ? getDefinicionBloque(padre.kind) : undefined;
+    const entry = getBlockCatalogEntry(kind);
+    // Se comprueba aquí, no solo en el picker: el `max` y la whitelist son del
+    // MODELO, y la lectura tolerante los volvería a aplicar al recargar —
+    // añadir uno de más se perdería en silencio al guardar.
+    if (!padre || padre.kind === 'sistema' || !def || !entry || !admiteHijo(def, kind)) return null;
+    if ((padre.hijos ?? []).length >= (def.hijos?.max ?? Infinity)) return null;
+    const nuevo = { id: uid(), kind, config: entry.defaultConfig } as BloqueHijo;
+    conHijos(pantalla, padreId, (hijos) => [...hijos, nuevo]);
+    return nuevo.id;
+  }
+
+  function eliminarHijo(pantalla: PantallaId, padreId: string, hijoId: string) {
+    conHijos(pantalla, padreId, (hijos) => hijos.filter((h) => h.id !== hijoId));
+  }
+
+  /** Sube (-1) o baja (+1) un hijo. Botones y no arrastre: dentro de un rail
+   *  de 272 px, un drop anidado es difícil de acertar y no es accesible por
+   *  teclado. El arrastre de primer nivel se queda como está. */
+  function moverHijo(pantalla: PantallaId, padreId: string, hijoId: string, delta: -1 | 1) {
+    conHijos(pantalla, padreId, (hijos) => {
+      const i = hijos.findIndex((h) => h.id === hijoId);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= hijos.length) return hijos;
+      const copia = [...hijos];
+      [copia[i], copia[j]] = [copia[j]!, copia[i]!];
+      return copia;
+    });
+  }
+
+  function cambiarHijo(pantalla: PantallaId, padreId: string, actualizado: BloqueHijo, campoId?: string) {
+    conHijos(pantalla, padreId, (hijos) => hijos.map((h) => (h.id === actualizado.id ? actualizado : h)),
+      campoId ? `${pantalla}:${actualizado.id}:${campoId}` : undefined);
+  }
+
+  /** Dónde está un id: suelto arriba, o dentro de un contenedor. */
+  function localizar(pantalla: PantallaId, id: string | null): { bloque: BloqueHome; padreId: string | null } | null {
+    if (!id) return null;
+    for (const b of bloquesDe(pantalla)) {
+      if (b.id === id) return { bloque: b, padreId: null };
+      if (b.kind !== 'sistema') {
+        const hijo = (b.hijos ?? []).find((h) => h.id === id);
+        if (hijo) return { bloque: hijo as BloqueHome, padreId: b.id };
+      }
+    }
+    return null;
   }
 
   /**
@@ -297,7 +384,8 @@ export function useBloquesEditor() {
 
   return {
     rol, bloquesPorPantalla, bloquesDe, estado, guardando, publicando, aviso,
-    onDragEnd, toggle, eliminar, cambiar, anadir, guardar, publicar, restaurar,
+    onDragEnd, toggle, eliminar, duplicar, cambiar, anadir, guardar, publicar, restaurar,
+    anadirHijo, eliminarHijo, moverHijo, cambiarHijo, localizar,
     descartarCambios,
     // Deshacer/rehacer de verdad, sobre las tres pantallas a la vez: "lo
     // último que hice" no entiende de en qué pantalla estaba.
@@ -319,10 +407,14 @@ export function useBloquesEditor() {
  * un bloque nuevo.
  */
 export function CatalogoBloques({
-  onElegir, onCerrar, ancla,
+  onElegir, onCerrar, ancla, soloKinds,
 }: {
   onElegir: (kind: (typeof BLOCK_CATALOG)[number]['kind']) => void;
   onCerrar: () => void;
+  /** Filtra el catálogo. Sin esto, entero — que es el caso del rail. Al
+   *  añadir DENTRO de un contenedor se pasa su whitelist, así que no se puede
+   *  elegir algo que el modelo iba a descartar luego en silencio. */
+  soloKinds?: (kind: (typeof BLOCK_CATALOG)[number]['kind']) => boolean;
   /** Colocación cuando se abre desde el preview y no desde el rail. */
   ancla?: React.CSSProperties;
 }) {
@@ -335,7 +427,7 @@ export function CatalogoBloques({
         role="dialog"
         aria-label="Elegir una sección"
       >
-        {BLOCK_CATALOG.map((entry) => {
+        {BLOCK_CATALOG.filter((e) => !soloKinds || soloKinds(e.kind)).map((entry) => {
           const Icono = ICONOS[entry.icono] ?? Plus;
           return (
             <button
@@ -366,8 +458,11 @@ export function BloquesSeccionesList({
   // Los FIJOS van aparte y arriba: son el saludo y la tarjeta grande, que se
   // editan pero no se mueven ni se ocultan. Meterlos en la lista arrastrable
   // pintaría una agarradera y un ojo que no hacen nada.
-  const fijos = todos.filter((b) => b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId));
-  const bloques = todos.filter((b) => !(b.kind === 'sistema' && esBloqueFijo(pantalla, b.sistemaId)));
+  // Se pregunta al BLOQUE, no a una tabla por pantalla: así el rail no
+  // puede consultar la pantalla equivocada, que es como se coló el bug de
+  // los bloques fijos invisibles.
+  const fijos = todos.filter(esBloqueFijo);
+  const bloques = todos.filter((b) => !esBloqueFijo(b));
   const [picker, setPicker] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -400,14 +495,21 @@ export function BloquesSeccionesList({
         <SortableContext items={bloques.map((b) => b.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1.5">
             {bloques.map((b) => (
+              <div key={b.id} className="space-y-1">
               <Fila
-                key={b.id}
                 bloque={b}
                 activa={seleccionId === b.id}
                 onSeleccionar={() => onSeleccionar(b.id)}
                 onToggle={() => hook.toggle(pantalla, b.id)}
                 onDelete={b.kind === 'sistema' ? undefined : () => hook.eliminar(pantalla, b.id)}
+                // Un bloque de SISTEMA no se duplica: es un módulo de producto,
+                // no contenido. Dos "Esta semana" no significan nada.
+                onDuplicar={b.kind === 'sistema' ? undefined : () => { const id = hook.duplicar(pantalla, b.id); if (id) onSeleccionar(id); }}
               />
+              {/* Los hijos cuelgan del padre, sangrados. Solo aparecen si el
+                  bloque admite hijos — para los demás no cambia nada. */}
+              <HijosDe hook={hook} pantalla={pantalla} padre={b} seleccionId={seleccionId} onSeleccionar={onSeleccionar} />
+              </div>
             ))}
           </div>
         </SortableContext>
@@ -437,6 +539,65 @@ export function BloquesSeccionesList({
   );
 }
 
+/**
+ * Los hijos de un contenedor, en el rail. Sangrados bajo su padre y con su
+ * propio "Añadir dentro" — así queda claro DÓNDE va a caer el bloque nuevo,
+ * que es lo primero que se pierde cuando un editor mezcla niveles.
+ */
+function HijosDe({ hook, pantalla, padre, seleccionId, onSeleccionar }: {
+  hook: ReturnType<typeof useBloquesEditor>;
+  pantalla: PantallaId;
+  padre: BloqueHome;
+  seleccionId: string | null;
+  onSeleccionar: (id: string) => void;
+}) {
+  const [picker, setPicker] = useState(false);
+  if (padre.kind === 'sistema') return null;
+  const def = getDefinicionBloque(padre.kind);
+  if (!def?.hijos) return null;
+  const hijos = padre.hijos ?? [];
+  const lleno = hijos.length >= (def.hijos.max ?? Infinity);
+  return (
+    <div className="ml-5 pl-3 border-l border-border space-y-1">
+      {hijos.map((h, i) => (
+        <div key={h.id} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border ${seleccionId === h.id ? 'border-brand bg-brand/5' : 'border-border bg-card'}`}>
+          <button type="button" onClick={() => onSeleccionar(h.id)} className="flex-1 text-left text-[12.5px] text-foreground">
+            {labelDe(h as BloqueHome)}
+          </button>
+          <button onClick={() => hook.moverHijo(pantalla, padre.id, h.id, -1)} disabled={i === 0}
+            aria-label={`Subir ${labelDe(h as BloqueHome)}`} className="text-muted-foreground hover:text-foreground disabled:opacity-30">
+            <ChevronUp size={14} />
+          </button>
+          <button onClick={() => hook.moverHijo(pantalla, padre.id, h.id, 1)} disabled={i === hijos.length - 1}
+            aria-label={`Bajar ${labelDe(h as BloqueHome)}`} className="text-muted-foreground hover:text-foreground disabled:opacity-30">
+            <ChevronDown size={14} />
+          </button>
+          <button onClick={() => hook.eliminarHijo(pantalla, padre.id, h.id)}
+            aria-label={`Eliminar ${labelDe(h as BloqueHome)}`} className="text-muted-foreground hover:text-destructive">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <div className="relative">
+        <button
+          onClick={() => setPicker((v) => !v)}
+          disabled={lleno}
+          className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground disabled:opacity-40"
+        >
+          <Plus size={13} /> {lleno ? `Máximo ${def.hijos.max}` : `Añadir dentro de ${def.nombre}`}
+        </button>
+        {picker && (
+          <CatalogoBloques
+            soloKinds={(k) => admiteHijo(def, k)}
+            onCerrar={() => setPicker(false)}
+            onElegir={(kind) => { const id = hook.anadirHijo(pantalla, padre.id, kind); setPicker(false); if (id) onSeleccionar(id); }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function BloquesConfigPanel({
   hook, pantalla, seleccionId,
 }: {
@@ -444,7 +605,11 @@ export function BloquesConfigPanel({
   pantalla: PantallaId;
   seleccionId: string | null;
 }) {
-  const bloque = hook.bloquesDe(pantalla).find((b) => b.id === seleccionId);
+  // Busca también DENTRO de los contenedores: un hijo se configura igual
+  // que cualquier bloque, solo cambia dónde se escribe el resultado.
+  const encontrado = hook.localizar(pantalla, seleccionId);
+  const bloque = encontrado?.bloque;
+  const padreId = encontrado?.padreId ?? null;
   if (!bloque) return <p className="text-[13px] text-muted-foreground">Selecciona un bloque de la izquierda para configurarlo.</p>;
   // ⚠️ Aquí había un `return` en seco para los bloques de sistema: "no tiene
   // ajustes propios — solo se puede reordenar u ocultar". Como el estado por
@@ -461,9 +626,9 @@ export function BloquesConfigPanel({
   }
   return (
     <div>
-      <ConfigForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
+      <ConfigForm bloque={bloque} onChange={(b, campoId) => (padreId ? hook.cambiarHijo(pantalla, padreId, b as BloqueHijo, campoId) : hook.cambiar(pantalla, b, campoId))} />
       {bloque.kind !== 'sistema' && (
-        <EstiloForm bloque={bloque} onChange={(b, campoId) => hook.cambiar(pantalla, b, campoId)} />
+        <EstiloForm bloque={bloque} onChange={(b, campoId) => (padreId ? hook.cambiarHijo(pantalla, padreId, b as BloqueHijo, campoId) : hook.cambiar(pantalla, b, campoId))} />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad } from './layout-schema.ts';
+import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad, bloqueHomeSchema } from './layout-schema.ts';
 import { DEFAULT_BLOQUES_SHAPE } from './portal-home-bloques.ts';
 
 test('resolveLayout: null/garbage → default', () => {
@@ -139,7 +139,12 @@ test('layoutConfigSchema: acepta `estilo` por bloque (fondo/color/alineación/es
   });
   assert.equal(r.success, true);
   if (r.success) {
-    const bloque = r.data.bloques.home.draft[0];
+    // `draft` es ahora una unión (array o documento) porque el zod acepta las
+    // dos formas — ver pantallaGuardadaSchema. Aquí el caso de prueba es un
+    // array, así que se estrecha explícitamente.
+    const draft = r.data.bloques.home.draft;
+    assert.ok(Array.isArray(draft));
+    const bloque = draft[0]!;
     assert.equal(bloque.kind, 'texto');
     if (bloque.kind === 'texto') {
       assert.deepEqual(bloque.estilo, { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' });
@@ -210,4 +215,9 @@ test('layoutConfigSchema: rechaza un valor de estilo fuera del enum', () => {
     },
   });
   assert.equal(r.success, false);
+});
+
+test('bloqueHomeSchema conserva `fijo` — si zod lo podara, el bloque volvería a ser movible', () => {
+  const r = bloqueHomeSchema.parse({ id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera', fijo: true });
+  assert.equal((r as { fijo?: true }).fijo, true);
 });

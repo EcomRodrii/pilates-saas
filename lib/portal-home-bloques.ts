@@ -82,8 +82,8 @@ export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSiste
 };
 
 /** Si un bloque es de los que existen siempre y no se reordenan. */
-export function esBloqueFijo(pantalla: PantallaId, sistemaId: string): boolean {
-  return (BLOQUES_FIJOS_POR_PANTALLA[pantalla] as readonly string[]).includes(sistemaId);
+export function esBloqueFijo(bloque: BloqueHome): boolean {
+  return bloque.kind === 'sistema' && bloque.fijo === true;
 }
 
 // ── Schemas de campo ────────────────────────────────────────────────────────
@@ -190,46 +190,99 @@ export type TestimoniosConfig = ConfigDe<typeof CAMPOS_TESTIMONIOS>;
 // El `porDefecto` de cada campo es sólo "qué opción sale marcada en el panel"
 // — exactamente el `?? 'redondeada'` que hoy escribe a mano `EstiloForm` — y
 // sólo se persiste cuando la propietaria pulsa.
+// Estilo del bloque. Ocho controles: en lista plana no se lee de un vistazo,
+// así que van en tres secciones con el orden canónico color → disposición →
+// forma (el mismo que usan todos los contenedores del tema de referencia).
+//
+// ⚠️ "Esquinas" es el primer campo del portal con condición REAL: sobre un
+// bloque transparente y sin sombra, redondear las esquinas no se ve. El dato
+// ya estaba en el render (`estilo?.esquinas ? … : (estilo?.fondo ? … )`), solo
+// que no estaba en el schema. Banner es la excepción y trae el suyo, abajo.
 export const CAMPOS_ESTILO = [
-  { tipo: 'colorHeredado', id: 'fondo', etiqueta: 'Fondo', porDefecto: null },
-  { tipo: 'colorHeredado', id: 'color', etiqueta: 'Texto', porDefecto: null },
+  { tipo: 'colorHeredado', id: 'fondo', etiqueta: 'Fondo', porDefecto: null, grupo: 'Color' },
+  { tipo: 'colorHeredado', id: 'color', etiqueta: 'Texto', porDefecto: null, grupo: 'Color' },
   {
-    tipo: 'opciones', id: 'alineacion', etiqueta: 'Alineación', porDefecto: 'izquierda',
+    tipo: 'opciones', id: 'alineacion', etiqueta: 'Alineación', porDefecto: 'izquierda', grupo: 'Disposición',
     opciones: [
       { id: 'izquierda', label: 'Izquierda' }, { id: 'centro', label: 'Centro' }, { id: 'derecha', label: 'Derecha' },
     ],
   },
   {
-    tipo: 'opciones', id: 'espaciado', etiqueta: 'Espaciado', porDefecto: 'normal',
+    tipo: 'opciones', id: 'ancho', etiqueta: 'Ancho', porDefecto: 'completo', grupo: 'Disposición',
+    opciones: [
+      { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+    ],
+  },
+  {
+    tipo: 'opciones', id: 'espaciado', etiqueta: 'Espaciado', porDefecto: 'normal', grupo: 'Disposición',
     opciones: [
       { id: 'compacto', label: 'Compacto' }, { id: 'normal', label: 'Normal' }, { id: 'amplio', label: 'Amplio' },
     ],
   },
   {
-    tipo: 'opciones', id: 'tamanoTexto', etiqueta: 'Tamaño del texto', porDefecto: 'normal',
+    tipo: 'opciones', id: 'tamanoTexto', etiqueta: 'Tamaño del texto', porDefecto: 'normal', grupo: 'Disposición',
     opciones: [
       { id: 'pequeno', label: 'Pequeño' }, { id: 'normal', label: 'Normal' }, { id: 'grande', label: 'Grande' },
     ],
   },
   {
-    tipo: 'opciones', id: 'esquinas', etiqueta: 'Esquinas', porDefecto: 'redondeada',
-    opciones: [
-      { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
-    ],
-  },
-  {
-    tipo: 'opciones', id: 'sombra', etiqueta: 'Sombra', porDefecto: 'ninguna',
+    tipo: 'opciones', id: 'sombra', etiqueta: 'Sombra', porDefecto: 'ninguna', grupo: 'Forma',
     opciones: [
       { id: 'ninguna', label: 'Ninguna' }, { id: 'suave', label: 'Suave' }, { id: 'marcada', label: 'Marcada' },
     ],
   },
   {
-    tipo: 'opciones', id: 'ancho', etiqueta: 'Ancho', porDefecto: 'completo',
+    tipo: 'opciones', id: 'esquinas', etiqueta: 'Esquinas', porDefecto: 'redondeada', grupo: 'Forma',
+    // Sin fondo NI sombra no hay nada cuyo borde redondear.
+    //
+    // ⚠️ `{ campo: 'sombra', distinto: 'ninguna' }` a secas NO vale, y el test
+    // lo cazó: en `estilo` no se rellenan defaults (ausente = "hereda"), así
+    // que `sombra` llega `undefined` y `undefined !== 'ninguna'` es cierto —
+    // la condición se cumplía siempre. Hay que exigir además que exista. Es la
+    // misma trampa de "ausente no es el valor por defecto" de todo este módulo.
+    visibleSi: {
+      alguna: [
+        { campo: 'fondo', noVacio: true },
+        { todas: [{ campo: 'sombra', noVacio: true }, { campo: 'sombra', distinto: 'ninguna' }] },
+      ],
+    },
     opciones: [
-      { id: 'completo', label: 'Completo' }, { id: 'contenido', label: 'Con margen' },
+      { id: 'ninguna', label: 'Recta' }, { id: 'suave', label: 'Suave' }, { id: 'redondeada', label: 'Redonda' }, { id: 'pill', label: 'Cápsula' },
     ],
   },
 ] as const satisfies readonly CampoSchema[];
+
+// Banner tiene su propia geometría (una foto a sangre con altura fija), así
+// que sus dos excepciones al estilo común son de verdad, no un capricho:
+//  · las esquinas SIEMPRE se ven —recortan la imagen—, sin condición;
+//  · el fondo solo sirve si NO hay foto, porque la imagen tapa el bloque
+//    entero. Esa frase ya estaba escrita en un comentario de
+//    bloque-home-render.tsx; aquí pasa a ser schema, y el panel deja de
+//    ofrecer un color que no se vería.
+export const CAMPOS_ESTILO_BANNER = CAMPOS_ESTILO.map((c) =>
+  c.id === 'esquinas' ? { ...c, visibleSi: undefined }
+  : c.id === 'fondo' ? { ...c, visibleSi: { campo: 'imagenUrl', igual: '' } as const }
+  : c,
+) as readonly CampoSchema[];
+
+export const CAMPOS_CONTENEDOR = [
+  { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
+  {
+    tipo: 'opciones', id: 'direccion', etiqueta: 'Disposición', porDefecto: 'columna', grupo: 'Disposición',
+    opciones: [{ id: 'columna', label: 'Una debajo de otra' }, { id: 'fila', label: 'En fila' }],
+  },
+  {
+    tipo: 'opciones', id: 'separacion', etiqueta: 'Separación', porDefecto: 'normal', grupo: 'Disposición',
+    opciones: [{ id: 'poca', label: 'Poca' }, { id: 'normal', label: 'Normal' }, { id: 'mucha', label: 'Mucha' }],
+  },
+  {
+    // Solo tiene sentido en fila: en columna todas ocupan el ancho.
+    tipo: 'opciones', id: 'reparto', etiqueta: 'Reparto', porDefecto: 'iguales', grupo: 'Disposición',
+    visibleSi: { campo: 'direccion', igual: 'fila' },
+    opciones: [{ id: 'iguales', label: 'Partes iguales' }, { id: 'ajustado', label: 'Al contenido' }],
+  },
+] as const satisfies readonly CampoSchema[];
+export type ContenedorConfig = ConfigDe<typeof CAMPOS_CONTENEDOR>;
 
 export type EstiloBloque = Partial<ConfigDe<typeof CAMPOS_ESTILO>>;
 
@@ -251,21 +304,56 @@ export type BloqueHome =
   // ⚠️ `config` es ADITIVA y opcional también aquí: un bloque de sistema
   // guardado antes de que existieran estos campos se lee igual que siempre,
   // porque `resolverConfig` rellena las claves ausentes con el texto de hoy.
-  | { id: string; kind: 'sistema'; sistemaId: BloqueSistemaId; config?: Record<string, unknown>; oculto?: boolean }
+  | {
+      id: string; kind: 'sistema'; sistemaId: BloqueSistemaId;
+      config?: Record<string, unknown>; oculto?: boolean;
+      /**
+       * "Este bloque no se mueve ni se borra". Viaja EN EL DATO, no en una
+       * regla que cada lector aplique por su cuenta.
+       *
+       * ⚠️ Antes era una constante global consultada en tiempo de lectura
+       * (`BLOQUES_FIJOS_POR_PANTALLA` + `esBloqueFijo(pantalla, id)`), y el
+       * 2026-08-06 costó un bug real: el render aplicaba la regla y el editor
+       * no, así que la propietaria veía el bloque en su portal y en la vista
+       * previa pero no podía ni seleccionarlo. Con la marca en la instancia
+       * los dos caminos leen lo mismo por construcción, y el llamador ya no
+       * puede equivocarse de pantalla al preguntar.
+       *
+       * La lista global sigue existiendo, pero solo para MATERIALIZAR la marca
+       * (qué bloques deben existir en cada pantalla), no para responder "¿es
+       * fijo?".
+       */
+      fijo?: true;
+    }
   | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'cta'; config: CtaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'faq'; config: FaqConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'galeria'; config: GaleriaConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'video'; config: VideoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
-  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] };
+  | { id: string; kind: 'testimonios'; config: TestimoniosConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
+  | { id: string; kind: 'contenedor'; config: ContenedorConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] };
 
 /**
  * Un hijo es un bloque del catálogo SIN `hijos` propios — el tipo es quien
  * impide el segundo nivel, no una comprobación en tiempo de ejecución que se
  * pueda olvidar en algún camino.
  */
-export type BloqueHijo = Omit<Extract<BloqueHome, { kind: BloqueTipoCatalogo }>, 'hijos'>;
+/**
+ * ⚠️ `Omit` NO distribuye sobre uniones: `Omit<A | B, 'x'>` colapsa en UN
+ * objeto con la unión de todas las claves, y ahí `kind` deja de estar
+ * correlacionado con `config`. Este tipo llevaba varias PRs escrito así y
+ * nadie lo notó porque el anidamiento no tenía consumidores; salió a la luz al
+ * pintar el primer hijo de verdad. El `T extends unknown ?` fuerza el reparto.
+ */
+type SinHijos<T> = T extends unknown ? Omit<T, 'hijos'> : never;
+
+/**
+ * Un hijo es un bloque del catálogo SIN `hijos` propios, y nunca un
+ * contenedor — el TIPO es quien impide el segundo nivel, no una comprobación
+ * en tiempo de ejecución que se pueda olvidar en algún camino.
+ */
+export type BloqueHijo = SinHijos<Exclude<Extract<BloqueHome, { kind: BloqueTipoCatalogo }>, { kind: 'contenedor' }>>;
 
 export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 
@@ -295,6 +383,28 @@ export type BloqueTipoCatalogo = Exclude<BloqueHome['kind'], 'sistema'>;
 // un campo.
 
 /** Agrupa el picker de "Añadir sección". Solo aplica a `origen: 'catalogo'`. */
+/**
+ * Comodín de `hijos.admite`: "acepto cualquier bloque público del catálogo".
+ *
+ * Sin él, cada contenedor tendría que enumerar todos los tipos, y un bloque
+ * nuevo no sería usable dentro de ninguno hasta editar a mano todos los
+ * padres. Es lo que hace que el catálogo crezca sin tocar nada más — y es la
+ * respuesta a "¿qué bloque debe aceptar hijos?": no hay que decidirlo bloque a
+ * bloque, se crea UN contenedor y acepta todo.
+ *
+ * No incluye al propio `contenedor`: el anidamiento es de un nivel (ver el
+ * comentario de `BloqueHome`), así que un contenedor dentro de otro no tendría
+ * dónde pintar a sus nietos.
+ */
+export const COMODIN_CATALOGO = '@catalogo' as const;
+
+/** Si `padre` admite un hijo de tipo `kind`, resolviendo el comodín. */
+export function admiteHijo(padre: DefinicionBloque, kind: BloqueTipoCatalogo): boolean {
+  if (!padre.hijos) return false;
+  if (kind === 'contenedor') return padre.hijos.admite.includes('contenedor');
+  return padre.hijos.admite.includes(kind) || padre.hijos.admite.includes(COMODIN_CATALOGO);
+}
+
 export type CategoriaBloque = 'texto' | 'multimedia' | 'interaccion';
 
 export const CATEGORIA_BLOQUE_LABEL: Record<CategoriaBloque, string> = {
@@ -319,10 +429,16 @@ export interface DefinicionBloque {
   /** Si admite `estilo` propio. Los `sistema` son UI de producto, no. */
   estilizable: boolean;
   /**
+   * Schema de estilo propio. Ausente = `CAMPOS_ESTILO`, el común. Existe
+   * porque un bloque puede tener geometría propia y entonces las condiciones
+   * del estilo común son falsas para él (ver `CAMPOS_ESTILO_BANNER`).
+   */
+  camposEstilo?: readonly CampoSchema[];
+  /**
    * Qué bloques admite dentro y cuántos. Ausente = no admite ninguno, que es
    * el caso de los siete de hoy. Los `sistema` lo llevan siempre ausente.
    */
-  hijos?: { admite: readonly BloqueTipoCatalogo[]; max?: number };
+  hijos?: { admite: readonly (BloqueTipoCatalogo | typeof COMODIN_CATALOGO)[]; max?: number };
   /**
    * Cuándo el bloque tiene contenido suficiente para pintarse. Ausente =
    * siempre completo (es el caso de `banner`, que se pinta con o sin imagen).
@@ -393,29 +509,34 @@ export const CAMPOS_CABECERA = [
  * hora, "Racha de N semanas"): un campo ahí sería un control que no mueve
  * nada, o peor, que borra un dato real.
  */
+// ⚠️ 16 campos: es el bloque más grande del portal, y en lista plana era un
+// muro. `grupo` los reparte en las CINCO situaciones distintas que puede vivir
+// la socia — solo una se da a la vez, así que el Inspector abre la primera y
+// pliega el resto. El prefijo que antes llevaba cada etiqueta ("Sin clases ·
+// Titular") lo pone ahora el título de la sección.
 export const CAMPOS_PROXIMA_CLASE = [
   // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
   // propia vista previa.
-  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Sin clases · Etiqueta', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
-  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Sin clases · Titular', porDefecto: 'Empieza por aquí', maxLargo: 50 },
-  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Sin clases · Texto', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
-  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Sin clases · Botón', porDefecto: 'Ver la agenda', maxLargo: 30 },
+  { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Etiqueta', grupo: 'Sin clases', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
+  { tipo: 'texto', id: 'vaciaTitulo', etiqueta: 'Titular', grupo: 'Sin clases', porDefecto: 'Empieza por aquí', maxLargo: 50 },
+  { tipo: 'texto', id: 'vaciaTexto', etiqueta: 'Texto', grupo: 'Sin clases', porDefecto: 'Elige el día que mejor te venga', maxLargo: 70 },
+  { tipo: 'texto', id: 'vaciaBoton', etiqueta: 'Botón', grupo: 'Sin clases', porDefecto: 'Ver la agenda', maxLargo: 30 },
   // Con próxima clase — titular y detalles salen de la reserva.
-  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Próxima clase · Etiqueta', porDefecto: 'Tu próxima clase', maxLargo: 40 },
-  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Próxima clase · Botón', porDefecto: 'Ver mi acceso', maxLargo: 30 },
+  { tipo: 'texto', id: 'proximaVolanta', etiqueta: 'Etiqueta', grupo: 'Próxima clase', porDefecto: 'Tu próxima clase', maxLargo: 40 },
+  { tipo: 'texto', id: 'proximaBoton', etiqueta: 'Botón', grupo: 'Próxima clase', porDefecto: 'Ver mi acceso', maxLargo: 30 },
   // Se le acaba el bono.
-  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Bono acabándose · Etiqueta', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
-  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Bono acabándose · Titular', porDefecto: 'Te queda una sesión', maxLargo: 50 },
-  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Bono acabándose · Texto', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
-  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Bono acabándose · Botón', porDefecto: 'Renovar mi bono', maxLargo: 30 },
+  { tipo: 'texto', id: 'bonoVolanta', etiqueta: 'Etiqueta', grupo: 'Bono acabándose', porDefecto: 'Tu bono se acaba', maxLargo: 40 },
+  { tipo: 'texto', id: 'bonoTitulo', etiqueta: 'Titular', grupo: 'Bono acabándose', porDefecto: 'Te queda una sesión', maxLargo: 50 },
+  { tipo: 'texto', id: 'bonoTexto', etiqueta: 'Texto', grupo: 'Bono acabándose', porDefecto: 'Renuévalo y sigues igual', maxLargo: 70 },
+  { tipo: 'texto', id: 'bonoBoton', etiqueta: 'Botón', grupo: 'Bono acabándose', porDefecto: 'Renovar mi bono', maxLargo: 30 },
   // Racha en riesgo — la etiqueta lleva el número de semanas, no se toca.
-  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Racha en riesgo · Titular', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
-  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Racha en riesgo · Texto', porDefecto: 'Reserva esta semana', maxLargo: 70 },
-  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Racha en riesgo · Botón', porDefecto: 'Buscar mi clase', maxLargo: 30 },
+  { tipo: 'texto', id: 'rachaTitulo', etiqueta: 'Titular', grupo: 'Racha en riesgo', porDefecto: 'No la pierdas ahora', maxLargo: 50 },
+  { tipo: 'texto', id: 'rachaTexto', etiqueta: 'Texto', grupo: 'Racha en riesgo', porDefecto: 'Reserva esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'rachaBoton', etiqueta: 'Botón', grupo: 'Racha en riesgo', porDefecto: 'Buscar mi clase', maxLargo: 30 },
   // Lleva tiempo sin venir — la etiqueta lleva los días, no se toca.
-  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Sin venir · Titular', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
-  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Sin venir · Texto', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
-  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Sin venir · Botón', porDefecto: 'Volver a reservar', maxLargo: 30 },
+  { tipo: 'texto', id: 'inactivaTitulo', etiqueta: 'Titular', grupo: 'Sin venir', porDefecto: 'Tu sitio te espera', maxLargo: 50 },
+  { tipo: 'texto', id: 'inactivaTexto', etiqueta: 'Texto', grupo: 'Sin venir', porDefecto: 'Hay clases con hueco esta semana', maxLargo: 70 },
+  { tipo: 'texto', id: 'inactivaBoton', etiqueta: 'Botón', grupo: 'Sin venir', porDefecto: 'Volver a reservar', maxLargo: 30 },
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_ESTA_SEMANA = [
@@ -469,9 +590,23 @@ export const CAMPOS_LISTADO_BONOS = [
 ] as const satisfies readonly CampoSchema[];
 
 export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
+  contenedor: {
+    id: 'contenedor', nombre: 'Grupo', icono: 'Rows3', origen: 'catalogo',
+    categoria: 'texto', estilizable: true, campos: CAMPOS_CONTENEDOR,
+    descripcion: 'Agrupa varios bloques y los coloca en fila o en columna.',
+    // El comodín: acepta cualquier bloque del catálogo sin enumerarlos. `max`
+    // no es estético — en fila, más de cuatro no caben en 390px sin que cada
+    // una quede ilegible.
+    hijos: { admite: [COMODIN_CATALOGO], max: 4 },
+    // Un grupo vacío no pinta nada: sin esto dejaría un hueco con su padding
+    // en el portal de la socia. Se comprueba sobre `hijos`, no sobre `config`,
+    // así que vive en el render (ver ContenedorBloque) — `completoSi` solo
+    // mira `config`.
+  },
   banner: {
     id: 'banner', nombre: 'Banner', icono: 'Image', origen: 'catalogo',
     categoria: 'multimedia', estilizable: true, campos: CAMPOS_BANNER,
+    camposEstilo: CAMPOS_ESTILO_BANNER,
     // Sin `completoSi`: un banner se pinta con o sin imagen y sin enlace.
     descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
   },
@@ -655,10 +790,15 @@ function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
 // textos de fábrica. Sin esto, el default y lo que devuelve
 // `resolveBloquesPantalla` dejaban de ser iguales — y hay tests que comparan
 // justo esas dos cosas, que fueron los que lo cazaron.
+// ⚠️ Pasan por `conFijos`, no solo por `resolverBloque`: si no, los defaults
+// saldrían SIN la marca `fijo` y no coincidirían con lo que devuelve
+// `resolveBloquesPantalla` para el mismo estudio. Ya nos pasó con `config`:
+// dos construcciones del mismo dato que divergen es la fuente de bug más
+// repetida de este módulo.
 export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
-  home: BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!),
-  clases: BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!),
-  bonos: BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!),
+  home: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!), 'home'),
+  clases: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!), 'clases'),
+  bonos: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!), 'bonos'),
 };
 /** @deprecated usar DEFAULT_BLOQUES_POR_PANTALLA.home */
 export const DEFAULT_HOME_BLOQUES: BloqueHome[] = DEFAULT_BLOQUES_POR_PANTALLA.home;
@@ -744,7 +884,7 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
     ? b.hijos
         .map(resolverBloque)
         .filter((h): h is Extract<BloqueHome, { kind: BloqueTipoCatalogo }> =>
-          h !== null && h.kind !== 'sistema' && def.hijos!.admite.includes(h.kind))
+          h !== null && h.kind !== 'sistema' && admiteHijo(def, h.kind))
         .map(({ hijos: _descartado, ...resto }) => resto as BloqueHijo)
         .slice(0, def.hijos.max ?? Infinity)
     : [];
@@ -759,9 +899,37 @@ export function resolverBloque(raw: unknown): BloqueHome | null {
 }
 
 /** Una lista de bloques crudos, sin los que no se puedan resolver. */
+/**
+ * Lee una pantalla guardada, venga en el formato que venga.
+ *
+ * Acepta DOS formas a propósito:
+ *  · **array** — como se ha guardado siempre;
+ *  · **`{ bloques, orden }`** — el documento (mapa + orden) de la etapa 4.
+ *
+ * ⚠️ El orden de una migración es lector primero, escritor después. Esta
+ * función es el lector: sale a producción sabiendo leer las dos formas ANTES
+ * de que nada escriba la nueva. Si se hicieran a la vez, un rollback dejaría
+ * datos que el código anterior no entiende — y aquí "no entiende" significa el
+ * Inicio en blanco en el portal de una socia.
+ *
+ * Un `orden` con un id que no está en `bloques` se ignora, igual que un `kind`
+ * desconocido: un dato a medio migrar no puede tumbar una pantalla.
+ */
 export function resolverBloques(raw: unknown): BloqueHome[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map(resolverBloque).filter((b): b is BloqueHome => b !== null);
+  if (Array.isArray(raw)) {
+    return raw.map(resolverBloque).filter((b): b is BloqueHome => b !== null);
+  }
+  if (raw && typeof raw === 'object') {
+    const doc = raw as { bloques?: unknown; orden?: unknown };
+    if (doc.bloques && typeof doc.bloques === 'object' && Array.isArray(doc.orden)) {
+      const mapa = doc.bloques as Record<string, unknown>;
+      return doc.orden
+        .filter((id): id is string => typeof id === 'string')
+        .map((id) => resolverBloque(mapa[id]))
+        .filter((b): b is BloqueHome => b !== null);
+    }
+  }
+  return [];
 }
 
 /**
@@ -788,13 +956,30 @@ export function resolverBloques(raw: unknown): BloqueHome[] {
  * reordenables no se inyectan, porque un estudio puede haberlos quitado a
  * propósito y volver a metérselos sería deshacerle una decisión.
  */
-function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
+/**
+ * Antepone los bloques FIJOS de la pantalla que falten. Un estudio que guardó
+ * su borrador antes de que un bloque fijo existiera no lo tiene en el jsonb, y
+ * sin esto se quedaría fuera para siempre.
+ *
+ * ⚠️ Exportada porque hacen falta DOS llamadas, no una: el render la aplica
+ * dentro de `resolveBloquesPantalla` (servidor) y el EDITOR tiene que aplicar
+ * la misma al cargar el borrador por la API (`fetchBloquesBorrador`). Cuando
+ * solo la aplicaba el render, la propietaria veía el bloque en su portal y en
+ * la vista previa pero NO en el panel: imposible de seleccionar y de editar.
+ */
+export function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHome[] {
   const fijos = BLOQUES_FIJOS_POR_PANTALLA[pantalla];
   if (fijos.length === 0) return bloques;
-  const presentes = new Set(bloques.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
+  // Marca los que YA están: un borrador guardado antes de que la marca
+  // existiera no la trae, y sin esto sus bloques fijos pasarían de golpe a ser
+  // arrastrables y borrables. Se persiste en el siguiente guardado.
+  const marcados = bloques.map((b) => (
+    b.kind === 'sistema' && fijos.includes(b.sistemaId) && b.fijo !== true ? { ...b, fijo: true as const } : b
+  ));
+  const presentes = new Set(marcados.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
   const faltan = fijos.filter((id) => !presentes.has(id));
-  if (faltan.length === 0) return bloques;
-  return [...faltan.map((id) => resolverBloque(bloqueSistema(id))!), ...bloques];
+  if (faltan.length === 0) return marcados;
+  return [...faltan.map((id) => ({ ...resolverBloque(bloqueSistema(id))!, fijo: true as const })), ...marcados];
 }
 
 export function resolveBloquesPantalla(
@@ -860,4 +1045,27 @@ export function bloqueEstaCompleto(b: Exclude<BloqueHome, { kind: 'sistema' }>):
   const def = getDefinicionBloque(b.kind);
   if (!def) return false;
   return cumpleCondicion(def.completoSi, b.config as Record<string, unknown>);
+}
+
+/**
+ * Reordena/oculta los bloques `sistema` del Inicio según `bloquesHome` de un
+ * `ThemeDefinition` — los que aparecen en la lista pasan a visibles, en ese
+ * orden; los que no, se ocultan (nunca se borran: un bloque `sistema` no se
+ * puede quitar del todo). Los bloques del CATÁLOGO se preservan tal cual, al
+ * final — "cambiar de tema no debe borrar tu contenido".
+ */
+export function sembrarBloquesHome(actuales: BloqueHome[], orden: string[]): BloqueHome[] {
+  const sistema = actuales.filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => b.kind === 'sistema');
+  const catalogo = actuales.filter((b) => b.kind !== 'sistema');
+  const porId = new Map(sistema.map((b) => [b.sistemaId, b]));
+
+  const listados = orden
+    .map((id) => porId.get(id as Extract<BloqueHome, { kind: 'sistema' }>['sistemaId']))
+    .filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => !!b)
+    .map((b) => ({ ...b, oculto: false }));
+  const noListados = sistema
+    .filter((b) => !orden.includes(b.sistemaId))
+    .map((b) => ({ ...b, oculto: true }));
+
+  return [...listados, ...noListados, ...catalogo];
 }

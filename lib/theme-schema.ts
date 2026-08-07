@@ -190,6 +190,36 @@ const radioTemaSchema = z.object({
   // Bloom). Sin este campo la baldosa cae al radio de tarjeta de siempre.
   acceso: z.number().optional(),
 }).strict();
+// Escala tipográfica por PIEZA — mismo mecanismo que radioTema: parcial,
+// opcional, y ausente = el número fijo de siempre en portal-design.ts.
+//
+// Los siete pasos y sus valores salen de `tokens/tokens.json` de los paquetes
+// que entregó diseño (`typography.scale`), no de una elección nuestra.
+//
+// ⚠️ Es un token DEL TEMA, no una constante del producto: Noir y Oliva titulan
+// sus secciones a 17 y Bloom a 20. Se llegó a recomendar una escala única para
+// todos los estudios; los tokens del encargo lo contradicen y mandan ellos.
+// Antes de esto el portal usaba 24 en unos rótulos y 30 en otros, sin criterio.
+const escalaTextoSchema = z.object({
+  /** Rótulo de sección ("Próxima clase", "Esta semana"). Hoy: 24 y 30. */
+  seccion: z.number().optional(),
+  /** Título de pantalla completa (Clases, Bonos). */
+  tituloPantalla: z.number().optional(),
+  /** "Hola, {nombre}" de la cabecera del Inicio. Hoy: 21. */
+  saludo: z.number().optional(),
+  /** Titular de la tarjeta principal (nombre de la clase). Hoy: 29. */
+  tituloHero: z.number().optional(),
+  /** Titular de la pantalla de bienvenida, antes del login. */
+  bienvenida: z.number().optional(),
+  /** Número grande de sesiones restantes en Bonos. */
+  numeroBono: z.number().optional(),
+  // ⚠️ El `typography.scale` del encargo trae un séptimo paso, `timer`, para
+  // la cuenta atrás de la sesión guiada. NO se declara aquí: nuestro portal no
+  // tiene esa pantalla. Declararlo sería exactamente lo que este proyecto
+  // lleva pagando caro — un campo sin consumidor que parece que hace algo.
+  // Cuando exista la pantalla, se añade.
+}).strict();
+
 // Variantes de FORMA por bloque — el catálogo vive en theme-variantes.ts
 // (módulo puro), igual que navConfigSchema toma el suyo de portal-nav.ts. Todo
 // opcional: ausente = el aspecto de hoy en todos los ejes.
@@ -251,6 +281,8 @@ export const themeConfigSchema = z
     // arriba. Ausente = las piezas nuevas caen a los números fijos de
     // portal-design.ts, como si el campo no existiera.
     radioTema: radioTemaSchema.optional(),
+    // Escala tipográfica por pieza — ver comentario del schema arriba.
+    escalaTexto: escalaTextoSchema.optional(),
     // Variantes de forma por bloque — ver comentario del schema arriba.
     // Ausente = el aspecto de hoy en todos los ejes.
     variantes: variantesSchema.optional(),
@@ -296,6 +328,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   barraClasica: false,
   destacado: null,
   radioTema: undefined,
+  escalaTexto: undefined,
   variantes: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
   redesSociales: { instagram: '', facebook: '', whatsapp: '' },
@@ -333,6 +366,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     barraClasica: pick('barraClasica', barraClasicaSchema),
     destacado: pick('destacado', destacadoSchema.nullable()),
     radioTema: pick('radioTema', radioTemaSchema.optional()),
+    escalaTexto: pick('escalaTexto', escalaTextoSchema.optional()),
     variantes: pick('variantes', variantesSchema.optional()),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),

@@ -4,8 +4,9 @@ import { useState, type ComponentType } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { useModo } from '@/lib/portal-modo';
-import { display, texto, radio, altura, sombra, transicion, dur } from '@/lib/portal-design';
-import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque } from '@/lib/portal-home-bloques';
+import { display, escala, texto, radio, altura, sombra, transicion, dur } from '@/lib/portal-design';
+import { coloresDe } from '@/lib/theme/superficie';
+import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque, type ContenedorConfig } from '@/lib/portal-home-bloques';
 import { paraKind, type PropsBloqueRender } from '@/components/portal/bloques/registro-render';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
@@ -100,8 +101,8 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
         justifyContent: 'flex-end', alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : undefined,
         textAlign: alineacion, pointerEvents: 'none',
       }}>
-        {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: estilo?.color ?? t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
-        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: estilo?.color ?? t.muted, marginTop: 12 }}>{cuerpo}</div>}
+        {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: coloresDe(estilo, t).ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
+        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: t.ink, muted: t.muted }).muted, marginTop: 12 }}>{cuerpo}</div>}
       </div>
     </>
   );
@@ -126,8 +127,8 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 8 }}>{titulo}</div>}
-      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: estilo?.color ?? t.muted2, lineHeight: 1.55 }}>{cuerpo}</p>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink, marginBottom: 8 }}>{titulo}</div>}
+      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: coloresDe(estilo, { ink: t.ink, muted: t.muted2 }).muted, lineHeight: 1.55 }}>{cuerpo}</p>}
     </div>
   );
 }
@@ -150,7 +151,7 @@ function CtaBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'cta'
       alignItems: alineacion === 'center' ? 'center' : alineacion === 'right' ? 'flex-end' : 'flex-start',
       textAlign: alineacion, gap: 12,
     }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink }}>{titulo}</div>}
       {resuelto.interno ? (
         <Link href={`/portal/${slug}${resuelto.valor}`} style={estiloBoton}>{textoBoton}</Link>
       ) : (
@@ -184,7 +185,7 @@ function FaqBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'faq' }> })
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 4 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink, marginBottom: 4 }}>{titulo}</div>}
       {preguntas.map((p, i) => <FilaFaq key={i} pregunta={p.pregunta} respuesta={p.respuesta} color={estilo?.color} />)}
     </div>
   );
@@ -220,7 +221,7 @@ function VideoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'video' }
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 12 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink, marginBottom: 12 }}>{titulo}</div>}
       <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: estilo?.esquinas ? ESQUINAS_RADIO[estilo.esquinas] : radio.card, overflow: 'hidden' }}>
         <iframe
           src={embed} title={titulo || 'Vídeo'} allowFullScreen
@@ -238,12 +239,12 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
   const alineacion = estilo?.alineacion ? ALINEACION_TEXT_ALIGN[estilo.alineacion] : undefined;
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
-      {titulo && <div style={{ ...escalar(estilo, display(24)), color: estilo?.color ?? t.ink, marginBottom: 12 }}>{titulo}</div>}
+      {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink, marginBottom: 12 }}>{titulo}</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {testimonios.map((te, i) => (
           <div key={i} style={{ borderTop: i > 0 ? `1px solid ${t.line}` : undefined, paddingTop: i > 0 ? 18 : 0 }}>
-            <p style={{ ...escalar(estilo, display(19, true, 1.2)), color: estilo?.color ?? t.ink, textWrap: 'pretty' } as React.CSSProperties}>“{te.cita}”</p>
-            <p style={{ ...escalar(estilo, texto.nota), color: estilo?.color ?? t.muted, marginTop: 8 }}>
+            <p style={{ ...escalar(estilo, display(19, true, 1.2)), color: coloresDe(estilo, t).ink, textWrap: 'pretty' } as React.CSSProperties}>“{te.cita}”</p>
+            <p style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: t.ink, muted: t.muted }).muted, marginTop: 8 }}>
               {te.autor}{te.rol ? ` · ${te.rol}` : ''}
             </p>
           </div>
@@ -267,9 +268,56 @@ const RENDER_BLOQUES: Record<BloqueTipoCatalogo, ComponentType<PropsBloqueRender
   galeria: paraKind<'galeria'>(GaleriaBloque),
   video: paraKind<'video'>(VideoBloque),
   testimonios: paraKind<'testimonios'>(TestimoniosBloque),
+  contenedor: paraKind<'contenedor'>(ContenedorBloque),
 };
 
 export { RENDER_BLOQUES };
+
+const SEPARACION_GAP: Record<NonNullable<ContenedorConfig['separacion']>, number> = {
+  poca: 8, normal: 16, mucha: 28,
+};
+
+/**
+ * Grupo: coloca a sus hijos en fila o en columna. Es el primer bloque del
+ * portal que usa el anidamiento — el mecanismo llevaba varias PRs construido y
+ * sin un solo consumidor.
+ *
+ * Los hijos se pintan con `BloqueHomeRender`, el MISMO camino que los bloques
+ * de primer nivel: así un hijo hereda por construcción la guarda de kind
+ * desconocido y el gate de "¿tiene contenido?", sin repetir ninguna de las
+ * dos aquí.
+ */
+function ContenedorBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'contenedor' }>; slug: string }) {
+  const { t } = useModo();
+  const { titulo, direccion, separacion, reparto } = bloque.config;
+  const hijos = (bloque.hijos ?? []).filter((h) => !h.oculto);
+  // Un grupo vacío no deja un hueco con su padding en el portal de la socia.
+  if (hijos.length === 0) return null;
+  const fila = direccion === 'fila';
+  return (
+    <div style={contenedorDe(bloque.estilo)}>
+      {titulo && (
+        <h2 style={{ ...display(escala('seccion', 24)), color: coloresDe(bloque.estilo, t).ink, marginBottom: 12 }}>
+          {titulo}
+        </h2>
+      )}
+      <div style={{
+        display: 'flex',
+        flexDirection: fila ? 'row' : 'column',
+        gap: SEPARACION_GAP[separacion ?? 'normal'],
+        alignItems: fila ? 'flex-start' : 'stretch',
+      }}>
+        {hijos.map((h) => (
+          // `flex: 1 1 0` reparte a partes iguales; `0 1 auto` deja que cada
+          // hijo ocupe lo suyo. En columna no aplica ninguno de los dos.
+          <div key={h.id} style={fila ? { flex: reparto === 'ajustado' ? '0 1 auto' : '1 1 0%', minWidth: 0 } : undefined}>
+            <BloqueHomeRender bloque={h} slug={slug} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function BloqueHomeRender({ bloque, slug }: { bloque: Exclude<BloqueHome, { kind: 'sistema' }>; slug: string }) {
   // Antes esto era una cadena de `if` que terminaba en `return

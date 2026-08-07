@@ -87,6 +87,10 @@ export function zodDeBloques(
     kind: z.literal('sistema'),
     sistemaId: z.enum(sistemaIds as [string, ...string[]]),
     oculto: z.boolean().optional(),
+    // ⚠️ Sin esta línea, zod PODA la marca al guardar y el bloque fijo vuelve
+    // a ser arrastrable en la siguiente carga — el fallo silencioso que
+    // advierte la regla de retrocompatibilidad de portal-home-bloques.ts.
+    fijo: z.literal(true).optional(),
     // `.optional()` porque los que todavía no tienen campos abiertos no
     // guardan config ninguna, y los guardados de antes tampoco la traen.
     config: z.record(z.string(), z.unknown()).optional(),
