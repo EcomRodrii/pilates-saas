@@ -192,11 +192,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               aire son solo para la variante flotante (el espacio entre la
               cápsula y el borde de la pantalla) — la barra clásica no flota,
               así que solo necesita su propia altura. */}
-          {!isFullscreen && (
-            <div style={{ height: barraClasica
-              ? `calc(${altura.tabbar}px + env(safe-area-inset-bottom))`
-              : `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }}
-            />
+          {/* ⚠️ SOLO cuando el menú flota. La barra clásica (Oliva, Noir) no
+              flota: va en el flujo, al final de la columna, y ya ocupa su
+              propio alto — el hueco de debajo no reservaba nada, sobraba. Eran
+              ~90px de vacío al final de cada pantalla, y se notaba: bajabas
+              del todo en el Inicio y después de los accesos rápidos venía un
+              agujero. Lo reportó el fundador en los tres temas.
+
+              Cuando SÍ flota (Bloom) el hueco es imprescindible: la cápsula va
+              en `position: absolute` encima del contenido, así que sin él tapa
+              la última fila. Su alto sale de la MISMA variable que usa la
+              barra, no de la constante de JS — un tema puede subirla (Bloom la
+              pone en 66) y el hueco se quedaba corto. */}
+          {!isFullscreen && !barraClasica && (
+            <div style={{ height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + 38px + env(safe-area-inset-bottom))` }} />
           )}
         </main>
 
