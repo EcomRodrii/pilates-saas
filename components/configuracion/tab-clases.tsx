@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { InfoTip } from '@/components/ui/tooltip';
 import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
 import { useStudio } from '@/lib/studio-context';
 import type { TipoClase } from '@/lib/types';
@@ -444,6 +445,15 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             <Field
               label="Penalización por cancelación tardía o no-show (€)"
               description="Vacío = usa el ajuste general del estudio."
+              hint={
+                <InfoTip label="Qué implica poner un importe aquí">
+                  Se cobra a la tarjeta guardada de la socia, si tiene una. Aquí solo
+                  cambias el IMPORTE para este tipo de clase: a qué motivos se aplica
+                  (tardía, no-show, o ambos) y si el cobro es automático o espera tu
+                  aprobación se decide en Configuración → Estudio → Reservas y
+                  cancelaciones, y afecta también a esta clase.
+                </InfoTip>
+              }
             >
               <input
                 className={inputCls}
