@@ -148,7 +148,7 @@ jobs:
         run: npm run build
 
       # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
-      # cientos de MB que multiplicarían la subida y las 12 bajadas de los shards).
+      # cientos de MB que multiplicarían la subida y las 6 bajadas de los shards).
       - name: Empaquetar salida del build
         run: tar -cf build.tar --exclude=.next/cache .next
 
@@ -164,15 +164,30 @@ jobs:
   # E2E repartida en shards, servida por `next start` sobre el build ya hecho.
   # Este era el 89% del tiempo de CI (1308s de 1473s) porque corría contra
   # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
+  #
+  # 12 -> 6 shards al pasar el repo a PRIVADO. El reparto se eligió en su día
+  # para bajar el WALL CLOCK, que es lo único que costaba en un repo público:
+  # allí Actions es gratis e ilimitado, así que 12 runners en paralelo salían
+  # igual de baratos que 1. En privado se factura por MINUTO DE RUNNER, y ahí el
+  # sharding no reparte el coste: lo multiplica, porque cada shard paga otra vez
+  # el checkout, el setup de node, la restauración de cachés y la descarga del
+  # artefacto del build. Esa parte fija se paga tantas veces como shards haya, y
+  # los tests en sí tardan lo mismo repartidos entre 6 que entre 12.
+  #
+  # El intercambio es explícito: se paga con wall clock (el shard más lento pasa
+  # a durar aproximadamente el doble) a cambio de la mitad de sobrecarga fija por
+  # run. Si algún día el repo vuelve a ser público, o el reloj de pared vuelve a
+  # ser lo que duele, subir el número otra vez es cambiar dos sitios: esta lista
+  # y el `--shard=N/6` de abajo.
   # ---------------------------------------------------------------------------
   e2e:
-    name: E2E ${{ matrix.shard }}/12
+    name: E2E ${{ matrix.shard }}/6
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
 
@@ -218,7 +233,7 @@ jobs:
         # `next start` en vez de `next dev` (ver playwright.config.ts).
         env:
           E2E_USA_BUILD: '1'
-        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=blob
 
       - name: Subir reporte parcial si falla
         if: failure()
@@ -229,7 +244,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Solo cuando algo falla: junta los blobs de los 12 shards en un único informe
+  # Solo cuando algo falla: junta los blobs de los shards en un único informe
   # HTML navegable. En verde no corre, así que no alarga el camino feliz.
   # ---------------------------------------------------------------------------
   informe-e2e:
