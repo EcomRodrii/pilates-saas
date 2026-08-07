@@ -1,0 +1,200 @@
+/* 06-home.css — inicio: saludo, próxima clase, progreso, retos, accesos.
+ *
+ * Cada tema propone un inicio distinto y esa es su diferencia real:
+ * Oliva resume la semana, Bloom empuja a los retos, Noir mide el progreso.
+ */
+
+.greeting { display: flex; align-items: center; gap: 13px; }
+.greeting__body { flex: 1; min-width: 0; }
+.greeting__micro { font-family: var(--font-body); font-size: 12.5px; font-weight: 500; color: var(--muted); }
+.greeting__name {
+  margin-top: 2px;
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-greeting); line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+/* Oliva invierte la jerarquía: el saludo es el titular. */
+[data-greeting="display-first"] .greeting__micro {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 21px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+[data-greeting="display-first"] .greeting__name {
+  margin-top: 0;
+  font-family: var(--font-body); font-weight: 400; font-size: 12.5px;
+  letter-spacing: 0; color: var(--muted);
+}
+
+.headline {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 30px; line-height: 1.18; letter-spacing: -.02em; color: var(--ink);
+}
+
+/* ── Próxima clase ──────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 224px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--hero-bg);
+  transition: transform .24s cubic-bezier(.16,1,.3,1), box-shadow .24s ease;
+}
+.hero:hover { box-shadow: var(--shadow-float); }
+.hero__photo { position: absolute; inset: 0 0 0 44%; }
+.hero__photo img { width: 100%; height: 100%; object-fit: cover; }
+.hero__veil { position: absolute; inset: 0; background: var(--hero-veil); }
+.hero__body { position: relative; padding: 20px; }
+/* La tarjeta es un <button> con <span> dentro: los devolvemos a bloque. */
+.hero__title, .hero__teacher, .hero__meta { display: block; }
+.hero__badge {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.16);
+  color: var(--on-brand);
+  margin-bottom: 18px;
+}
+.hero__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-hero-title); line-height: 1.08; letter-spacing: -.02em;
+  color: var(--hero-ink);
+}
+.hero__teacher { margin-top: 4px; font-size: 13px; color: var(--hero-ink-soft); }
+.hero__meta { margin-top: 8px; font-size: 13.5px; font-weight: 500; color: var(--hero-ink-strong); }
+.hero__cta {
+  margin-top: 16px;
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 44px; padding: 0 20px;
+  border-radius: 999px;
+  background: var(--hero-cta-bg);
+  color: var(--hero-cta-ink);
+  font-size: 13.5px; font-weight: 600;
+}
+.hero__cta-arrow { font-size: 14px; color: var(--hero-arrow); opacity: var(--hero-arrow-opacity); }
+
+/* ── Progreso semanal (Noir) ────────────────────────────────────────────── */
+.progress { display: flex; align-items: center; gap: 18px; padding: 18px; }
+.progress__body { flex: 1; min-width: 0; }
+.progress__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 17px; line-height: 1.2; letter-spacing: -.02em; color: var(--ink);
+}
+.progress__note { margin-top: 3px; font-size: 12px; color: var(--muted); }
+
+.donut {
+  position: relative;
+  flex: 0 0 92px;
+  width: 92px; height: 92px;
+  border-radius: 50%;
+  background: conic-gradient(var(--brand) 0turn var(--turn), var(--border) var(--turn) 1turn);
+  display: grid; place-items: center;
+  transition: background .4s ease;
+}
+.donut__hole {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.donut__value {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 19px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+.donut__label { font-size: 8.5px; font-weight: 500; color: var(--muted); }
+
+.bars { display: flex; align-items: flex-end; gap: 7px; margin-top: 12px; height: 34px; }
+.bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.bar__fill {
+  display: block; width: 100%; max-width: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background .3s ease, height .3s ease;
+}
+.bar__fill--support { background: var(--support); }
+.bar__fill--brand { background: var(--brand); }
+.bar__label { font-size: 9px; font-weight: 500; color: var(--muted); }
+
+/* ── Retos (Bloom) ──────────────────────────────────────────────────────── */
+.challenge {
+  flex: 0 0 218px;
+  border-radius: 26px;
+  padding: 18px;
+  background: var(--tone);
+}
+.challenge--mint { --tone: #CFEFD6; }
+.challenge--rose { --tone: #FBD9EA; }
+.challenge__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.challenge__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 18px; line-height: 1.2; letter-spacing: -.02em; color: var(--ink);
+}
+.challenge__badge {
+  flex: none; height: 24px; padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.75);
+  color: var(--ink);
+  font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center;
+}
+.challenge__foot { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.faces { display: flex; }
+.face {
+  display: block; width: 24px; height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--tone);
+  margin-left: -8px;
+}
+.face:first-child { margin-left: 0; }
+.face--1 { background: #FFC4D6; }
+.face--2 { background: #C9B8FF; }
+.face--3 { background: #FFE0A8; }
+.challenge__members { font-size: 11px; font-weight: 500; color: var(--muted); }
+.challenge__cta {
+  margin-top: 16px;
+  width: 100%; height: 40px;
+  border-radius: 999px;
+  background: var(--ink); color: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 600;
+  transition: background .2s ease, color .2s ease;
+}
+.challenge__cta.is-joined { background: rgba(27,20,48,.12); color: var(--ink); }
+
+/* ── Accesos rápidos ────────────────────────────────────────────────────── */
+.quick-links { display: flex; gap: 9px; justify-content: space-between; }
+.quick-links--bare { gap: 0; }
+
+.quick-link {
+  flex: 1; min-width: 0;
+  height: 104px;
+  padding: 14px 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 9px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-quick-link);
+  box-shadow: var(--shadow-card);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.quick-link:hover { border-color: var(--card-hover-border); box-shadow: var(--shadow-card-hover); }
+.quick-link__icon { color: var(--ink); display: grid; place-items: center; }
+.quick-link__label { display: block; font-size: 10.5px; font-weight: 500; color: var(--ink); line-height: 1.3; }
+
+/* Noir: círculos sin tarjeta. */
+.quick-links--bare .quick-link {
+  height: auto; padding: 0;
+  background: none; border: 0; box-shadow: none;
+  text-align: center;
+}
+.quick-links--bare .quick-link__icon {
+  width: 58px; height: 58px; margin: 0 auto;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color .2s ease, background .2s ease;
+}
+.quick-links--bare .quick-link:hover .quick-link__icon { border-color: var(--ink); }
+.quick-links--bare .quick-link__label { display: block; margin-top: 9px; }
+
+.week-card { padding: 18px 18px 20px; }
