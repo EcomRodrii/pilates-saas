@@ -148,6 +148,18 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   // falten, y sin esta llamada el panel se los comía.
   return conFijos(resolverBloques(await res.json()), pantalla);
 }
+/**
+ * Los bloques que están viendo las socias ahora mismo en esa pantalla.
+ *
+ * Mismo tratamiento que el borrador —`resolverBloques` + `conFijos`— por el
+ * mismo motivo: quien lo lea tiene que ver EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesPublicado(pantalla: PantallaId): Promise<BloqueHome[]> {
+  const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}&estado=publicado`, { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudieron cargar los bloques publicados del portal');
+  return conFijos(resolverBloques(await res.json()), pantalla);
+}
+
 
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
