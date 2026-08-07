@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { CheckCircle2, RefreshCw, X } from 'lucide-react';
 import { horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
@@ -76,7 +77,9 @@ export function ListaClientas({
                 const s = semaforoPorSocio?.(r.socioId);
                 return s ? <span className="w-2 h-2 rounded-full shrink-0" title={s.label} style={{ background: s.color }} /> : null;
               })()}
-              <span className="truncate">{nombreClienta(r.socioId)}</span>
+              <Link href={`/clientas/${r.socioId}`} className="truncate hover:text-brand-medio hover:underline transition-colors">
+                {nombreClienta(r.socioId)}
+              </Link>
             </p>
             <p className="text-[10px] text-muted-foreground">{etiquetaEstado(r)}</p>
             {filaExtra?.(r)}
