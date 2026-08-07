@@ -3,10 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { computeCierreAnual, mapFacturaRow, mapIngresoManual } from '@/lib/fiscal/cierre-engine';
-import { enviarCierreAGestoria } from '@/lib/emails/cierre-gestoria-server';
-import { fetchAllRows } from '@/lib/supabase-data';
-import type { RowFacturas, RowIngresosManuales } from '@/lib/db-types';
+import { generarYEnviarCierreGestoria } from '@/lib/fiscal/cierre-envio-server';
 
 // Envía el paquete del Cierre de año a la gestoría. El servidor RECOMPUTA el
 // cierre desde la BD (no confía en números del cliente), guarda el email de la
@@ -43,62 +40,28 @@ export async function POST(req: NextRequest) {
   if (!EMAIL_RE.test(email)) return NextResponse.json({ error: 'Introduce un email de gestoría válido' }, { status: 400 });
 
   const sid = sesion.studioId;
-  const desde = `${anio}-01-01`, hasta = `${anio}-12-31`;
 
-  // Paginado (fetchAllRows): un .select('*') simple lo trunca PostgREST a 1000
-  // filas en silencio. Un estudio con más de 1000 facturas en el año habría
-  // mandado a su gestoría un cierre fiscal incompleto sin ningún aviso
-  // (auditoría 2026-07-29, hallazgo 2.3 — este endpoint es, literalmente, la
-  // declaración que se envía fuera de Tentare).
-  const [studioRes, facRes, manRes] = await Promise.all([
-    admin.from('studios').select('nombre, email, color_primario, logo_url').eq('id', sid).maybeSingle(),
-    fetchAllRows<RowFacturas>(sid, 'facturas', (from, to) =>
-      admin.from('facturas').select('*').eq('studio_id', sid)
-        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).range(from, to)),
-    fetchAllRows<RowIngresosManuales>(sid, 'ingresos_manuales', (from, to) =>
-      admin.from('ingresos_manuales').select('*').eq('studio_id', sid)
-        .gte('fecha', desde).lte('fecha', hasta).range(from, to)),
-  ]);
-
-  // fetchAllRows puede devolver datos PARCIALES + error si una página falla a
-  // media paginación (ya reintenta cada página, esto es tras agotar eso). Sin
-  // esta comprobación, un cierre truncado a medias se habría mandado igual —
-  // exactamente el fallo que este endpoint existe para evitar, solo que por
-  // otra vía (un fallo de red, no el límite de 1000 filas de PostgREST).
-  if (facRes.error || manRes.error) {
-    return errorInterno(
-      'cierre:enviar-gestoria:fetch',
-      facRes.error ?? manRes.error,
-      'No se han podido leer todas las facturas/ingresos de este año. Inténtalo de nuevo antes de enviar el cierre.',
-    );
-  }
-
-  // Guarda el email de la gestoría para no volver a pedirlo (no rompe si falla).
+  // Guarda el email de la gestoría para no volver a pedirlo (no rompe si
+  // falla). Solo tiene sentido cuando lo escribe la propietaria a mano — el
+  // cron de envío automático no debe reescribirlo en cada ejecución.
   await admin.from('studios').update({ gestoria_email: email }).eq('id', sid);
 
-  const facturas = (facRes.data ?? []).map((r) => mapFacturaRow(r as RowFacturas));
-  const ingresosManuales = (manRes.data ?? []).map((r) => mapIngresoManual(r as RowIngresosManuales));
-  const cierre = computeCierreAnual({ facturas, ingresosManuales, anio, ...(trimestre != null ? { trimestre } : {}) });
+  const r = await generarYEnviarCierreGestoria({ studioId: sid, anio, trimestre, email });
 
-  if (cierre.totales.numFacturas + cierre.totales.numManuales === 0) {
+  if (r.sinDatos) {
     const periodo = trimestre ? `el T${trimestre} de ${anio}` : anio;
     return NextResponse.json({ error: `No hay ingresos registrados en ${periodo} para enviar.` }, { status: 400 });
   }
-
-  const studio = studioRes.data as { nombre: string | null; email: string | null; color_primario: string | null; logo_url: string | null } | null;
-
-  const r = await enviarCierreAGestoria({
-    to: email,
-    estudioNombre: studio?.nombre ?? 'Tu estudio',
-    estudioEmail: studio?.email,
-    logoUrl: studio?.logo_url,
-    colorPrimario: studio?.color_primario,
-    anio,
-    trimestre,
-    cierre,
-  });
-
-  if (r.skipped) return NextResponse.json({ error: 'El envío de emails no está configurado en este servidor.' }, { status: 503 });
-  if (!r.ok) return errorInterno('cierre:enviar-gestoria', r.error, 'No se ha podido enviar el email. Inténtalo de nuevo.');
+  if (!r.ok) {
+    // fetchAllRows puede devolver datos PARCIALES + error si una página falla
+    // a media paginación, o el envío de email puede fallar/no estar
+    // configurado — ambos casos ya distinguidos dentro de
+    // generarYEnviarCierreGestoria, aquí solo se traduce a HTTP.
+    return errorInterno(
+      'cierre:enviar-gestoria',
+      r.error,
+      'No se ha podido generar o enviar el cierre. Inténtalo de nuevo.',
+    );
+  }
   return NextResponse.json({ ok: true, email });
 }

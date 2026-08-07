@@ -3551,6 +3551,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
   if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
+  if ('gestoriaEnvioAutomatico' in changes) db.gestoria_envio_automatico = changes.gestoriaEnvioAutomatico;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
@@ -3782,6 +3783,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
     gestoriaEmail: r.gestoria_email ?? null,
+    gestoriaEnvioAutomatico: (r.gestoria_envio_automatico as 'desactivado' | 'trimestral') ?? 'desactivado',
     cadenaId: r.cadena_id ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
