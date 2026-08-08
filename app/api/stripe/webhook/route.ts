@@ -28,12 +28,38 @@ const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web'
 // cuenta —el de demostración, que resulta ser el único que ha cobrado de
 // verdad—: Stripe entrega esos cobros como "de tu cuenta", sin `event.account`.
 //
-// En variable de entorno y no preguntándoselo a Stripe: `accounts.retrieve`
-// exige un id en los tipos de esta versión del SDK, y un valor explícito y
-// auditable es mejor que una llamada de red por evento. Si no está puesta, el
-// comportamiento es exactamente el de antes (evento sin cuenta → sin tenant →
-// 403), que es el lado seguro.
-const CUENTA_PLATAFORMA = process.env.STRIPE_PLATFORM_ACCOUNT_ID ?? null;
+// Se AVERIGUA solo, con `GET /v1/account`, que devuelve la cuenta de la clave de
+// API. La primera versión de esto lo exigía en una variable de entorno, y eso
+// convertía el arreglo de un cobro perdido en una tarea de operaciones — se
+// quedó bloqueado justo ahí. Un webhook de dinero no puede depender de que
+// alguien acierte a rellenar una variable.
+//
+// Va por `fetch` y no por el SDK porque `accounts.retrieve` exige un id en los
+// tipos de esta versión, y la sobrecarga sin argumentos no existe. La variable
+// se sigue respetando si está puesta: sirve para fijar el valor y ahorrar la
+// llamada.
+//
+// Cacheado por instancia, y SOLO en caso de éxito: si la llamada falla no
+// queremos dejar la instancia con `null` hasta que la reciclen, porque `null`
+// significa "sin tenant" → 403.
+let cachePlataforma: string | undefined;
+async function cuentaDePlataforma(): Promise<string | null> {
+  if (cachePlataforma !== undefined) return cachePlataforma;
+  const fijada = process.env.STRIPE_PLATFORM_ACCOUNT_ID;
+  if (fijada) return (cachePlataforma = fijada);
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/account', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const cuenta = await res.json() as { id?: string };
+    return cuenta.id ? (cachePlataforma = cuenta.id) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Estudio dueño de la cuenta de Stripe que firma el evento.
@@ -55,7 +81,10 @@ async function studioDeCuentaConnect(
 ): Promise<string | null> {
   // Un evento SIN `account` viene de la cuenta de la plataforma — que es la que
   // tiene configurada el estudio de demostración. Ver `cuentaFirmante`.
-  const cuenta = cuentaFirmante(accountId, CUENTA_PLATAFORMA);
+  //
+  // La cuenta de la plataforma solo se pide SI hace falta: en un direct charge
+  // normal `accountId` ya viene informado y nos ahorramos la llamada entera.
+  const cuenta = cuentaFirmante(accountId, accountId ? null : await cuentaDePlataforma());
   if (!cuenta) return null;
   const { data } = await admin.from('studios').select('id').eq('stripe_account_id', cuenta).maybeSingle();
   return (data as { id: string } | null)?.id ?? null;
