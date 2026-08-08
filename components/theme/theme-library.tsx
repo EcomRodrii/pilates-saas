@@ -21,6 +21,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
+import { useStudio } from '@/lib/studio-context';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
 import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
@@ -85,6 +86,7 @@ function Colores({ config }: { config: ThemeConfig }) {
 export function ThemeLibrary() {
   const router = useRouter();
   const hook = useThemeEditor();
+  const { dataLoaded } = useStudio();
   const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste } = hook;
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [instalando, setInstalando] = useState<string | null>(null);
@@ -159,7 +161,21 @@ export function ThemeLibrary() {
     }
   }
 
-  if (rol !== 'PROPIETARIO') {
+  // ⚠️ Solo se niega el acceso cuando el rol se CONOCE.
+  //
+  // `useRol()` sale de `instructores`/`studio` del contexto, y hasta que
+  // cargan devuelve 'INSTRUCTOR' por defecto. Con la comprobación a secas, la
+  // propietaria leía "Solo la propietaria..." durante los primeros segundos —y
+  // peor: este `return` es anterior a la vista previa, así que el iframe no se
+  // montaba ni pedía su token hasta entonces. Medido en producción: el token
+  // salía a los 3752 ms y el iframe a los 5108 ms; el `load` de la página es a
+  // 1305 ms.
+  //
+  // Esto NO afloja ningún permiso: la UI nunca es el límite de seguridad en
+  // este repo. Guardar y publicar los comprueba el servidor
+  // (`/api/theme`, `/api/portal-bloques`), y el token de la vista previa exige
+  // sesión de staff desde antes de este cambio.
+  if (dataLoaded && rol !== 'PROPIETARIO') {
     return <p className="text-sm text-muted-foreground">Solo la propietaria del estudio puede cambiar la apariencia.</p>;
   }
   if (estado === 'cargando') {
