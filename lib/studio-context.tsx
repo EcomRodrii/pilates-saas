@@ -139,7 +139,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
@@ -1603,9 +1603,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSocios(prev => [...prev, nuevaSocia]);
     addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
 
+    let planNombreAlta: string | undefined;
+
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
+        planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
         const sus: Suscripcion = {
           id: susId,
@@ -1653,6 +1656,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setFacturas(prev => [...prev, fac]);
         void sellarFacturaYActualizar(fac);
       }
+    }
+
+    // Sin esto, el alta quedaba completa en la BD pero la socia nunca se
+    // enteraba de que existía un portal: `enviarEmailBienvenida` ya existía
+    // (con enlace de acceso directo, sin contraseña que teclear) pero nadie la
+    // llamaba desde ningún sitio del código — la propietaria tenía que enviarla
+    // a mano desde otra pantalla, y casi nunca lo hacía. Best-effort: un email
+    // que no sale no debe deshacer un alta que ya se guardó en la BD.
+    if (nuevaSocia.email) {
+      void enviarEmailBienvenida({
+        to: nuevaSocia.email,
+        toName: nuevaSocia.nombre,
+        planNombre: planNombreAlta,
+        socioId: nuevaSocia.id,
+      }).catch(() => { /* fallo suave: el alta ya está hecha */ });
     }
 
     return { ...resSocia, id: nuevaSocia.id };

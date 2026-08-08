@@ -99,6 +99,25 @@ function toISO(fecha: string, hora: string) {
   return new Date(`${fecha}T${hora}:00`).toISOString();
 }
 
+// "Repite como la semana pasada": busca la sesión de la MISMA sala+tipo de
+// clase exactamente 7 días después (match por timestamp exacto, no por "día
+// de semana + hora" reconstruido a mano — evita el error de reglas de DST).
+// Puntual, no en lote: un clic, una semana. Si falla (sin bono/llena/
+// duplicada), lo dice la RPC de reservar_plaza vía addReserva — no se
+// duplica esa validación aquí.
+function buscarSesionSemanaSiguiente(
+  sesiones: Sesion[],
+  actual: Pick<Sesion, 'inicio' | 'salaId' | 'tipoClaseId'>,
+): Sesion | null {
+  const objetivo = new Date(actual.inicio).getTime() + 7 * 24 * 60 * 60 * 1000;
+  return sesiones.find(s =>
+    !s.cancelada &&
+    s.salaId === actual.salaId &&
+    s.tipoClaseId === actual.tipoClaseId &&
+    new Date(s.inicio).getTime() === objetivo,
+  ) ?? null;
+}
+
 // ─── Shared input styles ──────────────────────────────────────────────────────
 
 const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-muted-foreground transition-colors';
@@ -1640,6 +1659,16 @@ export default function Calendario() {
     }
   }
 
+  async function repetirSemanaSiguiente(reservaId: string) {
+    const r = reservasActuales.find(x => x.id === reservaId);
+    if (!r || !sesionActual) return;
+    const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
+    if (!destino) { window.alert('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    const res = await addReserva(destino.id, r.socioId);
+    if (!res.ok) { window.alert(res.error); return; }
+    window.alert(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
+  }
+
   function abrirIncidencia(sesionId: string) {
     const actual = datosVista?.sesiones.find(s => s.id === sesionId)?.incidenciaTexto ?? '';
     setDialogoIncidencia({ sesionId, texto: actual ?? '' });
@@ -2245,6 +2274,7 @@ export default function Calendario() {
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
             onQuitar: gestionaClientas ? cancelarReserva : undefined,
+            onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
             semaforoPorSocio: verSemaforo ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
               return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;

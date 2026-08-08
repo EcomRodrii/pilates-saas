@@ -351,11 +351,18 @@ export async function montarPortal(page: Page, opciones: {
 }
 
 /**
- * Abre la hoja de reserva de la primera clase libre que haya en la semana.
+ * Abre la hoja de reserva de la primera clase libre que haya, esta semana o
+ * la siguiente.
  *
- * Las clases del mock son relativas a `Date.now()`, así que caen en un día de la
- * semana distinto según cuándo se ejecute la suite. Fijar «jueves» a mano —como
- * hacía la spec de Clases— pasa hoy y falla el martes que viene.
+ * Las clases del mock son relativas a `Date.now()` (+3h/+26h/+50h/+74h), así
+ * que caen en un día de la semana distinto según cuándo se ejecute la suite.
+ * Fijar «jueves» a mano —como hacía la spec de Clases— pasa hoy y falla el
+ * martes que viene. Pero solo recorrer los días de la semana ACTUAL tampoco
+ * basta: cerca del borde domingo→lunes (última hora UTC del domingo), los
+ * cuatro offsets caen TODOS en la semana siguiente — reproducido en CI un
+ * domingo 23:xx UTC, rompiendo esta spec Y portal-reserva-no-miente.spec.ts a
+ * la vez. Por eso, si la semana actual no tiene nada, se avanza con «Semana
+ * siguiente» antes de rendirse.
  */
 export async function abrirHojaDeReserva(page: Page) {
   const reservar = page.getByRole('button', { name: /^Reservar / });
@@ -372,13 +379,15 @@ export async function abrirHojaDeReserva(page: Page) {
   //
   // Mirar también la semana siguiente lo hace funcionar a cualquier hora del
   // año sin fijar ningún día a mano, que es lo que ya evitaba el bucle de días.
-  for (const semana of [0, 1]) {
-    if (semana > 0) await page.getByRole('button', { name: 'Semana siguiente' }).click();
+  const semanaSiguiente = page.getByRole('button', { name: 'Semana siguiente' });
+
+  for (let semana = 0; semana < 2; semana++) {
     if (await reservar.count() > 0) { await reservar.first().click(); return; }
     for (let i = 0; i < await dias.count(); i++) {
       await dias.nth(i).click();
       if (await reservar.count() > 0) { await reservar.first().click(); return; }
     }
+    if (semana === 0 && await semanaSiguiente.count() > 0) await semanaSiguiente.click();
   }
   throw new Error('No hay ninguna clase libre ni esta semana ni la siguiente en el mock');
 }
