@@ -3484,9 +3484,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
       if ('error' in res) return; // condición no cumplida o sin regla activa
       if (!res.otorgado) return; // ya se había concedido antes para este refId
+      if (!res.accionId) {
+        // Defensivo: la RPC siempre devuelve accion_id cuando otorgado=true; si
+        // alguna vez no lo hiciera, no fabricar un id local — insertarlo violaría
+        // reward_history_action_id_fkey (bug JAVASCRIPT-NEXTJS-11 de Sentry). El
+        // saldo ya se actualizó server-side; solo se pierde el registro de
+        // historial de este otorgamiento puntual, no el crédito en sí.
+        capturarMensaje('[otorgarCreditos] RPC otorgado=true sin accionId', 'error', { tags: { area: 'gamificacion' } });
+        return;
+      }
 
       const now = new Date().toISOString();
-      const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
+      const action: RewardAction = { id: res.accionId, studioId, socioId, trigger, refId, creadoEn: now };
       const historyEntry: RewardHistory = {
         id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
         creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,

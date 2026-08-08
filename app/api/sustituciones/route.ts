@@ -14,6 +14,7 @@ import {
 } from '@/lib/sustituciones/recalculo';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
+import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 
 // Emite el evento de escalado. Best-effort: si el bus de Inngest falla, el contacto
 // ya se hizo (email enviado) — el escalado es una capa de resiliencia encima, no
@@ -202,6 +203,17 @@ export async function PATCH(req: NextRequest) {
   if (body?.action === 'confirmar') {
     const instructorId = typeof body?.instructorId === 'string' ? body.instructorId : null;
     if (!instructorId) return NextResponse.json({ error: 'Falta la candidata (instructorId)' }, { status: 400 });
+
+    // La RPC confirmar_sustitucion no comprueba si la clase ya empezó (solo
+    // revalida solape de horario) — se hace aquí, igual que crearBaja.
+    const { data: sust } = await admin
+      .from('sustituciones').select('sesion_id').eq('id', sustitucionId).eq('studio_id', sesion.studioId).maybeSingle();
+    if (sust?.sesion_id) {
+      const { data: ses } = await admin.from('sesiones').select('inicio').eq('id', sust.sesion_id).maybeSingle();
+      if (ses && sesionYaEmpezada(ses.inicio as string)) {
+        return NextResponse.json({ error: MENSAJE_CLASE_YA_EMPEZADA }, { status: 409 });
+      }
+    }
 
     // Aceptación atómica + reasignación de la clase, en una transacción (función
     // 0040, con re-check de solape por exclusion constraint desde 0048).
