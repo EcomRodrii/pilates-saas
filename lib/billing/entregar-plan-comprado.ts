@@ -49,7 +49,11 @@ export type ResultadoEntrega =
 /** 23505 = unique_violation: ya existía (reintento de Stripe). No es un fallo. */
 const YA_EXISTIA = '23505';
 
-function idsDe(sessionId: string) {
+// Exportada para que el conciliador (lib/inngest/conciliar-cobros.ts) sepa qué
+// recibo BUSCAR sin volver a inventarse la regla: si el id se calculara en dos
+// sitios, el día que cambie aquí el conciliador dejaría de ver lo ya entregado
+// y lo entregaría otra vez.
+export function idsDe(sessionId: string) {
   // Sufijo corto y estable: los ids de sesión de Stripe son largos.
   const base = sessionId.replace(/^cs_(test_|live_)?/, '').slice(0, 24);
   return {
