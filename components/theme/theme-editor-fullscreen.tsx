@@ -27,6 +27,7 @@ import {
   Smartphone, Tablet, Monitor, type LucideIcon,
 } from 'lucide-react';
 import { usePermisos } from '@/lib/permisos';
+import { useStudio } from '@/lib/studio-context';
 import { PANTALLA_IDS, PANTALLA_LABEL, bloqueEstaCompleto, type PantallaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { guardarThemeBorrador, publicarThemeApi, guardarBloquesBorradorApi, publicarBloquesApi, fetchThemePublicado } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -144,6 +145,7 @@ const OPCIONES_SELECTOR: OpcionPagina[] = [
 
 export function ThemeEditorFullscreen() {
   const { rol } = usePermisos();
+  const { dataLoaded } = useStudio();
   // UN estado, no tres. Las reglas de qué arrastra a qué viven en
   // lib/theme/editor-navegacion.ts —funciones puras con tests— en vez de en
   // un ternario dentro de `seleccionar`, que es donde estaban y donde ya
@@ -220,7 +222,21 @@ export function ThemeEditorFullscreen() {
     bloquesHook.estado === 'listo',
   );
 
-  if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
+  // ⚠️ Solo se niega el acceso cuando el rol se CONOCE.
+  //
+  // `useRol()` sale de `instructores`/`studio` del contexto, y hasta que
+  // cargan devuelve 'INSTRUCTOR' por defecto. Con la comprobación a secas, la
+  // propietaria leía "Solo la propietaria..." durante los primeros segundos —y
+  // peor: este `return` es anterior a la vista previa, así que el iframe no se
+  // montaba ni pedía su token hasta entonces. Medido en producción: el token
+  // salía a los 3752 ms y el iframe a los 5108 ms; el `load` de la página es a
+  // 1305 ms.
+  //
+  // Esto NO afloja ningún permiso: la UI nunca es el límite de seguridad en
+  // este repo. Guardar y publicar los comprueba el servidor
+  // (`/api/theme`, `/api/portal-bloques`), y el token de la vista previa exige
+  // sesión de staff desde antes de este cambio.
+  if (dataLoaded && rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
     return <p className="p-6 text-sm text-muted-foreground">Solo la propietaria o la gerencia del estudio pueden editar la apariencia.</p>;
   }
 
