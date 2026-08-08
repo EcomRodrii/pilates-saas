@@ -351,19 +351,34 @@ export async function montarPortal(page: Page, opciones: {
 }
 
 /**
- * Abre la hoja de reserva de la primera clase libre que haya en la semana.
+ * Abre la hoja de reserva de la primera clase libre que encuentre.
  *
  * Las clases del mock son relativas a `Date.now()`, así que caen en un día de la
  * semana distinto según cuándo se ejecute la suite. Fijar «jueves» a mano —como
  * hacía la spec de Clases— pasa hoy y falla el martes que viene.
+ *
+ * ⚠️ Y mirar SOLO la semana actual tampoco basta, aunque lo pareciera. Las
+ * clases libres del mock están a +26 h, +50 h y +74 h; la única de hoy la tiene
+ * ya reservada Marta. Cuando la suite corre en domingo —o un sábado por la
+ * noche, que en Madrid ya es domingo— esas tres caen en la semana SIGUIENTE y
+ * en la actual no queda ni un botón «Reservar». La suite se rompía sola por el
+ * día del calendario, sin que nadie tocara nada: pasó en CI el 2026-08-08 a las
+ * 23:33 UTC, con el commit anterior en verde cuatro horas antes.
+ *
+ * Por eso ahora, si la semana actual no tiene nada, avanza a la siguiente en
+ * vez de rendirse. Dos semanas cubren de sobra el horizonte del mock (+74 h).
  */
 export async function abrirHojaDeReserva(page: Page) {
   const reservar = page.getByRole('button', { name: /^Reservar / });
-  if (await reservar.count() > 0) { await reservar.first().click(); return; }
   const dias = page.getByRole('button', { name: /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ });
-  for (let i = 0; i < await dias.count(); i++) {
-    await dias.nth(i).click();
+
+  for (let semana = 0; semana < 2; semana++) {
     if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    for (let i = 0; i < await dias.count(); i++) {
+      await dias.nth(i).click();
+      if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    }
+    if (semana === 0) await page.getByRole('button', { name: 'Semana siguiente' }).click();
   }
-  throw new Error('No hay ninguna clase libre esta semana en el mock');
+  throw new Error('No hay ninguna clase libre en las dos próximas semanas del mock');
 }
