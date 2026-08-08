@@ -1160,7 +1160,7 @@ export async function crearReservaPublica(params: {
     if (!ses) return { error: 'Sesión no encontrada' as const };
     if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-      return { error: MENSAJE_CLASE_YA_EMPEZADA as const };
+      return { error: MENSAJE_CLASE_YA_EMPEZADA };
     }
     tipoClaseId = ses.tipo_clase_id as string | null | undefined;
     inicioISO = ses.inicio as string;
