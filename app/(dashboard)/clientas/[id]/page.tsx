@@ -555,7 +555,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       {/* Back nav */}
       <div className="px-6 pt-6 pb-0">
         <Link href="/clientas" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors mb-5">

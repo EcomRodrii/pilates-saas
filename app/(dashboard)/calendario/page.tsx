@@ -1999,7 +1999,7 @@ export default function Calendario() {
 
   return (
     // h-full por sí solo no basta: DashboardShell envuelve `children` en un
-    // <main className="min-h-screen"> (mínimo, no altura fija) sin ningún
+    // <main className="min-h-dvh"> (mínimo, no altura fija) sin ningún
     // ancestro de altura definida contra la que "h-full" pueda resolverse.
     // Sin un tope real, LienzoCalendario (h-full + overflow-hidden) nunca
     // llega a acotar nada: la rejilla crece a su alto natural y es la PÁGINA

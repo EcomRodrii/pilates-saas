@@ -107,8 +107,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-screen bg-background">
-          <main className="lg:pl-[var(--sidebar-w)] min-h-screen">
+        <PanelThemeProvider className="min-h-dvh bg-background">
+          <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
             <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
             </div>
@@ -121,9 +121,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (rolResuelto && !autorizado) {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-screen bg-background">
+        <PanelThemeProvider className="min-h-dvh bg-background">
           <Sidebar />
-          <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200" />
+          <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200" />
         </PanelThemeProvider>
       </PanelPrivacyProvider>
     );
@@ -148,7 +148,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (pathname === '/configuracion/apariencia/editor') {
     return (
       <PanelPrivacyProvider>
-        <PanelThemeProvider className="min-h-screen bg-background">
+        <PanelThemeProvider className="min-h-dvh bg-background">
           {/* ⚠️ Esta ruta NO espera a los datos, a diferencia del resto del panel.
               El `PanelSkeleton` existe para que una página no pinte estados
               vacíos falsos ("Sin recibos", "No hay resultados") en carga fría.
@@ -168,7 +168,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="min-h-screen bg-background">
+      <PanelThemeProvider className="min-h-dvh bg-background">
         <TourProvider>
           <Sidebar />
           {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
@@ -178,7 +178,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               estado del tour y localiza el data-tour="..." real de la ruta
               actual (ver lib/tour-pasos.ts). */}
           <Spotlight />
-          <main className="lg:pl-[var(--sidebar-w)] min-h-screen transition-[padding] duration-200">
+          <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
             <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <Topbar />
               {cargandoDatos ? <PanelSkeleton /> : children}
