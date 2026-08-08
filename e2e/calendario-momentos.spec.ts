@@ -38,7 +38,13 @@ function json(route: Route, body: unknown, status = 200) {
 // runner de CI que ejecute después de las 09:00 UTC volvía "ya empezada" una
 // clase que el test necesitaba poder editar.
 function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
+  // Redondeado al minuto exacto: el formulario de editar reconstruye la hora
+  // como `${fecha}T${hora}:00` (toISO(), app/(dashboard)/calendario/page.tsx)
+  // — sin esto, `Date.now()` deja segundos sueltos y el guardado sin tocar la
+  // hora se detectaba como "cambioHora" (mismoInstante comparando getTime()
+  // exacto), desviando el test al diálogo equivocado.
   const inicio = new Date(Date.now() + offsetMinutos * 60_000);
+  inicio.setSeconds(0, 0);
   const fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
   const iso = (d: Date) => d.toISOString().slice(0, 19); // sin milisegundos ni 'Z'
   return { inicio: iso(inicio), fin: iso(fin) };
