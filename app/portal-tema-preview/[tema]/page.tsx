@@ -75,7 +75,7 @@ export default async function Page({
   const enlace = (id: string) => `/portal-tema-preview/${id}${estudio ? `?estudio=${encodeURIComponent(estudio)}` : ''}`;
 
   return (
-    <main className="desk">
+    <main className="portal-tema desk">
       <div className="desk__head">
         <p className="desk__eyebrow">Tentare · Previsualización del portal</p>
         <h1 className="desk__title">Tema {config.name}</h1>

@@ -17,7 +17,7 @@ import { fechaLocalDe } from '../citas/slots.ts';
 // `ASISTIDA`, con lo que una clase pasada aparecería con plazas libres.
 import { plazasOcupadas } from '../booking-logic.ts';
 import type {
-  BonoPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal, SociaPortal, StudioClass,
+  BonoPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal, ReservaPortal, SociaPortal, StudioClass,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -85,6 +85,12 @@ export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
   return diasDeLaSemana(ahora, tz).map((d) => d.dia);
 }
 
+/** El día del MES de hoy en la zona del estudio. La clave con la que casan
+ *  las clases (`StudioClass.day`) y la tira de la semana. */
+export function diaDelMesHoy(ahora: Date, tz = TZ_ESTUDIO): number {
+  return partes(fechaLocalDe(ahora, tz)).dia;
+}
+
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
 export function fechaLarga(iso: string | null | undefined, tz = TZ_ESTUDIO): string {
   if (!iso) return '';
@@ -108,6 +114,12 @@ export interface FuenteDatosPortal {
   salas: Sala[];
   instructores: Instructor[];
   socio: Socio | null;
+  /**
+   * Las reservas de ESTA socia (no las del estudio). `undefined` = nadie
+   * identificado; `[]` = identificada y sin ninguna reserva. Ver
+   * `DatosPortal.reservadas`.
+   */
+  reservasPropias?: Pick<Reserva, 'id' | 'sesionId' | 'estado'>[];
   suscripciones: Suscripcion[];
   planes: PlanTarifa[];
   tz?: string;
@@ -228,5 +240,28 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     planes: planesDe(f.planes),
     bono: bonoDe(f.suscripciones, f.planes, tz),
     socia: sociaDe(f.socio),
+    reservadas: f.reservasPropias && reservadasDe(f.reservasPropias, clases),
   };
 }
+
+/**
+ * Las reservas que la socia tiene VIVAS sobre clases de esta semana.
+ *
+ * Se quedan fuera las canceladas y las que ya no tienen clase (la clase se
+ * canceló, o cae fuera de la semana que se está mirando): pintar media fila es
+ * peor que no pintarla. `LISTA_ESPERA` sí entra — la socia tiene que poder
+ * verla y salirse de la cola.
+ */
+export function reservadasDe(
+  reservas: Pick<Reserva, 'id' | 'sesionId' | 'estado'>[],
+  clases: StudioClass[],
+): ReservaPortal[] {
+  const hayClase = new Set(clases.map((c) => c.id));
+  return reservas
+    .filter((r) => VIVAS.has(r.estado) && hayClase.has(r.sesionId))
+    .map((r) => ({ classId: r.sesionId, reservaId: r.id }));
+}
+
+const VIVAS = new Set<Reserva['estado']>([
+  'CONFIRMADA', 'ASISTIDA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION',
+]);

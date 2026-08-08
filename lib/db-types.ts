@@ -649,6 +649,7 @@ export interface RowStudios {
   avatar_admin: string | null;
   foto_url: string | null;
   tema_portal: string | null;
+  portal_react?: boolean | null;
   google_calendar_email: string | null;
   gmail_email: string | null;
   zoom_email: string | null;

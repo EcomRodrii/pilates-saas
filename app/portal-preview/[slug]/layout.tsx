@@ -2,6 +2,7 @@ import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
+import { PortalPreviewMarco } from '@/components/portal/portal-preview-marco';
 
 // Vista previa de la app de socias para el editor de temas (colores/tipografía
 // Y bloques del Inicio) — SIN PortalAuthProvider a propósito: quien abre esto es
@@ -24,7 +25,10 @@ export default async function PortalPreviewLayout({ children, params }: { childr
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
       <ThemeStyle slug={slug} />
       <ThemePreviewListener />
-      {children}
+      {/* La barra de abajo, con los ejes del tema que se está mirando. Sin
+          esto la previsualización enseñaba el portal SIN menú — y el menú es
+          justo donde más se nota el tema. */}
+      <PortalPreviewMarco slug={slug}>{children}</PortalPreviewMarco>
     </StudioSlugGate>
   );
 }

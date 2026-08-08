@@ -20,7 +20,7 @@
 import { PANTALLA_IDS, type PantallaId } from '../portal-home-bloques.ts';
 
 /** Páginas que el iframe del preview sabe enseñar. */
-export const VISTAS_PREVIEW = [...PANTALLA_IDS, 'reservas', 'perfil'] as const;
+export const VISTAS_PREVIEW = [...PANTALLA_IDS, 'bienvenida', 'reservas', 'perfil'] as const;
 export type VistaPreview = (typeof VISTAS_PREVIEW)[number];
 
 /** Todo lo que puede estar seleccionado en el rail. */

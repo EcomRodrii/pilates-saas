@@ -149,7 +149,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     return (
       <PanelPrivacyProvider>
         <PanelThemeProvider className="min-h-screen bg-background">
-          {cargandoDatos ? <PanelSkeleton /> : children}
+          {/* ⚠️ Esta ruta NO espera a los datos, a diferencia del resto del panel.
+              El `PanelSkeleton` existe para que una página no pinte estados
+              vacíos falsos ("Sin recibos", "No hay resultados") en carga fría.
+              El editor de temas no tiene ese problema: enseña una vista previa
+              y un rail, y los dos traen su propio estado de carga.
+              Lo que sí tenía era el problema contrario — MEDIDO en producción:
+              el editor no se montaba hasta 2,6 s después del `load`, porque
+              `cargandoDatos` espera a `studio` Y al estado de facturación. Y
+              detrás de ese `?` estaba la vista previa entera, que ni pedía su
+              token. Dos intentos de arreglarlo por dentro del editor no
+              movieron el número: el componente no llegaba a ejecutarse. */}
+          {children}
         </PanelThemeProvider>
       </PanelPrivacyProvider>
     );

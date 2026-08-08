@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
-import { getBloquesBorrador, guardarBloquesBorrador } from '@/lib/layout-data';
+import { getBloquesBorrador, getBloquesPublicado, guardarBloquesBorrador } from '@/lib/layout-data';
 import { bloqueHomeSchema } from '@/lib/layout-schema';
 import { puedeGestionarPortalHome } from '@/lib/permisos-reglas';
 import { PANTALLA_IDS, type PantallaId } from '@/lib/portal-home-bloques';
@@ -12,13 +12,19 @@ function pantallaDe(req: NextRequest): PantallaId | null {
   return (PANTALLA_IDS as readonly string[]).includes(raw) ? (raw as PantallaId) : null;
 }
 
-// GET /api/portal-bloques?pantalla=home|clases|bonos → bloques BORRADOR de esa pantalla del portal (editor).
+// GET /api/portal-bloques?pantalla=home|clases|bonos[&estado=publicado]
+// Por defecto, el BORRADOR (lo que edita el editor). Con `estado=publicado`,
+// lo que están viendo las socias — que es lo que necesita "Volver a lo
+// publicado" para deshacer también las secciones, no solo los colores.
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   const pantalla = pantallaDe(req);
   if (!pantalla) return NextResponse.json({ error: 'Pantalla desconocida' }, { status: 400 });
-  return NextResponse.json(await getBloquesBorrador(sesion.studioId, pantalla));
+  const publicado = req.nextUrl.searchParams.get('estado') === 'publicado';
+  return NextResponse.json(publicado
+    ? await getBloquesPublicado(sesion.studioId, pantalla)
+    : await getBloquesBorrador(sesion.studioId, pantalla));
 }
 
 // PUT /api/portal-bloques?pantalla=home|clases|bonos → guarda (reemplaza) el BORRADOR de esa pantalla. No publica.

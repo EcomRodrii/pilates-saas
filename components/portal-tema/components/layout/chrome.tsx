@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Status } from "@/components/portal-tema/components/ui/primitives";
-import { useActions } from "@/components/portal-tema/store/PortalStore";
+import { useActions, useCromoDemo } from "@/components/portal-tema/store/PortalStore";
 
 /** Ruta de las imágenes del tema. En Next viven en /public/media. */
 export const MEDIA = "/media/";
@@ -22,6 +22,9 @@ export function FotoTema({ nombre, alt = "" }: { nombre: string; alt?: string })
 }
 
 export function StatusBar({ over }: { over?: boolean }) {
+  // Fuera del marco de teléfono no se pinta: es una barra de estado FALSA, con
+  // la hora congelada a las 9:41, dibujada encima de la de verdad del móvil.
+  if (!useCromoDemo()) return null;
   return (
     <div className={("status-bar " + (over ? "status-bar--over" : "")).trim()}>
       <span>9:41</span>
@@ -31,6 +34,8 @@ export function StatusBar({ over }: { over?: boolean }) {
 }
 
 export function Island() {
+  // Igual que la barra de estado: la isla dinámica es del marco de la demo.
+  if (!useCromoDemo()) return null;
   return <div className="island"></div>;
 }
 

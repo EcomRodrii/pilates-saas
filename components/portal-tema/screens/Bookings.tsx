@@ -30,7 +30,7 @@ export function Bookings({ vm }: { vm: ViewModel }) {
                 </div>
                 <div className="booking__actions">
                   <Button size="sm" onClick={() => actions.openClass(row.id)}>Ver clase</Button>
-                  <Button size="sm" variant="ghost" onClick={() => actions.cancel(row.id)}>Cancelar</Button>
+                  <Button size="sm" variant="ghost" onClick={() => actions.cancel(row.id, row.reservaId)}>Cancelar</Button>
                 </div>
               </article>
             ))

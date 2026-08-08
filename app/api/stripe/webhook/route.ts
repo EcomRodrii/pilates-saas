@@ -3,25 +3,14 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
-import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { tenantAutorizado } from '@/lib/billing/webhook-tenant';
+import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
-/**
- * Estudio dueño de la cuenta Connect que firma el evento.
- *
- * Es la ÚNICA fuente fiable del tenant en los eventos de recibo: la metadata del
- * PaymentIntent la controla quien lo crea, así que un estudio con acceso a su
- * propia cuenta Stripe podría poner ahí el reciboId de OTRO estudio y confirmar
- * (o devolver) un cobro ajeno. `event.account` lo pone Stripe, no el emisor.
- *
- * Todos los cargos de recibo se crean con `{ stripeAccount }` sobre la cuenta
- * conectada del estudio, así que en estos manejadores siempre viene informado.
- */
 // Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
 // tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
 //
@@ -33,9 +22,71 @@ type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 // cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
 const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web']);
 
-async function studioDeCuentaConnect(admin: AdminClient, accountId: string | undefined): Promise<string | null> {
-  if (!accountId) return null;
-  const { data } = await admin.from('studios').select('id').eq('stripe_account_id', accountId).maybeSingle();
+// Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
+//
+// Solo hace falta porque hay un estudio cuyo `stripe_account_id` ES esta misma
+// cuenta —el de demostración, que resulta ser el único que ha cobrado de
+// verdad—: Stripe entrega esos cobros como "de tu cuenta", sin `event.account`.
+//
+// Se AVERIGUA solo, con `GET /v1/account`, que devuelve la cuenta de la clave de
+// API. La primera versión de esto lo exigía en una variable de entorno, y eso
+// convertía el arreglo de un cobro perdido en una tarea de operaciones — se
+// quedó bloqueado justo ahí. Un webhook de dinero no puede depender de que
+// alguien acierte a rellenar una variable.
+//
+// Va por `fetch` y no por el SDK porque `accounts.retrieve` exige un id en los
+// tipos de esta versión, y la sobrecarga sin argumentos no existe. La variable
+// se sigue respetando si está puesta: sirve para fijar el valor y ahorrar la
+// llamada.
+//
+// Cacheado por instancia, y SOLO en caso de éxito: si la llamada falla no
+// queremos dejar la instancia con `null` hasta que la reciclen, porque `null`
+// significa "sin tenant" → 403.
+let cachePlataforma: string | undefined;
+async function cuentaDePlataforma(): Promise<string | null> {
+  if (cachePlataforma !== undefined) return cachePlataforma;
+  const fijada = process.env.STRIPE_PLATFORM_ACCOUNT_ID;
+  if (fijada) return (cachePlataforma = fijada);
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/account', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const cuenta = await res.json() as { id?: string };
+    return cuenta.id ? (cachePlataforma = cuenta.id) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Estudio dueño de la cuenta de Stripe que firma el evento.
+ *
+ * Es la ÚNICA fuente fiable del tenant en los eventos de recibo: la metadata del
+ * PaymentIntent la controla quien lo crea, así que un estudio con acceso a su
+ * propia cuenta Stripe podría poner ahí el reciboId de OTRO estudio y confirmar
+ * (o devolver) un cobro ajeno. `event.account` lo pone Stripe, no el emisor.
+ *
+ * ⚠️ Este comentario decía que `event.account` "siempre viene informado" en
+ * estos manejadores. NO es cierto, y costó un cobro sin entregar: cuando el
+ * `stripe_account_id` del estudio es la propia cuenta de la plataforma, Stripe
+ * trata el cargo como "de tu cuenta" y entrega el evento SIN `account`. De ahí
+ * `cuentaFirmante`.
+ */
+async function studioDeCuentaConnect(
+  admin: AdminClient,
+  accountId: string | undefined,
+): Promise<string | null> {
+  // Un evento SIN `account` viene de la cuenta de la plataforma — que es la que
+  // tiene configurada el estudio de demostración. Ver `cuentaFirmante`.
+  //
+  // La cuenta de la plataforma solo se pide SI hace falta: en un direct charge
+  // normal `accountId` ya viene informado y nos ahorramos la llamada entera.
+  const cuenta = cuentaFirmante(accountId, accountId ? null : await cuentaDePlataforma());
+  if (!cuenta) return null;
+  const { data } = await admin.from('studios').select('id').eq('stripe_account_id', cuenta).maybeSingle();
   return (data as { id: string } | null)?.id ?? null;
 }
 
@@ -69,8 +120,11 @@ export async function POST(req: NextRequest) {
   // M10: idempotencia por event.id — reclamación atómica (RPC): si este
   // evento ya se procesó con éxito o hay otra entrega en vuelo dentro de la
   // ventana de expiración, salimos sin reprocesar.
+  // Acotada al ámbito 'connect': el webhook del SaaS comparte esta tabla y
+  // recibe algunos de los mismos tipos de evento (ver lib/webhook-idempotencia).
+  const claveEvento = claveWebhook('connect', event.id);
   const adminDedup = getSupabaseAdmin();
-  if (adminDedup && !await reclamarWebhookEvent(adminDedup, event.id, event.type)) {
+  if (adminDedup && !await reclamarWebhookEvent(adminDedup, claveEvento, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -643,6 +697,6 @@ export async function POST(req: NextRequest) {
   // M10: marcar el evento como procesado (solo se llega aquí si todos los
   // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan
   // — la reclamación expira sola y un reintento de Stripe la retoma).
-  if (adminDedup) await marcarWebhookProcesado(adminDedup, event.id);
+  if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
   return NextResponse.json({ received: true });
 }

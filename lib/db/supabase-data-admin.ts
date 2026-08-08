@@ -2,13 +2,14 @@ import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
+import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
@@ -214,6 +215,10 @@ function studioPublico(r: RowStudios) {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
+    // ⚠️ Esta lista es explícita, no un `select *`: un campo nuevo que no se
+    // añada aquí NO llega al portal aunque exista en la tabla, y el flag se
+    // quedaría siempre en `false` sin que nada fallara.
+    portalReact: (r as { portal_react?: boolean | null }).portal_react ?? false,
     // Política/términos del estudio: el portal se los muestra a la clienta y quedan
     // registrados con su aceptación. null = el cliente usa el texto por defecto.
     politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
@@ -361,7 +366,7 @@ export async function fetchPublicStudioData(
   // app/reservar/[slug]/page.tsx: cero referencias a esos campos. Se saltan
   // esas 11 queries y sus campos vuelven vacíos/null — misma forma del objeto,
   // así que el portal (que sí pide el modo completo) no cambia en nada.
-  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}:${liviano ? 'liviano' : 'completo'}`, async () => {
+  const catalogo = await conCacheCatalogo(claveCatalogoPublico(studioId, liviano), async () => {
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
@@ -455,6 +460,9 @@ export async function fetchPublicStudioData(
       homeBloques: layout?.bloques.home.publicado ?? [],
       bloquesClases: layout?.bloques.clases.publicado ?? [],
       bloquesBonos: layout?.bloques.bonos.publicado ?? [],
+      // Qué tema tiene instalado, no solo sus valores: el portal en React
+      // elige con esto cuál de los tres juegos de tokens monta.
+      themeIdPublicado: temaPublicado?.themeId ?? null,
       tabBarStyle: temaPublicado?.tabBarStyle ?? null,
       navPortal: temaPublicado?.navPortal ?? null,
       redesSociales: temaPublicado?.redesSociales ?? null,
@@ -1152,7 +1160,7 @@ export async function crearReservaPublica(params: {
     if (!ses) return { error: 'Sesión no encontrada' as const };
     if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-      return { error: 'Esta clase ya ha empezado' as const };
+      return { error: MENSAJE_CLASE_YA_EMPEZADA };
     }
     tipoClaseId = ses.tipo_clase_id as string | null | undefined;
     inicioISO = ses.inicio as string;

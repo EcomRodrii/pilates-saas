@@ -22,7 +22,11 @@ const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
 // `pantalla`/`onPantallaChange` que controla el padre (PortalBloquesEditor),
 // solo de la navegación interna de este widget. Compras queda fuera a
 // propósito (dinero real) — ver PortalPreviewReservasClient/PerfilClient.
-export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas'; ruta: string; etiqueta: string }[] = [
+export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas' | 'bienvenida'; ruta: string; etiqueta: string }[] = [
+  // ⚠️ La bienvenida va PRIMERA porque es lo primero que ve una socia — y
+  // porque hasta ahora no estaba: la única forma de comprobarla era
+  // publicarla, o sea enseñársela antes a las clientas que a la propietaria.
+  { id: 'bienvenida', ruta: 'bienvenida', etiqueta: 'Bienvenida' },
   { id: 'reservas', ruta: 'reservas', etiqueta: 'Reservas' },
   { id: 'perfil', ruta: 'perfil', etiqueta: 'Perfil' },
 ];
@@ -115,11 +119,19 @@ export function HomePreview({
     if (irA.vista === 'home' || irA.vista === 'clases' || irA.vista === 'bonos') onPantallaChange(irA.vista);
   }
 
+  // El token trae el slug consigo, y por eso la vista previa ya no espera al
+  // contexto del panel: antes el iframe no podía componer su URL hasta que
+  // `useStudio()` resolvía —63 peticiones más tarde— y se veía un hueco vacío
+  // entre 4 y 7 segundos. El slug de la prop se sigue aceptando como respaldo.
+  const [slugToken, setSlugToken] = useState<string | null>(null);
   useEffect(() => {
     let vivo = true;
-    fetchHomePreviewToken().then((t) => { if (vivo) setToken(t); }).catch(() => {});
+    fetchHomePreviewToken()
+      .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); } })
+      .catch(() => {});
     return () => { vivo = false; };
   }, []);
+  const slugEfectivo = slugToken ?? slug ?? null;
 
   function enviar() {
     for (const p of PANTALLAS) {
@@ -213,7 +225,7 @@ export function HomePreview({
     return () => window.removeEventListener('message', onMsg);
   }, [onInsertar]);
 
-  if (!slug || !token) {
+  if (!slugEfectivo || !token) {
     return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;
   }
 
@@ -224,7 +236,7 @@ export function HomePreview({
       <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
         <iframe
           ref={ref}
-          src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
+          src={`/portal-preview/${slugEfectivo}${ruta ? `/${ruta}` : ''}?t=${token}`}
           title="Vista previa de la app de socias"
           onLoad={enviar}
           className="w-full h-full border-0"

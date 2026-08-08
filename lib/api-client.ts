@@ -70,9 +70,15 @@ export async function fetchThemeBorrador(): Promise<ThemeConfig> {
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  const res = await fetch('/api/theme', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
-  return res.json();
+  // `unaVez` como el borrador: al abrir el editor coincidían VARIAS llamadas
+  // simultáneas a este mismo GET (medido en producción, tres a la vez). No es
+  // caché — la entrada se suelta al terminar, así que solo colapsa las que se
+  // solapan de verdad.
+  return unaVez('theme-publicado', async () => {
+    const res = await fetch('/api/theme', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
@@ -148,6 +154,18 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   // falten, y sin esta llamada el panel se los comía.
   return conFijos(resolverBloques(await res.json()), pantalla);
 }
+/**
+ * Los bloques que están viendo las socias ahora mismo en esa pantalla.
+ *
+ * Mismo tratamiento que el borrador —`resolverBloques` + `conFijos`— por el
+ * mismo motivo: quien lo lea tiene que ver EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesPublicado(pantalla: PantallaId): Promise<BloqueHome[]> {
+  const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}&estado=publicado`, { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudieron cargar los bloques publicados del portal');
+  return conFijos(resolverBloques(await res.json()), pantalla);
+}
+
 
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
@@ -174,11 +192,20 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 // Token firmado de corta duración para /portal-preview/[slug] (Fase 4 del
 // editor de temas — preview en vivo del constructor de bloques). Ver
 // lib/theme/home-preview-token.ts.
-export async function fetchHomePreviewToken(): Promise<string> {
-  const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo preparar la vista previa');
-  const b = (await res.json()) as { token: string };
-  return b.token;
+/**
+ * Token + slug del estudio de la sesión, en una sola petición.
+ *
+ * El slug viene de aquí y no de `useStudio()` a propósito: así la vista previa
+ * puede arrancar sin esperar a que cargue el contexto entero del panel. Ver el
+ * comentario del endpoint.
+ */
+export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
+  return unaVez('home-preview-token', async () => {
+    const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    const b = (await res.json()) as { token: string; slug?: string | null };
+    return { token: b.token, slug: b.slug ?? null };
+  });
 }
 
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
@@ -553,6 +580,29 @@ async function postCheckout(ruta: string, params: unknown): Promise<{ url: strin
   if (!res.ok) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
   if (!data?.url) return { error: mensajeSeguro(data?.error, 'No se ha podido iniciar el pago.') };
   return { url: data.url };
+}
+
+/**
+ * Contratar un PLAN (bono o suscripción) desde el portal: abre el Checkout
+ * alojado de Stripe. El importe lo deriva SIEMPRE el servidor del plan real —
+ * lo que se manda desde aquí no es superficie de fraude.
+ *
+ * Existe como función compartida porque el portal tiene ahora dos pantallas de
+ * compra (la de siempre, `/compras`, y la de Bonos del kit de temas) y la
+ * segunda no podía volver a escribir a mano el manejo de errores de la
+ * primera: el "leer `res.ok` ANTES del cuerpo" de ahí abajo se arregló tras un
+ * fallo real en el que un 500 del servidor se le contaba a la socia como un
+ * problema de SU conexión.
+ */
+export async function crearCheckoutPlan(params: {
+  studioId: string;
+  planId: string;
+  socioId: string | null;
+  socioEmail: string | null;
+  socioNombre: string;
+  origen?: OrigenPago;
+}): Promise<{ url: string } | { error: string }> {
+  return postCheckout('/api/stripe/checkout', params);
 }
 
 export async function crearCheckoutStripe(params: {

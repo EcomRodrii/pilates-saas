@@ -991,6 +991,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 // sería casi blanco encima y quedaría ilegible.
                 const conColor = variantes.retos === 'color';
                 const tinta = conColor ? reto.tinta : t.ink;
+                // `imagenCore`/`imagenCara`: campo del bloque, no del tema —
+                // es contenido del estudio, y cada estudio sube el suyo.
+                const fotoReto = txt('retos', reto.key === 'core' ? 'imagenCore' : 'imagenCara');
                 return (
                   <div
                     key={reto.key}
@@ -1002,6 +1005,21 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                       boxShadow: conColor ? 'none' : sombra.cardSemana,
                     }}
                   >
+                    {/* La foto que haya subido el estudio para ESTE reto. Sin
+                        foto, la tarjeta se queda con su color — que es como se
+                        ve hoy en todos los estudios. Va arriba, sangrando el
+                        relleno de la tarjeta, y el texto sigue debajo: así el
+                        conteo real de apuntadas no compite con la imagen. */}
+                    {fotoReto !== '' && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={fotoReto} alt=""
+                        style={{
+                          display: 'block', width: 'calc(100% + 36px)', height: 116,
+                          margin: '-18px -18px 14px', objectFit: 'cover',
+                        }}
+                      />
+                    )}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                       <span style={{ ...display(18, false, 1.2), color: tinta }}>{reto.label}</span>
                       <span style={{

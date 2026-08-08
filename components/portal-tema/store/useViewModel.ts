@@ -53,14 +53,22 @@ export function useViewModel() {
   return useMemo(() => {
     const f = cfg.features;
     const cls = buscarClase(datos, state.classId);
-    const booked = state.booked.includes(state.classId);
+    // ⚠️ Las reservas de verdad mandan sobre las de la demo. `state.booked` es
+    // la lista de mentira del kit (la llena un `setTimeout`, no el servidor):
+    // mientras fue la única fuente, la pantalla de Reservas del portal real
+    // salía SIEMPRE vacía —arranca en `[]`— con las reservas de la socia
+    // guardadas en la base de datos. `undefined` = nadie identificado.
+    const reservadas = datos.reservadas;
+    const idsReservados = reservadas ? reservadas.map((r) => r.classId) : state.booked;
+    const reservaPorClase = new Map((reservadas ?? []).map((r) => [r.classId, r.reservaId]));
+    const booked = idsReservados.includes(state.classId);
     const fav = state.favourites.includes(state.classId);
-    const next = state.booked.length ? buscarClase(datos, state.booked[0]) : null;
+    const next = idsReservados.length ? buscarClase(datos, idsReservados[0]) : null;
     const dayList = datos.clases.filter((c) => c.day === state.day && (state.filter === "todas" || c.type === state.filter));
-    const done = state.booked.length;
+    const done = idsReservados.length;
     const goal = 4;
     const exercise = EXERCISES[state.exercise];
-    const passLeft = Math.max(0, datos.bono.total - state.booked.length);
+    const passLeft = Math.max(0, datos.bono.total - idsReservados.length);
     // ⚠️ `planes` puede venir vacío (un estudio que aún no ha creado tarifas),
     // así que `plan` es nullable. Con los datos de muestra siempre había uno y
     // `PLANS[0]` parecía seguro.
@@ -118,7 +126,7 @@ export function useViewModel() {
 
       filters: datos.filtros.map((x) => ({ key: x.key, label: x.label, active: state.filter === x.key })),
       classes: dayList.map((c) => {
-        const isBooked = state.booked.includes(c.id);
+        const isBooked = idsReservados.includes(c.id);
         return {
           id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
           meta: c.room + " · " + c.level,
@@ -131,10 +139,16 @@ export function useViewModel() {
 
       // Una reserva cuya clase ya no está (cancelada, o de otra semana) se cae
       // de la lista en vez de pintarse a medias.
-      bookings: state.booked.flatMap((id) => {
+      bookings: idsReservados.flatMap((id) => {
         const c = buscarClase(datos, id);
         if (!c) return [];
-        return [{ id: c.id, name: c.name, time: c.time, day: etiquetaDia(datos, c.day), meta: c.room + " · " + c.teacher }];
+        return [{
+          id: c.id, name: c.name, time: c.time, day: etiquetaDia(datos, c.day),
+          meta: c.room + " · " + c.teacher,
+          // El id que hay que mandar para cancelar NO es el de la clase.
+          // `undefined` en la demo, donde no hay reserva que cancelar.
+          reservaId: reservaPorClase.get(c.id),
+        }];
       }),
 
       pass: {
@@ -144,7 +158,7 @@ export function useViewModel() {
       },
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
       metrics: [
-        { value: state.booked.length, label: "reservas" },
+        { value: idsReservados.length, label: "reservas" },
         { value: 18, label: "clases" },
         { value: state.favourites.length, label: "favoritas" },
       ],

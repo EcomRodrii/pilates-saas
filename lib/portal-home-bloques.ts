@@ -569,6 +569,24 @@ export const CAMPOS_PROGRESO_SEMANAL = [
 
 export const CAMPOS_RETOS = [
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: 'Retos', maxLargo: 40 },
+  // Una foto por reto, del ESTUDIO. Vacío = la tarjeta de color de siempre,
+  // que es lo que ve todo estudio que no suba nada.
+  //
+  // ⚠️ Fotos del estudio, nunca de archivo: la referencia que motivó esto
+  // llevaba caras de gente que no existe y un "156K apuntadas" inventado.
+  // El conteo de esta tarjeta ya es REAL (`reto_participaciones`), y mezclarlo
+  // con personas de catálogo lo convertiría en decorado. Decisión del fundador
+  // al reabrir el "nunca fotos" que documentaba retos-portal.ts.
+  {
+    tipo: 'imagen', id: 'imagenCore', etiqueta: 'Foto del reto «Core Pilates»',
+    marcador: 'https://…', porDefecto: '',
+    ayuda: 'Opcional. Sin foto, la tarjeta se queda con su color.',
+  },
+  {
+    tipo: 'imagen', id: 'imagenCara', etiqueta: 'Foto del reto «Face Yoga»',
+    marcador: 'https://…', porDefecto: '',
+    ayuda: 'Opcional. Sin foto, la tarjeta se queda con su color.',
+  },
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_LISTADO_CLASES = [

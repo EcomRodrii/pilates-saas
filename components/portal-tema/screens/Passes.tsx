@@ -62,7 +62,12 @@ export function Passes({ vm }: { vm: ViewModel }) {
           </div>
         </section>
 
-        <Button block size="lg" onClick={actions.checkout}>Continuar al pago</Button>
+        {/* `loading` no es decoración: bloquea el botón mientras se pide la
+            sesión de pago, que es lo que impide que una doble pulsación abra
+            dos cobros. El store lo respalda con su propia guarda. */}
+        <Button block size="lg" loading={vm.checkout.paying} onClick={actions.checkout}>
+          Continuar al pago
+        </Button>
         <div style={{ height: 8 }}></div>
       </div>
     </>

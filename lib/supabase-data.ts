@@ -2576,7 +2576,7 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
 // cuando otorgado=true, si no duplicaría esas filas en un reintento.
 export async function dbOtorgarCreditoDisparador(
   socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
-): Promise<{ ok: true; saldo: number; otorgado: boolean } | { error: string }> {
+): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null } | { error: string }> {
   const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
     p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
     p_config_id: configId ?? null,
@@ -2598,7 +2598,10 @@ export async function dbOtorgarCreditoDisparador(
     reportDbError('[dbOtorgarCreditoDisparador]', { message: 'La RPC no devolvió ninguna fila' });
     return { error: 'No se pudo confirmar el crédito' };
   }
-  return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
+  return {
+    ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean,
+    accionId: (row.accion_id as string | null) ?? null,
+  };
 }
 
 // P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
@@ -3785,6 +3788,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
+    portalReact: r.portal_react ?? false,
     logoUrl: r.logo_url ?? null,
     ivaPorDefecto: r.iva_por_defecto ?? 21,
     depUmbralAlto: r.dep_umbral_alto ?? 25,

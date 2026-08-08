@@ -3,7 +3,7 @@
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Divider, EmptyState, Pill } from "@/components/portal-tema/components/ui/primitives";
 import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
-import { useActions } from "@/components/portal-tema/store/PortalStore";
+import { useActions, useEsDemo } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
 function FavouriteButton({ fav, glass, size }: { fav: boolean; glass?: boolean; size: number }) {
@@ -35,6 +35,7 @@ function FavouriteButton({ fav, glass, size }: { fav: boolean; glass?: boolean; 
  */
 export function ClassDetail({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  const esDemo = useEsDemo();
   const bleed = vm.features.detail_style === "bleed";
   const d = vm.detail;
 
@@ -141,7 +142,11 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
         </Button>
         <p className="detail__seats">{d.seats}</p>
 
-        {d.confirmed ? (
+        {/* La sesión guiada es todavía una maqueta del kit: un cronómetro sobre
+            cuatro ejercicios fijos, sin vídeo ni contenido del estudio. Se
+            enseña al mirar temas y NO en el portal de verdad — un botón que
+            promete una clase guiada y da un cronómetro es peor que no estar. */}
+        {d.confirmed && esDemo ? (
           <Button variant="ghost" block style={{ marginTop: 12, height: 46 }} onClick={actions.startSession}>
             Empezar la sesión guiada
           </Button>

@@ -139,7 +139,7 @@ import type {
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
@@ -261,6 +261,11 @@ interface StudioContextValue {
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
+  /** Tema instalado (`oliva`/`bloom`/`noir`/`classic`…). El portal en React
+   *  elige con esto cuál de los tres juegos de tokens monta. */
+  themeIdPublicado: string | null;
+  /** TEMPORAL: `true` = este estudio ve el portal en React. Ver `Studio.portalReact`. */
+  portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
   instructores: Instructor[];
@@ -613,6 +618,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // esté mandando, y `null` (fuera del editor) deja intacto lo publicado.
   const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
+  const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
+  const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -846,6 +853,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // completo — un valor corrupto en un eje no arrastra a los demás.
       setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
+      setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
+      setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
       setRedesSociales({
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
         facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
@@ -1594,9 +1603,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSocios(prev => [...prev, nuevaSocia]);
     addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
 
+    let planNombreAlta: string | undefined;
+
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
+        planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
         const sus: Suscripcion = {
           id: susId,
@@ -1644,6 +1656,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setFacturas(prev => [...prev, fac]);
         void sellarFacturaYActualizar(fac);
       }
+    }
+
+    // Sin esto, el alta quedaba completa en la BD pero la socia nunca se
+    // enteraba de que existía un portal: `enviarEmailBienvenida` ya existía
+    // (con enlace de acceso directo, sin contraseña que teclear) pero nadie la
+    // llamaba desde ningún sitio del código — la propietaria tenía que enviarla
+    // a mano desde otra pantalla, y casi nunca lo hacía. Best-effort: un email
+    // que no sale no debe deshacer un alta que ya se guardó en la BD.
+    if (nuevaSocia.email) {
+      void enviarEmailBienvenida({
+        to: nuevaSocia.email,
+        toName: nuevaSocia.nombre,
+        planNombre: planNombreAlta,
+        socioId: nuevaSocia.id,
+      }).catch(() => { /* fallo suave: el alta ya está hecha */ });
     }
 
     return { ...resSocia, id: nuevaSocia.id };
@@ -3475,9 +3502,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
       if ('error' in res) return; // condición no cumplida o sin regla activa
       if (!res.otorgado) return; // ya se había concedido antes para este refId
+      if (!res.accionId) {
+        // Defensivo: la RPC siempre devuelve accion_id cuando otorgado=true; si
+        // alguna vez no lo hiciera, no fabricar un id local — insertarlo violaría
+        // reward_history_action_id_fkey (bug JAVASCRIPT-NEXTJS-11 de Sentry). El
+        // saldo ya se actualizó server-side; solo se pierde el registro de
+        // historial de este otorgamiento puntual, no el crédito en sí.
+        capturarMensaje('[otorgarCreditos] RPC otorgado=true sin accionId', 'error', { tags: { area: 'gamificacion' } });
+        return;
+      }
 
       const now = new Date().toISOString();
-      const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
+      const action: RewardAction = { id: res.accionId, studioId, socioId, trigger, refId, creadoEn: now };
       const historyEntry: RewardHistory = {
         id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
         creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
@@ -3972,6 +4008,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     barraClasica: barraClasicaEfectiva,
     variantes: variantesEfectivas,
     navPortal,
+    themeIdPublicado,
+    portalReact,
     redesSociales,
     favoritos,
     toggleFavorito,

@@ -16,6 +16,7 @@
 // en la Fase 3, que verifica antes que el llamante es PROPIETARIO del estudio.
 
 import { cache } from 'react';
+import { invalidarCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   resolveTheme,
@@ -165,5 +166,9 @@ export async function publicarTheme(studioId: string): Promise<ThemeConfig> {
       { onConflict: 'studio_id' },
     );
   if (error) throw new Error(`THEME_PUBLICAR: ${error.message}`);
+  // El tema publicado viaja dentro del catálogo público cacheado: sin esto,
+  // publicar deja la base de datos correcta y el portal sirviendo el tema
+  // anterior hasta un minuto. Ver `invalidarCatalogoPublico`.
+  invalidarCatalogoPublico(studioId);
   return publicado;
 }
