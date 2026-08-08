@@ -103,7 +103,7 @@ export function ThemeLibrary() {
     // Un token para todas las miniaturas, y los bloques de partida. Si algo de
     // esto falla, las miniaturas se quedan en su hueco gris: la biblioteca
     // sigue siendo usable (nombre, descripción, colores, Usar/Personalizar).
-    fetchHomePreviewToken().then((t) => { if (vivo) setTokenPreview(t); }).catch(() => {});
+    fetchHomePreviewToken().then(({ token }) => { if (vivo) setTokenPreview(token); }).catch(() => {});
     fetchBloquesBorrador('home').then((b) => { if (vivo) setBloquesActuales(b); }).catch(() => {});
     return () => { vivo = false; };
   }, []);

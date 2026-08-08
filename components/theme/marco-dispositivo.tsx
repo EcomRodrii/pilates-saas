@@ -47,9 +47,26 @@ export function MarcoDispositivo({
   }, []);
 
   const marco = `${RADIO[dispositivo]} overflow-hidden ${def.conMarco ? 'border-[6px] border-black/85 shadow-xl' : 'border border-border'}`;
+  // ⚠️ Esqueleto, no una frase en medio de un rectángulo gris.
+  //
+  // Mientras la vista previa arrancaba, esto era una caja lisa con "La vista
+  // previa aparecerá en un momento" — y la propietaria la miraba entre 4 y 7
+  // segundos (medido en producción) en la pantalla cuyo único propósito es
+  // ver. Un rectángulo vacío que no cambia se lee como colgado; unas siluetas
+  // con la forma de lo que va a venir se leen como cargando. La frase se
+  // queda debajo, para cuando el hueco no es una espera sino un estado
+  // permanente (un estudio sin enlace de reservas, p.ej.).
   const contenido = vacio
-    ? <div className="w-full h-full bg-muted flex items-center justify-center text-center px-6">
-        <p className="text-[12px] text-muted-foreground">{vacio}</p>
+    ? <div className="w-full h-full bg-muted flex flex-col gap-3 p-5" aria-busy="true">
+        <div className="h-3 w-2/5 rounded bg-foreground/10 animate-pulse" />
+        <div className="h-6 w-3/5 rounded bg-foreground/10 animate-pulse" />
+        <div className="h-28 w-full rounded-xl bg-foreground/10 animate-pulse" />
+        <div className="flex gap-2">
+          <div className="h-16 flex-1 rounded-lg bg-foreground/10 animate-pulse" />
+          <div className="h-16 flex-1 rounded-lg bg-foreground/10 animate-pulse" />
+          <div className="h-16 flex-1 rounded-lg bg-foreground/10 animate-pulse" />
+        </div>
+        <p className="mt-auto text-[11.5px] text-muted-foreground text-center">{vacio}</p>
       </div>
     : children;
 
