@@ -103,6 +103,17 @@ export function estadoSesion(
   return 'PROGRAMADA';
 }
 
+// Guardia de negocio reusada tanto en cliente (deshabilitar acciones en el
+// panel) como en servidor (crearBaja, PATCH confirmar sustitución): una vez
+// que una clase ha empezado no tiene sentido editarla ni reasignar
+// instructora/sustituta. Puro y sin 'use client', así que también sirve
+// desde lib/sustituciones/baja.ts y app/api/*.
+export function sesionYaEmpezada(inicio: string | Date, ahora: Date = new Date()): boolean {
+  return ahora.getTime() >= new Date(inicio).getTime();
+}
+
+export const MENSAJE_CLASE_YA_EMPEZADA = 'Esta clase ya ha empezado';
+
 // ¿Esta clase exige que alguien decida algo? (punto 3: franja de decisiones,
 // y el punto de atención en la cabecera de cada sala/día). No es solo el
 // estado: una clase PROGRAMADA con más aforo del que cabe en la sala también

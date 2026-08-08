@@ -50,7 +50,7 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
@@ -964,6 +964,10 @@ export default function Calendario() {
 
   async function editarSesion() {
     if (!sesionId || horaInvalida || guardandoSesion) return;
+    if (sesionActual && sesionYaEmpezada(sesionActual.inicio)) {
+      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      return;
+    }
     setGuardandoSesion(true);
     try {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
@@ -1027,6 +1031,10 @@ export default function Calendario() {
     // esto dos clics (o dos candidatas distintas) mandaban dos updateSesion
     // en paralelo — el segundo en responder ganaba en silencio.
     if (!sesionActual || guardandoSesion) return;
+    if (sesionYaEmpezada(sesionActual.inicio)) {
+      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      return;
+    }
     setGuardandoSesion(true);
     try {
     const anterior = nombreInstructor(sesionActual.instructorId);
@@ -1712,7 +1720,8 @@ export default function Calendario() {
   } | null>(null);
 
   const arrastrableSesion = useCallback((d: DatoSesion) =>
-    !d.sesion.cancelada && (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
+    !d.sesion.cancelada && !sesionYaEmpezada(d.sesion.inicio) &&
+    (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
   [esInstructorTop, yoTop]);
 
   async function ejecutarMoverSesion(sesionId: string, nuevoSalaId: string, nuevoInicio: string, nuevoFin: string) {
@@ -1748,6 +1757,7 @@ export default function Calendario() {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion || sesion.cancelada) return;
     if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
+    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
 
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
@@ -2190,7 +2200,12 @@ export default function Calendario() {
           ocupacion={{ confirmadas: sesionActual.confirmadas, aforoMaximo: sesionActual.aforoMaximo }}
           accionesCabecera={esPropiaClase ? (
             <>
-              <button onClick={openEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+              <button
+                onClick={openEdit}
+                disabled={sesionYaEmpezada(sesionActual.inicio)}
+                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
                 <Pencil size={12} />Editar
               </button>
               <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
@@ -2201,7 +2216,12 @@ export default function Calendario() {
                   <UserCheck size={12} />No puedo asistir
                 </button>
               ) : (
-                <button onClick={() => setShowCobertura(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                <button
+                  onClick={() => setShowCobertura(true)}
+                  disabled={sesionYaEmpezada(sesionActual.inicio)}
+                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
                   <UserCheck size={12} />Buscar sustituta
                 </button>
               )}

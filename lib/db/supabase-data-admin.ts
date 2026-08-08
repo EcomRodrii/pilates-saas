@@ -9,6 +9,7 @@ import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
+import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
@@ -1159,7 +1160,7 @@ export async function crearReservaPublica(params: {
     if (!ses) return { error: 'Sesión no encontrada' as const };
     if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-      return { error: 'Esta clase ya ha empezado' as const };
+      return { error: MENSAJE_CLASE_YA_EMPEZADA as const };
     }
     tipoClaseId = ses.tipo_clase_id as string | null | undefined;
     inicioISO = ses.inicio as string;
