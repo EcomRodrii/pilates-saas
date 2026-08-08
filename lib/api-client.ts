@@ -58,36 +58,30 @@ function unaVez<T>(clave: string, hacer: () => Promise<T>): Promise<T> {
   return p;
 }
 
-/**
- * Borrador y publicado en UNA petición, compartida por los dos lectores.
- *
- * ⚠️ Al abrir el editor los dos se pedían por separado, y cada petición del
- * panel paga su propio viaje: ~140 ms en caliente y hasta 7,8 s si la función
- * estaba fría (medido en producción). Salen de la misma fila, así que era
- * pagar dos veces por una lectura.
- *
- * `unaVez` con la MISMA clave para ambos: si el editor pide borrador y
- * publicado a la vez —que es justo lo que hace— comparten la petición. Y como
- * la entrada se suelta al terminar, esto no es caché ni puede servir un dato
- * viejo.
- */
-async function fetchThemeAmbos(): Promise<{ borrador: ThemeConfig; publicado: ThemeConfig }> {
-  return unaVez('theme-ambos', async () => {
-    const res = await fetch('/api/theme?ambos=1', { headers: await authHeader() });
-    if (!res.ok) throw new Error('No se pudo cargar el tema');
-    return res.json() as Promise<{ borrador: ThemeConfig; publicado: ThemeConfig }>;
-  });
-}
-
 export async function fetchThemeBorrador(): Promise<ThemeConfig> {
-  return (await fetchThemeAmbos()).borrador;
+  return unaVez('theme-borrador', async () => {
+    const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 // El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
+//
+// ⚠️ Se INTENTÓ juntarlo con el borrador en una sola petición (`?ambos=1`) para
+// ahorrar un viaje al abrir el editor, y se revirtió: `/api/theme` lo pide el
+// panel ENTERO, así que cambiarle la forma obliga a que todos sus lectores
+// —y los 55 specs que lo mockean— conozcan el sobre nuevo. Un viaje de ~140 ms
+// en una pantalla no paga eso. Lo caro de verdad es el arranque en frío, y eso
+// no se arregla desde aquí.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  return (await fetchThemeAmbos()).publicado;
+  return unaVez('theme-publicado', async () => {
+    const res = await fetch('/api/theme', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
