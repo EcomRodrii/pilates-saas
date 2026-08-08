@@ -17,7 +17,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -1224,8 +1224,8 @@ export async function crearReservaPublica(params: {
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
       return tieneAlgunPlan
-        ? { error: 'Tu bono no incluye este tipo de clase' as const }
-        : { error: 'Necesitas un plan o bono activo para reservar' as const };
+        ? { error: ERROR_BONO_NO_CUBRE }
+        : { error: ERROR_SIN_PLAN };
     }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(

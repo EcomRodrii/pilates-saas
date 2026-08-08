@@ -6,6 +6,7 @@ import {
   hayAlgoQueContratar,
   bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
+  seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE,
 } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -260,4 +261,38 @@ test('con planes pero todos desactivados, tampoco', () => {
 
 test('basta UN plan activo para que el gate vuelva a tener sentido', () => {
   assert.equal(hayAlgoQueContratar([{ activo: false }, { activo: true }]), true);
+});
+
+// ── El eslabón que faltaba entre "no puedes reservar" y "compra un bono" ─────
+// El portal ya tenía tienda (/compras) y la pantalla de Bonos ya invitaba a ir
+// a ella. Pero al intentar reservar sin plan, la hoja mostraba el error como
+// texto plano y ahí se acababa: la socia tenía que deducir sola que existía una
+// pestaña «Bonos» con un botón dentro. Reportado desde un estudio real.
+
+test('sin plan: el error ofrece comprar', () => {
+  assert.equal(seArreglaComprando(ERROR_SIN_PLAN), true);
+});
+
+test('bono que no cubre este tipo de clase: también se arregla comprando', () => {
+  // Puede pagar la clase suelta, que se vende en la misma pantalla.
+  assert.equal(seArreglaComprando(ERROR_BONO_NO_CUBRE), true);
+});
+
+test('la coletilla de la página pública no rompe el reconocimiento', () => {
+  // /reservar/[slug] añade «Contrata uno en la pestaña "El estudio"» al mismo
+  // mensaje. Por eso se compara con `includes` y no con igualdad.
+  assert.equal(
+    seArreglaComprando(`${ERROR_SIN_PLAN}. Contrata uno en la pestaña "El estudio".`),
+    true,
+  );
+});
+
+test('un fallo que NO se arregla comprando no ofrece la tienda', () => {
+  // Mandar a comprar a quien ya tiene bono y lo que pasa es que la clase está
+  // llena, o que ha llegado a su tope de reservas, es ruido —y encima sugiere
+  // que le van a cobrar por algo que ya pagó.
+  assert.equal(seArreglaComprando('La clase está completa.'), false);
+  assert.equal(seArreglaComprando('Has alcanzado el máximo de 3 reservas activas. Cancela una para reservar otra.'), false);
+  assert.equal(seArreglaComprando('No se ha podido confirmar la reserva.'), false);
+  assert.equal(seArreglaComprando(''), false);
 });
