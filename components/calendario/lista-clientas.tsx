@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { CheckCircle2, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Repeat, X } from 'lucide-react';
 import { horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
 
@@ -21,6 +21,11 @@ export interface ListaClientasProps {
   onAprobar?: (reservaId: string) => void;
   onRechazar?: (reservaId: string) => void;
   onQuitar?: (reservaId: string) => void;
+  /** "Repite como la semana pasada" — vuelve a apuntarla a la misma sala+tipo
+   *  de clase, 7 días después. Solo tiene sentido sobre una reserva ya
+   *  CONFIRMADA (repetir una lista de espera o pendiente de aprobar repite el
+   *  estado, no la clase). */
+  onRepetirSemanaSiguiente?: (reservaId: string) => void;
   /** Punto de color del semáforo de salud (§11 ficha clínica) — ausente si el
    *  rol no lo puede ver (puedeVerSemaforo). Genérico a propósito: este
    *  componente no importa tipos de lib/ficha-clinica. */
@@ -45,7 +50,7 @@ const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bol
 
 export function ListaClientas({
   reservas, nombreClienta, onCheckin, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
-  semaforoPorSocio, filaExtra,
+  onRepetirSemanaSiguiente, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
 
@@ -99,7 +104,7 @@ export function ListaClientas({
                 )}
               </>
             )}
-            {r.estado === 'CONFIRMADA' && (onCheckin || onNoShow) && (
+            {r.estado === 'CONFIRMADA' && (onCheckin || onNoShow || onRepetirSemanaSiguiente) && (
               <>
                 {onCheckin && (
                   <button onClick={() => onCheckin(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
@@ -109,6 +114,15 @@ export function ListaClientas({
                 {onNoShow && (
                   <button onClick={() => onNoShow(r.id)} title="Marcar que no se presentó" className={BOTON} style={{ background: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
                     No vino
+                  </button>
+                )}
+                {onRepetirSemanaSiguiente && (
+                  <button
+                    onClick={() => onRepetirSemanaSiguiente(r.id)}
+                    title="Apuntarla a la misma clase la semana que viene"
+                    className={`${BOTON} text-muted-foreground hover:bg-muted opacity-60 group-hover:opacity-100`}
+                  >
+                    <Repeat size={11} />Repetir
                   </button>
                 )}
               </>
