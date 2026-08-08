@@ -70,9 +70,15 @@ export async function fetchThemeBorrador(): Promise<ThemeConfig> {
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  const res = await fetch('/api/theme', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
-  return res.json();
+  // `unaVez` como el borrador: al abrir el editor coincidían VARIAS llamadas
+  // simultáneas a este mismo GET (medido en producción, tres a la vez). No es
+  // caché — la entrada se suelta al terminar, así que solo colapsa las que se
+  // solapan de verdad.
+  return unaVez('theme-publicado', async () => {
+    const res = await fetch('/api/theme', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
@@ -186,11 +192,20 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 // Token firmado de corta duración para /portal-preview/[slug] (Fase 4 del
 // editor de temas — preview en vivo del constructor de bloques). Ver
 // lib/theme/home-preview-token.ts.
-export async function fetchHomePreviewToken(): Promise<string> {
-  const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo preparar la vista previa');
-  const b = (await res.json()) as { token: string };
-  return b.token;
+/**
+ * Token + slug del estudio de la sesión, en una sola petición.
+ *
+ * El slug viene de aquí y no de `useStudio()` a propósito: así la vista previa
+ * puede arrancar sin esperar a que cargue el contexto entero del panel. Ver el
+ * comentario del endpoint.
+ */
+export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
+  return unaVez('home-preview-token', async () => {
+    const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    const b = (await res.json()) as { token: string; slug?: string | null };
+    return { token: b.token, slug: b.slug ?? null };
+  });
 }
 
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
