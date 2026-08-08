@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { planDePriceId } from '@/lib/billing/billing';
 import { capturar } from '@/lib/analytics';
-import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import * as Sentry from '@sentry/nextjs';
+import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest) {
 
   // M10: idempotencia por event.id — reclamación atómica: saltar si ya se
   // procesó con éxito o hay otra entrega en vuelo dentro de la ventana.
-  if (!await reclamarWebhookEvent(admin, event.id, event.type)) {
+  // Acotada al ámbito 'billing': este webhook NO puede reclamar el evento en
+  // nombre del de Connect (ver comentario en lib/webhook-idempotencia.ts).
+  const claveEvento = claveWebhook('billing', event.id);
+  if (!await reclamarWebhookEvent(admin, claveEvento, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -45,6 +49,28 @@ export async function POST(req: NextRequest) {
       if (s.mode === 'subscription' && typeof s.subscription === 'string') {
         const sub = await stripe.subscriptions.retrieve(s.subscription);
         await actualizarSuscripcion(admin, sub);
+      } else if (s.mode === 'payment') {
+        // Un checkout en modo `payment` NO es una suscripción al SaaS: es una
+        // compra de una socia (un bono, un recibo), y su sitio es
+        // /api/stripe/webhook. Que llegue aquí significa que el reparto de
+        // destinos de eventos en Stripe está mal y hay dinero cobrado que quizá
+        // nadie está entregando.
+        //
+        // Antes esto caía en el `if` sin `else` y se respondía 200 en silencio:
+        // así se perdió el cobro de 1 € del 8-ago-2026, y solo se descubrió
+        // porque la socia dijo que no le había llegado el bono. Ignorarlo sigue
+        // siendo lo correcto —entregarlo desde aquí sería duplicar la lógica del
+        // otro webhook—, pero callárselo no.
+        Sentry.captureMessage('[billing webhook] checkout de PAGO en el webhook del SaaS', {
+          level: 'error',
+          tags: { area: 'cobros', tipo: 'destino-equivocado' },
+          extra: {
+            sessionId: s.id,
+            eventAccount: event.account ?? null,
+            metadata: s.metadata ?? null,
+            pista: 'Suscribe este checkout a /api/stripe/webhook: es una compra de socia, no del SaaS.',
+          },
+        });
       }
     } else if (event.type === 'invoice.payment_failed') {
       // Primer aviso proactivo a la propietaria de que SU suscripción a Tentare
@@ -67,7 +93,7 @@ export async function POST(req: NextRequest) {
   }
 
   // M10: marcar procesado solo si llegó aquí sin error (el catch devuelve 500 antes).
-  await marcarWebhookProcesado(admin, event.id);
+  await marcarWebhookProcesado(admin, claveEvento);
   return NextResponse.json({ received: true });
 }
 

@@ -20,6 +20,26 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Los DOS webhooks de Stripe de este repo —/api/stripe/webhook (pagos de
+// socias) y /api/billing/webhook (suscripción del estudio al SaaS)— comparten
+// esta tabla, pero hacen trabajos DISTINTOS sobre el mismo `event.id`: Stripe
+// entrega un `checkout.session.completed` a todos los destinos suscritos a ese
+// tipo, no solo al que le toca. Sin separar el ámbito, el primero en llegar
+// reclamaba el evento y el segundo se saltaba SU parte creyendo que ya estaba
+// hecha.
+//
+// Así se perdió un cobro real (8-ago-2026, 1 €): el destino del SaaS recibió el
+// checkout de un bono, no era suyo, respondió 200 y dejó el evento marcado como
+// completado. El webhook que entrega el bono nunca lo procesó y la socia pagó
+// sin recibir nada. Prefijar por ámbito hace que cada uno lleve su propia
+// cuenta, y de paso permite reenviar un evento desde Stripe sin que la
+// reclamación del otro ámbito lo bloquee.
+export type AmbitoWebhook = 'connect' | 'billing';
+
+export function claveWebhook(ambito: AmbitoWebhook, eventId: string): string {
+  return `${ambito}:${eventId}`;
+}
+
 export async function reclamarWebhookEvent(
   admin: SupabaseClient,
   eventId: string,

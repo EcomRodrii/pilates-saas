@@ -40,3 +40,26 @@ export function tenantAutorizado(
   if (!studioIdMetadata) return true;
   return studioDeCuenta === studioIdMetadata;
 }
+
+/**
+ * Cuenta de Stripe contra la que hay que resolver el estudio.
+ *
+ * Normalmente es `event.account`: el cargo es directo sobre la cuenta conectada
+ * del estudio y Stripe firma el evento con ella. Pero cuando el
+ * `stripe_account_id` de un estudio ES la propia cuenta de la plataforma
+ * —le pasa al estudio de demostración de Tentare, que es además el único que ha
+ * cobrado de verdad—, Stripe considera el cobro "de tu cuenta" y entrega el
+ * evento SIN `account`. Ahí `event.account` es `undefined`, no resolvía ningún
+ * estudio y `tenantAutorizado` lo rechazaba con un 403.
+ *
+ * No se debilita nada: la cuenta de plataforma sale de preguntarle a Stripe por
+ * nuestra propia clave de API, nunca de la metadata del evento. Un evento sin
+ * `account` solo puede venir de la cuenta de la plataforma — es justo lo que
+ * significa que Stripe no informe ese campo.
+ */
+export function cuentaFirmante(
+  eventAccount: string | null | undefined,
+  cuentaPlataforma: string | null,
+): string | null {
+  return eventAccount ?? cuentaPlataforma;
+}
