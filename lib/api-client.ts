@@ -5,7 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
-import { resolverBloques, type BloqueHome, type PantallaId, conFijos } from '@/lib/portal-home-bloques';
+import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
@@ -58,27 +58,36 @@ function unaVez<T>(clave: string, hacer: () => Promise<T>): Promise<T> {
   return p;
 }
 
-export async function fetchThemeBorrador(): Promise<ThemeConfig> {
-  return unaVez('theme-borrador', async () => {
-    const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
+/**
+ * Borrador y publicado en UNA petición, compartida por los dos lectores.
+ *
+ * ⚠️ Al abrir el editor los dos se pedían por separado, y cada petición del
+ * panel paga su propio viaje: ~140 ms en caliente y hasta 7,8 s si la función
+ * estaba fría (medido en producción). Salen de la misma fila, así que era
+ * pagar dos veces por una lectura.
+ *
+ * `unaVez` con la MISMA clave para ambos: si el editor pide borrador y
+ * publicado a la vez —que es justo lo que hace— comparten la petición. Y como
+ * la entrada se suelta al terminar, esto no es caché ni puede servir un dato
+ * viejo.
+ */
+async function fetchThemeAmbos(): Promise<{ borrador: ThemeConfig; publicado: ThemeConfig }> {
+  return unaVez('theme-ambos', async () => {
+    const res = await fetch('/api/theme?ambos=1', { headers: await authHeader() });
     if (!res.ok) throw new Error('No se pudo cargar el tema');
-    return res.json() as Promise<ThemeConfig>;
+    return res.json() as Promise<{ borrador: ThemeConfig; publicado: ThemeConfig }>;
   });
+}
+
+export async function fetchThemeBorrador(): Promise<ThemeConfig> {
+  return (await fetchThemeAmbos()).borrador;
 }
 
 // El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  // `unaVez` como el borrador: al abrir el editor coincidían VARIAS llamadas
-  // simultáneas a este mismo GET (medido en producción, tres a la vez). No es
-  // caché — la entrada se suelta al terminar, así que solo colapsa las que se
-  // solapan de verdad.
-  return unaVez('theme-publicado', async () => {
-    const res = await fetch('/api/theme', { headers: await authHeader() });
-    if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
-    return res.json() as Promise<ThemeConfig>;
-  });
+  return (await fetchThemeAmbos()).publicado;
 }
 
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
@@ -154,6 +163,26 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   // falten, y sin esta llamada el panel se los comía.
   return conFijos(resolverBloques(await res.json()), pantalla);
 }
+/**
+ * Los bloques BORRADOR de las tres pantallas, en una sola petición.
+ *
+ * El editor las necesita las tres al abrir y antes las pedía por separado. Las
+ * tres salen de la misma lectura del layout en el servidor, así que eran tres
+ * viajes para un dato. Mismo tratamiento por pantalla que
+ * `fetchBloquesBorrador` —`resolverBloques` + `conFijos`— para que el editor
+ * vea EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesBorradorTodas(): Promise<Record<PantallaId, BloqueHome[]>> {
+  return unaVez('bloques-borrador-todas', async () => {
+    const res = await fetch('/api/portal-bloques?pantalla=todas', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudieron cargar los bloques del portal');
+    const crudo = (await res.json()) as Record<string, unknown>;
+    const salida = {} as Record<PantallaId, BloqueHome[]>;
+    for (const p of PANTALLA_IDS) salida[p] = conFijos(resolverBloques(crudo[p]), p);
+    return salida;
+  });
+}
+
 /**
  * Los bloques que están viendo las socias ahora mismo en esa pantalla.
  *

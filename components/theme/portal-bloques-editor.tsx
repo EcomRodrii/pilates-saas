@@ -23,7 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
-import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
+import { fetchBloquesBorrador, fetchBloquesBorradorTodas, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   getDefinicionBloque, CAMPOS_ESTILO,
@@ -181,7 +181,12 @@ export function useBloquesEditor() {
 
   useEffect(() => {
     let vivo = true;
-    Promise.all(PANTALLA_IDS.map((p) => fetchBloquesBorrador(p).catch(() => null)))
+    // Una petición para las tres pantallas, no tres. Ver
+    // `fetchBloquesBorradorTodas`: salen de la misma lectura del layout, y en
+    // este panel cada viaje cuesta ~140 ms en caliente y hasta 7,8 s en frío.
+    fetchBloquesBorradorTodas()
+      .then((todas) => PANTALLA_IDS.map((p) => todas[p]))
+      .catch(() => PANTALLA_IDS.map(() => null))
       .then((resultados) => {
         if (!vivo) return;
         // La carga inicial NO es una edición: reemplaza la base del historial
