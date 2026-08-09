@@ -121,12 +121,12 @@ const GRUPOS_RAIL: { titulo: string; ayuda: string; filas: FilaRail[] }[] = [
     // misma etiqueta en la misma pantalla es exactamente la confusión que este
     // reagrupado viene a quitar. Aquí se ESCRIBEN; allí se decide dónde caen.
     titulo: 'Avisos y banners',
-    ayuda: 'Lo que anuncias a tus clientas. Se ve dentro del portal, pero no es una pantalla.',
+    ayuda: 'Lo que anuncias a tus clientas. Se ve dentro del portal, pero no es una pantalla. Cada campo se guarda solo al escribirlo.',
     filas: [{ id: 'contenido-portal', label: 'Mensaje y banners', desplegable: true }],
   },
   {
     titulo: 'Panel del equipo',
-    ayuda: 'Lo que ves tú y tu equipo al entrar. No lo ve ninguna clienta.',
+    ayuda: 'Lo que ves tú y tu equipo al entrar. No lo ve ninguna clienta. Sus secciones se reordenan y se ocultan; no tienen ajustes propios.',
     filas: [{ id: 'dashboard-inicio', label: 'Inicio del panel', desplegable: true }],
   },
 ];
@@ -161,6 +161,10 @@ export function ThemeEditorFullscreen() {
   // treinta y tantos usos, pero ya no hay dos fuentes de verdad que puedan
   // separarse.
   const nodo: Nodo = nodoDeEstado(estado);
+  // ¿Hay algo que inspeccionar? Una categoría del tema o un bloque/banner
+  // seleccionado. Una PANTALLA sin selección no tiene ajustes propios: lo
+  // único que cabía escribir ahí era una frase, y una frase no vale 344 px.
+  const hayInspector = nodo.tipo === 'tema' || nodo.tipo === 'item';
   const pantallaActiva = pantallaOperativa(estado);
   const pantallaMirada: VistaId = estado.vista;
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
@@ -453,7 +457,18 @@ export function ThemeEditorFullscreen() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 grid grid-cols-[272px_minmax(0,1fr)_344px]">
+      {/* El inspector NO reserva sitio cuando no hay nada que inspeccionar.
+          ─────────────────────────────────────────────────────────────────
+          Antes eran tres columnas fijas y la tercera se pasaba la mayor
+          parte del tiempo enseñando «Selecciona un bloque de la izquierda»:
+          344 px permanentes —el 18 % de una pantalla de 1920— para una
+          frase. Y el hueco que se le quitaba era justo el de la vista
+          previa, que es a lo que se viene.
+
+          Comprobado en el editor de Shopify (2026-08-09, tema Horizon): son
+          DOS columnas, rail y lienzo, y el inspector aparece al seleccionar.
+          No reserva ancho en reposo. */}
+      <div className={`flex-1 min-h-0 grid ${hayInspector ? 'grid-cols-[272px_minmax(0,1fr)_344px]' : 'grid-cols-[272px_minmax(0,1fr)]'}`}>
         {/* Rail izquierdo */}
         <div className="border-r border-border flex flex-col min-h-0">
           {/* Dos pestañas, no dos bloques apilados en el mismo scroll.
@@ -606,26 +621,23 @@ export function ThemeEditorFullscreen() {
           </div>
         </div>
 
-        {/* Panel derecho: inspector de lo seleccionado */}
-        <div className="border-l border-border overflow-y-auto p-4">
-          {nodo.tipo === 'tema' ? (
-            <AjustesCategoriaPanel hook={ajustesHook} categoriaId={nodo.categoria} />
-          ) : nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' ? (
-            <p className="text-[13px] text-muted-foreground">Las secciones de Inicio del panel no tienen ajustes propios — solo se pueden reordenar u ocultar.</p>
-          ) : nodo.tipo === 'pantalla' && (nodo.id === 'reservas' || nodo.id === 'perfil') ? (
-            <p className="text-[13px] text-muted-foreground">Esta pantalla no tiene bloques editables — navégala en el preview.</p>
-          ) : nodo.tipo === 'item' && nodo.grupo === 'contenido-portal' ? (
-            <ContenidoPortalPanel hook={contenidoHook} seleccionId={nodo.itemId} />
-          ) : nodo.tipo === 'pantalla' && nodo.id === 'contenido-portal' ? (
-            <p className="text-[13px] text-muted-foreground">Cada campo se guarda solo, al escribirlo. Selecciona un banner de la izquierda para editarlo.</p>
-          ) : (
-            <BloquesConfigPanel
-              hook={bloquesHook}
-              pantalla={nodo.tipo === 'item' ? nodo.grupo as PantallaId : pantallaActiva}
-              seleccionId={nodo.tipo === 'item' ? nodo.itemId : null}
-            />
-          )}
-        </div>
+        {/* Panel derecho: inspector de lo seleccionado. Solo cuando hay algo
+            que inspeccionar — ver el comentario del grid. */}
+        {hayInspector && (
+          <div className="border-l border-border overflow-y-auto p-4">
+            {nodo.tipo === 'tema' ? (
+              <AjustesCategoriaPanel hook={ajustesHook} categoriaId={nodo.categoria} />
+            ) : nodo.grupo === 'contenido-portal' ? (
+              <ContenidoPortalPanel hook={contenidoHook} seleccionId={nodo.itemId} />
+            ) : (
+              <BloquesConfigPanel
+                hook={bloquesHook}
+                pantalla={nodo.grupo as PantallaId}
+                seleccionId={nodo.itemId}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Antes de publicar */}
@@ -657,8 +669,8 @@ export function ThemeEditorFullscreen() {
         <CatalogoBloques
           onCerrar={() => setInsercionEn(null)}
           ancla={{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}
-          onElegir={(kind) => {
-            const id = bloquesHook.anadir(pantallaActiva, kind, insercionEn);
+          onElegir={(kind, config) => {
+            const id = bloquesHook.anadir(pantallaActiva, kind, insercionEn, config);
             setInsercionEn(null);
             if (id) seleccionar({ tipo: 'item', grupo: pantallaActiva, itemId: id });
           }}

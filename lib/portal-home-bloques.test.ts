@@ -910,3 +910,64 @@ test('resolveBloquesPantalla entiende un borrador guardado como documento', () =
   const r = resolveBloquesPantalla(guardado, 'clases');
   assert.deepEqual(r.draft.map((b) => b.id), ['t']);
 });
+
+// ── Presets ────────────────────────────────────────────────────────────────
+// Varios puntos de partida para el MISMO bloque. Es el hueco que se vio
+// comparando con el editor de Shopify: hasta ahora un bloque = una config
+// inicial, y la propietaria tenía que adivinar qué combinación de campos
+// producía cada aspecto.
+
+test('un preset es un PARCHE sobre los defaults, no un objeto completo', () => {
+  // Lo que garantiza que un campo nuevo del schema aparezca en TODOS los
+  // presets sin tocarlos uno a uno. Si alguien escribe un preset como objeto
+  // entero, el campo nuevo se queda fuera en silencio.
+  const def = REGISTRO_BLOQUES.cta;
+  const porDefecto = defaultsDe(def.campos) as Record<string, unknown>;
+  const claves = Object.keys(porDefecto);
+
+  for (const preset of def.presets ?? []) {
+    for (const clave of Object.keys(preset.config ?? {})) {
+      assert.ok(
+        claves.includes(clave),
+        `El preset «${preset.nombre}» escribe «${clave}», que no es un campo de ${def.id}.`,
+      );
+    }
+  }
+});
+
+test('los presets no tocan `estilo` — ahí "ausente" significa heredar del tema', () => {
+  // `EstiloBloque` distingue tres estados: puesto, ausente (= hereda) y el
+  // valor por defecto. Un preset que fijara `estilo` mataría la herencia sin
+  // que nadie la hubiera desactivado — el error que ya documenta CAMPOS_ESTILO.
+  for (const def of Object.values(REGISTRO_BLOQUES)) {
+    for (const preset of def.presets ?? []) {
+      assert.ok(
+        !('estilo' in (preset.config ?? {})),
+        `El preset «${preset.nombre}» de ${def.id} fija \`estilo\`.`,
+      );
+    }
+  }
+});
+
+test('cada preset tiene nombre propio y distinto dentro de su bloque', () => {
+  // Dos tarjetas con el mismo rótulo en el picker son indistinguibles: la
+  // propietaria elige a ciegas.
+  for (const def of Object.values(REGISTRO_BLOQUES)) {
+    const nombres = (def.presets ?? []).map((p) => p.nombre);
+    assert.equal(new Set(nombres).size, nombres.length, `${def.id} repite el nombre de un preset.`);
+    for (const n of nombres) assert.ok(n.trim().length > 0, `${def.id} tiene un preset sin nombre.`);
+  }
+});
+
+test('un bloque CON presets nace completo si su preset lo deja completo', () => {
+  // El preset «Reservar clase» rellena href y textoBoton, que son justo lo
+  // que `completoSi` exige: añadirlo NO debe bloquear el botón de publicar.
+  const def = REGISTRO_BLOQUES.cta;
+  const preset = (def.presets ?? []).find((p) => p.nombre === 'Reservar clase');
+  assert.ok(preset, 'falta el preset «Reservar clase»');
+  const config = { ...(defaultsDe(def.campos) as Record<string, unknown>), ...(preset!.config ?? {}) };
+  assert.ok(
+    bloqueEstaCompleto({ id: 'x', kind: 'cta', config } as never),
+    'el CTA con preset debería nacer completo',
+  );
+});
