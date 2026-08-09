@@ -34,16 +34,32 @@ export function MarcoDispositivo({
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const [disponible, setDisponible] = useState(0);
+  // `undefined` = «nadie ha declarado un hueco con alto», y entonces el alto
+  // no restringe — exactamente el comportamiento de antes. Solo se activa
+  // donde hay un `[data-preview-hueco]` que diga cuánto sitio hay.
+  const [disponibleAlto, setDisponibleAlto] = useState<number | undefined>(undefined);
   const def = DISPOSITIVOS[dispositivo];
 
   // Se mide el hueco, no se supone. El rail y el panel derecho son fijos, pero
   // la ventana no: sin medir, la tablet se saldría en pantallas pequeñas.
+  //
+  // ⚠️ El alto NO se puede medir subiendo un `parentElement`: entre este div y
+  // la columna hay envoltorios de alto automático (`div.relative` de
+  // HomePreview), que valen justo lo que mide su contenido. Medir uno de esos
+  // daría siempre «cabe», por construcción. Por eso la columna se marca a
+  // mano con `data-preview-hueco`: es un contrato explícito de quién manda
+  // sobre el sitio disponible, en vez de una cuenta de niveles del DOM que se
+  // rompe la próxima vez que alguien añada un wrapper.
   useEffect(() => {
     const el = contenedor.current;
     if (!el) return;
     const ro = new ResizeObserver(([entrada]) => setDisponible(entrada.contentRect.width));
     ro.observe(el);
-    return () => ro.disconnect();
+    const hueco = el.closest('[data-preview-hueco]');
+    if (!hueco) return () => ro.disconnect();
+    const roAlto = new ResizeObserver(([entrada]) => setDisponibleAlto(entrada.contentRect.height));
+    roAlto.observe(hueco);
+    return () => { ro.disconnect(); roAlto.disconnect(); };
   }, []);
 
   const marco = `${RADIO[dispositivo]} overflow-hidden ${def.conMarco ? 'border-[6px] border-black/85 shadow-xl' : 'border border-border'}`;
@@ -80,7 +96,7 @@ export function MarcoDispositivo({
     );
   }
 
-  const escala = escalaParaCaber(disponible, def.ancho) * zoom;
+  const escala = escalaParaCaber(disponible, def.ancho, disponibleAlto, def.alto) * zoom;
 
   return (
     <div ref={contenedor} className="w-full flex justify-center">

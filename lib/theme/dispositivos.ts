@@ -26,18 +26,41 @@ export type DispositivoId = keyof typeof DISPOSITIVOS;
 export const DISPOSITIVO_IDS = Object.keys(DISPOSITIVOS) as DispositivoId[];
 
 /**
- * Cuánto encoger para que `ancho` quepa en `disponible`.
+ * Cuánto encoger para que el marco quepa en el hueco: por ancho Y por alto.
  *
  * Nunca AGRANDA (tope en 1): un móvil de 390 px en una columna de 900 no debe
  * verse a tamaño gigante, porque entonces deja de parecerse a un móvil. Solo
  * se encoge cuando no cabe.
+ *
+ * ⚠️ El alto se añadió después, y arregla un corte que solo se ve en
+ * pantallas bajas. Medido en el editor de producción: la columna del preview
+ * da 1304 × 902 px en un monitor de 1920 × 959, y el móvil mide 390 × 844 —
+ * cabe justo. En un portátil de 13" (~1440 × 760) esa misma columna baja a
+ * ~700 px de alto y el móvil se salía 144 px por abajo: la barra de
+ * navegación del portal, que es lo que más distingue un tema de otro,
+ * quedaba fuera de la vista previa. Con solo el ancho no había forma de
+ * enterarse, porque a lo ancho sobra sitio siempre.
+ *
+ * Los dos límites se pasan por separado y gana el más restrictivo; `alto`
+ * es opcional para no obligar a medirlo donde no se conoce.
  */
-export function escalaParaCaber(disponible: number, ancho: number): number {
+export function escalaParaCaber(
+  disponible: number, ancho: number,
+  disponibleAlto?: number, alto?: number,
+): number {
   // Un contenedor todavía sin medir (0, o el `undefined` que dan algunos
   // observers en el primer tick) no debe colapsar el preview a nada.
+  const porAncho = razonValida(disponible, ancho);
+  const porAlto = razonValida(disponibleAlto, alto);
+  return Math.min(1, porAncho, porAlto);
+}
+
+/** La razón hueco/contenido, o 1 (= «no restringe») si no hay medida fiable. */
+function razonValida(disponible: number | undefined, tamano: number | undefined): number {
+  if (disponible === undefined || tamano === undefined) return 1;
   if (!Number.isFinite(disponible) || disponible <= 0) return 1;
-  if (!Number.isFinite(ancho) || ancho <= 0) return 1;
-  return Math.min(1, disponible / ancho);
+  if (!Number.isFinite(tamano) || tamano <= 0) return 1;
+  return disponible / tamano;
 }
 
 /**
