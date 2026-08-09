@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ChevronDown, Trash2 } from 'lucide-react';
 import {
   agruparCampos, validarCampo,
   type CampoSchema, type CampoSchemaSinLista,
 } from '@/lib/theme/campos';
+import { alternarMarca, insertarEnlace } from '@/lib/theme/texto-rico';
 
 // El Inspector: pinta CUALQUIER schema de campos, sin saber de qué bloque es.
 //
@@ -90,6 +91,62 @@ function NumeroHeredado({
         aria-label={label}
       />
     </label>
+  );
+}
+
+/**
+ * Texto con negrita, cursiva y enlace.
+ *
+ * Es un `textarea` con tres botones, no un editor WYSIWYG con
+ * `contentEditable`. Dos motivos, y el primero pesa más:
+ *
+ * 1. Lo que se guarda NO es HTML (ver `lib/theme/texto-rico.ts`), así que no
+ *    hay nada que un editor visual pueda producir que este control no pueda.
+ *    Un `contentEditable` obligaría a convertir DOM → modelo en cada tecla, y
+ *    ahí es donde viven los bugs de los editores de texto.
+ * 2. `document.execCommand`, que es lo que usan casi todos los WYSIWYG
+ *    pequeños, está obsoleto.
+ *
+ * La propietaria ve las marcas mientras escribe (`**negrita**`). Es asumible
+ * porque la vista previa del editor enseña el resultado real al lado, en el
+ * móvil: no hay que imaginárselo.
+ */
+function CampoTextoRico({
+  campo, valor, onChange,
+}: { campo: Extract<CampoSchema, { tipo: 'textoRico' }>; valor: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function aplicar(fn: (t: string, d: number, h: number) => { texto: string; desde: number; hasta: number }) {
+    const el = ref.current;
+    if (!el) return;
+    const r = fn(valor, el.selectionStart, el.selectionEnd);
+    onChange(r.texto);
+    // La selección se restaura DESPUÉS de que React repinte el valor: hacerlo
+    // ahora la pisaría el propio render. Sin esto el cursor salta al final y
+    // se pierde el sitio a la segunda palabra que se marca.
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(r.desde, r.hasta);
+    });
+  }
+
+  const btn = 'px-2 py-1 rounded-md border border-border text-[12px] text-foreground hover:bg-muted';
+  return (
+    <div>
+      <div className="flex gap-1.5 mb-1.5">
+        <button type="button" className={`${btn} font-bold`} onClick={() => aplicar((t, d, h) => alternarMarca(t, d, h, '**'))} title="Negrita">B</button>
+        <button type="button" className={`${btn} italic`} onClick={() => aplicar((t, d, h) => alternarMarca(t, d, h, '*'))} title="Cursiva">i</button>
+        <button type="button" className={btn} onClick={() => aplicar(insertarEnlace)} title="Enlace">Enlace</button>
+      </div>
+      <textarea
+        ref={ref}
+        className={`${inputCls} ${campo.filas === 2 ? 'min-h-14' : 'min-h-20'}`}
+        value={valor}
+        placeholder={campo.marcador}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={campo.etiqueta}
+      />
+    </div>
   );
 }
 
@@ -190,6 +247,9 @@ function CampoControl({
   }
 
   switch (campo.tipo) {
+    case 'textoRico':
+      return envoltorio(<CampoTextoRico campo={campo} valor={(valor as string) ?? ''} onChange={onChange} />);
+
     case 'textoLargo':
       return envoltorio(
         <textarea

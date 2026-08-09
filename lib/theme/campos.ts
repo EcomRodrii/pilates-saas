@@ -100,6 +100,10 @@ interface CampoBase<T extends string> {
 export type CampoSchema =
   | (CampoBase<'texto'> & { porDefecto: string; maxLargo?: number })
   | (CampoBase<'textoLargo'> & { porDefecto: string; maxLargo?: number; filas?: number })
+  // Texto con negrita, cursiva y enlace. Guarda una marca mínima (NO HTML) —
+  // ver el porqué en lib/theme/texto-rico.ts. Para el motor es un string
+  // corriente: la interpretación ocurre en el render, no aquí.
+  | (CampoBase<'textoRico'> & { porDefecto: string; maxLargo?: number; filas?: number })
   | (CampoBase<'url'> & { porDefecto: string })
   | (CampoBase<'imagen'> & { porDefecto: string })
   | (CampoBase<'color'> & { porDefecto: string })
@@ -164,7 +168,7 @@ export interface GrupoCampos {
 // `readonly`: sin eso, `as const` no satisface la interfaz.
 
 type ValorCampo<C extends CampoSchema> =
-  C extends { tipo: 'texto' | 'textoLargo' | 'url' | 'imagen' | 'color' } ? string
+  C extends { tipo: 'texto' | 'textoLargo' | 'textoRico' | 'url' | 'imagen' | 'color' } ? string
   : C extends { tipo: 'colorHeredado' } ? string | null
   : C extends { tipo: 'numeroHeredado' } ? number | null
   : C extends { tipo: 'booleano' } ? boolean
@@ -333,7 +337,7 @@ export function validarCampo(campo: CampoSchema, valor: unknown): string | null 
   if (campo.tipo === 'numeroHeredado' && valor != null && typeof valor !== 'number') {
     return 'Escribe un número, o déjalo vacío para heredar';
   }
-  if ((campo.tipo === 'texto' || campo.tipo === 'textoLargo') && campo.maxLargo != null) {
+  if ((campo.tipo === 'texto' || campo.tipo === 'textoLargo' || campo.tipo === 'textoRico') && campo.maxLargo != null) {
     if (typeof valor === 'string' && valor.length > campo.maxLargo) {
       return `Máximo ${campo.maxLargo} caracteres`;
     }

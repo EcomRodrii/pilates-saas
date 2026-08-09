@@ -18,6 +18,10 @@ function zodDeCampo(campo: CampoSchema): z.ZodTypeAny {
   switch (campo.tipo) {
     case 'texto':
     case 'textoLargo':
+    // `textoRico` guarda la marca TAL CUAL la escribe la propietaria: la
+    // interpretación (y el filtrado de enlaces) ocurre en el render, no al
+    // guardar. Validar aquí la sintaxis rechazaría un texto a medio marcar.
+    case 'textoRico':
     case 'url':
     case 'imagen':
     case 'color':

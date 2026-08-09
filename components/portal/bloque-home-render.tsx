@@ -8,6 +8,7 @@ import { display, escala, texto, radio, altura, sombra, transicion, dur } from '
 import { coloresDe } from '@/lib/theme/superficie';
 import { resolverHrefBloque, resolverVideoEmbed, bloqueEstaCompleto, type BloqueHome, type BloqueTipoCatalogo, type EstiloBloque, type ContenedorConfig } from '@/lib/portal-home-bloques';
 import { paraKind, type PropsBloqueRender } from '@/components/portal/bloques/registro-render';
+import { TextoRico } from './texto-rico';
 
 // Presentación de los bloques del catálogo (Fase 3) — banner/texto/cta/faq.
 // Los bloques `sistema` NO pasan por aquí: siguen siendo el JSX ya existente
@@ -102,7 +103,7 @@ function BannerBloque({ bloque, slug }: { bloque: Extract<BloqueHome, { kind: 'b
         textAlign: alineacion, pointerEvents: 'none',
       }}>
         {titulo && <div style={{ ...escalar(estilo, display(29, true, 1.12)), color: coloresDe(estilo, t).ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{titulo}</div>}
-        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: t.ink, muted: t.muted }).muted, marginTop: 12 }}>{cuerpo}</div>}
+        {cuerpo && <div style={{ ...escalar(estilo, texto.nota), color: coloresDe(estilo, { ink: t.ink, muted: t.muted }).muted, marginTop: 12 }}><TextoRico texto={cuerpo} /></div>}
       </div>
     </>
   );
@@ -128,7 +129,7 @@ function TextoBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'texto' }
   return (
     <div style={{ ...contenedorDe(estilo), textAlign: alineacion }}>
       {titulo && <div style={{ ...escalar(estilo, display(24)), color: coloresDe(estilo, t).ink, marginBottom: 8 }}>{titulo}</div>}
-      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: coloresDe(estilo, { ink: t.ink, muted: t.muted2 }).muted, lineHeight: 1.55 }}>{cuerpo}</p>}
+      {cuerpo && <p style={{ ...escalar(estilo, texto.meta), color: coloresDe(estilo, { ink: t.ink, muted: t.muted2 }).muted, lineHeight: 1.55 }}><TextoRico texto={cuerpo} /></p>}
     </div>
   );
 }
