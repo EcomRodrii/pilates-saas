@@ -306,6 +306,7 @@ export default function ClaseDetallePage() {
         clase={reservando ? claseParaReservar : null}
         onClose={() => setReservando(false)}
         onConfirmar={confirmar}
+        onComprar={() => router.push(`/portal/${slug}/compras`)}
       />
     </div>
   );
