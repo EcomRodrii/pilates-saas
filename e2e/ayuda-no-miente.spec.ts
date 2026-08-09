@@ -49,5 +49,9 @@ test('el portal pide contraseña y la ayuda nombra un control que existe', async
   //    pantalla, escrito igual. Si alguien renombra el botón sin tocar la
   //    ayuda —o al revés—, esto salta.
   expect(respuesta).toContain(CONTROL_PRIMER_ACCESO);
-  await expect(page.getByRole('link', { name: CONTROL_PRIMER_ACCESO })).toBeVisible();
+  // `button`, no `link`: con la puerta única este control dispara el envío del
+  // enlace ahí mismo en vez de navegar a otra pantalla. Cambiar el rol no es
+  // cosmético — un enlace que no lleva a ninguna parte miente al lector de
+  // pantalla igual que la ayuda mentiría con el nombre viejo.
+  await expect(page.getByRole('button', { name: CONTROL_PRIMER_ACCESO })).toBeVisible();
 });
