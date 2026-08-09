@@ -158,9 +158,17 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
 
   return (
     <>
+      {/* ⚠️ `async={false}` es obligatorio, no cosmético: Turnstile lanza
+          `TurnstileError` en cuanto se llama a `turnstile.ready()` (#833) si
+          detecta su propio <script> como async/defer — lo comprueba él
+          mismo y lo tira como excepción no capturada, tumbando toda la
+          pantalla ("Algo se ha roto") para cualquier visitante sin sesión.
+          `next/script` con `strategy="afterInteractive"` añade `async` al
+          tag por defecto; hay que desactivarlo explícitamente. */}
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
+        async={false}
         onLoad={() => setScriptListo(true)}
         onError={() => setFallo(true)}
       />
