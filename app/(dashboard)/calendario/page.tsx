@@ -1286,17 +1286,24 @@ export default function Calendario() {
   async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
+    // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
+    // está delante en ese momento — se marca asistencia en el mismo paso en vez
+    // de exigir un segundo clic en "Check-in" sobre la fila recién creada.
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
     // Se espera el resultado AUTORITATIVO de addReserva (la RPC del servidor),
     // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
     // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
-    const res = await addReserva(sesionId, socioId);
+    const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn });
     if (!res.ok) {
       showToast(res.error);
       return;
     }
     showToast(res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
+      : esWalkIn
+      ? `${nombre} añadida y registrada como asistencia`
       : `${nombre} añadida a la clase`);
     void refrescarVista();
   }

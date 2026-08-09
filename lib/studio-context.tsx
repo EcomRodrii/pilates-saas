@@ -336,7 +336,11 @@ interface StudioContextValue {
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => Promise<ResultadoReserva>;
+  // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
+  // asistencia en la misma llamada, sin exigir un segundo clic en "Check-in"
+  // sobre la fila ya creada. Solo tiene efecto si la reserva queda CONFIRMADA
+  // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }) => Promise<ResultadoReserva>;
   cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
@@ -345,7 +349,7 @@ interface StudioContextValue {
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
-  checkin: (reservaId: string) => Promise<ResultadoEscritura>;
+  checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
   marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -2359,7 +2363,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ));
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }): Promise<ResultadoReserva> {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
@@ -2428,6 +2432,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       : x);
     evaluarLogrosSocio(socioId, reservasFinales);
     evaluarRetosSocio(socioId, reservasFinales);
+
+    // Walk-in (I-alta pilar 6): se le pasa `reservasFinales` como snapshot
+    // explícito en vez de dejar que checkin() lea el `reservas` del cierre de
+    // este render — esa closure todavía no incluye la reserva recién creada
+    // (el `await dbReservarPlaza` de arriba cede el hilo y React puede
+    // renderizar de nuevo, pero esta ejecución sigue con las variables que
+    // tenía al empezar). Sin el override, el check-in se marcaría en BD pero
+    // el paso de créditos/logros no encontraría la reserva y se saltaría en
+    // silencio.
+    if (opciones?.checkInInmediato && r.estado === 'CONFIRMADA') {
+      await checkin(reservaId, reservasFinales);
+    }
 
     return { ok: true, estado: r.estado as EstadoReserva };
   }
@@ -2602,7 +2618,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
-  async function checkin(reservaId: string): Promise<ResultadoEscritura> {
+  async function checkin(reservaId: string, snapshotOverride?: Reserva[]): Promise<ResultadoEscritura> {
+    // Doble check-in (I-alta pilar 6): la UI ya oculta el botón en cuanto una
+    // reserva pasa a ASISTIDA (ListaClientas solo lo pinta sobre CONFIRMADA),
+    // pero "marcar todas" (barrido de confirmadasSinCheckin) puede llamar a
+    // checkin() dos veces sobre la misma reserva en la misma tanda. El
+    // otorgamiento de crédito ya estaba deduplicado (UNIQUE studio+trigger+ref),
+    // así que esto era inofensivo en dinero — pero seguía marcando
+    // logros/retos/racha una segunda vez sin necesidad. Cortar aquí, no allí.
+    const base = snapshotOverride ?? reservas;
+    if (base.find(r => r.id === reservaId)?.estado === 'ASISTIDA') return { ok: true };
     if (publicSlug) {
       // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
       // hace el servidor; se re-sincroniza al terminar.
@@ -2611,7 +2636,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return { ok: true };
     }
     const checkInEn = new Date().toISOString();
-    const reservasActualizadas = reservas.map(r =>
+    const reservasActualizadas = base.map(r =>
       r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
     );
     setReservas(reservasActualizadas);
@@ -2637,7 +2662,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         .then(h => fetch('/api/integrations/kisi/abrir', { method: 'POST', headers: h }))
         .catch(() => {});
     }
-    const reserva = reservas.find(r => r.id === reservaId);
+    const reserva = base.find(r => r.id === reservaId);
     if (!reserva) return res;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
