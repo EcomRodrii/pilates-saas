@@ -12,6 +12,9 @@ export interface RowReservas {
   posicion_espera: number | null;
   check_in_en: string | null;
   creado_en: string | null;
+  confirmacion_pedida_en: string | null;
+  confirmado_en: string | null;
+  recordatorio_confirmacion_en: string | null;
   oferta_expira_en: string | null;
 }
 
@@ -70,11 +73,11 @@ export interface RowAutomationLogs {
   accion: string | null;
   resultado: string | null;
   detalle: string | null;
-  mensaje_cliente: string | null;
   ejecutado_en: string | null;
   proxima_accion_en: string | null;
   recibo_id: string | null;
   automatizacion_id: string | null;
+  mensaje_cliente: string | null;
 }
 
 export interface RowAutomationRules {
@@ -241,21 +244,11 @@ export interface RowFacturas {
   verifactu_prev_hash: string | null;
   verifactu_ts: string | null;
   verifactu_seq: number | null;
-}
-
-export interface RowIngresosManuales {
-  id: string;
-  studio_id: string;
-  fecha: string;
-  concepto: string;
-  cliente: string | null;
-  nif: string | null;
-  base_imponible: number;
-  tipo_iva: number;
-  cuota_iva: number;
-  total: number;
-  nota: string | null;
-  creado_en: string;
+  fiskaly_invoice_id: string | null;
+  verifactu_qr_url: string | null;
+  verifactu_qr_imagen: string | null;
+  verifactu_estado: string | null;
+  verifactu_csv: string | null;
 }
 
 export interface RowInstructores {
@@ -364,20 +357,9 @@ export interface RowPlanesTarifa {
   precio: number;
   tipo: string;
   sesiones: number | null;
+  activo: boolean | null;
   validez_dias: number | null;
   limite_semanal: number | null;
-  activo: boolean | null;
-}
-
-export interface RowCongelaciones {
-  id: string;
-  studio_id: string;
-  suscripcion_id: string;
-  desde: string;
-  hasta: string | null;
-  dias_aplicados: number | null;
-  motivo: string | null;
-  creada_en: string;
 }
 
 export interface RowPostsComunidad {
@@ -391,6 +373,19 @@ export interface RowPostsComunidad {
   comentarios_count: number | null;
   fijado: boolean | null;
   creado_en: string | null;
+}
+
+export interface RowPreferenciasSocio {
+  socio_id: string;
+  studio_id: string;
+  disponibilidad: any;
+  instructor_favorito_id: string | null;
+  tipo_clase_favorita: string | null;
+  duracion_preferida: number | null;
+  nivel: string | null;
+  notif_email: boolean;
+  notif_whatsapp: boolean;
+  actualizado_en: string;
 }
 
 export interface RowProductosPos {
@@ -417,8 +412,9 @@ export interface RowRecibos {
   metodo_cobro: string | null;
   sepa_estado: string | null;
   proximo_reintento: string | null;
-  // Snapshot de la entrega (ver migr 20260806160000). NULL en entrega_aplicada
-  // = "no se sabe", distinto de false = "se evaluó y no cambió nada".
+  disputa_estado: string | null;
+  disputa_stripe_id: string | null;
+  stripe_payment_intent_id: string | null;
   entrega_tipo: string | null;
   entrega_aplicada: boolean | null;
   entrega_aplicada_en: string | null;
@@ -428,19 +424,6 @@ export interface RowRecibos {
   entrega_fecha_fin_despues: string | null;
   entrega_estado_antes: string | null;
   importe_devuelto: number | null;
-}
-
-export interface RowPenalizaciones {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  reserva_id: string;
-  tipo: string;
-  importe: number;
-  estado: string;
-  recibo_id: string | null;
-  detectada_en: string;
-  procesada_en: string | null;
 }
 
 export interface RowRewardActions {
@@ -505,53 +488,6 @@ export interface RowSalas {
   color: string | null;
 }
 
-export interface RowBloqueosMaquina {
-  id: string;
-  studio_id: string;
-  sala_id: string;
-  spot_id: string | null;
-  desde: string;
-  hasta: string | null;
-  motivo: string | null;
-  creado_en: string;
-}
-
-export interface RowPlazasFijas {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  dia_semana: number;
-  hora_inicio: string;
-  sala_id: string;
-  tipo_clase_id: string | null;
-  spot_id: string | null;
-  vigencia_desde: string;
-  vigencia_hasta: string | null;
-  estado: string;
-  creada_en: string;
-}
-
-export interface RowRecuperaciones {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  origen_reserva_id: string | null;
-  motivo: string | null;
-  caduca_el: string;
-  estado: string;
-  usada_en_reserva_id: string | null;
-  creada_en: string;
-}
-
-export interface RowSocioExcepciones {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  tipo: string;
-  motivo: string | null;
-  creada_en: string;
-}
-
 export interface RowSesiones {
   id: string;
   studio_id: string;
@@ -586,12 +522,6 @@ export interface RowSocios {
   aceptacion_fecha: string | null;
   aceptacion_firma: string | null;
   aceptacion_version: string | null;
-  // 0109: de dónde salió la firma. Sin esto, una aceptación tecleada en el
-  // mostrador por el estudio es indistinguible de una firmada por la socia.
-  aceptacion_origen: string | null;
-  aceptacion_por: string | null;
-  consentimiento_salud_fecha: string | null;
-  consentimiento_salud_registrado_por: string | null;
   stripe_customer_id: string | null;
   stripe_payment_method_id: string | null;
   avatar: string | null;
@@ -605,6 +535,11 @@ export interface RowSocios {
   metodo_pago_preferido: string | null;
   sepa_mandate_id: string | null;
   sepa_payment_method_id: string | null;
+  aceptacion_origen: string | null;
+  aceptacion_por: string | null;
+  consentimiento_salud_fecha: string | null;
+  consentimiento_salud_registrado_por: string | null;
+  consentimiento_salud_revocado_en: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -629,8 +564,6 @@ export interface RowSpots {
 }
 
 export interface RowStudios {
-  descripcion: string | null;
-  anio_fundacion: number | null;
   id: string;
   nombre: string;
   nif: string | null;
@@ -647,32 +580,12 @@ export interface RowStudios {
   slug: string | null;
   stripe_account_id: string | null;
   avatar_admin: string | null;
-  foto_url: string | null;
   tema_portal: string | null;
-  portal_react?: boolean | null;
   google_calendar_email: string | null;
-  gmail_email: string | null;
-  zoom_email: string | null;
-  gestoria_email: string | null;
-  gestoria_envio_automatico: string | null;
-  cadena_id: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
-  compra_publica_modo: string | null;
   reserva_max_simultaneas: number | null;
-  reserva_ventana_minima_minutos: number | null;
-  reserva_antelacion_maxima_dias: number | null;
-  permite_lista_espera: boolean | null;
-  requiere_aprobacion: boolean | null;
-  lista_espera_plazo_aceptacion_minutos: number | null;
-  minimo_asistentes_por_clase: number | null;
-  penalizacion_importe_eur: number | null;
-  penalizacion_aplica_cancelacion_tardia: boolean | null;
-  penalizacion_aplica_no_show: boolean | null;
-  penalizacion_cobro_automatico: boolean | null;
-  hora_apertura: string;
-  hora_cierre: string;
   stripe_customer_id: string | null;
   subscription_id: string | null;
   subscription_status: string | null;
@@ -689,29 +602,54 @@ export interface RowStudios {
   umbral_score_autonomo: number | null;
   avisar_alumnas: boolean | null;
   onboarding_descartado_en: string | null;
+  pedir_confirmacion_riesgo: boolean | null;
+  gmail_email: string | null;
+  zoom_email: string | null;
+  gestoria_email: string | null;
+  cadena_id: string | null;
+  foto_url: string | null;
+  fiskaly_signer_id: string | null;
+  fiskaly_client_id: string | null;
+  recuperacion_caducidad_tipo: string | null;
+  recuperacion_caducidad_dias: number | null;
   sepa_acreedor_id: string | null;
   sepa_iban: string | null;
   sepa_titular: string | null;
+  politica_privacidad: string | null;
+  terminos_servicio: string | null;
+  compra_publica_modo: string | null;
+  como_nos_conocio: string | null;
   bienvenida_vista_en: string | null;
-  decision_contrato_visto_en: string | null;
-  tour_visto_en: string | null;
   onb_centros: string | null;
   onb_software_anterior: string | null;
   onb_alumnos_activos: string | null;
   onb_importar_datos: string | null;
   onb_prioridad: string[] | null;
   onb_ayuda_alta: string | null;
-}
-
-export interface RowMandatosSepa {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  iban: string;
-  ref_mandato: string;
-  fecha_firma: string;
-  estado: string;
-  creada_en: string;
+  descripcion: string | null;
+  anio_fundacion: number | null;
+  suspendido_en: string | null;
+  suspendido_motivo: string | null;
+  suspendido_por: string | null;
+  reserva_ventana_minima_minutos: number | null;
+  reserva_antelacion_maxima_dias: number | null;
+  permite_lista_espera: boolean | null;
+  requiere_aprobacion: boolean | null;
+  penalizacion_importe_eur: number | null;
+  penalizacion_aplica_no_show: boolean | null;
+  penalizacion_aplica_cancelacion_tardia: boolean | null;
+  penalizacion_cobro_automatico: boolean | null;
+  decision_contrato_visto_en: string | null;
+  lista_espera_plazo_aceptacion_minutos: number | null;
+  minimo_asistentes_por_clase: number | null;
+  hora_apertura: string | null;
+  hora_cierre: string | null;
+  instructor_reparto_penalizacion_pct: number | null;
+  tour_visto_en: string | null;
+  portal_react: boolean | null;
+  gestoria_envio_automatico: string | null;
+  gestoria_ultimo_envio_periodo: string | null;
+  requiere_checkin_qr: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -724,19 +662,6 @@ export interface RowSuscripciones {
   fecha_fin: string | null;
   sesiones_restantes: number | null;
   stripe_subscription_id: string | null;
-}
-
-export interface RowCadenaTiposClase {
-  id: string;
-  cadena_id: string;
-  nombre: string;
-  color: string | null;
-  duracion_minutos: number | null;
-  descripcion: string | null;
-  nivel: string | null;
-  foto_url: string | null;
-  creado_en: string;
-  actualizado_en: string;
 }
 
 export interface RowTiposClase {
@@ -754,49 +679,9 @@ export interface RowTiposClase {
   reserva_antelacion_maxima_dias: number | null;
   permite_lista_espera: boolean | null;
   requiere_aprobacion: boolean | null;
+  penalizacion_importe_eur: number | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
-  penalizacion_importe_eur: number | null;
-}
-
-export interface RowFavoritosClase {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  tipo_clase_id: string;
-  created_at: string;
-}
-
-export interface RowRetoParticipaciones {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  reto_key: string;
-  created_at: string;
-}
-
-export interface RowContenidoPortal {
-  studio_id: string;
-  mensaje_destacado: string | null;
-  updated_at: string;
-}
-
-export interface RowContenidoPortalBanners {
-  id: string;
-  studio_id: string;
-  imagen_url: string;
-  titulo: string | null;
-  texto: string | null;
-  link_tipo: string;
-  link_valor: string;
-  ubicacion: string[];
-  activo: boolean;
-  orden: number;
-  fecha_inicio: string | null;
-  fecha_fin: string | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface RowUsuarios {
@@ -895,6 +780,8 @@ export interface RowRecomendacionOutcomes {
   ventana_dias: number;
   medido_en: string | null;
   creado_en: string | null;
+  impacto_real: any | null;
+  confianza_medicion: string | null;
 }
 
 export interface RowMemoriaSocio {
@@ -1066,6 +953,8 @@ export interface RowWebhookEvents {
   id: string;
   tipo: string | null;
   recibido_en: string;
+  estado: string | null;
+  reclamado_en: string | null;
 }
 
 export interface RowInstructoraDisponibilidad {
@@ -1087,15 +976,7 @@ export interface RowInstructoraDisponibilidadExcepciones {
   hora_fin: string | null;
   tipo: string;
   creado_en: string | null;
-}
-
-export interface RowStudioHorario {
-  studio_id: string;
-  dia_semana: number; // 0=domingo..6=sábado (EXTRACT(DOW))
-  abierto: boolean;
-  hora_apertura: string | null;
-  hora_cierre: string | null;
-  actualizado_en: string;
+  ausencia_id: string | null;
 }
 
 export interface RowSustituciones {
@@ -1112,6 +993,7 @@ export interface RowSustituciones {
   aprobada_at: string | null;
   creado_en: string | null;
   resuelto_en: string | null;
+  origen: string | null;
 }
 
 export interface RowSustitucionContactos {
@@ -1169,4 +1051,491 @@ export interface RowDecisionAutonomiaConfig {
   max_diario: number;
   actualizado_en: string | null;
   actualizado_por: string | null;
+}
+
+export interface RowInstructorEnlacesVigentes {
+  instructor_id: string;
+  studio_id: string;
+  scope: string;
+  token: string;
+  actualizado_en: string;
+  email_enviado_en: string | null;
+}
+
+export interface RowIngresosManuales {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  concepto: string;
+  cliente: string | null;
+  nif: string | null;
+  base_imponible: number;
+  tipo_iva: number;
+  cuota_iva: number;
+  total: number;
+  nota: string | null;
+  creado_en: string;
+}
+
+export interface RowCadenas {
+  id: string;
+  nombre: string;
+  owner_auth_user_id: string;
+  plan: string | null;
+  stripe_customer_id: string | null;
+  subscription_id: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+  creado_en: string;
+  layout_config: any | null;
+}
+
+export interface RowSesionActiva {
+  auth_user_id: string;
+  studio_id: string;
+  actualizado_en: string;
+}
+
+export interface RowAvisosHueco {
+  id: string;
+  studio_id: string;
+  sesion_id: string;
+  socio_id: string;
+  resultado: string;
+  detalle: string | null;
+  enviado_en: string;
+}
+
+export interface RowCongelaciones {
+  id: string;
+  studio_id: string;
+  suscripcion_id: string;
+  desde: string;
+  hasta: string | null;
+  dias_aplicados: number | null;
+  motivo: string | null;
+  creada_en: string;
+}
+
+export interface RowMigracionBatches {
+  id: string;
+  studio_id: string;
+  creado_en: string;
+  ids_creados: any;
+  deshecho_en: string | null;
+  resumen: any | null;
+}
+
+export interface RowBloqueosMaquina {
+  id: string;
+  studio_id: string;
+  sala_id: string;
+  spot_id: string | null;
+  desde: string;
+  hasta: string | null;
+  motivo: string | null;
+  creado_en: string;
+}
+
+export interface RowPlazasFijas {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  dia_semana: number;
+  hora_inicio: string;
+  sala_id: string;
+  tipo_clase_id: string | null;
+  spot_id: string | null;
+  vigencia_desde: string;
+  vigencia_hasta: string | null;
+  estado: string;
+  creada_en: string;
+}
+
+export interface RowRecuperaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  origen_reserva_id: string | null;
+  motivo: string | null;
+  caduca_el: string;
+  estado: string;
+  usada_en_reserva_id: string | null;
+  creada_en: string;
+}
+
+export interface RowSocioExcepciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  motivo: string | null;
+  creada_en: string;
+}
+
+export interface RowMandatosSepa {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  iban: string;
+  ref_mandato: string;
+  fecha_firma: string;
+  estado: string;
+  creada_en: string;
+}
+
+export interface RowNotification {
+  id: string;
+  studio_id: string;
+  recipient_role: string;
+  recipient_user_id: string | null;
+  recipient_socio_id: string | null;
+  recipient_instructor_id: string | null;
+  event_type: string;
+  category: string;
+  priority: string;
+  title: string;
+  body: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  deep_link: string | null;
+  data: any | null;
+  dedup_key: string | null;
+  read_at: string | null;
+  archived_at: string | null;
+  created_at: string;
+}
+
+export interface RowNotificationDelivery {
+  id: string;
+  notification_id: string;
+  studio_id: string;
+  channel: string;
+  status: string;
+  attempts: number;
+  error: string | null;
+  provider_id: string | null;
+  created_at: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+}
+
+export interface RowNotificationPreference {
+  id: string;
+  studio_id: string;
+  user_id: string;
+  category: string;
+  inapp: boolean;
+  push: boolean;
+  email: boolean;
+  whatsapp: boolean;
+  sms: boolean;
+  updated_at: string;
+}
+
+export interface RowPushSubscription {
+  id: string;
+  studio_id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  failure_count: number;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface RowNotificationTemplate {
+  id: string;
+  studio_id: string | null;
+  event_type: string;
+  locale: string;
+  title_tpl: string;
+  body_tpl: string;
+  updated_at: string;
+}
+
+export interface RowInstructoraAusencias {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  tipo: string;
+  desde: string;
+  hasta: string;
+  motivo: string | null;
+  creado_en: string;
+}
+
+export interface RowPlanTiposClase {
+  plan_id: string;
+  tipo_clase_id: string;
+  studio_id: string;
+}
+
+export interface RowStudioSlugsAntiguos {
+  slug: string;
+  studio_id: string;
+  creado_en: string;
+}
+
+export interface RowPlataformaLead {
+  id: string;
+  email: string;
+  nombre: string | null;
+  estudio: string | null;
+  telefono: string | null;
+  ciudad: string | null;
+  software_actual: string | null;
+  mensaje: string | null;
+  origen: string;
+  estado: string;
+  motivo_perdida: string | null;
+  proximo_paso: string | null;
+  proxima_fecha: string | null;
+  studio_id: string | null;
+  notas: string | null;
+  responsable: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowLecturasFichaSalud {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  leido_por_user_id: string;
+  leido_por_nombre: string;
+  leido_por_rol: string;
+  leido_en: string;
+}
+
+export interface RowPlataformaAdmin {
+  auth_user_id: string;
+  nombre: string;
+  cargo: string | null;
+  activo: boolean;
+  creado_en: string;
+}
+
+export interface RowPlataformaPermiso {
+  auth_user_id: string;
+  permiso: string;
+  concedido_en: string;
+  concedido_por: string | null;
+}
+
+export interface RowPlataformaAuditoria {
+  id: number;
+  ocurrido_en: string;
+  actor_auth_user_id: string | null;
+  actor_nombre: string;
+  accion: string;
+  objetivo_tipo: string | null;
+  objetivo_id: string | null;
+  resumen: string;
+  antes: any | null;
+  despues: any | null;
+  ip: string | null;
+  user_agent: string | null;
+}
+
+export interface RowPenalizaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  reserva_id: string;
+  tipo: string;
+  importe: number;
+  estado: string;
+  recibo_id: string | null;
+  detectada_en: string;
+  procesada_en: string | null;
+}
+
+export interface RowInstructorTarifas {
+  instructor_id: string;
+  studio_id: string;
+  tarifa_hora: number | null;
+  moneda: string;
+  actualizado_en: string;
+  actualizado_por: string | null;
+  base_mensual_eur: number | null;
+  recargo_sustitucion_pct: number | null;
+}
+
+export interface RowFavoritosClase {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo_clase_id: string;
+  created_at: string;
+}
+
+export interface RowContenidoPortal {
+  studio_id: string;
+  mensaje_destacado: string | null;
+  updated_at: string;
+}
+
+export interface RowContenidoPortalBanners {
+  id: string;
+  studio_id: string;
+  imagen_url: string;
+  titulo: string | null;
+  texto: string | null;
+  link_tipo: string;
+  link_valor: string;
+  ubicacion: string[];
+  activo: boolean;
+  orden: number;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RowDecisionMensajesDia {
+  id: string;
+  studio_id: string;
+  fecha: string;
+  tipo: string;
+  recomendacion_id: string | null;
+  dedupe_key: string | null;
+  motivo_motor: string | null;
+  motivo_silencio: string | null;
+  enviado_en: string | null;
+  creado_en: string | null;
+}
+
+export interface RowComunicacionesSocio {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  tipo: string;
+  asunto: string;
+  estado: string;
+  error: string | null;
+  resend_id: string | null;
+  creado_por: string | null;
+  creado_por_nombre: string | null;
+  creado_en: string;
+}
+
+export interface RowChangelogVersiones {
+  id: string;
+  version: string;
+  titulo: string;
+  fecha_publicacion: string;
+  estado: string;
+  publicado_en: string | null;
+  creado_en: string;
+  creado_por: string | null;
+}
+
+export interface RowChangelogCambios {
+  id: string;
+  version_id: string;
+  etiqueta: string;
+  texto: string;
+  orden: number;
+}
+
+export interface RowIntentosReservaFallidos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  sesion_id: string | null;
+  tipo_clase_id: string | null;
+  motivo: string;
+  creado_en: string;
+}
+
+export interface RowLiquidacionesInstructoras {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  periodo_anio: number;
+  periodo_mes: number;
+  base_eur: string | null;
+  n_clases_propias: number;
+  variable_propias_eur: number;
+  n_clases_sustitucion: number;
+  variable_sustitucion_eur: number;
+  n_penalizaciones: number;
+  reparto_penalizaciones_eur: number;
+  n_clases_sin_tarifa: number;
+  total_eur: number | null;
+  detalle: any;
+  estado: string;
+  confirmada_en: string | null;
+  confirmada_por: string | null;
+  pagada_en: string | null;
+  pagada_por: string | null;
+  referencia_pago: string | null;
+  generada_en: string;
+}
+
+export interface RowRetoParticipaciones {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  reto_key: string;
+  created_at: string;
+}
+
+export interface RowStudioHorario {
+  studio_id: string;
+  dia_semana: number;
+  abierto: boolean;
+  hora_apertura: string | null;
+  hora_cierre: string | null;
+  actualizado_en: string;
+}
+
+export interface RowInstructorBajasSeguimiento {
+  id: string;
+  studio_id: string;
+  instructor_id: string;
+  instructor_nombre: string;
+  fecha_baja: string;
+  nivel_riesgo_al_salir: string;
+  porcentaje_facturacion_al_salir: number;
+  alumnas_cautivas_count: number;
+  alumnas_cautivas: any;
+  evaluado_en: string | null;
+  alumnas_retenidas_count: number | null;
+}
+
+export interface RowDevoluciones {
+  id: string;
+  studio_id: string;
+  recibo_id: string;
+  socio_id: string | null;
+  suscripcion_id: string | null;
+  origen: string;
+  importe_cobrado: number;
+  importe_devuelto: number;
+  stripe_charge_id: string | null;
+  referencia: string;
+  estado: string;
+  propuesta: any | null;
+  aplicado: any | null;
+  detectada_en: string;
+  resuelta_en: string | null;
+  resuelta_por: string | null;
+}
+
+export interface RowCadenaTiposClase {
+  id: string;
+  cadena_id: string;
+  nombre: string;
+  color: string | null;
+  duracion_minutos: number | null;
+  descripcion: string | null;
+  nivel: string | null;
+  foto_url: string | null;
+  creado_en: string;
+  actualizado_en: string;
 }
