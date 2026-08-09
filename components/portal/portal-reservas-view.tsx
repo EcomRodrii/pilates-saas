@@ -140,7 +140,7 @@ export function PortalReservasView({
             propietarias: "el pase de acceso debería destacar") en vez de una
             quinta pestaña: no es una lista más, es la acción que se repite
             cada vez que la socia entra al estudio. */}
-        {proximaClase && (
+        {proximaClase && (studio?.requiereCheckinQr ?? true) && (
           <Card style={{ padding: '16px 16px 16px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 42, height: 42, borderRadius: 13, flexShrink: 0,
