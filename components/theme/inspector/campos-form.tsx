@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Trash2 } from 'lucide-react';
 import {
   agruparCampos, validarCampo,
@@ -115,19 +115,39 @@ function CampoTextoRico({
   campo, valor, onChange,
 }: { campo: Extract<CampoSchema, { tipo: 'textoRico' }>; valor: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  // Dónde hay que dejar la selección en cuanto el `value` nuevo esté pintado.
+  const pendiente = useRef<{ desde: number; hasta: number } | null>(null);
+
+  // ⚠️ La restauración va en un efecto que depende de `valor`, NO en un
+  // `requestAnimationFrame` dentro del manejador del clic. Comprobado en
+  // producción: con el rAF el marcado se aplicaba y el foco volvía, pero el
+  // cursor acababa SIEMPRE al final del texto.
+  //
+  // El motivo es que el textarea es controlado: React vuelve a escribir su
+  // `value` en el commit siguiente —y otra vez en cada render que provoquen
+  // el historial y el autoguardado—, y escribir `value` manda el cursor al
+  // final. El rAF corría ANTES de esos commits, así que se restauraba una
+  // selección que luego se pisaba.
+  //
+  // El test unitario de `alternarMarca` NO cubría esto: la función pura
+  // devolvía el rango correcto y pasaba en verde mientras la pantalla hacía
+  // lo contrario. Solo salió mirándolo en el editor real.
+  useEffect(() => {
+    const el = ref.current;
+    const p = pendiente.current;
+    if (!el || !p) return;
+    pendiente.current = null;
+    el.focus();
+    el.setSelectionRange(p.desde, p.hasta);
+  }, [valor]);
 
   function aplicar(fn: (t: string, d: number, h: number) => { texto: string; desde: number; hasta: number }) {
     const el = ref.current;
     if (!el) return;
     const r = fn(valor, el.selectionStart, el.selectionEnd);
+    if (r.texto === valor) return;
+    pendiente.current = { desde: r.desde, hasta: r.hasta };
     onChange(r.texto);
-    // La selección se restaura DESPUÉS de que React repinte el valor: hacerlo
-    // ahora la pisaría el propio render. Sin esto el cursor salta al final y
-    // se pierde el sitio a la segunda palabra que se marca.
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(r.desde, r.hasta);
-    });
   }
 
   const btn = 'px-2 py-1 rounded-md border border-border text-[12px] text-foreground hover:bg-muted';
