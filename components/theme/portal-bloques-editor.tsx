@@ -26,7 +26,7 @@ import { usePermisos } from '@/lib/permisos';
 import { fetchBloquesBorrador, fetchBloquesBorradorTodas, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
-  getDefinicionBloque, CAMPOS_ESTILO,
+  getDefinicionBloque, CAMPOS_ESTILO, DEFINICIONES_CATALOGO,
   type BloqueHome, type PantallaId, type EstiloBloque,
   esBloqueFijo, admiteHijo, type BloqueHijo, type BloqueTipoCatalogo,
 } from '@/lib/portal-home-bloques';
@@ -355,10 +355,20 @@ export function useBloquesEditor() {
    * hace el botón "Añadir bloque" del rail. Con él, en el hueco que se pulsó
    * en la vista previa.
    */
-  function anadir(pantalla: PantallaId, kind: (typeof BLOCK_CATALOG)[number]['kind'], indice?: number): string | null {
+  /**
+   * `configPreset` es un PARCHE sobre los defaults del schema, no un objeto
+   * completo: así un campo nuevo aparece en todos los presets sin tocarlos
+   * uno a uno, y un preset viejo nunca deja un hueco sin rellenar.
+   */
+  function anadir(
+    pantalla: PantallaId,
+    kind: (typeof BLOCK_CATALOG)[number]['kind'],
+    indice?: number,
+    configPreset?: Record<string, unknown>,
+  ): string | null {
     const entry = getBlockCatalogEntry(kind);
     if (!entry) return null;
-    const nuevo = { id: uid(), kind, config: entry.defaultConfig } as BloqueHome;
+    const nuevo = { id: uid(), kind, config: { ...entry.defaultConfig, ...(configPreset ?? {}) } } as BloqueHome;
     setBloques(pantalla, (prev) => {
       if (indice == null) return [...prev, nuevo];
       // Acotado a propósito: un índice fuera de rango (medidas viejas tras
@@ -433,6 +443,35 @@ export function useBloquesEditor() {
 
 
 /**
+ * Lo que se ofrece en el picker: un bloque sin `presets` da una tarjeta; uno
+ * con `presets` da una por preset.
+ *
+ * Puro y exportado para poder testearlo: es la única pieza donde «cuántas
+ * tarjetas salen» se decide, y equivocarse aquí es ofrecer un bloque que no
+ * existe o esconder uno que sí.
+ */
+export function opcionesDelCatalogo(
+  soloKinds?: (kind: BloqueTipoCatalogo) => boolean,
+): { kind: BloqueTipoCatalogo; nombre: string; descripcion?: string; icono: string; config?: Record<string, unknown> }[] {
+  return DEFINICIONES_CATALOGO
+    .filter((d): boolean => !soloKinds || soloKinds(d.id as BloqueTipoCatalogo))
+    .flatMap((d) => {
+      const kind = d.id as BloqueTipoCatalogo;
+      if (!d.presets?.length) {
+        return [{ kind, nombre: d.nombre, descripcion: d.descripcion, icono: d.icono }];
+      }
+      return d.presets.map((p) => ({
+        kind,
+        nombre: p.nombre,
+        // La del preset si la trae; si no, la del bloque — nunca vacío.
+        descripcion: p.descripcion ?? d.descripcion,
+        icono: d.icono,
+        config: p.config,
+      }));
+    });
+}
+
+/**
  * El catálogo de bloques. Extraído porque ahora tiene DOS puntos de entrada —
  * el botón "Añadir bloque" del rail y el "+" entre secciones de la vista
  * previa— y una segunda copia se separaría de la primera en cuanto se añada
@@ -441,7 +480,7 @@ export function useBloquesEditor() {
 export function CatalogoBloques({
   onElegir, onCerrar, ancla, soloKinds,
 }: {
-  onElegir: (kind: (typeof BLOCK_CATALOG)[number]['kind']) => void;
+  onElegir: (kind: (typeof BLOCK_CATALOG)[number]['kind'], config?: Record<string, unknown>) => void;
   onCerrar: () => void;
   /** Filtra el catálogo. Sin esto, entero — que es el caso del rail. Al
    *  añadir DENTRO de un contenedor se pasa su whitelist, así que no se puede
@@ -459,17 +498,26 @@ export function CatalogoBloques({
         role="dialog"
         aria-label="Elegir una sección"
       >
-        {BLOCK_CATALOG.filter((e) => !soloKinds || soloKinds(e.kind)).map((entry) => {
-          const Icono = ICONOS[entry.icono] ?? Plus;
+        {/* Una tarjeta por PRESET, no por bloque.
+            ────────────────────────────────────────────────────────────────
+            Antes «Banner» era una sola tarjeta que daba siempre el mismo
+            banner vacío: la propietaria tenía que adivinar qué combinación
+            de campos hacía cada aspecto. Ahora el mismo `kind` puede
+            ofrecer varios puntos de partida con nombre («Banner con foto»,
+            «Solo texto», «Con botón») — mismo render, distinto arranque.
+            Un bloque sin `presets` sigue dando una sola tarjeta, como
+            siempre. */}
+        {opcionesDelCatalogo(soloKinds).map((op) => {
+          const Icono = ICONOS[op.icono] ?? Plus;
           return (
             <button
-              key={entry.kind}
-              onClick={() => onElegir(entry.kind)}
+              key={`${op.kind}:${op.nombre}`}
+              onClick={() => onElegir(op.kind, op.config)}
               className="flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border hover:bg-muted text-left"
             >
               <Icono size={16} className="text-brand-medio" />
-              <span className="text-[12.5px] font-semibold text-foreground">{entry.label}</span>
-              <span className="text-[11px] text-muted-foreground">{entry.descripcion}</span>
+              <span className="text-[12.5px] font-semibold text-foreground">{op.nombre}</span>
+              <span className="text-[11px] text-muted-foreground">{op.descripcion}</span>
             </button>
           );
         })}
@@ -557,7 +605,7 @@ export function BloquesSeccionesList({
         {picker && (
           <CatalogoBloques
             onCerrar={() => setPicker(false)}
-            onElegir={(kind) => { const id = hook.anadir(pantalla, kind); setPicker(false); if (id) onSeleccionar(id); }}
+            onElegir={(kind, config) => { const id = hook.anadir(pantalla, kind, undefined, config); setPicker(false); if (id) onSeleccionar(id); }}
           />
         )}
       </div>

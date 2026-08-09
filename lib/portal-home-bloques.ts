@@ -422,6 +422,24 @@ export interface DefinicionBloque {
   nombre: string;
   /** Solo en el catálogo: la frase del picker. Un `sistema` no se añade. */
   descripcion?: string;
+  /**
+   * Varios puntos de partida para el MISMO bloque, en el picker de «Añadir».
+   *
+   * Hasta ahora un bloque = una configuración inicial: añadir «Banner» daba
+   * siempre el mismo banner vacío, y la propietaria tenía que adivinar qué
+   * combinación de campos hacía cada aspecto. Un preset no cambia el render
+   * ni el schema — solo con qué valores nace. «Banner con foto», «Banner solo
+   * texto» y «Banner con botón» son el mismo `kind`.
+   *
+   * Es el mecanismo `presets` de Shopify, y ataca el momento correcto: al
+   * INSERTAR. Nuestras `variantes` de tema deciden la forma al instalar un
+   * tema entero, que es una decisión mucho más gorda y mucho antes.
+   *
+   * ⚠️ `config` es un PARCHE sobre los defaults del schema, no un objeto
+   * completo: así un campo nuevo en el schema aparece en todos los presets
+   * sin tener que tocarlos uno a uno.
+   */
+  presets?: readonly { nombre: string; descripcion?: string; config?: Record<string, unknown> }[];
   icono: string;
   categoria?: CategoriaBloque;
   origen: 'catalogo' | 'sistema';
@@ -627,18 +645,57 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
     camposEstilo: CAMPOS_ESTILO_BANNER,
     // Sin `completoSi`: un banner se pinta con o sin imagen y sin enlace.
     descripcion: 'Imagen a todo lo ancho con título, texto y enlace opcional.',
+    // Tres arranques del MISMO banner. El `estilo` no va aquí a propósito:
+    // en `estilo`, ausente significa «hereda del tema», y fijarlo desde un
+    // preset mataría esa herencia sin que nadie lo hubiera pedido — el error
+    // que ya documenta CAMPOS_ESTILO.
+    presets: [
+      { nombre: 'Banner con foto', descripcion: 'Imagen de fondo con título encima.' },
+      {
+        nombre: 'Solo texto',
+        descripcion: 'Sin imagen, para un aviso corto.',
+        config: { titulo: 'Cambio de horario', texto: 'Cuéntaselo aquí a tus clientas.' },
+      },
+      {
+        nombre: 'Con botón',
+        descripcion: 'Lleva a reservar o a una página.',
+        config: { titulo: 'Reserva tu clase', texto: '', href: '/reservar' },
+      },
+    ],
   },
   texto: {
     id: 'texto', nombre: 'Texto', icono: 'Type', origen: 'catalogo',
     categoria: 'texto', estilizable: true, campos: CAMPOS_TEXTO,
     completoSi: { alguna: [{ campo: 'titulo', noVacio: true }, { campo: 'texto', noVacio: true }] },
     descripcion: 'Un bloque de texto libre, con título opcional.',
+    presets: [
+      { nombre: 'Texto', descripcion: 'Un párrafo suelto.' },
+      {
+        nombre: 'Con título',
+        descripcion: 'Un rótulo y su texto debajo.',
+        config: { titulo: 'Sobre nosotras' },
+      },
+    ],
   },
   cta: {
     id: 'cta', nombre: 'Llamada a la acción', icono: 'MousePointerClick', origen: 'catalogo',
     categoria: 'interaccion', estilizable: true, campos: CAMPOS_CTA,
     completoSi: { todas: [{ campo: 'href', valido: 'href' }, { campo: 'textoBoton', noVacio: true }] },
     descripcion: 'Título y un botón que lleva a donde quieras.',
+    // Los dos destinos que de verdad se usan, ya rellenos: sin esto la
+    // propietaria tiene que saberse las rutas del portal de memoria.
+    presets: [
+      {
+        nombre: 'Reservar clase',
+        descripcion: 'Botón que lleva al calendario.',
+        config: { titulo: '¿Nos vemos esta semana?', textoBoton: 'Ver clases', href: '/clases' },
+      },
+      {
+        nombre: 'Comprar bono',
+        descripcion: 'Botón que lleva a los bonos.',
+        config: { titulo: 'Renueva tu bono', textoBoton: 'Ver bonos', href: '/bonos' },
+      },
+    ],
   },
   faq: {
     id: 'faq', nombre: 'Preguntas frecuentes', icono: 'HelpCircle', origen: 'catalogo',
