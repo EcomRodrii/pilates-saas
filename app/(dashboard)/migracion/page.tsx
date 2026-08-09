@@ -16,12 +16,12 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useStudio } from '@/lib/studio-context';
 import {
   analizarMigracion, deshacerMigracion, migracionesRecientes,
-  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas,
+  importarSocias, importarMembresias, importarClases, importarReservas, importarCitas, importarPagosHistoricos,
 } from '@/lib/api-client';
 import {
   parseCsv,
-  validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita,
-  type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita,
+  validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita, validarFilasPago,
+  type FilaSocia, type FilaMembresia, type FilaClase, type FilaReserva, type FilaCita, type FilaPago,
 } from '@/lib/csv';
 import { uid } from '@/lib/utils';
 import type { PlanMigracion, ArchivoAnalizado } from '@/lib/migracion/analizador';
@@ -53,6 +53,7 @@ interface ResultadoEntidad {
 const ETIQUETA_ENTIDAD_BATCH: Record<string, string> = {
   socios: 'clientas', suscripciones: 'bonos', tipos_clase: 'tipos de clase',
   sesiones: 'clases', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas fijas',
+  pagos_historicos: 'pagos históricos',
 };
 
 function resumenBatch(conteos: Record<string, number>): string {
@@ -193,7 +194,7 @@ export default function MigracionPage() {
     const { rows } = parseCsv(local.contenido);
     const validar = {
       socias: validarFilas, membresias: validarFilasMembresia, clases: validarFilasClase,
-      reservas: validarFilasReserva, citas: validarFilasCita,
+      reservas: validarFilasReserva, citas: validarFilasCita, pagos: validarFilasPago,
     }[a.entidad] as (r: string[][], m: Record<string, number>) => { estado: string; datos: unknown }[];
     const filas = validar(rows, a.mapeo).filter(v => v.estado === 'ok').map(v => v.datos);
     // Las membresías pasan por el mapeo de planes que haya decidido la dueña
@@ -256,9 +257,12 @@ export default function MigracionPage() {
       } else if (entidad === 'reservas') {
         const r = await importarReservas(filas as FilaReserva[], id);
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinSesion + r.errores.length, error: r.error, batchAviso: r.batchAviso });
-      } else {
+      } else if (entidad === 'citas') {
         const r = await importarCitas(filas as FilaCita[], id);
         out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: r.duplicadas, incidencias: r.sinSocia + r.sinInstructor + r.errores.length, error: r.error, batchAviso: r.batchAviso });
+      } else {
+        const r = await importarPagosHistoricos(filas as FilaPago[], id);
+        out.push({ entidad, etiqueta, importadas: r.importadas, duplicadas: 0, incidencias: r.sinSocia + r.errores.length, error: r.error, batchAviso: r.batchAviso });
       }
       setResultados([...out]);
       // Un fallo de una entidad no borra lo hecho, pero paramos: las
@@ -677,7 +681,7 @@ export default function MigracionPage() {
                   <span className="text-muted-foreground">{r.etiqueta}</span>
                   <span className="font-bold text-foreground tabular-nums">
                     {deshecho
-                      ? `${deshecho[r.entidad === 'socias' ? 'socios' : r.entidad === 'membresias' ? 'suscripciones' : r.entidad === 'clases' ? 'sesiones' : r.entidad] ?? 0} borrados`
+                      ? `${deshecho[r.entidad === 'socias' ? 'socios' : r.entidad === 'membresias' ? 'suscripciones' : r.entidad === 'clases' ? 'sesiones' : r.entidad === 'pagos' ? 'pagos_historicos' : r.entidad] ?? 0} borrados`
                       : `${r.importadas} importadas · ${r.duplicadas} ya existían${r.incidencias > 0 ? ` · ${r.incidencias} incidencias` : ''}`}
                   </span>
                 </div>

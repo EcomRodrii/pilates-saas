@@ -12,8 +12,11 @@ import {
   autoMapearMembresia,
   validarFilasMembresia,
   normalizarEstadoMembresia,
+  autoMapearPago,
+  validarFilasPago,
   type CampoSocia,
   type CampoMembresia,
+  type CampoPago,
 } from './csv.ts';
 
 test('detecta coma como delimitador por defecto', () => {
@@ -217,4 +220,36 @@ test('validarFilasMembresia deja saldo null si no es numérico o no se mapea', (
   assert.equal(filas[0].estado, 'ok');
   assert.equal(filas[0].datos.sesiones, null);
   assert.equal(filas[0].datos.estado, null);
+});
+
+test('autoMapearPago reconoce email, fecha e importe (ES/EN)', () => {
+  const m = autoMapearPago(['Email', 'Fecha del pago', 'Importe', 'Concepto', 'Método de pago']);
+  assert.equal(m.email, 0);
+  assert.equal(m.fecha, 1);
+  assert.equal(m.importe, 2);
+  assert.equal(m.concepto, 3);
+  assert.equal(m.medio_pago, 4);
+});
+
+test('validarFilasPago exige email, fecha e importe; rechaza importe negativo', () => {
+  const m: Record<CampoPago, number> = { email: 0, fecha: 1, importe: 2, concepto: 3, medio_pago: 4 };
+  const filas = validarFilasPago(
+    [
+      ['ana@b.com', '01/02/2024', '49,90', 'Mensual', 'Tarjeta'],
+      ['no-email', '01/02/2024', '10', '', ''],   // email inválido
+      ['ana@b.com', '', '10', '', ''],             // sin fecha
+      ['ana@b.com', '01/02/2024', '-5', '', ''],   // importe negativo
+    ],
+    m,
+  );
+  assert.equal(filas[0].estado, 'ok');
+  assert.equal(filas[0].datos.fecha, '2024-02-01');
+  assert.equal(filas[0].datos.importe, 49.9);
+  assert.equal(filas[0].datos.medioPago, 'Tarjeta');
+  assert.equal(filas[1].estado, 'error');
+  assert.match(filas[1].motivo!, /email/i);
+  assert.equal(filas[2].estado, 'error');
+  assert.match(filas[2].motivo!, /fecha/i);
+  assert.equal(filas[3].estado, 'error');
+  assert.match(filas[3].motivo!, /negativo/i);
 });

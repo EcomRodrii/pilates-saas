@@ -5,17 +5,20 @@ import * as Sentry from '@sentry/nextjs';
 // los IDs que crean cuando la petición trae un batchId; deshacer borra
 // exactamente esos IDs, en orden inverso de dependencias, y nada más.
 
-export type EntidadBatch = 'socios' | 'suscripciones' | 'tipos_clase' | 'sesiones' | 'reservas' | 'citas' | 'plazas_fijas';
+export type EntidadBatch = 'socios' | 'suscripciones' | 'tipos_clase' | 'sesiones' | 'reservas' | 'citas' | 'plazas_fijas' | 'pagos_historicos';
 
 // El cliente genera el batchId; se valida el formato para no aceptar basura.
 export const RE_BATCH_ID = /^mig-[A-Za-z0-9-]{6,48}$/;
 
 // Orden de BORRADO: primero lo que referencia, después lo referenciado.
-export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'suscripciones', 'sesiones', 'tipos_clase', 'socios'];
+// pagos_historicos no referencia nada más que socios, así que va indiferente
+// respecto a citas/reservas/plazas_fijas — se pone junto a ellas por claridad.
+export const ORDEN_DESHACER: EntidadBatch[] = ['citas', 'reservas', 'plazas_fijas', 'pagos_historicos', 'suscripciones', 'sesiones', 'tipos_clase', 'socios'];
 
 const TABLA: Record<EntidadBatch, string> = {
   socios: 'socios', suscripciones: 'suscripciones', tipos_clase: 'tipos_clase',
   sesiones: 'sesiones', reservas: 'reservas', citas: 'citas', plazas_fijas: 'plazas_fijas',
+  pagos_historicos: 'pagos_historicos',
 };
 
 /**

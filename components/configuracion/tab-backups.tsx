@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { DatabaseBackup, RotateCcw, ShieldAlert, Loader2 } from 'lucide-react';
+import { DatabaseBackup, RotateCcw, ShieldAlert, Loader2, Download } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { supabase } from '@/lib/db/supabase';
@@ -17,6 +17,18 @@ const TIPO_LABEL: Record<TipoBackup, { label: string; bg: string; text: string }
   MANUAL: { label: 'Manual', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
 };
 
+// "Tus datos son tuyos" — un CSV por tabla, no un backup restaurable: esto es
+// para llevarse los datos a otro sitio, no para recuperar el estudio (eso ya
+// lo cubren las copias de arriba). Fetch + blob, no un <a href> directo: la
+// API exige el JWT en un header Authorization, que un enlace no puede mandar.
+const EXPORTABLES: { tabla: string; label: string }[] = [
+  { tabla: 'clientas', label: 'Clientas' },
+  { tabla: 'reservas', label: 'Reservas y asistencia' },
+  { tabla: 'suscripciones', label: 'Suscripciones y bonos' },
+  { tabla: 'recibos', label: 'Recibos' },
+  { tabla: 'pagos_historicos', label: 'Pagos históricos importados' },
+];
+
 async function authHeader(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
@@ -30,6 +42,7 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
   const [restaurando, setRestaurando] = useState<BackupMeta | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [ejecutandoRestore, setEjecutandoRestore] = useState(false);
+  const [exportando, setExportando] = useState<string | null>(null);
 
   if (rol !== 'PROPIETARIO') {
     return (
@@ -84,6 +97,28 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
 
   const ordenados = [...backups].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 
+  async function exportarTabla(tabla: string) {
+    setExportando(tabla);
+    try {
+      const res = await fetch(`/api/exportar/mis-datos?tabla=${tabla}`, { headers: await authHeader() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? 'No se pudo generar la exportación');
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${tabla}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      setError('Error de conexión');
+    } finally {
+      setExportando(null);
+    }
+  }
+
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center justify-between">
@@ -132,6 +167,29 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
           })}
         </div>
       )}
+
+      <div className="pt-4 mt-4 border-t border-border space-y-3">
+        <div className="flex items-center gap-2">
+          <Download size={16} className="text-brand-secondary" />
+          <h3 className="text-[14px] font-semibold text-foreground">Exportar tus datos</h3>
+        </div>
+        <p className="text-[12px] text-muted-foreground">
+          Un CSV por tabla, listo para abrir en Excel o llevarte a otra plataforma. No incluye ficha clínica ni notas de progreso.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {EXPORTABLES.map(e => (
+            <button
+              key={e.tabla}
+              onClick={() => void exportarTabla(e.tabla)}
+              disabled={exportando === e.tabla}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-40"
+            >
+              {exportando === e.tabla ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              {e.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Dialog open={!!restaurando} onOpenChange={open => !open && setRestaurando(null)}>
         <DialogContent>

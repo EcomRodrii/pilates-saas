@@ -1053,3 +1053,79 @@ export function validarFilasCita(
     return { fila: i + 1, datos, estado: 'ok' };
   });
 }
+
+// ─── Importación de PAGOS HISTÓRICOS ─────────────────────────────────────────
+// Sexta pieza de la migración asistida. A diferencia de reservas/citas, esto NO
+// crea ningún recibo real (`recibos` arrastra Stripe/Veri·Factu/AEAT/dunning) —
+// es un registro de solo lectura de lo que la socia ya pagó en la plataforma
+// anterior, para que su ficha no empiece "en blanco" el día del cambio.
+
+export type CampoPago = 'email' | 'fecha' | 'concepto' | 'importe' | 'medio_pago';
+
+interface CampoMetaPago { campo: CampoPago; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_PAGO: CampoMetaPago[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'fecha', etiqueta: 'Fecha del pago', obligatorio: true },
+  { campo: 'importe', etiqueta: 'Importe', obligatorio: true },
+  { campo: 'concepto', etiqueta: 'Concepto', obligatorio: false },
+  { campo: 'medio_pago', etiqueta: 'Medio de pago', obligatorio: false },
+];
+
+const SINONIMOS_PAGO: Record<CampoPago, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente', 'alumna'],
+  fecha: ['fecha', 'date', 'fecha pago', 'fecha de pago', 'payment date', 'paid date'],
+  concepto: ['concepto', 'concept', 'descripcion', 'description', 'plan', 'producto', 'item', 'detalle'],
+  importe: ['importe', 'precio', 'price', 'total', 'amount', 'monto', 'cantidad', 'coste'],
+  medio_pago: ['medio de pago', 'medio pago', 'metodo de pago', 'payment method', 'forma de pago', 'metodo'],
+};
+
+export function autoMapearPago(headers: string[]): Record<CampoPago, number> {
+  return mapearColumnas(headers, CAMPOS_PAGO.map((c) => c.campo), SINONIMOS_PAGO);
+}
+
+export interface FilaPago {
+  email: string;
+  fecha: string;   // 'YYYY-MM-DD'
+  concepto: string | null;
+  importe: number;
+  medioPago: string | null;
+}
+
+export interface FilaPagoValidada {
+  fila: number;
+  datos: FilaPago;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+/** Aplica el mapeo y valida las filas de pagos históricos. */
+export function validarFilasPago(
+  rows: string[][],
+  mapeo: Record<CampoPago, number>,
+): FilaPagoValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha)]);
+  return rows.map((fila, i) => {
+    const email = val(fila, mapeo.email).toLowerCase();
+    const fecha = parsearFecha(val(fila, mapeo.fecha), orden);
+    const importeRaw = val(fila, mapeo.importe).replace(',', '.').replace(/[^\d.-]/g, '');
+    const importe = importeRaw !== '' && Number.isFinite(Number(importeRaw)) ? Number(importeRaw) : null;
+
+    const datos: FilaPago = {
+      email, fecha: fecha ?? '',
+      concepto: val(fila, mapeo.concepto) || null,
+      importe: importe ?? 0,
+      medioPago: val(fila, mapeo.medio_pago) || null,
+    };
+
+    const err = (motivo: string): FilaPagoValidada => ({ fila: i + 1, datos, estado: 'error', motivo });
+    if (!email) return err('Falta el email de la socia');
+    if (!emailValido(email)) return err('El email no es válido');
+    if (!fecha) return err('Falta la fecha o no se entiende');
+    if (importe === null) return err('Falta el importe o no se entiende');
+    if (importe < 0) return err('El importe no puede ser negativo');
+    return { fila: i + 1, datos, estado: 'ok' };
+  });
+}

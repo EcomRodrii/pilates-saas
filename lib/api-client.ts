@@ -780,7 +780,7 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija, FilaPago } from '@/lib/csv';
 
 
 
@@ -1156,6 +1156,22 @@ export async function obtenerComunicacionesSocio(socioId: string): Promise<Array
 }> | null> {
   try {
     const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Pagos históricos importados de la plataforma anterior para una socia
+// concreta (solo lectura). `null` en fallo (red/permiso), NO `[]` — mismo
+// criterio que obtenerComunicacionesSocio: un array vacío significa "esta
+// socia no tiene pagos históricos", que es una respuesta distinta.
+export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Array<{
+  id: string; fecha: string; concepto: string | null; importe: number; medioPago: string | null;
+}> | null> {
+  try {
+    const res = await fetch(`/api/socios/${socioId}/pagos-historicos`, { headers: await authHeader() });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -1571,6 +1587,34 @@ export async function importarCitas(rows: FilaCita[], batchId?: string): Promise
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
     return data as ResultadoImportCitas;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Resultado de importar pagos históricos.
+export interface ResultadoImportPagos {
+  batchAviso?: string | null;
+  importadas: number;
+  sinSocia: number;
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa pagos históricos. Empareja socia por email; el studio_id sale del
+// JWT. No crea ningún recibo real (ver comentario en el route): es solo
+// lectura, para que la ficha de la socia no empiece en blanco tras migrar.
+export async function importarPagosHistoricos(rows: FilaPago[], batchId?: string): Promise<ResultadoImportPagos> {
+  const vacio = { importadas: 0, sinSocia: 0, errores: [] };
+  try {
+    const res = await fetch('/api/pagos-historicos/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows, batchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as ResultadoImportPagos;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }

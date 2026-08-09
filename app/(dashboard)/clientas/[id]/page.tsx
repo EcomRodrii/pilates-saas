@@ -11,7 +11,7 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
-import { enviarEmailCampana, obtenerComunicacionesSocio } from '@/lib/api-client';
+import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -323,6 +323,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     obtenerComunicacionesSocio(id).then(data => { if (!ignorar && data) setComunicaciones(data); });
     return () => { ignorar = true; };
   }, [id]);
+
+  // ── Pagos históricos importados (migración asistida) ─────────────────────
+  // Mismo criterio que comunicaciones justo arriba: fuera del snapshot global,
+  // solo lectura, gate `puedeVerFinanzas` (mismo que la pestaña "Pagos"). Solo
+  // se pide si el rol puede verlos — no tiene sentido pedirlo para nada.
+  const [pagosHistoricos, setPagosHistoricos] = useState<Array<{
+    id: string; fecha: string; concepto: string | null; importe: number; medioPago: string | null;
+  }>>([]);
+
+  useEffect(() => {
+    if (!id || !verFinanzas) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona con bandera 'ignorar', mismo patrón que comunicaciones. El estado viene de la red.
+    setPagosHistoricos([]);
+    let ignorar = false;
+    obtenerPagosHistoricosSocio(id).then(data => { if (!ignorar && data) setPagosHistoricos(data); });
+    return () => { ignorar = true; };
+  }, [id, verFinanzas]);
 
   const socio = socios.find(s => s.id === id);
 
@@ -1158,6 +1175,39 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {pagosHistoricos.length > 0 && (
+                    <div className="mt-8">
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                        Pagos históricos (importados)
+                      </p>
+                      <div className="border border-border rounded-xl overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-muted border-b border-border">
+                              <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Fecha</th>
+                              <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Concepto</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Importe</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Medio</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-muted">
+                            {pagosHistoricos.map(p => (
+                              <tr key={p.id} className="hover:bg-muted transition-colors">
+                                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fecha(p.fecha)}</td>
+                                <td className="px-4 py-3 font-semibold text-foreground max-w-[200px] truncate">{p.concepto ?? '—'}</td>
+                                <td className="px-4 py-3 text-right font-extrabold text-foreground tabular-nums">{formatEuro(p.importe)}</td>
+                                <td className="px-4 py-3 text-right text-xs text-muted-foreground">{p.medioPago ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-2">
+                        Importados de la plataforma anterior — no son recibos de Tentare y no entran en el cierre fiscal.
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
