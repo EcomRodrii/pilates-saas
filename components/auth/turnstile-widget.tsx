@@ -39,6 +39,11 @@ declare global {
         callback: (token: string) => void;
         'expired-callback'?: () => void;
         'error-callback'?: () => void;
+        /** `interaction-only` = solo se pinta si de verdad hay que interactuar. */
+        appearance?: 'always' | 'execute' | 'interaction-only';
+        /** `flexible` ocupa el ancho del contenedor en vez de 300 px fijos. */
+        size?: 'normal' | 'flexible' | 'compact';
+        theme?: 'auto' | 'light' | 'dark';
       }) => string;
       remove: (widgetId: string) => void;
       reset: (widgetId: string) => void;
@@ -83,6 +88,22 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
       callback: (token) => onToken(token),
       'expired-callback': () => onToken(null),
       'error-callback': () => onToken(null),
+      // ⚠️ `interaction-only`: el recuadro negro de Cloudflare SOLO aparece
+      // cuando de verdad hay que resolver algo. Antes era `always` (el valor
+      // por defecto), así que toda visitante veía una caja oscura de 300 px
+      // con el logo de otra empresa en la pantalla de acceso de SU estudio —
+      // en un producto de marca blanca, y encima con un "¡Operación exitosa!"
+      // que no significa nada para quien solo quiere entrar.
+      //
+      // El token sigue llegando igual en el caso normal: Cloudflare resuelve
+      // en silencio y dispara `callback` sin pintar nada. Solo se ve el
+      // widget si la petición le parece sospechosa, que es cuando tiene
+      // sentido enseñarlo. No afloja la protección: es la MISMA verificación,
+      // sin el escaparate.
+      appearance: 'interaction-only',
+      // Y cuando toca enseñarlo, que ocupe el ancho de su hueco en vez de los
+      // 300 px fijos que se salían del margen en un móvil estrecho.
+      size: 'flexible',
     });
     return () => {
       if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
