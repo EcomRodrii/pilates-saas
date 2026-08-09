@@ -4,7 +4,9 @@ import { Clock } from 'lucide-react';
 import { cuandoEstudio } from '@/lib/utils';
 import type { EventoHistorial } from '@/lib/calendario-historial';
 
-// Rediseño del Calendario — punto 5, pestaña "Historial". Ámbito acotado a
+// Rediseño del Calendario — punto 5, pestaña "Sustituciones" (antes
+// "Historial" — renombrada, pilar 6: el nombre viejo prometía un historial
+// general de asistencia que esto nunca fue). Ámbito acotado a
 // cobertura/instructora (ver lib/calendario-historial.ts) — no un log
 // genérico de todo lo que le ha pasado a la sesión.
 export function HistorialSesion({ eventos }: { eventos: EventoHistorial[] }) {

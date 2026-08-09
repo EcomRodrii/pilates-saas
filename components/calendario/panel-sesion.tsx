@@ -45,10 +45,14 @@ export interface PanelSesionProps {
   onAsignarSpot?: (spotId: string, socioId: string) => void;
 }
 
+// "Sustituciones", no "Historial" (pilar 6, hallazgo de UX): el contenido de
+// esta pestaña está acotado a cobertura/instructora — nunca fue ni pretende
+// ser un historial general de asistencia de la clase (ver el comentario de
+// lib/calendario-historial.ts). El nombre viejo prometía más de lo que había.
 const PESTANAS: { id: PestanaSesion; label: string }[] = [
   { id: 'clientas', label: 'Clientas' },
   { id: 'plazas', label: 'Plazas' },
-  { id: 'historial', label: 'Historial' },
+  { id: 'historial', label: 'Sustituciones' },
 ];
 
 export function PanelSesion({
