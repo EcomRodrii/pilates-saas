@@ -4,7 +4,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
-import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
 
 export const metadata: Metadata = {
@@ -65,6 +65,7 @@ export default function PreciosReformerPage() {
         slug="precios-reformer-mat"
         datePublished="2026-07-01"
       />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Rentabilidad"
         coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"

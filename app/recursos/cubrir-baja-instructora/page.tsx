@@ -4,7 +4,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
-import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
 
 export const metadata: Metadata = {
@@ -43,6 +43,7 @@ export default function CubrirBajaPage() {
         slug="cubrir-baja-instructora"
         datePublished="2026-07-01"
       />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Sustituciones y equipo"
         coverGradient="linear-gradient(140deg,#191C11,#343825)"

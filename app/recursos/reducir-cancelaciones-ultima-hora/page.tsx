@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
-import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 
 export const metadata: Metadata = {
@@ -50,6 +50,7 @@ export default function ReducirCancelacionesPage() {
         slug="reducir-cancelaciones-ultima-hora"
         datePublished="2026-08-06"
       />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Operación"
         coverGradient="linear-gradient(140deg,#5e2318,#C2503A)"
