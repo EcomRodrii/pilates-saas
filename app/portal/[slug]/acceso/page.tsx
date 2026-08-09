@@ -73,7 +73,9 @@ export default function PortalAcceso() {
           ...(conFoto ? {
             backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0.45) 100%), url(${JSON.stringify(studio!.fotoUrl)})`,
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            // Encuadre elegido por el estudio (theme.fotoEncuadre). El fallback
+            // es el `center` de siempre: un tema guardado sin este token no cambia.
+            backgroundPosition: 'var(--portal-foto-pos, center center)',
           } : {}),
           borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
         }}

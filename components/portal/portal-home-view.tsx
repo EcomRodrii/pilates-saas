@@ -605,7 +605,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           {conFoto && (
             <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
             </div>
           )}
 
@@ -825,7 +825,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             >
               {studio?.fotoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
               )}
@@ -878,7 +878,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <>
                   {b.imagenUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
                   )}
