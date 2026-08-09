@@ -24,3 +24,17 @@ export async function abrirCategoriaTema(page: Page, categoria: string) {
   await page.getByRole('tab', { name: 'Ajustes del tema' }).click();
   await page.getByRole('button', { name: categoria, exact: true }).click();
 }
+
+/**
+ * Vuelve al árbol de pantallas y sus bloques.
+ *
+ * Hace falta en los tests que tocan un ajuste del tema y DESPUÉS comprueban
+ * algo de una sección —por ejemplo, que deshacer quitó lo del tema y dejó en
+ * pie el bloque que se ocultó antes—. Con el rail en una sola lista eso salía
+ * gratis, y hasta había un comentario diciendo «se comprueba desde el rail,
+ * que no ha cambiado de pantalla al entrar en Ajustes». Ya no: la otra mitad
+ * no está oculta, está desmontada.
+ */
+export async function abrirSecciones(page: Page) {
+  await page.getByRole('tab', { name: 'Secciones' }).click();
+}

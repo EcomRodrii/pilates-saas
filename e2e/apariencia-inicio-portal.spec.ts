@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { abrirCategoriaTema } from './apariencia-mock.ts';
+import { abrirCategoriaTema, abrirSecciones } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor de bloques del portal, dentro del editor a pantalla completa
@@ -311,8 +311,10 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await page.getByRole('button', { name: 'Deshacer' }).click();
     await expect(rectas).toHaveAttribute('aria-pressed', 'false');
     // Y el cambio ANTERIOR (el del bloque) sigue en pie: deshacer quitó lo
-    // último, no lo primero. Se comprueba desde el rail, que no ha cambiado
-    // de pantalla al entrar en Ajustes.
+    // último, no lo primero. Hay que volver a Secciones para verlo: el rail
+    // ya no enseña las dos mitades a la vez, y la otra no está oculta sino
+    // desmontada.
+    await abrirSecciones(page);
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
   });
 
