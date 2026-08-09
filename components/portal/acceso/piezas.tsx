@@ -79,6 +79,22 @@ export function PortadaAcceso({
             // El encuadre que eligió el estudio (theme.fotoEncuadre). Sin
             // token, centrado — que es lo que hacía antes.
             objectPosition: 'var(--portal-foto-pos, center center)',
+            // ⚠️ `grayscale` ANTES del multiply, y esto no estaba en el
+            // handoff: es la corrección tras verlo en producción.
+            //
+            // El handoff da como referencia el tema Original (oliva #343825),
+            // un color oscuro y apagado: multiplicar por él ya deja un
+            // duotono. Pero el diseño tiene que funcionar con CUALQUIER
+            // preset, y con una marca clara y saturada —la lila de Pilates
+            // Boutique— los tonos de piel sobrevivían al tinte y salían
+            // verdosos: se leía como un filtro de Instagram mal puesto, no
+            // como identidad.
+            //
+            // Quitar el color de la foto primero es la receta de duotono de
+            // toda la vida: el resultado es del color de la marca, sea cual
+            // sea, y no depende de qué haya en la imagen. El `contrast` de más
+            // compensa lo que aplana el gris.
+            filter: 'grayscale(1) contrast(1.08)',
             opacity: 0.72, mixBlendMode: 'multiply',
           }}
         />
