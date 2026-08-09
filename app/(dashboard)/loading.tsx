@@ -19,7 +19,7 @@ import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 // de verdad bajaría el tiempo.
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <div className="lg:pl-[var(--sidebar-w)]">
         <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
           <PanelSkeleton />

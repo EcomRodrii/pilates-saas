@@ -194,6 +194,40 @@ export async function dbListComunicacionesSocio(studioId: string, socioId: strin
   }));
 }
 
+export type PagoHistorico = {
+  id: string;
+  fecha: string;
+  concepto: string | null;
+  importe: number;
+  medioPago: string | null;
+};
+
+// Pagos importados de la plataforma anterior (migración asistida) — solo
+// lectura, para la ficha de clienta. Fuera del snapshot global de
+// studio-context a propósito, mismo criterio que dbListComunicacionesSocio:
+// se carga aparte, solo al entrar en la ficha. Filtrado explícito por
+// studio_id + socio_id aunque se use service-role (bypasa RLS) — el caller
+// (API route) ya comprueba puedeVerFinanzas.
+export async function dbListPagosHistoricosSocio(studioId: string, socioId: string): Promise<PagoHistorico[]> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from('pagos_historicos')
+    .select('id, fecha, concepto, importe, medio_pago')
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId)
+    .order('fecha', { ascending: false })
+    .limit(200);
+  if (error) { reportDbError('[dbListPagosHistoricosSocio]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id as string,
+    fecha: r.fecha as string,
+    concepto: r.concepto as string | null,
+    importe: Number(r.importe),
+    medioPago: r.medio_pago as string | null,
+  }));
+}
+
 
 function mapInstructorPublico(r: RowInstructores): Instructor {
   return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };

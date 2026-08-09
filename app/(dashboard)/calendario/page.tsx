@@ -253,7 +253,7 @@ const DIA_PILLS: { label: string; day: number }[] = [
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [],
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [], initial,
 }: {
   open: boolean;
   onClose: () => void;
@@ -263,6 +263,10 @@ function ModalClasesRecurrentes({
   salas: { id: string; nombre: string; capacidad: number }[];
   onCrear: (sesiones: Omit<Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
+  /** "Duplicar serie": arranca con los valores derivados de la serie de
+   *  origen en vez de los defaults en blanco. Sigue siendo editable — es
+   *  solo el punto de partida, no un valor fijo. */
+  initial?: RecurringFormData;
 }) {
   const uid = useId();
 
@@ -271,7 +275,7 @@ function ModalClasesRecurrentes({
   // reinicia (al abrir el diálogo), en vez de en cada render. Antes, además de
   // ser impuro, significaba que el diálogo abierto a las 23:59 proponía el día
   // de ayer si el usuario tardaba un minuto en pulsar.
-  const emptyForm = (): RecurringFormData => ({
+  const emptyForm = (): RecurringFormData => initial ?? {
     tipoClaseId: tiposClase[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
@@ -281,7 +285,7 @@ function ModalClasesRecurrentes({
     fechaInicio: new Date().toISOString().slice(0, 10),
     fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     aforoMaximo: salas[0]?.capacidad ?? 8,
-  });
+  };
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
   const duracionInvalida = !form.duracion || form.duracion < 15;
@@ -567,6 +571,7 @@ export default function Calendario() {
   // ── Modals ──────────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
+  const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
   const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
@@ -798,6 +803,7 @@ export default function Calendario() {
       window.history.replaceState({}, '', '/calendario');
     } else if (params.get('recurrentes') === '1') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInitialRecurrente(undefined);
       setShowRecurrentes(true);
       window.history.replaceState({}, '', '/calendario');
     }
@@ -872,6 +878,40 @@ export default function Calendario() {
     });
     setErrorSesion(null);
     setShowForm('nueva');
+  }
+
+  // Duplicar la SERIE completa (no una instancia suelta): deriva
+  // día(s)/hora/tipo/sala/instructora del tramo FUTURO de la serie de origen
+  // (mismo criterio que editarSerieDesde — una serie puede tener un tramo
+  // pasado con otra configuración) y abre el modal de recurrentes ya
+  // relleno. La copia es una serie totalmente independiente (mismo criterio
+  // que "Duplicar" de una instancia no vincula a la original) — se genera
+  // desde cero con addSesionesSerie, sin RPC ni tabla nueva.
+  function openDuplicarSerie(origen: SesionEnr) {
+    if (!origen.serieId) return;
+    const futuras = sesionesEnriquecidas.filter(s => s.serieId === origen.serieId && s.inicio >= origen.inicio);
+    if (futuras.length === 0) return;
+
+    const diasSemana = [...new Set(futuras.map(s => new Date(s.inicio).getDay()))];
+    const ultimaFecha = futuras.reduce((max, s) => (s.inicio > max ? s.inicio : max), futuras[0].inicio);
+    const inicioCopia = addDays(new Date(ultimaFecha), 1);
+    const nSemanas = Math.max(1, Math.ceil((new Date(ultimaFecha).getTime() - new Date(origen.inicio).getTime()) / (7 * 24 * 3600_000)) + 1);
+    const finCopia = addDays(inicioCopia, nSemanas * 7 - 1);
+
+    const ini = new Date(origen.inicio);
+    const fin = new Date(origen.fin);
+    setInitialRecurrente({
+      tipoClaseId: origen.tipoClaseId,
+      instructorId: origen.instructorId,
+      salaId: origen.salaId,
+      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      duracion: Math.round((fin.getTime() - ini.getTime()) / 60_000),
+      diasSemana,
+      fechaInicio: localDate(inicioCopia),
+      fechaFin: localDate(finCopia),
+      aforoMaximo: origen.aforoMaximo,
+    });
+    setShowRecurrentes(true);
   }
 
   // Compartido por crearSesion() y crearClasesRecurrentes(): invalida el
@@ -1246,17 +1286,24 @@ export default function Calendario() {
   async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
+    // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
+    // está delante en ese momento — se marca asistencia en el mismo paso en vez
+    // de exigir un segundo clic en "Check-in" sobre la fila recién creada.
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
     // Se espera el resultado AUTORITATIVO de addReserva (la RPC del servidor),
     // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
     // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
-    const res = await addReserva(sesionId, socioId);
+    const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn });
     if (!res.ok) {
       showToast(res.error);
       return;
     }
     showToast(res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
+      : esWalkIn
+      ? `${nombre} añadida y registrada como asistencia`
       : `${nombre} añadida a la clase`);
     void refrescarVista();
   }
@@ -1999,7 +2046,7 @@ export default function Calendario() {
 
   return (
     // h-full por sí solo no basta: DashboardShell envuelve `children` en un
-    // <main className="min-h-screen"> (mínimo, no altura fija) sin ningún
+    // <main className="min-h-dvh"> (mínimo, no altura fija) sin ningún
     // ancestro de altura definida contra la que "h-full" pueda resolverse.
     // Sin un tope real, LienzoCalendario (h-full + overflow-hidden) nunca
     // llega a acotar nada: la rejilla crece a su alto natural y es la PÁGINA
@@ -2104,7 +2151,7 @@ export default function Calendario() {
                     <Plus size={14} className="text-muted-foreground" />Clase única
                   </button>
                   <button
-                    onClick={() => { setShowNuevaMenu(false); setShowRecurrentes(true); }}
+                    onClick={() => { setShowNuevaMenu(false); setInitialRecurrente(undefined); setShowRecurrentes(true); }}
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"
                   >
                     <RefreshCw size={14} className="text-muted-foreground" />Clases recurrentes
@@ -2240,6 +2287,11 @@ export default function Calendario() {
               <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                 <Copy size={12} />Duplicar
               </button>
+              {sesionActual.serieId && (
+                <button onClick={() => openDuplicarSerie(sesionActual)} title="Repite todo lo que queda de esta serie, empezando justo después de su última clase" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                  <Copy size={12} />Duplicar serie
+                </button>
+              )}
               {esInstructor ? (
                 <button onClick={() => setShowNoPuedoAsistir(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                   <UserCheck size={12} />No puedo asistir
@@ -2717,7 +2769,7 @@ export default function Calendario() {
       <ModalClasesRecurrentes
         ausencias={ausencias}
         open={showRecurrentes}
-        onClose={() => setShowRecurrentes(false)}
+        onClose={() => { setShowRecurrentes(false); setInitialRecurrente(undefined); }}
         tiposClase={tiposClase}
         instructores={instructoresActivos}
         salas={salas}
@@ -2726,6 +2778,7 @@ export default function Calendario() {
           id: s.id, salaId: s.salaId, instructorId: s.instructorId,
           inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
         }))}
+        initial={initialRecurrente}
       />
 
       {/* ── F0·E1: decisión al añadir a una socia sin bono válido ─────────────────── */}

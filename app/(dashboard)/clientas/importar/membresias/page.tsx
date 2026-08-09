@@ -108,7 +108,7 @@ export default function ImportarMembresiasPage() {
   }
 
   return (
-    <div className="space-y-6 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
         back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
         title="Importar membresías"
