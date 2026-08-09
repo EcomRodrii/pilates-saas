@@ -24,10 +24,13 @@ import { FAQS } from '@/lib/faqs';
 const SLUG = 'tentare';
 
 /** El nombre del control que la ayuda le dice a la clienta que busque. */
-const CONTROL_PRIMER_ACCESO = 'Entrar con un enlace';
+const CONTROL_PRIMER_ACCESO = 'Nunca he creado una — mándame un enlace';
 
 test('el portal pide contraseña y la ayuda nombra un control que existe', async ({ page }) => {
-  await page.goto(`/portal/${SLUG}/login`);
+  // El paso 2 de la puerta, que es donde se pide la contraseña y donde está
+  // el control que la ayuda nombra. Se llega con el email en la URL porque sin
+  // él no hay paso 2 (se vuelve al paso 1).
+  await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
 
   // 1. La verdad sobre el terreno: hay un campo de contraseña de verdad.
   const clave = page.getByPlaceholder(/contraseña/i);
