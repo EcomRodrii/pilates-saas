@@ -47,6 +47,8 @@ declare global {
       }) => string;
       remove: (widgetId: string) => void;
       reset: (widgetId: string) => void;
+      /** Llama a `cb` cuando la API está lista — también si YA lo estaba. */
+      ready: (cb: () => void) => void;
     };
   }
 }
@@ -75,10 +77,38 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
   const [fallo, setFallo] = useState(false);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
+  // ⚠️ NO basta con el `onLoad` del <Script>. Bug real, encontrado en
+  // producción: `window.turnstile` estaba cargado y disponible, pero
+  // `scriptListo` seguía en `false`, así que `render()` no se llamaba NUNCA —
+  // ni widget, ni token, y a los 10 s el aviso rojo de «no se ha podido
+  // cargar». El botón de la pantalla de acceso quedaba muerto para siempre.
+  //
+  // Pasa cuando este componente se monta DESPUÉS del primer render: el
+  // <Script> se inyecta ya hidratada la página y su `onLoad` no vuelve a
+  // dispararse si el navegador ya tenía el fichero. En el portal eso no es un
+  // caso raro — es toda socia que ve la pantalla de bienvenida, o sea CADA
+  // dispositivo nuevo.
+  //
+  // `turnstile.ready()` es la vía oficial para justo esto: llama al callback
+  // aunque la API estuviera lista de antes. Y si el objeto todavía no existe,
+  // se sondea en vez de confiar en un evento que quizá ya pasó.
   useEffect(() => {
     if (!siteKey || scriptListo) return;
-    const t = setTimeout(() => setFallo(true), 10_000);
-    return () => clearTimeout(t);
+    let vivo = true;
+    const marcarListo = () => { if (vivo) setScriptListo(true); };
+
+    if (window.turnstile) {
+      window.turnstile.ready(marcarListo);
+      return () => { vivo = false; };
+    }
+
+    const sondeo = setInterval(() => {
+      if (!window.turnstile) return;
+      clearInterval(sondeo);
+      window.turnstile.ready(marcarListo);
+    }, 150);
+    const t = setTimeout(() => { if (vivo) setFallo(true); }, 10_000);
+    return () => { vivo = false; clearInterval(sondeo); clearTimeout(t); };
   }, [siteKey, scriptListo]);
 
   useEffect(() => {
