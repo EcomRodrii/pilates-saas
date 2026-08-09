@@ -104,6 +104,15 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
     return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
   }
   if (code === '23505' || /duplicate key value/i.test(msg)) {
+    // El email repetido al dar de alta es, con diferencia, el choque más común
+    // —y el genérico de abajo no dice ni qué dato ni qué hacer—. La salida casi
+    // siempre es la misma: esa clienta ya existe, probablemente dada de baja, y
+    // lo que toca es reactivarla para no partirle el historial en dos fichas.
+    // Mismo criterio y casi mismas palabras que el alta de equipo, que ya lo
+    // resolvía bien (app/api/equipo/route.ts).
+    if (/uq_socios_studio_email/i.test(msg)) {
+      return 'Ya tienes una clienta con ese email. Si se dio de baja y vuelve, reactiva su ficha en vez de crear otra: así conserva su historial.';
+    }
     return 'Ya existe algo con esos mismos datos. Cámbialos y vuelve a intentarlo.';
   }
   // 23503: la fila apunta a algo que no está guardado — el caso de la sala que
