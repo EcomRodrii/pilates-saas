@@ -31,6 +31,9 @@ type PoliticaForm = {
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;
   penalizacionCobroAutomatico: boolean;
+  // Migr 20260809020328: default true = comportamiento de siempre (pase/QR
+  // obligatorio). false = confía en la reserva: se marca asistida sola.
+  requiereCheckinQr: boolean;
 };
 
 function studioToPolitica(s: Studio | null): PoliticaForm {
@@ -50,6 +53,7 @@ function studioToPolitica(s: Studio | null): PoliticaForm {
     penalizacionAplicaCancelacionTardia: s?.penalizacionAplicaCancelacionTardia ?? true,
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
+    requiereCheckinQr: s?.requiereCheckinQr ?? true,
   };
 }
 
@@ -198,6 +202,20 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
               <span className="block text-[11px] text-muted-foreground">La reserva no se confirma sola: queda pendiente hasta que la apruebes o la rechaces desde el calendario.</span>
             </span>
             <Toggle on={pol.requiereAprobacion} onChange={v => setPol(p => ({ ...p, requiereAprobacion: v }))} />
+          </label>
+          <label className="flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-[13px] text-foreground">
+              Exigir check-in por QR
+              <span className="block text-[11px] text-muted-foreground">
+                Desactívalo si confías en que quien reserva viene: toda reserva confirmada se da por asistida sola al terminar la clase, sin que nadie tenga que escanear nada.
+              </span>
+              {!pol.requiereCheckinQr && !!pol.penalizacionImporteEur && pol.penalizacionAplicaNoShow && (
+                <span className="block text-[11px] text-amber-600 mt-1">
+                  Con esto desactivado y la penalización por no-show activa, nunca vas a poder cobrarla: toda reserva se da por asistida antes de que exista un &quot;no vino&quot; que penalizar. Puedes seguir marcando &quot;No asistió&quot; a mano desde Asistentes si lo ves en el momento.
+                </span>
+              )}
+            </span>
+            <Toggle on={pol.requiereCheckinQr} onChange={v => setPol(p => ({ ...p, requiereCheckinQr: v }))} />
           </label>
           <div>
             <p className={labelCls}>Mínimo de asistentes para mantener la clase</p>

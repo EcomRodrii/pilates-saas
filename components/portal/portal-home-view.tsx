@@ -664,7 +664,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
                 </>
               );
-              return 'abrePase' in tarjeta && tarjeta.abrePase
+              // Con el check-in QR desactivado (Configuración → Reservas), la
+              // reserva se marca asistida sola al terminar la clase: no hay
+              // ningún pase que enseñar, así que el botón lleva directo a la
+              // reserva, como en el resto de estados de esta tarjeta.
+              return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
                 ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
                 : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
             })()}
