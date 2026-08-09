@@ -69,6 +69,11 @@ async function montar(page: Page, opts: { bloquesHomeGuardar?: unknown[] } = {})
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());
     const pantalla = url.searchParams.get('pantalla') ?? 'home';
+    // `pantalla=todas`: el editor carga las tres de una sola vez (antes eran
+    // tres peticiones para una misma lectura del layout). El mock tiene que
+    // conocer esa forma o el editor se queda sin bloques y el test falla
+    // diciendo que no encuentra una sección — que es justo lo que pasó.
+    if (pantalla === 'todas') return json(route, bloques);
     if (url.pathname.endsWith('/publish')) { publicadasPorPantalla[pantalla]++; return json(route, bloques[pantalla]); }
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];

@@ -54,6 +54,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/api/portal-bloques**', route => {
     if (route.request().url().endsWith('/publish')) return json(route, []);
     if (route.request().method() === 'PUT') return json(route, route.request().postDataJSON());
+    // El editor carga las tres pantallas de una sola vez; con la forma de una
+    // sola se quedaba sin bloques.
+    if (new URL(route.request().url()).searchParams.get('pantalla') === 'todas') {
+      return json(route, { home: [], clases: [], bonos: [] });
+    }
     return json(route, []);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
