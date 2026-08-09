@@ -96,13 +96,16 @@ export function esBloqueFijo(bloque: BloqueHome): boolean {
 export const CAMPOS_BANNER = [
   { tipo: 'imagen', id: 'imagenUrl', etiqueta: 'URL de la imagen', marcador: 'https://…', porDefecto: '' },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título', porDefecto: '' },
-  { tipo: 'texto', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
+  // `textoRico` y no `texto`: es prosa que lee la clienta, y hasta ahora la
+  // propietaria no podía ni poner una negrita. Para lo guardado no cambia
+  // nada — un texto sin marcas se pinta igual, así que no hay migración.
+  { tipo: 'textoRico', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
   { tipo: 'url', id: 'href', etiqueta: 'Enlace (opcional)', marcador: '/reservar o https://…', porDefecto: '' },
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_TEXTO = [
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título (opcional)', porDefecto: '' },
-  { tipo: 'textoLargo', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
+  { tipo: 'textoRico', id: 'texto', etiqueta: 'Texto', porDefecto: '' },
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_CTA = [
