@@ -212,6 +212,17 @@ function studioPublico(r: RowStudios) {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     logoUrl: r.logo_url ?? null,
+    // ⚠️ La foto del estudio faltaba aquí, y es EXACTAMENTE el fallo que
+    // avisa el comentario de abajo. La columna existe, la propietaria la
+    // sube desde Configuración y se guarda bien — pero como no estaba en
+    // esta lista, nunca salía de la base de datos.
+    //
+    // Consecuencia visible: la pantalla de acceso enseñaba un color plano
+    // con el logo pequeño en medio, y la bienvenida de Bloom —cuya variante
+    // `foto` recibe este mismo campo— se quedaba sin imagen. Parecía un
+    // hueco de diseño y era un campo que no viajaba: nada fallaba, nada
+    // avisaba, la foto simplemente no llegaba.
+    fotoUrl: r.foto_url ?? null,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,

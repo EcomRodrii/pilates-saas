@@ -666,13 +666,19 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   },
 
   // Los `sistema`: contenido funcional del producto. Sin `campos` (lo que
-  // muestran sale de los datos del estudio, no de un formulario), sin
-  // `estilo` propio y sin `descripcion` de picker — no se pueden añadir, ya
-  // existen siempre. Los `nombre` son los de siempre, con sus paréntesis
-  // explicativos: describen lo que la propietaria ve en pantalla, y hay e2e
-  // que buscan por ese texto exacto.
+  // muestran sale de los datos del estudio, no de un formulario) y sin
+  // `estilo` propio — no se pueden añadir, ya existen siempre.
+  //
+  // ⚠️ Sus `nombre` llevaban el paréntesis explicativo DENTRO ("Retos
+  // (carrusel con conteo real de apuntadas y botón Apuntarme)"). Eso ocupaba
+  // tres líneas en el rail y hacía ilegible la lista: lo que se lee de un
+  // vistazo tiene que ser el nombre, no la explicación. Ahora el paréntesis
+  // vive en `descripcion` y el rail lo pinta como segunda línea en gris — se
+  // sigue viendo lo mismo, en dos alturas tipográficas en vez de en una.
+  // `descripcion` deja así de ser solo del catálogo de "añadir bloque".
   cabecera: {
-    id: 'sistema', sistemaId: 'cabecera', nombre: 'Cabecera (saludo y frase)',
+    id: 'sistema', sistemaId: 'cabecera', nombre: 'Cabecera',
+    descripcion: 'El saludo y la frase de arriba.',
     icono: 'Hand', origen: 'sistema', estilizable: false, campos: CAMPOS_CABECERA,
   },
   // ⚠️ Se llama `proximaClase` y no `tarjetaPrincipal` por dos motivos: es el
@@ -689,7 +695,8 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   },
   accesosRapidos: {
     id: 'sistema', sistemaId: 'accesosRapidos',
-    nombre: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
+    nombre: 'Accesos rápidos',
+    descripcion: 'Reservas, progreso, notificaciones y equipo.',
     icono: 'LayoutGrid', origen: 'sistema', estilizable: false, campos: CAMPOS_ACCESOS_RAPIDOS,
   },
   invitarAmiga: {
@@ -698,7 +705,8 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   },
   contenidoEstudio: {
     id: 'sistema', sistemaId: 'contenidoEstudio',
-    nombre: 'Contenido del estudio (mensaje destacado y banners)',
+    nombre: 'Contenido del estudio',
+    descripcion: 'Mensaje destacado y banners.',
     icono: 'Megaphone', origen: 'sistema', estilizable: false, campos: [],
   },
   listadoClases: {
@@ -711,15 +719,18 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   },
   tiraSemana: {
     id: 'sistema', sistemaId: 'tiraSemana',
-    nombre: 'Tira de la semana (7 días, con punto si hay clase reservada)',
+    nombre: 'Tira de la semana',
+    descripcion: 'Siete días, con un punto si hay clase reservada.',
     icono: 'CalendarCheck', origen: 'sistema', estilizable: false, campos: [],
   },
-  // Sin la frase "esta semana" a propósito: colisionaba con el bloque
-  // "Esta semana" en los e2e existentes (getByText hace match de subcadena
-  // sin distinguir mayúsculas por defecto — e2e/apariencia-inicio-portal.spec.ts).
+  // ⚠️ Ni el nombre ni la descripción llevan la frase "esta semana": haría
+  // match de subcadena con el bloque "Esta semana", que está en la MISMA
+  // pantalla (`getByText` no distingue mayúsculas ni exige palabra completa —
+  // e2e/apariencia-inicio-portal.spec.ts).
   progresoSemanal: {
     id: 'sistema', sistemaId: 'progresoSemanal',
-    nombre: 'Progreso semanal (anillo con tus clases reservadas)',
+    nombre: 'Progreso semanal',
+    descripcion: 'Anillo con tus clases reservadas.',
     icono: 'CircleDashed', origen: 'sistema', estilizable: false, campos: CAMPOS_PROGRESO_SEMANAL,
   },
   // "Apuntarme" en vez de "Apúntate"/"únete" a propósito: es el texto exacto
@@ -727,7 +738,8 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
   // este registro (describen lo que la propietaria ve, no lo reinterpretan).
   retos: {
     id: 'sistema', sistemaId: 'retos',
-    nombre: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
+    nombre: 'Retos',
+    descripcion: 'Carrusel con conteo real de apuntadas y botón Apuntarme.',
     icono: 'Trophy', origen: 'sistema', estilizable: false, campos: CAMPOS_RETOS,
   },
 };

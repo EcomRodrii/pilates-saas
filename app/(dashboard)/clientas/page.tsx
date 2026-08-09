@@ -528,16 +528,9 @@ export default function Socios() {
     // antes se cerraba igual y la clienta aparecía en la lista sin existir.
     if (!res.ok) { setErrorGuardar(res.error); return; }
 
-    // La bienvenida solo se manda si el alta se ha guardado de verdad.
-    if (form.email.trim()) {
-      const plan = planesTarifa.find((p) => p.id === form.planId);
-      enviarEmailBienvenida({
-        to: form.email.trim(),
-        toName: `${form.nombre.trim()} ${form.apellidos.trim()}`,
-        planNombre: plan?.nombre,
-        socioId: res.id,
-      });
-    }
+    // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
+    // también las altas que no pasan por esta pantalla (import CSV, alta
+    // pública). Mandarla aquí también duplicaba el email.
     resetModal();
   }
 

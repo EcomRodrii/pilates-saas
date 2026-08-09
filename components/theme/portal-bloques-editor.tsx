@@ -23,7 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { usePermisos } from '@/lib/permisos';
-import { fetchBloquesBorrador, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
+import { fetchBloquesBorrador, fetchBloquesBorradorTodas, guardarBloquesBorradorApi, publicarBloquesApi } from '@/lib/api-client';
 import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   getDefinicionBloque, CAMPOS_ESTILO,
@@ -65,6 +65,18 @@ const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
 export function labelDe(b: BloqueHome): string {
   if (b.kind === 'sistema') return BLOQUE_SISTEMA_LABEL[b.sistemaId];
   return getBlockCatalogEntry(b.kind)?.label ?? b.kind;
+}
+
+/**
+ * La segunda línea de la fila: qué hace ese bloque, en gris y pequeño.
+ *
+ * Existe porque hasta ahora la explicación iba metida DENTRO del nombre y la
+ * lista se leía fatal —«Retos (carrusel con conteo real de apuntadas y botón
+ * Apuntarme)» ocupaba tres renglones—. La información no sobraba; sobraba
+ * tenerla al mismo peso que el nombre.
+ */
+function descripcionDe(b: BloqueHome): string | undefined {
+  return getDefinicionBloque(b.kind === 'sistema' ? b.sistemaId : b.kind)?.descripcion;
 }
 
 // El panel de configuración de un bloque ya no se escribe: sale de su schema
@@ -132,10 +144,25 @@ function Fila({
       <button {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground" aria-label={`Reordenar ${labelDe(bloque)}`}>
         <GripVertical size={16} />
       </button>
-      <button type="button" onClick={onSeleccionar} className="flex-1 text-left">
-        <span className={`text-[13px] font-medium ${bloque.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
+      {/* ⚠️ `aria-label` explícito con SOLO el nombre. Sin él, el nombre
+          accesible del botón pasa a ser «Texto Un bloque de texto libre, con
+          título opcional.» —la concatenación de las dos líneas— y cualquier
+          `getByRole('button', { name: 'Texto', exact: true })` deja de
+          encontrarlo. Lo cazó CI. Aparte del test, es lo correcto: al tabular
+          por la lista interesa oír el nombre del bloque, no su descripción
+          repetida en cada fila. */}
+      <button type="button" onClick={onSeleccionar} aria-label={labelDe(bloque)} className="flex-1 text-left min-w-0">
+        <span className={`block text-[13px] font-medium truncate ${bloque.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
           {labelDe(bloque)}
         </span>
+        {/* Se corta con puntos suspensivos en vez de envolver: una fila de
+            altura fija hace que la lista se pueda recorrer con la vista. El
+            texto entero sigue disponible en el `title`. */}
+        {descripcionDe(bloque) && !bloque.oculto && (
+          <span className="block text-[11px] text-muted-foreground truncate" title={descripcionDe(bloque)}>
+            {descripcionDe(bloque)}
+          </span>
+        )}
       </button>
       <button onClick={onToggle} title={bloque.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={bloque.oculto ? `Mostrar ${labelDe(bloque)}` : `Ocultar ${labelDe(bloque)}`}>
         {bloque.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -181,7 +208,12 @@ export function useBloquesEditor() {
 
   useEffect(() => {
     let vivo = true;
-    Promise.all(PANTALLA_IDS.map((p) => fetchBloquesBorrador(p).catch(() => null)))
+    // Una petición para las tres pantallas, no tres. Ver
+    // `fetchBloquesBorradorTodas`: salen de la misma lectura del layout, y en
+    // este panel cada viaje cuesta ~140 ms en caliente y hasta 7,8 s en frío.
+    fetchBloquesBorradorTodas()
+      .then((todas) => PANTALLA_IDS.map((p) => todas[p]))
+      .catch(() => PANTALLA_IDS.map(() => null))
       .then((resultados) => {
         if (!vivo) return;
         // La carga inicial NO es una edición: reemplaza la base del historial
