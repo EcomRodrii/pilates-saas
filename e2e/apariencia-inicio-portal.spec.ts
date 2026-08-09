@@ -199,7 +199,16 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     // Y el grupo NO se llama igual que el bloque "Contenido del estudio" que
     // vive dentro de Inicio: son cosas distintas (aquí se escriben, allí se
     // decide dónde caen) y compartir nombre era la confusión que esto quita.
-    await expect(page.getByText('Contenido del estudio', { exact: true })).toHaveCount(0);
+    //
+    // ⚠️ Esto afirmaba `toHaveCount(0)`, y funcionaba de rebote: el bloque se
+    // llamaba «Contenido del estudio (mensaje destacado y banners)», así que
+    // con `exact: true` no coincidía NADA y el test pasaba sin comprobar lo
+    // que dice comprobar. Al acortar los nombres —el paréntesis se fue a la
+    // línea gris de debajo— apareció el uno de verdad y saltó.
+    //
+    // Lo que hay que sostener es que aparezca UNA vez (el bloque) y no dos
+    // (bloque + grupo), no que no aparezca ninguna.
+    await expect(page.getByText('Contenido del estudio', { exact: true })).toHaveCount(1);
 
     // Y cada grupo dice de quién es, sin tener que probarlo.
     await expect(page.getByText('Lo que ve tu clienta en su móvil.')).toBeVisible();
@@ -239,7 +248,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // (lib/theme/campos-forma.ts) y los pinta el Inspector genérico.
   test('"Forma del portal" cambia una variante y la guarda en el tema, sin perder las demás', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Forma del portal' }).click();
+    await abrirCategoriaTema(page, 'Forma del portal');
 
     // Los cinco ejes del panel, con nombre de negocio (no el id del catálogo).
     await expect(page.getByText('Accesos rápidos', { exact: true })).toBeVisible({ timeout: 30_000 });

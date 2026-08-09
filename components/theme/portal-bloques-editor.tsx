@@ -144,7 +144,14 @@ function Fila({
       <button {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground" aria-label={`Reordenar ${labelDe(bloque)}`}>
         <GripVertical size={16} />
       </button>
-      <button type="button" onClick={onSeleccionar} className="flex-1 text-left min-w-0">
+      {/* ⚠️ `aria-label` explícito con SOLO el nombre. Sin él, el nombre
+          accesible del botón pasa a ser «Texto Un bloque de texto libre, con
+          título opcional.» —la concatenación de las dos líneas— y cualquier
+          `getByRole('button', { name: 'Texto', exact: true })` deja de
+          encontrarlo. Lo cazó CI. Aparte del test, es lo correcto: al tabular
+          por la lista interesa oír el nombre del bloque, no su descripción
+          repetida en cada fila. */}
+      <button type="button" onClick={onSeleccionar} aria-label={labelDe(bloque)} className="flex-1 text-left min-w-0">
         <span className={`block text-[13px] font-medium truncate ${bloque.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
           {labelDe(bloque)}
         </span>
