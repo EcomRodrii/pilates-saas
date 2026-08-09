@@ -47,8 +47,6 @@ declare global {
       }) => string;
       remove: (widgetId: string) => void;
       reset: (widgetId: string) => void;
-      /** Llama a `cb` cuando la API está lista — también si YA lo estaba. */
-      ready: (cb: () => void) => void;
     };
   }
 }
@@ -68,7 +66,6 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
   // violación de las reglas de React (y lo caza el lint). Sin array de
   // dependencias a propósito — tiene que quedarse con la última función.
   useEffect(() => { onTokenRef.current = onToken; });
-  const [scriptListo, setScriptListo] = useState(false);
   // Si el script no carga (bloqueador de contenido, red que corta
   // challenges.cloudflare.com) o el propio widget de Cloudflare nunca resuelve,
   // antes el botón de envío se quedaba deshabilitado PARA SIEMPRE sin ningún
@@ -77,69 +74,78 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
   const [fallo, setFallo] = useState(false);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-  // ⚠️ NO basta con el `onLoad` del <Script>. Bug real, encontrado en
-  // producción: `window.turnstile` estaba cargado y disponible, pero
-  // `scriptListo` seguía en `false`, así que `render()` no se llamaba NUNCA —
-  // ni widget, ni token, y a los 10 s el aviso rojo de «no se ha podido
-  // cargar». El botón de la pantalla de acceso quedaba muerto para siempre.
+  // Montar el widget: UN solo efecto que espera a que la API exista.
   //
-  // Pasa cuando este componente se monta DESPUÉS del primer render: el
-  // <Script> se inyecta ya hidratada la página y su `onLoad` no vuelve a
+  // ⚠️ Antes eran dos, encadenados por un estado `scriptListo` que ponía el
+  // `onLoad` del <Script>. Bug real, encontrado en producción: con
+  // `window.turnstile` ya cargado y disponible, ese estado se quedaba en
+  // `false` y **`render()` no se llamaba nunca** — ni widget, ni token, botón
+  // «Seguir» apagado para siempre y, a los 10 s, el aviso rojo de «no se ha
+  // podido cargar». La pantalla de acceso quedaba muerta.
+  //
+  // Le pasaba a quien monta este componente DESPUÉS del primer render: el
+  // <Script> se inyecta con la página ya hidratada y su `onLoad` no vuelve a
   // dispararse si el navegador ya tenía el fichero. En el portal eso no es un
-  // caso raro — es toda socia que ve la pantalla de bienvenida, o sea CADA
-  // dispositivo nuevo.
+  // caso raro — es toda socia que ve la bienvenida, o sea CADA dispositivo
+  // nuevo. Justo la primera vez.
   //
-  // `turnstile.ready()` es la vía oficial para justo esto: llama al callback
-  // aunque la API estuviera lista de antes. Y si el objeto todavía no existe,
-  // se sondea en vez de confiar en un evento que quizá ya pasó.
+  // ⚠️⚠️ Y NO vale `turnstile.ready()`, que parecía la vía oficial: **LANZA**
+  // si el <script> lleva `async`/`defer`, y Next se los pone siempre con
+  // `strategy="afterInteractive"`. El mensaje es literal —«Remove async/defer
+  // from the api.js script tag before using turnstile.ready()»— y al saltar
+  // dentro de un efecto se lleva la pantalla entera al error boundary («Algo
+  // se ha roto»). Se probó en producción y fue PEOR que el fallo original.
+  //
+  // Con el script en modo async la comprobación correcta es la simple: si el
+  // objeto existe, la API está lista. Se sondea hasta que aparezca, y el
+  // propio efecto renderiza — sin estado intermedio que se pueda desincronizar
+  // de la realidad, que es de donde venía todo esto.
   useEffect(() => {
-    if (!siteKey || scriptListo) return;
+    if (!siteKey) return;
     let vivo = true;
-    const marcarListo = () => { if (vivo) setScriptListo(true); };
+    let sondeo: ReturnType<typeof setInterval> | null = null;
+    const parar = () => { if (sondeo) { clearInterval(sondeo); sondeo = null; } };
 
-    if (window.turnstile) {
-      window.turnstile.ready(marcarListo);
-      return () => { vivo = false; };
+    function montar(): boolean {
+      if (!vivo || widgetId.current || !window.turnstile || !contenedorRef.current) return false;
+      widgetId.current = window.turnstile.render(contenedorRef.current, {
+        sitekey: siteKey!,
+        callback: (token) => onTokenRef.current(token),
+        'expired-callback': () => onTokenRef.current(null),
+        'error-callback': () => onTokenRef.current(null),
+        // ⚠️ `interaction-only`: el recuadro de Cloudflare SOLO aparece cuando
+        // de verdad hay que resolver algo. Antes era `always` —el valor por
+        // defecto, nunca elegido—, así que toda visitante veía una caja oscura
+        // de 300 px con el logo de otra empresa en la pantalla de acceso de SU
+        // estudio, en un producto de marca blanca.
+        //
+        // No afloja la protección: misma verificación y mismo token, resueltos
+        // en silencio. Solo se enseña el widget si la petición le parece
+        // sospechosa, que es cuando tiene sentido enseñarlo.
+        appearance: 'interaction-only',
+        // Y cuando toca enseñarlo, que ocupe el ancho de su hueco en vez de
+        // los 300 px fijos que se salían del margen en un móvil estrecho.
+        size: 'flexible',
+      });
+      return true;
     }
 
-    const sondeo = setInterval(() => {
-      if (!window.turnstile) return;
-      clearInterval(sondeo);
-      window.turnstile.ready(marcarListo);
-    }, 150);
-    const t = setTimeout(() => { if (vivo) setFallo(true); }, 10_000);
-    return () => { vivo = false; clearInterval(sondeo); clearTimeout(t); };
-  }, [siteKey, scriptListo]);
+    if (!montar()) sondeo = setInterval(() => { if (montar()) parar(); }, 150);
+    // El aviso solo si de verdad no se montó: un bloqueador de contenido o una
+    // red que corte challenges.cloudflare.com dejaban el botón muerto sin decir
+    // por qué.
+    const t = setTimeout(() => { if (vivo && !widgetId.current) setFallo(true); }, 10_000);
 
-  useEffect(() => {
-    if (!scriptListo || !siteKey || !contenedorRef.current || !window.turnstile) return;
-    widgetId.current = window.turnstile.render(contenedorRef.current, {
-      sitekey: siteKey,
-      callback: (token) => onToken(token),
-      'expired-callback': () => onToken(null),
-      'error-callback': () => onToken(null),
-      // ⚠️ `interaction-only`: el recuadro negro de Cloudflare SOLO aparece
-      // cuando de verdad hay que resolver algo. Antes era `always` (el valor
-      // por defecto), así que toda visitante veía una caja oscura de 300 px
-      // con el logo de otra empresa en la pantalla de acceso de SU estudio —
-      // en un producto de marca blanca, y encima con un "¡Operación exitosa!"
-      // que no significa nada para quien solo quiere entrar.
-      //
-      // El token sigue llegando igual en el caso normal: Cloudflare resuelve
-      // en silencio y dispara `callback` sin pintar nada. Solo se ve el
-      // widget si la petición le parece sospechosa, que es cuando tiene
-      // sentido enseñarlo. No afloja la protección: es la MISMA verificación,
-      // sin el escaparate.
-      appearance: 'interaction-only',
-      // Y cuando toca enseñarlo, que ocupe el ancho de su hueco en vez de los
-      // 300 px fijos que se salían del margen en un móvil estrecho.
-      size: 'flexible',
-    });
     return () => {
-      if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
+      vivo = false;
+      parar();
+      clearTimeout(t);
+      if (widgetId.current && window.turnstile) {
+        window.turnstile.remove(widgetId.current);
+        widgetId.current = null;
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scriptListo, siteKey]);
+  }, [siteKey]);
 
   // Un token se gasta al usarlo. Sin esto, el widget emitía uno y no volvía a
   // emitir nunca: el segundo intento de la misma carga de página fallaba con
@@ -161,7 +167,6 @@ export function TurnstileWidget({ onToken }: { onToken: (token: string | null) =
       <Script
         src="https://challenges.cloudflare.com/turnstile/v0/api.js"
         strategy="afterInteractive"
-        onLoad={() => setScriptListo(true)}
         onError={() => setFallo(true)}
       />
       <div ref={contenedorRef} />
