@@ -278,6 +278,12 @@ function studioPublico(r: RowStudios) {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
+    // El portal lo usa para decidir si el botón "Ver mi acceso" abre el pase
+    // QR o lleva directo a la reserva (migr 20260809020328). Sin esta línea
+    // `studio.requiereCheckinQr` siempre llegaba `undefined` al cliente y el
+    // botón seguía abriendo el pase aunque el estudio lo hubiera desactivado
+    // — verificado en vivo con una socia de prueba antes de darlo por bueno.
+    requiereCheckinQr: (r as { requiere_checkin_qr?: boolean | null }).requiere_checkin_qr ?? true,
   };
 }
 
