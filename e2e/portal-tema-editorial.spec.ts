@@ -47,34 +47,39 @@ test.describe('Barra inferior de pestaña expandible', () => {
   });
 });
 
-test.describe('Tema Editorial — bienvenida antes del login', () => {
+// ⚠️ La bienvenida se decidía en /login y ahora vive en /acceso: con la puerta
+// única nadie aterriza en /login, se llega siempre desde el paso 1. Si esto
+// vuelve a apuntar a /login, el test pasaría por el sitio equivocado — /login
+// sin email redirige al paso 1, así que acabaría comprobando /acceso de todas
+// formas, pero por accidente y con una navegación de más.
+test.describe('Tema Editorial — bienvenida antes de la puerta', () => {
   test('primera vez en el dispositivo: se ve la bienvenida, no el formulario de login', async ({ page }) => {
     await montarPortal(page, { conSesion: false, tabBarStyle: 'pestanaActiva' });
-    await page.goto(`/portal/${SLUG}/login`);
+    await page.goto(`/portal/${SLUG}/acceso`);
 
     await expect(page.getByText('Empieza donde estás.')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: /Siguiente/ })).toBeVisible();
     // El formulario de login todavía no está.
-    await expect(page.getByPlaceholder('Tu email')).toHaveCount(0);
+    await expect(page.getByPlaceholder('tu@email.com')).toHaveCount(0);
   });
 
   test('pulsar "Siguiente" pasa al login y no vuelve a enseñar la bienvenida', async ({ page }) => {
     await montarPortal(page, { conSesion: false, tabBarStyle: 'pestanaActiva' });
-    await page.goto(`/portal/${SLUG}/login`);
+    await page.goto(`/portal/${SLUG}/acceso`);
 
     await page.getByRole('button', { name: /Siguiente/ }).click({ timeout: 30_000 });
-    await expect(page.getByPlaceholder('Tu email')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
 
     await page.reload();
-    await expect(page.getByPlaceholder('Tu email')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Empieza donde estás.')).toHaveCount(0);
   });
 
   test('con tema clásico, nunca se ve la bienvenida — va directa al login', async ({ page }) => {
     await montarPortal(page, { conSesion: false });
-    await page.goto(`/portal/${SLUG}/login`);
+    await page.goto(`/portal/${SLUG}/acceso`);
 
-    await expect(page.getByPlaceholder('Tu email')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Empieza donde estás.')).toHaveCount(0);
   });
 });

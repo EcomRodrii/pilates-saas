@@ -24,10 +24,13 @@ import { FAQS } from '@/lib/faqs';
 const SLUG = 'tentare';
 
 /** El nombre del control que la ayuda le dice a la clienta que busque. */
-const CONTROL_PRIMER_ACCESO = 'Entrar con un enlace';
+const CONTROL_PRIMER_ACCESO = 'Nunca he creado una — mándame un enlace';
 
 test('el portal pide contraseña y la ayuda nombra un control que existe', async ({ page }) => {
-  await page.goto(`/portal/${SLUG}/login`);
+  // El paso 2 de la puerta, que es donde se pide la contraseña y donde está
+  // el control que la ayuda nombra. Se llega con el email en la URL porque sin
+  // él no hay paso 2 (se vuelve al paso 1).
+  await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
 
   // 1. La verdad sobre el terreno: hay un campo de contraseña de verdad.
   const clave = page.getByPlaceholder(/contraseña/i);
@@ -46,5 +49,9 @@ test('el portal pide contraseña y la ayuda nombra un control que existe', async
   //    pantalla, escrito igual. Si alguien renombra el botón sin tocar la
   //    ayuda —o al revés—, esto salta.
   expect(respuesta).toContain(CONTROL_PRIMER_ACCESO);
-  await expect(page.getByRole('link', { name: CONTROL_PRIMER_ACCESO })).toBeVisible();
+  // `button`, no `link`: con la puerta única este control dispara el envío del
+  // enlace ahí mismo en vez de navegar a otra pantalla. Cambiar el rol no es
+  // cosmético — un enlace que no lleva a ninguna parte miente al lector de
+  // pantalla igual que la ayuda mentiría con el nombre viejo.
+  await expect(page.getByRole('button', { name: CONTROL_PRIMER_ACCESO })).toBeVisible();
 });
