@@ -152,6 +152,27 @@ const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleI
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
+// Dónde se ancla la foto del estudio cuando se recorta para la portada.
+//
+// ⚠️ Nace de un caso real, no de una petición estética. En cuanto la foto
+// empezó a llegar al portal (PR #827), el primer estudio con foto tenía
+// subido un PRIMER PLANO de una cara, no un interior de sala. `center` —lo
+// correcto para una foto de estudio— dejaba el logo justo sobre la boca.
+// El diseño da por hecha una foto apaisada de sala; la propietaria sube lo
+// que tiene. Esto le deja ajustarlo sin recortar la imagen ni pedirle otra.
+//
+// Solo tres posiciones, no un porcentaje libre: el recorte se juzga a ojo y
+// tres opciones se prueban en tres clics. Un deslizador pide precisión que
+// aquí no aporta nada.
+const fotoEncuadreSchema = z.enum(['arriba', 'centro', 'abajo']);
+
+/** El `background-position` que le toca a cada encuadre. Único sitio donde se traduce. */
+export const POSICION_FOTO: Record<'arriba' | 'centro' | 'abajo', string> = {
+  arriba: 'center top',
+  centro: 'center center',
+  abajo: 'center bottom',
+};
+
 const barraOscuraSchema = z.boolean();
 // Barra flotante (tema "Bloom"): eje INDEPENDIENTE de barraOscura, mismo
 // mecanismo (var() con fallback, ver varsBarraFlotante en theme-runtime.ts) —
@@ -265,6 +286,9 @@ export const themeConfigSchema = z
     // la FORMA de la pastilla activa, este el CONTRASTE de toda la barra.
     // Default false: un tema guardado antes de esta fase sigue viéndose igual.
     barraOscura: barraOscuraSchema.default(false),
+    // Encuadre de la foto del estudio en la portada — ver el schema arriba.
+    // 'centro' es lo que hacía antes, así que ningún tema guardado cambia.
+    fotoEncuadre: fotoEncuadreSchema.default('centro'),
     // Barra flotante sobre el fondo (tema "Bloom") — ver comentario del
     // schema arriba. Default false: sin cambios para nadie que no lo pida.
     barraFlotante: barraFlotanteSchema.default(false),
@@ -324,6 +348,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   barraOscura: false,
+  fotoEncuadre: 'centro',
   barraFlotante: false,
   barraClasica: false,
   destacado: null,
@@ -417,6 +442,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),
+    fotoEncuadre: pick('fotoEncuadre', fotoEncuadreSchema),
     barraFlotante: pick('barraFlotante', barraFlotanteSchema),
     barraClasica: pick('barraClasica', barraClasicaSchema),
     destacado: pick('destacado', destacadoSchema.nullable()),

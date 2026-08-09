@@ -93,8 +93,14 @@ function NumeroHeredado({
   );
 }
 
-/** Fila de botones para los campos de enum. */
-function FilaOpciones({
+/**
+ * Fila de botones para los campos de enum.
+ *
+ * Exportada porque el panel de "Logo y favicon" —escrito a mano, no derivado
+ * de un schema— necesita exactamente este control para el encuadre de la foto.
+ * Copiarlo habría sido la cuarta versión del mismo grupo de botones.
+ */
+export function FilaOpciones({
   etiqueta, opciones, activa, onElegir,
 }: { etiqueta: string; opciones: readonly { id: string; label: string }[]; activa: string; onElegir: (id: string) => void }) {
   return (
