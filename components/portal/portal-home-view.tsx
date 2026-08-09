@@ -605,7 +605,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           {conFoto && (
             <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
             </div>
           )}
 
@@ -664,7 +664,11 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                   <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
                 </>
               );
-              return 'abrePase' in tarjeta && tarjeta.abrePase
+              // Con el check-in QR desactivado (Configuración → Reservas), la
+              // reserva se marca asistida sola al terminar la clase: no hay
+              // ningún pase que enseñar, así que el botón lleva directo a la
+              // reserva, como en el resto de estados de esta tarjeta.
+              return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
                 ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
                 : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
             })()}
@@ -825,7 +829,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             >
               {studio?.fotoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
               )}
@@ -878,7 +882,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <>
                   {b.imagenUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
                   )}

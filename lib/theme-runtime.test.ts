@@ -165,3 +165,16 @@ test('themeToCssVars: `radioTema.acceso` declara el radio de la baldosa de acces
   const vars = themeToCssVars({ ...DEFAULT_THEME, radioTema: { acceso: 22 } }) as Record<string, string>;
   assert.equal(vars['--portal-radius-acceso'], '22px');
 });
+
+test('themeToCssVars: --portal-foto-pos sale del encuadre elegido', () => {
+  // La pantalla de acceso y el hero del Inicio no reciben el ThemeConfig:
+  // leen esta variable. Si deja de salir, la portada vuelve a centrarse
+  // siempre y el ajuste del editor no hace nada visible — sin error alguno.
+  const pos = (t: unknown) => (themeToCssVars(t) as Record<string, string>)['--portal-foto-pos'];
+  assert.equal(pos({ ...DEFAULT_THEME, fotoEncuadre: 'arriba' }), 'center top');
+  assert.equal(pos({ ...DEFAULT_THEME, fotoEncuadre: 'abajo' }), 'center bottom');
+  // Y un tema guardado antes de que este token existiera sigue centrando.
+  const sinToken = { ...DEFAULT_THEME } as Record<string, unknown>;
+  delete sinToken.fotoEncuadre;
+  assert.equal(pos(sinToken), 'center center');
+});

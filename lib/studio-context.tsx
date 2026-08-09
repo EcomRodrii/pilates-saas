@@ -1752,8 +1752,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...(fields.aceptacionContrato ? { aceptacionContrato: fields.aceptacionContrato } : {}),
       ...(fields.referidoPor ? { referidoPor: fields.referidoPor } : {}),
     };
+    // Se ESPERA y se comprueba, igual que en `addSocio`. Antes se pintaba la
+    // socia y se lanzaba el insert sin mirar la respuesta, devolviendo `ok`
+    // pasara lo que pasara: con el email repetido —el choque más común— la
+    // pantalla decía que se había creado y en la base de datos no había nadie.
+    // Es el mismo patrón que costó el bug #500, en otra pantalla.
+    const resSocia = await dbInsertSocio(nuevaSocia);
+    if (!resSocia.ok) return resSocia;
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia);
     // El referido queda registrado en la socia (referidoPor), pero el premio
     // al que invita NO se otorga aquí: se otorga cuando la referida asiste a
     // su primera clase (ver premiarReferidoSiProcede en checkin). Así una alta

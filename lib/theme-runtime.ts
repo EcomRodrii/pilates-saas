@@ -17,7 +17,7 @@
 //    evita el FOUC / flash sin tema).
 
 import type { CSSProperties } from 'react';
-import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
+import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -269,6 +269,14 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsRadioTema(t),
     // Escala tipográfica por pieza (token del tema, ver theme-schema.ts)
     ...varsEscalaTexto(t),
+    // Dónde se ancla la foto del estudio al recortarla para una portada.
+    //
+    // Va como variable CSS y no como prop porque lo consumen pantallas que no
+    // reciben el `ThemeConfig`: la de acceso lee el tema publicado a través de
+    // las vars, igual que el resto del portal. Quien lo use pone
+    // `var(--portal-foto-pos, center center)` y así una plantilla vieja sin
+    // este token sigue centrando, que es lo que hacía.
+    '--portal-foto-pos': POSICION_FOTO[t.fotoEncuadre] ?? POSICION_FOTO.centro,
   };
 }
 

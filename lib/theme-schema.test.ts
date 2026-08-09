@@ -9,8 +9,7 @@ import {
   instalarTema,
   CAMPOS_DEL_TEMA,
   CAMPOS_DEL_ESTUDIO,
-  type ThemeConfig,
-} from './theme-schema.ts';
+  type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 
 test('themeConfigSchema acepta un tema completo válido', () => {
   const r = themeConfigSchema.safeParse({
@@ -332,4 +331,32 @@ test('todo campo de ThemeConfig está clasificado: o del tema, o del estudio', (
   const sinClasificar = Object.keys(DEFAULT_THEME).filter((k) => !clasificados.has(k));
   assert.deepEqual(sinClasificar, [],
     'campos nuevos en ThemeConfig sin decidir si los borra o los conserva instalar un tema');
+});
+
+// ── Encuadre de la foto del estudio ────────────────────────────────────────
+// Nace de un caso real: el primer estudio cuya foto llegó al portal tenía
+// subido un primer plano de una cara, y `center` dejaba el logo sobre la boca.
+
+test('themeConfigSchema: fotoEncuadre ausente → centro (tema guardado antes de este token)', () => {
+  const sinEncuadre = { ...DEFAULT_THEME } as Record<string, unknown>;
+  delete sinEncuadre.fotoEncuadre;
+  const r = themeConfigSchema.safeParse(sinEncuadre);
+  assert.ok(r.success);
+  if (r.success) assert.equal(r.data.fotoEncuadre, 'centro');
+});
+
+test('resolveTheme: un fotoEncuadre inventado cae a centro; los tres válidos se respetan', () => {
+  assert.equal(resolveTheme({ ...DEFAULT_THEME, fotoEncuadre: 'diagonal' }).fotoEncuadre, 'centro');
+  assert.equal(resolveTheme({ ...DEFAULT_THEME, fotoEncuadre: 7 }).fotoEncuadre, 'centro');
+  for (const v of ['arriba', 'centro', 'abajo'] as const) {
+    assert.equal(resolveTheme({ ...DEFAULT_THEME, fotoEncuadre: v }).fotoEncuadre, v);
+  }
+});
+
+test('POSICION_FOTO cubre los tres encuadres y son background-position válidos', () => {
+  assert.deepEqual(POSICION_FOTO, {
+    arriba: 'center top',
+    centro: 'center center',
+    abajo: 'center bottom',
+  });
 });

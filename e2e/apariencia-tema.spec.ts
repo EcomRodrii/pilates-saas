@@ -65,6 +65,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   let bloquesHomeActuales: unknown[] = BLOQUES_HOME_DEFAULT;
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());
+    // El editor pide las tres de una vez al abrir. Este test solo modela
+    // `home`; las otras dos van vacías, como antes.
+    if (url.searchParams.get('pantalla') === 'todas') {
+      return json(route, { home: bloquesHomeActuales, clases: [], bonos: [] });
+    }
     if (url.searchParams.get('pantalla') !== 'home') return json(route, []);
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];

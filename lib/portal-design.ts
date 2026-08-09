@@ -30,6 +30,14 @@ export const dur = {
   sheet: 720,      // la hoja del pase de acceso
   wash: 850,       // el fundido de bienvenida
   washInner: 1400, // el texto de dentro del fundido, más lento a propósito
+  // ── Puerta de acceso (handoff «una sola puerta») ─────────────────────────
+  // El handoff decía «no crear tokens nuevos, todos los valores ya existen».
+  // Estos dos NO existían: 900 no estaba (lo más cerca era `wash`, 850, que es
+  // otra cosa) y el foco de un campo no es la píldora del menú aunque los dos
+  // midan 600. Se añaden con nombre propio en vez de redondear en silencio a
+  // un token que significa otra cosa.
+  portada: 900,    // la portada que se retira y el hilo que avanza
+  foco: 600,       // la línea de un campo al enfocarlo; el CTA al encenderse
 } as const;
 
 /** Transición de un control que se pulsa. `props` en orden de importancia. */

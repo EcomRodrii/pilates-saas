@@ -1,156 +1,236 @@
 'use client';
 
-import { useState, useId } from 'react';
+// PASO 1 DE LA PUERTA — el email. Y el estado «te hemos escrito».
+//
+// Antes esta ruta y /login eran dos pantallas HERMANAS entre las que la socia
+// tenía que elegir: «entrar con contraseña» o «pedir un enlace». Perderse ahí
+// era el motivo del rediseño — la socia no sabe cuál es su caso, y el producto
+// se lo estaba preguntando a ella.
+//
+// Ahora es un solo camino: se pide el email, y desde el paso 2 salen las dos
+// continuaciones. Las rutas físicas se mantienen (esta y /login) para no tocar
+// portal-shell.tsx ni los e2e; lo que cambia es que ya no se elige entre ellas.
+//
+// ⚠️ REGLA DE NEGOCIO QUE NO SE PUEDE ROMPER: entre el paso 1 y el paso 2 no
+// hay NINGUNA consulta al servidor. Preguntar «¿esta socia tiene contraseña?»
+// respondería también a quien no es socia, y eso es enumeración de cuentas:
+// diría quién está dada de alta en el estudio. Por eso el paso 2 enseña
+// siempre las dos salidas en vez de adivinar cuál toca.
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { usePortalAuth } from '@/lib/portal-auth';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { display, micro, texto } from '@/lib/portal-design';
+import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
+import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
+import {
+  PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA_FG,
+} from '@/components/portal/acceso/piezas';
 
-// Verificación de propiedad del email por magic link. NO abre sesión "de uso":
-// solo sirve para demostrar que la socia controla ese email, como paso previo
-// a crear (primera vez) o restablecer (olvidó su contraseña) su contraseña en
-// /clave-nueva. El día a día se entra con email + contraseña en /login.
+/** El email tiene una arroba. Nada más: validar de más rechaza direcciones reales. */
+function pareceEmail(v: string) {
+  return v.includes('@') && v.trim().length > 2;
+}
+
 export default function PortalAcceso() {
-  const uid = useId();
   const { slug } = useParams<{ slug: string }>();
-  const { enviarEnlace } = usePortalAuth();
-  const { studio } = useStudio();
+  const router = useRouter();
+  const { studio, dataLoaded, tabBarStyle, variantes } = useStudio();
   const { t } = useModo();
-  const [email, setEmail] = useState('');
+  // ⚠️ El estado «enviado» y el email llegan por la URL desde el paso 2, que
+  // es donde vive el botón que pide el enlace. El primer intento fue
+  // dispararlo AQUÍ al montar con un `?enviar=1`: además de leer `window`
+  // durante el render, un remontaje habría pedido un segundo enlace — y pedir
+  // dos seguidos invalida el primero, así que la socia abriría justo el que
+  // ya no vale.
+  //
+  // `params` va ANTES que los estados que lo leen: declararlo debajo compila
+  // igual y revienta en runtime por zona muerta temporal.
+  const params = useSearchParams();
+  const [email, setEmail] = useState(() => params.get('email') ?? '');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [enviado, setEnviado] = useState(false);
-  // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
-  // esto nunca bloquea el envío — mismo comportamiento que /login.
+  const [enviado, setEnviado] = useState(params.get('enviado') === '1');
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // ── La bienvenida, una vez por dispositivo ────────────────────────────────
+  // Vivía en /login. Con la puerta nueva nadie aterriza allí —se llega siempre
+  // desde aquí—, así que allí no se habría visto nunca. El handoff la sitúa
+  // justo antes del paso 1, que es esta pantalla.
+  //
+  // ⚠️ El OR con `tabBarStyle` NO es redundante: los estudios que YA
+  // instalaron Editorial tienen `tabBarStyle: 'pestanaActiva'` guardado y
+  // ningún `variantes` (`defaults` no es retroactivo). Sin él perderían la
+  // bienvenida en silencio.
+  const quiereBienvenida = variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva';
+  // Empieza en `true` —se ve la puerta, el comportamiento de siempre— a
+  // propósito: bloquear la pantalla entera hasta resolver tema y localStorage
+  // la dejaba a merced de la latencia de red, y eso ya rompió CI una vez.
+  const [bienvenidaVista, setBienvenidaVista] = useState(true);
+  useEffect(() => {
+    if (!dataLoaded || !quiereBienvenida) return;
+    if (yaVioBienvenida(slug)) return;
+    // localStorage no existe en el servidor: solo puede resolverse tras montar.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBienvenidaVista(false);
+  }, [dataLoaded, quiereBienvenida, slug]);
+  // Cuenta atrás para poder reenviar. Existe para que la espera tenga una
+  // forma: sin ella, quien no ve llegar el correo pulsa «otro email» a los
+  // diez segundos pensando que se ha roto algo.
+  //
+  // El 60 se fija en el estado INICIAL, no dentro del efecto: a este estado se
+  // llega siempre por navegación desde el paso 2, así que el componente se
+  // monta de nuevo cada vez. Ponerlo dentro del efecto era además un
+  // `setState` en montaje que el lint rechaza con razón — un render de más
+  // para un valor que ya se sabe.
+  const [quedan, setQuedan] = useState(() => (params.get('enviado') === '1' ? 60 : 0));
+
+  useEffect(() => {
+    if (!enviado) return;
+    const id = setInterval(() => setQuedan((q) => (q <= 1 ? 0 : q - 1)), 1000);
+    return () => clearInterval(id);
+  }, [enviado]);
+
+  // El email escrito viaja al paso 2 por la URL, no por un store: al volver
+  // atrás con el botón del navegador la dirección sigue ahí, que es lo que
+  // pide el diseño («volver conserva lo escrito»), y sin montar estado global
+  // para dos pantallas.
+  function seguir() {
+    if (!pareceEmail(email)) { setError('Escribe un email para seguir.'); return; }
     setError('');
-    setLoading(true);
-    const r = await enviarEnlace(email, captchaToken ?? undefined);
-    setLoading(false);
-    if ('error' in r) {
-      setError(r.error || 'No se pudo enviar el enlace.');
-      return;
-    }
-    setEnviado(true);
+    router.push(`/portal/${slug}/login?email=${encodeURIComponent(email.trim())}`);
   }
 
-  const inicial = studio?.nombre?.trim()?.[0]?.toUpperCase() ?? 'T';
-  const inputStyle: React.CSSProperties = {
-    background: t.surface, border: `1px solid ${t.line}`, color: t.ink, borderRadius: 16,
-  };
+  const nombre = studio?.nombre?.trim() || 'Tentare';
+
+  if (!bienvenidaVista) {
+    return (
+      <BienvenidaPortal
+        nombreEstudio={nombre}
+        fotoUrl={studio?.fotoUrl ?? null}
+        variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
+        onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
+      />
+    );
+  }
+
+  // Un nombre largo no se parte en dos líneas: se encoge. Partir un display
+  // serif rompe el bloque, y la portada tiene un alto fijo.
+  const tamNombre = nombre.length > 22 ? 26 : nombre.length > 15 ? 30 : 36;
+  const listo = pareceEmail(email) && (!turnstileConfigurado() || !!captchaToken);
 
   return (
-    <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
-      {/* Hero con la identidad del estudio */}
+    <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
+      <PortadaAcceso
+        alto={enviado ? 212 : 300}
+        fotoUrl={studio?.fotoUrl?.trim() ? studio.fotoUrl : null}
+        nombre={nombre}
+        ciudad={studio?.ciudad}
+        progreso={enviado ? 82 : 34}
+        tamNombre={enviado ? 26 : tamNombre}
+      />
+
       <div
         style={{
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '80px 24px 48px', minHeight: '45vh', background: t.hero, borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
+          flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          padding: '34px 30px calc(32px + env(safe-area-inset-bottom))',
         }}
       >
-        {studio?.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={studio.logoUrl}
-            alt={studio?.nombre ?? 'Logo'}
-            style={{ width: 72, height: 72, borderRadius: 18, objectFit: 'cover', marginBottom: 16, background: t.surface2, border: `1px solid ${t.heroLine}` }}
-          />
-        ) : (
-          <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, border: `1px solid ${t.heroLine}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.heroText, fontWeight: 800, fontSize: 22, marginBottom: 16 }}>
-            {inicial}
-          </div>
-        )}
-        <h1 style={{ color: t.heroText, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1.05 }}>
-          {studio?.nombre ?? 'Tentare'}
-        </h1>
-        <p style={{ color: t.heroSub, fontSize: 13, marginTop: 4 }}>
-          Pilates{studio?.ciudad ? ` · ${studio.ciudad}` : ''}
-        </p>
-      </div>
-
-      {/* Hoja con el formulario */}
-      <div style={{ position: 'relative', zIndex: 10, marginTop: -24, background: t.bg, borderRadius: '32px 32px 0 0', padding: '32px 24px 40px' }}>
-        {enviado ? (
-          <div style={{ textAlign: 'center', padding: '8px 0' }}>
-            <div style={{ width: 56, height: 56, borderRadius: 999, background: 'rgba(62,155,108,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <CheckCircle2 size={26} style={{ color: '#3E9B6C' }} />
-            </div>
-            <h2 style={{ fontSize: 22, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.01em', color: t.ink, lineHeight: 1.1 }}>Revisa tu email</h2>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 8 }}>
-              Te hemos enviado un enlace a{' '}
-              <span style={{ fontWeight: 700, color: t.muted2 }}>{email}</span>. Ábrelo en este
-              dispositivo para crear tu contraseña.
-            </p>
-            <button
-              type="button"
-              onClick={() => { setEnviado(false); setError(''); }}
-              style={{ marginTop: 24, fontSize: 13, fontWeight: 700, color: t.muted, textDecoration: 'underline', background: 'none', border: 'none' }}
-            >
-              Usar otro email
-            </button>
-          </div>
-        ) : (
-          <>
-            <h2 style={{ fontSize: 22, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.01em', color: t.ink, lineHeight: 1.1 }}>Crea o recupera tu acceso</h2>
-            <p style={{ fontSize: 13, color: t.muted, marginTop: 4, marginBottom: 24 }}>
-              Te enviaremos un enlace para verificar tu email y crear tu contraseña. Solo funciona si tu instructora ya te dio de alta como socia.
-            </p>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {enviado ? <Enviado email={email} quedan={quedan} onOtro={() => { setEnviado(false); setError(''); }} />
+          : (
+            <>
               <div>
-                <label htmlFor={`${uid}-email`} style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.muted, display: 'block', marginBottom: 6 }}>Email</label>
-                <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.muted }} />
-                  <input id={`${uid}-email`}
-                    type="email"
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setError(''); }}
-                    placeholder="tu@email.com"
-                    required
-                    autoFocus
+                <h1 style={{ ...display(36, false, 1.1), color: t.ink, ...entrada(0) }}>
+                  ¿Cuál es tu <em style={{ fontStyle: 'italic' }}>email?</em>
+                </h1>
+                <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 272, marginTop: 12, ...entrada(1) }}>
+                  El mismo que le diste a tu instructora. Con eso empezamos, tengas contraseña o no.
+                </p>
+
+                <div style={{ marginTop: 28, ...entrada(2) }}>
+                  <CampoLinea
+                    etiqueta="Email"
+                    tipo="email"
+                    valor={email}
+                    onChange={setEmail}
+                    marcador="tu@email.com"
                     autoComplete="email"
-                    style={{ ...inputStyle, width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 14, paddingBottom: 14, fontSize: 14, outline: 'none' }}
+                    onEnter={seguir}
                   />
+                  <ErrorCampo>{error}</ErrorCampo>
                 </div>
               </div>
 
-              {error && (
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#B91C1C', background: 'rgba(239,68,68,0.1)', borderRadius: 14, padding: 12 }}>
-                  <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <p>{error}</p>
+              <div style={{ ...entrada(3) }}>
+                <TurnstileWidget onToken={setCaptchaToken} />
+                <div style={{ marginTop: 18 }}>
+                  <BotonCta listo={listo} onClick={seguir}>Seguir</BotonCta>
                 </div>
-              )}
-
-              <TurnstileWidget onToken={setCaptchaToken} />
-
-              <button
-                type="submit"
-                disabled={loading || !email || (turnstileConfigurado() && !captchaToken)}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 16, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-                  fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
-                  opacity: loading || !email || (turnstileConfigurado() && !captchaToken) ? 0.5 : 1,
-                }}
-              >
-                {loading ? 'Enviando...' : 'Enviar enlace'}
-              </button>
-            </form>
-
-            <Link
-              href={`/portal/${slug}/login`}
-              style={{ display: 'block', marginTop: 20, fontSize: 13, fontWeight: 700, color: t.muted, textAlign: 'center', textDecoration: 'underline' }}
-            >
-              Ya tengo contraseña, volver a entrar
-            </Link>
-          </>
-        )}
+                <p style={{ ...texto.pie, color: t.micro, textAlign: 'center', marginTop: 20 }}>
+                  ¿Primera vez aquí?{' '}
+                  <Link href={`/reservar/${slug}`} style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>
+                    Reserva tu primera clase
+                  </Link>
+                </p>
+              </div>
+            </>
+          )}
       </div>
+
     </div>
+  );
+}
+
+/** «Te hemos escrito»: qué ha pasado, dónde mirar y cuánto dura. */
+function Enviado({ email, quedan, onOtro }: { email: string; quedan: number; onOtro: () => void }) {
+  const { t } = useModo();
+  const reloj = `${Math.floor(quedan / 60)}:${String(quedan % 60).padStart(2, '0')}`;
+  return (
+    <>
+      <div>
+        <div
+          aria-hidden
+          style={{
+            width: 44, height: 44, borderRadius: 22, background: 'rgba(62,155,108,.14)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#3E9B6C', fontSize: 20, ...entrada(0),
+          }}
+        >
+          ✓
+        </div>
+        <h1 style={{ ...display(36, false, 1.1), color: t.ink, marginTop: 18, ...entrada(1) }}>
+          Te hemos <em style={{ fontStyle: 'italic' }}>escrito.</em>
+        </h1>
+        <p style={{ ...texto.meta, lineHeight: 1.75, color: t.muted, maxWidth: 290, marginTop: 12, ...entrada(2) }}>
+          El enlace va a <strong style={{ color: t.ink, fontWeight: 600 }}>{email}</strong>. Ábrelo en este
+          mismo móvil y eliges tu contraseña. No hay prisa: dura una hora.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, ...entrada(3) }}>
+        <span
+          aria-hidden
+          style={{
+            width: 6, height: 6, borderRadius: 3, background: MARCA_FG,
+            animation: 'portal-breathe 3200ms ease-in-out infinite',
+          }}
+        />
+        {/* La cuenta atrás no bloquea nada: es información. Quien de verdad se
+            equivocó de dirección puede cambiarla ya, sin esperar. */}
+        <span style={{ ...micro(10.5, 0.12, 400), color: t.micro, textTransform: 'none' }}>
+          {quedan > 0 ? `reenviar en ${reloj}` : 'ya puedes reenviar'}
+        </span>
+        <span aria-hidden style={{ width: 1, height: 12, background: t.line }} />
+        <button
+          type="button"
+          onClick={onOtro}
+          style={{ ...texto.pie, color: t.muted2, background: 'none', border: 'none', textDecoration: 'underline', padding: 0 }}
+        >
+          Otro email
+        </button>
+      </div>
+    </>
   );
 }

@@ -489,7 +489,7 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa,
+    suscripciones, planesTarifa, studio,
     addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
@@ -2461,9 +2461,11 @@ export default function Calendario() {
                   </button>
                 </div>
               ))}
-              <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
-                <QrCode size={14} />Leer un pase
-              </Link>
+              {(studio?.requiereCheckinQr ?? true) && (
+                <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
+                  <QrCode size={14} />Leer un pase
+                </Link>
+              )}
             </>
           }
           eventosHistorial={eventosHistorial}

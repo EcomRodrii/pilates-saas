@@ -308,6 +308,15 @@ nextjs-portal { display: none !important; }
    encima, superpuestas todo el tiempo. Así nunca hay un instante sin nada
    pintado que deje ver el fondo del shell (casi negro en modo noche), que es
    lo que se percibía como un parpadeo al cambiar de pestaña. */
+/* Entrada escalonada de la puerta de acceso (handoff «una sola puerta»): cada
+   bloque llega 90 ms después del anterior. Es entrada, no estado — por eso es
+   una animación y no una transición. `both` conserva el estado inicial durante
+   el retardo: sin él, el bloque parpadea visible antes de empezar a subir. */
+@keyframes portal-rise-soft { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* El punto que respira mientras se espera al email. */
+@keyframes portal-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.82); } }
+
 @keyframes portal-page-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
 .portal-page-in { animation: portal-page-in .22s ease both; }

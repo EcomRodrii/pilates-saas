@@ -367,6 +367,18 @@ export async function montarPortal(page: Page, opciones: {
 export async function abrirHojaDeReserva(page: Page) {
   const reservar = page.getByRole('button', { name: /^Reservar / });
   const dias = page.getByRole('button', { name: /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ });
+
+  // ⚠️ Y si esta semana no queda ninguna, se pasa a la siguiente.
+  //
+  // Las clases del mock están a +3h, +26h, +50h y +74h de AHORA, así que a qué
+  // semana caen depende de la hora a la que corra la suite. Un sábado por la
+  // noche solo la de +3h sigue en esta semana — y esa es justo la que ya tiene
+  // reservada Marta, así que no hay ningún botón "Reservar" y este ayudante
+  // moría con "no hay ninguna clase libre". Pasó en CI un sábado a las 23:16,
+  // tumbando una PR que no tocaba el portal.
+  //
+  // Mirar también la semana siguiente lo hace funcionar a cualquier hora del
+  // año sin fijar ningún día a mano, que es lo que ya evitaba el bucle de días.
   const semanaSiguiente = page.getByRole('button', { name: 'Semana siguiente' });
 
   for (let semana = 0; semana < 2; semana++) {

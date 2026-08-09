@@ -19,6 +19,18 @@ function pantallaDe(req: NextRequest): PantallaId | null {
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+
+  // `pantalla=todas`: el editor las necesita las TRES al abrir, y antes las
+  // pedía en tres peticiones. Salen todas de la misma lectura del layout, así
+  // que eran tres viajes para un solo dato. Ver el comentario de `?ambos=1` en
+  // /api/theme, mismo motivo y misma medición.
+  if (req.nextUrl.searchParams.get('pantalla') === 'todas') {
+    const pares = await Promise.all(
+      PANTALLA_IDS.map(async (p) => [p, await getBloquesBorrador(sesion.studioId, p)] as const),
+    );
+    return NextResponse.json(Object.fromEntries(pares));
+  }
+
   const pantalla = pantallaDe(req);
   if (!pantalla) return NextResponse.json({ error: 'Pantalla desconocida' }, { status: 400 });
   const publicado = req.nextUrl.searchParams.get('estado') === 'publicado';

@@ -123,6 +123,17 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
+  // true (default) = comportamiento de siempre: la socia enseña su pase
+  // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
+  // la reserva cuente como asistida. false = el estudio confía en que quien
+  // reserva viene: la reserva se marca ASISTIDA sola al terminar la clase
+  // (cron `checkin-automatico`), sin pedir ningún gesto de check-in. El
+  // bono/cobro no depende de esto — ya se descontó al reservar
+  // (`consumirBonoServidor`) — así que desactivarlo es seguro para el dinero.
+  // Sin override por tipo de clase a propósito: es un tema operativo de
+  // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
+  // clase a clase.
+  requiereCheckinQr: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;

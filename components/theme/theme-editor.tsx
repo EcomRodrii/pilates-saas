@@ -17,12 +17,12 @@ import {
 } from '@/lib/portal-storage';
 import {
   DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
-  type ThemeConfig, type RedSocialId,
+  type ThemeConfig, type RedSocialId, POSICION_FOTO,
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
-import { CamposForm } from './inspector/campos-form';
+import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
 import {
   CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO, CAMPOS_RADIO,
@@ -672,6 +672,47 @@ export function AjustesCategoriaPanel({
           Recomendado: 512×512 px, cuadrado, fondo transparente o sólido (sin márgenes de sobra).
         </p>
       </div>
+
+      {/* Encuadre de la foto del estudio.
+          ─────────────────────────────────────────────────────────────────
+          Solo aparece si hay foto: sin ella el control no tiene nada que
+          encuadrar y sería un ajuste que no hace nada visible.
+
+          La miniatura no es decorativa — es el control. El recorte se juzga
+          a ojo, así que hay que enseñar el resultado, no describirlo: la
+          proporción imita la portada del portal y el punto blanco marca
+          dónde caería el logo, que es justo lo que se estaba tapando. */}
+      {studio?.fotoUrl?.trim() && (
+        <div className="space-y-2 border-t border-border pt-4">
+          <div
+            className="relative w-full rounded-xl overflow-hidden border border-border"
+            style={{
+              aspectRatio: '390 / 200',
+              backgroundImage: `url(${JSON.stringify(studio.fotoUrl)})`,
+              backgroundSize: 'cover',
+              backgroundPosition: POSICION_FOTO[draft.fotoEncuadre] ?? POSICION_FOTO.centro,
+              transition: 'background-position 250ms ease',
+            }}
+          >
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.10) 40%, rgba(0,0,0,.45) 100%)' }} />
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 w-8 h-8 rounded-full bg-white/90 border-2 border-white" aria-hidden />
+          </div>
+          <FilaOpciones
+            etiqueta="Encuadre de la foto"
+            opciones={[
+              { id: 'arriba', label: 'Arriba' },
+              { id: 'centro', label: 'Centro' },
+              { id: 'abajo', label: 'Abajo' },
+            ]}
+            activa={draft.fotoEncuadre}
+            onElegir={(v) => hook.setCampo('fotoEncuadre', v as ThemeConfig['fotoEncuadre'])}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Qué parte de la foto se ve en la portada del portal. Con una foto vertical
+            —un retrato, por ejemplo— «Centro» suele dejar la cara justo detrás del logo.
+          </p>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
           {draft.faviconUrl ? (

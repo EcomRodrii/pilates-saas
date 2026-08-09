@@ -164,6 +164,9 @@ export function ThemeEditorFullscreen() {
   const pantallaActiva = pantallaOperativa(estado);
   const pantallaMirada: VistaId = estado.vista;
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
+  // Qué mitad del rail se ve. La fija `seleccionar()`, no un click suelto —
+  // ver el comentario del rail.
+  const [pestana, setPestana] = useState<'secciones' | 'ajustes'>('secciones');
   const [zoom, setZoom] = useState(1);
   const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
   // Qué hace un click DENTRO del preview. Antes esto era un ojo que solo
@@ -241,6 +244,10 @@ export function ThemeEditorFullscreen() {
   }
 
   function seleccionar(n: Nodo) {
+    // La pestaña sigue a lo seleccionado, en el mismo sitio donde se decide
+    // la selección. Si viviera en un `useEffect` sobre `nodo`, habría un
+    // render intermedio con la pestaña equivocada.
+    setPestana(n.tipo === 'tema' ? 'ajustes' : 'secciones');
     setEstado((e) => {
       if (n.tipo === 'tema') return elegirCategoria(e, n.categoria);
       if (n.tipo === 'pantalla') return elegirPagina(e, n.id);
@@ -448,9 +455,44 @@ export function ThemeEditorFullscreen() {
 
       <div className="flex-1 min-h-0 grid grid-cols-[272px_minmax(0,1fr)_344px]">
         {/* Rail izquierdo */}
-        <div className="border-r border-border overflow-y-auto p-3 space-y-4">
-          <div>
-            <p className="px-2 pb-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">Tema</p>
+        <div className="border-r border-border flex flex-col min-h-0">
+          {/* Dos pestañas, no dos bloques apilados en el mismo scroll.
+              ────────────────────────────────────────────────────────────
+              Antes convivían en una sola columna las diez categorías del
+              tema y el árbol de pantallas: para llegar a un bloque de Inicio
+              había que pasar por delante de "Tipografía" y "Redes sociales",
+              que no se tocan casi nunca. Son dos trabajos distintos —cómo se
+              ve TODO el portal, y qué hay en ESTA pantalla— y ahora cada uno
+              tiene su sitio.
+
+              La pestaña no es un estado suelto: la fija `seleccionar()` según
+              lo elegido, así que llegar a una categoría del tema desde
+              cualquier otro sitio (el preview, un atajo) trae su pestaña
+              delante en vez de dejar la selección escondida detrás. */}
+          <div className="flex-none flex border-b border-border" role="tablist" aria-label="Qué editar">
+            {([
+              { id: 'secciones', label: 'Secciones' },
+              { id: 'ajustes', label: 'Ajustes del tema' },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={pestana === t.id}
+                onClick={() => setPestana(t.id)}
+                className={`flex-1 px-3 py-2.5 text-[13px] font-semibold border-b-2 -mb-px ${
+                  pestana === t.id
+                    ? 'border-brand text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
+          {pestana === 'ajustes' && (
             <div className="space-y-0.5">
               {AJUSTES_CATEGORIAS.map((c) => (
                 <button
@@ -463,9 +505,9 @@ export function ThemeEditorFullscreen() {
                 </button>
               ))}
             </div>
-          </div>
+          )}
 
-          {GRUPOS_RAIL.map((grupo) => (
+          {pestana === 'secciones' && GRUPOS_RAIL.map((grupo) => (
           <div key={grupo.titulo}>
             <p className="px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">{grupo.titulo}</p>
             <p className="px-2 pb-1.5 pt-0.5 text-[11px] text-muted-foreground/80 leading-snug">{grupo.ayuda}</p>
@@ -523,10 +565,14 @@ export function ThemeEditorFullscreen() {
             </div>
           </div>
           ))}
+          </div>
         </div>
 
-        {/* Preview central */}
-        <div className="overflow-auto p-6 flex items-start justify-center bg-muted/30">
+        {/* Preview central.
+            `data-preview-hueco`: esta columna es la que decide cuánto sitio
+            hay. MarcoDispositivo la busca con `closest` para encogerse
+            también a lo alto — ver el comentario de ese fichero. */}
+        <div data-preview-hueco className="overflow-auto p-6 flex items-center justify-center bg-muted/30">
           {/* Ya NO se escala aquí: el zoom viaja al marco, que lo combina con
               el encogido automático del dispositivo. Escalar dos veces (aquí y
               dentro) multiplicaba los factores sin que nadie lo dijera. */}

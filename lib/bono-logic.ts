@@ -149,3 +149,29 @@ export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: str
 export function hayAlgoQueContratar(planes: { activo: boolean }[]): boolean {
   return planes.some(p => p.activo);
 }
+
+// Los dos motivos por los que el servidor rechaza una reserva y la salida es
+// COMPRAR algo. Viven aquí, y no sueltos en el módulo de servidor, para que la
+// pantalla que los recibe pueda reconocerlos sin copiar la frase a mano.
+export const ERROR_SIN_PLAN = 'Necesitas un plan o bono activo para reservar';
+export const ERROR_BONO_NO_CUBRE = 'Tu bono no incluye este tipo de clase';
+
+/**
+ * ¿Este fallo al reservar se arregla comprando algo?
+ *
+ * El portal ya tiene la tienda (`/compras`) y la pantalla de Bonos ya invita a
+ * ir a ella cuando no hay bono. Lo que faltaba era el eslabón del medio: al
+ * intentar reservar sin plan, la hoja mostraba «Necesitas un plan o bono activo
+ * para reservar» como texto plano y ahí se acababa. La socia tenía que deducir
+ * sola que existe una pestaña «Bonos» y que dentro hay un botón para comprar.
+ *
+ * El momento en que alguien quiere reservar y no puede es exactamente el
+ * momento de ofrecerle la compra, no dos pantallas después.
+ *
+ * `includes` y no igualdad: la página pública añade una coletilla al mismo
+ * mensaje, y si algún día se envuelve, el botón desaparece en vez de aparecer
+ * donde no toca.
+ */
+export function seArreglaComprando(mensajeError: string): boolean {
+  return mensajeError.includes(ERROR_SIN_PLAN) || mensajeError.includes(ERROR_BONO_NO_CUBRE);
+}

@@ -49,6 +49,10 @@ export const CLAVES_PREVIEW_PERMITIDAS: ReadonlySet<string> = new Set([
   '--portal-tabbar-active-shadow',
   '--portal-tabbar-active-fg',
   '--portal-tabbar-idle-fg',
+  // Encuadre de la foto del estudio en la portada. Sin esta línea, mover el
+  // control en el editor no movería la vista previa: se vería centrada
+  // siempre y el ajuste parecería roto. Lo cazó el guard de abajo, no yo.
+  '--portal-foto-pos',
   // Radio por pieza (`radioTema`): cada una se declara solo si el tema fija
   // ese eje — "ausente" significa "hereda", no "0".
   '--portal-radius-card',

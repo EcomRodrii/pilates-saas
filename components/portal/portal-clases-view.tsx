@@ -29,7 +29,7 @@
 // `useStudio()` y en `lib/booking-logic`; lo que se separa es la presentación.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
@@ -76,6 +76,7 @@ export function PortalClasesView({
   session, escribible = true, bloquesOverride,
 }: { session: PortalSession | null; escribible?: boolean; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
@@ -645,7 +646,16 @@ export function PortalClasesView({
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
 
-      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservandoId(null)} onConfirmar={confirmar} />
+      <HojaReserva
+        key={reservando?.id ?? 'ninguna'}
+        clase={reservando}
+        onClose={() => setReservandoId(null)}
+        onConfirmar={confirmar}
+        // En la vista previa del editor no se ofrece: `/compras` no existe bajo
+        // /portal-preview y el botón llevaría a un 404 (mismo criterio que
+        // `navegar` en el resto de vistas del portal).
+        onComprar={escribible ? () => router.push(`/portal/${slug}/compras`) : undefined}
+      />
 
       <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
         {cancelando && (() => {

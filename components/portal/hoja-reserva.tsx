@@ -28,6 +28,7 @@ import {
 } from '@/lib/portal-design';
 import { AforoIndicator } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
+import { seArreglaComprando } from '@/lib/bono-logic';
 import type { EstadoReserva, Spot } from '@/lib/types';
 
 export interface ClaseParaReservar {
@@ -60,11 +61,17 @@ const ETIQUETA_ESTADO: Partial<Record<EstadoReserva, string>> = {
 };
 
 export function HojaReserva({
-  clase, onClose, onConfirmar,
+  clase, onClose, onConfirmar, onComprar,
 }: {
   clase: ClaseParaReservar | null;
   onClose: () => void;
   onConfirmar: (spotId: string | null) => Promise<ResultadoConfirmar>;
+  /**
+   * Llevar a la tienda. Opcional a propósito: la hoja no sabe —ni debe saber—
+   * dónde vive el catálogo, así que decide quien la monta. Sin esta prop el
+   * error se pinta como siempre, sin botón.
+   */
+  onComprar?: () => void;
 }) {
   const { t, noche } = useModo();
   const [spotElegido, setSpotElegido] = useState<string | null>(null);
@@ -276,11 +283,29 @@ export function HojaReserva({
 
             {estado === 'error' && mensajeError && (
               <div role="alert" style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginTop: 16,
+                display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16,
                 borderRadius: 14, padding: '11px 14px', background: semantic.danger.soft,
               }}>
-                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0, marginTop: 1 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+                  {/* Si el fallo se arregla comprando, la salida va AQUÍ, en el
+                      momento en que quiere reservar — no en otra pestaña que
+                      tenga que encontrar sola. */}
+                  {onComprar && seArreglaComprando(mensajeError) && (
+                    <button
+                      type="button"
+                      onClick={onComprar}
+                      style={{
+                        marginTop: 8, background: 'none', border: 'none', padding: 0,
+                        fontSize: 13, fontWeight: 700, color: dangerColor,
+                        textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer',
+                      }}
+                    >
+                      Ver los bonos
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

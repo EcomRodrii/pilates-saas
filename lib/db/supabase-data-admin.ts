@@ -17,7 +17,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -246,6 +246,17 @@ function studioPublico(r: RowStudios) {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     logoUrl: r.logo_url ?? null,
+    // ⚠️ La foto del estudio faltaba aquí, y es EXACTAMENTE el fallo que
+    // avisa el comentario de abajo. La columna existe, la propietaria la
+    // sube desde Configuración y se guarda bien — pero como no estaba en
+    // esta lista, nunca salía de la base de datos.
+    //
+    // Consecuencia visible: la pantalla de acceso enseñaba un color plano
+    // con el logo pequeño en medio, y la bienvenida de Bloom —cuya variante
+    // `foto` recibe este mismo campo— se quedaba sin imagen. Parecía un
+    // hueco de diseño y era un campo que no viajaba: nada fallaba, nada
+    // avisaba, la foto simplemente no llegaba.
+    fotoUrl: r.foto_url ?? null,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
@@ -1258,8 +1269,8 @@ export async function crearReservaPublica(params: {
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
       return tieneAlgunPlan
-        ? { error: 'Tu bono no incluye este tipo de clase' as const }
-        : { error: 'Necesitas un plan o bono activo para reservar' as const };
+        ? { error: ERROR_BONO_NO_CUBRE }
+        : { error: ERROR_SIN_PLAN };
     }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(

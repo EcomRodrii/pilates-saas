@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { abrirCategoriaTema, abrirSecciones } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor de bloques del portal, dentro del editor a pantalla completa
@@ -69,6 +70,11 @@ async function montar(page: Page, opts: { bloquesHomeGuardar?: unknown[] } = {})
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());
     const pantalla = url.searchParams.get('pantalla') ?? 'home';
+    // `pantalla=todas`: el editor carga las tres de una sola vez (antes eran
+    // tres peticiones para una misma lectura del layout). El mock tiene que
+    // conocer esa forma o el editor se queda sin bloques y el test falla
+    // diciendo que no encuentra una sección — que es justo lo que pasó.
+    if (pantalla === 'todas') return json(route, bloques);
     if (url.pathname.endsWith('/publish')) { publicadasPorPantalla[pantalla]++; return json(route, bloques[pantalla]); }
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];
@@ -193,7 +199,16 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     // Y el grupo NO se llama igual que el bloque "Contenido del estudio" que
     // vive dentro de Inicio: son cosas distintas (aquí se escriben, allí se
     // decide dónde caen) y compartir nombre era la confusión que esto quita.
-    await expect(page.getByText('Contenido del estudio', { exact: true })).toHaveCount(0);
+    //
+    // ⚠️ Esto afirmaba `toHaveCount(0)`, y funcionaba de rebote: el bloque se
+    // llamaba «Contenido del estudio (mensaje destacado y banners)», así que
+    // con `exact: true` no coincidía NADA y el test pasaba sin comprobar lo
+    // que dice comprobar. Al acortar los nombres —el paréntesis se fue a la
+    // línea gris de debajo— apareció el uno de verdad y saltó.
+    //
+    // Lo que hay que sostener es que aparezca UNA vez (el bloque) y no dos
+    // (bloque + grupo), no que no aparezca ninguna.
+    await expect(page.getByText('Contenido del estudio', { exact: true })).toHaveCount(1);
 
     // Y cada grupo dice de quién es, sin tener que probarlo.
     await expect(page.getByText('Lo que ve tu clienta en su móvil.')).toBeVisible();
@@ -233,7 +248,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // (lib/theme/campos-forma.ts) y los pinta el Inspector genérico.
   test('"Forma del portal" cambia una variante y la guarda en el tema, sin perder las demás', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Forma del portal' }).click();
+    await abrirCategoriaTema(page, 'Forma del portal');
 
     // Los cinco ejes del panel, con nombre de negocio (no el id del catálogo).
     await expect(page.getByText('Accesos rápidos', { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -251,7 +266,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
 
   test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Navegación del portal' }).click();
+    await abrirCategoriaTema(page, 'Navegación del portal');
     await expect(page.getByText('Barra pegada abajo')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Barra oscura')).toBeVisible();
     await expect(page.getByText('Texto bajo los iconos')).toBeVisible();
@@ -261,7 +276,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // todavía no entran". Cambiar un color no se podía deshacer.
   test('deshacer alcanza también a los ajustes del tema, no solo a los bloques', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
 
     const rectas = page.getByRole('button', { name: 'Recto', exact: true });
     await expect(rectas).toBeVisible({ timeout: 30_000 });
@@ -285,7 +300,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
 
     // 2º un cambio en AJUSTES, después.
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
     const rectas = page.getByRole('button', { name: 'Recto', exact: true });
     await rectas.click();
     await expect(rectas).toHaveAttribute('aria-pressed', 'true');
@@ -296,8 +311,10 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await page.getByRole('button', { name: 'Deshacer' }).click();
     await expect(rectas).toHaveAttribute('aria-pressed', 'false');
     // Y el cambio ANTERIOR (el del bloque) sigue en pie: deshacer quitó lo
-    // último, no lo primero. Se comprueba desde el rail, que no ha cambiado
-    // de pantalla al entrar en Ajustes.
+    // último, no lo primero. Hay que volver a Secciones para verlo: el rail
+    // ya no enseña las dos mitades a la vez, y la otra no está oculta sino
+    // desmontada.
+    await abrirSecciones(page);
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
   });
 
@@ -306,7 +323,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // guardar fijaría ese número donde antes había herencia.
   test('las esquinas por pieza llegan vacías, y vaciarlas vuelve a heredar', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
 
     const tarjetas = page.getByLabel('Tarjetas', { exact: true });
     await expect(tarjetas).toBeVisible({ timeout: 30_000 });

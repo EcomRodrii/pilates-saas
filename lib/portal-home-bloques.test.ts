@@ -288,18 +288,63 @@ test('BLOCK_CATALOG derivado es el catálogo de antes MÁS el contenedor', () =>
 
 test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan ese texto', () => {
   assert.deepEqual(BLOQUE_SISTEMA_LABEL, {
-    cabecera: 'Cabecera (saludo y frase)',
+    cabecera: 'Cabecera',
     proximaClase: 'Tarjeta de próxima clase',
     estaSemana: 'Esta semana',
-    accesosRapidos: 'Accesos rápidos (reservas, progreso, notificaciones, equipo)',
+    accesosRapidos: 'Accesos rápidos',
     invitarAmiga: 'Invita a una amiga',
-    contenidoEstudio: 'Contenido del estudio (mensaje destacado y banners)',
+    contenidoEstudio: 'Contenido del estudio',
     listadoClases: 'Calendario de clases',
     listadoBonos: 'Tu bono y accesos rápidos',
-    tiraSemana: 'Tira de la semana (7 días, con punto si hay clase reservada)',
-    progresoSemanal: 'Progreso semanal (anillo con tus clases reservadas)',
-    retos: 'Retos (carrusel con conteo real de apuntadas y botón Apuntarme)',
+    tiraSemana: 'Tira de la semana',
+    progresoSemanal: 'Progreso semanal',
+    retos: 'Retos',
   });
+});
+
+// La explicación no se ha perdido al acortar los nombres: se ha bajado de
+// altura tipográfica. El rail pinta `nombre` en negro y `descripcion` en gris
+// debajo, que es lo que hace la lista legible de un vistazo.
+test('el paréntesis explicativo vive ahora en `descripcion`, no dentro del nombre', () => {
+  const sistema = Object.values(REGISTRO_BLOQUES).filter((d) => d.origen === 'sistema');
+
+  for (const def of sistema) {
+    assert.ok(
+      !def.nombre.includes('('),
+      `«${def.nombre}» vuelve a llevar la explicación dentro del nombre: eso ocupa tres renglones en el rail. Va en \`descripcion\`.`,
+    );
+  }
+
+  assert.equal(REGISTRO_BLOQUES.retos.descripcion, 'Carrusel con conteo real de apuntadas y botón Apuntarme.');
+  assert.equal(REGISTRO_BLOQUES.accesosRapidos.descripcion, 'Reservas, progreso, notificaciones y equipo.');
+  assert.equal(REGISTRO_BLOQUES.contenidoEstudio.descripcion, 'Mensaje destacado y banners.');
+});
+
+// ⚠️ El trampolín conocido de este registro: `getByText` de Playwright hace
+// match de SUBCADENA sin distinguir mayúsculas. Dos bloques de la MISMA
+// pantalla donde el nombre de uno cabe dentro del texto del otro rompen los
+// e2e con un "strict mode violation" que no dice de dónde viene. Ya pasó con
+// "Esta semana" y "Progreso semanal (…esta semana…)".
+test('ningún nombre de sistema es subcadena del texto de otro de su pantalla', () => {
+  for (const pantalla of PANTALLA_IDS) {
+    // El mapa de verdad de qué módulo sale en qué pantalla. Con un
+    // `d.pantallas ?? TODAS` de más se cruzaban pantallas que nunca conviven
+    // —«Accesos rápidos» (Inicio) contra «Tu bono y accesos rápidos»
+    // (Bonos)— y el guard saltaba por una colisión imposible.
+    const enPantalla = BLOQUES_SISTEMA_POR_PANTALLA[pantalla]
+      .map((sistemaId) => REGISTRO_BLOQUES[sistemaId]);
+
+    for (const a of enPantalla) {
+      for (const b of enPantalla) {
+        if (a === b) continue;
+        const textoDeB = `${b.nombre} ${b.descripcion ?? ''}`.toLowerCase();
+        assert.ok(
+          !textoDeB.includes(a.nombre.toLowerCase()),
+          `En ${pantalla}, «${a.nombre}» cabe dentro del texto de «${b.nombre}» — getByText los confundiría.`,
+        );
+      }
+    }
+  }
 });
 
 test('el registro cubre TODOS los kinds del catálogo y TODOS los sistemaId', () => {

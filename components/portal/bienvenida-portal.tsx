@@ -90,7 +90,7 @@ export function BienvenidaPortal({
       <div style={{ position: 'absolute', inset: 0, background: fotoUrl ? t.surface2 : t.hero }}>
         {fotoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
         )}
       </div>
       <div

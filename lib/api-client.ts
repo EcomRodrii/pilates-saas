@@ -5,7 +5,7 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
-import { resolverBloques, type BloqueHome, type PantallaId, conFijos } from '@/lib/portal-home-bloques';
+import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
@@ -69,11 +69,14 @@ export async function fetchThemeBorrador(): Promise<ThemeConfig> {
 // El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
+//
+// ⚠️ Se INTENTÓ juntarlo con el borrador en una sola petición (`?ambos=1`) para
+// ahorrar un viaje al abrir el editor, y se revirtió: `/api/theme` lo pide el
+// panel ENTERO, así que cambiarle la forma obliga a que todos sus lectores
+// —y los 55 specs que lo mockean— conozcan el sobre nuevo. Un viaje de ~140 ms
+// en una pantalla no paga eso. Lo caro de verdad es el arranque en frío, y eso
+// no se arregla desde aquí.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  // `unaVez` como el borrador: al abrir el editor coincidían VARIAS llamadas
-  // simultáneas a este mismo GET (medido en producción, tres a la vez). No es
-  // caché — la entrada se suelta al terminar, así que solo colapsa las que se
-  // solapan de verdad.
   return unaVez('theme-publicado', async () => {
     const res = await fetch('/api/theme', { headers: await authHeader() });
     if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
@@ -154,6 +157,26 @@ export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<Bloque
   // falten, y sin esta llamada el panel se los comía.
   return conFijos(resolverBloques(await res.json()), pantalla);
 }
+/**
+ * Los bloques BORRADOR de las tres pantallas, en una sola petición.
+ *
+ * El editor las necesita las tres al abrir y antes las pedía por separado. Las
+ * tres salen de la misma lectura del layout en el servidor, así que eran tres
+ * viajes para un dato. Mismo tratamiento por pantalla que
+ * `fetchBloquesBorrador` —`resolverBloques` + `conFijos`— para que el editor
+ * vea EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesBorradorTodas(): Promise<Record<PantallaId, BloqueHome[]>> {
+  return unaVez('bloques-borrador-todas', async () => {
+    const res = await fetch('/api/portal-bloques?pantalla=todas', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudieron cargar los bloques del portal');
+    const crudo = (await res.json()) as Record<string, unknown>;
+    const salida = {} as Record<PantallaId, BloqueHome[]>;
+    for (const p of PANTALLA_IDS) salida[p] = conFijos(resolverBloques(crudo[p]), p);
+    return salida;
+  });
+}
+
 /**
  * Los bloques que están viendo las socias ahora mismo en esa pantalla.
  *

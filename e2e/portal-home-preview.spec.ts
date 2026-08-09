@@ -25,7 +25,7 @@ test.describe('Vista previa del Inicio del portal — /portal-preview/[slug]', (
     await montarPortal(page, { conSesion: false });
     await page.goto(`/portal-preview/${SLUG}`);
     await expect(page.getByText('Recarga la vista previa desde el editor.')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByPlaceholder('Tu email')).toHaveCount(0);
+    await expect(page.getByPlaceholder('tu@email.com')).toHaveCount(0);
   });
 
   test('token caducado: placeholder', async ({ page }) => {
