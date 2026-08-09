@@ -41,17 +41,41 @@ export default function PortalAcceso() {
   }
 
   const inicial = studio?.nombre?.trim()?.[0]?.toUpperCase() ?? 'T';
+  // Una cadena vacía en la columna cuenta como «sin foto»: `''` es un valor
+  // que llega de verdad desde el panel (un campo borrado no siempre se
+  // guarda como NULL), y usarlo como URL daría un hero roto en vez del
+  // color plano.
+  const conFoto = Boolean(studio?.fotoUrl?.trim());
   const inputStyle: React.CSSProperties = {
     background: t.surface, border: `1px solid ${t.line}`, color: t.ink, borderRadius: 16,
   };
 
   return (
     <div style={{ minHeight: '100vh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
-      {/* Hero con la identidad del estudio */}
+      {/* Hero con la identidad del estudio.
+          ────────────────────────────────────────────────────────────────
+          Con foto del estudio, la foto ES el hero y el logo va encima en
+          una pastilla; sin foto, se queda el color plano de siempre. Es la
+          primera pantalla que ve una clienta y la única oportunidad de que
+          el portal se parezca a SU estudio y no a una plantilla.
+
+          ⚠️ Sobre la foto hace falta un velo oscuro: el nombre va en
+          `t.heroText`, un color pensado para el fondo plano del tema, y
+          sobre una foto clara (un estudio con luz natural, que son todas)
+          desaparecía. El velo garantiza el contraste sea cual sea la foto
+          que suba la propietaria — que es algo que no podemos revisar una
+          por una. */}
       <div
         style={{
           flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '80px 24px 48px', minHeight: '45vh', background: t.hero, borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
+          padding: '80px 24px 48px', minHeight: '45vh',
+          background: t.hero,
+          ...(conFoto ? {
+            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0.45) 100%), url(${JSON.stringify(studio!.fotoUrl)})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          } : {}),
+          borderBottom: `1px solid ${t.heroLine}`, textAlign: 'center',
         }}
       >
         {studio?.logoUrl ? (
@@ -59,17 +83,32 @@ export default function PortalAcceso() {
           <img
             src={studio.logoUrl}
             alt={studio?.nombre ?? 'Logo'}
-            style={{ width: 72, height: 72, borderRadius: 18, objectFit: 'cover', marginBottom: 16, background: t.surface2, border: `1px solid ${t.heroLine}` }}
+            // Sobre foto el logo se recorta en círculo con fondo sólido, para
+            // que se lea igual caiga sobre lo que caiga de la imagen.
+            style={{
+              width: 72, height: 72, borderRadius: conFoto ? 999 : 18, objectFit: 'cover', marginBottom: 16,
+              background: conFoto ? '#fff' : t.surface2,
+              border: conFoto ? '3px solid rgba(255,255,255,0.9)' : `1px solid ${t.heroLine}`,
+              padding: conFoto ? 6 : 0,
+            }}
           />
         ) : (
           <div style={{ width: 56, height: 56, borderRadius: 18, background: t.surface2, border: `1px solid ${t.heroLine}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.heroText, fontWeight: 800, fontSize: 22, marginBottom: 16 }}>
             {inicial}
           </div>
         )}
-        <h1 style={{ color: t.heroText, fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1.05 }}>
+        <h1 style={{
+          color: conFoto ? '#fff' : t.heroText,
+          textShadow: conFoto ? '0 1px 12px rgba(0,0,0,0.45)' : undefined,
+          fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1.05,
+        }}>
           {studio?.nombre ?? 'Tentare'}
         </h1>
-        <p style={{ color: t.heroSub, fontSize: 13, marginTop: 4 }}>
+        <p style={{
+          color: conFoto ? 'rgba(255,255,255,0.88)' : t.heroSub,
+          textShadow: conFoto ? '0 1px 10px rgba(0,0,0,0.45)' : undefined,
+          fontSize: 13, marginTop: 4,
+        }}>
           Pilates{studio?.ciudad ? ` · ${studio.ciudad}` : ''}
         </p>
       </div>
