@@ -34,6 +34,38 @@ test('encoge lo justo cuando no cabe — el caso de la tablet', () => {
   assert.ok(escalaParaCaber(616, 768) < 1);
 });
 
+// El alto llegó después que el ancho, y arregla un corte que solo se ve en
+// pantallas bajas: a lo ancho SIEMPRE sobra sitio (medido en producción:
+// 1304 px de columna para un móvil de 390), así que con solo el ancho no
+// había forma de enterarse de que el marco se salía por abajo.
+test('también encoge por ALTO, no solo por ancho', () => {
+  // Monitor de 1920: la columna da 1304 × 902 y el móvil mide 390 × 844.
+  // Cabe justo, no se toca.
+  assert.equal(escalaParaCaber(1304, 390, 902, 844), 1);
+
+  // Portátil de 13": la misma columna baja a ~700 px de alto. Antes se
+  // salían 144 px — la barra de navegación del portal, que es lo que más
+  // distingue un tema de otro, quedaba fuera de la vista previa.
+  assert.equal(escalaParaCaber(1304, 390, 700, 844), 700 / 844);
+  assert.ok(escalaParaCaber(1304, 390, 700, 844) < 1);
+});
+
+test('manda el límite más restrictivo de los dos', () => {
+  // Tablet en una columna estrecha Y baja: el ancho pide 0.8 y el alto 0.5.
+  assert.equal(escalaParaCaber(614, 768, 512, 1024), 0.5);
+  // Y al revés.
+  assert.equal(escalaParaCaber(384, 768, 1024, 1024), 0.5);
+});
+
+test('sin alto declarado, el alto no restringe — comportamiento de siempre', () => {
+  // Es lo que pasa donde nadie marca un `[data-preview-hueco]`: la llamada de
+  // dos argumentos tiene que seguir dando exactamente lo de antes.
+  assert.equal(escalaParaCaber(1304, 390), 1);
+  assert.equal(escalaParaCaber(616, 768), 616 / 768);
+  // Un alto a 0 (observer en su primer tick) tampoco colapsa nada.
+  assert.equal(escalaParaCaber(1304, 390, 0, 844), 1);
+});
+
 test('un contenedor sin medir todavía no colapsa el preview', () => {
   // Los observers dan 0 en el primer tick. Escalar a 0 dejaría el preview
   // invisible hasta la siguiente medición, con un parpadeo feo.
