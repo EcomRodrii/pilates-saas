@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { abrirCategoriaTema } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor de bloques del portal, dentro del editor a pantalla completa
@@ -256,7 +257,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
 
   test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Navegación del portal' }).click();
+    await abrirCategoriaTema(page, 'Navegación del portal');
     await expect(page.getByText('Barra pegada abajo')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Barra oscura')).toBeVisible();
     await expect(page.getByText('Texto bajo los iconos')).toBeVisible();
@@ -266,7 +267,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // todavía no entran". Cambiar un color no se podía deshacer.
   test('deshacer alcanza también a los ajustes del tema, no solo a los bloques', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
 
     const rectas = page.getByRole('button', { name: 'Recto', exact: true });
     await expect(rectas).toBeVisible({ timeout: 30_000 });
@@ -290,7 +291,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByRole('button', { name: 'Mostrar Invita a una amiga' })).toBeVisible();
 
     // 2º un cambio en AJUSTES, después.
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
     const rectas = page.getByRole('button', { name: 'Recto', exact: true });
     await rectas.click();
     await expect(rectas).toHaveAttribute('aria-pressed', 'true');
@@ -311,7 +312,7 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // guardar fijaría ese número donde antes había herencia.
   test('las esquinas por pieza llegan vacías, y vaciarlas vuelve a heredar', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: 'Esquinas' }).click();
+    await abrirCategoriaTema(page, 'Esquinas');
 
     const tarjetas = page.getByLabel('Tarjetas', { exact: true });
     await expect(tarjetas).toBeVisible({ timeout: 30_000 });
