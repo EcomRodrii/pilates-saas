@@ -3,7 +3,7 @@ import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
-import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 
 export const metadata: Metadata = {
   title: 'Qué aprender de los estudios de pilates que más crecen — Tentare',
@@ -52,6 +52,7 @@ export default function EstudiosPilatesExitoPage() {
         slug="estudios-pilates-de-exito"
         datePublished="2026-08-06"
       />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Rentabilidad"
         coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"

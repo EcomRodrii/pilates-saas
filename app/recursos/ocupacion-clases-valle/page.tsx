@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
-import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 
 export const metadata: Metadata = {
@@ -50,6 +50,7 @@ export default function OcupacionClasesVallePage() {
         slug="ocupacion-clases-valle"
         datePublished="2026-08-06"
       />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Rentabilidad"
         coverGradient="linear-gradient(140deg,#1f3d42,#3E7C86)"
