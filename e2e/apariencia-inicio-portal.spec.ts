@@ -521,3 +521,70 @@ test.describe('Duplicar un bloque', () => {
     await expect(page.getByRole('button', { name: 'Duplicar Esta semana' })).toHaveCount(0);
   });
 });
+
+// ── Fotos por bloque ────────────────────────────────────────────────────────
+// Todo el trabajo de imágenes (subida real desde el editor, foto propia por
+// tarjeta y por pantalla) entró sin una sola prueba de pantalla. Estas cubren
+// lo que se rompería sin que nadie se entere: que el control siga siendo de
+// SUBIR y no una casilla de pegar URL, y que la foto llegue al guardado.
+test.describe('Fotos por bloque', () => {
+  test('un banner ofrece SUBIR la foto, no solo pegar un enlace', async ({ page }) => {
+    await montar(page, {
+      bloquesHomeGuardar: [
+        ...BLOQUES_HOME_DEFAULT,
+        { id: 'b-ban', kind: 'banner', config: { imagenUrl: '', titulo: 'T', texto: '', href: '' } },
+      ],
+    });
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    // ⚠️ `/^Banner/` y no `/Banner/`: el rail tiene también «Reordenar
+    // Banner», que casa antes y no abre el panel — el test fallaba por eso,
+    // no por el código.
+    await page.getByRole('button', { name: /^Banner/ }).click();
+
+    // Lo que importa: hay un botón de subir. Antes esto era un `<input>` de
+    // texto donde había que pegar una URL — el campo existía y no lo usaba
+    // nadie.
+    await expect(page.getByRole('button', { name: 'Subir foto' })).toBeVisible();
+
+    // Y el enlace sigue disponible para quien ya tenga la foto en su web,
+    // pero PLEGADO: no es lo primero que se ofrece.
+    const verEnlace = page.getByRole('button', { name: 'o pegar un enlace' });
+    await expect(verEnlace).toBeVisible();
+    await expect(page.getByLabel(/Enlace de/)).toHaveCount(0);
+    await verEnlace.click();
+    await expect(page.getByLabel(/Enlace de/)).toBeVisible();
+  });
+
+  test('la foto pegada en un banner llega al borrador que se guarda', async ({ page }) => {
+    const { putsPorPantalla } = await montar(page, {
+      bloquesHomeGuardar: [
+        ...BLOQUES_HOME_DEFAULT,
+        { id: 'b-ban', kind: 'banner', config: { imagenUrl: '', titulo: 'T', texto: '', href: '' } },
+      ],
+    });
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    // ⚠️ `/^Banner/` y no `/Banner/`: el rail tiene también «Reordenar
+    // Banner», que casa antes y no abre el panel — el test fallaba por eso,
+    // no por el código.
+    await page.getByRole('button', { name: /^Banner/ }).click();
+    await page.getByRole('button', { name: 'o pegar un enlace' }).click();
+    await page.getByLabel(/Enlace de/).fill('https://ejemplo.test/sala.jpg');
+
+    await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
+    expect(putsPorPantalla.home.at(-1)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'b-ban', config: expect.objectContaining({ imagenUrl: 'https://ejemplo.test/sala.jpg' }) }),
+    ]));
+  });
+
+  test('la tarjeta de próxima clase tiene su propia foto, separada de la del portal', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
+    // Es un bloque FIJO: su fila se llama «… siempre arriba» y no tiene
+    // botón de reordenar, así que el prefijo basta y es único.
+    await page.getByRole('button', { name: /^Tarjeta de próxima clase/ }).click();
+
+    // La sección «Foto» llega abierta y con su control de subida dentro.
+    await expect(page.getByRole('button', { name: 'Foto', exact: true })).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: 'Subir foto' })).toBeVisible();
+  });
+});
