@@ -238,7 +238,10 @@ export interface MensajeDia {
 // P2-5: faltaba CAPTACION — hueco del catálogo (EspecialistaId ya la tenía),
 // no una reapertura de nada. Necesario para que el filtro por especialista
 // de motor.ts pueda apagar/encender los 7 especialistas, no solo 6.
-export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION' | 'ONBOARDING';
+// RESUMEN_SEMANAL: no es un especialista, es el opt-out del email de "semana
+// tranquila" (lib/inngest/resumen-semanal.ts) — ausente o `true` = activo
+// (por defecto para todas las propietarias), `false` = lo desactivó.
+export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION' | 'ONBOARDING' | 'RESUMEN_SEMANAL';
 export interface DecisionFeatureFlag {
   id: string;
   studioId: string;
