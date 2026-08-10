@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarCaptcha } from '@/lib/auth/captcha-servidor';
+import { cayoEnLaTrampa, CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 
 // Captación de interesadas mientras Tentare no está lanzado. `/crear-estudio`
 // antes daba de alta un estudio real al momento; con el software aún sin
@@ -12,11 +13,26 @@ import { verificarCaptcha } from '@/lib/auth/captcha-servidor';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
-  const limited = await enforceRateLimit(req, 'public-interes-lanzamiento', { max: 10, windowSeconds: 60 });
+  // 3 cada 10 minutos, no 10 por minuto: esto es «deja tu email y te avisamos»,
+  // no un formulario que nadie rellene dos veces seguidas. El límite anterior
+  // daba 600 altas por hora y por IP, que para este uso es no tener límite.
+  const limited = await enforceRateLimit(req, 'public-interes-lanzamiento', { max: 3, windowSeconds: 600 });
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    { email?: string; nombre?: string; estudio?: string; ciudad?: string; captchaToken?: string } | null;
+    ({ email?: string; nombre?: string; estudio?: string; ciudad?: string; captchaToken?: string }
+      & Record<string, unknown>) | null;
+
+  // El campo trampa, ANTES del captcha: quien cae aquí no merece un viaje a
+  // Cloudflare. Ver `lib/auth/trampa-bots.ts`.
+  //
+  // ⚠️ Responde `ok` fingiendo que ha ido bien, y NO guarda nada. Un 400 le
+  // diría al bot que le hemos visto, y quien escribe el bot cambiaría el
+  // relleno hasta dar con lo que pasa. Que se vaya creyendo que funcionó.
+  if (cayoEnLaTrampa(body?.[CAMPO_TRAMPA])) {
+    console.warn('[interes-lanzamiento] campo trampa relleno: descartado en silencio');
+    return NextResponse.json({ ok: true });
+  }
 
   // ⚠️ Este endpoint NO pasa por gotrue, así que aquí no verifica nadie más:
   // o se llama al `siteverify` o el token del formulario es decoración. Es
