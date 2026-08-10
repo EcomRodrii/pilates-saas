@@ -737,6 +737,24 @@ necesita `TURNSTILE_SECRET_KEY`; sin esa variable devuelve `'ok'` sin llamar a
 nadie. Fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no
 llega a completarse.
 
+## ⚠️ Un merge de solo documentación NO despliega
+
+`vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
+contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**` o
+`**/*.test.ts`. Es deliberado (ahorra builds), pero tiene una trampa: el check
+de Vercel sale **verde** igualmente, con el texto «Canceled by Ignored Build
+Step». Verde ahí significa «no había nada que construir», no «desplegado».
+
+Costó una hora de diagnóstico equivocado: tras añadir `TURNSTILE_SECRET_KEY` en
+Vercel se mergeó un PR de solo `.md` para forzar el despliegue, el check salió
+verde, la variable seguía sin aplicarse y se dio por hecho que estaba mal
+puesta. No lo estaba — **no había habido ningún build**.
+
+Regla: para que producción recoja una variable de entorno nueva hace falta un
+cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
+corrió de verdad, no solo que el check está en verde — es el mismo error de
+categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
