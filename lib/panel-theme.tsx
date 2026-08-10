@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { authHeader } from '@/lib/api-client';
+import { fetchThemePublicado } from '@/lib/api-client';
 // Directo de wcag-contrast.ts/color-utils.ts (cero dependencias cada uno), NO
 // de theme-runtime.ts: ese módulo importa theme-schema.ts (zod) y
 // PanelThemeProvider está montado en TODAS las rutas del panel — importar
@@ -77,12 +77,17 @@ export function PanelThemeProvider({ children, className }: { children: React.Re
     if (ref.current) ref.current.classList.toggle('dark', storedDark);
 
     let vivo = true;
+    // ⚠️ Vía `fetchThemePublicado`, no con un `fetch` propio: este provider está
+    // montado en TODAS las rutas del panel y pedía `/api/theme` por su cuenta,
+    // fuera del dedupe de peticiones en vuelo de `api-client`. Al abrir el
+    // editor de apariencia se solapaba con la petición idéntica de la
+    // biblioteca de temas y el panel pedía DOS veces exactamente lo mismo.
+    // Compartir la clave `theme-publicado` las funde en una.
     async function cargarMarca() {
       try {
-        const res = await fetch('/api/theme', { headers: await authHeader() });
-        if (!res.ok || !vivo) return;
-        const theme = (await res.json()) as ThemeConfig;
-        if (ref.current && vivo) aplicarMarca(ref.current, theme);
+        const theme = await fetchThemePublicado();
+        if (!vivo) return;
+        if (ref.current) aplicarMarca(ref.current, theme);
         guardarMarcaCache(theme);
       } catch {
         // sin conexión / sin sesión → marca por defecto
