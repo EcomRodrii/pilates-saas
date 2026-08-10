@@ -27,7 +27,7 @@ import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacer
 import { CamposForm, FilaOpciones } from './inspector/campos-form';
 import type { CampoSchema } from '@/lib/theme/campos';
 import {
-  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO, CAMPOS_RADIO,
+  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO, CAMPOS_RADIO, CAMPOS_ESCALA_TEXTO,
   valoresFormaDesdeTema, escrituraDeCampoForma,
 } from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
@@ -483,15 +483,29 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'tipografia') {
     return (
-      <select
-        value={draft.fontId}
-        onChange={(e) => setCampo('fontId', e.target.value as ThemeConfig['fontId'])}
-        className="w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background"
-      >
-        {FUENTES.map((f) => (
-          <option key={f.id} value={f.id}>{f.label}</option>
-        ))}
-      </select>
+      <div className="space-y-3">
+        <select
+          value={draft.fontId}
+          onChange={(e) => setCampo('fontId', e.target.value as ThemeConfig['fontId'])}
+          aria-label="Fuente del portal"
+          className="w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background"
+        >
+          {FUENTES.map((f) => (
+            <option key={f.id} value={f.id}>{f.label}</option>
+          ))}
+        </select>
+
+        {/* El tamaño va DEBAJO de la fuente y no en una categoría propia: es
+            donde la propietaria lo busca. Y en una sección plegada, porque son
+            seis casillas que casi nadie toca — quien no las abra ve la
+            tipografía tal cual estaba. */}
+        <div className="pt-1 border-t border-border">
+          <p className="text-[11.5px] text-muted-foreground mb-2">
+            Tamaño de cada texto, en píxeles. Déjalo vacío para usar el del tema.
+          </p>
+          <CamposDelTema campos={CAMPOS_ESCALA_TEXTO} hook={hook} />
+        </div>
+      </div>
     );
   }
 
