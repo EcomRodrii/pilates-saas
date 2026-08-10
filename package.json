@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "email": "email dev --dir emails --port 3010",
     "test": "node --test --experimental-strip-types \"lib/**/*.test.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@react-email/ui": "^6.9.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -49,6 +51,7 @@
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "react-email": "^6.9.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

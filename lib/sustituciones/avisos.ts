@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { enviarEmailAlumnaClaseCubierta, enviarEmailAlumnaClaseCancelada, enviarEmailAlumnaClaseReprogramada } from './email';
+import { enviarEmailAvisoAlumna } from './email';
+import type { AvisoAlumna } from '@/lib/emails/sustitucion-template';
 
 // Avisa a las alumnas apuntadas a una clase — SOLO si el estudio lo tiene
 // activado (studios.avisar_alumnas). Regla del producto: la propietaria SIEMPRE
@@ -94,15 +95,23 @@ export async function avisarAlumnas(
   const { data: alumnas } = await admin.rpc('alumnas_apuntadas', { p_sesion_id: params.sesionId });
   const lista = (alumnas ?? []) as { nombre: string; email: string | null }[];
 
+  // El desenlace es el mismo para toda la lista, así que se resuelve una vez y
+  // no una por alumna. En 'reprogramada' el `cuando` del correo es el horario
+  // ORIGINAL —la sesión ya tiene el nuevo guardado— y el nuevo viaja aparte.
+  const aviso: AvisoAlumna = params.tipo === 'cubierta'
+    ? { tipo: 'cubierta', sustituta: params.sustituta ?? 'otra instructora' }
+    : params.tipo === 'reprogramada'
+      ? { tipo: 'reprogramada', cuandoNuevo: cuando }
+      : { tipo: 'cancelada' };
+  const cuandoAviso = params.tipo === 'reprogramada' ? (params.cuandoAntes ?? cuando) : cuando;
+  const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url };
+
   let avisadas = 0, skipped = false;
   for (const a of lista) {
     if (!a.email) continue;
-    const marca = { colorPrimario: estudio.color_primario, logoUrl: estudio.logo_url };
-    const r = params.tipo === 'cubierta'
-      ? await enviarEmailAlumnaClaseCubierta({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando, sustituta: params.sustituta ?? 'otra instructora' })
-      : params.tipo === 'reprogramada'
-        ? await enviarEmailAlumnaClaseReprogramada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando: params.cuandoAntes ?? cuando, cuandoNuevo: cuando })
-        : await enviarEmailAlumnaClaseCancelada({ to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando });
+    const r = await enviarEmailAvisoAlumna({
+      to: a.email, toName: a.nombre, estudioNombre, ...marca, claseNombre, cuando: cuandoAviso, aviso,
+    });
     if ('ok' in r && r.ok) avisadas++;
     if ('skipped' in r) skipped = true;
   }
