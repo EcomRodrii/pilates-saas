@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import type { MiembroCompleto } from '@/lib/equipo-tarjetas.ts';
-import { DIAS_LARGOS } from '@/lib/equipo-tarjetas.ts';
+import { DIAS_LARGOS, MIN_CLASES_OCUPACION } from '@/lib/equipo-tarjetas.ts';
 
 // GET /api/equipo/tarjetas — el equipo, ya listo para la rejilla de tarjetas
 // del rediseño. El contrato de permisos vive en `lib/equipo-tarjetas.ts`
@@ -178,6 +178,7 @@ export async function GET(req: NextRequest) {
     let proximaClaseIso: string | null = null;
     let ocupadasVentana = 0;
     let aforoVentana = 0;
+    let sesionesVentana = 0;
     let horasMes = 0;
     const misDiasSemana = new Set<number>();
 
@@ -201,13 +202,19 @@ export async function GET(req: NextRequest) {
       if (ini >= new Date(ahora.getTime() - 30 * MS_DIA) && ini <= ahora && s.aforo_maximo) {
         ocupadasVentana += ocupadasPorSesion.get(s.id) ?? 0;
         aforoVentana += s.aforo_maximo;
+        sesionesVentana += 1;
       }
       if (ini >= inicioMes && ini < new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)) {
         horasMes += Math.max(0, (fin.getTime() - ini.getTime()) / 3600000);
       }
     }
 
-    const ocupacionPct = aforoVentana > 0 ? Math.round((100 * ocupadasVentana) / aforoVentana) : null;
+    // Con menos de MIN_CLASES_OCUPACION clases pasadas, el % es ruido de
+    // muestra (típico de un estudio recién creado con una sola clase ya dada
+    // y sin clientas reales todavía) — null es "sin datos suficientes", no
+    // "0% de ocupación" (#845).
+    const ocupacionPct = aforoVentana > 0 && sesionesVentana >= MIN_CLASES_OCUPACION
+      ? Math.round((100 * ocupadasVentana) / aforoVentana) : null;
     const tarifa = tarifaPorInstructor.get(i.id) ?? null;
     const costeMes = sesion.rol === 'PROPIETARIO' && tarifa != null ? Math.round(tarifa * horasMes * 100) / 100 : null;
 
