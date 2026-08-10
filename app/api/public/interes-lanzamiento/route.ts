@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { verificarCaptcha } from '@/lib/auth/captcha-servidor';
 
 // Captación de interesadas mientras Tentare no está lanzado. `/crear-estudio`
 // antes daba de alta un estudio real al momento; con el software aún sin
@@ -15,7 +16,27 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as
-    { email?: string; nombre?: string; estudio?: string; ciudad?: string } | null;
+    { email?: string; nombre?: string; estudio?: string; ciudad?: string; captchaToken?: string } | null;
+
+  // ⚠️ Este endpoint NO pasa por gotrue, así que aquí no verifica nadie más:
+  // o se llama al `siteverify` o el token del formulario es decoración. Es
+  // exactamente lo que pasaba antes —el widget se pintaba y el token no se
+  // mandaba ni se comprobaba—, o sea que frenaba a personas y a ningún bot.
+  //
+  // Va ANTES de tocar la BD, y después del rate limit: verificar cuesta un
+  // viaje a Cloudflare y no tiene sentido pagarlo por una IP que ya está
+  // pasada de vueltas.
+  const captcha = await verificarCaptcha(
+    typeof body?.captchaToken === 'string' ? body.captchaToken : undefined,
+    { ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() },
+  );
+  if (captcha !== 'ok') {
+    return NextResponse.json(
+      { error: 'No hemos podido comprobar que no eres un robot. Recarga la página e inténtalo de nuevo.' },
+      { status: 400 },
+    );
+  }
+
   const email = typeof body?.email === 'string' ? body.email.trim() : '';
   const nombre = typeof body?.nombre === 'string' ? body.nombre.trim().slice(0, 120) : '';
   const estudio = typeof body?.estudio === 'string' ? body.estudio.trim().slice(0, 120) : '';
