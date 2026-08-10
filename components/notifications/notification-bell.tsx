@@ -13,6 +13,7 @@ import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import { reproducirChaChing } from '@/lib/notifications/sound';
+import { fetchMisEstudios } from '@/lib/supabase-data';
 
 // Esta campana es la del PANEL: enseña lo que NO es de socia, y de todas las
 // sedes de la cadena (un pago fallido de la sede B tiene que verse aunque estés
@@ -41,7 +42,7 @@ interface FilaNotification {
   id: string; title: string; body: string; deep_link: string | null;
   category: NotifItem['category']; priority: NotifItem['priority'];
   event_type: string; resource_type: string | null; resource_id: string | null;
-  created_at: string;
+  created_at: string; studio_id: string | null;
 }
 
 export function NotificationBell() {
@@ -51,7 +52,23 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotifItem[]>([]);
   const [unread, setUnread] = useState(0);
   const [ventaToast, setVentaToast] = useState<{ title: string; body: string } | null>(null);
+  // Nombre de sede por studio_id, SOLO para poder etiquetar cada aviso — el
+  // ámbito `staff` deliberadamente no acota por sede (ver AMBITO_STAFF más
+  // arriba y lib/notifications/ambito.ts), así que sin esto una propietaria
+  // de varias sedes no tiene ninguna pista de a cuál pertenece cada aviso.
+  // Vacío para quien solo tiene una sede: ahí etiquetar no aporta nada.
+  const [nombrePorSede, setNombrePorSede] = useState<Record<string, string>>({});
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    fetchMisEstudios().then(sedes => {
+      if (!vivo || sedes.length < 2) return;
+      setNombrePorSede(Object.fromEntries(sedes.map(s => [s.id, s.nombre])));
+    });
+    return () => { vivo = false; };
+  }, [user]);
 
   const cargar = useCallback(async () => {
     const { items, unread } = await fetchNotificaciones(authHeader, AMBITO_STAFF);
@@ -106,7 +123,7 @@ export function NotificationBell() {
               id: fila.id, title: fila.title, body: fila.body, deepLink: fila.deep_link,
               category: fila.category, priority: fila.priority, eventType: fila.event_type,
               resourceType: fila.resource_type, resourceId: fila.resource_id,
-              readAt: null, createdAt: fila.created_at,
+              readAt: null, createdAt: fila.created_at, studioId: fila.studio_id,
             };
             setItems(prev => (prev.some(x => x.id === item.id) ? prev : [item, ...prev]));
             setUnread(u => u + 1);
@@ -235,6 +252,11 @@ export function NotificationBell() {
                     <span className="text-[11px] text-muted-foreground shrink-0">{haceCuanto(n.createdAt)}</span>
                   </span>
                   <span className="block text-[12.5px] text-muted-foreground leading-snug mt-0.5">{n.body}</span>
+                  {n.studioId && nombrePorSede[n.studioId] && (
+                    <span className="inline-block mt-1 px-1.5 py-0.5 rounded-md bg-muted text-[10px] font-semibold text-muted-foreground">
+                      {nombrePorSede[n.studioId]}
+                    </span>
+                  )}
                 </span>
                 <span
                   onClick={(e) => archivar(e, n)}
