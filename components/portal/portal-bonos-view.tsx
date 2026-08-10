@@ -170,7 +170,34 @@ export function PortalBonosView({
               {bono.esMensual ? 'Cambiar de plan' : 'Renovar bono'}
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {bono && bono.otrosActivos.length > 0 && (
+          // El bono elegido es el que caduca antes (se gasta primero, a
+          // propósito); esto solo avisa de que hay más en cola, que antes
+          // quedaban invisibles del todo.
+          <div
+            style={{
+              marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
+              background: noche ? t.surface2 : '#EEF0EA',
+              border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
+              padding: '18px 24px',
+            }}
+          >
+            <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
+              Tienes {bono.otrosActivos.length} bono{bono.otrosActivos.length === 1 ? '' : 's'} más en cola:{' '}
+              {bono.otrosActivos.map((o, i) => (
+                <span key={i} style={{ color: t.ink, fontWeight: 600 }}>
+                  {o.nombre}{o.restantes != null ? ` (${o.restantes} sesion${o.restantes === 1 ? '' : 'es'})` : ''}
+                  {i < bono.otrosActivos.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+              . Se usarán en cuanto se agote el actual.
+            </span>
+          </div>
+        )}
+
+        {!bono && (
           // Sin bono la pantalla no se queda muda: lo que toca es comprar uno.
           <div style={{
             marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
