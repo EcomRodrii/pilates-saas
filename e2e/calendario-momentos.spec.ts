@@ -43,9 +43,27 @@ function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
   // — sin esto, `Date.now()` deja segundos sueltos y el guardado sin tocar la
   // hora se detectaba como "cambioHora" (mismoInstante comparando getTime()
   // exacto), desviando el test al diálogo equivocado.
-  const inicio = new Date(Date.now() + offsetMinutos * 60_000);
+  let inicio = new Date(Date.now() + offsetMinutos * 60_000);
   inicio.setSeconds(0, 0);
-  const fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+  let fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+  // NUNCA puede cruzar medianoche (UTC, que es lo que iso() extrae más abajo):
+  // el formulario de editar solo tiene UN campo `fecha` compartido por
+  // horaInicio/horaFin (openEdit(), app/(dashboard)/calendario/page.tsx) — no
+  // puede representar una clase que empieza un día y termina al siguiente.
+  // `horaInvalida` (mismo fichero) compara las horas como strings HH:MM
+  // asumiendo el mismo día, así que una franja como 23:39–00:34 se marca
+  // (correctamente, dado ese modelo) como "la hora de fin debe ser posterior
+  // a la de inicio" y deja "Guardar cambios" deshabilitado para siempre — no
+  // es un bug de la app, es que `Date.now() + offsetMinutos` cruzaba
+  // medianoche cuando el runner de CI corría tarde en el día UTC, y ROMPÍA
+  // ESTE TEST AL AZAR según la hora real de ejecución. Si el hueco propuesto
+  // no cabe en el día UTC de hoy, se prueba MAÑANA a una hora fija (10:00
+  // UTC, de sobra lejos de cualquier medianoche) en vez de sumar minutos —
+  // desacopla el fixture de "ahora mismo".
+  if (inicio.getUTCDate() !== fin.getUTCDate()) {
+    inicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 1, 10, 0, 0));
+    fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+  }
   const iso = (d: Date) => d.toISOString().slice(0, 19); // sin milisegundos ni 'Z'
   return { inicio: iso(inicio), fin: iso(fin) };
 }
