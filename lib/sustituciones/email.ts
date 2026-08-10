@@ -2,8 +2,8 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import type { TipoAlertaPropietaria } from '@/lib/sustituciones/mensajes';
 import {
-  ContactoSustitutaEmail, AlertaPropietariaEmail, AlumnaClaseCubiertaEmail, AlumnaClaseCanceladaEmail,
-  AlumnaClaseReprogramadaEmail,
+  ContactoSustitutaEmail, AlertaPropietariaEmail, AlumnaAvisoClaseEmail, asuntoAvisoAlumna,
+  type AvisoAlumna,
 } from '@/lib/emails/sustitucion-template';
 import { remitentePorMarca } from '@/lib/emails/remitente';
 
@@ -59,30 +59,23 @@ export async function enviarEmailAlertaPropietaria(params: Marca & {
   return enviar(to, asunto, html, 'Tentare Manager');
 }
 
-// ── Avisos a las alumnas apuntadas ──────────────────────────────────────────
+// ── Aviso a las alumnas apuntadas ───────────────────────────────────────────
 
-// Se ha confirmado sustituta: la clase sigue en pie (mensaje tranquilizador).
-export async function enviarEmailAlumnaClaseCubierta(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; sustituta: string;
+// Un solo emisor para los tres desenlaces (hay sustituta / la clase se mueve /
+// la clase se cae): eran tres funciones idénticas salvo el asunto, y el asunto
+// ya vive con el resto de la copy en la plantilla.
+export async function enviarEmailAvisoAlumna(params: Marca & {
+  to: string;
+  toName: string;
+  estudioNombre: string;
+  claseNombre: string;
+  // Cuándo era la clase. En 'reprogramada' es el horario ORIGINAL: el nuevo va
+  // dentro de `aviso.cuandoNuevo`.
+  cuando: string;
+  aviso: AvisoAlumna;
 }): Promise<EnvioResultado> {
-  const html = await render(AlumnaClaseCubiertaEmail(params));
-  return enviar(params.to, `Tu clase sigue en pie — ${params.claseNombre}`, html, 'Tentare');
-}
-
-// No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
-// La clase se salva moviéndola de horario: la plaza se mantiene.
-export async function enviarEmailAlumnaClaseReprogramada(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; cuandoNuevo: string;
-}): Promise<EnvioResultado> {
-  const html = await render(AlumnaClaseReprogramadaEmail(params));
-  return enviar(params.to, `Cambio de horario — ${params.claseNombre}`, html, 'Tentare');
-}
-
-export async function enviarEmailAlumnaClaseCancelada(params: Marca & {
-  to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
-}): Promise<EnvioResultado> {
-  const html = await render(AlumnaClaseCanceladaEmail(params));
-  return enviar(params.to, `Clase cancelada — ${params.claseNombre}`, html, 'Tentare');
+  const html = await render(AlumnaAvisoClaseEmail(params));
+  return enviar(params.to, asuntoAvisoAlumna(params.aviso, params.claseNombre), html, 'Tentare');
 }
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };

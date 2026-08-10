@@ -81,6 +81,22 @@ export function AlertaPropietariaEmail({ estudioNombre, logoUrl, colorPrimario, 
   );
 }
 
+// ── Aviso a las alumnas apuntadas ───────────────────────────────────────────
+//
+// Los tres desenlaces posibles de una sustitución (hay sustituta / la clase se
+// mueve / la clase se cae) eran tres componentes con el mismo cuerpo: saludo +
+// un párrafo. Solo cambiaban el titular, esa frase y —en la cancelación— el
+// color de la banda. Con tres copias, cualquier retoque de tono o de estructura
+// había que repetirlo tres veces y era fácil dejarse una descolgada.
+//
+// El discriminante no es nuevo: `tipo` ya venía intacto desde `avisarAlumnas`
+// (lib/sustituciones/avisos.ts) y se volvía a ramificar en cada escalón. Ahora
+// se ramifica una sola vez, aquí, donde vive la copy.
+export type AvisoAlumna =
+  | { tipo: 'cubierta'; sustituta: string }
+  | { tipo: 'reprogramada'; cuandoNuevo: string }
+  | { tipo: 'cancelada' };
+
 interface AlumnaProps {
   toName: string;
   estudioNombre: string;
@@ -88,39 +104,57 @@ interface AlumnaProps {
   colorPrimario?: string | null;
   claseNombre: string;
   cuando: string;
+  aviso: AvisoAlumna;
 }
 
-// Se ha confirmado sustituta: la clase sigue en pie (mensaje tranquilizador).
-export function AlumnaClaseCubiertaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, sustituta }: AlumnaProps & { sustituta: string }) {
-  return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Tu clase sigue en pie" preview={`${claseNombre} la dará ${sustituta}`}>
-      <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 14px' }}>Hola <strong>{toName}</strong>,</Text>
-      <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
-        Tu clase <strong>{claseNombre}</strong> del {cuando} <strong>sigue en pie</strong>. La dará <strong>{sustituta}</strong>. No tienes que hacer nada.
-      </Text>
-    </EmailLayout>
-  );
+// El asunto vive junto al titular y al cuerpo porque es la misma pieza de copy:
+// antes estaba en lib/sustituciones/email.ts, así que cambiarle el tono a un
+// caso obligaba a acordarse de tocar dos ficheros.
+export function asuntoAvisoAlumna(aviso: AvisoAlumna, claseNombre: string): string {
+  switch (aviso.tipo) {
+    case 'cubierta': return `Tu clase sigue en pie — ${claseNombre}`;
+    case 'reprogramada': return `Cambio de horario — ${claseNombre}`;
+    case 'cancelada': return `Clase cancelada — ${claseNombre}`;
+  }
 }
 
-// No hay sustituta pero la clase se salva moviéndola: cambia de horario.
-export function AlumnaClaseReprogramadaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando, cuandoNuevo }: AlumnaProps & { cuandoNuevo: string }) {
-  return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="Tu clase cambia de horario" preview={`${claseNombre} pasa al ${cuandoNuevo}`}>
-      <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 14px' }}>Hola <strong>{toName}</strong>,</Text>
-      <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
-        Tu clase <strong>{claseNombre}</strong> del {cuando} <strong>cambia de horario</strong>: pasa al <strong>{cuandoNuevo}</strong>. Tu plaza se mantiene — si el nuevo horario no te viene bien, puedes cancelarla desde tu portal como siempre.
-      </Text>
-    </EmailLayout>
-  );
+// `headerColor` solo en la cancelación: es la única de las tres que es mala
+// noticia. En las otras dos va `undefined` y EmailLayout cae al color de marca
+// del estudio, exactamente igual que cuando no se pasaba el prop.
+function contenido({ claseNombre, cuando, aviso }: AlumnaProps): {
+  titulo: string; preview: string; headerColor?: string; cuerpo: React.ReactNode;
+} {
+  switch (aviso.tipo) {
+    case 'cubierta':
+      return {
+        titulo: 'Tu clase sigue en pie',
+        preview: `${claseNombre} la dará ${aviso.sustituta}`,
+        cuerpo: <>Tu clase <strong>{claseNombre}</strong> del {cuando} <strong>sigue en pie</strong>. La dará <strong>{aviso.sustituta}</strong>. No tienes que hacer nada.</>,
+      };
+    case 'reprogramada':
+      return {
+        titulo: 'Tu clase cambia de horario',
+        preview: `${claseNombre} pasa al ${aviso.cuandoNuevo}`,
+        cuerpo: <>Tu clase <strong>{claseNombre}</strong> del {cuando} <strong>cambia de horario</strong>: pasa al <strong>{aviso.cuandoNuevo}</strong>. Tu plaza se mantiene — si el nuevo horario no te viene bien, puedes cancelarla desde tu portal como siempre.</>,
+      };
+    case 'cancelada':
+      return {
+        titulo: 'Clase cancelada',
+        preview: `${claseNombre} se cancela`,
+        headerColor: '#B91C1C',
+        cuerpo: <>Sentimos avisarte de que tu clase <strong>{claseNombre}</strong> del {cuando} <strong>se cancela</strong>. Disculpa las molestias — te esperamos en la próxima.</>,
+      };
+  }
 }
 
-// No hay sustituta: la clase se cancela (que se entere por ti, no en la puerta).
-export function AlumnaClaseCanceladaEmail({ toName, estudioNombre, logoUrl, colorPrimario, claseNombre, cuando }: AlumnaProps) {
+export function AlumnaAvisoClaseEmail(props: AlumnaProps) {
+  const { toName, estudioNombre, logoUrl, colorPrimario } = props;
+  const { titulo, preview, headerColor, cuerpo } = contenido(props);
   return (
-    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor="#B91C1C" titulo="Clase cancelada" preview={`${claseNombre} se cancela`}>
+    <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} headerColor={headerColor} titulo={titulo} preview={preview}>
       <Text style={{ color: '#374151', fontSize: 15, margin: '0 0 14px' }}>Hola <strong>{toName}</strong>,</Text>
       <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.5, margin: 0 }}>
-        Sentimos avisarte de que tu clase <strong>{claseNombre}</strong> del {cuando} <strong>se cancela</strong>. Disculpa las molestias — te esperamos en la próxima.
+        {cuerpo}
       </Text>
     </EmailLayout>
   );
