@@ -131,7 +131,9 @@ test.describe('El panel interno cabe en un móvil', () => {
     const puedeDesplazarse = await nav.evaluate(el => el.scrollWidth > el.clientWidth);
     expect(puedeDesplazarse, 'las seis secciones no caben, así que la barra tiene que desplazarse').toBe(true);
     await page.getByRole('link', { name: 'Equipo' }).click();
-    await expect(page).toHaveURL(/\/interno\/equipo$/);
+    // Timeout explícito: con `next dev`, la primera navegación a /interno/equipo
+    // compila la ruta bajo demanda y se pasa de los 5s por defecto.
+    await expect(page).toHaveURL(/\/interno\/equipo$/, { timeout: 30_000 });
   });
 
   test('las barras del gráfico de altas se dibujan de verdad', async ({ page }) => {

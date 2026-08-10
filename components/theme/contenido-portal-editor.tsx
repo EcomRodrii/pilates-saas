@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Plus, Trash2, Upload, MessageSquare, Image as ImageIcon } from 'lucide-react';
-import { inputCls, labelCls, btnPrimary, btnSecondary, Field, Toggle, ConfirmDialog } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, labelCls, btnPrimary, Field, Toggle, ConfirmDialog } from '@/app/(dashboard)/configuracion/page';
 import { useStudio } from '@/lib/studio-context';
 import { usePermisos } from '@/lib/permisos';
 import { subirBannerEstudio, eliminarBannerEstudio } from '@/lib/portal-storage';

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Printer, Plus, Pencil, Trash2, Info, ShieldCheck, Mail, Send, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { useRol } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -40,8 +41,14 @@ const emptyForm = (anio: number, ivaDef: number): FormState => ({
 });
 
 export default function CierreDeAnoPage() {
-  const { facturas, studio } = useStudio();
+  const { facturas, studio, updateStudio } = useStudio();
   const ivaDef = studio?.ivaPorDefecto ?? 21;
+  const rol = useRol();
+  // La RLS de studios (owner_studios) solo deja escribir a PROPIETARIO — se
+  // gatea aquí en vez de con puedeVerFinanzas (que también deja pasar a
+  // RECEPCION) para no enseñar un control que la BD va a rechazar en silencio.
+  const esPropietaria = rol === 'PROPIETARIO';
+  const [guardandoAuto, setGuardandoAuto] = useState(false);
 
   const [anio, setAnio] = useState<number>(() => new Date().getFullYear());
   const [manuales, setManuales] = useState<IngresoManual[]>([]);
@@ -229,6 +236,20 @@ export default function CierreDeAnoPage() {
       setEnvResult({ ok: true, msg: `Enviado a ${data.email}` });
     } catch { setEnvResult({ ok: false, msg: 'Error de red. Inténtalo de nuevo.' }); }
     finally { setEnviando(false); }
+  };
+
+  // Envío automático trimestral: el cron (lib/inngest/cierre-gestoria-automatico.ts)
+  // manda el Cierre del trimestre a gestoriaEmail el día 1 del mes siguiente,
+  // sin que nadie tenga que volver a esta pantalla. Exige tener ya un email
+  // de gestoría guardado (se guarda al enviar manualmente al menos una vez).
+  const activarEnvioAutomatico = async (activar: boolean) => {
+    setGuardandoAuto(true);
+    try {
+      const res = await updateStudio({ gestoriaEnvioAutomatico: activar ? 'trimestral' : 'desactivado' });
+      setToast(res.ok ? (activar ? 'Envío automático activado' : 'Envío automático desactivado') : res.error);
+    } finally {
+      setGuardandoAuto(false);
+    }
   };
 
   const facturasAnio = useMemo(() => cierre.lineas.filter(l => l.origen === 'FACTURA'), [cierre]);
@@ -599,6 +620,21 @@ export default function CierreDeAnoPage() {
                 {studio?.gestoriaEmail && <p className="text-xs text-muted-foreground mt-0.5">Guardado la última vez. Puedes cambiarlo.</p>}
                 {envResult && !envResult.ok && <p className="text-xs text-destructive mt-1">{envResult.msg}</p>}
               </div>
+
+              {esPropietaria && studio?.gestoriaEmail && (
+                <label className="flex items-start gap-2.5 rounded-xl border border-border bg-accent px-3.5 py-3 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 shrink-0"
+                    checked={studio.gestoriaEnvioAutomatico === 'trimestral'}
+                    disabled={guardandoAuto}
+                    onChange={(e) => activarEnvioAutomatico(e.target.checked)}
+                  />
+                  <span className="text-foreground/85 leading-snug">
+                    <b>Enviar cada trimestre automáticamente</b>, sin que tengas que volver aquí — el día 1 tras cerrar cada trimestre, a {studio.gestoriaEmail}.
+                  </span>
+                </label>
+              )}
             </div>
           )}
 

@@ -105,8 +105,19 @@ export async function generarLiquidacionBorrador(
     const reservaIds = penalizacionesRow.map(p => p.reserva_id as string);
     const { data: reservasRow } = await admin.from('reservas').select('id, sesion_id').in('id', reservaIds);
     const sesionIdPorReserva = new Map((reservasRow ?? []).map(r => [r.id as string, r.sesion_id as string | null]));
-    const { data: sesionesTodasRow } = await admin.from('sesiones').select('id, instructor_id')
-      .eq('studio_id', studioId);
+    // ⚠️ Acotado a las sesiones que de verdad hacen falta (las de estas
+    // penalizaciones), no a todas las del estudio. Antes leía
+    // `sesiones` entero sin paginar: PostgREST corta en 1000 filas en
+    // silencio, así que a partir de ~1 año de actividad (20 clases/semana)
+    // la sesión de la penalización podía no venir en esas 1000 y la
+    // penalización NO se le imputaba a la instructora. Es nómina, y fallaba
+    // sin ruido. Esta versión es además más rápida: lee un puñado de filas
+    // por id en vez de escanear el estudio entero.
+    const sesionIds = [...new Set([...sesionIdPorReserva.values()].filter((id): id is string => !!id))];
+    const { data: sesionesTodasRow } = sesionIds.length === 0
+      ? { data: [] }
+      : await admin.from('sesiones').select('id, instructor_id')
+          .eq('studio_id', studioId).in('id', sesionIds);
     const instructorPorSesion = new Map((sesionesTodasRow ?? []).map(s => [s.id as string, s.instructor_id as string | null]));
     penalizacionesCobradasEur = penalizacionesRow
       .filter(p => instructorPorSesion.get(sesionIdPorReserva.get(p.reserva_id as string) ?? '') === instructorId)

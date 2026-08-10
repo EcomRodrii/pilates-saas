@@ -59,6 +59,12 @@ export const EVENTOS = {
   // RESERVA_CONFIRMADA (emitirReserva) y la caducidad de la oferta reutiliza
   // RESERVA_CANCELADA (emitirReservaCancelada, motivo 'oferta_caducada').
   RESERVA_OFERTA_LISTA_ESPERA: 'reserva.oferta_lista_espera',
+  // Cron de plazas fijas (materializar-plazas): esta semana NO se ha podido
+  // generar la reserva automática de "tu reformer fijo" — sesión cancelada,
+  // suscripción pausada, o sin aforo tras priorizar por antigüedad. Distinto
+  // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
+  // a crearse ninguna, así que ese evento mentiría.
+  RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -69,6 +75,16 @@ export const EVENTOS = {
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
+  // Mismo hecho que PAGO_REALIZADO (mismo recibo, mismo publish desde
+  // emitirPagoRealizado), pero PAGO_REALIZADO es BAJA/sin canales porque su
+  // destinataria es la socia (un recibo más, nada que celebrar desde su lado).
+  // El mostrador SÍ quiere enterarse al momento de que ha entrado dinero — es
+  // el aviso que dispara el toast+sonido "cha-ching" del panel — así que es un
+  // evento propio en vez de ampliar la audiencia de PAGO_REALIZADO: la
+  // prioridad/canales se declaran por evento, y mezclar audiencias con
+  // necesidades de urgencia distintas en una sola regla las igualaría a la
+  // baja (mismo criterio que separó PAGO_CHARGEBACK_PERDIDO de PAGO_DEVUELTO).
+  VENTA_REGISTRADA: 'venta.registrada',
   // Disputa/chargeback de Stripe: el dinero ya se cobró y ahora se impugna.
   // Distinto de PAGO_FALLIDO (ahí nunca llegó a cobrarse) — el estudio tiene
   // un plazo real de la propia Stripe para responder con evidencia.
@@ -81,6 +97,19 @@ export const EVENTOS = {
   // la propietaria, es accionable por su parte (pedir que la socia acepte el
   // contrato actualizado), a diferencia de "sin tarjeta" que es silencioso.
   PAGO_PENALIZACION_BLOQUEADA: 'pago.penalizacion_bloqueada',
+  // Devolución de dinero (reembolso total o parcial). El reembolso PARCIAL era
+  // hasta ahora 100 % invisible: no marcaba el recibo, no avisaba a nadie y no
+  // dejaba rastro — siendo el caso más habitual cuando la socia ya usó parte del
+  // bono. Lo accionable no es el dinero (ya se movió en Stripe pase lo que pase),
+  // sino que la socia se queda con lo entregado si nadie lo revisa.
+  PAGO_DEVUELTO: 'pago.devuelto',
+  // Disputa PERDIDA. Evento propio y no una variante de PAGO_DEVUELTO porque la
+  // prioridad y los canales se declaran POR evento, y este necesita más: el
+  // dinero se ha perdido definitivamente y ya no hay plazo que responder.
+  // Tampoco se reutiliza PAGO_DISPUTADO: su copy habla del plazo de evidencia
+  // (que ya pasó) y su dedupKey es por recibo, así que el segundo aviso del
+  // mismo recibo se tragaría en silencio.
+  PAGO_CHARGEBACK_PERDIDO: 'pago.chargeback_perdido',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -117,6 +146,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.RESERVA_LISTA_ESPERA]:  { category: 'reservas', priority: 'MEDIA',  canales: [],       audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_PLAZA_LIBERADA]:{ category: 'reservas', priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   [EVENTOS.RESERVA_CANCELADA]:     { category: 'reservas', priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // MEDIA + PUSH: informativo (no hay plazo que cumplir), pero merece
+  // notarse — es la feature premium "tu reformer fijo" fallando en silencio
+  // si no se avisa, y la socia puede reservar manualmente en su lugar.
+  [EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA]: { category: 'reservas', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // ALTA + PUSH a propósito: a diferencia de RESERVA_CREADA (informativa),
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
@@ -137,6 +170,13 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // Solo in-app a propósito: el canal que importa aquí es el toast+sonido en
+  // tiempo real de la campana (realtime, no un "canal" del catálogo) cuando el
+  // panel está abierto. CON push además: si la propietaria tiene el móvil con
+  // el PWA instalado (panel.webmanifest) y no está mirando el panel en ese
+  // momento, quiere enterarse igual — pedido explícito del fundador tras
+  // probar un pago real sin tener el panel en pantalla.
+  [EVENTOS.VENTA_REGISTRADA]:      { category: 'pagos',    priority: 'MEDIA',  canales: ['PUSH'], audiencia: 'mostrador' },
   // Sin EMAIL: el recibo (ReciboEmail) ya se manda por separado.
   [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
@@ -144,6 +184,15 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Solo al mostrador: quien disputa el cargo es la propia socia, avisarla
   // de su propia disputa no tiene sentido. EMAIL sí (hay un plazo de Stripe
   // que responder, no es algo que se pueda dejar para cuando se abra el panel).
+  // Solo in-app + push: hay que revisarlo, pero el dinero ya se movió y no hay
+  // ningún plazo externo corriendo. Audiencia `mostrador` con plantillas solo
+  // para PROPIETARIO y RECEPCION: sin plantilla `#MANAGER` el motor lo descarta
+  // solo, y MANAGER no puede ni leer `recibos` (migr 0114), así que el enlace le
+  // llevaría a una pantalla vacía. Mismo criterio que PAGO_DISPUTADO.
+  [EVENTOS.PAGO_DEVUELTO]: { category: 'pagos', priority: 'MEDIA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // ALTA + EMAIL: el dinero se ha perdido definitivamente y encima la socia
+  // conserva lo entregado hasta que alguien lo revise.
+  [EVENTOS.PAGO_CHARGEBACK_PERDIDO]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
@@ -264,6 +313,13 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Reserva cancelada',
     body: 'Se ha cancelado tu reserva de {clase} del {cuando}.{motivoTexto}',
   },
+  // {motivoTexto} explica por qué, igual que en RESERVA_CANCELADA — mismo
+  // patrón, tres motivos posibles según plazas_fijas_sin_materializar.
+  [`${EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA}#SOCIA`]: {
+    title: 'Tu plaza fija no se ha reservado esta semana',
+    body: 'No hemos podido confirmar tu plaza fija en {clase} del {cuando}.{motivoTexto}',
+    deepLink: (d: Datos) => `/portal/${s(d.slug)}/clases/${s(d.sesionId)}`,
+  },
   // Reserva pendiente de aprobar → mostrador (propietaria/manager/recepción)
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#PROPIETARIO`]: {
     title: 'Reserva pendiente de aprobar',
@@ -318,9 +374,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Cubrirás {clase} el {cuando}{sala}. ¡Gracias!',
     deepLink: () => `/calendario`,
   },
+  // `{siguiente}` en vez de un "Busca otra opción" fijo: en modo autónomo el
+  // motor ya ha pasado a la siguiente candidata por su cuenta, y decirle a la
+  // propietaria que busque sería mandarla a hacer un trabajo que no le toca.
   [`${EVENTOS.SUSTITUCION_RECHAZADA}#PROPIETARIO`]: {
     title: 'Sustitución rechazada',
-    body: '{instructora} no puede cubrir {clase} del {cuando}. Busca otra opción.',
+    body: '{instructora} no puede cubrir {clase} del {cuando}. {siguiente}',
     deepLink: () => `/sustituciones`,
   },
   // Pago fallido → dueña, mostrador y socia (mismo evento, textos por rol)
@@ -343,6 +402,23 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Pago recibido',
     body: 'Hemos recibido tu pago de {concepto} ({importe} €). ¡Gracias!',
   },
+  // Nueva venta → mostrador (dueña/manager/recepción). Mismo texto para las
+  // tres, mismo criterio que el resto de plantillas `mostrador`.
+  [`${EVENTOS.VENTA_REGISTRADA}#PROPIETARIO`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
+  },
+  [`${EVENTOS.VENTA_REGISTRADA}#MANAGER`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
+  },
+  [`${EVENTOS.VENTA_REGISTRADA}#RECEPCION`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
+  },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',
     body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
@@ -353,6 +429,29 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_PENALIZACION_BLOQUEADA}#PROPIETARIO`]: {
     title: 'Penalización sin cobrar',
     body: 'Una penalización de {importe} € no se ha podido cobrar porque la socia no ha aceptado el contrato con la cláusula actualizada.',
+  },
+  // {tipoTexto} distingue total de parcial dentro del mismo evento — mismo
+  // patrón que {motivoTexto} en RESERVA_CANCELADA. Lo que NO se puede meter en
+  // una variable es la prioridad, y por eso el chargeback es un evento aparte.
+  [`${EVENTOS.PAGO_DEVUELTO}#PROPIETARIO`]: {
+    title: 'Has devuelto un cobro',
+    body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_DEVUELTO}#RECEPCION`]: {
+    title: 'Has devuelto un cobro',
+    body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#PROPIETARIO`]: {
+    title: 'Has perdido una disputa',
+    body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
+    deepLink: () => `/dashboard`,
+  },
+  [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#RECEPCION`]: {
+    title: 'Has perdido una disputa',
+    body: 'El banco ha dado la razón a {socia}: {importe} € se han perdido definitivamente. Sigue teniendo lo que pagó — revísalo.',
+    deepLink: () => `/dashboard`,
   },
   [`${EVENTOS.PAGO_DISPUTADO}#PROPIETARIO`]: {
     title: 'Un cargo ha sido disputado',

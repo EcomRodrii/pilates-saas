@@ -1,10 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { MarcoDispositivo } from './marco-dispositivo';
+import type { DispositivoId } from '@/lib/theme/dispositivos';
 import { fetchHomePreviewToken } from '@/lib/api-client';
 import { themeToCssVars } from '@/lib/theme-runtime';
+import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
+import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
+import { escalaMedida, huecosDeInsercion, type BloqueMedido, type Caja } from '@/lib/theme/overlay-preview';
 
 const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
   { id: 'home', ruta: '', etiqueta: 'Inicio' },
@@ -17,7 +22,11 @@ const PANTALLAS: { id: PantallaId; ruta: string; etiqueta: string }[] = [
 // `pantalla`/`onPantallaChange` que controla el padre (PortalBloquesEditor),
 // solo de la navegación interna de este widget. Compras queda fuera a
 // propósito (dinero real) — ver PortalPreviewReservasClient/PerfilClient.
-export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas'; ruta: string; etiqueta: string }[] = [
+export const PANTALLAS_SOLO_NAVEGABLES: { id: 'perfil' | 'reservas' | 'bienvenida'; ruta: string; etiqueta: string }[] = [
+  // ⚠️ La bienvenida va PRIMERA porque es lo primero que ve una socia — y
+  // porque hasta ahora no estaba: la única forma de comprobarla era
+  // publicarla, o sea enseñársela antes a las clientas que a la propietaria.
+  { id: 'bienvenida', ruta: 'bienvenida', etiqueta: 'Bienvenida' },
   { id: 'reservas', ruta: 'reservas', etiqueta: 'Reservas' },
   { id: 'perfil', ruta: 'perfil', etiqueta: 'Perfil' },
 ];
@@ -44,6 +53,7 @@ const TODAS_LAS_VISTAS: { id: VistaId; ruta: string; etiqueta: string }[] = [...
 // (Fase 4): eso NO se avisa al padre, que solo sabe de pantallas con bloques.
 export function HomePreview({
   bloquesPorPantalla, pantalla, onPantallaChange, slug, seleccionId, onBloqueSeleccionado, temaBorrador, irA,
+  dispositivo = 'movil', zoom = 1, modo = 'editar', onInsertar,
 }: {
   bloquesPorPantalla: Record<PantallaId, BloqueHome[]>;
   pantalla: PantallaId;
@@ -70,8 +80,20 @@ export function HomePreview({
   // aunque `vista` sea la misma string que la última vez (ej. volver a pedir
   // Reservas tras haber navegado a Perfil a mano dentro del propio widget).
   irA?: { vista: VistaId; nonce: number } | null;
+  dispositivo?: DispositivoId;
+  zoom?: number;
+  // Qué hace un click DENTRO del iframe. Viaja por el mismo mensaje que los
+  // bloques (no hay canal nuevo) y se manda a las tres pantallas, no solo a
+  // la mirada: es un ajuste del editor, no de una pantalla.
+  modo?: ModoPreview;
+  // Insertar una sección DESDE el preview, en el hueco donde se pulsó. Sin
+  // esto no se pintan los "+": el overlay solo aparece si alguien lo escucha.
+  onInsertar?: (indice: number) => void;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
+  const envoltorio = useRef<HTMLDivElement>(null);
+  const [medidas, setMedidas] = useState<BloqueMedido[]>([]);
+  const [caja, setCaja] = useState<{ iframe: Caja; escala: number } | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [vista, setVista] = useState<VistaId>(pantalla);
   // Ajuste de estado derivado DURANTE el render (no en un efecto — patrón
@@ -87,11 +109,6 @@ export function HomePreview({
     if (PANTALLAS.some((p) => p.id === vista)) setVista(pantalla);
   }
 
-  function elegirVista(id: VistaId) {
-    setVista(id);
-    if (id === 'home' || id === 'clases' || id === 'bonos') onPantallaChange(id);
-  }
-
   // Mismo patrón que `pantallaVista` arriba (ajuste de estado DURANTE el
   // render, no en un efecto): un `nonce` nuevo es "cambió la prop", aunque
   // `irA.vista` sea el mismo string que la última vez.
@@ -102,11 +119,19 @@ export function HomePreview({
     if (irA.vista === 'home' || irA.vista === 'clases' || irA.vista === 'bonos') onPantallaChange(irA.vista);
   }
 
+  // El token trae el slug consigo, y por eso la vista previa ya no espera al
+  // contexto del panel: antes el iframe no podía componer su URL hasta que
+  // `useStudio()` resolvía —63 peticiones más tarde— y se veía un hueco vacío
+  // entre 4 y 7 segundos. El slug de la prop se sigue aceptando como respaldo.
+  const [slugToken, setSlugToken] = useState<string | null>(null);
   useEffect(() => {
     let vivo = true;
-    fetchHomePreviewToken().then((t) => { if (vivo) setToken(t); }).catch(() => {});
+    fetchHomePreviewToken()
+      .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); } })
+      .catch(() => {});
     return () => { vivo = false; };
   }, []);
+  const slugEfectivo = slugToken ?? slug ?? null;
 
   function enviar() {
     for (const p of PANTALLAS) {
@@ -114,13 +139,23 @@ export function HomePreview({
         {
           type: 'tentare-bloques-preview', pantalla: p.id, bloques: bloquesPorPantalla[p.id],
           seleccionId: p.id === pantalla ? (seleccionId ?? null) : null,
+          modo,
         },
         window.location.origin,
       );
     }
     if (temaBorrador) {
       ref.current?.contentWindow?.postMessage(
-        { type: 'tentare-theme-preview', vars: themeToCssVars(temaBorrador) as Record<string, string> },
+        {
+          type: MENSAJE_TEMA_PREVIEW,
+          vars: themeToCssVars(temaBorrador) as Record<string, string>,
+          // La mitad JS del tema (variantes de FORMA, barra) — ver
+          // lib/theme-preview-puente.ts. Sin esto, el iframe pintaba la paleta
+          // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
+          // 'clasica' y los retos salían blancos aunque el borrador dijera otra
+          // cosa. Lo aplica StudioProvider, que es donde vive `variantes`.
+          temaJs: resolveTemaJs(temaBorrador),
+        },
         window.location.origin,
       );
     }
@@ -150,41 +185,82 @@ export function HomePreview({
     return () => window.removeEventListener('message', onMsg);
   }, [onBloqueSeleccionado]);
 
-  if (!slug || !token) {
-    return (
-      <div className="mx-auto w-full max-w-[320px] aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 bg-muted flex items-center justify-center text-center px-6">
-        <p className="text-[12px] text-muted-foreground">La vista previa aparecerá en un momento.</p>
-      </div>
-    );
+  // Dónde está el iframe DENTRO del panel, y a qué escala se ve.
+  //
+  // ⚠️ La escala se MIDE (ancho pintado / ancho declarado) en vez de
+  // recomponerse desde `zoom`: el encogido automático lo decide un
+  // ResizeObserver dentro de MarcoDispositivo, así que rehacer la cuenta aquí
+  // sería duplicar esa lógica y desincronizarse en cuanto cambie el hueco.
+  useEffect(() => {
+    if (!onInsertar) return;
+    const el = ref.current;
+    const cont = envoltorio.current;
+    if (!el || !cont) return;
+    function remedir() {
+      const i = el!.getBoundingClientRect();
+      const c = cont!.getBoundingClientRect();
+      setCaja({
+        // Relativas al envoltorio, que es quien lleva el `position: relative`.
+        iframe: { x: i.left - c.left, y: i.top - c.top, ancho: i.width, alto: i.height },
+        escala: escalaMedida(i.width, el!.offsetWidth),
+      });
+    }
+    remedir();
+    const ro = new ResizeObserver(remedir);
+    ro.observe(el);
+    ro.observe(cont);
+    return () => ro.disconnect();
+  }, [onInsertar, dispositivo, zoom, token]);
+
+  useEffect(() => {
+    if (!onInsertar) return;
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (e.source !== ref.current?.contentWindow) return;
+      const d = e.data as { type?: string; bloques?: BloqueMedido[] } | null;
+      if (!d || d.type !== 'tentare-bloques-preview-medidas' || !Array.isArray(d.bloques)) return;
+      setMedidas(d.bloques);
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [onInsertar]);
+
+  if (!slugEfectivo || !token) {
+    return <MarcoDispositivo dispositivo={dispositivo} zoom={zoom} vacio="La vista previa aparecerá en un momento." />;
   }
 
   const ruta = TODAS_LAS_VISTAS.find((p) => p.id === vista)?.ruta ?? '';
 
   return (
-    <div className="mx-auto w-full max-w-[320px]">
-      <div className="flex flex-wrap justify-center gap-1 mb-3" role="tablist" aria-label="Pantalla a previsualizar">
-        {TODAS_LAS_VISTAS.map(p => (
-          <button
-            key={p.id}
-            type="button"
-            role="tab"
-            aria-selected={vista === p.id}
-            onClick={() => elegirVista(p.id)}
-            className={`px-3 py-1 rounded-full text-xs border ${vista === p.id ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}
-          >
-            {p.etiqueta}
-          </button>
-        ))}
-      </div>
-      <div className="aspect-[9/19] rounded-[2rem] border-[6px] border-black/85 shadow-xl overflow-hidden bg-white">
+    <div ref={envoltorio} className="relative">
+      <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
         <iframe
           ref={ref}
-          src={`/portal-preview/${slug}${ruta ? `/${ruta}` : ''}?t=${token}`}
+          src={`/portal-preview/${slugEfectivo}${ruta ? `/${ruta}` : ''}?t=${token}`}
           title="Vista previa de la app de socias"
           onLoad={enviar}
           className="w-full h-full border-0"
         />
-      </div>
+      </MarcoDispositivo>
+      {/* El "+" entre secciones. Va FUERA del iframe a propósito: dentro lo
+          recortaría el marco y lo encogería el mismo `scale()` que encoge el
+          portal, así que en un móvil al 45 % mediría 14 px. */}
+      {onInsertar && caja && huecosDeInsercion(medidas, caja.iframe, caja.escala).map((h) => (
+        <button
+          key={h.indice}
+          type="button"
+          onClick={() => onInsertar(h.indice)}
+          aria-label={`Añadir una sección en la posición ${h.indice + 1}`}
+          data-hueco={h.indice}
+          className="absolute z-10 -translate-y-1/2 flex items-center justify-center group"
+          style={{ left: h.x, top: h.y, width: h.ancho, height: 22 }}
+        >
+          <span className="h-px w-full bg-brand/0 group-hover:bg-brand transition-colors" />
+          <span className="absolute w-5 h-5 rounded-full bg-background border border-border text-muted-foreground text-[13px] leading-none flex items-center justify-center opacity-40 group-hover:opacity-100 group-hover:bg-brand group-hover:text-brand-foreground group-hover:border-brand transition-all">
+            +
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

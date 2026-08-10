@@ -1,9 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
-import { planificarTrasFallo, type PlanReintento } from '@/lib/billing/dunning';
-import { enviarEmailImpago } from '@/lib/emails/impago-server';
-import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
+import { planificarTrasFallo, debeAutoCancelarSuscripcion, type PlanReintento } from './dunning.ts';
+import { enviarEmailImpago } from '../emails/impago-server.ts';
+import { aplicarRenovacionServidor } from './renovacion-server.ts';
+import { sellarFacturaDeRecibo } from './sellar-factura-server.ts';
 
 // Registra un intento de cobro FALLIDO de un recibo y avanza su ciclo de dunning:
 // cuenta el intento, reprograma el siguiente reintento (+3 / +7 días) o marca el
@@ -29,7 +29,7 @@ export async function registrarFalloCobro(params: {
 
   const { data: rec } = await admin
     .from('recibos')
-    .select('id, studio_id, socio_id, concepto, importe, fecha_vencimiento, intentos_reintento')
+    .select('id, studio_id, socio_id, suscripcion_id, concepto, importe, fecha_vencimiento, intentos_reintento')
     .eq('id', reciboId)
     .eq('studio_id', studioId)
     .maybeSingle();
@@ -49,6 +49,36 @@ export async function registrarFalloCobro(params: {
     .eq('studio_id', studioId);
   if (error) throw new Error(error.message);
 
+  // Hallazgo A (auditoría dunning 2026-08-10): al agotar los 3 reintentos la
+  // suscripción se quedaba ACTIVA para siempre con `fecha_fin` ya vencida —
+  // la reserva de plaza está a salvo (tieneEntitlementActivo/calcularEstadoSuscripcion
+  // sí miran fecha_fin), pero los contadores que solo filtran por
+  // `estado === 'ACTIVA'` (MRR, "bonos activos"...) se inflaban con el tiempo.
+  // Mismo valor de enum que ya usa el resto del repo para "esta suscripción ya
+  // no está vigente y no se debe reintentar/renovar" — el botón "Cancelar
+  // suscripción" de la ficha de clienta (studio-context.tsx) escribe el mismo
+  // 'CANCELADA', así que este camino automático queda con el mismo estado (y
+  // habilita el mismo botón "Reactivar" que el manual).
+  //
+  // Best-effort (no tira el registro del fallo, ya guardado arriba) pero
+  // idempotente de verdad: el UPDATE va condicionado a `estado = 'ACTIVA'`,
+  // así que un reintento del webhook/cron sobre un recibo ya FALLIDO es un
+  // no-op silencioso, nunca un segundo efecto ni un error.
+  if (debeAutoCancelarSuscripcion(plan, rec.suscripcion_id)) {
+    try {
+      await admin
+        .from('suscripciones')
+        .update({ estado: 'CANCELADA' })
+        .eq('id', rec.suscripcion_id)
+        .eq('studio_id', studioId)
+        .eq('estado', 'ACTIVA');
+    } catch (e) {
+      Sentry.captureException(e instanceof Error ? e : new Error('Fallo al auto-cancelar suscripción tras impago definitivo'), {
+        level: 'error', tags: { area: 'cobros', tipo: 'dunning' }, extra: { reciboId, suscripcionId: rec.suscripcion_id },
+      });
+    }
+  }
+
   if (plan.esPrimerFallo || plan.esDefinitivo) {
     // Best-effort: un fallo notificando no debe tirar el registro del fallo de cobro.
     try {
@@ -56,8 +86,10 @@ export async function registrarFalloCobro(params: {
       // Notification Engine: solo al quedar FALLIDO (requiere acción manual) se
       // avisa a la propietaria + socia in-app/push. El email a la socia (1.er
       // fallo informativo o definitivo) lo sigue enviando notificarFalloCobro.
+      // Mismo evento sirve para avisar de la cancelación por impago: el texto
+      // ("revisa tu método de pago") ya es genérico, no hace falta uno nuevo.
       if (plan.esDefinitivo) {
-        const { emitirPagoFallido } = await import('@/lib/notifications/emit');
+        const { emitirPagoFallido } = await import('../notifications/emit.ts');
         await emitirPagoFallido(admin, { studioId, reciboId });
       }
     } catch (e) {
@@ -90,8 +122,10 @@ export async function confirmarCobroSepaExitoso(params: {
   if (!rec) return { ok: false, error: 'Recibo no encontrado' };
 
   await aplicarRenovacionServidor(admin, { studioId, reciboId });
-  const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+  const { emitirPagoRealizado } = await import('../notifications/emit.ts');
   await emitirPagoRealizado(admin, { studioId, reciboId });
+  const { enviarEmailReciboWebhook } = await import('../emails/enviar-recibo-webhook.ts');
+  await enviarEmailReciboWebhook(admin, { studioId, reciboId });
   try {
     const sell = await sellarFacturaDeRecibo(admin, { studioId, reciboId, facturaId: `fac-sepa-${reciboId}` });
     if (!sell.ok) throw new Error(sell.error ?? 'sellado falló');

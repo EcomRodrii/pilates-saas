@@ -2,349 +2,185 @@
 
 import { useState, useId } from 'react';
 import Link from 'next/link';
-import { Building2, User, CheckCircle2, Mail } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import { supabase } from '@/lib/db/supabase';
-import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { captchaGastado } from '@/lib/auth/captcha-usado';
+import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 
-type StudioTipo = 'Pilates' | 'Yoga' | 'Fitness' | 'CrossFit' | 'Danza' | 'Otro';
-
-interface StudioForm {
-  nombre: string;
-  tipo: StudioTipo;
-  ciudad: string;
-  telefono: string;
-  comoNosConocio: string;
-}
-
-interface OwnerForm {
-  nombreCompleto: string;
-  email: string;
-  contrasena: string;
-}
-
-const TIPOS: StudioTipo[] = ['Pilates', 'Yoga', 'Fitness', 'CrossFit', 'Danza', 'Otro'];
-const COMO_NOS_CONOCIO_OPCIONES = ['Google', 'Instagram', 'TikTok', 'Recomendación', 'YouTube', 'Otro'];
-
+// Tentare todavía no está lanzado al público: crear un estudio de verdad aquí
+// crearía cuentas antes de que el producto esté listo para recibirlas. Mientras
+// tanto, esta pantalla solo recoge el email (vía /api/public/interes-lanzamiento,
+// que cae en `plataforma_lead` con origen `ALTA`) para avisar por email
+// marketing en cuanto se active. La lógica de alta real sigue viva en
+// `dbCreateStudio`/`app/login` (metadata `pending_studio`) para cuando se
+// reactive — no se ha borrado, solo ha dejado de dispararse desde aquí.
 export default function CrearEstudioPage() {
   const uid = useId();
-  const { signUp } = useAuth();
-  const [step, setStep] = useState(1);
-  const [studio, setStudio] = useState<StudioForm>({ nombre: '', tipo: 'Pilates', ciudad: '', telefono: '', comoNosConocio: '' });
-  const [owner, setOwner] = useState<OwnerForm>({ nombreCompleto: '', email: '', contrasena: '' });
+  const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [estudio, setEstudio] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [needsConfirmEmail, setNeedsConfirmEmail] = useState(false);
-  const [nuevoSlug, setNuevoSlug] = useState<string | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // El campo trampa. Una persona no puede verlo ni enfocarlo, así que esto se
+  // queda vacío siempre; si llega con algo, lo ha rellenado un bot.
+  const [trampa, setTrampa] = useState('');
+  const { widget: captcha, pedirToken } = useCaptcha();
 
-  function handleStudioSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setStep(2);
-  }
-
-  async function handleOwnerSubmit(e: React.FormEvent) {
+  // El captcha de esta pantalla estuvo un tiempo siendo decoración: el widget
+  // se pintaba y bloqueaba el botón, pero la petición **jamás incluyó el
+  // token** y el endpoint no comprobaba ninguno. Frenaba a personas y a ningún
+  // bot, porque un bot llama a la API directamente sin abrir el formulario.
+  //
+  // Ahora el token viaja y `/api/public/interes-lanzamiento` lo verifica
+  // contra el `siteverify` de Cloudflare. Y ya no se ve nada: el widget está
+  // invisible hasta que de verdad haya que resolver algo a mano.
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    setCreating(true);
-
-    const studioFields = {
-      nombre: studio.nombre,
-      ciudad: studio.ciudad,
-      telefono: studio.telefono,
-      comoNosConocio: studio.comoNosConocio || undefined,
-    };
-
-    // Los datos del negocio viajan como metadata del propio usuario de Supabase
-    // (no localStorage): así, si confirma el email desde otro dispositivo
-    // (ej. abre el enlace en el Gmail del móvil), el estudio se puede crear
-    // igual al iniciar sesión por primera vez (ver app/login/page.tsx).
-    const { error: signUpError, needsConfirmation } = await signUp(owner.email, owner.contrasena, {
-      pending_studio: studioFields,
-    }, captchaToken ?? undefined);
-    if (signUpError) {
-      setError(signUpError);
-      setCreating(false);
-      return;
-    }
-
-    if (needsConfirmation) {
-      setNeedsConfirmEmail(true);
-      setCreating(false);
-      return;
-    }
-
-    // Ya hay sesión activa (confirmación de email desactivada en el proyecto)
-    // — creamos el negocio ahora mismo.
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const newStudio = await dbCreateStudio({ ...studioFields, ownerAuthUserId: user.id });
-      if (newStudio) {
-        setCurrentStudioId(newStudio.id);
-        setNuevoSlug(newStudio.slug);
+    setEnviando(true);
+    try {
+      // Se pide AL ENVIAR, con el botón ya en «Enviando…»: tarda unos
+      // segundos, y antes de esta llamada no hay nada que verificar.
+      const token = await pedirToken();
+      if (token === null) { setError(ERROR_CAPTCHA); return; }
+      const res = await fetch('/api/public/interes-lanzamiento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, nombre, estudio, ciudad, captchaToken: token || undefined, [CAMPO_TRAMPA]: trampa }),
+      });
+      // Un token se gasta al verificarlo, vaya bien o mal. Sin esto, corregir
+      // el email y reintentar fallaría por el captcha y no por el email.
+      if (token) captchaGastado();
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || 'No se ha podido registrar tu email. Inténtalo de nuevo.');
+        return;
       }
+      setEnviado(true);
+    } catch {
+      setError('No se ha podido registrar tu email. Inténtalo de nuevo.');
+    } finally {
+      setEnviando(false);
     }
-    setCreating(false);
-    setStep(3);
   }
 
   return (
-    <div className="min-h-screen bg-[#EEEEE8] flex items-center justify-center px-4 py-10">
+    <div className="min-h-dvh bg-[#EEEEE8] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          {/* Dos puntos, no tres: el texto dice «Paso 1 de 2» y el tercer punto
-              era un paso fantasma que hacía parecer que quedaba más camino. El
-              paso 3 no es un paso del alta, es la pantalla de que ya está. */}
-          <div className="inline-flex items-center gap-1.5 mb-4">
-            {[1, 2].map(n => (
-              <div
-                key={n}
-                className="transition-all duration-300"
-              >
-                <div
-                  className={`rounded-full ${
-                    n === step
-                      ? 'w-6 h-2.5 bg-[#1A1A1A]'
-                      : n < step
-                      ? 'w-2.5 h-2.5 bg-[#1A1A1A]/50'
-                      : 'w-2.5 h-2.5 bg-[#E5E7EB]'
-                  }`}
-                />
-              </div>
-            ))}
-          </div>
-          {step < 3 && (
-            <p className="text-[13px] text-[#6B7280]">Paso {step} de 2</p>
-          )}
-        </div>
-
         <div className="bg-white rounded-2xl shadow-lg border border-border overflow-hidden">
-          {step === 1 && (
-            <form onSubmit={handleStudioSubmit} className="p-6 space-y-5">
+          {!enviado ? (
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
-                  <Building2 size={20} className="text-[#5A6142]" />
+                  <Sparkles size={20} className="text-[#5A6142]" />
                 </div>
                 <div>
-                  <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu estudio</h1>
-                  <p className="text-[13px] text-[#6B7280]">Cuéntanos sobre tu negocio</p>
+                  <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Todavía no hemos abierto</h1>
+                  <p className="text-[13px] text-[#6B7280]">Estamos afinando los últimos detalles</p>
                 </div>
               </div>
+
+              <p className="text-[14px] text-[#374151]">
+                Deja tu email y te avisamos en cuanto puedas crear tu estudio en Tentare.
+              </p>
 
               <div className="space-y-3">
                 <div>
-                  <label htmlFor={`${uid}-1`} className="block text-[13px] font-medium text-[#374151] mb-1">Nombre del estudio</label>
-                  <input id={`${uid}-1`}
-                    required
-                    type="text"
-                    placeholder="Ej. Tentare"
-                    value={studio.nombre}
-                    onChange={e => setStudio(s => ({ ...s, nombre: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor={`${uid}-2`} className="block text-[13px] font-medium text-[#374151] mb-1">Tipo de estudio</label>
-                  <select id={`${uid}-2`}
-                    value={studio.tipo}
-                    onChange={e => setStudio(s => ({ ...s, tipo: e.target.value as StudioTipo }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition bg-white"
-                  >
-                    {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor={`${uid}-3`} className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
-                  <input id={`${uid}-3`}
-                    type="text"
-                    placeholder="Ej. Madrid"
-                    value={studio.ciudad}
-                    onChange={e => setStudio(s => ({ ...s, ciudad: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor={`${uid}-4`} className="block text-[13px] font-medium text-[#374151] mb-1">Teléfono <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
-                  <input id={`${uid}-4`}
-                    type="tel"
-                    placeholder="+34 600 000 000"
-                    value={studio.telefono}
-                    onChange={e => setStudio(s => ({ ...s, telefono: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor={`${uid}-4b`} className="block text-[13px] font-medium text-[#374151] mb-1">¿Cómo nos has conocido? <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
-                  <select id={`${uid}-4b`}
-                    value={studio.comoNosConocio}
-                    onChange={e => setStudio(s => ({ ...s, comoNosConocio: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition bg-white"
-                  >
-                    <option value="">Selecciona una opción</option>
-                    {COMO_NOS_CONOCIO_OPCIONES.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
-              >
-                Continuar →
-              </button>
-            </form>
-          )}
-
-          {/* `!needsConfirmEmail`: el aviso de "confirma tu email" se pintaba
-              DEBAJO de este formulario, que seguía entero en pantalla con el
-              botón «Crear estudio» activo. En un portátil el aviso caía fuera de
-              la parte visible, así que parecía que el clic no había ido y se
-              volvía a pulsar — y volver a pulsar en el alta es justo el gesto
-              que duplicaba el estudio. La confirmación SUSTITUYE al formulario. */}
-          {step === 2 && !needsConfirmEmail && (
-            <form onSubmit={handleOwnerSubmit} className="p-6 space-y-5">
-              <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
-                  <User size={20} className="text-[#5A6142]" />
-                </div>
-                <div>
-                  <h1 className="text-[18px] font-bold text-[#111827] leading-tight">Tu cuenta</h1>
-                  <p className="text-[13px] text-[#6B7280]">Datos del propietario</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label htmlFor={`${uid}-5`} className="block text-[13px] font-medium text-[#374151] mb-1">Nombre completo</label>
-                  <input id={`${uid}-5`}
-                    required
-                    type="text"
-                    placeholder="Ej. María García"
-                    value={owner.nombreCompleto}
-                    onChange={e => setOwner(o => ({ ...o, nombreCompleto: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor={`${uid}-6`} className="block text-[13px] font-medium text-[#374151] mb-1">Email</label>
-                  <input id={`${uid}-6`}
+                  <label htmlFor={`${uid}-email`} className="block text-[13px] font-medium text-[#374151] mb-1">Email</label>
+                  <input id={`${uid}-email`}
                     required
                     type="email"
                     placeholder="maria@miestudio.com"
-                    value={owner.email}
-                    onChange={e => setOwner(o => ({ ...o, email: e.target.value }))}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor={`${uid}-7`} className="block text-[13px] font-medium text-[#374151] mb-1">Contraseña</label>
-                  <input id={`${uid}-7`}
-                    required
-                    type="password"
-                    placeholder="Mínimo 8 caracteres"
-                    value={owner.contrasena}
-                    onChange={e => setOwner(o => ({ ...o, contrasena: e.target.value }))}
+                  <label htmlFor={`${uid}-nombre`} className="block text-[13px] font-medium text-[#374151] mb-1">Tu nombre <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <input id={`${uid}-nombre`}
+                    type="text"
+                    placeholder="Ej. María García"
+                    value={nombre}
+                    onChange={e => setNombre(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
+
+                <div>
+                  <label htmlFor={`${uid}-estudio`} className="block text-[13px] font-medium text-[#374151] mb-1">Nombre del estudio <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <input id={`${uid}-estudio`}
+                    type="text"
+                    placeholder="Ej. Tentare"
+                    value={estudio}
+                    onChange={e => setEstudio(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor={`${uid}-ciudad`} className="block text-[13px] font-medium text-[#374151] mb-1">Ciudad <span className="font-normal text-[#9CA3AF]">(opcional)</span></label>
+                  <input id={`${uid}-ciudad`}
+                    type="text"
+                    placeholder="Ej. Madrid"
+                    value={ciudad}
+                    onChange={e => setCiudad(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
+                  />
+                </div>
+              </div>
+
+              {/* El campo trampa. Fuera de la pantalla y no `display:none`: hay
+                  bots que saltan lo oculto por CSS pero no lo que está
+                  desplazado. `aria-hidden` + `tabIndex={-1}` lo dejan
+                  inalcanzable para un lector de pantalla y para el tabulador,
+                  así que ninguna persona puede rellenarlo sin querer.
+                  `autoComplete="off"` evita que el navegador lo rellene solo,
+                  que sería un falso positivo con nombre y apellidos. */}
+              <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
+                <label htmlFor={`${uid}-${CAMPO_TRAMPA}`}>Tu página web</label>
+                <input
+                  id={`${uid}-${CAMPO_TRAMPA}`}
+                  name={CAMPO_TRAMPA}
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={trampa}
+                  onChange={e => setTrampa(e.target.value)}
+                />
               </div>
 
               {error && (
                 <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
               )}
 
-              <TurnstileWidget onToken={setCaptchaToken} />
+              {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
+                  resolver algo a mano. */}
+              {captcha}
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="flex-1 py-3 rounded-xl border border-[#E5E7EB] text-[#374151] font-medium text-[15px] hover:bg-[#F9FAFB] transition-colors"
-                >
-                  ← Atrás
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || (turnstileConfigurado() && !captchaToken)}
-                  className="flex-[2] py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all disabled:opacity-60"
-                >
-                  {creating ? 'Creando…' : 'Crear estudio →'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          {needsConfirmEmail && (
-            <div className="p-6 space-y-4 text-center">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
-                  <Mail size={32} className="text-[#5A6142]" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-[18px] font-bold text-[#111827]">Confirma tu email</h1>
-                <p className="text-[14px] text-[#6B7280] mt-1">
-                  Te hemos enviado un enlace a <strong className="text-[#111827]">{owner.email}</strong>.
-                  Confírmalo y luego inicia sesión — tu estudio <strong className="text-[#111827]">{studio.nombre}</strong> se creará automáticamente en ese momento.
-                </p>
-              </div>
-              <Link
-                href="/login"
-                className="flex items-center justify-center w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
+              <button
+                type="submit"
+                disabled={enviando}
+                className="w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all disabled:opacity-60"
               >
-                Ir a iniciar sesión →
-              </Link>
-            </div>
-          )}
-
-          {step === 3 && !needsConfirmEmail && (
-            <div className="p-6 space-y-5 text-center">
+                {enviando ? 'Enviando…' : 'Avísame cuando esté activo →'}
+              </button>
+            </form>
+          ) : (
+            <div className="p-6 space-y-4 text-center">
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center">
                   <CheckCircle2 size={32} className="text-[#5A6142]" />
                 </div>
               </div>
-
               <div>
-                <h1 className="text-[20px] font-bold text-[#111827]">¡Tu estudio está listo!</h1>
+                <h1 className="text-[18px] font-bold text-[#111827]">¡Apuntado!</h1>
                 <p className="text-[14px] text-[#6B7280] mt-1">
-                  <strong className="text-[#111827]">{studio.nombre}</strong> ya está configurado.
-                  Ahora puedes acceder a tu dashboard o compartir el portal con tus socios.
+                  Te escribiremos a <strong className="text-[#111827]">{email}</strong> en cuanto Tentare esté activo.
                 </p>
-              </div>
-
-              {nuevoSlug && (
-                <div className="bg-[#F8F9FA] rounded-xl px-4 py-3 text-left space-y-1">
-                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-[#9CA3AF]">URL del portal</p>
-                  <p className="text-[13px] font-medium text-[#5A6142] break-all">
-                    {typeof window !== 'undefined' ? window.location.origin : ''}/portal/{nuevoSlug}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-2.5">
-                {/* Hard navigation on purpose: forces StudioProvider to remount
-                    and resolve against the studio we just created, instead of
-                    keeping whatever it fetched before dbCreateStudio finished. */}
-                <a
-                  href="/dashboard"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all"
-                >
-                  Ir al dashboard →
-                </a>
-                <Link
-                  href="/portal/login"
-                  className="flex items-center justify-center w-full py-3.5 rounded-xl border border-[#E7E7E0] text-[#1A1A1A] font-semibold text-[15px] hover:bg-[#F5F5F1] transition-colors"
-                >
-                  Ver portal de miembros →
-                </Link>
               </div>
             </div>
           )}

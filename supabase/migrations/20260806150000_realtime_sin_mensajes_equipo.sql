@@ -1,0 +1,36 @@
+-- Realtime: sacar `mensajes_equipo` de la publicación mientras /chat siga congelado.
+--
+-- POR QUÉ
+-- Realtime es, con diferencia, el mayor consumidor de CPU de esta base de datos:
+-- `realtime.apply_rls()` decodificando WAL suma 2.791.881 ms de 4.780.468 ms
+-- totales medidos con pg_stat_statements desde 2026-07-02 — el 58 %. Son 523.981
+-- llamadas a 5,33 ms de media, y se pagan aunque no haya nada que entregar.
+--
+-- De las tres tablas publicadas, `mensajes_equipo` pertenece a /chat, que está en
+-- RUTAS_CONGELADAS (lib/frozen-features.ts). Verificado antes de escribir esto:
+--   · El único consumidor de la suscripción (lib/stores/use-team-chat-store.ts)
+--     es app/(dashboard)/chat/page.frozen.tsx. Next NO enruta `page.frozen.tsx`,
+--     solo `page.tsx` — y el `page.tsx` de /chat es un stub.
+--   · Además `puedeVerRuta()` (lib/permisos-reglas.ts:215) devuelve false para
+--     cualquier ruta congelada, así que el layout redirige a /dashboard.
+-- O sea: se está pagando decodificación de WAL + RLS por una feature que nadie
+-- puede alcanzar.
+--
+-- Las otras dos se quedan: `changelog_versiones` (widget de novedades) e
+-- `instructores` (studio-context.tsx:743, con filtro por studio_id y cleanup
+-- correcto) son consumidores vivos.
+--
+-- CÓMO REVERTIR (y cuándo hay que hacerlo)
+--   alter publication supabase_realtime add table public.mensajes_equipo;
+-- Hay que ejecutarlo SÍ O SÍ al descongelar /chat: sin la tabla en la
+-- publicación el chat no da error, simplemente los mensajes no aparecen en vivo
+-- hasta recargar. Por eso se añade el paso a la lista de reactivación de
+-- lib/frozen-features.ts en este mismo commit — un fallo mudo no se descubre
+-- solo.
+--
+-- Verificado en vivo con BEGIN/ROLLBACK antes de abrir el PR: el DROP deja la
+-- publicación con changelog_versiones + instructores y revierte limpio.
+--
+-- Sin cambio de esquema, sin RLS, sin funciones: no aplica el gotcha de grants.
+
+alter publication supabase_realtime drop table public.mensajes_equipo;

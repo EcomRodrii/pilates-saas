@@ -1,4 +1,8 @@
 {
+  "regions": [
+    "fra1"
+  ],
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"preview\" ]; then exit 0; fi; if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ]; then exit 1; fi; if git diff --quiet \"$VERCEL_GIT_PREVIOUS_SHA\" HEAD -- ':!docs/**' ':!**/*.md' ':!e2e/**' ':!**/*.test.ts'; then exit 0; fi; exit 1",
   "crons": [
     {
       "path": "/api/cron/no-shows",

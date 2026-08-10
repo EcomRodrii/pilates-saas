@@ -1,0 +1,163 @@
+/* 07-lists.css — filas de clase, reservas, bonos y ajustes. Con sus estados. */
+
+.class-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  padding: 18px;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.class-row:hover { border-color: var(--card-hover-border); box-shadow: var(--shadow-card-hover); }
+.class-row.is-booked { border-color: var(--dot); }
+.class-row.is-full { opacity: .72; }
+
+.class-row__time { flex: 0 0 54px; }
+/* La fila es un <button> con <span>: se les devuelve el flujo de bloque. */
+.class-row__time, .class-row__body, .class-row__hour, .class-row__dur,
+.class-row__name, .class-row__meta { display: block; }
+.class-row__hour {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 24px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+.class-row__dur { margin-top: 5px; font-size: 10px; color: var(--muted); }
+.class-row__body { flex: 1; min-width: 0; }
+.class-row__name {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 19px; line-height: 1.15; letter-spacing: -.02em; color: var(--ink);
+}
+.class-row__meta { margin-top: 5px; font-size: 11.5px; color: var(--muted); }
+.class-row__foot { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
+
+.class-row__teacher { font-size: 11px; font-weight: 500; color: var(--muted); }
+
+.status {
+  display: inline-flex; align-items: center;
+  margin-left: auto;
+  height: 22px; padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 10.5px; font-weight: 600;
+  white-space: nowrap;
+}
+.status--booked { background: var(--done-bg); border-color: transparent; color: var(--done-ink); }
+.status--full { background: rgba(0,0,0,.05); border-color: transparent; color: var(--muted); }
+.status--error { background: rgba(180,60,60,.1); border-color: transparent; color: #A33B3B; }
+.status--success { background: rgba(47,107,79,.12); border-color: transparent; color: #2F6B4F; }
+
+/* ── Reservas ───────────────────────────────────────────────────────────── */
+.booking { padding: 18px; }
+.booking__head { display: flex; align-items: flex-start; gap: 14px; }
+.booking__actions { display: flex; gap: 8px; margin-top: 14px; }
+.booking__actions .btn { flex: 1; }
+
+/* ── Bono ───────────────────────────────────────────────────────────────── */
+.pass { padding: 24px; }
+.pass__name {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-pass-name); line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+.pass__row { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
+.pass__number {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 60px; line-height: .85; letter-spacing: -.02em; color: var(--ink);
+}
+.pass__note { font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.pass__bar {
+  margin-top: 18px; height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+  overflow: hidden;
+}
+.pass__fill {
+  display: block; height: 100%;
+  width: var(--pct);
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width .4s cubic-bezier(.16,1,.3,1);
+}
+
+/* Tarjetas de compra de bono */
+.plan {
+  position: relative;
+  padding: 20px;
+  text-align: left;
+  width: 100%;
+}
+.plan.is-selected { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand), var(--shadow-card); }
+.plan__badge {
+  position: absolute; top: 16px; right: 16px;
+  height: 22px; padding: 0 9px;
+  border-radius: 999px;
+  background: var(--support);
+  color: var(--brand);
+  font-size: 10.5px; font-weight: 600;
+  display: inline-flex; align-items: center;
+}
+/* Las tarjetas de plan son <button>: hijos a bloque. */
+.plan__name, .plan__price, .plan__list { display: block; }
+.plan__name {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 20px; line-height: 1.2; letter-spacing: -.02em; color: var(--ink);
+}
+.plan__price { margin-top: 10px; display: flex; align-items: baseline; gap: 6px; }
+.plan__amount {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 34px; line-height: 1; letter-spacing: -.03em; color: var(--ink);
+}
+.plan__unit { font-size: 12px; color: var(--muted); }
+.plan__list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.plan__item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.plan__item .icon { color: var(--brand); flex: none; }
+
+/* ── Ajustes con interruptor ────────────────────────────────────────────── */
+.setting {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+}
+.setting__body { flex: 1; min-width: 0; display: block; }
+.setting__label { display: block; font-size: 13.5px; font-weight: 500; color: var(--ink); }
+.setting__note { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+
+.switch {
+  flex: none;
+  width: 44px; height: 26px;
+  border-radius: 999px;
+  background: #D9D9D2;
+  display: flex; align-items: center;
+  padding: 3px;
+  justify-content: flex-start;
+  transition: background .2s ease, justify-content .2s ease;
+}
+.switch.is-on { background: var(--brand); justify-content: flex-end; }
+.switch__ball {
+  display: block; width: 20px; height: 20px;
+  border-radius: 999px;
+  background: #FFFFFF;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .2s cubic-bezier(.16,1,.3,1);
+}
+
+/* ── Resumen de pedido (checkout) ───────────────────────────────────────── */
+.summary { padding: 18px; }
+.summary__row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 9px 0;
+  font-size: 13px; color: var(--muted);
+}
+.summary__row + .summary__row { border-top: 1px solid var(--border); }
+.summary__row--total { padding-top: 14px; margin-top: 5px; border-top: 1px solid var(--border); }
+.summary__row--total dt { font-size: 14px; font-weight: 600; color: var(--ink); }
+.summary__row--total dd {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 22px; letter-spacing: -.02em; color: var(--ink);
+}
+.summary dl, .summary dt, .summary dd { margin: 0; }
+.summary__row dd { color: var(--ink); font-weight: 500; }

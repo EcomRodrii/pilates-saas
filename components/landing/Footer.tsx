@@ -28,6 +28,7 @@ export function Footer() {
               <a href="#precio" style={{ color: '#8E8E86' }}>Precio</a>
               <a href="#faq" style={{ color: '#8E8E86' }}>FAQ</a>
               <Link href="/recursos" style={{ color: '#8E8E86' }}>Recursos</Link>
+              <Link href="/glosario" style={{ color: '#8E8E86' }}>Glosario</Link>
               <Link href="/comparativa" style={{ color: '#8E8E86' }}>Comparativa</Link>
               <Link href="/seguridad" style={{ color: '#8E8E86' }}>Seguridad</Link>
             </div>
@@ -61,9 +62,15 @@ export function Footer() {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, paddingTop: 26, borderTop: '1px solid rgba(255,255,255,.07)' }}>
           <span className="lp-mono" style={{ fontSize: 12, color: '#6E6E68' }}>© 2026 Tentare · Software para estudios de Pilates · Hecho en España 🇪🇸</span>
-          <div className="lp-mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#8E8E86', border: '1px solid rgba(255,255,255,.1)', borderRadius: 999, padding: '7px 13px' }}>
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><circle cx={12} cy={12} r={10} /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
-            Español (ES)
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- badge externo, no un asset propio */}
+              <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" style={{ height: 40, width: 'auto' }} />
+            </a>
+            <div className="lp-mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#8E8E86', border: '1px solid rgba(255,255,255,.1)', borderRadius: 999, padding: '7px 13px' }}>
+              <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}><circle cx={12} cy={12} r={10} /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+              Español (ES)
+            </div>
           </div>
         </div>
       </div>

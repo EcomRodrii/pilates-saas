@@ -39,6 +39,7 @@ export function PanelFacturas() {
   // botón "Ver factura" de Pagos, que antes no hacía nada).
   useEffect(() => {
     const ver = new URLSearchParams(window.location.search).get('ver');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?ver=<id>). No existe en el render de servidor.
     if (ver) setPreview(ver);
   }, []);
 
@@ -132,7 +133,7 @@ export function PanelFacturas() {
   function toggleGrupo(key: string) {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   }

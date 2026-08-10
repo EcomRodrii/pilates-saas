@@ -23,31 +23,57 @@ const tarjetaGrande = (page: Page) => page.locator('[data-tarjeta="principal"]')
 test.describe('Portal de la clienta — 01 Acceso', () => {
   test.beforeEach(async ({ page }) => { await montarPortal(page, { conSesion: false }); });
 
-  test('la hoja de acceso mantiene la pila de cápsulas del diseño', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/login`);
+  // La hoja de cápsulas de v2 la sustituyó la PUERTA ÚNICA (handoff «una sola
+  // puerta»): ya no hay una pantalla con email y contraseña a la vez, hay dos
+  // pasos. Lo que este test protegía —que los métodos ofrecidos son los que
+  // existen de verdad, y que hay salida para quien aún no es clienta— sigue
+  // siendo cierto y sigue comprobándose; lo que cambia es dónde vive cada cosa.
+  test('el paso 1 pide el email y deja salida a quien todavía no es clienta', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/acceso`);
 
-    // El nombre del estudio, en serif y grande, es la portada.
-    await expect(page.getByRole('heading', { name: 'Estudio Alma' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Bienvenida de nuevo')).toBeVisible();
-    await expect(page.getByText('a tu calma.')).toBeVisible();
+    await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Seguir' })).toBeVisible();
 
-    // Los dos métodos que existen de verdad — ni Apple ni Google, que no hay.
-    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Entrar con un enlace' })).toHaveAttribute('href', `/portal/${SLUG}/acceso`);
+    // Ni Apple ni Google: no hay OAuth social en este repo, y un botón que
+    // promete entrar con Apple y no entra es una mentira en la pantalla de
+    // acceso.
     await expect(page.getByText(/continuar con (apple|google)/i)).toHaveCount(0);
 
-    // Y la salida para quien todavía no es clienta.
     await expect(page.getByRole('link', { name: /reserva tu primera clase/i })).toHaveAttribute('href', `/reservar/${SLUG}`);
   });
 
-  test('los campos y el botón miden 66 px, que es lo que da el ritmo', async ({ page }) => {
+  // ⚠️ La regla de negocio que no se puede romper: el paso 2 NO pregunta al
+  // servidor si esta socia tiene contraseña —eso filtraría quién está dada de
+  // alta—, así que enseña las DOS continuaciones siempre.
+  test('el paso 2 ofrece contraseña Y enlace, sin preguntar cuál toca', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
+
+    await expect(page.getByPlaceholder('Tu contraseña')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /mándame un enlace/i })).toBeVisible();
+  });
+
+  // Sin email no hay paso 2: se vuelve al paso 1. Cubre a todo el que tuviera
+  // /login guardado en favoritos, que era la forma NORMAL de entrar antes.
+  test('entrar directo al paso 2 sin email devuelve al paso 1', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/login`);
+    await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
+  });
+
+  // El ritmo de 66 px era el de la hoja de cápsulas de v2, que la puerta única
+  // sustituye. El invariante de forma que SÍ sigue vivo —y que el handoff
+  // declara como regla, no como medida— es que el radio de un botón es la
+  // mitad exacta de su altura: 62 → 31. Redondear a 32 deja un plano recto de
+  // 2 px en el centro del lado, y se ve.
+  test('el CTA es una cápsula perfecta: radio la mitad exacta del alto', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
     const boton = page.getByRole('button', { name: 'Entrar' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
-    for (const el of [page.getByPlaceholder('Tu email'), page.getByPlaceholder('Tu contraseña'), boton]) {
-      const caja = await el.boundingBox();
-      expect(Math.round(caja!.height)).toBe(66);
-    }
+
+    const caja = await boton.boundingBox();
+    expect(Math.round(caja!.height)).toBe(62);
+    const radio = await boton.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
+    expect(Math.round(parseFloat(radio) * 2)).toBe(Math.round(caja!.height));
   });
 });
 
@@ -130,12 +156,16 @@ test.describe('Portal de la clienta — se ve bien en cualquier teléfono', () =
 });
 
 test.describe('Portal de la clienta — con foto del estudio', () => {
-  // Un PNG de 1×1 en verde: basta para que `fotoUrl` no sea nulo y la tarjeta
-  // entre en su composición de diseño, sin depender de ninguna red.
+  // Un PNG de 1×1 en verde: basta para que `imagenBienvenidaUrl` no sea nulo
+  // y la tarjeta entre en su composición de diseño, sin depender de ninguna
+  // red. NO se usa `fotoUrl` aquí a propósito: es la foto de perfil de la
+  // propietaria, un campo distinto — la tarjeta del portal lee la imagen de
+  // bienvenida, y este test existe precisamente para que ambos campos no se
+  // mezclen (ver migración 20260810140000_studios_imagen_bienvenida).
   const FOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAACwtJQAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
 
   test('con foto, la tarjeta mide los 476 px del diseño', async ({ page }) => {
-    await montarPortal(page, { conSesion: true, fotoUrl: FOTO });
+    await montarPortal(page, { conSesion: true, imagenBienvenidaUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();

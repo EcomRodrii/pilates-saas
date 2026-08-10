@@ -3,26 +3,90 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { capturar } from '@/lib/analytics';
-import { reclamarWebhookEvent, marcarWebhookProcesado } from '@/lib/webhook-idempotencia';
+import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
+import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 
+// Orígenes cuyo PaymentIntent apunta a un recibo real de Tentare, y que por
+// tanto hay que marcar DEVUELTO/disputado cuando se devuelve o se impugna.
+//
+// ⚠️ Es una LISTA, no dos comparaciones sueltas, porque ya se olvidó una: al
+// añadir la metadata a las compras de plan por enlace público (`plan_web`) se
+// escribió el `reciboId` en el PaymentIntent pero NO se añadió el origen aquí,
+// así que los tres consumidores lo seguían descartando y la compra continuaba
+// siendo invisible a reembolsos y disputas — exactamente el agujero que ese
+// cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
+const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web']);
+
+// Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
+//
+// Solo hace falta porque hay un estudio cuyo `stripe_account_id` ES esta misma
+// cuenta —el de demostración, que resulta ser el único que ha cobrado de
+// verdad—: Stripe entrega esos cobros como "de tu cuenta", sin `event.account`.
+//
+// Se AVERIGUA solo, con `GET /v1/account`, que devuelve la cuenta de la clave de
+// API. La primera versión de esto lo exigía en una variable de entorno, y eso
+// convertía el arreglo de un cobro perdido en una tarea de operaciones — se
+// quedó bloqueado justo ahí. Un webhook de dinero no puede depender de que
+// alguien acierte a rellenar una variable.
+//
+// Va por `fetch` y no por el SDK porque `accounts.retrieve` exige un id en los
+// tipos de esta versión, y la sobrecarga sin argumentos no existe. La variable
+// se sigue respetando si está puesta: sirve para fijar el valor y ahorrar la
+// llamada.
+//
+// Cacheado por instancia, y SOLO en caso de éxito: si la llamada falla no
+// queremos dejar la instancia con `null` hasta que la reciclen, porque `null`
+// significa "sin tenant" → 403.
+let cachePlataforma: string | undefined;
+async function cuentaDePlataforma(): Promise<string | null> {
+  if (cachePlataforma !== undefined) return cachePlataforma;
+  const fijada = process.env.STRIPE_PLATFORM_ACCOUNT_ID;
+  if (fijada) return (cachePlataforma = fijada);
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch('https://api.stripe.com/v1/account', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!res.ok) return null;
+    const cuenta = await res.json() as { id?: string };
+    return cuenta.id ? (cachePlataforma = cuenta.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Estudio dueño de la cuenta Connect que firma el evento.
+ * Estudio dueño de la cuenta de Stripe que firma el evento.
  *
  * Es la ÚNICA fuente fiable del tenant en los eventos de recibo: la metadata del
  * PaymentIntent la controla quien lo crea, así que un estudio con acceso a su
  * propia cuenta Stripe podría poner ahí el reciboId de OTRO estudio y confirmar
  * (o devolver) un cobro ajeno. `event.account` lo pone Stripe, no el emisor.
  *
- * Todos los cargos de recibo se crean con `{ stripeAccount }` sobre la cuenta
- * conectada del estudio, así que en estos manejadores siempre viene informado.
+ * ⚠️ Este comentario decía que `event.account` "siempre viene informado" en
+ * estos manejadores. NO es cierto, y costó un cobro sin entregar: cuando el
+ * `stripe_account_id` del estudio es la propia cuenta de la plataforma, Stripe
+ * trata el cargo como "de tu cuenta" y entrega el evento SIN `account`. De ahí
+ * `cuentaFirmante`.
  */
-async function studioDeCuentaConnect(admin: AdminClient, accountId: string | undefined): Promise<string | null> {
-  if (!accountId) return null;
-  const { data } = await admin.from('studios').select('id').eq('stripe_account_id', accountId).maybeSingle();
+async function studioDeCuentaConnect(
+  admin: AdminClient,
+  accountId: string | undefined,
+): Promise<string | null> {
+  // Un evento SIN `account` viene de la cuenta de la plataforma — que es la que
+  // tiene configurada el estudio de demostración. Ver `cuentaFirmante`.
+  //
+  // La cuenta de la plataforma solo se pide SI hace falta: en un direct charge
+  // normal `accountId` ya viene informado y nos ahorramos la llamada entera.
+  const cuenta = cuentaFirmante(accountId, accountId ? null : await cuentaDePlataforma());
+  if (!cuenta) return null;
+  const { data } = await admin.from('studios').select('id').eq('stripe_account_id', cuenta).maybeSingle();
   return (data as { id: string } | null)?.id ?? null;
 }
 
@@ -56,8 +120,11 @@ export async function POST(req: NextRequest) {
   // M10: idempotencia por event.id — reclamación atómica (RPC): si este
   // evento ya se procesó con éxito o hay otra entrega en vuelo dentro de la
   // ventana de expiración, salimos sin reprocesar.
+  // Acotada al ámbito 'connect': el webhook del SaaS comparte esta tabla y
+  // recibe algunos de los mismos tipos de evento (ver lib/webhook-idempotencia).
+  const claveEvento = claveWebhook('connect', event.id);
   const adminDedup = getSupabaseAdmin();
-  if (adminDedup && !await reclamarWebhookEvent(adminDedup, event.id, event.type)) {
+  if (adminDedup && !await reclamarWebhookEvent(adminDedup, claveEvento, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
@@ -123,6 +190,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true, ignorado: 'pago_no_completado' });
       }
 
+      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata:
+      // `metadata.studioId` lo elige quien crea la sesión. El porqué completo, y
+      // el ataque que esto cierra, en `lib/billing/webhook-tenant.ts`.
+      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+      if (!tenantAutorizado(studioDeCuenta, studioId)) {
+        Sentry.captureMessage('[stripe webhook] la cuenta Connect no corresponde al estudio de la metadata', {
+          level: 'error',
+          extra: { sessionId: session.id, eventAccount: event.account, studioIdMetadata: studioId, studioDeCuenta },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+      }
+
       // El recibo es lo crítico (confirma el cobro). Registramos el método real
       // del cobro (tarjeta/bizum) para la conciliación con el gestor.
       if (reciboId) {
@@ -134,24 +213,13 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
         }
-        const [{ data: reciboRow }, { data: studioRow }] = await Promise.all([
-          admin.from('recibos').select('id, importe, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle(),
-          admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle(),
-        ]);
+        const { data: reciboRow } = await admin
+          .from('recibos').select('id, importe, estado').eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
         if (!reciboRow) {
           Sentry.captureMessage('[stripe webhook] checkout.session apunta a recibo inexistente o de otro estudio', {
             level: 'warning', extra: { reciboId, studioId, sessionId: session.id },
           });
           return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
-        }
-        // La cuenta Connect que emite el evento debe ser la del estudio dueño del
-        // recibo: si no, un estudio podría confirmar el recibo de otro.
-        if (event.account && studioRow?.stripe_account_id && event.account !== studioRow.stripe_account_id) {
-          Sentry.captureMessage('[stripe webhook] cuenta Connect no coincide con el estudio del recibo', {
-            level: 'error',
-            extra: { reciboId, studioId, eventAccount: event.account, expectedAccount: studioRow.stripe_account_id },
-          });
-          return NextResponse.json({ error: 'Cuenta Connect no autorizada para este recibo' }, { status: 403 });
         }
         const esperadoCentimos = Math.round(Number(reciboRow.importe) * 100);
         if (typeof session.amount_total !== 'number' || session.amount_total < esperadoCentimos) {
@@ -198,6 +266,10 @@ export async function POST(req: NextRequest) {
         // Notification Engine: confirmación de pago a la socia.
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId });
+        // Email de confirmación con enlace a su factura — best-effort, ver
+        // enviarEmailReciboWebhook (nunca lanza, no puede tumbar el webhook).
+        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+        await enviarEmailReciboWebhook(admin, { studioId, reciboId });
       }
 
       // Compra de un plan desde el enlace público: crear el bono que se acaba de
@@ -220,6 +292,10 @@ export async function POST(req: NextRequest) {
           // si compró antes de registrarse.
           email: session.customer_details?.email ?? session.customer_email ?? null,
           nombre: session.customer_details?.name ?? null,
+          // Lo cobrado DE VERDAD, no el precio de catálogo releído ahora: entre
+          // abrir el checkout y llegar este webhook el estudio puede haber
+          // cambiado el precio del plan.
+          importeCobradoCentimos: typeof session.amount_total === 'number' ? session.amount_total : null,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {
@@ -234,8 +310,31 @@ export async function POST(req: NextRequest) {
           }
           return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
         }
+        // Sin esto, una compra de plan por el enlace público es INVISIBLE a
+        // reembolsos y disputas: sus handlers leen `pi.metadata.reciboId`, y el
+        // PaymentIntent de una compra de plan nace sin metadata porque el recibo
+        // todavía no existía al crear la sesión. Se devolvía el dinero y el
+        // `rec-web-…` se quedaba COBRADO para siempre, con la suscripción activa.
+        // Best-effort: el bono ya está entregado y el cobro registrado, así que
+        // un fallo aquí no puede tumbar el evento — pero sí queda en Sentry.
+        if (typeof session.payment_intent === 'string') {
+          try {
+            await stripe.paymentIntents.update(
+              session.payment_intent,
+              { metadata: { reciboId: entrega.reciboId, origen: 'plan_web', studioId } },
+              event.account ? { stripeAccount: event.account } : undefined,
+            );
+          } catch (err) {
+            Sentry.captureMessage('[stripe webhook] plan entregado pero sin metadata en el PaymentIntent', {
+              level: 'warning',
+              extra: { sessionId: session.id, reciboId: entrega.reciboId, studioId, detalle: String(err) },
+            });
+          }
+        }
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
+        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+        await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la
@@ -406,14 +505,22 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
-      // Solo un reembolso TOTAL anula el recibo. `charge.refunded` es true únicamente
-      // cuando el cargo se devolvió entero; un reembolso PARCIAL (amount_refunded <
-      // amount) marcaba el recibo DEVUELTO por error → ingresos infravalorados y estado
-      // incoherente (recibo "devuelto" pero renovación/bono ya aplicados). Los parciales
-      // se dejan COBRADO (requieren ajuste manual del estudio).
-      const reembolsoTotal = charge.refunded === true || (charge.amount_refunded ?? 0) >= (charge.amount ?? 0);
-      if (reciboId && esRecibo && reembolsoTotal) {
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
+      // Solo un reembolso TOTAL anula el recibo: marcar DEVUELTO un parcial
+      // infravaloraría los ingresos y dejaría un estado incoherente (recibo
+      // "devuelto" con el bono ya aplicado).
+      //
+      // ⚠️ Pero el parcial SÍ entra aquí. Antes esta condición lo dejaba fuera
+      // del handler entero: no marcaba nada, no avisaba a nadie y no dejaba
+      // rastro — y es el caso más habitual, el que hace una propietaria sensata
+      // cuando la socia ya usó parte del bono. El comentario decía que
+      // "requieren ajuste manual del estudio", pero nada le decía al estudio que
+      // hubiera algo que ajustar.
+      const acumuladoDevuelto = charge.amount_refunded ?? 0;
+      const origen = origenDeReembolso({
+        refunded: charge.refunded === true, acumulado: acumuladoDevuelto, total: charge.amount ?? 0,
+      });
+      if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
           console.error('[stripe webhook] service role no configurada (refund)');
@@ -426,18 +533,38 @@ export async function POST(req: NextRequest) {
           });
           return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
         }
-        const { data: rec, error } = await admin.from('recibos')
-          .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
-          .eq('id', reciboId).eq('studio_id', studioId).select('id').maybeSingle();
-        if (error) {
-          console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
-          return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+        if (origen === 'REEMBOLSO_TOTAL') {
+          const { data: rec, error } = await admin.from('recibos')
+            .update({ estado: 'DEVUELTO', fecha_devolucion: new Date().toISOString(), sepa_estado: pi.metadata?.origen === 'sepa_recibo' ? 'returned' : null })
+            // `.neq('estado','DEVUELTO')` para que un reintento de Stripe no
+            // reescriba la fecha_devolucion original con la de hoy.
+            .eq('id', reciboId).eq('studio_id', studioId).neq('estado', 'DEVUELTO')
+            .select('id').maybeSingle();
+          if (error) {
+            console.error('[stripe webhook] no se pudo marcar el recibo DEVUELTO', reciboId, error);
+            return NextResponse.json({ error: 'Fallo al registrar la devolución' }, { status: 500 });
+          }
+          // 0 filas ya no es un error: puede ser el reintento del mismo evento.
+          if (!rec) {
+            Sentry.captureMessage('[stripe webhook] devolución sin efecto (recibo ya devuelto, inexistente o de otro estudio)', {
+              level: 'warning', extra: { reciboId, studioId, eventAccount: event.account },
+            });
+          }
         }
-        if (!rec) {
-          Sentry.captureMessage('[stripe webhook] devolución apunta a recibo inexistente o de otro estudio', {
-            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+        // Se anota SIEMPRE, total o parcial, y solo se avisa si es un hecho
+        // nuevo (`null` = ya estaba registrada por un reintento).
+        const dev = await registrarDevolucion(admin, {
+          studioId, reciboId, origen, devueltoCentimos: acumuladoDevuelto,
+          referencia: referenciaDevolucion({ tipo: 'reembolso', chargeId: charge.id, acumuladoDevueltoCentimos: acumuladoDevuelto }),
+          stripeChargeId: charge.id,
+        });
+        if (dev) {
+          const { emitirDevolucion } = await import('@/lib/notifications/emit');
+          const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
+          await emitirDevolucion(admin, {
+            studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
+            devolucionId: dev.id, importe: dev.importeDevuelto, origen,
           });
-          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
         }
       }
     }
@@ -454,7 +581,7 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
@@ -490,7 +617,7 @@ export async function POST(req: NextRequest) {
     if (piId) {
       const pi = await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
       const reciboId = pi.metadata?.reciboId;
-      const esRecibo = pi.metadata?.origen === 'sepa_recibo' || pi.metadata?.origen === 'tarjeta_recibo';
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
       if (reciboId && esRecibo) {
         const admin = getSupabaseAdmin();
         if (!admin) {
@@ -513,6 +640,34 @@ export async function POST(req: NextRequest) {
         if (error) {
           console.error('[stripe webhook] no se pudo cerrar la disputa', reciboId, error);
           return NextResponse.json({ error: 'Fallo al cerrar la disputa' }, { status: 500 });
+        }
+
+        // Hasta ahora este cierre era MUDO: el estudio se enteraba de que le
+        // abrían una disputa (`dispute.created` avisa con ALTA + push + email)
+        // pero nunca de que la perdía — y es cuando el dinero se va de verdad y
+        // la socia se queda con lo entregado.
+        //
+        // ⚠️ `charge_refunded` = el estudio reembolsó DURANTE la disputa. Ese
+        // dinero ya lo anota `charge.refunded` con la misma referencia
+        // (`chargeId:acumulado`), así que aquí no se vuelve a encolar: si no, la
+        // propietaria vería dos tarjetas por el mismo dinero y podría revertir
+        // dos veces.
+        if (dispute.status === 'lost') {
+          const cargoId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id ?? null;
+          const dev = await registrarDevolucion(admin, {
+            studioId, reciboId, origen: 'CHARGEBACK',
+            devueltoCentimos: dispute.amount ?? 0,
+            referencia: referenciaDevolucion({ tipo: 'chargeback', disputeId: dispute.id }),
+            stripeChargeId: cargoId,
+          });
+          if (dev) {
+            const { emitirDevolucion } = await import('@/lib/notifications/emit');
+            const { data: recSocio } = await admin.from('recibos').select('socio_id').eq('id', reciboId).maybeSingle();
+            await emitirDevolucion(admin, {
+              studioId, socioId: (recSocio?.socio_id as string | null) ?? null,
+              devolucionId: dev.id, importe: dev.importeDevuelto, origen: 'CHARGEBACK',
+            });
+          }
         }
       }
     }
@@ -548,6 +703,6 @@ export async function POST(req: NextRequest) {
   // M10: marcar el evento como procesado (solo se llega aquí si todos los
   // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan
   // — la reclamación expira sola y un reintento de Stripe la retoma).
-  if (adminDedup) await marcarWebhookProcesado(adminDedup, event.id);
+  if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
   return NextResponse.json({ received: true });
 }

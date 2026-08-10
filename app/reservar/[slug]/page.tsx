@@ -1,22 +1,22 @@
 'use client';
 import { queImparten } from '@/lib/equipo';
 
-import { useState, useMemo, useEffect, useRef, useId } from 'react';
-import { useSearchParams, useParams } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
-import { PlanTarifa, type EstadoReserva, type Reserva } from '@/lib/types';
+import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
-import { CitasPublica } from '@/components/reserva/citas-publica';
+import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
@@ -24,6 +24,23 @@ import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
+
+// Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
+// de este widget (clases / citas 1:1 / mis reservas / planes) es
+// autoexcluyente — solo una está montada a la vez — pero antes las cuatro se
+// importaban de forma estática, así que un iframe embebido en la web del
+// estudio para SOLO citas 1:1 cargaba también el bundle entero del calendario
+// de clases (y viceversa) sin usarlo nunca. `ssr: false` es seguro aquí: todo
+// el widget ya es 'use client' y ambos componentes leen `window`/interacción
+// de usuario.
+const ReservaCalendario = dynamic(
+  () => import('@/components/reserva/reserva-calendario').then((m) => m.ReservaCalendario),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando calendario…</div> },
+);
+const CitasPublica = dynamic(
+  () => import('@/components/reserva/citas-publica').then((m) => m.CitasPublica),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
+);
 
 // Redes sociales del pie de página (Fase 3 del Theme Builder, lib/theme-schema.ts
 // → RedSocialId) — orden y etiqueta de cada icono del pie.
@@ -221,8 +238,9 @@ export default function ReservarPage() {
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
   const params = useParams();
   const slug = String(params?.slug ?? '');
-  const { socia, usuarioEmail, autenticado, enviarEnlace, logout, refrescar } = useSociaSession(slug);
+  const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const refCode = searchParams.get('ref');
   // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
   // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
@@ -230,13 +248,46 @@ export default function ReservarPage() {
   const embedMode = searchParams.get('embed') === '1';
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // `now` en estado, con reloj de un minuto. Antes era
+  // `useMemo(() => now.getTime(), [mounted])`, o sea que quedaba CONGELADO en
+  // el instante del montaje — y de él sale `slots`, que filtra `inicio > nowMs`
+  // para decidir qué clases se pueden reservar. Una pestaña abierta un rato
+  // seguía ofreciendo clases que ya habían empezado, y la reserva fallaba
+  // después contra el servidor. Es exactamente la trampa que documenta
+  // dashboard/page.tsx al descartar `useMemo([mounted])`.
+  const [now, setNow] = useState(FECHA_PLACEHOLDER_SSR);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO; derivarlo en render rompería la hidratación.
+    setMounted(true);
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   const tabInicial = searchParams.get('tab');
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
+
+  // Auto-resize del <iframe> embebido (audit de rendimiento de los widgets):
+  // el código que se copia en tab-api.tsx fija un `height` en px por widget —
+  // un contenido más corto o más largo que ese valor deja hueco muerto o
+  // recorta contenido y obliga a hacer scroll DENTRO del iframe. Se avisa a
+  // la ventana padre con la altura real del documento cada vez que cambia
+  // (cambio de tab, expandir un desplegable, cargar más clases…); el snippet
+  // que se copia junto al iframe (tab-api.tsx) escucha este mensaje y ajusta
+  // el alto. Sin efecto si el widget no está embebido en un iframe ajeno.
+  useEffect(() => {
+    if (!embedMode || typeof window === 'undefined' || window.parent === window) return;
+    const enviarAltura = () => {
+      window.parent.postMessage({ tentareEmbedAltura: document.documentElement.scrollHeight, tentareSlug: slug }, '*');
+    };
+    enviarAltura();
+    const obs = new ResizeObserver(enviarAltura);
+    obs.observe(document.documentElement);
+    return () => obs.disconnect();
+  }, [embedMode, slug, tab]);
 
   // Booking flow
   const [bookingSesionId, setBookingSesionId] = useState<string | null>(null);
@@ -251,13 +302,34 @@ export default function ReservarPage() {
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  // Login con contraseña (día a día, sin depender del viaje de email — ver
+  // lib/use-socia-session.ts): alternativa al enlace mágico dentro del mismo
+  // paso 'login', para quien ya se creó una contraseña una vez. Un widget
+  // embebido en un <iframe> de tercero no puede fiarse de que el navegador
+  // comparta sesión entre pestañas (Safari/Chrome recortan ese acceso cada
+  // vez más), así que esto es lo que hace viable volver sin salir del widget.
+  const [mostrarPasswordLogin, setMostrarPasswordLogin] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [enviandoLoginPassword, setEnviandoLoginPassword] = useState(false);
+  // Contraseña que se fija en el paso 'registro' (justo tras probar el email
+  // por enlace mágico) — mismo mínimo y patrón de confirmación que
+  // app/portal/[slug]/clave-nueva/page.tsx.
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [nuevaPasswordConfirmar, setNuevaPasswordConfirmar] = useState('');
+  // Si ya tiene contraseña propia (la acaba de fijar en 'registro', o entró
+  // con loginConPassword), la pantalla de confirmación no debe seguir
+  // ofreciendo "crea tu contraseña" — ya no es cierto. No se resetea en
+  // openBooking()/closeBooking(): sigue siendo verdad para el resto de la
+  // visita aunque se abra otra reserva.
+  const [tienePasswordPropia, setTienePasswordPropia] = useState(false);
+  const [enviandoEnlace, setEnviandoEnlace] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
   const [cancelandoPlaza, setCancelandoPlaza] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que /login.
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { widget: captcha, pedirToken } = useCaptcha();
 
   // Aceptación del contrato (clickwrap: checkbox + fecha + versión).
   const [terminosAceptados, setTerminosAceptados] = useState(false);
@@ -280,36 +352,77 @@ export default function ReservarPage() {
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeError, setStripeError] = useState<string | null>(null);
 
-  // Antes de montar se renderiza el esqueleto, así que este valor no llega a
-  // pintarse: solo evita usar new Date() en SSR (divergencia de hidratación).
-  const now = mounted ? new Date() : FECHA_PLACEHOLDER_SSR;
-  // Marca temporal estable durante la vida del componente: new Date() daría una
-  // identidad nueva en cada render y recalcularía `slots` sin necesidad.
-  const nowMs = useMemo(() => now.getTime(), [mounted]);
+  // `now` es estable entre ticks del reloj (viene de estado), así que esto no
+  // necesita memo: solo cambia de identidad cuando cambia de verdad la hora.
+  const nowMs = now.getTime();
 
-  // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
-  // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
-  // datos estén cargados. Cierra el bucle de conversión que rompía el magic link.
+  // Deep-link a una sesión concreta: si volvemos con ?sesion=<id> abrimos su
+  // reserva (una sola vez) en cuanto los datos estén cargados. Dos orígenes:
+  // el enlace mágico (la socia ya está autenticada) Y el widget "Reserva
+  // esta clase" (tab-api.tsx) — este último llega a visitantes ANÓNIMAS
+  // (un post, una story, un newsletter), así que YA NO se exige
+  // `autenticado` para esta rama: `openBooking()` sabe manejar el caso sin
+  // sesión (abre el paso 'login' guardando `bookingSesionId`, y el efecto de
+  // más abajo retoma la reserva en cuanto se autentica). Antes exigir
+  // `autenticado` aquí dejaba el widget nuevo mostrando el calendario
+  // genérico en vez de la clase concreta a la primera visita, que es
+  // exactamente el caso de uso que lo motivó.
   //
   // Sin ?sesion (acceso genérico, ver enviarEnlace en use-socia-session.ts) el
   // enlace lleva ?acceso=1: mismo mecanismo, pero reabre el modal en el paso
   // que toque (registro/contrato) sin necesitar una clase concreta — antes no
   // pasaba nada al volver del correo y había que pulsar "Acceder" otra vez.
+  // Esta rama SÍ depende del magic link, así que sigue exigiendo `autenticado`.
   const deepLinkHecho = useRef(false);
   useEffect(() => {
-    if (!mounted || deepLinkHecho.current || !autenticado) return;
+    if (!mounted || deepLinkHecho.current) return;
     const sesionDeepLink = searchParams.get('sesion');
     if (sesionDeepLink) {
       if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
       deepLinkHecho.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
       openBooking(sesionDeepLink);
-    } else if (searchParams.get('acceso') === '1') {
+    } else if (autenticado && searchParams.get('acceso') === '1') {
       deepLinkHecho.current = true;
       openBooking('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, autenticado, sesiones, searchParams]);
+
+  // Login con contraseña (loginConPassword, sin viaje de email): a diferencia
+  // del magic link, no navega la página ni añade ?sesion=/?acceso=1 a la URL,
+  // así que el useEffect de deep-link de arriba nunca se dispara para él. Sin
+  // esto, tras un login con contraseña correcto el modal se quedaba clavado
+  // en el paso 'login' (autenticado/socia se actualizan, pero nada vuelve a
+  // llamar a openBooking() para decidir el siguiente paso).
+  useEffect(() => {
+    if (bookingSesionId === null || loginStep !== 'login' || !autenticado) return;
+    openBooking(bookingSesionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autenticado, socia]);
+
+  // Retorno de Stripe tras comprar un plan (ver lib/billing/origen-pago.ts,
+  // urlsDeRetorno: `${appUrl}/reservar/${slug}?compra=ok|cancelada`). Antes
+  // este parámetro no se leía en ningún sitio — la socia volvía a la MISMA
+  // pantalla de siempre sin ninguna confirmación de que su pago funcionó,
+  // incluso en el camino feliz normal. El mensaje de éxito es
+  // deliberadamente "en unos segundos", no "ya está": la entrega real del
+  // plan ocurre en el webhook (async), no en este redirect — sigue siendo
+  // honesto también en el caso raro de que el plan se borrara justo entre
+  // medias (el cobro ya se hizo; el equipo recibe la alerta de Sentry para
+  // resolverlo a mano, ver lib/billing/entregar-plan-comprado.ts).
+  const [pagoAviso, setPagoAviso] = useState<'ok' | 'cancelada' | null>(null);
+  useEffect(() => {
+    const compra = searchParams.get('compra');
+    if (compra !== 'ok' && compra !== 'cancelada') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno de Stripe una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
+    setPagoAviso(compra);
+    const limpio = new URLSearchParams(searchParams.toString());
+    limpio.delete('compra');
+    router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
   // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
@@ -543,6 +656,10 @@ export default function ReservarPage() {
     setLoginError('');
     setGateError('');
     setSelectedSpot(null);
+    setMostrarPasswordLogin(false);
+    setLoginPassword('');
+    setNuevaPassword('');
+    setNuevaPasswordConfirmar('');
     if (!autenticado) {
       setLoginStep('login');
     } else if (socia) {
@@ -566,23 +683,64 @@ export default function ReservarPage() {
     }
   }
 
-  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false); }
+  function closeBooking() {
+    setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
+    setMostrarPasswordLogin(false); setLoginPassword(''); setNuevaPassword(''); setNuevaPasswordConfirmar('');
+  }
 
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
   // nombre+email). La socia entra al pulsar el enlace del correo.
   async function handleEnviarEnlace() {
-    if (!loginForm.email.trim()) return;
+    if (!loginForm.email.trim() || enviandoEnlace) return;
     setLoginError('');
-    // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
-    // a su confirmación — evita la fuga de conversión de re-buscar la clase.
-    const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, captchaToken ?? undefined);
-    if ('error' in r) { setLoginError(r.error); return; }
-    setEnlaceEnviado(true);
+    // El estado de carga se enciende ANTES de pedir el token, no después:
+    // el captcha tarda ~3,5 s en resolverse por dentro, y sin esto el botón
+    // se quedaba mudo todo ese rato y admitía un segundo clic.
+    setEnviandoEnlace(true);
+    try {
+      // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
+      // a su confirmación — evita la fuga de conversión de re-buscar la clase.
+      const token = await pedirToken();
+      if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
+      const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
+      if ('error' in r) { setLoginError(r.error); return; }
+      setEnlaceEnviado(true);
+    } finally {
+      setEnviandoEnlace(false);
+    }
   }
 
-  // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
-  function handleRegistroNombre() {
+  // Login del día a día para quien ya se creó una contraseña (ver paso
+  // 'registro' más abajo) — evita el viaje de email cada vez que vuelve.
+  async function handleLoginConPassword() {
+    if (!loginForm.email.trim() || !loginPassword || enviandoLoginPassword) return;
+    setLoginError('');
+    setEnviandoLoginPassword(true);
+    try {
+      const token = await pedirToken();
+      if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
+      const r = await loginConPassword(loginForm.email, loginPassword, token || undefined);
+      if ('error' in r) { setLoginError(r.error); return; }
+      setTienePasswordPropia(true);
+      // La sesión de Supabase ya está activa (onAuthStateChange en
+      // use-socia-session.ts la resuelve); un useEffect propio (ver más abajo,
+      // junto al deep-link del magic link) reevalúa el paso del modal en
+      // cuanto `autenticado`/`socia` se actualicen.
+    } finally {
+      setEnviandoLoginPassword(false);
+    }
+  }
+
+  // Walk-in ya autenticado por enlace mágico: nombre + fijar la contraseña
+  // que usará a partir de ahora (día a día, sin depender del email otra vez).
+  async function handleRegistroNombre() {
     if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
+    if (nuevaPassword.length < 8) { setLoginError('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (nuevaPassword !== nuevaPasswordConfirmar) { setLoginError('Las dos contraseñas no coinciden.'); return; }
+    setLoginError('');
+    const r = await establecerPassword(nuevaPassword);
+    if ('error' in r) { setLoginError(r.error); return; }
+    setTienePasswordPropia(true);
     setLoginStep('contrato');
   }
 
@@ -722,7 +880,14 @@ export default function ReservarPage() {
       });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
-        window.location.href = data.url;
+        // Escapa del <iframe> del widget embebido: navegar la propia ventana
+        // (window.location) mandaría el checkout de Stripe DENTRO del iframe
+        // de la web del estudio, algo para lo que Stripe no está pensado
+        // (en el mejor caso se ve mal, en el peor el navegador lo bloquea).
+        // `window.top` es la ventana de nivel superior real tanto si el
+        // widget está embebido como si no (entonces top === window, mismo
+        // efecto de siempre en /reservar/[slug] visitado directo).
+        (window.top ?? window).location.href = data.url;
       } else {
         setStripeError(data.error ?? 'Error al procesar el pago');
       }
@@ -738,7 +903,7 @@ export default function ReservarPage() {
   // servidor, así que el header se pinta al instante.
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[var(--portal-bg)]">
+      <div className="min-h-dvh bg-[var(--portal-bg)]">
         <header className="sticky top-0 z-30 bg-white border-b border-[var(--portal-surface-2)]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="max-w-2xl mx-auto px-4">
             <div className="flex items-center gap-3 py-3">
@@ -846,6 +1011,23 @@ export default function ReservarPage() {
           ))}
         </div>
       </div>
+
+      {/* ── AVISO DE PAGO (retorno de Stripe) ───────────────────────────────── */}
+      {pagoAviso && (
+        <div style={{ padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
+          <div
+            className={pagoAviso === 'ok' ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted/50 border-[var(--portal-line)]'}
+            style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+          >
+            <span>
+              {pagoAviso === 'ok'
+                ? '¡Pago recibido! En unos segundos verás tu plan activo.'
+                : 'Pago cancelado — puedes intentarlo de nuevo cuando quieras.'}
+            </span>
+            <button onClick={() => setPagoAviso(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16, lineHeight: 1 }} aria-label="Cerrar aviso">×</button>
+          </div>
+        </div>
+      )}
 
       {/* ── CONTENT ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto' }}>
@@ -1280,15 +1462,24 @@ export default function ReservarPage() {
                 </div>
                 {/* Quien reserva aquí ya es socia, pero nadie se lo dice: tiene
                     portal propio (sus bonos, su historial, sus próximas clases).
-                    Se creó por magic link, así que aún no tiene contraseña — por
-                    eso el enlace va a /acceso, que se la deja poner, y no a
-                    /login, que la rebotaría. */}
+                    Si ya fijó contraseña en 'registro' (o entró con
+                    loginConPassword), el enlace va directo a /login — mandarla
+                    a /acceso otra vez le pediría elegir una contraseña que ya
+                    tiene. Si no (p. ej. socia ya existente que solo firmó el
+                    contrato, sin pasar por 'registro'), sigue sin tenerla y el
+                    enlace va a /acceso, que se la deja poner. */}
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
-                    <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
-                      Crea tu contraseña
-                    </a>{' '}
+                    {tienePasswordPropia ? (
+                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}>
+                        Entra con tu contraseña
+                      </a>
+                    ) : (
+                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
+                        Crea tu contraseña
+                      </a>
+                    )}{' '}
                     y entra cuando quieras.
                   </p>
                 </div>
@@ -1341,23 +1532,49 @@ export default function ReservarPage() {
                 {!enlaceEnviado ? (
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
-                    <p className="text-[var(--portal-muted-2)] text-sm mb-5">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                    <p className="text-[var(--portal-muted-2)] text-sm mb-5">
+                      {mostrarPasswordLogin ? 'Entra con tu email y contraseña.' : 'Te enviamos un enlace de acceso a tu email. Sin contraseñas.'}
+                    </p>
                     <input type="email"
                       placeholder="Tu email"
                       value={loginForm.email}
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
-                      onKeyDown={e => e.key === 'Enter' && handleEnviarEnlace()}
+                      onKeyDown={e => e.key === 'Enter' && (mostrarPasswordLogin ? handleLoginConPassword() : handleEnviarEnlace())}
                       autoFocus
                       className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: RT.surface2 }} />
+                    {mostrarPasswordLogin && (
+                      <input type="password"
+                        placeholder="Tu contraseña"
+                        value={loginPassword}
+                        onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                        onKeyDown={e => e.key === 'Enter' && handleLoginConPassword()}
+                        autoComplete="current-password"
+                        className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                        style={{ backgroundColor: RT.surface2 }} />
+                    )}
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
-                    <div className="mb-3">
-                      <TurnstileWidget onToken={setCaptchaToken} />
-                    </div>
-                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email || (turnstileConfigurado() && !captchaToken)}
-                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
-                      style={{ backgroundColor: PRIMARY }}>
-                      Enviar enlace de acceso →
+                    {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
+                        resolver algo a mano. */}
+                    {captcha}
+                    {mostrarPasswordLogin ? (
+                      <button onClick={handleLoginConPassword} disabled={!loginForm.email || !loginPassword || enviandoLoginPassword}
+                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                        style={{ backgroundColor: PRIMARY }}>
+                        {enviandoLoginPassword ? 'Entrando…' : 'Iniciar sesión →'}
+                      </button>
+                    ) : (
+                      <button onClick={handleEnviarEnlace} disabled={!loginForm.email || enviandoEnlace}
+                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                        style={{ backgroundColor: PRIMARY }}>
+                        {enviandoEnlace ? 'Enviando…' : 'Enviar enlace de acceso →'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setMostrarPasswordLogin(m => !m); setLoginError(''); }}
+                      className="w-full text-center text-[12px] text-[var(--portal-muted-2)] underline mt-3"
+                    >
+                      {mostrarPasswordLogin ? 'Prefiero el enlace por email' : '¿Ya tienes contraseña? Inicia sesión'}
                     </button>
                   </>
                 ) : (
@@ -1393,11 +1610,30 @@ export default function ReservarPage() {
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                  style={{ backgroundColor: RT.surface2 }} />
+                {/* Email ya verificado por el enlace mágico — de aquí en
+                    adelante entra con contraseña, sin depender otra vez del
+                    correo (ver handleLoginConPassword). */}
+                <input type="password"
+                  placeholder="Elige una contraseña"
+                  value={nuevaPassword}
+                  onChange={e => { setNuevaPassword(e.target.value); setLoginError(''); }}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                  style={{ backgroundColor: RT.surface2 }} />
+                <input type="password"
+                  placeholder="Repite la contraseña"
+                  value={nuevaPasswordConfirmar}
+                  onChange={e => { setNuevaPasswordConfirmar(e.target.value); setLoginError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
+                  autoComplete="new-password"
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: RT.surface2 }} />
-                <p className="text-[11px] text-[var(--portal-muted)] mb-5">Solo lo usa {estudioNombre} para avisos de tus clases.</p>
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
+                <p className="text-[11px] text-[var(--portal-muted)] mb-1">Mínimo 8 caracteres. La usarás para entrar la próxima vez.</p>
+                {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
+                <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono) || !nuevaPassword || !nuevaPasswordConfirmar}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →

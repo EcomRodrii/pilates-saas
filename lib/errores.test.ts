@@ -100,3 +100,29 @@ test('401 y 403 no repiten lo que diga el servidor', () => {
   const r = mensajeDeFalloAlGuardar({ error: 'socio_id 42 no pertenece al studio', status: 401 });
   assert.ok(!/socio_id/.test(r));
 });
+
+// ── Email repetido al dar de alta a una clienta ─────────────────────────────
+// Lo vio Sentry en producción (JAVASCRIPT-NEXTJS-12): a la propietaria le
+// llegaba el error crudo de Postgres. El genérico de clave duplicada tampoco
+// servía de mucho: no dice qué dato choca ni qué hacer con él.
+
+test('el email repetido de una clienta dice QUÉ pasa y QUÉ hacer', () => {
+  const r = mensajeDeFalloAlGuardar({
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "uq_socios_studio_email"',
+  });
+  assert.match(r, /clienta con ese email/i);
+  assert.match(r, /reactiva/i, 'tiene que ofrecer la salida, no solo describir el choque');
+  // Y nunca el error crudo: "constraint", "duplicate key" o el nombre del índice
+  // no significan nada para quien está dando de alta a una clienta.
+  assert.ok(!/duplicate key|constraint|uq_socios/i.test(r));
+});
+
+test('otras claves duplicadas siguen con el mensaje genérico', () => {
+  const r = mensajeDeFalloAlGuardar({
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "sustituciones_sesion_id_key"',
+  });
+  assert.match(r, /Ya existe algo con esos mismos datos/);
+  assert.ok(!/clienta/i.test(r), 'no se puede hablar de clientas ante un choque de sustituciones');
+});

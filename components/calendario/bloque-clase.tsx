@@ -104,7 +104,24 @@ export function BloqueClase({
       title={`${horaTexto} · ${tipo.nombre} · ${instructor?.nombre ?? 'sin instructora'}`}
       style={{
         ...style,
-        background: seleccionada ? 'var(--muted)' : p.fondo,
+        // El color del TIPO de clase tiñe el bloque, pero SOLO en PROGRAMADA.
+        //
+        // Los demás estados llevan color semántico a propósito —ámbar = "falta
+        // pasar lista", rojo = conflicto— y eso es información, no decoración:
+        // teñirlos con el color del tipo la taparía. Pero PROGRAMADA es el caso
+        // normal (la inmensa mayoría de las clases) y usaba `var(--card)`,
+        // blanco liso: por eso el calendario se veía sin color y costaba
+        // distinguir una clase de otra de un vistazo.
+        //
+        // Cuánto tiñe va en `--calendario-tinte-clase` (globals.css) y NO aquí:
+        // hacen falta dos valores, uno por modo, y la nota con las mediciones
+        // vive junto a la variable. Un número fijo en este archivo no podría
+        // cambiar con el tema.
+        background: seleccionada
+          ? 'var(--muted)'
+          : estado === 'PROGRAMADA' && tipo.color
+            ? `color-mix(in srgb, ${tipo.color} var(--calendario-tinte-clase), var(--card))`
+            : p.fondo,
         borderLeftColor: estado === 'PROGRAMADA' ? tipo.color : p.barra,
         opacity: arrastrando ? 0.85 : atenuada ? 0.35 : sesion.cancelada ? 0.6 : estado === 'FINALIZADA' ? 0.55 : 1,
         touchAction: arrastrable ? 'none' : undefined,

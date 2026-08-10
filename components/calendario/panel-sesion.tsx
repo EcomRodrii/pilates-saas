@@ -45,10 +45,14 @@ export interface PanelSesionProps {
   onAsignarSpot?: (spotId: string, socioId: string) => void;
 }
 
+// "Sustituciones", no "Historial" (pilar 6, hallazgo de UX): el contenido de
+// esta pestaña está acotado a cobertura/instructora — nunca fue ni pretende
+// ser un historial general de asistencia de la clase (ver el comentario de
+// lib/calendario-historial.ts). El nombre viejo prometía más de lo que había.
 const PESTANAS: { id: PestanaSesion; label: string }[] = [
   { id: 'clientas', label: 'Clientas' },
   { id: 'plazas', label: 'Plazas' },
-  { id: 'historial', label: 'Historial' },
+  { id: 'historial', label: 'Sustituciones' },
 ];
 
 export function PanelSesion({
@@ -59,6 +63,11 @@ export function PanelSesion({
   const p = PINTA[estado];
   const ratio = ocupacion && ocupacion.aforoMaximo > 0 ? ocupacion.confirmadas / ocupacion.aforoMaximo : 0;
   const pct = Math.round(ratio * 100);
+  // El badge de cabecera (p.label) es pequeño y se pierde entre hora/ocupación —
+  // esta clase ya empezó (o terminó) es lo bastante importante como para no
+  // depender solo de leer el color del badge. Mismos tres estados que ya
+  // implican `ahora >= inicio` en estadoSesion().
+  const yaEmpezada = estado === 'EN_CURSO' || estado === 'FINALIZADA' || estado === 'SIN_PASAR_LISTA';
 
   return (
     <DashboardDrawer open={abierto} onClose={onCerrar} label={titulo}>
@@ -84,6 +93,14 @@ export function PanelSesion({
               <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: p.tinta }} />
             </div>
           </div>
+        )}
+        {yaEmpezada && (
+          <p
+            className="mt-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold"
+            style={{ background: PINTA.SIN_INSTRUCTORA.fondo, color: PINTA.SIN_INSTRUCTORA.tinta }}
+          >
+            {estado === 'EN_CURSO' ? 'Esta clase ya ha empezado' : 'Esta clase ya ha terminado'} — no se puede editar ni reasignar instructora.
+          </p>
         )}
       </div>
 

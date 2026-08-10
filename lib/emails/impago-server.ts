@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
 import { resolverMarcaEstudio, resolverPlantilla, interpolar } from '@/lib/emails/plantillas-server';
+import { remitentePorMarca } from './remitente.ts';
 
 // Envío del email de IMPAGO a la socia desde código de servidor (webhook de Stripe
 // y barrido de dunning). Mismo patrón que send-server.ts: si Resend no está
@@ -44,7 +45,7 @@ export async function enviarEmailImpago(params: {
       : `Problema con tu pago — ${params.concepto}`);
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(marca.nombre || params.estudioNombre || 'Tentare'),
       to: [params.to],
       subject,
       html,

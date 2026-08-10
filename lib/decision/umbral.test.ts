@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CandidataPriorizada } from './prioridad.ts';
 import type { ContextoEstudio } from './tipos.ts';
-import { elegirMensajeDelDia, impactoCompensa, esNovedad, calibrarUmbral, type TasaSeguimiento } from './umbral.ts';
+import { elegirMensajeDelDia, impactoCompensa, esNovedad, calibrarUmbral, type TasaSeguimiento, type ImpactoRealCalibracion } from './umbral.ts';
 import type { TipoRecomendacion } from './tipos.ts';
 
 function candidata(p: Partial<CandidataPriorizada> = {}): CandidataPriorizada {
@@ -131,6 +131,38 @@ test('calibrarUmbral: tasa intermedia → sin cambios', () => {
   const r = calibrarUmbral('ABRIR_SESION', tasas);
   assert.equal(r.urgenciaMin, 0.45);
   assert.equal(r.impactoFactor, 1);
+});
+
+// ── Fase 3: Umbral calibrado con € realmente medidos ────────────────────────
+
+test('calibrarUmbral: impacto real con muestra suficiente (≥8) sustituye el factor por tasa de seguimiento', () => {
+  const tasas = new Map<TipoRecomendacion, TasaSeguimiento>([['ENVIAR_REACTIVACION', { total: 10, seguidas: 9 }]]); // daría 0.6 sin impacto real
+  const impactoReal = new Map<TipoRecomendacion, ImpactoRealCalibracion>([
+    ['ENVIAR_REACTIVACION', { nMedido: 8, promedioReal: 20, promedioEstimadoOriginal: 40 }], // se cumplió la mitad de lo estimado
+  ]);
+  const r = calibrarUmbral('ENVIAR_REACTIVACION', tasas, impactoReal);
+  assert.equal(r.urgenciaMin, 0.35); // urgenciaMin sigue viniendo de la tasa de seguimiento
+  assert.equal(r.impactoFactor, 0.5); // 20/40 = 0.5, dentro de [0.5, 2]
+});
+
+test('calibrarUmbral: impacto real con muestra insuficiente (< 8) no tiene efecto', () => {
+  const impactoReal = new Map<TipoRecomendacion, ImpactoRealCalibracion>([
+    ['ENVIAR_REACTIVACION', { nMedido: 7, promedioReal: 20, promedioEstimadoOriginal: 40 }],
+  ]);
+  const r = calibrarUmbral('ENVIAR_REACTIVACION', new Map(), impactoReal);
+  assert.equal(r.impactoFactor, 1); // Fase 1, sin cambios
+});
+
+test('calibrarUmbral: factor de impacto real acotado a [0.5, 2]', () => {
+  const sobrecumplido = calibrarUmbral('ENVIAR_REACTIVACION', new Map(), new Map<TipoRecomendacion, ImpactoRealCalibracion>([
+    ['ENVIAR_REACTIVACION', { nMedido: 10, promedioReal: 400, promedioEstimadoOriginal: 40 }],
+  ]));
+  assert.equal(sobrecumplido.impactoFactor, 2);
+
+  const infracumplido = calibrarUmbral('ENVIAR_REACTIVACION', new Map(), new Map<TipoRecomendacion, ImpactoRealCalibracion>([
+    ['ENVIAR_REACTIVACION', { nMedido: 10, promedioReal: 1, promedioEstimadoOriginal: 40 }],
+  ]));
+  assert.equal(infracumplido.impactoFactor, 0.5);
 });
 
 test('elegirMensajeDelDia: con tasa de seguimiento alta, una urgencia que antes no pasaba ahora sí', () => {

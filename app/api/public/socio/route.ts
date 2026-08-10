@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { registrarSociaPublica, actualizarSociaPublica, guardarPreferenciasPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { registrarSociaPublica, actualizarSociaPublica, socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   const body = await req.json().catch(() => null) as {
-    accion?: 'registrar' | 'actualizar' | 'preferencias';
+    accion?: 'registrar' | 'actualizar';
     studioId?: string;
     id?: string;
     nombre?: string;
@@ -59,11 +59,6 @@ export async function POST(req: NextRequest) {
 
     if (body.accion === 'actualizar') {
       const r = await actualizarSociaPublica(common);
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
-      return NextResponse.json(r);
-    }
-    if (body.accion === 'preferencias') {
-      const r = await guardarPreferenciasPublica(common);
       if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
       return NextResponse.json(r);
     }

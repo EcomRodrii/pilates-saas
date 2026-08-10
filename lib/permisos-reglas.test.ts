@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   puedeMoverDinero, puedeVer, puedeVerFinanzas,
   puedeGestionarClientas, puedeGestionarEquipo, rolesQuePuedeAsignar, nombreAppPorRol,
-  puedeCrearClasesPropias, puedeGestionarPortalHome,
+  puedeCrearClasesPropias, puedeGestionarPortalHome, puedeVerCentroNotificaciones,
 } from './permisos-reglas.ts';
 
 // La separación de roles vivía en el menú, no en la base de datos: la RLS de
@@ -258,9 +258,39 @@ test('la instructora ve Tentare Core, el resto Tentare Manager', () => {
   assert.equal(nombreAppPorRol('RECEPCION'), 'Tentare Manager');
 });
 
+// ── Notification Center (vista admin) ──────────────────────────────────────
+// La ruta `/api/notifications/admin` solo miraba que hubiera sesión de staff,
+// así que la instructora se llevaba título y cuerpo de los avisos de la
+// propietaria y de todas las socias. Solo la propietaria, porque la pantalla es
+// la unión de dominios vedados por separado al resto (dinero, decisiones,
+// salud, informes) — el razonamiento largo está junto a la función.
+test('el centro de notificaciones es solo de la propietaria', () => {
+  assert.equal(puedeVerCentroNotificaciones('PROPIETARIO'), true);
+  assert.equal(puedeVerCentroNotificaciones('MANAGER'), false);
+  assert.equal(puedeVerCentroNotificaciones('RECEPCION'), false);
+  assert.equal(puedeVerCentroNotificaciones('INSTRUCTOR'), false);
+});
+
+// La pantalla y su ruta de API tienen que decir lo mismo: si `puedeVer` dejara
+// entrar a quien la API rechaza con un 403, el manager llegaría a una tabla
+// vacía sin saber por qué (el bug que ya documenta el bloque ESPEJO, pero al
+// revés — aquí la UI sería MÁS blanda que el servidor).
+test('la pantalla de notificaciones se cierra igual que su API', () => {
+  for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) {
+    assert.equal(
+      puedeVer(rol, '/notificaciones'), puedeVerCentroNotificaciones(rol),
+      `/notificaciones: la pantalla y la API no dicen lo mismo para ${rol}`,
+    );
+  }
+});
+
 test('puedeGestionarPortalHome: propietaria y manager sí, recepción e instructora no', () => {
   assert.equal(puedeGestionarPortalHome('PROPIETARIO'), true);
   assert.equal(puedeGestionarPortalHome('MANAGER'), true);
   assert.equal(puedeGestionarPortalHome('RECEPCION'), false);
   assert.equal(puedeGestionarPortalHome('INSTRUCTOR'), false);
 });
+
+
+
+

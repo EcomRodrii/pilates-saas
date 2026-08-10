@@ -298,17 +298,19 @@ export function PortalPerfilView({
       <BottomSheet open={hoja === 'datos'} onClose={() => setHoja(null)}>
         <h2 style={{ ...display(26), color: t.ink, marginBottom: 18 }}>Mis datos</h2>
         <form onSubmit={guardarDatos} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Input placeholder="Nombre" autoComplete="given-name" value={form.nombre}
+          {/* Cada campo con su ROTULO visible: el placeholder se va al escribir
+              y dejaba una columna de cajas sin saber cuál era cuál. */}
+          <Input label="Nombre" placeholder="Nombre" autoComplete="given-name" value={form.nombre}
             onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
-          <Input placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
+          <Input label="Apellidos" placeholder="Apellidos" autoComplete="family-name" value={form.apellidos}
             onChange={e => setForm(f => ({ ...f, apellidos: e.target.value }))} />
-          <Input placeholder="Email" type="email" autoComplete="email" value={form.email}
+          <Input label="Email" placeholder="Email" type="email" autoComplete="email" value={form.email}
             onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          <Input placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
+          <Input label="Teléfono" placeholder="+34 600 000 000" type="tel" autoComplete="tel" inputMode="tel" value={form.telefono}
             onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
-          <Input placeholder="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
+          <Input label="Fecha de nacimiento" type="date" value={form.fechaNacimiento}
             onChange={e => setForm(f => ({ ...f, fechaNacimiento: e.target.value }))} />
-          <Input placeholder="Calle, número, ciudad" autoComplete="street-address" value={form.direccion}
+          <Input label="Dirección" placeholder="Calle, número, ciudad" autoComplete="street-address" value={form.direccion}
             onChange={e => setForm(f => ({ ...f, direccion: e.target.value }))} />
           <Button type="submit" disabled={guardando} style={{ width: '100%', marginTop: 6 }}>
             {guardando ? 'Guardando…' : 'Guardar'}

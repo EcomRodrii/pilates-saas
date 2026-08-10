@@ -152,6 +152,27 @@ const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleI
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
 const tabBarStyleSchema = z.enum(ESTILOS_TAB_BAR.map((t) => t.id) as [TabBarStyleId, ...TabBarStyleId[]]);
+// Dónde se ancla la foto del estudio cuando se recorta para la portada.
+//
+// ⚠️ Nace de un caso real, no de una petición estética. En cuanto la foto
+// empezó a llegar al portal (PR #827), el primer estudio con foto tenía
+// subido un PRIMER PLANO de una cara, no un interior de sala. `center` —lo
+// correcto para una foto de estudio— dejaba el logo justo sobre la boca.
+// El diseño da por hecha una foto apaisada de sala; la propietaria sube lo
+// que tiene. Esto le deja ajustarlo sin recortar la imagen ni pedirle otra.
+//
+// Solo tres posiciones, no un porcentaje libre: el recorte se juzga a ojo y
+// tres opciones se prueban en tres clics. Un deslizador pide precisión que
+// aquí no aporta nada.
+const fotoEncuadreSchema = z.enum(['arriba', 'centro', 'abajo']);
+
+/** El `background-position` que le toca a cada encuadre. Único sitio donde se traduce. */
+export const POSICION_FOTO: Record<'arriba' | 'centro' | 'abajo', string> = {
+  arriba: 'center top',
+  centro: 'center center',
+  abajo: 'center bottom',
+};
+
 const barraOscuraSchema = z.boolean();
 // Barra flotante (tema "Bloom"): eje INDEPENDIENTE de barraOscura, mismo
 // mecanismo (var() con fallback, ver varsBarraFlotante en theme-runtime.ts) —
@@ -190,6 +211,36 @@ const radioTemaSchema = z.object({
   // Bloom). Sin este campo la baldosa cae al radio de tarjeta de siempre.
   acceso: z.number().optional(),
 }).strict();
+// Escala tipográfica por PIEZA — mismo mecanismo que radioTema: parcial,
+// opcional, y ausente = el número fijo de siempre en portal-design.ts.
+//
+// Los siete pasos y sus valores salen de `tokens/tokens.json` de los paquetes
+// que entregó diseño (`typography.scale`), no de una elección nuestra.
+//
+// ⚠️ Es un token DEL TEMA, no una constante del producto: Noir y Oliva titulan
+// sus secciones a 17 y Bloom a 20. Se llegó a recomendar una escala única para
+// todos los estudios; los tokens del encargo lo contradicen y mandan ellos.
+// Antes de esto el portal usaba 24 en unos rótulos y 30 en otros, sin criterio.
+const escalaTextoSchema = z.object({
+  /** Rótulo de sección ("Próxima clase", "Esta semana"). Hoy: 24 y 30. */
+  seccion: z.number().optional(),
+  /** Título de pantalla completa (Clases, Bonos). */
+  tituloPantalla: z.number().optional(),
+  /** "Hola, {nombre}" de la cabecera del Inicio. Hoy: 21. */
+  saludo: z.number().optional(),
+  /** Titular de la tarjeta principal (nombre de la clase). Hoy: 29. */
+  tituloHero: z.number().optional(),
+  /** Titular de la pantalla de bienvenida, antes del login. */
+  bienvenida: z.number().optional(),
+  /** Número grande de sesiones restantes en Bonos. */
+  numeroBono: z.number().optional(),
+  // ⚠️ El `typography.scale` del encargo trae un séptimo paso, `timer`, para
+  // la cuenta atrás de la sesión guiada. NO se declara aquí: nuestro portal no
+  // tiene esa pantalla. Declararlo sería exactamente lo que este proyecto
+  // lleva pagando caro — un campo sin consumidor que parece que hace algo.
+  // Cuando exista la pantalla, se añade.
+}).strict();
+
 // Variantes de FORMA por bloque — el catálogo vive en theme-variantes.ts
 // (módulo puro), igual que navConfigSchema toma el suyo de portal-nav.ts. Todo
 // opcional: ausente = el aspecto de hoy en todos los ejes.
@@ -235,6 +286,9 @@ export const themeConfigSchema = z
     // la FORMA de la pastilla activa, este el CONTRASTE de toda la barra.
     // Default false: un tema guardado antes de esta fase sigue viéndose igual.
     barraOscura: barraOscuraSchema.default(false),
+    // Encuadre de la foto del estudio en la portada — ver el schema arriba.
+    // 'centro' es lo que hacía antes, así que ningún tema guardado cambia.
+    fotoEncuadre: fotoEncuadreSchema.default('centro'),
     // Barra flotante sobre el fondo (tema "Bloom") — ver comentario del
     // schema arriba. Default false: sin cambios para nadie que no lo pida.
     barraFlotante: barraFlotanteSchema.default(false),
@@ -251,6 +305,8 @@ export const themeConfigSchema = z
     // arriba. Ausente = las piezas nuevas caen a los números fijos de
     // portal-design.ts, como si el campo no existiera.
     radioTema: radioTemaSchema.optional(),
+    // Escala tipográfica por pieza — ver comentario del schema arriba.
+    escalaTexto: escalaTextoSchema.optional(),
     // Variantes de forma por bloque — ver comentario del schema arriba.
     // Ausente = el aspecto de hoy en todos los ejes.
     variantes: variantesSchema.optional(),
@@ -292,10 +348,12 @@ export const DEFAULT_THEME: ThemeConfig = {
   portalHeadingFontId: 'instrumentSerif',
   tabBarStyle: 'clasica',
   barraOscura: false,
+  fotoEncuadre: 'centro',
   barraFlotante: false,
   barraClasica: false,
   destacado: null,
   radioTema: undefined,
+  escalaTexto: undefined,
   variantes: undefined,
   navPortal: DEFAULT_NAV_CONFIG,
   redesSociales: { instagram: '', facebook: '', whatsapp: '' },
@@ -303,6 +361,61 @@ export const DEFAULT_THEME: ThemeConfig = {
   themeVersion: 1,
   themeCustomized: false,
 };
+
+/**
+ * Lo que NO es del tema: sobrevive a instalar otro.
+ *
+ * `faviconUrl` es el icono del estudio; `navPortal` y `redesSociales` son
+ * decisiones suyas sobre qué enseña su portal. Cambiar de Oliva a Noir no
+ * puede borrarle el favicon ni reordenarle el menú.
+ *
+ * Todo lo demás de `ThemeConfig` es aspecto y se REEMPLAZA por completo.
+ */
+export const CAMPOS_DEL_ESTUDIO = ['faviconUrl', 'navPortal', 'redesSociales'] as const;
+
+/** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
+ *  quedarse desactualizada al añadir un campo. */
+export const CAMPOS_DEL_TEMA = (Object.keys(DEFAULT_THEME) as (keyof ThemeConfig)[])
+  .filter((k) => !(CAMPOS_DEL_ESTUDIO as readonly string[]).includes(k));
+
+/**
+ * Instalar un tema es SUSTITUIR, no fusionar.
+ *
+ * ⚠️ Antes era `{ ...draft, ...defaults }`, y ese `...draft` es el bug: todo
+ * eje que el tema nuevo no declarase sobrevivía del anterior. Noir declara
+ * `barraOscura: true`; Oliva declara `barraClasica: true` pero no pone la
+ * oscura a `false`, así que se quedaba. Encontrado en un estudio real con
+ * `barraOscura`, `barraClasica` Y `barraFlotante` a `true` a la vez, y el
+ * gate de contraste avisando de "la barra oscura" en un tema que no la tiene.
+ *
+ * Ahora: se parte de los valores por defecto (reset), se conserva únicamente
+ * lo que es del ESTUDIO y no del tema, y encima se aplica el tema elegido.
+ *
+ * Los objetos anidados se CLONAN: sin eso, dos estudios con el mismo tema
+ * compartirían la referencia de la constante del módulo y editar una variante
+ * en uno la cambiaría en el otro.
+ */
+export function instalarTema(
+  draft: ThemeConfig,
+  defaults: Partial<ThemeConfig>,
+  meta: { themeId: string; themeVersion: number },
+): ThemeConfig {
+  const base: ThemeConfig = { ...DEFAULT_THEME };
+  for (const campo of CAMPOS_DEL_ESTUDIO) {
+    (base as Record<string, unknown>)[campo] = draft[campo];
+  }
+  return {
+    ...base,
+    ...defaults,
+    ...(defaults.variantes ? { variantes: { ...defaults.variantes } } : {}),
+    ...(defaults.radioTema ? { radioTema: { ...defaults.radioTema } } : {}),
+    ...(defaults.escalaTexto ? { escalaTexto: { ...defaults.escalaTexto } } : {}),
+    ...(defaults.redesSociales ? { redesSociales: { ...defaults.redesSociales } } : {}),
+    themeId: meta.themeId,
+    themeVersion: meta.themeVersion,
+    themeCustomized: false,
+  };
+}
 
 /**
  * Fallback robusto: convierte cualquier valor crudo (jsonb de la DB, null,
@@ -329,10 +442,12 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
     tabBarStyle: pick('tabBarStyle', tabBarStyleSchema),
     barraOscura: pick('barraOscura', barraOscuraSchema),
+    fotoEncuadre: pick('fotoEncuadre', fotoEncuadreSchema),
     barraFlotante: pick('barraFlotante', barraFlotanteSchema),
     barraClasica: pick('barraClasica', barraClasicaSchema),
     destacado: pick('destacado', destacadoSchema.nullable()),
     radioTema: pick('radioTema', radioTemaSchema.optional()),
+    escalaTexto: pick('escalaTexto', escalaTextoSchema.optional()),
     variantes: pick('variantes', variantesSchema.optional()),
     navPortal: pick('navPortal', navConfigSchema),
     redesSociales: pick('redesSociales', redesSocialesSchema),

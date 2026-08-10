@@ -11,17 +11,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import {
   parseCsv,
-  autoMapear, autoMapearMembresia, autoMapearClase, autoMapearReserva, autoMapearCita,
-  validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita,
-  CAMPOS_SOCIA, CAMPOS_MEMBRESIA, CAMPOS_CLASE, CAMPOS_RESERVA, CAMPOS_CITA,
+  autoMapear, autoMapearMembresia, autoMapearClase, autoMapearReserva, autoMapearCita, autoMapearPago,
+  validarFilas, validarFilasMembresia, validarFilasClase, validarFilasReserva, validarFilasCita, validarFilasPago,
+  CAMPOS_SOCIA, CAMPOS_MEMBRESIA, CAMPOS_CLASE, CAMPOS_RESERVA, CAMPOS_CITA, CAMPOS_PAGO,
   inferirOrdenFecha,
 } from '../csv.ts';
 
-export type EntidadMigracion = 'socias' | 'membresias' | 'clases' | 'reservas' | 'citas';
+export type EntidadMigracion = 'socias' | 'membresias' | 'clases' | 'reservas' | 'citas' | 'pagos';
 
-// Orden de ejecución con dependencias: membresías/reservas/citas necesitan que
-// las socias existan; las reservas necesitan las clases.
-export const ORDEN_EJECUCION: EntidadMigracion[] = ['socias', 'clases', 'membresias', 'reservas', 'citas'];
+// Orden de ejecución con dependencias: membresías/reservas/citas/pagos necesitan
+// que las socias existan; las reservas necesitan las clases.
+export const ORDEN_EJECUCION: EntidadMigracion[] = ['socias', 'clases', 'membresias', 'reservas', 'citas', 'pagos'];
 
 export interface FilaValidadaComun {
   fila: number;
@@ -70,6 +70,12 @@ export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
     campos: CAMPOS_CITA,
     mapear: (h) => autoMapearCita(h) as Record<string, number>,
     validar: (r, m) => validarFilasCita(r, m as Parameters<typeof validarFilasCita>[1]) as unknown as FilaValidadaComun[],
+  },
+  pagos: {
+    etiqueta: 'Pagos históricos',
+    campos: CAMPOS_PAGO,
+    mapear: (h) => autoMapearPago(h) as Record<string, number>,
+    validar: (r, m) => validarFilasPago(r, m as Parameters<typeof validarFilasPago>[1]) as unknown as FilaValidadaComun[],
   },
 };
 

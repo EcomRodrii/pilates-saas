@@ -1,6 +1,9 @@
 import type { Page, Route } from '@playwright/test';
-import { resolveBloquesPantalla, type BloqueHome } from '../lib/portal-home-bloques.ts';
+import { resolveBloquesPantalla, sembrarBloquesHome, type BloqueHome } from '../lib/portal-home-bloques.ts';
 import type { VariantesPortal } from '../lib/theme-variantes.ts';
+import { getThemeDefinition } from '../lib/theme-definitions.ts';
+import { DEFAULT_THEME } from '../lib/theme-schema.ts';
+import { themeToCssVars } from '../lib/theme-runtime.ts';
 
 // Montaje del portal de la clienta con datos deterministas, compartido por los
 // tests de las dos pantallas del diseño v2. Vive fuera de un `.spec` porque
@@ -136,7 +139,7 @@ const AVISOS_BASE = [
 ];
 
 export async function montarPortal(page: Page, opciones: {
-  conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
+  conSesion: boolean; fotoUrl?: string | null; imagenBienvenidaUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
   /** Motivo con el que el servidor RECHAZA la reserva (400). Sin esto, acepta. */
   reservaRechazada?: string;
   /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
@@ -168,12 +171,51 @@ export async function montarPortal(page: Page, opciones: {
   retoConteos?: Record<string, number>;
   /** Retos a los que YA está apuntada la socia en sesión. Sin esto, ninguno. */
   retosApuntados?: string[];
+  /** Recibos de la socia. Sin esto, los de siempre (uno COBRADO y uno
+   *  PENDIENTE). Se pasa cuando el test necesita un estado concreto —p. ej.
+   *  FALLIDO, que es el que el dunning deja al agotar los reintentos. */
+  recibos?: typeof RECIBOS;
+  /**
+   * Id de un tema de la galería ('oliva'|'bloom'|'noir'|...). Monta el portal
+   * COMO SI ese tema estuviera publicado: sus `variantes`/`barraClasica` por
+   * studio-data (igual que el servidor) y sus CSS vars en `:root`.
+   *
+   * ⚠️ Sin esto, un e2e del portal corre SIEMPRE con los fallbacks del
+   * componente: las vars las emite `ThemeStyle`, que es servidor y lee
+   * Supabase, así que aquí no llega ninguna. Ese hueco dejó pasar tres
+   * desviaciones de la barra inferior respecto al encargo sin que ningún test
+   * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
+   */
+  tema?: string;
 }) {
-  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
+  const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [] } = opciones;
-  const bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
+
+  // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
+  // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
+  // el portal se ve a medias — que es exactamente lo que pasaba en el editor.
+  const temaConfig = tema ? { ...DEFAULT_THEME, ...getThemeDefinition(tema)!.defaults } : null;
+  if (temaConfig) {
+    const vars = themeToCssVars(temaConfig) as Record<string, string>;
+    await page.addInitScript((pares: [string, string][]) => {
+      const aplicar = () => {
+        for (const [k, v] of pares) document.documentElement.style.setProperty(k, v);
+      };
+      if (document.documentElement) aplicar();
+      document.addEventListener('DOMContentLoaded', aplicar);
+    }, Object.entries(vars));
+  }
+  const definicionTema = tema ? getThemeDefinition(tema) : undefined;
+  let bloquesResueltos = homeBloques ?? resolveBloquesPantalla(null, 'home', portalHome).publicado;
+  // ⚠️ Un tema NO es solo colores y variantes: también siembra QUÉ bloques del
+  // Inicio se ven y en qué orden (`bloquesHome`). Sin esto, montar un tema en
+  // un e2e enseñaba el Inicio POR DEFECTO con su paleta encima — parecido
+  // pero con otros bloques y otro orden, que es justo lo que hay que comparar.
+  if (!homeBloques && definicionTema?.bloquesHome?.length) {
+    bloquesResueltos = sembrarBloquesHome(bloquesResueltos, [...definicionTema.bloquesHome]);
+  }
 
   if (conSesion) {
     await page.addInitScript(([sesion]) => {
@@ -218,9 +260,27 @@ export async function montarPortal(page: Page, opciones: {
     }
     return json(route, { ok: true });
   });
-  await page.route('**/api/notifications', route => {
-    const items = sinAvisos ? [] : AVISOS_BASE;
-    return json(route, { items, unread: items.filter(a => a.readAt == null).length });
+  // Con estado, igual que `retoConteosVivos`: el contador de la campana del
+  // Inicio y el `read-all` que dispara la pantalla de Avisos al abrirse son
+  // dos peticiones distintas contra la MISMA bandeja. Con un mock estático el
+  // contador salía siempre igual y no se podía probar que baja — que es
+  // justamente el bug que tuvo esa campana (contaba por su cuenta y nunca
+  // bajaba).
+  const avisosVivos: { id: string; readAt: string | null }[] =
+    (sinAvisos ? [] : AVISOS_BASE).map(a => ({ ...a }));
+  await page.route('**/api/notifications*', route => {
+    const req = route.request();
+    if (req.method() === 'PATCH') {
+      const { action, id } = req.postDataJSON() as { action: string; id?: string };
+      const ahora = new Date().toISOString();
+      for (const a of avisosVivos) {
+        if (action === 'read-all' && a.readAt == null) a.readAt = ahora;
+        else if (action === 'read' && a.id === id) a.readAt = ahora;
+        else if (action === 'unread' && a.id === id) a.readAt = null;
+      }
+      return json(route, { ok: true });
+    }
+    return json(route, { items: avisosVivos, unread: avisosVivos.filter(a => a.readAt == null).length });
   });
   // El pase de acceso de Marta para su clase de dentro de 3 h.
   let pasePeticiones = 0;
@@ -236,10 +296,25 @@ export async function montarPortal(page: Page, opciones: {
   }));
   await page.route('**/api/public/session', route =>
     conSesion ? json(route, SOCIA) : json(route, { error: 'no' }, 401));
+  // Refresco de aforo (el tic de REFRESCO_ACTIVO_MS). Sin este mock lo atraparía
+  // el catch-all de '**/api/**' de arriba, que devuelve `{}`.
+  //
+  // Solo las sesiones FUTURAS, como en producción (el endpoint acota a los
+  // próximos AFORO_VENTANA_DIAS). Eso hace que este mock ejerza justo el punto
+  // delicado de `refrescarAforo`: las reservas de HISTORIAL quedan FUERA de la
+  // ventana y tienen que sobrevivir intactas al tic. Si algún día alguien
+  // convierte la fusión en un reemplazo, la pestaña «Pasadas» se vaciará sola a
+  // los 5 segundos y estos tests lo verán.
+  await page.route('**/api/public/aforo**', route => json(route, {
+    sesionIds: SESIONES.map(s => s.id),
+    aforoReservas: conSesion
+      ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]
+      : [],
+  }));
   await page.route('**/api/public/studio-data', route => json(route, {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
-      colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl,
+      colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl, imagenBienvenidaUrl,
     },
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,
@@ -252,7 +327,8 @@ export async function montarPortal(page: Page, opciones: {
     portalHome,
     homeBloques: bloquesResueltos,
     tabBarStyle,
-    variantes: variantes ?? null,
+    barraClasica: temaConfig?.barraClasica ?? false,
+    variantes: variantes ?? temaConfig?.variantes ?? null,
     retoConteos: retoConteosVivos,
     // OJO: studio-context cruza `socia.reservas` con `aforoReservas` POR ID
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
@@ -265,7 +341,7 @@ export async function montarPortal(page: Page, opciones: {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : [SUSCRIPCION],
-      recibos: RECIBOS, facturas: FACTURAS, preferenciasSocio: [],
+      recibos, facturas: FACTURAS,
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
@@ -275,19 +351,43 @@ export async function montarPortal(page: Page, opciones: {
 }
 
 /**
- * Abre la hoja de reserva de la primera clase libre que haya en la semana.
+ * Abre la hoja de reserva de la primera clase libre que haya, esta semana o
+ * la siguiente.
  *
- * Las clases del mock son relativas a `Date.now()`, así que caen en un día de la
- * semana distinto según cuándo se ejecute la suite. Fijar «jueves» a mano —como
- * hacía la spec de Clases— pasa hoy y falla el martes que viene.
+ * Las clases del mock son relativas a `Date.now()` (+3h/+26h/+50h/+74h), así
+ * que caen en un día de la semana distinto según cuándo se ejecute la suite.
+ * Fijar «jueves» a mano —como hacía la spec de Clases— pasa hoy y falla el
+ * martes que viene. Pero solo recorrer los días de la semana ACTUAL tampoco
+ * basta: cerca del borde domingo→lunes (última hora UTC del domingo), los
+ * cuatro offsets caen TODOS en la semana siguiente — reproducido en CI un
+ * domingo 23:xx UTC, rompiendo esta spec Y portal-reserva-no-miente.spec.ts a
+ * la vez. Por eso, si la semana actual no tiene nada, se avanza con «Semana
+ * siguiente» antes de rendirse.
  */
 export async function abrirHojaDeReserva(page: Page) {
   const reservar = page.getByRole('button', { name: /^Reservar / });
-  if (await reservar.count() > 0) { await reservar.first().click(); return; }
   const dias = page.getByRole('button', { name: /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ });
-  for (let i = 0; i < await dias.count(); i++) {
-    await dias.nth(i).click();
+
+  // ⚠️ Y si esta semana no queda ninguna, se pasa a la siguiente.
+  //
+  // Las clases del mock están a +3h, +26h, +50h y +74h de AHORA, así que a qué
+  // semana caen depende de la hora a la que corra la suite. Un sábado por la
+  // noche solo la de +3h sigue en esta semana — y esa es justo la que ya tiene
+  // reservada Marta, así que no hay ningún botón "Reservar" y este ayudante
+  // moría con "no hay ninguna clase libre". Pasó en CI un sábado a las 23:16,
+  // tumbando una PR que no tocaba el portal.
+  //
+  // Mirar también la semana siguiente lo hace funcionar a cualquier hora del
+  // año sin fijar ningún día a mano, que es lo que ya evitaba el bucle de días.
+  const semanaSiguiente = page.getByRole('button', { name: 'Semana siguiente' });
+
+  for (let semana = 0; semana < 2; semana++) {
     if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    for (let i = 0; i < await dias.count(); i++) {
+      await dias.nth(i).click();
+      if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    }
+    if (semana === 0 && await semanaSiguiente.count() > 0) await semanaSiguiente.click();
   }
-  throw new Error('No hay ninguna clase libre esta semana en el mock');
+  throw new Error('No hay ninguna clase libre ni esta semana ni la siguiente en el mock');
 }

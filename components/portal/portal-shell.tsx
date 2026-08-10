@@ -26,10 +26,12 @@ import { sans, altura, radio } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PushPrompt } from './push-prompt';
 import { PortalNav } from './portal-nav';
+import { PortalTemaMarco, pantallaDeRuta } from './portal-tema-marco';
+import { esTemaPortal } from '@/themes/registro';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal, barraClasica, variantes } = useStudio();
+  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado, spots } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -52,7 +54,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
     if (isLoading || isClaveNueva) return;
     if (!session && !isLoginPage) router.replace(`/portal/${slug}/login`);
     if (session && isLoginPage) router.replace(`/portal/${slug}/home`);
-  }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, isLoading, isLoginPage, isClaveNueva, router, slug]);
 
   // Transición entre pantallas del portal: la pantalla saliente se queda
   // montada (misma key, así React la conserva en vez de desmontarla) y se
@@ -128,6 +130,46 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   const activeIndex = NAV.findIndex(({ seg }) =>
     seg === segActual || pathname.startsWith(`/portal/${slug}/${seg}`));
 
+  // El portal en React (el kit de diseño), detrás de `studios.portal_react`.
+  //
+  // Se exige ADEMÁS que el tema instalado sea uno de los tres del kit: con
+  // `classic` no hay juego de tokens que montar, y servirle a esa socia un
+  // portal a medio tintar sería peor que dejarle el de siempre. Así, encender
+  // la bandera en un estudio sin tema del kit no rompe nada: no pasa nada.
+  //
+  // ⚠️ TEMPORAL. Esta rama y el portal viejo se van juntos cuando acabe el
+  // despliegue por fases; no dejar que eche raíces.
+  //
+  // Y solo en las CINCO rutas que el kit cubre: `/progreso`, `/compras`,
+  // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
+  // `/videos` no tienen pantalla equivalente y se quedan con el portal de
+  // siempre. Encender la bandera no puede dejar a nadie sin esas pantallas.
+  // ⚠️ Y no en Clases si el estudio asigna plaza fija. El detalle del kit
+  // reserva sin elegir sitio (`spotId: null`): en un estudio de reformer eso
+  // dejaría a la socia sin máquina asignada, que es justo lo que la hoja de
+  // reserva de siempre le deja elegir. Un diseño nuevo no puede costar
+  // funcionalidad — mientras el kit no tenga selector de plaza, esa pantalla
+  // la sirve el portal completo. Los estudios sin `spots` (la mayoría) no
+  // notan nada.
+  const pantallaKit = pantallaDeRuta(pathname, slug);
+  const kitCubre = pantallaKit && !(pantallaKit === 'clases' && spots.length > 0);
+
+  if (portalReact && esTemaPortal(themeIdPublicado) && kitCubre) {
+    return (
+      <div className="fixed inset-0" style={{ background: t.bg }}>
+        <div className="flex flex-col overflow-hidden" style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}>
+          <PortalTemaMarco />
+          {/* ⚠️ El mismo componente que la rama de siempre, no una copia: es lo
+              que avisa de "añade a pantalla de inicio para recibir avisos", y
+              al montar el kit desapareció sin que nadie lo decidiera. Va aquí
+              fuera del marco porque se posiciona contra la pantalla completa
+              (`fixed`), no contra el lienzo de la pantalla activa. */}
+          <PushPrompt />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0" style={{ background: t.bg }}>
       <div
@@ -150,11 +192,20 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               aire son solo para la variante flotante (el espacio entre la
               cápsula y el borde de la pantalla) — la barra clásica no flota,
               así que solo necesita su propia altura. */}
-          {!isFullscreen && (
-            <div style={{ height: barraClasica
-              ? `calc(${altura.tabbar}px + env(safe-area-inset-bottom))`
-              : `calc(${altura.tabbar + 38}px + env(safe-area-inset-bottom))` }}
-            />
+          {/* ⚠️ SOLO cuando el menú flota. La barra clásica (Oliva, Noir) no
+              flota: va en el flujo, al final de la columna, y ya ocupa su
+              propio alto — el hueco de debajo no reservaba nada, sobraba. Eran
+              ~90px de vacío al final de cada pantalla, y se notaba: bajabas
+              del todo en el Inicio y después de los accesos rápidos venía un
+              agujero. Lo reportó el fundador en los tres temas.
+
+              Cuando SÍ flota (Bloom) el hueco es imprescindible: la cápsula va
+              en `position: absolute` encima del contenido, así que sin él tapa
+              la última fila. Su alto sale de la MISMA variable que usa la
+              barra, no de la constante de JS — un tema puede subirla (Bloom la
+              pone en 66) y el hueco se quedaba corto. */}
+          {!isFullscreen && !barraClasica && (
+            <div style={{ height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + 38px + env(safe-area-inset-bottom))` }} />
           )}
         </main>
 

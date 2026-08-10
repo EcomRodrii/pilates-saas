@@ -115,6 +115,27 @@ export function calcularFechaFinBono(fechaInicioISO: string, validezDias: number
   return base.toISOString().slice(0, 10);
 }
 
+// Hallazgo B (auditoría dunning 2026-08-10) — REACTIVAR una suscripción
+// CANCELADA/EXPIRADA (botón "Reactivar" en la ficha de clienta), a diferencia
+// de PAUSAR/DESCONGELAR (que solo cierra una ventana de congelación) o de
+// aplicarRenovacionServidor (que TOPA UN CICLO YA VIGENTE: en BONO/PUNTUAL
+// deja fecha_fin intacta a propósito). Aquí el ciclo anterior ya terminó del
+// todo — reactivar con la fecha_fin vieja la dejaría caducada al instante —
+// así que se recalcula igual que un alta nueva (mismo criterio que
+// `assignPlan` en studio-context.tsx): BONO/PUNTUAL arranca hoy con las
+// sesiones del plan a tope; MENSUAL con el próximo ciclo a un mes vista.
+export function calcularReactivacion(
+  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
+  ahoraISO: string,
+): { fechaFin: string | null; sesionesRestantes: number | null } {
+  if (plan.tipo === 'MENSUAL') {
+    const nuevaFin = new Date(`${ahoraISO.slice(0, 10)}T00:00:00Z`);
+    nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + 1);
+    return { fechaFin: nuevaFin.toISOString().slice(0, 10), sesionesRestantes: null };
+  }
+  return { fechaFin: calcularFechaFinBono(ahoraISO, plan.validezDias ?? null), sesionesRestantes: plan.sesiones };
+}
+
 // ¿La socia ya alcanzó el tope semanal del bono? reservasEnSemana = reservas
 // CONFIRMADA/ASISTIDA suyas en la misma semana ISO (lo cuenta quien llama, con
 // contexto de reservas+sesiones). Sin tope (null) nunca supera.
@@ -148,4 +169,30 @@ export function nuevaFechaFinTrasCongelar(fechaFin: string | null, desdeISO: str
  */
 export function hayAlgoQueContratar(planes: { activo: boolean }[]): boolean {
   return planes.some(p => p.activo);
+}
+
+// Los dos motivos por los que el servidor rechaza una reserva y la salida es
+// COMPRAR algo. Viven aquí, y no sueltos en el módulo de servidor, para que la
+// pantalla que los recibe pueda reconocerlos sin copiar la frase a mano.
+export const ERROR_SIN_PLAN = 'Necesitas un plan o bono activo para reservar';
+export const ERROR_BONO_NO_CUBRE = 'Tu bono no incluye este tipo de clase';
+
+/**
+ * ¿Este fallo al reservar se arregla comprando algo?
+ *
+ * El portal ya tiene la tienda (`/compras`) y la pantalla de Bonos ya invita a
+ * ir a ella cuando no hay bono. Lo que faltaba era el eslabón del medio: al
+ * intentar reservar sin plan, la hoja mostraba «Necesitas un plan o bono activo
+ * para reservar» como texto plano y ahí se acababa. La socia tenía que deducir
+ * sola que existe una pestaña «Bonos» y que dentro hay un botón para comprar.
+ *
+ * El momento en que alguien quiere reservar y no puede es exactamente el
+ * momento de ofrecerle la compra, no dos pantallas después.
+ *
+ * `includes` y no igualdad: la página pública añade una coletilla al mismo
+ * mensaje, y si algún día se envuelve, el botón desaparece en vez de aparecer
+ * donde no toca.
+ */
+export function seArreglaComprando(mensajeError: string): boolean {
+  return mensajeError.includes(ERROR_SIN_PLAN) || mensajeError.includes(ERROR_BONO_NO_CUBRE);
 }

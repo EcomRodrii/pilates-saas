@@ -13,11 +13,12 @@ import { errorInterno } from '@/lib/errores-servidor';
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-studio-data', { max: 60, windowSeconds: 60 });
   if (limited) return limited;
-  const body = await req.json().catch(() => null) as { slug?: string } | null;
+  const body = await req.json().catch(() => null) as { slug?: string; liviano?: boolean } | null;
   const slug = body?.slug?.trim();
   if (!slug) {
     return NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 });
   }
+  const liviano = body?.liviano === true;
 
   let member: { socioId: string; email: string } | undefined;
   const user = await verificarUsuarioSupabase(req);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const data = await fetchPublicStudioData(slug, member);
+    const data = await fetchPublicStudioData(slug, member, { liviano });
     if (!data) {
       return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
     }

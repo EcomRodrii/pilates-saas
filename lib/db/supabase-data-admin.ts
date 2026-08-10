@@ -1,165 +1,57 @@
 import 'server-only';
-
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
+import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
+import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid } from '@/lib/utils';
+import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import {
-  siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia,
+  contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
-import { idEstudioDe } from '@/lib/id-estudio';
-import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
+import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { decidirPremioReferido } from '@/lib/booking-logic';
 import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
-import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
 import { planMasElegido } from '@/lib/estudio-publico';
 import { esRetoKeyValida } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
-  RowAchievementDefinitions,
-  RowAchievementHistory,
-  RowAchievementProgress,
-  RowActividadReciente,
-  RowAutomationLogs,
-  RowAutomationRules,
-  RowAutomatizaciones,
-  RowBackups,
-  RowCampanas,
-  RowChallengeDefinitions,
-  RowChallengeHistory,
-  RowChallengeProgress,
-  RowCitas,
   RowCitasServicios,
   RowCitasDisponibilidad,
   RowFavoritosClase,
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
-  RowCodigosDescuento,
-  RowCreditTransactions,
-  RowDashboardCharts,
   RowFacturas,
   RowInstructores,
-  RowIntegraciones,
-  RowLevelDefinitions,
   RowMemberCredits,
-  RowMensajesEquipo,
-  RowCanalesEquipo,
   RowCondicionesSalud,
-  RowRespuestasSesion,
-  RowNotasInternas,
-  RowNotasProgreso,
-  RowNotificaciones,
-  RowPlanesTarifa,
-  RowPostsComunidad,
-  RowPreferenciasSocio,
-  RowProductosPos,
-  RowRecibos,
   RowReservas,
-  RowRewardActions,
   RowRewardCatalog,
-  RowRewardHistory,
-  RowRewardRedemptions,
-  RowRewardRules,
-  RowSalas,
-  RowBloqueosMaquina,
-  RowPlazasFijas,
-  RowRecuperaciones,
-  RowSocioExcepciones,
-  RowSesiones,
   RowSocios,
-  RowCamposPersonalizados,
-  RowPlantillasEmail,
-  RowInstructorDependencySnapshots,
-  RowSpots,
   RowStudios,
-  RowMandatosSepa,
-  RowSuscripciones,
-  RowTiposClase,
-  RowUsuarios,
-  RowVentasPos,
-  RowVideosOnDemand,
 } from '@/lib/db-types';
 import type {
-  AchievementDefinition,
-  AchievementHistory,
-  AchievementProgress,
-  ActividadReciente,
   AutomationLog,
-  AutomationRule,
-  Automatizacion,
-  BackupMeta,
-  Campana,
-  ChallengeDefinition,
-  ChallengeHistory,
-  ChallengeProgress,
-  Cita,
-  ServicioCita,
-  DisponibilidadCita,
-  TipoCita,
-  CodigoDescuento,
-  CreditTransaction,
-  DashboardChart,
-  Factura,
   Instructor,
-  Integracion,
   TipoIntegracion,
-  LevelDefinition,
-  MemberCredits,
-  MensajeEquipo,
-  CanalEquipo,
-  MetodoCobro,
-  CondicionSalud,
-  RespuestaSesionRow,
-  NotaInterna,
-  NotaProgreso,
-  Notificacion,
-  NivelSemaforo,
-  PlanTarifa,
-  PostComunidad,
-  ComentarioComunidad,
-  PreferenciasSocio,
-  ProductoPOS,
-  Recibo,
   Reserva,
-  RewardAction,
-  RewardCatalogItem,
-  RewardHistory,
-  RewardRedemption,
-  RewardRule,
   RewardTrigger,
-  Sala,
-  BloqueoMaquina,
-  PlazaFija,
-  Recuperacion,
-  SocioExcepcion,
   Sesion,
   Socio,
-  CampoPersonalizado,
-  PlantillaEmail,
-  InstructorDependencySnapshot,
-  Spot,
-  Studio,
-  MandatoSEPA,
   Suscripcion,
-  TipoClase,
-  Usuario,
-  VentaPOS,
-  VideoOnDemand,
 } from '@/lib/types';
 import {
   generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
@@ -177,41 +69,19 @@ import {
   mapSuscripcion,
   mapSesion,
   mapReserva,
-  mapMensajeEquipo,
   mapAchievementDefinition,
-  mapAchievementHistory,
   mapAchievementProgress,
-  mapActividadReciente,
-  mapAutomationLog,
-  mapAutomationRule,
-  mapAutomatizacion,
-  mapBackupMeta,
-  mapBloqueoMaquina,
-  mapCampana,
   mapChallengeDefinition,
-  mapChallengeHistory,
   mapChallengeProgress,
   mapCita,
-  mapCodigoDescuento,
   mapCondicionSalud,
   mapCreditTransaction,
-  mapDashboardChart,
   mapDisponibilidadCita,
   mapFactura,
-  mapIntegracion,
   mapLevelDefinition,
-  mapMandatoSepa,
   mapMemberCredits,
-  mapNotaInterna,
-  mapNotaProgreso,
-  mapNotificacion,
   mapPlazaFija,
-  mapPostComunidad,
-  mapPreferenciasSocio,
-  mapProductoPOS,
   mapRecibo,
-  mapRecuperacion,
-  mapRespuestaSesion,
   mapRewardAction,
   mapRewardCatalogItem,
   mapRewardHistory,
@@ -223,11 +93,8 @@ import {
   mapContenidoPortal,
   mapBannerPortal,
   mapServicioCita,
-  mapSocioExcepcion,
   mapSpot,
   mapTipoClase,
-  mapUsuario,
-  mapVentaPOS,
   mapVideoOnDemand,
 } from '@/lib/supabase-data';
 
@@ -327,6 +194,40 @@ export async function dbListComunicacionesSocio(studioId: string, socioId: strin
   }));
 }
 
+export type PagoHistorico = {
+  id: string;
+  fecha: string;
+  concepto: string | null;
+  importe: number;
+  medioPago: string | null;
+};
+
+// Pagos importados de la plataforma anterior (migración asistida) — solo
+// lectura, para la ficha de clienta. Fuera del snapshot global de
+// studio-context a propósito, mismo criterio que dbListComunicacionesSocio:
+// se carga aparte, solo al entrar en la ficha. Filtrado explícito por
+// studio_id + socio_id aunque se use service-role (bypasa RLS) — el caller
+// (API route) ya comprueba puedeVerFinanzas.
+export async function dbListPagosHistoricosSocio(studioId: string, socioId: string): Promise<PagoHistorico[]> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from('pagos_historicos')
+    .select('id, fecha, concepto, importe, medio_pago')
+    .eq('studio_id', studioId)
+    .eq('socio_id', socioId)
+    .order('fecha', { ascending: false })
+    .limit(200);
+  if (error) { reportDbError('[dbListPagosHistoricosSocio]', error); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id as string,
+    fecha: r.fecha as string,
+    concepto: r.concepto as string | null,
+    importe: Number(r.importe),
+    medioPago: r.medio_pago as string | null,
+  }));
+}
+
 
 function mapInstructorPublico(r: RowInstructores): Instructor {
   return { ...mapInstructor(r), email: null, telefono: null, authUserId: null };
@@ -345,9 +246,30 @@ function studioPublico(r: RowStudios) {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     logoUrl: r.logo_url ?? null,
+    // ⚠️ La foto del estudio faltaba aquí, y es EXACTAMENTE el fallo que
+    // avisa el comentario de abajo. La columna existe, la propietaria la
+    // sube desde Configuración y se guarda bien — pero como no estaba en
+    // esta lista, nunca salía de la base de datos.
+    //
+    // Consecuencia visible: la pantalla de acceso enseñaba un color plano
+    // con el logo pequeño en medio, y la bienvenida de Bloom —cuya variante
+    // `foto` recibe este mismo campo— se quedaba sin imagen. Parecía un
+    // hueco de diseño y era un campo que no viajaba: nada fallaba, nada
+    // avisaba, la foto simplemente no llegaba.
+    fotoUrl: r.foto_url ?? null,
+    // Imagen de bienvenida/portada del portal — separada de `fotoUrl` (foto
+    // de perfil de la propietaria, panel). Ver migr
+    // 20260810140000_studios_imagen_bienvenida.sql: comparten el mismo bug de
+    // "lista blanca" que ya avisa el comentario de arriba en `fotoUrl`, así
+    // que va explícita desde el principio.
+    imagenBienvenidaUrl: (r as { imagen_bienvenida_url?: string | null }).imagen_bienvenida_url ?? null,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,
+    // ⚠️ Esta lista es explícita, no un `select *`: un campo nuevo que no se
+    // añada aquí NO llega al portal aunque exista en la tabla, y el flag se
+    // quedaría siempre en `false` sin que nada fallara.
+    portalReact: (r as { portal_react?: boolean | null }).portal_react ?? false,
     // Política/términos del estudio: el portal se los muestra a la clienta y quedan
     // registrados con su aceptación. null = el cliente usa el texto por defecto.
     politicaPrivacidad: (r as { politica_privacidad?: string | null }).politica_privacidad ?? null,
@@ -362,6 +284,12 @@ function studioPublico(r: RowStudios) {
     reservaVentanaMinimaMinutos: r.reserva_ventana_minima_minutos ?? 0,
     reservaAntelacionMaximaDias: r.reserva_antelacion_maxima_dias ?? null,
     permiteListaEspera: r.permite_lista_espera ?? true,
+    // El portal lo usa para decidir si el botón "Ver mi acceso" abre el pase
+    // QR o lleva directo a la reserva (migr 20260809020328). Sin esta línea
+    // `studio.requiereCheckinQr` siempre llegaba `undefined` al cliente y el
+    // botón seguía abriendo el pase aunque el estudio lo hubiera desactivado
+    // — verificado en vivo con una socia de prueba antes de darlo por bueno.
+    requiereCheckinQr: (r as { requiere_checkin_qr?: boolean | null }).requiere_checkin_qr ?? true,
   };
 }
 
@@ -395,10 +323,75 @@ export async function resolverStudioPorSlug(
   return { row, slugActual: (row as { slug: string }).slug };
 }
 
+/**
+ * Ventana del refresco de aforo. El portal permite navegar semanas hacia
+ * delante; más allá de esto se sigue viendo el aforo del último
+ * `cargarPublico()` completo (montaje o vuelta a primer plano), que es
+ * exactamente el comportamiento que había ANTES de que existiera el tic.
+ */
+export const AFORO_VENTANA_DIAS = 60;
+
+/**
+ * Aforo público de las clases de la ventana próxima. Es lo ÚNICO que necesita
+ * el tic de 5s del portal, frente a `fetchPublicStudioData`, que devuelve el
+ * catálogo entero del estudio más el histórico financiero de la socia.
+ *
+ * Devuelve exactamente lo que ya es público hoy en `base.aforoReservas`
+ * (`id, sesion_id, estado, spot_id`): sin `socio_id`, sin nombres, sin nada
+ * personal. Por eso este endpoint NO necesita autenticación y su respuesta es
+ * idéntica para cualquier visitante del mismo estudio — que es lo que permite
+ * cachearla en CDN y colapsar el sondeo de N socias en una sola lectura.
+ *
+ * `sesionIds` viaja en la respuesta a propósito: el cliente necesita saber qué
+ * sesiones cubre la ventana para poder RETIRAR filas obsoletas. Una clase de la
+ * que se cancelan todas las reservas no aparece en `aforoReservas` —sin la
+ * lista de sesiones, el cliente no podría distinguir "sin reservas" de "fuera
+ * de la ventana" y se quedaría enseñando el aforo viejo.
+ */
+export async function fetchAforoPublico(slug: string): Promise<
+  { sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
+
+  const resuelto = await resolverStudioPorSlug(admin as never, slug);
+  if (!resuelto) return null;
+  const studioId = (resuelto.row as unknown as RowStudios).id;
+
+  const ahora = new Date();
+  const hasta = new Date(ahora.getTime() + AFORO_VENTANA_DIAS * 24 * 60 * 60 * 1000);
+  // Por `fin`, no por `inicio`: una clase que ya empezó pero no ha terminado
+  // sigue siendo relevante (la socia puede estar mirándola), y filtrar por
+  // `inicio >= ahora` la haría desaparecer del refresco a mitad de sesión.
+  const { data: sesionesData } = await admin
+    .from('sesiones').select('id')
+    .eq('studio_id', studioId)
+    .gte('fin', ahora.toISOString())
+    .lte('inicio', hasta.toISOString());
+
+  const sesionIds = (sesionesData ?? []).map((s) => s.id as string);
+  if (sesionIds.length === 0) return { sesionIds: [], aforoReservas: [] };
+
+  // Paginado: PostgREST corta en 1000 filas EN SILENCIO, y un estudio lleno
+  // puede pasar de mil reservas en 60 días. Sin esto el aforo de las clases
+  // sobrantes volvería a cero y se pintarían como libres — el mismo fallo que
+  // ya costó el truncado de los backups (#684), pero mostrando plazas que no
+  // existen.
+  const { data: aforoReservas } = await fetchAllRows(studioId, 'reservas', (from, to) =>
+    admin.from('reservas').select('id, sesion_id, estado, spot_id')
+      .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to));
+
+  return {
+    sesionIds,
+    aforoReservas: (aforoReservas ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
+  };
+}
+
 
 export async function fetchPublicStudioData(
   slug: string,
   member?: { socioId: string; email: string },
+  opts?: { liviano?: boolean },
 ) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada (SUPABASE_SERVICE_ROLE_KEY)');
@@ -407,6 +400,7 @@ export async function fetchPublicStudioData(
   if (!resuelto) return null;
   const studioRow = resuelto.row as unknown as RowStudios;
   const studioId: string = studioRow.id;
+  const liviano = opts?.liviano ?? false;
 
   // Catálogo público (nada de PII): clases, horarios, salas, instructoras,
   // planes, spots, vídeos y la configuración de gamificación (niveles, logros,
@@ -420,24 +414,25 @@ export async function fetchPublicStudioData(
   // "CACHE"). sesiones y el aforo de plazas quedan FUERA del caché a propósito
   // — cambian con cada reserva/cancelación y una socia no debe ver una plaza
   // como libre cuando ya se ocupó hace 10 segundos.
-  const catalogo = await conCacheCatalogo(`catalogo-publico:${studioId}`, async () => {
+  //
+  // `liviano` (audit de rendimiento de los widgets embebibles, #~730): los 4
+  // iframes de /reservar/[slug]?embed=1 comparten este mismo endpoint con el
+  // portal completo (app/portal/[slug]) pero NUNCA leen vídeos, recompensas,
+  // niveles/logros/retos, contenido del portal ni el layout de temas — eso es
+  // exclusivo de la app instalable. Confirmado por grep en
+  // app/reservar/[slug]/page.tsx: cero referencias a esos campos. Se saltan
+  // esas 11 queries y sus campos vuelven vacíos/null — misma forma del objeto,
+  // así que el portal (que sí pide el modo completo) no cambia en nada.
+  const catalogo = await conCacheCatalogo(claveCatalogoPublico(studioId, liviano), async () => {
     const [
-      tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes, videosRes,
-      rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+      tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
       admin.from('instructores').select('*').eq('studio_id', studioId),
       admin.from('spots').select('*').eq('studio_id', studioId),
       admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
-      admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
-      admin.from('reward_rules').select('*').eq('studio_id', studioId),
-      admin.from('reward_catalog').select('*').eq('studio_id', studioId),
-      admin.from('level_definitions').select('*').eq('studio_id', studioId),
-      admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
-      admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
       // Catálogo de citas 1:1 (0046): solo servicios auto-reservables y activos +
       // el horario fino. Nada de PII (los huecos se calculan aparte en servidor).
       admin.from('citas_servicios').select('*').eq('studio_id', studioId).eq('activo', true).eq('auto_reservable', true),
@@ -447,32 +442,51 @@ export async function fetchPublicStudioData(
       // suscripciones que allí hay (las de la socia identificada, y ninguna si
       // no lo está) convertía su propia compra repetida en prueba social.
       admin.from('suscripciones').select('plan_id').eq('studio_id', studioId),
-      admin.from('contenido_portal').select('*').eq('studio_id', studioId).maybeSingle(),
-      // Filtrado en SQL (activo + ubicación 'home'), no en el cliente — es lo
-      // que gana la tabla normalizada frente a un jsonb. La ventana de fechas se
-      // filtra en el cliente: "hoy" depende del momento de carga, no de cuándo
-      // se rellenó este caché de hasta 60s.
-      admin.from('contenido_portal_banners').select('*')
-        .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
-        .order('orden', { ascending: true }),
-      // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
-      // editor de temas) — getLayout ya es una función pública sin auth
-      // (service-role, cacheada con React cache), así que se llama tal cual,
-      // sin RLS/endpoint nuevo.
-      getLayout(studioId),
-      // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
-      // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
-      // la única excepción — la barra inferior (portal-shell.tsx) decide con
-      // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
-      // puede decidir por sí solo.
-      getThemePublicado(studioId),
-      // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
-      // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
-      // socia daría un número parcial, no el real.
-      admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
     ]);
 
-    const retoConteos = (retoParticipRes.data ?? []).reduce<Record<string, number>>((acc, r) => {
+    // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
+    // `liviano` arriba. Sin ellas cuando el widget no las necesita: un array
+    // literal con spread condicional rompe la inferencia de tupla de
+    // Promise.all (degenera a un array homogéneo), así que este bloque va en
+    // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
+    const [
+      videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
+    ] = liviano
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      : await Promise.all([
+        admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
+        admin.from('reward_rules').select('*').eq('studio_id', studioId),
+        admin.from('reward_catalog').select('*').eq('studio_id', studioId),
+        admin.from('level_definitions').select('*').eq('studio_id', studioId),
+        admin.from('achievement_definitions').select('*').eq('studio_id', studioId),
+        admin.from('challenge_definitions').select('*').eq('studio_id', studioId),
+        admin.from('contenido_portal').select('*').eq('studio_id', studioId).maybeSingle(),
+        // Filtrado en SQL (activo + ubicación 'home'), no en el cliente — es lo
+        // que gana la tabla normalizada frente a un jsonb. La ventana de fechas se
+        // filtra en el cliente: "hoy" depende del momento de carga, no de cuándo
+        // se rellenó este caché de hasta 60s.
+        admin.from('contenido_portal_banners').select('*')
+          .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
+          .order('orden', { ascending: true }),
+        // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
+        // editor de temas) — getLayout ya es una función pública sin auth
+        // (service-role, cacheada con React cache), así que se llama tal cual,
+        // sin RLS/endpoint nuevo.
+        getLayout(studioId),
+        // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
+        // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
+        // la única excepción — la barra inferior (portal-shell.tsx) decide con
+        // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
+        // puede decidir por sí solo.
+        getThemePublicado(studioId),
+        // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
+        // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
+        // socia daría un número parcial, no el real.
+        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+      ]);
+
+    const retoConteos = (retoParticipRes?.data ?? []).reduce<Record<string, number>>((acc, r) => {
       const key = (r as { reto_key: string }).reto_key;
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
@@ -487,34 +501,37 @@ export async function fetchPublicStudioData(
       instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
       spots: (spotsRes.data ?? []).map(mapSpot),
       planesTarifa: planesConTiposPub,
-      videosOnDemand: (videosRes.data ?? []).map(mapVideoOnDemand),
-      rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
-      rewardCatalog: (rewardCatalogRes.data ?? []).map(mapRewardCatalogItem),
-      levelDefinitions: (levelDefsRes.data ?? []).map(mapLevelDefinition),
-      achievementDefinitions: (achDefsRes.data ?? []).map(mapAchievementDefinition),
-      challengeDefinitions: (chalDefsRes.data ?? []).map(mapChallengeDefinition),
+      videosOnDemand: (videosRes?.data ?? []).map(mapVideoOnDemand),
+      rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
+      rewardCatalog: (rewardCatalogRes?.data ?? []).map(mapRewardCatalogItem),
+      levelDefinitions: (levelDefsRes?.data ?? []).map(mapLevelDefinition),
+      achievementDefinitions: (achDefsRes?.data ?? []).map(mapAchievementDefinition),
+      challengeDefinitions: (chalDefsRes?.data ?? []).map(mapChallengeDefinition),
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
-      contenidoPortal: contenidoPortalRes.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
-      bannersPortal: (bannersPortalRes.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
-      portalHome: layout.portalHome,
+      contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+      bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
+      portalHome: layout?.portalHome ?? null,
       // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
       // borrador — solo lo publicado llega al portal en vivo.
-      homeBloques: layout.bloques.home.publicado,
-      bloquesClases: layout.bloques.clases.publicado,
-      bloquesBonos: layout.bloques.bonos.publicado,
-      tabBarStyle: temaPublicado.tabBarStyle,
-      navPortal: temaPublicado.navPortal,
-      redesSociales: temaPublicado.redesSociales,
+      homeBloques: layout?.bloques.home.publicado ?? [],
+      bloquesClases: layout?.bloques.clases.publicado ?? [],
+      bloquesBonos: layout?.bloques.bonos.publicado ?? [],
+      // Qué tema tiene instalado, no solo sus valores: el portal en React
+      // elige con esto cuál de los tres juegos de tokens monta.
+      themeIdPublicado: temaPublicado?.themeId ?? null,
+      tabBarStyle: temaPublicado?.tabBarStyle ?? null,
+      navPortal: temaPublicado?.navPortal ?? null,
+      redesSociales: temaPublicado?.redesSociales ?? null,
       // Barra clásica (Oliva/Noir, ver harmonic-discovering-kettle.md): igual
       // que tabBarStyle/navPortal, es una decisión de LAYOUT que portal-shell.tsx
       // toma con JS (position flotante o no), no algo que una CSS var pueda
       // decidir por sí sola.
-      barraClasica: temaPublicado.barraClasica,
+      barraClasica: temaPublicado?.barraClasica ?? null,
       // Variantes de forma por bloque (theme-variantes.ts) — viajan como valor
       // JS por el mismo motivo que `barraClasica`: deciden qué elementos
       // EXISTEN, algo que una CSS var no puede decidir.
-      variantes: temaPublicado.variantes ?? null,
+      variantes: temaPublicado?.variantes ?? null,
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -529,7 +546,13 @@ export async function fetchPublicStudioData(
   // sesiones futuras (incluida la semana siguiente) en el portal de la
   // clienta, aunque el panel interno (fetchCriticalStudioData) sí paginaba.
   const [{ data: sesionesData }, { data: reservasAforo }] = await Promise.all([
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('*').eq('studio_id', studioId).range(from, to)),
+    // Columnas, no `select('*')`: esto corre en el SERVIDOR y en CADA visita al
+    // portal, así que cada columna de más se paga dos veces en Active CPU de
+    // Fluid — al parsear la respuesta de PostgREST y al volver a serializar el
+    // JSON hacia el navegador. La espera de red no se factura; el trabajo de
+    // CPU sobre los bytes, sí. La lista es la misma que consume `mapSesion`
+    // (tipo `FilaSesionPanel`), así que si se queda corta, `tsc` la nombra.
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
@@ -553,12 +576,11 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, prefRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
+  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('recibos').select('*').eq('studio_id', studioId).eq('socio_id', sid),
-      admin.from('preferencias_socio').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('member_credits').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_history').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reward_redemptions').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -599,7 +621,6 @@ export async function fetchPublicStudioData(
       reservas: (resRes.data ?? []).map(mapReserva),
       recibos: misRecibos,
       facturas: (facData ?? []).map(mapFactura),
-      preferenciasSocio: (prefRes.data ?? []).map(mapPreferenciasSocio),
       memberCredits: (credRes.data ?? []).map(mapMemberCredits),
       rewardHistory: (histRes.data ?? []).map(mapRewardHistory),
       rewardRedemptions: (redRes.data ?? []).map(mapRewardRedemption),
@@ -811,6 +832,44 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
   return { condicionesActivas: condiciones.length, recordatorios: recordatorios.length, notificacionesCreadas: recordatorios.length };
 }
 
+// Copia el catálogo de tipos de clase de la cadena (cadena_tipos_clase) a los
+// tipos_clase REALES de una sede — nunca un vínculo vivo, solo "insertar lo
+// que falte por nombre". Se usa en dos sitios: al crear una sede nueva
+// (app/api/cadena/sedes/route.ts) y en el botón "Aplicar catálogo" para
+// sedes ya existentes (app/api/cadena/tipos-clase/aplicar/route.ts). Nunca
+// sobrescribe ni borra un tipo_clase que la sede ya tenga, aunque su nombre
+// coincida con uno de la plantilla y lo hayan editado localmente —
+// deliberadamente sin detección de diff/conflicto, ver diseño en
+// .claude/tentare-os.md.
+export async function aplicarCatalogoCadena(params: { cadenaId: string; studioId: string }): Promise<{ aplicados: number }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  const [{ data: plantilla }, { data: existentes }] = await Promise.all([
+    admin.from('cadena_tipos_clase').select('*').eq('cadena_id', params.cadenaId),
+    admin.from('tipos_clase').select('nombre').eq('studio_id', params.studioId),
+  ]);
+  if (!plantilla?.length) return { aplicados: 0 };
+
+  const nombresExistentes = new Set((existentes ?? []).map(t => (t.nombre as string).toLowerCase()));
+  const faltantes = plantilla.filter(p => !nombresExistentes.has((p.nombre as string).toLowerCase()));
+  if (faltantes.length === 0) return { aplicados: 0 };
+
+  const filas = faltantes.map(p => ({
+    id: `tc-${uid()}`,
+    studio_id: params.studioId,
+    nombre: p.nombre,
+    color: p.color,
+    duracion_minutos: p.duracion_minutos,
+    descripcion: p.descripcion,
+    nivel: p.nivel,
+    foto_url: p.foto_url,
+  }));
+  const { error } = await admin.from('tipos_clase').insert(filas);
+  if (error) throw new Error(`aplicarCatalogoCadena: ${error.message}`);
+  return { aplicados: filas.length };
+}
+
 // Barrido de no-shows: marca NO_ASISTIO toda reserva que siga CONFIRMADA en una
 // sesión ya terminada (fin < ahora) y no cancelada. Sin esto, las reservas sin
 // check-in se quedan CONFIRMADA para siempre y las métricas de ausencias mienten.
@@ -820,27 +879,75 @@ export async function generarRecordatoriosRevision(studioId: string, nowISO: str
 // semanas. Lo dispara el cron nocturno. Todo el trabajo (emparejamiento por hora
 // local, aforo, idempotencia) es set-based en la RPC. Devuelve cuántas creó.
 
-export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number }> {
+export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const { data, error } = await admin.rpc('materializar_plazas_fijas', { p_horizonte_dias: horizonteDias });
   if (error) throw new Error(error.message);
-  return { creadas: (data as number) ?? 0 };
+
+  // Tras materializar, detecta qué plazas fijas NO se pudieron confirmar esta
+  // semana (sesión cancelada / suscripción pausada / sin aforo) y avisa a la
+  // socia — antes fallaba en silencio, sin que nadie se enterara. Best-effort:
+  // un fallo aquí no debe tumbar el cron que sí generó reservas reales.
+  let noMaterializadas = 0;
+  try {
+    const { data: gaps, error: gapsError } = await admin.rpc('plazas_fijas_sin_materializar', { p_horizonte_dias: horizonteDias });
+    if (gapsError) throw new Error(gapsError.message);
+    const filas = (gaps as { studio_id: string; socio_id: string; sesion_id: string; motivo: string }[]) ?? [];
+    noMaterializadas = filas.length;
+    if (filas.length > 0) {
+      const { emitirPlazaFijaNoMaterializada } = await import('@/lib/notifications/emit');
+      for (const f of filas) {
+        await emitirPlazaFijaNoMaterializada(admin, {
+          studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id,
+          motivo: f.motivo as 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo',
+        });
+      }
+    }
+  } catch (e) {
+    console.error('[materializarPlazasFijas] aviso de huecos:', e instanceof Error ? e.message : e);
+  }
+
+  return { creadas: (data as number) ?? 0, noMaterializadas };
 }
 
+
+// Cuánto histórico mira el barrido. El cron corre a diario (vercel.json:
+// `0 23 * * *`), así que 30 días absorben una caída larguísima del cron sin
+// dejar reservas sin marcar. Acotar es necesario: sin cota, la consulta
+// re-escanea el histórico de TODA la plataforma cada noche y su coste crece
+// para siempre, aunque el trabajo útil sea siempre el del último día.
+const VENTANA_NO_SHOWS_DIAS = 30;
 
 export async function barrerNoShows(nowISO: string) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data: sesiones, error } = await admin
-    .from('sesiones')
-    .select('id')
-    .eq('cancelada', false)
-    .lt('fin', nowISO);
-  if (error) throw new Error(error.message);
+  // ⚠️ Esta consulta no lleva `studio_id` (es global, la dispara el cron), así
+  // que antes no la cubría ningún índice y, peor, no paginaba NI ordenaba:
+  // PostgREST cortaba en 1000 filas en silencio y SIN `ORDER BY` las 1000 que
+  // llegaban eran arbitrarias (orden físico, típicamente las más antiguas).
+  // O sea: pasadas las 1000 sesiones pasadas, las RECIENTES — las únicas que
+  // hay que barrer — eran justo las que se quedaban fuera. Un fallo de
+  // corrección nacido de un patrón de rendimiento.
+  const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
+  const { filas: sesiones, truncado } = await leerCatalogoCompleto<{ id: string }>(
+    (desde, hasta) => admin
+      .from('sesiones')
+      .select('id')
+      .eq('cancelada', false)
+      .lt('fin', nowISO)
+      .gte('fin', desdeISO)
+      .order('fin', { ascending: true })
+      .range(desde, hasta),
+  );
+  if (truncado) {
+    capturarMensaje('barrerNoShows: se alcanzó el tope de paginación, quedan sesiones sin barrer', 'warning', {
+      tags: { area: 'cron-no-shows' }, extra: { desdeISO, nowISO },
+    });
+  }
 
-  const ids = (sesiones ?? []).map(s => s.id as string);
+  const ids = sesiones.map(s => s.id);
   let marcadas = 0;
   // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
   for (let i = 0; i < ids.length; i += 200) {
@@ -915,7 +1022,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
         admin.from('socio_excepciones').select('socio_id').eq('tipo', 'SIN_RECORDATORIO').in('socio_id', socioIds),
       ])
     : [{ data: [] as { id: string; nombre: string | null; email: string | null; telefono: string | null }[] }, { data: [] as { socio_id: string; notif_email: boolean | null; notif_whatsapp: boolean | null }[] }, { data: [] as { socio_id: string }[] }];
-  // Sin fila de preferencias = valores por defecto (true), igual que mapPreferenciasSocio.
+  // Sin fila de preferencias = valores por defecto (true).
   const prefsPorSocio = new Map((prefsR ?? []).map(p => [p.socio_id, p]));
   const exentosRecordatorio = new Set((excR ?? []).map(e => e.socio_id as string));
 
@@ -956,8 +1063,13 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
       const socia = sociaPorId.get(r.socio_id);
       if (!socia) continue;
       if (exentosRecordatorio.has(r.socio_id)) continue; // "a esta jamás" (B2.9)
-      // Preferencias del portal (app/portal/[slug]/perfil): sin fila = valores
-      // por defecto (true), igual que mapPreferenciasSocio en el resto de la app.
+      // notif_email/notif_whatsapp de preferencias_socio: sin fila = valores por
+      // defecto (true). ⚠️ Sin UI que los ponga a false hoy — se retiró la
+      // pantalla "Preferencias" del portal (era cosmética en todo lo demás,
+      // ver auditoría de onboarding/2026-08) y nunca tuvo un control para
+      // estos dos campos. Quedan como el único freno posible si algún día se
+      // escriben a mano en BD; si se quiere un control real, hace falta UI
+      // nueva, no reintroducir la pantalla borrada.
       const prefs = prefsPorSocio.get(r.socio_id);
       const quiereEmail = prefs?.notif_email ?? true;
       const quiereWhatsapp = prefs?.notif_whatsapp ?? true;
@@ -1105,7 +1217,7 @@ export async function crearReservaPublica(params: {
     if (!ses) return { error: 'Sesión no encontrada' as const };
     if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
     if (new Date(ses.inicio as string).getTime() <= Date.now()) {
-      return { error: 'Esta clase ya ha empezado' as const };
+      return { error: MENSAJE_CLASE_YA_EMPEZADA };
     }
     tipoClaseId = ses.tipo_clase_id as string | null | undefined;
     inicioISO = ses.inicio as string;
@@ -1169,8 +1281,8 @@ export async function crearReservaPublica(params: {
       );
       registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: tieneAlgunPlan ? 'PLAN_NO_INCLUYE_TIPO' : 'SIN_PLAN' });
       return tieneAlgunPlan
-        ? { error: 'Tu bono no incluye este tipo de clase' as const }
-        : { error: 'Necesitas un plan o bono activo para reservar' as const };
+        ? { error: ERROR_BONO_NO_CUBRE }
+        : { error: ERROR_SIN_PLAN };
     }
     if (pol.maxSimultaneas != null) {
       const activas = contarReservasActivasFuturas(
@@ -1396,8 +1508,11 @@ export async function aceptarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  const { data, error } = await admin.rpc('aceptar_oferta_lista_espera', {
-    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
+  // La RPC solo tiene una salida no-excepcional (`select 'CONFIRMADA'`); todo
+  // lo demás sale por `raise exception` y se lee abajo en `error`. Por eso no
+  // se mira el `data`: no lleva nada que no sepamos ya.
+  const { error } = await admin.rpc('aceptar_oferta_lista_espera', {
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId
   });
   if (error) {
     if (error.message.includes('OFERTA_CADUCADA')) return { error: 'Esta oferta ya ha caducado' };
@@ -1428,7 +1543,7 @@ export async function expirarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) return;
   const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
-    p_studio_id: params.studioId, p_reserva_id: params.reservaId,
+    p_studio_id: params.studioId, p_reserva_id: params.reservaId
   });
   if (error) {
     console.error('[expirarOfertaListaEspera]', error.message);
@@ -1437,7 +1552,7 @@ export async function expirarOfertaListaEspera(params: {
   const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
   await emitirReservaCancelada(admin, {
     studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId,
-    reservaId: params.reservaId, motivo: 'oferta_caducada',
+    reservaId: params.reservaId, motivo: 'oferta_caducada'
   });
 
   const row = Array.isArray(data) ? data[0] : data;
@@ -1445,7 +1560,7 @@ export async function expirarOfertaListaEspera(params: {
     const { emitirOfertaListaEspera } = await import('@/lib/notifications/emit');
     await emitirOfertaListaEspera(admin, {
       studioId: params.studioId, sesionId: params.sesionId,
-      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string,
+      socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string
     });
   }
 }
@@ -1515,7 +1630,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
         tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
         data: { ...datos, bonoDevuelto: true },
         studioId: params.studioId,
-        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`,
+        idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`
       });
     }
   }
@@ -1575,7 +1690,7 @@ export async function ejecutarCancelacionReserva(
 ): Promise<{ ok: true; tardia: boolean; bonoDevuelto: boolean; eraConfirmada: boolean } | { error: string }> {
   const { data, error } = await admin.rpc('cancelar_reserva_plaza', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId,
-    p_omitir_penalizacion: params.omitirPenalizacion ?? false,
+    p_omitir_penalizacion: params.omitirPenalizacion ?? false
   });
   if (error) {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' as const };
@@ -2123,44 +2238,6 @@ export async function actualizarSociaPublica(params: {
   return { ok: true as const };
 }
 
-
-export async function guardarPreferenciasPublica(params: {
-  studioId: string; socioId: string; email: string; cambios: Record<string, unknown>;
-}) {
-  const admin = getSupabaseAdmin();
-  if (!admin) throw new Error('Service role no configurada');
-  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
-  if (!socia) return { error: 'No autorizado' as const };
-
-  const { data: existente } = await admin
-    .from('preferencias_socio').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).maybeSingle();
-  // I8: los cambios llegan en camelCase desde el portal (notifEmail,
-  // instructorFavoritoId…). Antes se hacían spread DIRECTO al upsert → columnas
-  // inexistentes → el write fallaba en silencio. Mapeamos camel→snake con lista
-  // blanca (misma correspondencia que dbUpsertPreferenciasSocio); las claves
-  // desconocidas se ignoran en vez de intentar escribir una columna que no existe.
-  const COLUMNA_PREF: Record<string, string> = {
-    disponibilidad: 'disponibilidad',
-    instructorFavoritoId: 'instructor_favorito_id',
-    tipoClaseFavorita: 'tipo_clase_favorita',
-    duracionPreferida: 'duracion_preferida',
-    nivel: 'nivel',
-    notifEmail: 'notif_email',
-    notifWhatsapp: 'notif_whatsapp',
-  };
-  const cambiosSnake: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(params.cambios)) {
-    const col = COLUMNA_PREF[k];
-    if (col) cambiosSnake[col] = v;
-  }
-  const fila = {
-    socio_id: params.socioId, studio_id: params.studioId,
-    ...(existente ?? {}), ...cambiosSnake, actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await admin.from('preferencias_socio').upsert(fila, { onConflict: 'socio_id' });
-  if (error) return { error: error.message };
-  return { ok: true as const };
-}
 
 // Canjea una recompensa del catálogo con los créditos de la socia. Valida
 // identidad, disponibilidad/stock/saldo (reward-engine) y actualiza el saldo.

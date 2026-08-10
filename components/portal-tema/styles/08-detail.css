@@ -1,0 +1,163 @@
+/* 08-detail.css — detalle de clase y sesión guiada.
+ *
+ * Dos maquetaciones de cabecera según el tema: `sangre` (foto a sangre con la
+ * hoja blanca montada encima, Bloom y Noir) y `tarjeta` (foto contenida y hoja
+ * en tarjeta, Oliva).
+ */
+
+.detail-photo {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--photo-bg);
+  overflow: hidden;
+}
+/* El envoltorio `__media` también lo reutiliza la sesión guiada, así que el
+   dimensionado va en él y no en el ancestro. */
+.detail-photo__media { position: absolute; inset: 0; }
+.detail-photo__media img,
+.detail-photo img,
+.session-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.detail-photo__veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(22,33,26,.45) 0%, rgba(22,33,26,.14) 38%, rgba(22,33,26,.72) 100%);
+}
+.detail-photo--card {
+  flex: none;
+  height: 218px;
+  margin: 0 22px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--support);
+}
+
+.detail-top {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 22px 0;
+}
+.detail-hero { position: relative; margin-top: auto; padding: 0 24px 30px; }
+.detail-hero__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 38px; line-height: 1.06; letter-spacing: -.03em; color: #FFFFFF;
+}
+.detail-hero__teacher { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.detail-hero__name { font-size: 13px; font-weight: 500; color: #FFFFFF; }
+
+/* Hoja de contenido montada sobre la foto. */
+.sheet {
+  flex: none;
+  position: relative;
+  margin-top: -30px;
+  padding: 24px 24px 32px;
+  border-radius: 34px 34px 46px 46px;
+  background: var(--surface);
+  box-shadow: 0 -14px 40px -22px rgba(20,28,22,.35);
+}
+.sheet--scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.sheet--card {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  margin: -26px 22px 26px;
+  padding: 22px 20px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+
+.detail__title {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 24px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+.detail__label {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-detail-label); line-height: 1.2; letter-spacing: -.02em; color: var(--ink);
+}
+.detail__body { margin-top: 9px; font-size: 13px; line-height: 1.6; color: var(--muted); text-wrap: pretty; }
+.detail__seats { margin-top: 13px; font-size: 12px; color: var(--muted); text-align: center; }
+
+.meta-grid { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 14px; }
+.meta-row { display: flex; align-items: center; gap: 9px; min-width: 44%; }
+.meta-row .icon { flex: none; color: var(--muted); }
+.meta-row__label { font-size: 12.5px; font-weight: 500; color: var(--ink); }
+
+.facts { display: flex; gap: 9px; margin-top: 18px; }
+.fact {
+  flex: 1; min-width: 0;
+  padding: 11px 12px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.fact__key { font-size: 10px; font-weight: 500; color: var(--muted); }
+.fact__value {
+  margin-top: 3px;
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 13px; line-height: 1.2; letter-spacing: -.02em; color: var(--ink);
+}
+
+/* ── Sesión guiada ─────────────────────────────────────────────────────── */
+.session-photo {
+  position: relative;
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  background: #E7DCEF;
+  overflow: hidden;
+}
+.session-photo__veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(30,20,45,.44) 0%, rgba(30,20,45,.08) 34%, rgba(30,20,45,0) 100%);
+}
+.session-top {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 22px 0;
+}
+.session__title {
+  font-family: var(--font-display);
+  font-size: 15.5px; font-weight: 600; letter-spacing: -.01em;
+  color: #FFFFFF; text-align: center;
+}
+.sheet--session { padding: 24px 26px 34px; box-shadow: 0 -14px 40px -22px rgba(60,40,90,.3); }
+
+.session__status {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 22px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink);
+}
+.session__step { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+
+.timer {
+  margin-top: 18px;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 40px; line-height: 1; letter-spacing: -.03em;
+  color: var(--ink); text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.timer__bar { margin-top: 14px; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.timer__fill {
+  display: block; height: 100%; width: var(--pct);
+  border-radius: 999px;
+  background: var(--brand);
+  transition: width 1s linear;
+}
+
+.controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 22px; }
+.control {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: var(--control-bg);
+  border: var(--control-border);
+  color: var(--ink);
+  display: grid; place-items: center;
+  transition: background .2s ease, transform .12s ease;
+}
+.control:hover { background: var(--support-soft); }
+.control--main {
+  width: 74px; height: 74px;
+  background: var(--brand); color: var(--on-brand);
+  border: 0;
+  box-shadow: var(--shadow-control);
+}
+.control--main:hover { background: var(--brand-hover); }

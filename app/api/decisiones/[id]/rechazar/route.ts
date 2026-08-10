@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await dbInsertOutcome({
     studioId: recomendacion.studioId, recomendacionId: id, evento: 'RECHAZADA',
     outcome: outcomeInmediato('RECHAZADA'), senalObservada: null, ventanaDias: 0, medidoEn: nowISO,
+    impactoReal: null, confianzaMedicion: null, // resultado inmediato, no hay nada que medir
   });
 
   await dbLogActividadReciente({

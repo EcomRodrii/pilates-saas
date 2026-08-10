@@ -11,15 +11,17 @@ import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { ERROR_GENERICO } from '@/lib/errores';
-import type { Socio, NivelSemaforo } from '@/lib/types';
+import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
-  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2
+  Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
+  CircleDashed,
 } from 'lucide-react';
-import { cn, formatFechaLarga as formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { PageHeader } from '@/components/ui/page-header';
@@ -60,10 +62,6 @@ function normalizaBusqueda(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '');
 }
 
-function initials(nombre: string, apellidos: string) {
-  return `${nombre[0] ?? ''}${apellidos[0] ?? ''}`.toUpperCase();
-}
-
 function avatarColor(str: string) {
   const colors = [
     ['#E0E7FF', '#6E9E0A'],
@@ -99,10 +97,12 @@ function relativeTime(iso: string | null | undefined): string {
 function FF({
   label,
   description,
+  required,
   children,
 }: {
   label: string;
   description?: ReactNode;
+  required?: boolean;
   children: ReactNode;
 }) {
   const { htmlFor, control } = useCampoAsociado(children);
@@ -115,7 +115,7 @@ function FF({
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
+        {label}{required && <span className="text-destructive"> *</span>}
       </label>
       {description && (
         <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
@@ -239,8 +239,9 @@ export default function Socios() {
   const [errorFila, setErrorFila] = useState<string | null>(null);
   const contratoRef = useRef<HTMLDivElement>(null);
 
-  // Reset selection when filters change
-  useEffect(() => { setSelected(new Set()); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // (El reset de la selección al cambiar de filtro vive más abajo, junto al de
+  // la paginación: los dos vigilaban las mismas cuatro dependencias y ahora
+  // son un único ajuste en render.)
 
   // Auto-open create modal when ?nuevo=1 in URL (linked from dashboard)
   useEffect(() => {
@@ -248,11 +249,17 @@ export default function Socios() {
     // `?nuevo=1` abre el alta sin pasar por el botón: si no se comprueba aquí,
     // basta el enlace del dashboard (o escribir la url) para saltarse la puerta.
     if (params.get('nuevo') === '1' && gestionaClientas) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?nuevo=1). La URL no existe durante el render en servidor, así que esto NO se puede derivar en render.
       setForm(emptyForm());
       setShowForm('nueva');
       window.history.replaceState({}, '', '/clientas');
     }
-  }, []);
+    // `gestionaClientas` SÍ va en las dependencias, no es ruido: el rol se
+    // resuelve después del primer render, así que con `[]` el efecto corría una
+    // vez con el permiso todavía en false y el enlace `?nuevo=1` del dashboard
+    // no abría nada. Al volver a correr cuando el permiso llega, la URL sigue
+    // teniendo `?nuevo=1` (solo se limpia si se entró) y el alta se abre.
+  }, [gestionaClientas]);
 
   // ── Índices precomputados (P0-34) ──────────────────────────────────────────
   // Antes cada helper escaneaba suscripciones/reservas/sesiones ENTERAS, y se
@@ -297,27 +304,79 @@ export default function Socios() {
     return ultimaVisitaPorSocio.get(socioId) ?? null;
   }
 
-  function isInactiva30d(socioId: string): boolean {
+  // El "ahora" con el que se decide quién lleva 30 días sin venir se fija una
+  // vez al montar, en vez de leer el reloj en cada render. Sin intervalo a
+  // propósito: el umbral es de 30 días, no se cruza mientras la pantalla está
+  // abierta. `0` = todavía sin montar, y entonces nadie sale como inactiva
+  // (mejor no marcar a nadie que marcar a todas durante un frame).
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: leer el reloj en render daría valores distintos en servidor y cliente.
+    setAhoraMs(Date.now());
+  }, []);
+
+  // Mismo criterio que el contador del servidor (migr 0128): quien no tiene
+  // ninguna reserva ASISTIDA no se cuenta desde 1970, se cuenta desde su alta.
+  // Antes esto marcaba "Sin asistencia" a CUALQUIER clienta recién creada
+  // (sin visitas todavía) igual que a una que llevaba 30 días sin venir —
+  // exactamente el "todas aparecen como Sin asistencia" que reportó el
+  // fundador, porque una base nueva tiene casi solo altas recientes.
+  function isInactiva30d(socioId: string, s?: Socio): boolean {
+    if (!ahoraMs) return false;
     const last = getLastVisit(socioId);
-    if (!last) return true;
-    return Date.now() - new Date(last).getTime() > 30 * 86400000;
+    const desde = last ?? s?.fechaAlta;
+    if (!desde) return true;
+    return ahoraMs - new Date(desde).getTime() > 30 * 86400000;
+  }
+
+  // Distingue "todavía no le ha dado tiempo a venir" (dada de alta hace poco,
+  // sin visitas) de "llevaba viniendo y dejó de asistir" — antes ambas
+  // compartían la misma etiqueta "Sin asistencia" y la primera es la mayoría
+  // en cualquier estudio con altas recientes.
+  function sinDatosDeAsistencia(socioId: string, s: Socio): boolean {
+    return isInactiva30d(socioId, s) && !getLastVisit(socioId);
   }
 
   function isBonoExpirado(socioId: string): boolean {
     return expiradaPorSocio.has(socioId) && !getActiveSus(socioId);
   }
 
-  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle } {
-    if (!s.activo) return { label: 'Inactiva', bg: 'var(--muted)', color: 'var(--muted-foreground)' };
+  // "Caduca en N días"/"Próxima renovación en N días" para la fila de la
+  // tabla y la card móvil — mismo cálculo puro que la ficha de la clienta
+  // (lib/suscripcion-estado.ts), sin reimplementar la cuenta de días aquí.
+  function textoCaducidadFila(sus: Suscripcion | undefined, plan: PlanTarifa | null): string | null {
+    if (!sus || !plan) return null;
+    return textoCaducidad(calcularEstadoSuscripcion(sus, plan));
+  }
+  function colorCaducidadFila(sus: Suscripcion | undefined, plan: PlanTarifa | null): string {
+    if (!sus || !plan) return 'var(--muted-foreground)';
+    const estado = calcularEstadoSuscripcion(sus, plan);
+    if (estado.kind === 'bono') return estado.caducado ? 'var(--destructive)' : estado.urgente ? 'var(--warning)' : 'var(--muted-foreground)';
+    if (estado.kind === 'recurrente') return estado.urgente ? 'var(--warning)' : 'var(--muted-foreground)';
+    return 'var(--muted-foreground)';
+  }
+
+  // Estados por orden de prioridad: baja de staff > bono caducado > (recién
+  // dada de alta sin visitas todavía) > (llevaba viniendo y dejó) > activa.
+  // "Sin datos" e "Inactiva" (30d) comparten el mismo hecho (isInactiva30d),
+  // pero son causas distintas para la propietaria — una no es un problema,
+  // la otra puede que sí.
+  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle; title?: string } {
+    if (!s.activo) return { label: 'Inactiva', bg: 'var(--muted)', color: 'var(--muted-foreground)', title: 'Dada de baja por el estudio.' };
     if (isBonoExpirado(s.id)) return { label: 'Bono expirado', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)', Icon: AlertCircle };
-    if (isInactiva30d(s.id)) return { label: 'Sin asistencia', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)', Icon: Clock };
+    if (isInactiva30d(s.id, s)) {
+      if (sinDatosDeAsistencia(s.id, s)) {
+        return { label: 'Sin datos', bg: 'var(--muted)', color: 'var(--muted-foreground)', Icon: CircleDashed, title: 'Esta alumna todavía no ha registrado ninguna asistencia.' };
+      }
+      return { label: 'Sin asistencia reciente', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)', Icon: Clock, title: 'Más de 30 días desde su última clase asistida.' };
+    }
     return { label: 'Activa', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' };
   }
 
   function EstadoBadge({ s }: { s: Socio }) {
-    const { label, bg, color, Icon } = estadoBadgeInfo(s);
+    const { label, bg, color, Icon, title } = estadoBadgeInfo(s);
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
+      <span title={title} className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
         {Icon ? <Icon size={10} /> : <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
         {label}
       </span>
@@ -348,7 +407,7 @@ export default function Socios() {
       if (smartFilter === 'activas') matchF = s.activo;
       if (smartFilter === 'sin_bono') matchF = !getActiveSus(s.id);
       if (smartFilter === 'bono_expirado') matchF = isBonoExpirado(s.id);
-      if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id);
+      if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
       return matchB && matchF;
     });
 
@@ -373,7 +432,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir]);
+  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir, ahoraMs]);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -381,8 +440,22 @@ export default function Socios() {
     else { setSortKey(key); setSortDir('asc'); }
   }
 
-  // Al cambiar filtros/búsqueda/orden, volver a la primera página.
-  useEffect(() => { setVisibles(PAGE); }, [busqueda, smartFilter, sortKey, sortDir]);
+  // Al cambiar filtros/búsqueda/orden: volver a la primera página y vaciar la
+  // selección (no tendría sentido conservar marcadas clientas que ya no salen).
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // al teclear en el buscador se pintaba un frame con la lista nueva pero
+  // todavía la paginación y la selección viejas, y el reset entraba en un
+  // segundo render. Así React descarta el render en curso y rehace antes de
+  // tocar el DOM: ese frame intermedio no llega a existir.
+  const filtroActual = `${busqueda} ${smartFilter} ${sortKey} ${sortDir}`;
+  const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
+  if (filtroActual !== filtroPrevio) {
+    setFiltroPrevio(filtroActual);
+    setVisibles(PAGE);
+    setSelected(new Set());
+  }
   const listaVisible = useMemo(() => lista.slice(0, visibles), [lista, visibles]);
 
   // ── Bulk helpers ───────────────────────────────────────────────────────────
@@ -499,16 +572,9 @@ export default function Socios() {
     // antes se cerraba igual y la clienta aparecía en la lista sin existir.
     if (!res.ok) { setErrorGuardar(res.error); return; }
 
-    // La bienvenida solo se manda si el alta se ha guardado de verdad.
-    if (form.email.trim()) {
-      const plan = planesTarifa.find((p) => p.id === form.planId);
-      enviarEmailBienvenida({
-        to: form.email.trim(),
-        toName: `${form.nombre.trim()} ${form.apellidos.trim()}`,
-        planNombre: plan?.nombre,
-        socioId: res.id,
-      });
-    }
+    // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
+    // también las altas que no pasan por esta pantalla (import CSV, alta
+    // pública). Mandarla aquí también duplicaba el email.
     resetModal();
   }
 
@@ -584,7 +650,7 @@ export default function Socios() {
   ];
 
   return (
-    <div className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div data-tour="clientas-lista" className="space-y-5 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
       {errorFila && (
         <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
@@ -888,15 +954,33 @@ export default function Socios() {
                       )}
                     </td>
 
-                    {/* Sesiones restantes */}
+                    {/* Sesiones restantes + caducidad/renovación */}
                     <td className="px-4 py-3.5 hidden md:table-cell">
                       {sesRest != null ? (
-                        <span
-                          className="inline-block text-[12px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ backgroundColor: sesBg, color: sesColor }}
-                        >
-                          {sesRest}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className="inline-block text-[12px] font-semibold px-2 py-0.5 rounded-md"
+                            style={{ backgroundColor: sesBg, color: sesColor }}
+                          >
+                            {sesRest}
+                          </span>
+                          {textoCaducidadFila(sus, plan) && (
+                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                              {textoCaducidadFila(sus, plan)}
+                            </span>
+                          )}
+                        </div>
+                      ) : sus && plan ? (
+                        // Mensual/plan recurrente sin contador de sesiones: no hay "—" vacío,
+                        // se enseña la renovación (o "Activo" si no hay fecha).
+                        <div className="flex flex-col gap-0.5 items-start">
+                          <span className="text-[11px] font-semibold text-success">Activo</span>
+                          {textoCaducidadFila(sus, plan) && (
+                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                              {textoCaducidadFila(sus, plan)}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[12px] text-muted-foreground">—</span>
                       )}
@@ -999,6 +1083,11 @@ export default function Socios() {
                           {sesRest} ses.
                         </span>
                       )}
+                      {textoCaducidadFila(sus, plan) && (
+                        <span className="text-[11px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                          {textoCaducidadFila(sus, plan)}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1.5">Última visita: {relativeTime(lastVisit)}</p>
                   </div>
@@ -1072,7 +1161,7 @@ export default function Socios() {
           {(showForm === 'editar' || formStep === 1) && (
             <div className="space-y-3.5 mt-2">
               <div className="grid grid-cols-2 gap-3">
-                <FF label="Nombre">
+                <FF label="Nombre" required>
                   <input
                     className={inputCls}
                     placeholder="Laura"
@@ -1080,7 +1169,7 @@ export default function Socios() {
                     onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   />
                 </FF>
-                <FF label="Apellidos">
+                <FF label="Apellidos" required>
                   <input
                     className={inputCls}
                     placeholder="Martínez García"
@@ -1089,7 +1178,7 @@ export default function Socios() {
                   />
                 </FF>
               </div>
-              <FF label="Email" description="Con esto entra al portal y recibe recordatorios y facturas.">
+              <FF label="Email" required description="Con esto entra al portal y recibe recordatorios y facturas.">
                 <input
                   type="email"
                   className={inputCls}
@@ -1258,6 +1347,15 @@ export default function Socios() {
             <p className="flex items-start gap-2 mt-4 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>{errorGuardar}</span>
+            </p>
+          )}
+
+          {/* "Siguiente" se queda deshabilitado en silencio si falta algún
+              obligatorio (#865) — este aviso dice cuál, en vez de dejar que
+              el botón "no haga nada" sin explicación. */}
+          {showForm === 'nueva' && formStep === 1 && (!form.nombre || !form.apellidos || !form.email) && (
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos', !form.email && 'Email'].filter(Boolean).join(', ')} para continuar.
             </p>
           )}
 

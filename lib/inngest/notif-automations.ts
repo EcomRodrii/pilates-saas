@@ -1,18 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification Engine — AUTOMATIZACIONES (crons → publish).
 //
-// Tres dispatchers cron hacen fan-out de un evento por estudio; un único worker
-// detecta la condición y PUBLICA eventos de notificación (el motor decide
-// destinatarios/canales). La idempotencia la garantiza el `dedup_key` del motor:
-// aunque el cron re-escanee, cada hecho genera una sola notificación.
+// Tres dispatchers cron detectan condiciones y PUBLICAN eventos de
+// notificación (el motor decide destinatarios/canales). La idempotencia la
+// garantiza el `dedup_key` del motor: aunque el cron re-escanee, cada hecho
+// genera una sola notificación.
+//
+// Bonos/inactivas (poco frecuentes) hacen fan-out de un evento por estudio a
+// `procesarAutomacionEstudio`. Recordatorios (cada 15 min) NO — ver el
+// comentario de `notifRecordatoriosDispatcher` sobre por qué.
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
+import type { TipoExcepcion } from '@/lib/excepciones';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type TipoAutomacion = 'recordatorios' | 'bonos' | 'inactivas';
+// Tipado, no un literal suelto: una errata aquí (`SIN_RECORDATORIOS`) apagaría
+// la exención en silencio y nadie se enteraría hasta que una socia exenta
+// recibiera el push.
+const EXENCION_RECORDATORIO: TipoExcepcion = 'SIN_RECORDATORIO';
+
+type TipoAutomacion = 'bonos' | 'inactivas';
 
 // Ids de todos los estudios activos (para el fan-out). `suspendido_en`: un
 // estudio suspendido no debe seguir mandando recordatorios/avisos a sus socias.
@@ -23,12 +33,22 @@ async function estudiosIds(): Promise<string[]> {
   return (data ?? []).map((s) => s.id as string);
 }
 // Recordatorios (24 h y 1 h antes): cada 15 min.
+//
+// ⚠️ SIN fan-out por estudio (a diferencia de bonos/inactivas, mucho más
+// espaciados). Con fan-out y 10 estudios activos esto eran ~960 ejecuciones/día
+// (96 tics × 10 estudios) solo para este cron — el 70%+ del consumo mensual de
+// Inngest del plan free (alerta de la plataforma al 84% del límite,
+// 2026-08-08). Mismo motivo y mismo arreglo que ya se aplicó en
+// reservas-pendientes-expirar.ts/lista-espera-ofertas-expirar.ts: una única
+// query global (`recordatoriosGlobal`), sin nada caro que decidir por estudio.
 export const notifRecordatoriosDispatcher = inngest.createFunction(
   { id: 'notif-recordatorios-dispatcher', triggers: [{ cron: '*/15 * * * *' }] },
   async ({ step }) => {
-    const studios = await step.run('studios', estudiosIds);
-    await enviarFanOutEnLotes(step, 'fan-out', EVENTS.NOTIF_AUTOMACION_ESTUDIO, studios, (studioId: string) => ({ studioId, tipo: 'recordatorios' as TipoAutomacion }));
-    return { studios: studios.length };
+    return step.run('recordatorios', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+      return recordatoriosGlobal(admin);
+    });
   },
 );
 // Bonos a punto de caducar: cada mañana.
@@ -58,7 +78,6 @@ export const procesarAutomacionEstudio = inngest.createFunction(
     return step.run('detectar', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) return { skipped: 'sin service-role' };
-      if (tipo === 'recordatorios') return recordatorios(admin, studioId);
       if (tipo === 'bonos') return bonos(admin, studioId);
       return inactivas(admin, studioId);
     });
@@ -69,33 +88,55 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: 
 const fecha = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
 
 // ── Recordatorios: reservas confirmadas cuya sesión empieza en ~24 h o ~1 h ────
-async function recordatorios(admin: SupabaseClient, studioId: string) {
+// Global (todos los estudios activos en una pasada) — ver comentario del
+// dispatcher sobre por qué esto ya no hace fan-out por estudio.
+async function recordatoriosGlobal(admin: SupabaseClient) {
   const ahora = Date.now();
   const desde = new Date(ahora).toISOString();
   const hasta = new Date(ahora + 25 * 3600_000).toISOString();
+  const { data: studiosActivos } = await admin.from('studios').select('id, slug').is('suspendido_en', null);
+  if (!studiosActivos?.length) return { publicados: 0 };
+  const slugById = new Map(studiosActivos.map((s) => [s.id as string, (s.slug as string | null) ?? '']));
+
   const { data: sesiones } = await admin.from('sesiones')
-    .select('id, inicio, tipo_clase_id').eq('studio_id', studioId).eq('cancelada', false)
+    .select('id, studio_id, inicio, tipo_clase_id').eq('cancelada', false)
+    .in('studio_id', studiosActivos.map((s) => s.id as string))
     .gte('inicio', desde).lte('inicio', hasta);
   if (!sesiones?.length) return { publicados: 0 };
   const sesById = new Map(sesiones.map((s) => [s.id as string, s]));
-  const [{ data: tipos }, { data: studio }, { data: reservas }] = await Promise.all([
-    admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId),
-    admin.from('studios').select('slug').eq('id', studioId).maybeSingle(),
-    admin.from('reservas').select('id, socio_id, sesion_id').eq('studio_id', studioId).eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]),
+
+  const [{ data: tipos }, { data: reservas }] = await Promise.all([
+    admin.from('tipos_clase').select('id, nombre').in('id', [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))]),
+    admin.from('reservas').select('id, studio_id, socio_id, sesion_id').eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]),
   ]);
   const nombre = new Map((tipos ?? []).map((t) => [t.id as string, t.nombre as string]));
-  const slug = (studio?.slug as string | null) ?? '';
+
+  // "No enviarle recordatorios" (B2.9). `lib/excepciones.ts` lo describe sin
+  // matices —"no recibirá el recordatorio automático de sus clases próximas"— y
+  // su cabecera afirma que TODAS las automatizaciones que escriben a la socia lo
+  // consultan antes. Esta no lo hacía: el camino viejo (email/WhatsApp, en
+  // `enviarRecordatoriosClasesProximas`) sí lo respetaba, así que la propietaria
+  // marcaba la casilla, dejaba de salir el correo, y el móvil le seguía sonando
+  // con el push. Se consulta aquí en lote, mismo criterio que allí.
+  const socioIds = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
+  const { data: exentosR } = socioIds.length
+    ? await admin.from('socio_excepciones').select('socio_id').eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds)
+    : { data: [] as { socio_id: string }[] };
+  const exentos = new Set((exentosR ?? []).map(e => e.socio_id as string));
+
   let publicados = 0;
   for (const r of reservas ?? []) {
     const ses = sesById.get(r.sesion_id as string);
     if (!ses || !r.socio_id) continue;
+    if (exentos.has(r.socio_id as string)) continue;
     const horas = (new Date(ses.inicio as string).getTime() - ahora) / 3600_000;
     const tipo = horas >= 23.5 && horas <= 24.5 ? '24h' : horas >= 0.75 && horas <= 1.25 ? '1h' : null;
     if (!tipo) continue;
+    const studioId = ses.studio_id as string;
     await publish({
       type: tipo === '24h' ? EVENTOS.RECORDATORIO_24H : EVENTOS.RECORDATORIO_1H,
       studioId,
-      data: { clase: nombre.get(ses.tipo_clase_id as string) ?? 'tu clase', hora: hora(ses.inicio as string), slug, sesionId: ses.id, socioId: r.socio_id },
+      data: { clase: nombre.get(ses.tipo_clase_id as string) ?? 'tu clase', hora: hora(ses.inicio as string), slug: slugById.get(studioId) ?? '', sesionId: ses.id, socioId: r.socio_id },
       resource: { type: 'sesion', id: ses.id as string },
       dedupKey: `recordatorio-${tipo}:${r.id}`,
     });

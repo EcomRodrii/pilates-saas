@@ -50,7 +50,7 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, pideDecision, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
@@ -65,6 +65,12 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
+
+// Fecha fija con la que pintan IGUAL servidor y cliente hasta que monta y salta
+// a la real (guarda de hidratación). A nivel de módulo, no dentro del
+// componente: dentro era un objeto nuevo en cada render, y es el valor inicial
+// de cuatro estados.
+const FALLBACK = new Date('2026-01-01T12:00:00');
 
 function addDays(date: Date, n: number) {
   const d = new Date(date);
@@ -91,6 +97,25 @@ function localDate(d: Date | string): string {
 
 function toISO(fecha: string, hora: string) {
   return new Date(`${fecha}T${hora}:00`).toISOString();
+}
+
+// "Repite como la semana pasada": busca la sesión de la MISMA sala+tipo de
+// clase exactamente 7 días después (match por timestamp exacto, no por "día
+// de semana + hora" reconstruido a mano — evita el error de reglas de DST).
+// Puntual, no en lote: un clic, una semana. Si falla (sin bono/llena/
+// duplicada), lo dice la RPC de reservar_plaza vía addReserva — no se
+// duplica esa validación aquí.
+function buscarSesionSemanaSiguiente(
+  sesiones: Sesion[],
+  actual: Pick<Sesion, 'inicio' | 'salaId' | 'tipoClaseId'>,
+): Sesion | null {
+  const objetivo = new Date(actual.inicio).getTime() + 7 * 24 * 60 * 60 * 1000;
+  return sesiones.find(s =>
+    !s.cancelada &&
+    s.salaId === actual.salaId &&
+    s.tipoClaseId === actual.tipoClaseId &&
+    new Date(s.inicio).getTime() === objetivo,
+  ) ?? null;
 }
 
 // ─── Shared input styles ──────────────────────────────────────────────────────
@@ -228,7 +253,7 @@ const DIA_PILLS: { label: string; day: number }[] = [
 // ─── ModalClasesRecurrentes ───────────────────────────────────────────────────
 
 function ModalClasesRecurrentes({
-  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [],
+  open, onClose, tiposClase, instructores, salas, onCrear, sesionesExistentes, ausencias = [], initial,
 }: {
   open: boolean;
   onClose: () => void;
@@ -238,30 +263,41 @@ function ModalClasesRecurrentes({
   salas: { id: string; nombre: string; capacidad: number }[];
   onCrear: (sesiones: Omit<Sesion, 'id' | 'studioId'>[]) => void;
   sesionesExistentes: SlotSesion[];
+  /** "Duplicar serie": arranca con los valores derivados de la serie de
+   *  origen en vez de los defaults en blanco. Sigue siendo editable — es
+   *  solo el punto de partida, no un valor fijo. */
+  initial?: RecurringFormData;
 }) {
   const uid = useId();
-  const today = new Date().toISOString().slice(0, 10);
-  const inOneMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const emptyForm = (): RecurringFormData => ({
+  // Las dos fechas por defecto se calculan DENTRO de emptyForm(), no en el
+  // cuerpo del componente: así solo se leen cuando el formulario se crea o se
+  // reinicia (al abrir el diálogo), en vez de en cada render. Antes, además de
+  // ser impuro, significaba que el diálogo abierto a las 23:59 proponía el día
+  // de ayer si el usuario tardaba un minuto en pulsar.
+  const emptyForm = (): RecurringFormData => initial ?? {
     tipoClaseId: tiposClase[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
     salaId: salas[0]?.id ?? '',
     horaInicio: '10:00',
     duracion: 60,
     diasSemana: [1, 3],
-    fechaInicio: today,
-    fechaFin: inOneMonth,
+    fechaInicio: new Date().toISOString().slice(0, 10),
+    fechaFin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     aforoMaximo: salas[0]?.capacidad ?? 8,
-  });
+  };
 
   const [form, setForm] = useState<RecurringFormData>(emptyForm);
   const duracionInvalida = !form.duracion || form.duracion < 15;
 
-  useEffect(() => {
+  // Al abrir, el formulario vuelve a estar vacío. Ajuste en render, no efecto:
+  // con efecto el diálogo aparecía un frame con lo que se escribió la vez
+  // anterior y se limpiaba después.
+  const [abiertoPrevio, setAbiertoPrevio] = useState(open);
+  if (open !== abiertoPrevio) {
+    setAbiertoPrevio(open);
     if (open) setForm(emptyForm());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
   function toggleDia(day: number) {
     setForm(f => ({
@@ -453,8 +489,8 @@ interface DatosVista {
 export default function Calendario() {
   const {
     sesiones, reservas, socios, spots, tiposClase, salas, instructores,
-    suscripciones, planesTarifa,
-    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde, cancelarSerieDesde,
+    suscripciones, planesTarifa, studio,
+    addSesion, updateSesion, deleteSesion, addSesionesSerie, editarSerieDesde,
     addReserva, cancelarReserva, checkin,
     deshacerCheckin, marcarNoShow, revertirNoShow, liberarSpot, asignarSpot,
     addActividadReciente, addRecibo, resetDatosPilates,
@@ -495,7 +531,6 @@ export default function Calendario() {
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
-  const FALLBACK = new Date('2026-01-01T12:00:00');
 
   // ── Vista: Día (por sala) / Semana (7 columnas) / Mes — punto 2 del rediseño ─
   const [vista, setVista] = useState<'dia' | 'semana' | 'mes'>('semana');
@@ -503,15 +538,31 @@ export default function Calendario() {
   const [diaSeleccionado, setDiaSeleccionado] = useState(() => FALLBACK);
   const [mesVisto, setMesVisto] = useState(() => FALLBACK);
 
+  // `now` vive en estado, no como `new Date()` en el cuerpo del render. Era un
+  // objeto nuevo en cada pasada, y está en las dependencias de tres cosas caras
+  // (el formulario vacío, el estado por sesión y las tarjetas): recalculaban
+  // todas en cada render, incluido uno tan ajeno como abrir un toast.
+  // Congelarlo tras montar tampoco vale —es la trampa que ya documenta
+  // dashboard/page.tsx— porque la línea roja de "ahora" y los badges EN_CURSO
+  // dejarían de moverse en una pestaña que se queda abierta. De ahí el
+  // intervalo de un minuto, igual que allí.
+  const [now, setNow] = useState(FALLBACK);
+
   useEffect(() => {
     const today = new Date();
+    // ⚠️ El disable va AQUÍ, sobre la llamada, y no encima del `useEffect`: la
+    // regla señala la línea del setState, no la del efecto, así que en un
+    // efecto multilínea un disable sobre el `useEffect(` no la tapa (pasó en
+    // este mismo sitio y se quedó avisando sin que se notara).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: los tres estados arrancan en FALLBACK (fecha fija) para que servidor y cliente pinten lo mismo, y saltan a la fecha real tras montar. El segundo render es el OBJETIVO; derivarlo en render devolvería `new Date()` en el servidor y rompería la hidratación.
     setMounted(true);
     setSemana(weekStart(today));
     setDiaSeleccionado(today);
     setMesVisto(today);
+    setNow(today);
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
   }, []);
-
-  const now = mounted ? new Date() : FALLBACK;
 
   // ── Selection ───────────────────────────────────────────────────────────────
   const [sesionId, setSesionId] = useState<string | null>(null);
@@ -520,6 +571,7 @@ export default function Calendario() {
   // ── Modals ──────────────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState<'nueva' | 'editar' | null>(null);
   const [showRecurrentes, setShowRecurrentes] = useState(false);
+  const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   const [showNuevaMenu, setShowNuevaMenu] = useState(false);
   const [showCobertura, setShowCobertura] = useState(false);
   const [showNoPuedoAsistir, setShowNoPuedoAsistir] = useState(false);
@@ -751,6 +803,7 @@ export default function Calendario() {
       window.history.replaceState({}, '', '/calendario');
     } else if (params.get('recurrentes') === '1') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setInitialRecurrente(undefined);
       setShowRecurrentes(true);
       window.history.replaceState({}, '', '/calendario');
     }
@@ -825,6 +878,40 @@ export default function Calendario() {
     });
     setErrorSesion(null);
     setShowForm('nueva');
+  }
+
+  // Duplicar la SERIE completa (no una instancia suelta): deriva
+  // día(s)/hora/tipo/sala/instructora del tramo FUTURO de la serie de origen
+  // (mismo criterio que editarSerieDesde — una serie puede tener un tramo
+  // pasado con otra configuración) y abre el modal de recurrentes ya
+  // relleno. La copia es una serie totalmente independiente (mismo criterio
+  // que "Duplicar" de una instancia no vincula a la original) — se genera
+  // desde cero con addSesionesSerie, sin RPC ni tabla nueva.
+  function openDuplicarSerie(origen: SesionEnr) {
+    if (!origen.serieId) return;
+    const futuras = sesionesEnriquecidas.filter(s => s.serieId === origen.serieId && s.inicio >= origen.inicio);
+    if (futuras.length === 0) return;
+
+    const diasSemana = [...new Set(futuras.map(s => new Date(s.inicio).getDay()))];
+    const ultimaFecha = futuras.reduce((max, s) => (s.inicio > max ? s.inicio : max), futuras[0].inicio);
+    const inicioCopia = addDays(new Date(ultimaFecha), 1);
+    const nSemanas = Math.max(1, Math.ceil((new Date(ultimaFecha).getTime() - new Date(origen.inicio).getTime()) / (7 * 24 * 3600_000)) + 1);
+    const finCopia = addDays(inicioCopia, nSemanas * 7 - 1);
+
+    const ini = new Date(origen.inicio);
+    const fin = new Date(origen.fin);
+    setInitialRecurrente({
+      tipoClaseId: origen.tipoClaseId,
+      instructorId: origen.instructorId,
+      salaId: origen.salaId,
+      horaInicio: `${String(ini.getHours()).padStart(2, '0')}:${String(ini.getMinutes()).padStart(2, '0')}`,
+      duracion: Math.round((fin.getTime() - ini.getTime()) / 60_000),
+      diasSemana,
+      fechaInicio: localDate(inicioCopia),
+      fechaFin: localDate(finCopia),
+      aforoMaximo: origen.aforoMaximo,
+    });
+    setShowRecurrentes(true);
   }
 
   // Compartido por crearSesion() y crearClasesRecurrentes(): invalida el
@@ -936,6 +1023,10 @@ export default function Calendario() {
 
   async function editarSesion() {
     if (!sesionId || horaInvalida || guardandoSesion) return;
+    if (sesionActual && sesionYaEmpezada(sesionActual.inicio)) {
+      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      return;
+    }
     setGuardandoSesion(true);
     try {
     const nuevoInicio = toISO(form.fecha, form.horaInicio);
@@ -999,6 +1090,10 @@ export default function Calendario() {
     // esto dos clics (o dos candidatas distintas) mandaban dos updateSesion
     // en paralelo — el segundo en responder ganaba en silencio.
     if (!sesionActual || guardandoSesion) return;
+    if (sesionYaEmpezada(sesionActual.inicio)) {
+      showToast(MENSAJE_CLASE_YA_EMPEZADA);
+      return;
+    }
     setGuardandoSesion(true);
     try {
     const anterior = nombreInstructor(sesionActual.instructorId);
@@ -1130,18 +1225,12 @@ export default function Calendario() {
     void refrescarVista();
   }
 
-  async function cancelarSerie() {
-    if (!sesionId) return;
-    const n = sesionesEnriquecidas.filter(s => {
-      const base = sesionesEnriquecidas.find(x => x.id === sesionId);
-      return base?.serieId && s.serieId === base.serieId && s.inicio >= base.inicio && !s.cancelada;
-    }).length;
-    const guardado = await cancelarSerieDesde(sesionId);
-    if (!guardado.ok) { showToast(guardado.error); return; }
-    setSesionId(null);
-    showToast(`Serie cancelada · ${n} clases · clientas avisadas`);
-    void refrescarVista();
-  }
+  // OJO si vienes a reponer "cancelar la serie entera": la capacidad NO se ha
+  // borrado. `cancelarSerieDesde` sigue entera en studio-context (con aviso a
+  // las socias incluido); lo que había aquí era un envoltorio que ningún botón
+  // llamaba — editar serie sí tiene el suyo, cancelar serie no. Se quitó por
+  // estar muerto, no por estar de más: si se decide reponer el botón, llama
+  // directamente a `cancelarSerieDesde` desde el panel.
 
   async function eliminarSesion() {
     if (!sesionId) return;
@@ -1197,17 +1286,24 @@ export default function Calendario() {
   async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
+    // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
+    // está delante en ese momento — se marca asistencia en el mismo paso en vez
+    // de exigir un segundo clic en "Check-in" sobre la fila recién creada.
+    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+    const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
     // Se espera el resultado AUTORITATIVO de addReserva (la RPC del servidor),
     // no la estimación del cliente: antes se tostaba "añadida" incondicionalmente
     // aunque el servidor rechazara la reserva (clase ya empezada, tope semanal,
     // sin bono que cubra el tipo de clase) y la plaza nunca llegara a existir.
-    const res = await addReserva(sesionId, socioId);
+    const res = await addReserva(sesionId, socioId, undefined, { checkInInmediato: esWalkIn });
     if (!res.ok) {
       showToast(res.error);
       return;
     }
     showToast(res.estado === 'LISTA_ESPERA'
       ? `Clase llena — ${nombre} va a lista de espera`
+      : esWalkIn
+      ? `${nombre} añadida y registrada como asistencia`
       : `${nombre} añadida a la clase`);
     void refrescarVista();
   }
@@ -1528,7 +1624,15 @@ export default function Calendario() {
     });
   }, [decisiones, datosVista, tiposClase, estadoPorSesion]);
 
-  useEffect(() => { setIndiceDecision(0); }, [decisiones.length]);
+  // Si cambia el número de decisiones, el índice actual puede apuntar fuera de
+  // la lista: se vuelve a la primera. Ajuste en render (patrón documentado por
+  // React para resetear estado al cambiar una dependencia) en vez de efecto,
+  // que pintaba un frame con el índice viejo sobre la lista nueva.
+  const [nDecisionesPrevio, setNDecisionesPrevio] = useState(decisiones.length);
+  if (decisiones.length !== nDecisionesPrevio) {
+    setNDecisionesPrevio(decisiones.length);
+    setIndiceDecision(0);
+  }
 
   function accionParaSesion(sesionId: string): TipoAccion | null {
     const it = itemsDecision.find(i => i.sesionId === sesionId);
@@ -1600,6 +1704,16 @@ export default function Calendario() {
     } finally {
       pasandoListaRef.current.delete(sesionId);
     }
+  }
+
+  async function repetirSemanaSiguiente(reservaId: string) {
+    const r = reservasActuales.find(x => x.id === reservaId);
+    if (!r || !sesionActual) return;
+    const destino = buscarSesionSemanaSiguiente(sesiones, sesionActual);
+    if (!destino) { window.alert('No hay clase programada la semana que viene en este mismo horario y sala.'); return; }
+    const res = await addReserva(destino.id, r.socioId);
+    if (!res.ok) { window.alert(res.error); return; }
+    window.alert(res.estado === 'CONFIRMADA' ? 'Añadida a la clase de la semana que viene.' : 'La clase de la semana que viene está llena — añadida a lista de espera.');
   }
 
   function abrirIncidencia(sesionId: string) {
@@ -1682,7 +1796,8 @@ export default function Calendario() {
   } | null>(null);
 
   const arrastrableSesion = useCallback((d: DatoSesion) =>
-    !d.sesion.cancelada && (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
+    !d.sesion.cancelada && !sesionYaEmpezada(d.sesion.inicio) &&
+    (!esInstructorTop || (!!yoTop && d.sesion.instructorId === yoTop.id)),
   [esInstructorTop, yoTop]);
 
   async function ejecutarMoverSesion(sesionId: string, nuevoSalaId: string, nuevoInicio: string, nuevoFin: string) {
@@ -1718,6 +1833,7 @@ export default function Calendario() {
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     if (!sesion || sesion.cancelada) return;
     if (esInstructorTop && (!yoTop || sesion.instructorId !== yoTop.id)) return;
+    if (sesionYaEmpezada(sesion.inicio)) { showToast(MENSAJE_CLASE_YA_EMPEZADA); return; }
 
     const horaAperturaMin = Number(datosVista.horaApertura.slice(0, 2)) * 60;
     const horaCierreMin = Number(datosVista.horaCierre.slice(0, 2)) * 60;
@@ -1803,10 +1919,9 @@ export default function Calendario() {
   // gateado a las instructoras del piloto, no visible al resto.
   const enPiloto = enPilotoVoz(yo?.id);
   const [notaVozSocioId, setNotaVozSocioId] = useState<string | null>(null);
-  // Si la sesión activa cambia (o se cierra el drawer) sin pasar por el
-  // onClose del propio modal, no dejar el socio de la nota de voz colgado
-  // — al reabrir cualquier sesión, no debe reaparecer atado a la anterior.
-  useEffect(() => { setNotaVozSocioId(null); }, [sesionId]);
+  // (El reset de `notaVozSocioId` al cambiar de sesión vive más abajo, junto al
+  // del panel de preparación con IA: los dos vigilaban `sesionId` por separado
+  // y ahora son un único ajuste en render.)
 
   const condicionesPorSocio = useMemo(() => {
     const m = new Map<string, typeof condicionesSalud>();
@@ -1866,7 +1981,25 @@ export default function Calendario() {
   const [buscarSocia, setBuscarSocia] = useState('');
   const [showAnadir, setShowAnadir] = useState(false);
 
-  useEffect(() => { setPrepIA(null); setPrepIAError(false); setShowAnadir(false); setBuscarSocia(''); }, [sesionId]);
+  // Al cambiar de sesión (o cerrar el drawer) se limpia todo lo que colgaba de
+  // la anterior: el socio de la nota de voz y el panel de preparación con IA.
+  //
+  // Se ajusta DURANTE EL RENDER en vez de en dos `useEffect`, que es lo que
+  // documenta React para "resetear estado cuando cambia una prop". Con efecto,
+  // el usuario veía un frame con los datos de la sesión ANTERIOR ya pintados y
+  // el reset llegaba en un segundo render. Así React descarta el render en
+  // curso y vuelve a renderizar antes de tocar el DOM: nunca se pinta.
+  // De paso, los dos efectos que vigilaban `sesionId` por separado pasan a ser
+  // uno solo.
+  const [sesionIdPrevia, setSesionIdPrevia] = useState(sesionId);
+  if (sesionId !== sesionIdPrevia) {
+    setSesionIdPrevia(sesionId);
+    setNotaVozSocioId(null);
+    setPrepIA(null);
+    setPrepIAError(false);
+    setShowAnadir(false);
+    setBuscarSocia('');
+  }
 
   async function prepararClaseIA() {
     if (!sesionActual) return;
@@ -1913,7 +2046,7 @@ export default function Calendario() {
 
   return (
     // h-full por sí solo no basta: DashboardShell envuelve `children` en un
-    // <main className="min-h-screen"> (mínimo, no altura fija) sin ningún
+    // <main className="min-h-dvh"> (mínimo, no altura fija) sin ningún
     // ancestro de altura definida contra la que "h-full" pueda resolverse.
     // Sin un tope real, LienzoCalendario (h-full + overflow-hidden) nunca
     // llega a acotar nada: la rejilla crece a su alto natural y es la PÁGINA
@@ -1926,7 +2059,7 @@ export default function Calendario() {
     // shell (pt-14/pb-20 en móvil sin Topbar; lg:pt-2/lg:pb-0 + Topbar
     // h-14+mb-2 en escritorio) — mismo patrón ya usado en
     // app/(dashboard)/chat/page.frozen.tsx para este mismo problema.
-    <div className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
+    <div data-tour="calendario-vista" className="flex flex-col h-[calc(100vh-136px)] lg:h-[calc(100vh-72px)]">
     <LienzoCalendario>
     <div className="flex flex-col flex-1 min-h-0 rounded-3xl bg-card border border-border shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)] overflow-hidden">
       {/* ── Top header ─────────────────────────────────────────────────────────── */}
@@ -2018,7 +2151,7 @@ export default function Calendario() {
                     <Plus size={14} className="text-muted-foreground" />Clase única
                   </button>
                   <button
-                    onClick={() => { setShowNuevaMenu(false); setShowRecurrentes(true); }}
+                    onClick={() => { setShowNuevaMenu(false); setInitialRecurrente(undefined); setShowRecurrentes(true); }}
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted transition-colors text-left"
                   >
                     <RefreshCw size={14} className="text-muted-foreground" />Clases recurrentes
@@ -2143,18 +2276,33 @@ export default function Calendario() {
           ocupacion={{ confirmadas: sesionActual.confirmadas, aforoMaximo: sesionActual.aforoMaximo }}
           accionesCabecera={esPropiaClase ? (
             <>
-              <button onClick={openEdit} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+              <button
+                onClick={openEdit}
+                disabled={sesionYaEmpezada(sesionActual.inicio)}
+                title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+              >
                 <Pencil size={12} />Editar
               </button>
               <button onClick={() => openDuplicar(sesionActual)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                 <Copy size={12} />Duplicar
               </button>
+              {sesionActual.serieId && (
+                <button onClick={() => openDuplicarSerie(sesionActual)} title="Repite todo lo que queda de esta serie, empezando justo después de su última clase" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                  <Copy size={12} />Duplicar serie
+                </button>
+              )}
               {esInstructor ? (
                 <button onClick={() => setShowNoPuedoAsistir(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
                   <UserCheck size={12} />No puedo asistir
                 </button>
               ) : (
-                <button onClick={() => setShowCobertura(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
+                <button
+                  onClick={() => setShowCobertura(true)}
+                  disabled={sesionYaEmpezada(sesionActual.inicio)}
+                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
                   <UserCheck size={12} />Buscar sustituta
                 </button>
               )}
@@ -2174,10 +2322,13 @@ export default function Calendario() {
           clientas={{
             reservas: reservasActuales,
             nombreClienta: nombreClientaResolver,
-            onCheckin: checkin, onNoShow: marcarNoShow,
+            onCheckin: checkin,
+            checkinBloqueadoPor: sesionYaEmpezada(sesionActual.inicio) ? undefined : MENSAJE_CLASE_AUN_NO_EMPEZADA,
+            onNoShow: marcarNoShow,
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
             onQuitar: gestionaClientas ? cancelarReserva : undefined,
+            onRepetirSemanaSiguiente: gestionaClientas ? repetirSemanaSiguiente : undefined,
             semaforoPorSocio: verSemaforo ? (socioId => {
               const nivel = semaforoParaMostrar.get(socioId);
               return nivel ? { color: SEMAFORO_META[nivel].color, label: SEMAFORO_META[nivel].label } : undefined;
@@ -2312,16 +2463,18 @@ export default function Calendario() {
                   </button>
                 </div>
               ))}
-              <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
-                <QrCode size={14} />Leer un pase
-              </Link>
+              {(studio?.requiereCheckinQr ?? true) && (
+                <Link href="/calendario/pase" className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground">
+                  <QrCode size={14} />Leer un pase
+                </Link>
+              )}
             </>
           }
           eventosHistorial={eventosHistorial}
           spots={spotsActuales.length > 0 ? spotsActuales : null}
           reservasConSocio={reservasActuales}
           socios={socios}
-          onCheckinSpot={checkin}
+          onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
           onLiberarSpot={liberarSpot}
           onAsignarSpot={(spotId, socioId) => sesionActual && asignarSpot(sesionActual.id, socioId, spotId)}
         />
@@ -2618,7 +2771,7 @@ export default function Calendario() {
       <ModalClasesRecurrentes
         ausencias={ausencias}
         open={showRecurrentes}
-        onClose={() => setShowRecurrentes(false)}
+        onClose={() => { setShowRecurrentes(false); setInitialRecurrente(undefined); }}
         tiposClase={tiposClase}
         instructores={instructoresActivos}
         salas={salas}
@@ -2627,6 +2780,7 @@ export default function Calendario() {
           id: s.id, salaId: s.salaId, instructorId: s.instructorId,
           inicio: s.inicio, fin: s.fin, cancelada: s.cancelada,
         }))}
+        initial={initialRecurrente}
       />
 
       {/* ── F0·E1: decisión al añadir a una socia sin bono válido ─────────────────── */}

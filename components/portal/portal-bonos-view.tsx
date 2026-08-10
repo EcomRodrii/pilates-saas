@@ -14,9 +14,11 @@ import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, plazaFijaTexto, fechaLarga } from '@/lib/bonos-portal';
-import { display, micro, sans, texto, radio, transicion, dur, EASE } from '@/lib/portal-design';
+import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
+import { semantic } from '@/lib/portal-tokens';
+import { BandaFoto } from '@/components/portal/banda-foto';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
@@ -36,6 +38,22 @@ export function PortalBonosView({
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
     return { style: { order: i === -1 ? 0 : i } };
   };
+  /**
+   * El texto de un bloque de SISTEMA, ya resuelto. `resolverBloques` rellena
+   * lo que el estudio no haya tocado con el literal de siempre, así que sin
+   * config guardada esto devuelve exactamente lo que se pintaba antes.
+   */
+  const txt = (sistemaId: 'listadoBonos', campo: string, siVacio: string): string => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    const v = b && b.kind === 'sistema' ? b.config?.[campo] : undefined;
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -80,9 +98,17 @@ export function PortalBonosView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoBonos')}>
-      <div style={{ padding: '62px 24px 24px' }}>
-        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>Saldo y planes</div>
-        <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Bonos</h1>
+      {/* La foto de ESTA pantalla. El padding de arriba se lo queda la banda
+          cuando hay foto: si no, la imagen aparecería flotando 62 px por
+          debajo del borde, con un hueco vacío encima que no pinta nada. */}
+      {txt('listadoBonos', 'fotoUrl', '') && (
+        <div style={{ paddingTop: 62 }}>
+          <BandaFoto url={txt('listadoBonos', 'fotoUrl', '')} />
+        </div>
+      )}
+      <div style={{ padding: txt('listadoBonos', 'fotoUrl', '') ? '0 24px 24px' : '62px 24px 24px' }}>
+        <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
+        <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 
         {bono ? (
           <div style={{
@@ -99,7 +125,7 @@ export function PortalBonosView({
             {bono.total != null && bono.restantes != null ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 22 }}>
-                  <span style={{ ...display(62, false, 0.9), color: t.ink }}>{bono.restantes}</span>
+                  <span style={{ ...display(escala('numero-bono', 62), false, 0.9), color: t.ink }}>{bono.restantes}</span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: t.muted }}>
                     de {bono.total} sesiones disponibles
                   </span>
@@ -116,9 +142,21 @@ export function PortalBonosView({
               <div style={{ ...display(30, true), color: t.ink, marginTop: 22 }}>Sesiones ilimitadas</div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
-              <span style={{ fontFamily: sans, fontSize: 11, color: t.muted }}>
-                {bono.caducaEn ? `Caduca el ${fechaLarga(bono.caducaEn)}` : 'Sin fecha de caducidad'}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
+                  color: bono.caducado
+                    ? (noche ? semantic.danger.textNoche : semantic.danger.text)
+                    : bono.urgente
+                    ? (noche ? semantic.warning.textNoche : semantic.warning.text)
+                    : t.muted,
+                }}
+              >
+                {bono.textoCaducidad
+                  ? `${bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
+                  : bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}`
+                  : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad'}
               </span>
               {bono.precio != null && (
                 <span style={{ fontFamily: sans, fontSize: 11, color: t.muted, whiteSpace: 'nowrap' }}>
@@ -141,7 +179,34 @@ export function PortalBonosView({
               {bono.esMensual ? 'Cambiar de plan' : 'Renovar bono'}
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {bono && bono.otrosActivos.length > 0 && (
+          // El bono elegido es el que caduca antes (se gasta primero, a
+          // propósito); esto solo avisa de que hay más en cola, que antes
+          // quedaban invisibles del todo.
+          <div
+            style={{
+              marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
+              background: noche ? t.surface2 : '#EEF0EA',
+              border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
+              padding: '18px 24px',
+            }}
+          >
+            <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
+              Tienes {bono.otrosActivos.length} bono{bono.otrosActivos.length === 1 ? '' : 's'} más en cola:{' '}
+              {bono.otrosActivos.map((o, i) => (
+                <span key={i} style={{ color: t.ink, fontWeight: 600 }}>
+                  {o.nombre}{o.restantes != null ? ` (${o.restantes} sesion${o.restantes === 1 ? '' : 'es'})` : ''}
+                  {i < bono.otrosActivos.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+              . Se usarán en cuanto se agote el actual.
+            </span>
+          </div>
+        )}
+
+        {!bono && (
           // Sin bono la pantalla no se queda muda: lo que toca es comprar uno.
           <div style={{
             marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',

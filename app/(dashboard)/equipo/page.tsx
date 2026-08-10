@@ -162,6 +162,15 @@ export default function EquipoPage() {
   // nunca la pinta directamente, así que no es una fuga nueva.
   const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
   const [tarifaHoraInput, setTarifaHoraInput] = useState('');
+  // El `min={0}` del input es solo una pista visual del navegador — no impide
+  // escribir un negativo. El servidor (app/api/equipo/tarifas/route.ts) ya lo
+  // rechazaba con un 400 y su mensaje de error, pero el diálogo se cerraba
+  // igual (updateInstructor había ido bien) y ese error solo se veía en un
+  // toast fácil de perder — parecía que "no había pasado nada" (#869).
+  // Bloquear el guardado aquí, antes del round-trip, lo hace imposible de
+  // pasar por alto.
+  const tarifaValida = tarifaHoraInput.trim() === ''
+    || (Number.isFinite(Number(tarifaHoraInput)) && Number(tarifaHoraInput) >= 0 && Number(tarifaHoraInput) <= 999.99);
 
   useEffect(() => {
     let vivo = true;
@@ -390,7 +399,7 @@ export default function EquipoPage() {
   const costeDelEquipo = tarjetas.reduce((a, m) => a + (m.esYo ? 0 : (m.costeMes ?? 0)), 0);
 
   return (
-    <div className="space-y-5">
+    <div data-tour="equipo-vista" className="space-y-5">
       <PageHeader
         title="Equipo"
         description="Instructoras y personal del estudio"
@@ -642,6 +651,11 @@ export default function EquipoPage() {
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">€/h</span>
                 </div>
+                {!tarifaValida && (
+                  <p role="alert" className="text-[11px] text-destructive mt-1">
+                    Tiene que ser un número entre 0 y 999,99 €/h.
+                  </p>
+                )}
               </div>
             )}
 
@@ -665,7 +679,7 @@ export default function EquipoPage() {
 
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim() || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+              <button onClick={guardar} disabled={!form.nombre.trim() || !tarifaValida || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
                 {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {guardando ? 'Guardando…' : 'Guardar'}
               </button>
@@ -1049,9 +1063,17 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
     setMesAtras(0);
   }
 
+  // `mes`/`mesFin` salían de un `new Date()` leído en cada render, así que eran
+  // objetos nuevos cada vez y no podían ir en las dependencias del memo de
+  // abajo: llevaba `mesAtras` en su lugar. Funcionaba, pero el memo declaraba
+  // depender de algo distinto de lo que usa, y eso es lo que se rompe la
+  // próxima vez que alguien toque este cálculo. Con el año y el mes en
+  // primitivas, las dos fechas ya son estables y las deps pueden decir la verdad.
   const ref = new Date();
-  const mes = new Date(ref.getFullYear(), ref.getMonth() - mesAtras, 1);
-  const mesFin = new Date(ref.getFullYear(), ref.getMonth() - mesAtras + 1, 1);
+  const anioRef = ref.getFullYear();
+  const mesRef = ref.getMonth();
+  const mes = useMemo(() => new Date(anioRef, mesRef - mesAtras, 1), [anioRef, mesRef, mesAtras]);
+  const mesFin = useMemo(() => new Date(anioRef, mesRef - mesAtras + 1, 1), [anioRef, mesRef, mesAtras]);
 
   const filas = useMemo(() => {
     if (!instructor) return [];
@@ -1068,7 +1090,7 @@ function HorasDialog({ instructor, sesiones, tiposClase, onClose }: {
         const horas = Math.max(0, (new Date(s.fin).getTime() - ini.getTime()) / 3600000);
         return { id: s.id, inicio: ini, clase: tipoById.get(s.tipoClaseId)?.nombre ?? 'Clase', horas };
       });
-  }, [instructor, sesiones, tiposClase, mesAtras]);
+  }, [instructor, sesiones, tiposClase, mes, mesFin]);
 
   const totalHoras = filas.reduce((a, f) => a + f.horas, 0);
   const fmtMes = mes.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });

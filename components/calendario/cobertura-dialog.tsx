@@ -7,6 +7,7 @@ import { ausenciaEnFecha } from '@/lib/ausencias';
 import type { AusenciaInstructora } from '@/lib/api-client';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { cn } from '@/lib/utils';
+import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 
 interface CoberturaDialogProps {
   open: boolean;
@@ -43,6 +44,7 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
     weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
   });
   const mensaje = `Hola! ¿Podrías cubrir la clase de ${sesion.tipoClase.nombre} el ${fechaHora}? Avísame si puedes 🙏`;
+  const yaEmpezada = sesionYaEmpezada(sesion.inicio);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,6 +52,12 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
         <DialogHeader>
           <DialogTitle className="text-[15px] font-semibold text-foreground">Buscar sustituta</DialogTitle>
         </DialogHeader>
+        {yaEmpezada ? (
+          <p className="text-[13px] text-[var(--warning)] py-4 text-center font-medium">
+            {MENSAJE_CLASE_YA_EMPEZADA} — no se puede asignar sustituta a estas alturas.
+          </p>
+        ) : (
+        <>
         <p className="text-[12px] text-muted-foreground -mt-1 mb-1">
           Ordenadas por quién ha dado más veces esta clase — contacta y, en cuanto alguien confirme, márcala como asignada.
         </p>
@@ -97,6 +105,8 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
               );
             })}
           </div>
+        )}
+        </>
         )}
       </DialogContent>
     </Dialog>

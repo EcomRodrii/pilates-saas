@@ -80,14 +80,30 @@ export function PortalNav({
         // `barraFlotante` el tema no declara estas vars (ver varsBarra/
         // varsBarraFlotante en lib/theme-runtime.ts) y la barra se ve
         // exactamente igual que antes, en claro y en oscuro.
-        height: `var(--portal-tabbar-height, ${altura.tabbar}px)`,
+        // ⚠️ El hueco de la pantalla (isla dinámica, barra de gestos) se SUMA
+        // al alto, no se come de él.
+        //
+        // Con `height: 58px` y `padding-bottom: calc(6px + safe-area)`, y
+        // `box-sizing: border-box` de fábrica, en un iPhone con 34px de hueco
+        // sólo quedaban 12px para iconos y etiquetas: la barra salía aplastada
+        // y el contenido, recortado. La barra flotante no lo sufre porque no
+        // lleva ese relleno (flota por encima del hueco, no dentro de él).
+        height: flotante && interactive
+          ? `var(--portal-tabbar-height, ${altura.tabbar}px)`
+          : `calc(var(--portal-tabbar-height, ${altura.tabbar}px) + env(safe-area-inset-bottom))`,
         zIndex: interactive ? 14 : undefined,
         borderRadius: flotante ? `var(--portal-tabbar-radius, ${radio.tabbar}px)` : 0,
         background: `var(--portal-tabbar-bg, ${t.tabbar})`,
         ...(flotante ? cristal(desenfoque.tabbar, 170) : {}),
         border: flotante
           ? `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.85)'}`
-          : `1px solid ${t.line}`,
+          // `--portal-tabbar-border` es la LÍNEA entera, no solo su color: la
+          // barra oscura la quita del todo (ver varsBarra) y con un color
+          // transparente seguiría reservando su píxel de alto.
+          : `var(--portal-tabbar-border, 1px solid ${t.line})`,
+        // Con `--portal-tabbar-border: none` el estilo del borde ya es `none`,
+        // así que este ancho no pinta nada — solo acota la línea al lado de
+        // arriba cuando SÍ hay borde.
         borderWidth: flotante ? '1px' : '1px 0 0 0',
         boxShadow: flotante ? `var(--portal-tabbar-shadow, ${sombra.tabbar})` : 'none',
         display: 'flex', alignItems: 'center', padding: 6,
@@ -108,7 +124,22 @@ export function PortalNav({
           // cuando es la única que lo lleva; con todas etiquetadas, ensancharla
           // dejaría a las otras tres apretadas y sin razón.
           flex: todasConTexto ? '1 1 0%' : (active ? '2.4 1 0%' : '1 1 0%'),
-          height: altura.tabbar - 12, borderRadius: radio.pastilla,
+          // ⚠️ El alto sale de la MISMA fuente que el de la barra, y con tope.
+          //
+          // Antes era la constante de JS (`altura.tabbar - 12` = 46px) mientras
+          // la barra tomaba el suyo de `--portal-tabbar-height`, que el tema
+          // puede subir. Si además la barra es clásica —pegada abajo, con el
+          // hueco de la isla dinámica sumado al relleno— esos 66px INCLUYEN el
+          // relleno (`box-sizing: border-box`), el hueco interior se queda en
+          // ~20px y las pastillas de 46 asomaban por encima del borde.
+          //
+          // Pasó de verdad: un estudio con `themeId: bloom` guardado con
+          // `barraClasica` Y `barraFlotante` a la vez (residuo de instalar un
+          // tema encima de otro, arreglado ya en `instalarTema`). El dato
+          // guardado sigue ahí, así que la barra tiene que aguantarlo.
+          height: `calc(var(--portal-tabbar-height, ${altura.tabbar}px) - 12px)`,
+          maxHeight: '100%',
+          borderRadius: radio.pastilla,
           background: active ? `var(--portal-tabbar-active-bg, ${noche ? t.surface2 : '#FFFFFF'})` : 'transparent',
           boxShadow: active ? `var(--portal-tabbar-active-shadow, ${sombra.pastilla})` : 'none',
           color: active ? `var(--portal-tabbar-active-fg, ${t.ink})` : `var(--portal-tabbar-idle-fg, ${t.muted})`,

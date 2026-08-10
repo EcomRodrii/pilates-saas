@@ -68,10 +68,6 @@ export default function Cookies() {
         <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.
       </p>
 
-      <p style={{ marginTop: 24, fontSize: 13, color: '#767d85' }}>
-        Documento con contenido de plantilla; la relación exacta de cookies se ajustará y será revisada por
-        asesoría jurídica. Si se activan cookies no necesarias, deberá añadirse un banner de consentimiento.
-      </p>
     </>
   );
 }

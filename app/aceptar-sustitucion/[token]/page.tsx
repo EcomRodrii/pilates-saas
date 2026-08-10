@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza';
 import { AceptarForm } from './aceptar-form';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,27 @@ export default async function AceptarPage({ params }: { params: Promise<{ token:
     .eq('id', claim.ref).eq('studio_id', claim.studioId).maybeSingle();
   if (!sust) return <Aviso icono="🔒" titulo="Enlace no válido" texto="No encontramos esta sustitución." />;
 
+  // Antes que nada: ¿ya contestó ESTA instructora? Va delante del estado de la
+  // sustitución porque ninguno de los dos casos se ve bien desde ahí — quien
+  // dijo que no seguía viendo "¿puedes cubrir esta clase?" (la sustitución
+  // sigue en 'contactando' con la siguiente candidata) y quien dijo que sí
+  // veía "otra persona la cogió antes", que era ella misma.
+  const { data: contactos } = await admin
+    .from('sustitucion_contactos')
+    .select('instructor_id, canal, estado, enviado_en, respondido_en')
+    .eq('sustitucion_id', claim.ref)
+    .eq('studio_id', claim.studioId)
+    .eq('instructor_id', claim.instructorId);
+  const respondida = ultimaRespuestaDe((contactos ?? []) as ContactoFila[]);
+  if (respondida === 'rechazado') {
+    return <Aviso icono="👍" titulo="Ya nos contestaste"
+      texto="Nos dijiste que esta no podías cubrirla. Estamos buscando a otra persona — no tienes que hacer nada más." />;
+  }
+  if (respondida === 'aceptado') {
+    return <Aviso icono="🎉" titulo="Esta clase ya es tuya"
+      texto="Confirmaste que la cubres. La tienes en tu calendario." />;
+  }
+
   if (!EN_JUEGO.includes(sust.estado as string)) {
     return <Aviso icono="✅" titulo="Ya está cubierta" texto="Otra persona la cogió antes. ¡Gracias igualmente!" />;
   }
@@ -54,7 +76,7 @@ export default async function AceptarPage({ params }: { params: Promise<{ token:
 
 function Aviso({ icono, titulo, texto }: { icono: string; titulo: string; texto: string }) {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
         <div className="text-4xl mb-3">{icono}</div>
         <h1 className="text-lg font-semibold text-slate-900">{titulo}</h1>

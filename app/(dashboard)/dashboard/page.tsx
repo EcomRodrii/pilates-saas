@@ -9,12 +9,12 @@ import {
   CheckCircle2, ChevronDown, ChevronUp,
   CalendarPlus, Zap, ArrowUpRight, RefreshCw,
   Users, BarChart3, Calendar, AlertTriangle,
-  Clock, Activity, Bot, MessageSquare, Mail, CalendarX,
+  Clock, Activity, Bot, MessageSquare, CalendarX,
 } from 'lucide-react';
 import type { TipoActividad } from '@/lib/types';
 import { cn, inicioDeSemana, finDeSemana } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
@@ -30,7 +30,9 @@ import { Toast, useToast } from '@/components/ui/toast';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { useAuth } from '@/lib/auth-context';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
+import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
+import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -429,7 +431,6 @@ export default function Dashboard() {
     cobrarTodosPendientes,
     actividadReciente,
     automationLogs,
-    resetDatosPilates,
   } = useStudio();
 
   // Personalización de la home por estudio (reordenar/ocultar secciones). Se
@@ -453,6 +454,7 @@ export default function Dashboard() {
 
   // Hydration fix — avoids server/client mismatch with Date
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   // Auditoría 2026-07-29, I-4 + M-4: `new Date()` sin memoizar creaba un
   // objeto NUEVO en cada render, y `now` está en las dependencias de varios
@@ -467,19 +469,17 @@ export default function Dashboard() {
   const [now, setNow] = useState(() => new Date('2026-06-29'));
   useEffect(() => {
     if (!mounted) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo. El setInterval es justo el caso de uso que la regla considera legítimo.
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, [mounted]);
-
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const hoyStr = localDate(now);
   const saludo = now.getHours() < 13 ? 'Buenos días' : now.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches';
 
   // P0-27: índices compartidos por sesión y del conjunto de sesiones de hoy, para
   // no hacer sesiones.find() dentro de bucles sobre reservas/socios (cuadrático).
-  const sesionById = useMemo(() => new Map(sesiones.map(s => [s.id, s])), [sesiones]);
   const socioById = useMemo(() => new Map(socios.map(s => [s.id, s])), [socios]);
   const tipoClaseById = useMemo(() => new Map(tiposClase.map(t => [t.id, t])), [tiposClase]);
   // Auditoría 2026-07-29, I-5: plazas ocupadas (CONFIRMADA/ASISTIDA) por
@@ -593,7 +593,11 @@ export default function Dashboard() {
 
   // ── MRR ─────────────────────────────────────────────────────────────────────
   const { renovacionesProximas } = useMemo(() => {
-    const activas = suscripciones.filter(s => s.estado === 'ACTIVA');
+    // Hallazgo A (auditoria dunning 2026-08-10): una ACTIVA con fecha_fin ya
+    // vencida no debe contar como ingreso recurrente ni como "activa" aqui — de
+    // cara adelante la auto-cancelacion del dunning ya transiciona el estado,
+    // pero el contador no debe fiarse ciegamente de que quedo sincronizado.
+    const activas = suscripciones.filter(s => s.estado === 'ACTIVA' && (!s.fechaFin || s.fechaFin >= hoyStr));
     // A-16: el MRR (ingreso recurrente) solo cuenta planes MENSUAL. Antes sumaba
     // BONO/PUNTUAL (pago único) prorrateado por sesiones → MRR y ARR (mrr*12)
     // sobrestimados en cualquier estudio que venda bonos o clases sueltas.
@@ -839,7 +843,14 @@ export default function Dashboard() {
         </div>
         </div>
 
+        {/* La tarjeta enlaza a /primeros-pasos, que es configuración del
+            negocio (marca, Stripe, planes, equipo) — fuera de la lista blanca
+            de INSTRUCTOR. Sin este guardia, su botón "Ver todos los pasos"
+            la devolvía al propio dashboard, mismo enlace-que-no-lleva-a-
+            ningún-sitio que ya se evita en el resto de esta pantalla. */}
+        {puedeVer(rolActual, '/primeros-pasos') && (
         <div {...wrap('onboarding')}><OnboardingChecklist /></div>
+        )}
 
         {/* ── Automation briefing ────────────────────────────────────────────── */}
         {/* /automatizaciones solo lo ve la propietaria (BLOQUEADO_RECEPCION y
@@ -882,6 +893,12 @@ export default function Dashboard() {
         {/* Sin `wrap()`: no es una sección del layout personalizable (HOME_SECCIONES),
             solo se pinta si hay algo pendiente — se oculta sola (ver el componente). */}
         {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
+            {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+
+        {/* ── Ventas recientes ────────────────────────────────────────────────── */}
+        {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Igual
+            que las dos de arriba: solo lectura, se oculta sola si no hay nada. */}
+        {verFinanzas && <VentasRecientes />}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (
@@ -1253,12 +1270,21 @@ export default function Dashboard() {
                   <h2 className="text-[13px] font-semibold text-foreground">Actividad</h2>
                   <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 </div>
+                {/* El Notification Center pasó a ser solo de la propietaria
+                    (`puedeVerCentroNotificaciones`: mezcla importes, decisiones
+                    y fichas de salud). Este enlace era además la ÚNICA puerta a
+                    esa pantalla —no está en el menú—, así que sin comprobar el
+                    rol los otros tres roles pulsaban "Ver todo" y el guardia del
+                    layout los devolvía al dashboard sin decir por qué. Mismo
+                    criterio que las tarjetas de arriba. */}
+                {puedeVer(rolActual, '/notificaciones') && (
                 <Link
                   href="/notificaciones"
                   className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Bell size={11} /> Ver todo
                 </Link>
+                )}
               </div>
               <div className="divide-y divide-muted">
                 {actividadReciente.length === 0 ? (

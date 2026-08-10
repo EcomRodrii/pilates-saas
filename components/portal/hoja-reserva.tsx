@@ -28,6 +28,7 @@ import {
 } from '@/lib/portal-design';
 import { AforoIndicator } from '@/components/portal/ui';
 import { semantic } from '@/lib/portal-tokens';
+import { seArreglaComprando } from '@/lib/bono-logic';
 import type { EstadoReserva, Spot } from '@/lib/types';
 
 export interface ClaseParaReservar {
@@ -60,11 +61,17 @@ const ETIQUETA_ESTADO: Partial<Record<EstadoReserva, string>> = {
 };
 
 export function HojaReserva({
-  clase, onClose, onConfirmar,
+  clase, onClose, onConfirmar, onComprar,
 }: {
   clase: ClaseParaReservar | null;
   onClose: () => void;
   onConfirmar: (spotId: string | null) => Promise<ResultadoConfirmar>;
+  /**
+   * Llevar a la tienda. Opcional a propósito: la hoja no sabe —ni debe saber—
+   * dónde vive el catálogo, así que decide quien la monta. Sin esta prop el
+   * error se pinta como siempre, sin botón.
+   */
+  onComprar?: () => void;
 }) {
   const { t, noche } = useModo();
   const [spotElegido, setSpotElegido] = useState<string | null>(null);
@@ -157,12 +164,20 @@ export function HojaReserva({
         aria-modal={abierta}
         aria-label={clase ? `Reservar ${clase.nombre}` : 'Reservar'}
         style={{
-          position: 'fixed', left: 12, right: 12, bottom: 12, zIndex: 41,
+          position: 'fixed', left: 12, right: 12, zIndex: 41,
+          // ⚠️ Por encima de la barra de abajo, no detrás. Con `bottom: 12` la
+          // hoja llegaba hasta el borde de la pantalla y sus últimos ~70px
+          // quedaban debajo del menú — en una sala con plazas numeradas la
+          // lista crece y el botón de CONFIRMAR es justo lo último: la socia
+          // elegía su plaza y no veía el botón. Sale de la altura real de la
+          // barra (la fija el tema, `--portal-tabbar-height`) más su hueco,
+          // así que vale igual para la barra flotante y para la clásica.
+          bottom: 'calc(12px + var(--portal-tabbar-height, 64px) + 22px + env(safe-area-inset-bottom))',
           maxWidth: 456, margin: '0 auto',
           background: t.bg, borderRadius: radio.hoja,
           border: `1px solid ${noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.8)'}`,
           boxShadow: sombra.sheet, padding: '16px 24px 24px',
-          maxHeight: 'calc(100dvh - 24px)', overflowY: 'auto',
+          maxHeight: 'calc(100dvh - var(--portal-tabbar-height, 64px) - 56px)', overflowY: 'auto',
           opacity: abierta ? 1 : 0,
           pointerEvents: abierta ? 'auto' : 'none',
           transform: abierta ? 'translateY(0) scale(1)' : 'translateY(114%) scale(.98)',
@@ -268,11 +283,29 @@ export function HojaReserva({
 
             {estado === 'error' && mensajeError && (
               <div role="alert" style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginTop: 16,
+                display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16,
                 borderRadius: 14, padding: '11px 14px', background: semantic.danger.soft,
               }}>
-                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+                <AlertCircle size={15} style={{ color: dangerColor, flexShrink: 0, marginTop: 1 }} />
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: dangerColor }}>{mensajeError}</p>
+                  {/* Si el fallo se arregla comprando, la salida va AQUÍ, en el
+                      momento en que quiere reservar — no en otra pestaña que
+                      tenga que encontrar sola. */}
+                  {onComprar && seArreglaComprando(mensajeError) && (
+                    <button
+                      type="button"
+                      onClick={onComprar}
+                      style={{
+                        marginTop: 8, background: 'none', border: 'none', padding: 0,
+                        fontSize: 13, fontWeight: 700, color: dangerColor,
+                        textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer',
+                      }}
+                    >
+                      Ver los bonos
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

@@ -20,7 +20,7 @@
 // portal, no hace falta reconstruirlo aquí.
 
 import { useModo } from '@/lib/portal-modo';
-import { display, texto, altura, radio, sombra, transicion, dur } from '@/lib/portal-design';
+import { display, texto, altura, radio, sombra, transicion, dur, escala } from '@/lib/portal-design';
 
 export function BienvenidaPortal({
   nombreEstudio, fotoUrl, onSiguiente, variante = 'foto',
@@ -53,7 +53,7 @@ export function BienvenidaPortal({
               (el dorado de Noir, el contraste de Bloom). El acento cae a
               `--portal-brand-secondary`, que ya está validado contra la marca
               por el gate de contraste del tema. */}
-          <h1 style={{ ...display(38, false, 1.08), marginBottom: 12 }}>
+          <h1 style={{ ...display(escala('bienvenida', 38), false, 1.08), marginBottom: 12 }}>
             Bienvenida a<br />
             <span style={{ color: 'var(--portal-brand-secondary)' }}>{nombreEstudio}</span>
           </h1>
@@ -90,7 +90,7 @@ export function BienvenidaPortal({
       <div style={{ position: 'absolute', inset: 0, background: fotoUrl ? t.surface2 : t.hero }}>
         {fotoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
         )}
       </div>
       <div
@@ -107,7 +107,7 @@ export function BienvenidaPortal({
           padding: '0 22px calc(22px + env(safe-area-inset-bottom))',
         }}
       >
-        <h1 style={{ ...display(38, false, 1.08), color: t.ink, marginBottom: 10 }}>
+        <h1 style={{ ...display(escala('bienvenida', 38), false, 1.08), color: t.ink, marginBottom: 10 }}>
           Empieza donde estás.
         </h1>
         <p style={{ ...texto.meta, color: t.muted, marginBottom: 24 }}>

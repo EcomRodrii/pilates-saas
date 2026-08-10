@@ -22,7 +22,10 @@ test.describe('Portal — Bonos', () => {
     // El bono del mock está acotado a Reformer: el nombre lo dice.
     await expect(page.getByText('Bono 10 · Reformer')).toBeVisible();
     await expect(page.getByText('de 10 sesiones disponibles')).toBeVisible();
-    await expect(page.getByText('Caduca el 30 de septiembre')).toBeVisible();
+    // La cuenta de días es relativa a "hoy" (p.ej. "Caduca en 51 días · 30 de
+    // septiembre") y cambia cada día que pasa — se valida solo la fecha
+    // absoluta, estable, no el número de días.
+    await expect(page.getByText(/Caduca (en \d+ días?|hoy) · 30 de septiembre/)).toBeVisible();
   });
 
   test('la plaza fija se lee en día y hora', async ({ page }) => {
@@ -48,7 +51,9 @@ test.describe('Portal — Bonos', () => {
     // y el test falla en grupo aunque pase suelto — ya pasó en Avisos.
     await expect(page.getByText('de 10 sesiones disponibles')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Renovar bono' }).click();
-    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras$`));
+    // Timeout explícito: con `next dev`, la primera navegación a /compras
+    // compila la ruta bajo demanda y se pasa de los 5s por defecto.
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras$`), { timeout: 30_000 });
   });
 });
 
@@ -97,7 +102,7 @@ test.describe('Portal — Compras', () => {
     await page.goto(`/portal/${SLUG}/compras`);
     await expect(page.getByRole('heading', { name: 'Compras' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Volver a Bonos' }).click();
-    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/bonos$`));
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/bonos$`), { timeout: 30_000 });
   });
 });
 

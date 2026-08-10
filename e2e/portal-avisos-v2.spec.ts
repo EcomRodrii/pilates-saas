@@ -42,7 +42,7 @@ async function conAvisosDeterministas(page: Page) {
       deepLink: null, category: 'general', priority: 'BAJA', eventType: 'estudio.aviso',
       resourceType: null, resourceId: null, readAt: haceHoras(60), createdAt: haceHoras(122) },
   ];
-  await page.route('**/api/notifications', route => route.fulfill({
+  await page.route('**/api/notifications*', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ items, unread: items.filter(a => a.readAt == null).length }),
   }));
@@ -54,7 +54,10 @@ test.describe('Avisos', () => {
     await conAvisosDeterministas(page);
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
-    await expect(page.getByRole('heading', { name: 'Avisos' })).toBeVisible();
+    // Timeout explícito solo en la PRIMERA aserción tras llegar: con `next dev`
+    // esta ruta se compila bajo demanda y se pasa de los 5s por defecto. Las
+    // siguientes ya corren sobre la pantalla pintada.
+    await expect(page.getByRole('heading', { name: 'Avisos' })).toBeVisible({ timeout: 30_000 });
     // Dos sin leer en el mock → el subtítulo va en letra, no en cifra.
     await expect(page.getByText('Dos cosas nuevas.')).toBeVisible();
 
@@ -73,7 +76,7 @@ test.describe('Avisos', () => {
     // mitades, porque `getByText('HACE 2 H')` no encuentra nada aunque en
     // pantalla ponga exactamente eso.
     const sello = page.getByText('hace 2 h', { exact: true });
-    await expect(sello).toBeVisible();
+    await expect(sello).toBeVisible({ timeout: 30_000 });
     await expect(sello).toHaveCSS('text-transform', 'uppercase');
     await expect(page.getByText('ayer', { exact: true })).toBeVisible();
   });
@@ -86,7 +89,7 @@ test.describe('Avisos', () => {
     const nuevo = page.getByText('Tu clase de hoy sigue en pie').locator('..');
     const leido = page.getByText('Te quedan 8 sesiones').locator('..');
 
-    await expect(nuevo).toHaveCSS('opacity', '1');
+    await expect(nuevo).toHaveCSS('opacity', '1', { timeout: 30_000 });
     // 0.81 exacto: el titular queda en el mismo gris que el diseño.
     await expect(leido).toHaveCSS('opacity', '0.81');
   });
@@ -95,7 +98,7 @@ test.describe('Avisos', () => {
     await montarPortal(page, { conSesion: true, sinAvisos: true });
     await page.goto(`/portal/${SLUG}/notificaciones`);
 
-    await expect(page.getByText('Nada nuevo.')).toBeVisible();
+    await expect(page.getByText('Nada nuevo.')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Aquí aparecerán tus reservas/)).toBeVisible();
   });
 
@@ -106,10 +109,13 @@ test.describe('Avisos', () => {
     // Esperar a que la lista esté pintada no es adorno: ese texto solo aparece
     // cuando el efecto de carga ya corrió, y por tanto cuando React ya enganchó
     // el onClick. Sin esto, con la máquina cargada el clic llega antes de la
-    // hidratación y no pasa nada.
-    await expect(page.getByText('Dos cosas nuevas.')).toBeVisible();
+    // hidratación y no pasa nada. Timeout explícito porque además es la primera
+    // aserción tras llegar: `next dev` compila esta ruta bajo demanda.
+    await expect(page.getByText('Dos cosas nuevas.')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Volver a Inicio' }).click();
-    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/home$`));
+    // Timeout explícito: con `next dev`, la primera navegación a /home compila
+    // la ruta bajo demanda y se pasa de los 5s por defecto.
+    await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/home$`), { timeout: 30_000 });
   });
 });

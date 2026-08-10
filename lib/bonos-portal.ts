@@ -8,6 +8,7 @@
 // que puede hacer esta pantalla.
 
 import type { PlanTarifa, PlazaFija, Sala, Suscripcion, TipoClase } from './types.ts';
+import { calcularEstadoSuscripcion, textoCaducidad } from './suscripcion-estado.ts';
 
 export interface BonoActivo {
   suscripcionId: string;
@@ -20,6 +21,26 @@ export interface BonoActivo {
   caducaEn: string | null;
   precio: number | null;
   esMensual: boolean;
+  /**
+   * «Caduca en 18 días» (bono) / «Próxima renovación en 6 días» (mensual) —
+   * mismo cálculo (`lib/suscripcion-estado.ts`) que la ficha de la clienta en
+   * el panel, para que socia y estudio nunca vean una cuenta de días distinta.
+   * `null` cuando la suscripción no tiene `fecha_fin` (sin caducidad/mensual
+   * aún no renovado por Stripe/mostrador).
+   */
+  textoCaducidad: string | null;
+  /** ≤3 días o ≤2 sesiones — mismo umbral que ya resalta el badge del panel. */
+  urgente: boolean;
+  /** Solo aplica a bonos: `fecha_fin` ya pasada. Un mensual nunca "caduca", renueva. */
+  caducado: boolean;
+  /**
+   * Las DEMÁS suscripciones ACTIVA del mismo socio, en cola detrás de la
+   * elegida (no se cambia qué bono se consume primero — esto es solo para
+   * avisar de que existen, algo que antes quedaba invisible: un bono nuevo
+   * comprado mientras el anterior seguía sin agotar no se veía en ningún
+   * sitio). Vacío en el caso normal de un único bono/plan activo.
+   */
+  otrosActivos: { nombre: string; restantes: number | null }[];
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -69,6 +90,23 @@ export function bonoActivo(
     ? tiposClase.find(tc => tc.id === tipos[0])?.nombre ?? null
     : null;
 
+  const estado = calcularEstadoSuscripcion(s, plan);
+  const urgente = estado.kind === 'bono' ? estado.urgente : estado.kind === 'recurrente' ? estado.urgente : false;
+  const caducado = estado.kind === 'bono' && estado.caducado;
+
+  // El resto de la cola: mismas `candidatas` ya filtradas arriba, sin la
+  // elegida. No se reconsulta nada ni se cambia el orden de consumo.
+  const otrosActivos = candidatas.slice(1).map(({ s: otra, plan: otroPlan }) => {
+    const tiposOtro = otroPlan!.tiposClaseIds ?? [];
+    const nombreTipoOtro = tiposOtro.length === 1
+      ? tiposClase.find(tc => tc.id === tiposOtro[0])?.nombre ?? null
+      : null;
+    return {
+      nombre: nombreTipoOtro ? `${otroPlan!.nombre} · ${nombreTipoOtro}` : otroPlan!.nombre,
+      restantes: otra.sesionesRestantes ?? null,
+    };
+  });
+
   return {
     suscripcionId: s.id,
     nombre: nombreTipo ? `${plan!.nombre} · ${nombreTipo}` : plan!.nombre,
@@ -82,6 +120,10 @@ export function bonoActivo(
     caducaEn: s.fechaFin,
     precio: plan!.precio ?? null,
     esMensual: plan!.tipo === 'MENSUAL',
+    textoCaducidad: textoCaducidad(estado),
+    urgente,
+    caducado,
+    otrosActivos,
   };
 }
 

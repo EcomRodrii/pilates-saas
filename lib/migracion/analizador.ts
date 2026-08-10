@@ -40,7 +40,7 @@ async function clasificarConIA(
       max_tokens: 500,
       system:
         'Clasificas exports de software de gestión de estudios de pilates/fitness (Timp, Momence, Eversports, bsport, Mindbody, Excel casero...) para migrarlos. ' +
-        'Devuelves SOLO un JSON: {"entidad": "<socias|membresias|clases|reservas|citas|ninguna>", "mapeo": {"<campo>": <índice de columna 0-based>}}. ' +
+        'Devuelves SOLO un JSON: {"entidad": "<socias|membresias|clases|reservas|citas|pagos|ninguna>", "mapeo": {"<campo>": <índice de columna 0-based>}}. ' +
         'Solo incluye en el mapeo campos que EXISTAN claramente en las columnas; nunca inventes. Si el archivo no encaja con ninguna entidad, entidad="ninguna". ' +
         'Los campos con * son obligatorios: si no puedes mapearlos, la entidad no es válida.\n\nEntidades y campos:\n' + esquemas,
       messages: [{

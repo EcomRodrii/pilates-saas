@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArticleShell } from '@/components/recursos/ArticleShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ACC } from '@/components/landing/theme';
 
 export const metadata: Metadata = {
   title: 'Reformer vs. mat: cómo poner precio a cada clase — Tentare',
@@ -56,6 +59,13 @@ function PriceTable() {
 export default function PreciosReformerPage() {
   return (
     <PageShell>
+      <ArticleStructuredData
+        title="Reformer vs. mat: cómo poner precio a cada clase"
+        description="Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios de Pilates reformer y mat que reflejen la diferencia."
+        slug="precios-reformer-mat"
+        datePublished="2026-07-01"
+      />
+      <FaqStructuredData items={FAQ} />
       <ArticleShell
         category="Rentabilidad"
         coverGradient="linear-gradient(140deg,#173a40,#3E7C86)"
@@ -69,7 +79,7 @@ export default function PreciosReformerPage() {
 
         <h2 id="s1">Por qué reformer y mat no cuestan lo mismo</h2>
         <p>El mat escala con el espacio: si cabe una esterilla más, entra una alumna más casi sin coste añadido. El <strong>reformer está limitado por las máquinas</strong>: el aforo queda fijado el día que firmas el alquiler y compras el equipo. Cada plaza de reformer carga con más coste — máquina, mantenimiento, un ratio instructora/alumna más bajo — y suele tener más demanda que oferta.</p>
-        <p>Conclusión práctica: el reformer debe costar <strong>notablemente más</strong> que el mat, y la diferencia debe ser deliberada, no un redondeo.</p>
+        <p>Conclusión práctica: el reformer debe costar <strong>notablemente más</strong> que el mat, y la diferencia debe ser deliberada, no un redondeo. (Si necesitas la definición exacta de <Link href="/glosario#pilates-reformer" style={{ color: ACC }}>pilates reformer</Link>, la tienes en el glosario.)</p>
 
         <Callout title="Regla rápida" bg="#EDF3F4" border="#D6E5E7" iconColor="#3E7C86" textColor="#33474A">
           Si tu reformer y tu mat cuestan lo mismo, o estás dejando dinero en el reformer, o estás espantando alumnas del mat. Casi nunca es el precio correcto para ambos.

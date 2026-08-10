@@ -245,6 +245,7 @@ export async function dbGetRecomendacion(id: string): Promise<Recomendacion | nu
 interface RowOutcomes {
   id: string; studio_id: string; recomendacion_id: string; evento: string; outcome: string;
   senal_observada: string | null; ventana_dias: number; medido_en: string | null;
+  impacto_real: Impacto | null; confianza_medicion: string | null;
 }
 
 function mapOutcome(row: RowOutcomes): Outcome {
@@ -252,6 +253,7 @@ function mapOutcome(row: RowOutcomes): Outcome {
     id: row.id, studioId: row.studio_id, recomendacionId: row.recomendacion_id,
     evento: row.evento as Outcome['evento'], outcome: row.outcome as Outcome['outcome'],
     senalObservada: row.senal_observada as Outcome['senalObservada'], ventanaDias: row.ventana_dias, medidoEn: row.medido_en,
+    impactoReal: row.impacto_real, confianzaMedicion: row.confianza_medicion as Outcome['confianzaMedicion'],
   };
 }
 
@@ -270,13 +272,18 @@ export async function dbInsertOutcome(o: Omit<Outcome, 'id'>): Promise<void> {
   const { error } = await db().from('recomendacion_outcomes').insert({
     id: uid(), studio_id: o.studioId, recomendacion_id: o.recomendacionId, evento: o.evento,
     outcome: o.outcome, senal_observada: o.senalObservada, ventana_dias: o.ventanaDias, medido_en: o.medidoEn,
+    impacto_real: o.impactoReal, confianza_medicion: o.confianzaMedicion,
   });
   if (error) reportError('[dbInsertOutcome]', error);
 }
 
-export async function dbActualizarOutcome(id: string, patch: { outcome: Outcome['outcome']; senalObservada: Outcome['senalObservada']; medidoEn: string }): Promise<void> {
+export async function dbActualizarOutcome(id: string, patch: {
+  outcome: Outcome['outcome']; senalObservada: Outcome['senalObservada']; medidoEn: string;
+  impactoReal: Outcome['impactoReal']; confianzaMedicion: Outcome['confianzaMedicion'];
+}): Promise<void> {
   const { error } = await db().from('recomendacion_outcomes').update({
     outcome: patch.outcome, senal_observada: patch.senalObservada, medido_en: patch.medidoEn,
+    impacto_real: patch.impactoReal, confianza_medicion: patch.confianzaMedicion,
   }).eq('id', id);
   if (error) reportError('[dbActualizarOutcome]', error);
 }
@@ -531,6 +538,26 @@ export async function dbListMensajesRecientes(studioId: string, now: Date, dias 
   return (data ?? []).map(row => mapMensajeDia(row as RowMensajeDia));
 }
 
+// Una semana es "silenciosa" si el Umbral no encontró NADA que mereciera
+// interrumpir a la propietaria en los 7 días [lunes, domingo] (ambos
+// inclusive, YYYY-MM-DD) — cero filas `tipo='MENSAJE'`. Rango FIJO de
+// calendario, a diferencia de `dbListMensajesRecientes` (ventana rodante
+// "últimos N días" pensada para la UI) — el resumen semanal necesita saber
+// de la semana que acaba de cerrar, no de "los últimos 7 días" desde hoy.
+// `false` en error: no confirmar "silenciosa" ante un fallo de la propia
+// consulta evita mandar un email de "semana tranquila" falso.
+export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, domingo: string): Promise<boolean> {
+  const { count, error } = await db()
+    .from('decision_mensajes_dia')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('tipo', 'MENSAJE')
+    .gte('fecha', lunes)
+    .lte('fecha', domingo);
+  if (error) { reportError('[dbSemanaFueSilenciosa]', error); return false; }
+  return (count ?? 0) === 0;
+}
+
 // Tasa de seguimiento por tipo — base del Umbral adaptativo (Fase 2, ver
 // tentare-os.md "El Umbral no es fijo"). Dos consultas en vez de un join
 // (supabase-js no hace joins arbitrarios sin una FK embed declarada, y aquí
@@ -571,6 +598,51 @@ export async function dbCalcularSeguimientoPorTipo(
     porTipo.set(r.tipo, acc);
   }
   return [...porTipo.entries()].map(([tipo, v]) => ({ tipo: tipo as TipoRecomendacion, ...v }));
+}
+
+// Impacto REAL por tipo — base del ajuste de la puerta 5 del Umbral con
+// evidencia de resultado, no solo de comportamiento (Pilar 3 de "Tentare
+// 2030", migr 20260806213813, ver lib/decision/umbral.ts calibrarUmbral). Solo
+// entran outcomes `confianza_medicion = 'MEDIDO'` — los NO_MEDIBLE no tienen
+// una cifra real que promediar. `recomendaciones!inner(...)` es un join válido
+// aquí (a diferencia de dbCalcularSeguimientoPorTipo) porque
+// recomendacion_outcomes.recomendacion_id SÍ tiene una FK declarada a
+// recomendaciones — mismo patrón que dbListOutcomesRecientes.
+export async function dbCalcularImpactoRealPorTipo(
+  studioId: string, now: Date, dias = 90,
+): Promise<Array<{ tipo: TipoRecomendacion; nMedido: number; promedioReal: number; promedioEstimadoOriginal: number }>> {
+  const desde = new Date(now.getTime() - dias * 86400000).toISOString();
+  const { data, error } = await db()
+    .from('recomendacion_outcomes')
+    .select('impacto_real, recomendaciones!inner(tipo, impacto)')
+    .eq('studio_id', studioId)
+    .eq('confianza_medicion', 'MEDIDO')
+    .gte('medido_en', desde);
+  if (error) { reportError('[dbCalcularImpactoRealPorTipo]', error); return []; }
+
+  const porTipo = new Map<string, { sumaReal: number; sumaEstimado: number; n: number }>();
+  for (const row of data ?? []) {
+    const r = row as unknown as {
+      impacto_real: Impacto | null;
+      recomendaciones: { tipo: string; impacto: Impacto | null } | null;
+    };
+    const tipo = r.recomendaciones?.tipo;
+    const real = r.impacto_real?.valor;
+    // El estimado original solo sirve de referencia si comparte unidad con el
+    // real (EUR vs EUR_MES no son comparables sin normalizar, y normalizar
+    // aquí sería inventar una tasa de conversión que ningún caso real pide:
+    // dentro de un mismo `tipo`, ambos siempre nacen con la misma unidad).
+    const estimado = r.impacto_real?.unidad === r.recomendaciones?.impacto?.unidad
+      ? r.recomendaciones?.impacto?.valor : undefined;
+    if (!tipo || typeof real !== 'number' || typeof estimado !== 'number' || estimado <= 0) continue;
+    const acc = porTipo.get(tipo) ?? { sumaReal: 0, sumaEstimado: 0, n: 0 };
+    acc.sumaReal += real; acc.sumaEstimado += estimado; acc.n += 1;
+    porTipo.set(tipo, acc);
+  }
+  return [...porTipo.entries()].map(([tipo, v]) => ({
+    tipo: tipo as TipoRecomendacion, nMedido: v.n,
+    promedioReal: v.sumaReal / v.n, promedioEstimadoOriginal: v.sumaEstimado / v.n,
+  }));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -8,11 +8,13 @@ import {
   ArrowLeft, ArrowRight, Users, PartyPopper,
 } from 'lucide-react';
 import {
-  parseCsv, autoMapear, validarFilas, serializeCsv, CAMPOS_SOCIA,
+  autoMapear, validarFilas, serializeCsv, CAMPOS_SOCIA,
   type CampoSocia, type ParsedCsv, type FilaSocia,
 } from '@/lib/csv';
+import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarSocias, type ResultadoImport } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { useStudio } from '@/lib/studio-context';
 
 type Paso = 1 | 2 | 3;
 
@@ -35,6 +37,7 @@ function descargar(nombre: string, contenido: string) {
 export default function ImportarSociasPage() {
   const uid = useId();
   const router = useRouter();
+  const { socios } = useStudio();
   const [paso, setPaso] = useState<Paso>(1);
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState('');
@@ -46,11 +49,26 @@ export default function ImportarSociasPage() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImport | null>(null);
+  // Se fija SOLO al terminar de cargar el archivo (con el mapeo recién
+  // autodetectado, antes de que el usuario toque nada) — es la señal de "no
+  // hemos sabido interpretar las columnas", no un estado que reaparezca cada
+  // vez que alguien borra un select a mano para corregirlo.
+  const [avisoMapeoAutomatico, setAvisoMapeoAutomatico] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Las socias del estudio ya viven en memoria (StudioContext las carga al
+  // entrar en el panel) — cruzar contra sus emails aquí es gratis, no hace
+  // falta ninguna query nueva. Ver nota en `lib/csv.ts` (`validarFilas`): el
+  // servidor (`app/api/socios/import`) ya las omite aparte, esto es solo para
+  // que la previsualización no prometa importar lo que luego se va a omitir.
+  const emailsExistentes = useMemo(
+    () => new Set(socios.map((s) => s.email.toLowerCase())),
+    [socios],
+  );
+
   const validadas = useMemo(
-    () => (parsed ? validarFilas(parsed.rows, mapeo) : []),
-    [parsed, mapeo],
+    () => (parsed ? validarFilas(parsed.rows, mapeo, { emailsExistentes }) : []),
+    [parsed, mapeo, emailsExistentes],
   );
   const conteo = useMemo(() => {
     let ok = 0, dup = 0, err = 0;
@@ -67,23 +85,24 @@ export default function ImportarSociasPage() {
 
   async function cargarArchivo(file: File) {
     setErrorCarga(null);
-    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
-      setErrorCarga('Sube un archivo .csv. Si tienes Excel, expórtalo como CSV primero.');
+    if (!esArchivoTabularValido(file)) {
+      setErrorCarga(MENSAJE_ARCHIVO_NO_VALIDO);
       return;
     }
     try {
-      const texto = await file.text();
-      const p = parseCsv(texto);
+      const p = await leerArchivoTabular(file);
       if (p.headers.length === 0 || p.rows.length === 0) {
         setErrorCarga('El archivo no tiene filas de datos. Revisa que tenga una cabecera y al menos una fila.');
         return;
       }
+      const m = autoMapear(p.headers);
       setParsed(p);
-      setMapeo(autoMapear(p.headers));
+      setMapeo(m);
+      setAvisoMapeoAutomatico(m.nombre < 0 && m.email < 0);
       setNombreArchivo(file.name);
       setPaso(2);
     } catch {
-      setErrorCarga('No se pudo leer el archivo. ¿Seguro que es un CSV válido?');
+      setErrorCarga('No se pudo leer el archivo. ¿Seguro que es un CSV o Excel válido?');
     }
   }
 
@@ -109,6 +128,7 @@ export default function ImportarSociasPage() {
     setNombreArchivo('');
     setResultado(null);
     setErrorCarga(null);
+    setAvisoMapeoAutomatico(false);
     setMapeo({
       nombre: -1, apellidos: -1, email: -1, telefono: -1, nif: -1, tags: -1,
       fecha_alta: -1, direccion: -1, fecha_nacimiento: -1,
@@ -116,7 +136,7 @@ export default function ImportarSociasPage() {
   }
 
   return (
-    <div className="space-y-6 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
         back={{ href: '/clientas', label: 'Volver a Clientas' }}
         title="Importar clientas"
@@ -177,14 +197,14 @@ export default function ImportarSociasPage() {
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept={ACCEPT_ARCHIVO_TABULAR}
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) cargarArchivo(f); }}
             />
             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Upload size={22} className="text-primary" />
             </div>
-            <p className="text-[15px] font-semibold text-foreground">Arrastra tu CSV aquí</p>
+            <p className="text-[15px] font-semibold text-foreground">Arrastra tu CSV o Excel aquí</p>
             <p className="text-[13px] text-muted-foreground mt-1">o haz clic para seleccionarlo</p>
           </div>
 
@@ -224,8 +244,16 @@ export default function ImportarSociasPage() {
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
             <FileSpreadsheet size={15} className="text-foreground" />
             <strong className="text-foreground">{nombreArchivo}</strong>
-            · {parsed.rows.length} filas · delimitador «{parsed.delimiter === '\t' ? 'tab' : parsed.delimiter}»
+            · {parsed.rows.length} filas
+            {parsed.delimiter && ` · delimitador «${parsed.delimiter === '\t' ? 'tab' : parsed.delimiter}»`}
           </div>
+
+          {avisoMapeoAutomatico && (
+            <div className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              <span>No hemos podido reconocer automáticamente las columnas de este archivo. Revísalas abajo antes de continuar.</span>
+            </div>
+          )}
 
           {/* Mapeo */}
           <div className="bg-card border border-border rounded-2xl p-5">
@@ -288,7 +316,14 @@ export default function ImportarSociasPage() {
                       <td className="px-4 py-2 text-foreground">{f.datos.nombre || <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-4 py-2 text-muted-foreground">{f.datos.apellidos || '—'}</td>
                       <td className="px-4 py-2 text-muted-foreground">{f.datos.email || '—'}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{f.datos.telefono || '—'}</td>
+                      <td className="px-4 py-2 text-muted-foreground">
+                        {f.datos.telefono || '—'}
+                        {f.avisoTelefono && (
+                          <span title="El teléfono no parece un número español válido — revísalo, no bloquea la importación">
+                            <AlertTriangle size={11} className="inline-block ml-1.5 -mt-0.5" style={{ color: '#8F6215' }} />
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

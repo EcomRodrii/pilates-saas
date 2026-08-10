@@ -146,7 +146,7 @@ export function BajaForm({ token }: { token: string }) {
 
   // ── Paso 1: elegir la clase ───────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <main className="min-h-dvh bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-md">
         <header className="mb-5 pt-2">
           <h1 className="text-xl font-semibold text-slate-900">
@@ -217,7 +217,7 @@ function cuando(inicio: string): string {
 
 function Pantalla({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <main className="min-h-dvh bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-md pt-6">{children}</div>
     </main>
   );

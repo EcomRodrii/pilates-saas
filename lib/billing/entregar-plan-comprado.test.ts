@@ -16,6 +16,7 @@ type Fila = Record<string, unknown>;
 /** Supabase de mentira: guarda lo insertado para poder comprobarlo. */
 function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fallaEn?: string } = {}) {
   const insertado: Record<string, Fila[]> = { socios: [], suscripciones: [], recibos: [] };
+  const actualizado: Record<string, Fila[]> = { recibos: [] };
 
   const api = {
     from(tabla: string) {
@@ -33,17 +34,46 @@ function fakeAdmin(opts: { plan?: Fila | null; socioExistente?: Fila | null; fal
           insertado[tabla]?.push(fila);
           return Promise.resolve({ error: null });
         },
+        // El snapshot de la entrega va en un UPDATE aparte del insert, para que
+        // el orden de despliegue no pueda romper una entrega — ver el comentario
+        // en entregar-plan-comprado.ts.
+        update(fila: Fila) { actualizado[tabla]?.push(fila); return this; },
       };
     },
   };
-  // El módulo solo usa from().select().eq().maybeSingle() e insert().
-  return { admin: api as never, insertado };
+  return { admin: api as never, insertado, actualizado };
 }
 
 const COMPRA: CompraPlan = {
   sessionId: 'cs_test_abc123def456ghi789', studioId: 'studio-1', planId: 'plan-1',
   socioId: null, email: 'nueva@example.com', nombre: 'María Soler',
+  // Lo que Stripe cobró de verdad. Igual al precio del plan salvo en el test
+  // que comprueba precisamente que mandan los céntimos cobrados.
+  importeCobradoCentimos: 13000,
 };
+
+test('el recibo registra lo COBRADO, no el precio del plan releído ahora', async () => {
+  // Entre abrir el checkout y llegar el webhook, el estudio puede subir el
+  // precio. Antes se registraba el precio de catálogo del momento del webhook:
+  // la socia pagaba 20 € y quedaba un recibo COBRADO de 65 €, y sobre ese
+  // importe se calculaban la factura y los ingresos.
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente', importeCobradoCentimos: 2000,
+  });
+
+  assert.equal(r.ok, true);
+  assert.equal(insertado.recibos[0].importe, 20, 'debe registrar los 20 € cobrados');
+});
+
+test('sin importe cobrado se cae al precio del plan (comportamiento de siempre)', async () => {
+  const { admin, insertado } = fakeAdmin();
+  await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente', importeCobradoCentimos: null,
+  });
+
+  assert.equal(insertado.recibos[0].importe, 130, 'el precio del plan del fake');
+});
 
 test('una compra entrega bono Y recibo cobrado, no solo cobra', async () => {
   const { admin, insertado } = fakeAdmin();
@@ -133,4 +163,26 @@ test('un plan sin caducidad entra sin fecha de fin', async () => {
   const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1' });
   assert.equal(r.ok, true);
   assert.equal(insertado.suscripciones[0].fecha_fin, null);
+});
+
+test('deja constancia de qué entregó, para poder revertirlo si se devuelve', async () => {
+  // Es el caso limpio: la suscripción no existía antes de esta compra, así que
+  // "antes" es la nada y revertir es exacto.
+  const { admin, actualizado } = fakeAdmin();
+  await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  const snapshot = actualizado.recibos[0];
+  assert.equal(snapshot.entrega_tipo, 'ALTA_WEB');
+  assert.equal(snapshot.entrega_aplicada, true);
+  assert.equal(snapshot.entrega_sesiones_antes, null, 'antes de la compra no había nada');
+  assert.equal(snapshot.entrega_sesiones_despues, 10);
+});
+
+test('un fallo al guardar el snapshot NO tumba la entrega', async () => {
+  // El bono ya está entregado y el dinero cobrado: quedarse sin snapshot solo
+  // significa que después no se ofrecerá revertir. Devolver 500 aquí haría que
+  // Stripe reintentara una entrega que ya ocurrió.
+  const { admin } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+  assert.equal(r.ok, true);
 });

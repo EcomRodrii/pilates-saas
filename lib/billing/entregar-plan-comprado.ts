@@ -27,6 +27,19 @@ export interface CompraPlan {
   email: string | null;
   /** Nombre que puso en Stripe, si lo puso. */
   nombre: string | null;
+  /**
+   * Lo que Stripe cobró DE VERDAD, en céntimos (`session.amount_total`).
+   *
+   * El recibo se registraba con `plan.precio`, releído en el momento del
+   * webhook: si el estudio cambia el precio mientras la sesión de checkout está
+   * abierta, la socia paga 20 € y queda registrado un recibo COBRADO de 65 €
+   * —y sobre ese importe se calculan la factura y los ingresos—. El camino de
+   * recibo sí valida el importe contra la BD; este no validaba nada.
+   *
+   * `null` = no se sabe (no debería ocurrir en un pago completado); ahí se cae a
+   * `plan.precio`, que es el comportamiento anterior.
+   */
+  importeCobradoCentimos: number | null;
 }
 
 export type ResultadoEntrega =
@@ -36,7 +49,11 @@ export type ResultadoEntrega =
 /** 23505 = unique_violation: ya existía (reintento de Stripe). No es un fallo. */
 const YA_EXISTIA = '23505';
 
-function idsDe(sessionId: string) {
+// Exportada para que el conciliador (lib/inngest/conciliar-cobros.ts) sepa qué
+// recibo BUSCAR sin volver a inventarse la regla: si el id se calculara en dos
+// sitios, el día que cambie aquí el conciliador dejaría de ver lo ya entregado
+// y lo entregaría otra vez.
+export function idsDe(sessionId: string) {
   // Sufijo corto y estable: los ids de sesión de Stripe son largos.
   const base = sessionId.replace(/^cs_(test_|live_)?/, '').slice(0, 24);
   return {
@@ -70,6 +87,9 @@ export async function entregarPlanComprado(
 
   const ids = idsDe(compra.sessionId);
   const ahora = new Date().toISOString();
+  const importeReal = compra.importeCobradoCentimos != null
+    ? compra.importeCobradoCentimos / 100
+    : Number(plan.precio);
   const hoy = ahora.slice(0, 10);
 
   // ── 1. La socia ────────────────────────────────────────────────────────────
@@ -144,7 +164,9 @@ export async function entregarPlanComprado(
     socio_id: socioId,
     suscripcion_id: ids.suscripcionId,
     concepto: `Alta web — ${plan.nombre}`,
-    importe: plan.precio,
+    // Lo cobrado manda sobre el precio de catálogo: entre que se abre el
+    // checkout y llega el webhook, el estudio puede haber cambiado el precio.
+    importe: importeReal,
     estado: 'COBRADO',
     fecha_vencimiento: hoy,
     fecha_cobro: ahora,
@@ -154,6 +176,32 @@ export async function entregarPlanComprado(
   });
   if (errRec && errRec.code !== YA_EXISTIA) {
     return { ok: false, motivo: 'error', detalle: errRec.message };
+  }
+
+  // Snapshot de la entrega, en un UPDATE aparte y best-effort A PROPÓSITO.
+  //
+  // Aquí es el caso limpio: la suscripción NO existía antes de esta compra, así
+  // que "antes" es la nada y revertir es exacto (`sesiones_restantes: 0`,
+  // `estado: CANCELADA`).
+  //
+  // ⚠️ Va FUERA del insert de arriba, y no dentro, para que el orden de
+  // despliegue no pueda romper una entrega: si el código sale antes que la
+  // migración que crea estas columnas, un insert que las incluyera fallaría
+  // ENTERO → el webhook devolvería 500, Stripe reintentaría, y el bono no se
+  // entregaría nunca con el dinero ya cobrado. Así, lo peor que pasa es quedarse
+  // sin snapshot (que se lee como "no lo sé" y simplemente no ofrece revertir).
+  const { error: errEntrega } = await admin.from('recibos').update({
+    entrega_tipo: 'ALTA_WEB',
+    entrega_aplicada: true,
+    entrega_aplicada_en: ahora,
+    entrega_sesiones_antes: null,
+    entrega_sesiones_despues: plan.sesiones ?? null,
+    entrega_fecha_fin_antes: null,
+    entrega_fecha_fin_despues: fechaFin,
+    entrega_estado_antes: null,
+  }).eq('id', ids.reciboId).eq('studio_id', compra.studioId);
+  if (errEntrega) {
+    console.error('[entregarPlanComprado] sin snapshot de entrega:', errEntrega.message);
   }
 
   return { ok: true, socioId, suscripcionId: ids.suscripcionId, reciboId: ids.reciboId, fichaCreada };

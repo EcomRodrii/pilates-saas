@@ -2,11 +2,10 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import {
   PageHeader, StatCard, PlataformasStack, EstadoBadge, TipoBadge,
-  DeltaPill, fmtNum, fmtFechaHora, fmtHora,
+  fmtNum, fmtFechaHora, fmtHora,
 } from '@/components/contenido/ui';
 import { calcularResumen } from '@/lib/contenido/analytics';
 import type { Publicacion } from '@/lib/contenido/types';

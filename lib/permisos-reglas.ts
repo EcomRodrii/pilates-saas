@@ -37,7 +37,7 @@ const BLOQUEADO_INSTRUCTOR = [
 // marketing, automatizaciones, informes o gestión del equipo.
 // '/centro-de-control' (Decision OS, MVP): solo PROPIETARIO — la apertura
 // parcial a RECEPCION se decidirá post-MVP (DECISION-OS-ANALISIS.md §8).
-const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control'];
+const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion', '/centro-de-control', '/notificaciones'];
 
 // Manager: lleva una sede. Todo lo operativo de recepción MÁS el equipo, y
 // MENOS el dinero — incluida la pantalla de cobros, que recepción sí ve porque
@@ -50,6 +50,11 @@ const BLOQUEADO_RECEPCION = ['/equipo', '/marketing', '/contenido', '/automatiza
 const BLOQUEADO_MANAGER = [
   '/marketing', '/contenido', '/automatizaciones', '/informes', '/configuracion',
   '/centro-de-control',
+  // El Notification Center enseña el TÍTULO Y EL CUERPO de todo lo enviado por
+  // el estudio, y ahí van los avisos de `pagos` con importe (pago fallido,
+  // disputa, penalización). Dejarlo abierto al manager sería una puerta lateral
+  // al dinero que /cobros, /facturas y `puedeVerFinanzas` ya le niegan de frente.
+  '/notificaciones',
   '/cobros', '/cierre',
   '/transacciones', '/facturas', '/pagos',
   // Importar membresías es meter BONOS: dinero cobrado. Su ruta de API ya exige
@@ -143,6 +148,47 @@ export function puedeGestionarPortalHome(rol: Rol): boolean {
   return rol === 'PROPIETARIO' || rol === 'MANAGER';
 }
 
+// Ver el Notification Center (`/notificaciones`, `/api/notifications/admin`): el
+// historial de TODO lo que el estudio ha enviado, a quién y con qué resultado,
+// con título y cuerpo completos. No es la campana de cada cual —eso es
+// `/api/notifications`, acotado por `recipient_user_id`— sino la vista agregada
+// de los avisos de TODAS las personas del estudio, socias incluidas.
+//
+// Solo PROPIETARIO, porque la pantalla es la UNIÓN de dominios que el resto de
+// roles tiene vedados por separado, y una vista de auditoría no puede ser el
+// atajo que devuelve lo que cada permiso ya negó. Lo que deja fuera a cada rol:
+//   - MANAGER, por la categoría `pagos`: `pago.fallido` y `pago.disputado`
+//     llevan el importe en el cuerpo. Hoy no los ve en su campana solo porque no
+//     existe plantilla `#MANAGER` y `crearInApp` se salta la fila sin ella — el
+//     Notification Center se los daría igual, porque lee `title`/`body` crudos
+//     de la tabla sin pasar por `plantillaDe`. Es justo el rodeo que /cobros y
+//     `puedeVerFinanzas` le cierran de frente.
+//   - RECEPCION, por `decision.mensaje_dia` (/centro-de-control es solo de la
+//     propietaria) y sobre todo por `riesgo.dependencia`, que es a la vez dato
+//     de /informes y un juicio sobre una compañera ("{instructora} concentra el
+//     {porcentaje}% de tu facturación"). OJO: el argumento de `pagos` NO vale
+//     contra recepción — sí ve dinero (`puedeVerFinanzas`) y ya recibe esos
+//     mismos avisos con importe en su propia campana.
+//   - INSTRUCTOR, por todo lo anterior más `salud.revision_pendiente`, cuyo
+//     cuerpo nombra a la socia y revela que tiene ficha clínica pendiente de
+//     revisar. Es metadato clínico, no el detalle del §11 (no lleva condiciones
+//     ni motivo), pero la lista de quién tiene ficha ya es dato de salud.
+// Queda en el mismo escalón que /configuracion e /informes, ya solo-propietaria.
+//
+// Si algún día recepción necesita depurar entregas ("¿le llegó el recordatorio a
+// Marta?"), la vía es un endpoint acotado por socia y sin las categorías
+// `decisiones`/`salud`/`riesgo` — no relajar este permiso, que gobierna una
+// vista agregada sin filtrar.
+//
+// ⚠️ Esto NO es un espejo de la RLS de `notification`, y por eso no está en la
+// tabla ESPEJO del test: esa policy es por PERSONA (`recipient_user_id =
+// auth.uid()`), no por rol. Son dos preguntas distintas — "¿es esta fila tuya?"
+// la contesta la base de datos; "¿puedes ver el agregado de todo el estudio?" la
+// contesta esto, porque ese camino va por service-role y se salta la RLS entera.
+export function puedeVerCentroNotificaciones(rol: Rol): boolean {
+  return rol === 'PROPIETARIO';
+}
+
 // Roles que un rol puede REPARTIR al invitar o editar a alguien. La propietaria
 // reparte todo; el manager solo hacia abajo. Espejo de la policy 0113: si las
 // dos dejan de coincidir, la UI ofrece algo que la base de datos rechaza.
@@ -160,6 +206,7 @@ export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
 export function nombreAppPorRol(rol: Rol): 'Tentare Core' | 'Tentare Manager' {
   return rol === 'INSTRUCTOR' ? 'Tentare Core' : 'Tentare Manager';
 }
+
 
 export function puedeVer(rol: Rol, path: string): boolean {
   // Feature-freeze PMF: los módulos congelados no son visibles para NINGÚN rol.

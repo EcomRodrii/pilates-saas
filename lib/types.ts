@@ -30,6 +30,20 @@ export interface Studio {
   telefono: string;
   colorPrimario: string;
   temaPortal: string;
+  /**
+   * TEMPORAL (migr 20260807120000). `true` = las socias de este estudio ven el
+   * portal en React (`components/portal-tema`), el kit de diseño, en vez del
+   * portal actual.
+   *
+   * ⚠️ Tiene fecha de caducidad por decisión explícita: piloto en un estudio,
+   * y si pasa una semana sin incidencias se enciende en el resto y se retira
+   * el portal viejo EN EL MISMO PR que borra esta bandera. Un flag sin fecha
+   * se queda para siempre y acabamos manteniendo dos portales.
+   *
+   * Opcional en el tipo porque hay decenas de fixtures que construyen `Studio`
+   * a mano y ninguno tiene por qué saber de esto.
+   */
+  portalReact?: boolean;
   logoUrl: string | null;
   // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
   // este tipo solo cambia el desglose base/cuota de la factura, no el total.
@@ -42,6 +56,12 @@ export interface Studio {
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   fotoUrl: string | null;
+  // Imagen de bienvenida/portada del PORTAL — la ven las alumnas al entrar
+  // (BienvenidaPortal, PortadaAcceso, hero de inicio...). Deliberadamente
+  // separada de `fotoUrl` (foto de perfil de la propietaria, solo panel):
+  // compartir un campo hacía que subir una selfie para el sidebar la
+  // enseñara de golpe a toda socia del estudio.
+  imagenBienvenidaUrl: string | null;
   ownerAuthUserId: string | null;
   slug: string | null;
   creadoEn: string;
@@ -50,6 +70,9 @@ export interface Studio {
   gmailEmail: string | null;
   zoomEmail: string | null;
   gestoriaEmail: string | null;
+  // 'trimestral' = el cron manda el Cierre del trimestre a gestoriaEmail el
+  // día 1 del mes siguiente, sin que nadie pulse el botón manual.
+  gestoriaEnvioAutomatico: 'desactivado' | 'trimestral';
   // Sede de una cadena multi-centro (plan CADENA). null = estudio independiente.
   cadenaId: string | null;
   // Suscripción de la plataforma (Stripe Billing — el SaaS cobra al estudio).
@@ -106,6 +129,17 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
+  // true (default) = comportamiento de siempre: la socia enseña su pase
+  // (QR o código corto) y alguien del estudio lo escanea/teclea antes de que
+  // la reserva cuente como asistida. false = el estudio confía en que quien
+  // reserva viene: la reserva se marca ASISTIDA sola al terminar la clase
+  // (cron `checkin-automatico`), sin pedir ningún gesto de check-in. El
+  // bono/cobro no depende de esto — ya se descontó al reservar
+  // (`consumirBonoServidor`) — así que desactivarlo es seguro para el dinero.
+  // Sin override por tipo de clase a propósito: es un tema operativo de
+  // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
+  // clase a clase.
+  requiereCheckinQr: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;
@@ -131,6 +165,10 @@ export interface Studio {
   // contrato-decision-os.tsx), mostrado UNA sola vez. NULL = aún no lo ha
   // visto. Mismo patrón que bienvenidaVistaEn/onboardingDescartadoEn.
   decisionContratoVistoEn: string | null;
+  // Tour guiado interactivo (Fase 2 del rediseño de onboarding), registrado
+  // UNA sola vez. NULL = aún no lo ha visto. No bloquea nada — el botón para
+  // repetirlo sigue disponible siempre; mismo patrón que decisionContratoVistoEn.
+  tourVistoEn: string | null;
   // Horario real por día de la semana (tabla studio_horario, migr
   // 20260804210500). horaApertura/horaCierre de arriba siguen siendo el
   // fallback si un estudio no tuviera ninguna fila aquí. undefined = aún no
@@ -280,26 +318,6 @@ export interface CampoPersonalizado {
   requerido: boolean;
   orden: number;
   activo: boolean;
-}
-
-// ─── Preferencias del alumno (portal de miembros) ────────────────────────────
-
-export type DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo';
-export type FranjaHoraria = 'manana' | 'tarde' | 'noche';
-export type Disponibilidad = Record<DiaSemana, Record<FranjaHoraria, boolean>>;
-export type NivelSocio = 'PRINCIPIANTE' | 'INTERMEDIO' | 'AVANZADO';
-
-export interface PreferenciasSocio {
-  socioId: string;
-  studioId: string;
-  disponibilidad: Disponibilidad;
-  instructorFavoritoId: string | null;
-  tipoClaseFavorita: string | null;
-  duracionPreferida: number | null;
-  nivel: NivelSocio | null;
-  notifEmail: boolean;
-  notifWhatsapp: boolean;
-  actualizadoEn: string;
 }
 
 export interface NotaInterna {
@@ -472,6 +490,24 @@ export interface Spot {
   activo: boolean;
 }
 
+// Plantilla de catálogo a nivel de cadena (primera pieza de configuración
+// centralizada, ver .claude/tentare-os.md). Se COPIA a `tipos_clase` de una
+// sede al crearla o al pulsar "Aplicar catálogo" — nunca es un vínculo vivo,
+// y deliberadamente no lleva ninguna columna de política de reserva/
+// cancelación/penalización: esas siguen siendo 100% decisión de cada sede.
+export interface CadenaTipoClase {
+  id: string;
+  cadenaId: string;
+  nombre: string;
+  color: string;
+  duracionMinutos: number;
+  descripcion: string | null;
+  nivel: NivelClase;
+  fotoUrl: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
 export interface TipoClase {
   id: string;
   studioId: string;
@@ -619,6 +655,21 @@ export interface Recibo {
   sepaEstado?: string | null;
   // Dunning (0041): cuándo el barrido diario debe reintentar el cobro (null = sin reintento).
   proximoReintento?: string | null;
+  // Qué entregó este cobro, guardado al entregarlo. Sirve para poder OFRECER
+  // deshacerlo si se devuelve el dinero: `suscripciones` no guarda histórico, así
+  // que sin esto se pierde. `entregaAplicada` distingue tres cosas que no se
+  // infieren entre sí — true (cambió algo), false (se evaluó y no cambió nada),
+  // undefined/null (no se sabe: cobro anterior a esta instrumentación).
+  entregaTipo?: 'BONO' | 'MENSUAL' | 'ALTA_WEB' | 'NINGUNA' | null;
+  entregaAplicada?: boolean | null;
+  entregaAplicadaEn?: string | null;
+  entregaSesionesAntes?: number | null;
+  entregaSesionesDespues?: number | null;
+  entregaFechaFinAntes?: string | null;
+  entregaFechaFinDespues?: string | null;
+  entregaEstadoAntes?: string | null;
+  /** Acumulado devuelto, en euros. Incluye reembolsos parciales. */
+  importeDevuelto?: number | null;
 }
 
 // Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de

@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { PedirValoracionEmail } from '@/lib/emails/valoracion-template';
+import { remitentePorMarca } from '../emails/remitente.ts';
 
 // Email a la alumna tras la clase pidiéndole que la valore, con la plantilla
 // premium compartida (lib/emails/layout.tsx). Degrada limpio si Resend no está
@@ -27,7 +28,7 @@ export async function enviarEmailPedirValoracion(params: {
   try {
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(estudioNombre || 'Tentare'),
       to: [params.to],
       subject: `¿Qué tal tu clase de ${claseNombre}? — ${estudioNombre}`,
       html,

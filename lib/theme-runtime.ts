@@ -17,9 +17,10 @@
 //    evita el FOUC / flash sin tema).
 
 import type { CSSProperties } from 'react';
-import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig } from './theme-schema.ts';
+import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
+import { colorLegibleSobreClaro } from './color-utils.ts';
 
 // foregroundParaFondo vive en wcag-contrast.ts (cero dependencias) y se
 // reexporta aquí por compatibilidad — así PanelThemeProvider (montado en TODO
@@ -141,7 +142,26 @@ function varsBarra(t: ThemeConfig): Record<string, string> {
     '--portal-tabbar-active-bg': 'transparent',
     '--portal-tabbar-active-shadow': 'none',
     '--portal-tabbar-active-fg': colorDestacado(t),
-    '--portal-tabbar-idle-fg': 'rgba(255,255,255,.55)',
+    '--portal-tabbar-idle-fg': 'rgba(246,245,240,.5)',
+    // El prototipo da borde superior a la barra clara y NINGUNO a la oscura
+    // (`borderTop: barraOscura ? 'none' : '1px solid ' + borde`): sobre el
+    // verde oscuro, esa línea se lee como un corte, no como una separación.
+    '--portal-tabbar-border': 'none',
+  };
+}
+
+// Barra pegada abajo (`barraClasica`: Oliva y Noir). El prototipo NO le pone
+// pastilla a la pestaña activa — la marca solo con color (y, en Oliva, con el
+// icono macizo). Sin esto la barra clásica heredaba el fallback del
+// componente, que es la píldora blanca con sombra de la barra flotante: sobre
+// un fondo también blanco quedaba una sombra suelta bajo la pestaña activa,
+// que no está en ningún tema del encargo.
+function varsBarraClasica(t: ThemeConfig): Record<string, string> {
+  if (!t.barraClasica) return {};
+  return {
+    '--portal-tabbar-active-bg': 'transparent',
+    '--portal-tabbar-active-shadow': 'none',
+    '--portal-tabbar-active-fg': colorDestacado(t),
   };
 }
 
@@ -151,13 +171,26 @@ function varsBarra(t: ThemeConfig): Record<string, string> {
 // temas desde el rediseño 2026-08 (position:absolute, inset con margen) —
 // esto solo cambia altura/radio/sombra/icono activo, que es lo que de
 // verdad distingue a Bloom. Sin `barraFlotante`, ninguna var.
-function varsBarraFlotante(t: ThemeConfig): Record<string, string> {
+function varsBarraFlotante(t: ThemeConfig, marcaForeground: string): Record<string, string> {
   if (!t.barraFlotante) return {};
   return {
     '--portal-tabbar-height': '66px',
     '--portal-tabbar-radius': '999px',
     '--portal-tabbar-shadow': '0 16px 40px -18px rgba(60,40,90,.4)',
-    '--portal-tabbar-active-fg': colorDestacado(t),
+    // ⚠️ La pastilla activa es de MARCA, con el icono y el texto encima en
+    // claro (`background: activo ? p.marca : 'transparent'`, `color: activo ?
+    // '#FFFFFF'` en el prototipo). Antes esto dejaba la pastilla en su blanco
+    // de siempre y pintaba el icono con `destacado` — en Bloom, rosa sobre
+    // blanco: los dos colores del tema salían, pero la firma del tema (la
+    // píldora lila que se ensancha) no se veía por ningún lado.
+    // El foreground NO se fija a '#FFFFFF': se usa el mismo autoderivado por
+    // contraste que ya usan los botones, así que un tema con marca clara
+    // sigue siendo legible sin depender del gate de publicación.
+    '--portal-tabbar-active-bg': t.primary,
+    '--portal-tabbar-active-fg': marcaForeground,
+    // La sombra vive en la BARRA, no en la pastilla: dos sombras apiladas
+    // ensucian el borde de la píldora.
+    '--portal-tabbar-active-shadow': 'none',
   };
 }
 
@@ -165,6 +198,22 @@ function varsBarraFlotante(t: ThemeConfig): Record<string, string> {
 // clase, tiraSemana, progresoSemanal) — nunca del resto del portal, que sigue
 // leyendo los números fijos de lib/portal-design.ts. Sin `radioTema`, ninguna
 // var — mismo mecanismo que el resto de esta fase.
+// Escala tipográfica por pieza. Mismo criterio que varsRadioTema: una var por
+// eje que el tema fije, ninguna para los que no — así el portal de un estudio
+// sin tema de esta tanda no cambia ni un píxel.
+function varsEscalaTexto(t: ThemeConfig): Record<string, string> {
+  if (!t.escalaTexto) return {};
+  const e = t.escalaTexto;
+  const vars: Record<string, string> = {};
+  if (e.seccion !== undefined) vars['--portal-text-seccion'] = `${e.seccion}px`;
+  if (e.tituloPantalla !== undefined) vars['--portal-text-titulo-pantalla'] = `${e.tituloPantalla}px`;
+  if (e.saludo !== undefined) vars['--portal-text-saludo'] = `${e.saludo}px`;
+  if (e.tituloHero !== undefined) vars['--portal-text-titulo-hero'] = `${e.tituloHero}px`;
+  if (e.bienvenida !== undefined) vars['--portal-text-bienvenida'] = `${e.bienvenida}px`;
+  if (e.numeroBono !== undefined) vars['--portal-text-numero-bono'] = `${e.numeroBono}px`;
+  return vars;
+}
+
 function varsRadioTema(t: ThemeConfig): Record<string, string> {
   if (!t.radioTema) return {};
   const vars: Record<string, string> = {};
@@ -191,7 +240,11 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // Panel de gestión (marca del estudio; el dark/light sigue siendo por-usuario)
     '--brand': t.primary,
     '--brand-foreground': marcaForeground,
-    '--brand-secondary': t.secondary,
+    // A diferencia de --portal-brand-secondary (arriba), en el PANEL este color
+    // se usa SIEMPRE como texto (badges, pestañas activas, iconos) — nunca como
+    // superficie. Se garantiza legible aquí, no en el dato del tema (ver
+    // colorLegibleSobreClaro en color-utils.ts).
+    '--brand-secondary': colorLegibleSobreClaro(t.secondary),
     // Neutros y acento
     '--accent': t.accent,
     '--background': t.background,
@@ -205,12 +258,25 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     ...varsTarjeta(t),
     // Titular del portal (galería de temas)
     ...varsTitularPortal(t),
+    // Barra inferior pegada abajo (Oliva y Noir) — antes que varsBarra a
+    // propósito: Noir lleva las dos, y la oscura es la que manda.
+    ...varsBarraClasica(t),
     // Barra inferior oscura (tema "Noir")
     ...varsBarra(t),
     // Barra flotante (tema "Bloom")
-    ...varsBarraFlotante(t),
+    ...varsBarraFlotante(t, marcaForeground),
     // Radio por pieza de las secciones nuevas
     ...varsRadioTema(t),
+    // Escala tipográfica por pieza (token del tema, ver theme-schema.ts)
+    ...varsEscalaTexto(t),
+    // Dónde se ancla la foto del estudio al recortarla para una portada.
+    //
+    // Va como variable CSS y no como prop porque lo consumen pantallas que no
+    // reciben el `ThemeConfig`: la de acceso lee el tema publicado a través de
+    // las vars, igual que el resto del portal. Quien lo use pone
+    // `var(--portal-foto-pos, center center)` y así una plantilla vieja sin
+    // este token sigue centrando, que es lo que hacía.
+    '--portal-foto-pos': POSICION_FOTO[t.fotoEncuadre] ?? POSICION_FOTO.centro,
   };
 }
 
@@ -253,12 +319,21 @@ export function validarContrasteTheme(raw: unknown): ChequeoContraste {
   // como enlaces/botones fantasma que pintan `--portal-brand` sobre `--background`.
   if (!cumpleContraste(t.primary, t.background, { grande: true }))
     errores.push('El color de marca no contrasta bien con el fondo (mínimo WCAG AA 3:1 para elementos grandes).');
-  // Par que solo estrena la barra oscura: SOLO ahí `--portal-tabbar-bg` pasa
-  // a ser `primary` (varsBarra en theme-runtime.ts) — la barra flotante deja
-  // el fondo de la pastilla activa en su valor claro de siempre
-  // (`--portal-tabbar-active-bg` no lo toca `varsBarraFlotante`), así que
-  // `destacado` ahí nunca se pinta sobre la marca y este par no aplica.
+  // Par que solo estrena la barra oscura: SOLO ahí `destacado` se pinta sobre
+  // la marca (`--portal-tabbar-bg` pasa a ser `primary` en varsBarra). La
+  // barra flotante también pinta sobre la marca desde que su pastilla activa
+  // es de marca, pero ahí el texto es el foreground AUTODERIVADO por
+  // contraste, el mismo de los botones — cumple por construcción y no
+  // necesita gate.
   if (t.barraOscura && !cumpleContraste(colorDestacado(t), t.primary, { grande: true }))
     errores.push('Con la barra oscura, el color destacado no contrasta con la marca (mínimo 3:1).');
+  // NO se valida aquí `secondary` en general: en Oliva/Bloom/Noir es una
+  // "superficie suave" a propósito (ver comentario en THEME_DEFINITIONS de
+  // noir), no necesariamente texto — y algunos tests de este módulo lo usan
+  // como valor de prueba aislado para el par destacado/marca de arriba, sin
+  // relación con su legibilidad como texto. La legibilidad de `--brand-secondary`
+  // como texto del PANEL (badges, pestañas) se garantiza en el punto donde se
+  // aplica esa variable (`aplicarMarca` en panel-theme.tsx / themeToVarMap
+  // aquí abajo), no en este gate compartido — ver `colorLegibleSobreClaro`.
   return { ok: errores.length === 0, errores };
 }

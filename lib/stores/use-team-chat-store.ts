@@ -35,8 +35,12 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [estadoCarga, setEstadoCarga] = useState<EstadoCarga>('cargando');
 
+  // Igual que en portal-auth/use-socia-session: la asignación va en un efecto,
+  // no en el render. `deps` es un objeto nuevo en cada render del llamador, así
+  // que el efecto corre siempre que cambie de identidad; `depsRef.current` solo
+  // se lee al enviar/recibir un mensaje, nunca durante el propio render.
   const depsRef = useRef(deps);
-  depsRef.current = deps;
+  useEffect(() => { depsRef.current = deps; }, [deps]);
 
   // Cargar canales al montar y activar el primero (General). Si el estudio no
   // tiene ningún canal (estudio nuevo, o creado antes de esta feature), se
@@ -45,6 +49,7 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   useEffect(() => {
     let vivo = true;
     const sid = getCurrentStudioId();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona de canales. El estado viene de la red.
     if (!sid) { setEstadoCarga('listo'); return; }
     dbListCanalesEquipo().then(cs => {
       if (!vivo) return;
@@ -69,6 +74,7 @@ export function useTeamChat(deps: { autorInstructorId: string | null; autorNombr
   useEffect(() => {
     if (!canalActivo) return;
     let vivo = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona de mensajes con bandera de vida. El estado viene de la red.
     setEstadoCarga('cargando');
     setMensajes([]);
 

@@ -32,6 +32,42 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
+// Sesión de prueba en el futuro cercano, no a las 09:00 fijas de "hoy": estos
+// tests abren el formulario de Editar, y sesionYaEmpezada() (calendario-estado.ts)
+// deshabilita ese botón para cualquier clase cuyo inicio ya haya pasado — un
+// runner de CI que ejecute después de las 09:00 UTC volvía "ya empezada" una
+// clase que el test necesitaba poder editar.
+function sesionFutura(offsetMinutos = 180, duracionMinutos = 55) {
+  // Redondeado al minuto exacto: el formulario de editar reconstruye la hora
+  // como `${fecha}T${hora}:00` (toISO(), app/(dashboard)/calendario/page.tsx)
+  // — sin esto, `Date.now()` deja segundos sueltos y el guardado sin tocar la
+  // hora se detectaba como "cambioHora" (mismoInstante comparando getTime()
+  // exacto), desviando el test al diálogo equivocado.
+  let inicio = new Date(Date.now() + offsetMinutos * 60_000);
+  inicio.setSeconds(0, 0);
+  let fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+  // NUNCA puede cruzar medianoche (UTC, que es lo que iso() extrae más abajo):
+  // el formulario de editar solo tiene UN campo `fecha` compartido por
+  // horaInicio/horaFin (openEdit(), app/(dashboard)/calendario/page.tsx) — no
+  // puede representar una clase que empieza un día y termina al siguiente.
+  // `horaInvalida` (mismo fichero) compara las horas como strings HH:MM
+  // asumiendo el mismo día, así que una franja como 23:39–00:34 se marca
+  // (correctamente, dado ese modelo) como "la hora de fin debe ser posterior
+  // a la de inicio" y deja "Guardar cambios" deshabilitado para siempre — no
+  // es un bug de la app, es que `Date.now() + offsetMinutos` cruzaba
+  // medianoche cuando el runner de CI corría tarde en el día UTC, y ROMPÍA
+  // ESTE TEST AL AZAR según la hora real de ejecución. Si el hueco propuesto
+  // no cabe en el día UTC de hoy, se prueba MAÑANA a una hora fija (10:00
+  // UTC, de sobra lejos de cualquier medianoche) en vez de sumar minutos —
+  // desacopla el fixture de "ahora mismo".
+  if (inicio.getUTCDate() !== fin.getUTCDate()) {
+    inicio = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), inicio.getUTCDate() + 1, 10, 0, 0));
+    fin = new Date(inicio.getTime() + duracionMinutos * 60_000);
+  }
+  const iso = (d: Date) => d.toISOString().slice(0, 19); // sin milisegundos ni 'Z'
+  return { inicio: iso(inicio), fin: iso(fin) };
+}
+
 // Rediseño del Calendario: la rejilla ya no pinta desde `sesiones`/`reservas`
 // del contexto (over-fetch admin), sino desde /api/calendario (payload por
 // rol). Mapeo mínimo fila cruda → forma de esa respuesta, mismo shape que
@@ -150,10 +186,11 @@ test.describe('Momentos del calendario', () => {
 
   test('al cambiar solo la instructora, pregunta antes de avisar', async ({ page }) => {
     const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       reservas: [
@@ -193,10 +230,11 @@ test.describe('Momentos del calendario', () => {
     // antes, el filtrado en cliente de `reservas`/`socios` habría avisado solo
     // a 1 y dejado a las otras 2 sin email.
     const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     const { avisosInstructora } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       reservas: [
@@ -230,11 +268,11 @@ test.describe('Momentos del calendario', () => {
     // cambio de instructora no se mandaba nunca — aunque hubiera una alumna real
     // apuntada. El diálogo debe abrirse SIEMPRE ante un cambio de instructora;
     // el servidor es quien decide si hay o no destinatarias al avisar.
-    const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     const { avisosInstructora } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       // reservas: [] a propósito — el snapshot del panel no ve ninguna.
@@ -257,7 +295,7 @@ test.describe('Momentos del calendario', () => {
   });
 
   test('mover la hora avisa aunque el panel no viera la reserva (bug del aplazamiento)', async ({ page }) => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     // El panel NO trae la reserva en su snapshot (se hizo desde el portal después
     // de cargar). Antes, el guard de cliente `apuntadas > 0` vetaba el aviso y el
     // aplazamiento salía en silencio. Ahora se avisa siempre en cambios de hora
@@ -266,7 +304,7 @@ test.describe('Momentos del calendario', () => {
     const { avisosInstructora } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       // reservas: [] a propósito — el snapshot del panel no las ve.
@@ -286,7 +324,7 @@ test.describe('Momentos del calendario', () => {
   });
 
   test('un aplazamiento que la BD rechaza no avisa a nadie y muestra el motivo', async ({ page }) => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     // La escritura de la sesión falla (23P01, solape). El aplazamiento NO debe
     // fingir éxito: sin aviso, y se enseña el motivo. Antes se avisaba y el panel
     // mostraba la hora nueva aunque la BD la hubiera rechazado.
@@ -294,7 +332,7 @@ test.describe('Momentos del calendario', () => {
       sesionUpdateError: true,
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00`, fin: `${hoy}T09:55:00`, aforo_maximo: 10, cancelada: false,
+        inicio, fin, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
     });
@@ -333,10 +371,11 @@ test.describe('Momentos del calendario', () => {
     // Era siempre distinto, así que cualquier edición —una nota, el aforo—
     // mandaba a todas las apuntadas un aviso de que su clase había cambiado.
     const hoy = new Date().toISOString().slice(0, 10);
+    const { inicio, fin } = sesionFutura();
     const { avisos } = await montarCalendario(page, {
       sesiones: [{
         id: 'ses-1', studio_id: STUDIO_ID, tipo_clase_id: 'tc-1', sala_id: 'sala-1', instructor_id: 'ins-1',
-        inicio: `${hoy}T09:00:00+00:00`, fin: `${hoy}T09:55:00+00:00`, aforo_maximo: 10, cancelada: false,
+        inicio: `${inicio}+00:00`, fin: `${fin}+00:00`, aforo_maximo: 10, cancelada: false,
         notas: null, serie_id: null, precio_puntual: null,
       }],
       reservas: [

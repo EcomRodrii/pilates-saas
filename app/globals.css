@@ -146,6 +146,18 @@
      (WCAG 1.4.11 pide 3:1 para el contorno de un control). En claro es
      transparente: ahí el propio oliva ya contrasta 10,4:1 con el fondo. */
   --brand-borde: transparent;
+  /* Cuánto tiñe el color del TIPO de clase el bloque del calendario
+     (components/calendario/bloque-clase.tsx, solo estado PROGRAMADA).
+     Son DOS valores porque un solo porcentaje no sirve a los dos modos, y eso
+     se midió con los colores REALES que hay hoy en `tipos_clase` — que son
+     pasteles (#F7A6C4, #C3D9B0, #C8C2E8, #E8D5C2) más un casi-negro:
+       · En CLARO un pastel al 18 % es indistinguible del blanco (era el bug:
+         "el calendario no tiene color"). Al 50 % se ve claramente y el peor
+         contraste con el texto sigue en 5,1:1 (AA pide 4,5).
+       · En OSCURO pasa lo contrario: un pastel claro sobre fondo oscuro se ve
+         con MENOS mezcla, y al 50 % el peor contraste caía a 3,6:1 — rompía
+         AA. Al 35 % se ve de sobra y el peor sube a 5,4:1. */
+  --calendario-tinte-clase: 50%;
 
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
@@ -203,6 +215,9 @@
   --accent-foreground: #A8B37A;
   --ring: #8A9165;
   --brand-medio: #A8B37A;
+  /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y el 50 %
+     rompía el contraste AA del texto sobre el bloque. */
+  --calendario-tinte-clase: 35%;
 }
 
 /* Logo de marca en tinta `auto` (components/marca/logo-tentare.tsx). Vive aquí
@@ -293,6 +308,15 @@ nextjs-portal { display: none !important; }
    encima, superpuestas todo el tiempo. Así nunca hay un instante sin nada
    pintado que deje ver el fondo del shell (casi negro en modo noche), que es
    lo que se percibía como un parpadeo al cambiar de pestaña. */
+/* Entrada escalonada de la puerta de acceso (handoff «una sola puerta»): cada
+   bloque llega 90 ms después del anterior. Es entrada, no estado — por eso es
+   una animación y no una transición. `both` conserva el estado inicial durante
+   el retardo: sin él, el bloque parpadea visible antes de empezar a subir. */
+@keyframes portal-rise-soft { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* El punto que respira mientras se espera al email. */
+@keyframes portal-breathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.82); } }
+
 @keyframes portal-page-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
 .portal-page-in { animation: portal-page-in .22s ease both; }

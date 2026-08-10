@@ -9,8 +9,9 @@ import {
   MessageSquare, Mail, CreditCard, Bell, Gift, TrendingUp,
   Send, X, Eye,
 } from 'lucide-react';
-import { cn, formatFechaHora as formatFecha, formatHoraCorta as formatHora } from '@/lib/utils';
+import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
 import { aprobarCobroAutonomo } from '@/lib/api-client';
+import { resultadoDeCobro } from '@/lib/billing/resultado-cobro';
 import type { AutomationRule, AutomationLog, AccionAutomatica, ResultadoLog } from '@/lib/types';
 import { mensajeSeguro } from '@/lib/errores';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -459,7 +460,7 @@ function LogItem({
 export default function AutomatizacionesPage() {
   const {
     studio, automationRules, automationLogs, socios,
-    toggleAutomationRule, addAutomationRule, runAutomation, dismissLog, marcarCobrado, actualizarLog,
+    toggleAutomationRule, addAutomationRule, runAutomation, dismissLog, actualizarLog,
   } = useStudio();
 
   const [running, setRunning] = useState(false);
@@ -505,13 +506,24 @@ export default function AutomatizacionesPage() {
     setApprovingId(log.id);
     const result = await aprobarCobroAutonomo({ logId: log.id, reciboId: log.reciboId, socioId: log.socioId, studioId: studio.id });
     if ('ok' in result) {
-      const marcado = await marcarCobrado(log.reciboId);
-      actualizarLog(log.id, marcado.ok
-        ? { resultado: 'EJECUTADO', detalle: 'Cobro aprobado y ejecutado con la tarjeta guardada.' }
-        // El dinero SÍ se cobró: eso no se puede deshacer ni ocultar. Lo que
-        // falló es dejarlo escrito, y hay que decirlo con esas palabras para
-        // que nadie lo vuelva a cobrar creyendo que quedó pendiente.
-        : { resultado: 'EJECUTADO', detalle: `Cobro ejecutado en Stripe, pero el recibo NO se ha podido marcar como cobrado: ${marcado.error} — compruébalo antes de volver a cobrarlo.` });
+      // El resultado lo dice el SERVIDOR, no se deduce de marcar el recibo.
+      //
+      // Antes esto llamaba a `marcarCobrado` y sacaba conclusiones de ahí, y
+      // salía justo del revés: en el camino bueno el servidor ya había dejado
+      // el recibo COBRADO, así que `dbMarcarCobrado` (compare-and-set sobre
+      // PENDIENTE) tocaba 0 filas y devolvía `{ok:false}` → se avisaba de un
+      // problema inexistente EN CADA COBRO CORRECTO. Y en el camino malo el
+      // recibo seguía PENDIENTE, el UPDATE encajaba, y se anunciaba éxito
+      // precisamente en el único caso que exigía que alguien mirara.
+      //
+      // La llamada a `marcarCobrado` se retira entera: en 200 el servidor ya lo
+      // marcó, aplicó la renovación y selló la factura; en 202 no hizo nada de
+      // eso, y marcar el recibo desde aquí lo dejaría COBRADO pero sin renovar
+      // ni facturar — un arreglo a medias, más difícil de detectar que el fallo.
+      // El dinero SÍ se cobró: eso no se puede deshacer ni ocultar. Lo que
+      // falló es dejarlo escrito, y hay que decirlo con esas palabras para que
+      // nadie lo vuelva a cobrar creyendo que quedó pendiente.
+      actualizarLog(log.id, resultadoDeCobro(result));
     } else {
       actualizarLog(log.id, { resultado: 'FALLIDO', detalle: result.error });
     }
@@ -573,7 +585,7 @@ export default function AutomatizacionesPage() {
   ];
 
   return (
-    <div className="max-w-4xl">
+    <div data-tour="automatizaciones-vista" className="max-w-4xl">
       <MorningBriefing logs={automationLogs} />
 
       {/* Pending admin actions */}

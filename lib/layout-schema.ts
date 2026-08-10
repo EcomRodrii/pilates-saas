@@ -11,8 +11,9 @@ import {
   DEFAULT_LAYOUT, resolveLayout, aplicarLayout,
 } from './layout-runtime.ts';
 import {
-  BLOQUES_SISTEMA_IDS, DEFAULT_BLOQUES_SHAPE, type BloqueHome,
+  BLOQUES_SISTEMA_IDS, DEFAULT_BLOQUES_SHAPE, REGISTRO_BLOQUES, CAMPOS_ESTILO, type BloqueHome,
 } from './portal-home-bloques.ts';
+import { zodDeBloques } from './theme/campos-zod.ts';
 
 // Piezas puras (sin zod) reexportadas desde layout-runtime.ts por
 // compatibilidad — los módulos de CLIENTE (dashboard/page.tsx) importan de ahí
@@ -20,69 +21,43 @@ import {
 export { MENU_POSICIONES, DEFAULT_LAYOUT, resolveLayout, aplicarLayout };
 export type { MenuPosicion, OrdenVisibilidad };
 
-// Un `href` (banner/CTA) nunca se valida como URL estricta aquí — un enlace
-// interno es una ruta ("/reservar"), no una URL. El filtro real de enlaces
-// externos peligrosos (`javascript:`, `data:`…) vive en el RENDER
-// (hrefExternoSeguro, app/portal/[slug]/home/page.tsx), no en el guardado:
-// el dato tiene que poder guardarse tal cual lo escribió el estudio para
-// poder editarlo después, aunque todavía no sea válido a medio escribir.
-// Igual que `href` (ver comentario de abajo): `fondo`/`color` no se validan
-// como hex estricto aquí — el estudio tiene que poder guardar mientras
-// escribe, aunque el valor no sea válido a medio teclear todavía. El render
-// (bloque-home-render.tsx) es quien decide si aplica el valor o cae al tema.
-const estiloBloqueSchema = z.object({
-  fondo: z.string().nullable().optional(),
-  color: z.string().nullable().optional(),
-  alineacion: z.enum(['izquierda', 'centro', 'derecha']).optional(),
-  espaciado: z.enum(['compacto', 'normal', 'amplio']).optional(),
-  tamanoTexto: z.enum(['pequeno', 'normal', 'grande']).optional(),
-  esquinas: z.enum(['ninguna', 'suave', 'redondeada', 'pill']).optional(),
-  sombra: z.enum(['ninguna', 'suave', 'marcada']).optional(),
-  ancho: z.enum(['completo', 'contenido']).optional(),
-}).optional();
+// El validador de un bloque se DERIVA del registro (REGISTRO_BLOQUES), no se
+// escribe. Antes era la cuarta copia de la misma forma — y la más peligrosa
+// de las cuatro, porque su divergencia no se ve al revisar: un campo que
+// falte aquí no da error, simplemente se PODA en el siguiente guardado y la
+// propietaria pierde lo que había escrito.
+//
+// Se conservan los dos criterios que ya tenía escrito a mano, ahora en el
+// generador (lib/theme/campos-zod.ts):
+//  · un `href` (banner/CTA) NO se valida como URL estricta — un enlace
+//    interno es una ruta ("/reservar"), no una URL, y el dato tiene que poder
+//    guardarse tal cual lo escribió el estudio para poder editarlo después.
+//    El filtro real de `javascript:`/`data:` vive en el RENDER.
+//  · `fondo`/`color` tampoco se validan como hex estricto: a medio teclear un
+//    color no es válido todavía. El render decide si lo aplica o hereda.
+export const bloqueHomeSchema: z.ZodType<BloqueHome> = zodDeBloques(
+  Object.values(REGISTRO_BLOQUES),
+  BLOQUES_SISTEMA_IDS,
+  CAMPOS_ESTILO,
+) as z.ZodType<BloqueHome>;
 
-export const bloqueHomeSchema: z.ZodType<BloqueHome> = z.discriminatedUnion('kind', [
-  z.object({ id: z.string(), kind: z.literal('sistema'), sistemaId: z.enum(BLOQUES_SISTEMA_IDS), oculto: z.boolean().optional() }),
-  z.object({
-    id: z.string(), kind: z.literal('banner'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({ imagenUrl: z.string(), titulo: z.string(), texto: z.string(), href: z.string() }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('texto'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({ titulo: z.string(), texto: z.string() }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('cta'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({ titulo: z.string(), textoBoton: z.string(), href: z.string() }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('faq'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({
-      titulo: z.string(),
-      preguntas: z.array(z.object({ pregunta: z.string(), respuesta: z.string() })),
-    }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('galeria'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({
-      imagenes: z.array(z.object({ url: z.string(), alt: z.string() })),
-    }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('video'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({ titulo: z.string(), url: z.string() }),
-  }),
-  z.object({
-    id: z.string(), kind: z.literal('testimonios'), oculto: z.boolean().optional(), estilo: estiloBloqueSchema,
-    config: z.object({
-      titulo: z.string(),
-      testimonios: z.array(z.object({ cita: z.string(), autor: z.string(), rol: z.string() })),
-    }),
-  }),
+/**
+ * Una pantalla guardada: array (como siempre) o documento `{bloques, orden}`
+ * (etapa 4). El zod acepta las dos porque va por delante del escritor — ver
+ * el comentario de `resolverBloques`, que es quien las resuelve.
+ *
+ * ⚠️ Sin esta unión, el día que algo escriba un documento el zod lo
+ * RECHAZARÍA y `resolveLayout` caería al default: la propietaria vería su
+ * Inicio de fábrica y sus bloques "desaparecidos". Silencioso y difícil de
+ * diagnosticar.
+ */
+const pantallaGuardadaSchema = z.union([
+  z.array(bloqueHomeSchema),
+  z.object({ bloques: z.record(z.string(), bloqueHomeSchema), orden: z.array(z.string()) }),
 ]);
 
 const bloquesShapeSchema = z
-  .object({ draft: z.array(bloqueHomeSchema), publicado: z.array(bloqueHomeSchema) })
+  .object({ draft: pantallaGuardadaSchema, publicado: pantallaGuardadaSchema })
   .default(DEFAULT_BLOQUES_SHAPE.home);
 
 // Constructor de bloques (Fase 3, generalizado en la Fase 1 del Theme

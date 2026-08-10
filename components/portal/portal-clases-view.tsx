@@ -29,7 +29,7 @@
 // `useStudio()` y en `lib/booking-logic`; lo que se separa es la presentación.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
@@ -39,12 +39,13 @@ import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { BottomSheet, Button, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { pedirPaseDeAcceso } from '@/lib/api-client';
-import { EASE, dur, transicion, display, micro, texto, radio, sombra } from '@/lib/portal-design';
+import { EASE, dur, transicion, display, micro, texto, radio, sombra, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
+import { BandaFoto } from '@/components/portal/banda-foto';
 
 type Vista = 'todas' | 'mias';
 
@@ -76,10 +77,11 @@ export function PortalClasesView({
   session, escribible = true, bloquesOverride,
 }: { session: PortalSession | null; escribible?: boolean; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const {
     sesiones, reservas, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studio, addReserva, cancelarReserva,
-    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, recargarPublico,
+    favoritos, toggleFavorito, bloquesClases: bloquesClasesPublicado, refrescarAforo,
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
@@ -93,11 +95,23 @@ export function PortalClasesView({
   // montada corrige el caso real: la socia mirando el calendario mientras
   // alguien reserva a la vez. Se usa un ref para no reiniciar el intervalo en
   // cada render (recargarPublico es una función nueva por render).
-  const recargarRef = useRef(recargarPublico);
-  useEffect(() => { recargarRef.current = recargarPublico; });
+  //
+  // El tic pide SOLO el aforo (`refrescarAforo`), no `recargarPublico`: este
+  // último trae el catálogo entero del estudio y el histórico financiero de la
+  // socia, que no cambian en cinco segundos. Y se salta el tic con la pestaña
+  // oculta, porque entonces no lo ve nadie.
+  const recargarRef = useRef(refrescarAforo);
+  useEffect(() => { recargarRef.current = refrescarAforo; });
   useEffect(() => {
     if (!escribible) return; // preview: sin servidor real que consultar
-    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    // Con la pestaña oculta no hay nadie mirando el aforo, así que el tic no
+    // aporta nada y sí cuesta. Al volver a primer plano re-sincroniza el
+    // listener de `visibilitychange` de studio-context.tsx, así que pausar aquí
+    // no deja datos rancios a la vista.
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current();
+    }, REFRESCO_ACTIVO_MS);
     return () => clearInterval(id);
   }, [escribible]);
 
@@ -111,6 +125,22 @@ export function PortalClasesView({
     const i = bloquesOrdenados.findIndex((b) => b.kind === 'sistema' && b.sistemaId === sistemaId);
     return { style: { order: i === -1 ? 0 : i } };
   };
+  /**
+   * El texto de un bloque de SISTEMA, ya resuelto. `resolverBloques` rellena
+   * lo que el estudio no haya tocado con el literal de siempre, así que sin
+   * config guardada esto devuelve exactamente lo que se pintaba antes.
+   */
+  const txt = (sistemaId: 'listadoClases', campo: string, siVacio: string): string => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    const v = b && b.kind === 'sistema' ? b.config?.[campo] : undefined;
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -331,11 +361,14 @@ export function PortalClasesView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoClases')}>
+      {/* La foto de ESTA pantalla, si la propietaria le puso una. Sin ella no
+          se pinta nada y la cabecera queda exactamente como estaba. */}
+      {txt('listadoClases', 'fotoUrl', '') && <BandaFoto url={txt('listadoClases', 'fotoUrl', '')} />}
       <div style={{ padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...micro(9.5, 0.28), color: t.micro, whiteSpace: 'nowrap' }}>{rangoSemana}</div>
-            <h1 style={{ ...display(50), color: t.ink, marginTop: 12 }}>Clases</h1>
+            <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoClases', 'titulo', 'Clases')}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
             <button type="button" aria-label="Semana anterior" onClick={() => { setSemana(s => s - 1); setDiaElegido(0); }} style={circulo}>←</button>
@@ -451,7 +484,9 @@ export function PortalClasesView({
       <div style={{ padding: '26px 24px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {lista.length === 0 ? (
           <p style={{ ...display(16, true), color: t.muted2, textAlign: 'center', padding: '22px 0' }}>
-            {vista === 'mias' ? 'Todavía no tienes ninguna clase reservada.' : 'No hay clases este día.'}
+            {vista === 'mias'
+              ? txt('listadoClases', 'vacioMias', 'Todavía no tienes ninguna clase reservada.')
+              : txt('listadoClases', 'vacioDia', 'No hay clases este día.')}
           </p>
         ) : lista.map(c => {
           const reservada = !!c.mia;
@@ -510,19 +545,36 @@ export function PortalClasesView({
                   <img src={c.tipo.fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: completa || c.pasada ? 0.6 : 1 }} />
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+              {/* ⚠️ El hueco de arriba es para el icono de favorita, que va en
+                  `position: absolute` en la esquina (top 10, alto 26). Antes
+                  se apartaba el texto de plazas hacia la IZQUIERDA con un
+                  relleno, y eso depende de lo largo que sea el texto: con
+                  "8 plazas libres" el icono seguía cayéndole encima. Apartarlo
+                  hacia ABAJO no depende de nada — el icono acaba en el píxel
+                  36 y esta columna empieza después, mida lo que mida. */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+                justifyContent: 'space-between', gap: 8,
+                paddingTop: socioId && c.tipo ? 30 : 0,
+              }}>
                 {!reservada && (
-                  <AforoIndicator libres={c.libres} umbralUrgencia={3} style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }} />
+                  <AforoIndicator
+                    libres={c.libres}
+                    umbralUrgencia={3}
+                    style={{ fontSize: 10.5, fontWeight: 500, whiteSpace: 'nowrap' }}
+                  />
                 )}
                 {reservada ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => setPaseAbierto({ nombre: c.tipo?.nombre ?? 'Clase', sub: `${hora(c.sesion.inicio)} · ${c.sala?.nombre ?? ''}` })}
-                      style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      Ver mi pase
-                    </button>
+                    {(studio?.requiereCheckinQr ?? true) && (
+                      <button
+                        type="button"
+                        onClick={() => setPaseAbierto({ nombre: c.tipo?.nombre ?? 'Clase', sub: `${hora(c.sesion.inicio)} · ${c.sala?.nombre ?? ''}` })}
+                        style={{ ...texto.nota, fontSize: 10.5, fontWeight: 500, color: t.ink, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        Ver mi pase
+                      </button>
+                    )}
                     <button
                       type="button" onClick={() => cancelar(c)}
                       style={{ ...texto.nota, fontSize: 10.5, color: t.muted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -600,7 +652,16 @@ export function PortalClasesView({
 
       <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
 
-      <HojaReserva key={reservando?.id ?? 'ninguna'} clase={reservando} onClose={() => setReservandoId(null)} onConfirmar={confirmar} />
+      <HojaReserva
+        key={reservando?.id ?? 'ninguna'}
+        clase={reservando}
+        onClose={() => setReservandoId(null)}
+        onConfirmar={confirmar}
+        // En la vista previa del editor no se ofrece: `/compras` no existe bajo
+        // /portal-preview y el botón llevaría a un 404 (mismo criterio que
+        // `navegar` en el resto de vistas del portal).
+        onComprar={escribible ? () => router.push(`/portal/${slug}/compras`) : undefined}
+      />
 
       <BottomSheet open={!!cancelando} onClose={() => setCancelando(null)}>
         {cancelando && (() => {

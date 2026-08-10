@@ -25,16 +25,21 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, recargarPublico } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, refrescarAforo } = useStudio();
   const { t } = useModo();
 
   // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
   // studio-context.tsx): esta pantalla también deja reservar, así que
-  // también necesita el aforo fresco mientras está abierta.
-  const recargarRef = useRef(recargarPublico);
-  useEffect(() => { recargarRef.current = recargarPublico; });
+  // también necesita el aforo fresco mientras está abierta. Igual que allí:
+  // solo el aforo (`refrescarAforo`, no `recargarPublico`), y nada con la
+  // pestaña oculta, porque entonces no lo mira nadie.
+  const recargarRef = useRef(refrescarAforo);
+  useEffect(() => { recargarRef.current = refrescarAforo; });
   useEffect(() => {
-    const id = setInterval(() => recargarRef.current(), REFRESCO_ACTIVO_MS);
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      recargarRef.current();
+    }, REFRESCO_ACTIVO_MS);
     return () => clearInterval(id);
   }, []);
   // El servidor puede decir que no (sin bono, clase empezada, tope de reservas).
@@ -65,10 +70,16 @@ export default function ClaseDetallePage() {
     return ses.aforoMaximo - reservas.filter(r => r.sesionId === ses.id && r.estado === 'CONFIRMADA').length;
   }, [ses, reservas]);
 
+  // El id se saca FUERA del memo a propósito: la guarda estrecha `session` y la
+  // línea siguiente lo leía como `session.socioId` (ya sin `?.`), así que el
+  // compilador de React deducía como dependencia el objeto `session` entero —
+  // más ancha que el `session?.socioId` declarado a mano — y ante esa
+  // discrepancia renunciaba a optimizar la pantalla COMPLETA.
+  const socioId = session?.socioId;
   const miReserva = useMemo(() => {
-    if (!ses || !session?.socioId) return null;
-    return reservas.find(r => r.sesionId === ses.id && r.socioId === session.socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
-  }, [ses, reservas, session?.socioId]);
+    if (!ses || !socioId) return null;
+    return reservas.find(r => r.sesionId === ses.id && r.socioId === socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
+  }, [ses, reservas, socioId]);
 
   const spotsDeLaSala = useMemo(
     () => (ses ? spots.filter(sp => sp.activo && sp.salaId === ses.salaId) : []),
@@ -295,6 +306,7 @@ export default function ClaseDetallePage() {
         clase={reservando ? claseParaReservar : null}
         onClose={() => setReservando(false)}
         onConfirmar={confirmar}
+        onComprar={() => router.push(`/portal/${slug}/compras`)}
       />
     </div>
   );

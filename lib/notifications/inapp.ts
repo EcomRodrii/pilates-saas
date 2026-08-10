@@ -56,6 +56,64 @@ export async function preferenciaDe(
   };
 }
 
+// ── Clave de dedup: (persona, y solo si hace falta, BANDEJA) ────────────────
+//
+// `uq_notification_dedup (studio_id, dedup_key)` decide qué avisos EXISTEN: dos
+// destinatarios con la misma clave = una sola fila, y la segunda se descarta en
+// silencio (`omitidas++`). Antes la clave solo llevaba la identidad, y con
+// `mostrador-y-socia` —hoy únicamente `pago.fallido`— quien es staff Y socia del
+// mismo estudio con la misma cuenta la generaba dos veces: se perdía una. Daba
+// igual mientras el centro era una sola bandeja; desde que se parte en dos
+// vistas (`lib/notifications/ambito.ts`) esa persona necesita UNA fila en cada
+// una, o el aviso de dinero solo existe en la del panel.
+
+export function identidadDe(dest: Recipient): string {
+  return dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon';
+}
+
+/**
+ * Identidades que aparecen en las DOS bandejas dentro de un mismo evento — el
+ * único caso en el que la clave necesita desempate.
+ *
+ * ⚠️ Se desempata por BANDEJA, no por `dest.role` crudo: quien sea propietaria y
+ * además tenga ficha de RECEPCION/MANAGER en el mismo estudio se resuelve por
+ * dos vías con roles distintos (`mostrador` = propietaria + recepcionistas), y
+ * meter el rol le duplicaría el aviso dentro de la MISMA campana. Staff es una
+ * bandeja sola valga el rol que valga — mismo criterio con el que `ambito.ts`
+ * excluye SOCIA por complemento.
+ */
+export function identidadesEnDosBandejas(dests: Recipient[]): Set<string> {
+  const bandejas = new Map<string, Set<string>>();
+  for (const d of dests) {
+    const id = identidadDe(d);
+    const set = bandejas.get(id) ?? new Set<string>();
+    set.add(d.role === 'SOCIA' ? 'socia' : 'staff');
+    bandejas.set(id, set);
+  }
+  return new Set([...bandejas].filter(([, b]) => b.size > 1).map(([id]) => id));
+}
+
+/**
+ * ⚠️ El sufijo se añade SOLO cuando hay colisión real, no siempre. Sonaba más
+ * limpio marcar todas las filas de socia y ya, pero eso cambiaría la clave de
+ * avisos que dependen de que NO cambie: el cron de recordatorios re-escanea
+ * cada 15 min y confía en el dedup para mandar `recordatorio-24h:${reservaId}`
+ * una sola vez en toda la ventana — al desplegar, cada reserva dentro de su
+ * ventana habría recibido un segundo recordatorio. Y por el otro lado están las
+ * claves de vida larga del staff (`decision-mensaje-dia`, una al día: la
+ * promesa del Umbral; `inactiva:…:${mes}`, cron SEMANAL con dedup MENSUAL).
+ * Desempatar solo lo que colisiona deja TODAS las claves existentes byte a byte
+ * como estaban, así que desplegar esto no duplica nada a nadie.
+ */
+export function claveDedup(
+  base: string | null | undefined, dest: Recipient, dobles: Set<string>,
+): string | null {
+  if (!base) return null;
+  const id = identidadDe(dest);
+  const sufijo = dobles.has(id) ? (dest.role === 'SOCIA' ? ':socia' : ':staff') : '';
+  return `${base}:${id}${sufijo}`;
+}
+
 export interface NotificacionCreada {
   id: string;
   destinatario: Recipient;
@@ -78,6 +136,9 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
   if (!regla) return { creadas: [], omitidas: 0 };
 
   const destinatarios = event.recipients ?? await resolverDestinatarios(admin, regla.audiencia, event);
+  // Se calcula sobre la lista COMPLETA, antes del bucle: saber si una identidad
+  // necesita desempate exige haber visto a todos los destinatarios del evento.
+  const dobles = identidadesEnDosBandejas(destinatarios);
   const data = event.data ?? {};
   const creadas: NotificacionCreada[] = [];
   let omitidas = 0;
@@ -92,9 +153,7 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
     const canalesExtra = canalesExtraDe(regla, pref, critica);
     if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }
 
-    const dedupKey = event.dedupKey
-      ? `${event.dedupKey}:${dest.userId ?? dest.socioId ?? dest.instructorId ?? 'anon'}`
-      : null;
+    const dedupKey = claveDedup(event.dedupKey, dest, dobles);
 
     const id = `not-${crypto.randomUUID()}`;
     const title = render(pl.title, data);

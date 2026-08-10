@@ -14,6 +14,7 @@ import {
   dbFetchDependencySnapshots,
   dbInsertPlanTarifa, dbUpdatePlanTarifa, dbDeletePlanTarifa,
   dbInsertSuscripcion, dbUpdateSuscripcion, dbCongelarSuscripcion, dbDescongelarSuscripcion,
+  dbGuardarEntrega,
   dbInsertBloqueoMaquina, dbCerrarBloqueoMaquina,
   dbInsertPlazaFija, dbUpdatePlazaFija,
   dbCrearRecuperacion, dbListRecuperaciones, dbAnularRecuperacion,
@@ -21,7 +22,7 @@ import {
   dbUpsertMandatoSepa, dbCancelarMandatoSepa,
   dbInsertSesion, dbUpdateSesion, dbDeleteSesion, dbInsertSesionesBatch, dbUpdateSesionesBatch, dbUpdateSerieDesde,
   dbCancelarReservasPorSesiones,
-  dbInsertReserva, dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
+  dbUpdateReserva, dbReservarPlaza, dbCancelarReservaPlaza,
   dbInsertRecibo, dbUpdateRecibo, dbMarcarCobrado, dbUpdateRecibosBatch, dbDeleteRecibo,
   dbInsertCita, dbUpdateCita,
   dbInsertServicioCita, dbUpdateServicioCita, dbDeleteServicioCita, dbReplaceDisponibilidadCitas,
@@ -104,20 +105,14 @@ import type {
   Cita,
   ServicioCita,
   DisponibilidadCita,
-  EstadoCita,
   ProductoPOS,
   VentaPOS,
-  ItemVentaPOS,
-  MetodoPago,
   Campana,
-  EstadoCampana,
-  TipoCampana,
   DestinatariosCampana,
   Automatizacion,
   CodigoDescuento,
   ActividadReciente,
   TipoActividad,
-  PreferenciasSocio,
   RewardRule,
   RewardAction,
   RewardHistory,
@@ -128,7 +123,6 @@ import type {
   AchievementDefinition,
   AchievementProgress,
   AchievementHistory,
-  AchievementMetric,
   RewardTrigger,
   LevelDefinition,
   ChallengeDefinition,
@@ -142,11 +136,11 @@ import type {
   AutomationRule,
   AutomationLog,
   NotaProgreso,
-  ResultadoLog,
   Integracion,
   TipoIntegracion,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { fusionarAforo } from '@/lib/portal-aforo';
 import { mapLimit } from '@/lib/concurrency';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
@@ -161,6 +155,7 @@ import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
 import { DEFAULT_NAV_CONFIG, resolveNavConfig, type NavConfigShape } from '@/lib/portal-nav';
 import { DEFAULT_VARIANTES, resolveVariantes, type VariantesResueltas } from '@/lib/theme-variantes';
+import { MENSAJE_TEMA_PREVIEW, resolveTemaJs, type TemaJs } from '@/lib/theme-preview-puente';
 // `debeDevolverBono` ya no se importa aquí: la decisión de devolver la sesión
 // del bono al cancelar la toma la BD (migr 0129) y este contexto la obedece.
 // La función sigue viva en booking-logic para el portal público y sus tests.
@@ -168,13 +163,12 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
-import { useMemberPrefsStore } from '@/lib/stores/use-member-prefs-store';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -267,6 +261,11 @@ interface StudioContextValue {
   // Pestañas ocultas/renombradas de esa misma barra (Fase 2 del Theme
   // Builder) — ver lib/portal-nav.ts.
   navPortal: NavConfigShape;
+  /** Tema instalado (`oliva`/`bloom`/`noir`/`classic`…). El portal en React
+   *  elige con esto cuál de los tres juegos de tokens monta. */
+  themeIdPublicado: string | null;
+  /** TEMPORAL: `true` = este estudio ve el portal en React. Ver `Studio.portalReact`. */
+  portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
   instructores: Instructor[];
@@ -312,6 +311,7 @@ interface StudioContextValue {
   assignPlan: (socioId: string, planId: string | null) => Promise<void>;
   pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
+  reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
@@ -337,7 +337,11 @@ interface StudioContextValue {
   cancelarSerieDesde: (sesionId: string) => Promise<ResultadoEscritura>;
 
   // Reservas
-  addReserva: (sesionId: string, socioId: string, spotId?: string | null) => Promise<ResultadoReserva>;
+  // opciones.checkInInmediato: walk-in (I-alta pilar 6) — se añade y se marca
+  // asistencia en la misma llamada, sin exigir un segundo clic en "Check-in"
+  // sobre la fila ya creada. Solo tiene efecto si la reserva queda CONFIRMADA
+  // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
+  addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }) => Promise<ResultadoReserva>;
   cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
@@ -346,7 +350,7 @@ interface StudioContextValue {
   // F2 (B2.4) dueña-first: da de baja una reserva y concede una recuperación en su
   // lugar (no devuelve bono). Devuelve TOPE sin cancelar si ya tiene 4 vivas.
   bajaConRecuperacion: (reservaId: string, motivo: string | null) => Promise<{ recuperacion: 'CREADA' | 'TOPE' | 'ERROR'; caduca: string | null }>;
-  checkin: (reservaId: string) => Promise<ResultadoEscritura>;
+  checkin: (reservaId: string, snapshotOverride?: Reserva[]) => Promise<ResultadoEscritura>;
   deshacerCheckin: (reservaId: string) => Promise<ResultadoEscritura>;
   marcarNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
   revertirNoShow: (reservaId: string) => Promise<ResultadoEscritura>;
@@ -429,8 +433,6 @@ interface StudioContextValue {
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
   upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
-  preferenciasSocio: PreferenciasSocio[];
-  upsertPreferenciasSocio: (socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) => void;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
   rewardHistory: RewardHistory[];
@@ -529,6 +531,12 @@ interface StudioContextValue {
   dataLoaded: boolean;
   // Recarga los datos en ruta pública (tras el login de la socia).
   recargarPublico: () => void;
+  /**
+   * Refresca SOLO el aforo de las clases próximas. Es lo que usa el tic de
+   * REFRESCO_ACTIVO_MS; `recargarPublico` se reserva para el montaje y la
+   * vuelta a primer plano.
+   */
+  refrescarAforo: () => void;
 
   // Studio record (propietario) + avatar del admin
   studio: Studio | null;
@@ -608,7 +616,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
+  // Tema en BORRADOR dentro del iframe del editor (/portal-preview, /reservar).
+  // Estado APARTE del publicado, no un `setVariantes` desde el mensaje: la
+  // carga de datos públicos llega asíncrona y pisaría el borrador según quién
+  // ganase la carrera. Así el borrador manda siempre mientras el editor lo
+  // esté mandando, y `null` (fuera del editor) deja intacto lo publicado.
+  const [temaJsPreview, setTemaJsPreview] = useState<TemaJs | null>(null);
   const [navPortal, setNavPortal] = useState<NavConfigShape>(DEFAULT_NAV_CONFIG);
+  const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
+  const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -661,8 +677,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const { dashboardCharts } = dashboardChartsStore;
   const progressNotesStore = useProgressNotesStore();
   const { notasProgreso } = progressNotesStore;
-  const memberPrefsStore = useMemberPrefsStore();
-  const { preferenciasSocio } = memberPrefsStore;
   const [rewardRules, setRewardRules] = useState<RewardRule[]>([]);
   const [rewardActions, setRewardActions] = useState<RewardAction[]>([]);
   const [rewardHistory, setRewardHistory] = useState<RewardHistory[]>([]);
@@ -692,6 +706,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   useEffect(() => {
     fijarEtiqueta('studio_id', studio?.id ?? undefined);
   }, [studio?.id]);
+
+  // Tema en borrador dentro del iframe del editor. Hermano JS de
+  // ThemePreviewListener: aquel aplica las CSS vars del mismo mensaje sobre
+  // :root, este resuelve los ejes que NO son CSS (ver
+  // lib/theme-preview-puente.ts) — hacen falta los dos porque el tema tiene
+  // las dos mitades desde `variantes`.
+  //
+  // Se monta aquí, y no en un provider propio de /portal-preview, porque
+  // `variantes`/`barraClasica`/`tabBarStyle` los sirve ESTE contexto: sus
+  // consumidores (PortalHomeView, PortalShell) los leen con useStudio() y así
+  // no se enteran de que existe un modo preview. Fuera de un iframe no hace
+  // absolutamente nada, que es el caso del panel y del portal real.
+  useEffect(() => {
+    if (window.self === window.top) return;
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { type?: string; temaJs?: unknown } | null;
+      if (!d || d.type !== MENSAJE_TEMA_PREVIEW) return;
+      const tema = resolveTemaJs(d.temaJs);
+      if (tema) setTemaJsPreview(tema);
+    }
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
 
   // El self-claim de una instructora (confirmar el correo de invitación) pasa
   // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
@@ -778,7 +816,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setCurrentStudioId(studioIdOverride ?? '');
     // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
     // Bearer); ya no se pasa {socioId,email} desde el cliente.
-    cargarDatosPublicos(publicSlug).then(pub => {
+    //
+    // `liviano`: solo /reservar/[slug] (y sus widgets embebidos, mismo path)
+    // — nunca vídeos/recompensas/niveles/logros/retos/contenido de portal.
+    // app/portal/[slug] sigue pidiendo el catálogo completo (mismo criterio
+    // que `shadowedByPublicRoute` arriba, basado en el pathname real).
+    const liviano = (pathname ?? '').startsWith('/reservar/');
+    cargarDatosPublicos(publicSlug, { liviano }).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
       setPlanMasElegidoId((pub as { planMasElegidoId?: string | null }).planMasElegidoId ?? null);
@@ -814,6 +858,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // completo — un valor corrupto en un eje no arrastra a los demás.
       setVariantes(resolveVariantes(pub.variantes));
       setNavPortal(resolveNavConfig(pub.navPortal));
+      setThemeIdPublicado((pub as { themeIdPublicado?: string | null }).themeIdPublicado ?? null);
+      setPortalReact((pub.studio as { portalReact?: boolean } | null)?.portalReact === true);
       setRedesSociales({
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
         facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
@@ -834,7 +880,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setPlazasFijas(socia?.plazasFijas ?? []);
       setRecibos(socia?.recibos ?? []);
       setFacturas(socia?.facturas ?? []);
-      memberPrefsStore.setPreferenciasSocio(socia?.preferenciasSocio ?? []);
       setMemberCredits(socia?.memberCredits ?? []);
       setRewardHistory(socia?.rewardHistory ?? []);
       setRewardRedemptions(socia?.rewardRedemptions ?? []);
@@ -846,6 +891,39 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRetosApuntados(socia?.retosApuntados ?? []);
       setDataLoaded(true);
     }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
+  }
+
+  /**
+   * Refresco barato del aforo, para el tic de REFRESCO_ACTIVO_MS.
+   *
+   * POR QUÉ EXISTE: el tic llamaba a `cargarPublico()`, que trae el catálogo
+   * completo del estudio y el histórico financiero de la socia —varios MB— doce
+   * veces por minuto. Lo único que cambia en cinco segundos es quién ha cogido
+   * plaza.
+   *
+   * ⚠️ FUSIONA, NO REEMPLAZA. `reservas` se construye entera desde
+   * `aforoReservas` (ver cargarPublico), así que hacer `setReservas(nuevas)` con
+   * una ventana de 60 días BORRARÍA todas las reservas pasadas de la socia —y
+   * con ellas su pestaña «Pasadas», Progreso y Retos— sin dar ningún error.
+   * Por eso se retiran solo las filas de las sesiones que la ventana cubre
+   * (`sesionIds`) y se dejan intactas todas las demás.
+   *
+   * La identidad de sus reservas se conserva reaplicando el `socioId` que ya
+   * había en memoria: el endpoint devuelve filas anónimas a propósito (así su
+   * respuesta es cacheable en CDN y compartida entre socias). Una reserva que
+   * ella haga en OTRO dispositivo llegará aquí sin dueño hasta el siguiente
+   * `cargarPublico()` completo — no afecta al aforo, que es lo que este tic
+   * mantiene fresco.
+   */
+  function refrescarAforo() {
+    if (!publicSlug) return;
+    cargarAforoPublico(publicSlug).then(res => {
+      // Se exigen las DOS listas antes de tocar nada. Una respuesta a medias
+      // (un proxy que devuelve `{}`, un mock incompleto) haría que la ventana
+      // se considerase vacía y se borrasen reservas que sí existen.
+      if (!res || !Array.isArray(res.sesionIds) || !Array.isArray(res.aforoReservas)) return;
+      setReservas(prev => fusionarAforo(prev, res.sesionIds, res.aforoReservas, studioIdOverride ?? ''));
+    }).catch(err => { console.error('Error refrescando aforo:', err); });
   }
 
   // El portal es una PWA/SPA que la clienta deja abierta. cargarPublico() solo
@@ -893,6 +971,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // como un toast de error real a cualquier visitante de la home pública.
     if (!studioIdOverride && !authUserId) {
       setCurrentStudioId('');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos del estudio: marca dataLoaded para los casos en que no hay nada que pedir. El estado viene de la red.
       setDataLoaded(true);
       return;
     }
@@ -951,7 +1030,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setMemberCredits(data.memberCredits ?? []);
@@ -1530,9 +1608,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setSocios(prev => [...prev, nuevaSocia]);
     addActividadReciente('NUEVA_SOCIA', `${actorNombre ?? 'Alguien'} dio de alta a ${nuevaSocia.nombre} ${nuevaSocia.apellidos}`, nuevaSocia.id, `/socios/${nuevaSocia.id}`);
 
+    let planNombreAlta: string | undefined;
+
     if (planId) {
       const plan = planesTarifa.find(p => p.id === planId);
       if (plan) {
+        planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
         const sus: Suscripcion = {
           id: susId,
@@ -1580,6 +1661,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         setFacturas(prev => [...prev, fac]);
         void sellarFacturaYActualizar(fac);
       }
+    }
+
+    // Sin esto, el alta quedaba completa en la BD pero la socia nunca se
+    // enteraba de que existía un portal: `enviarEmailBienvenida` ya existía
+    // (con enlace de acceso directo, sin contraseña que teclear) pero nadie la
+    // llamaba desde ningún sitio del código — la propietaria tenía que enviarla
+    // a mano desde otra pantalla, y casi nunca lo hacía. Best-effort: un email
+    // que no sale no debe deshacer un alta que ya se guardó en la BD.
+    if (nuevaSocia.email) {
+      void enviarEmailBienvenida({
+        to: nuevaSocia.email,
+        toName: nuevaSocia.nombre,
+        planNombre: planNombreAlta,
+        socioId: nuevaSocia.id,
+      }).catch(() => { /* fallo suave: el alta ya está hecha */ });
     }
 
     return { ...resSocia, id: nuevaSocia.id };
@@ -1630,17 +1726,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  // Preferencias de la socia: en público van por endpoint; si no, al store.
-  function upsertPreferenciasSocioPub(socioId: string, changes: Partial<Omit<PreferenciasSocio, 'socioId' | 'studioId'>>) {
-    const cpub = ctxPublico();
-    if (cpub) {
-      memberPrefsStore.upsertPreferenciasSocio(socioId, changes); // optimista (estado local)
-      postPublico('/api/public/socio', { accion: 'preferencias', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
-      return;
-    }
-    memberPrefsStore.upsertPreferenciasSocio(socioId, changes);
-  }
-
   async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
@@ -1668,8 +1753,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       ...(fields.aceptacionContrato ? { aceptacionContrato: fields.aceptacionContrato } : {}),
       ...(fields.referidoPor ? { referidoPor: fields.referidoPor } : {}),
     };
+    // Se ESPERA y se comprueba, igual que en `addSocio`. Antes se pintaba la
+    // socia y se lanzaba el insert sin mirar la respuesta, devolviendo `ok`
+    // pasara lo que pasara: con el email repetido —el choque más común— la
+    // pantalla decía que se había creado y en la base de datos no había nadie.
+    // Es el mismo patrón que costó el bug #500, en otra pantalla.
+    const resSocia = await dbInsertSocio(nuevaSocia);
+    if (!resSocia.ok) return resSocia;
     setSocios(prev => [...prev, nuevaSocia]);
-    dbInsertSocio(nuevaSocia);
     // El referido queda registrado en la socia (referidoPor), pero el premio
     // al que invita NO se otorga aquí: se otorga cuando la referida asiste a
     // su primera clase (ver premiarReferidoSiProcede en checkin). Así una alta
@@ -1978,6 +2069,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
+  // Hallazgo B (auditoría dunning 2026-08-10): REACTIVAR una suscripción
+  // CANCELADA (por el botón "Cancelar suscripción" de esta misma pantalla, o
+  // por la auto-cancelación del dunning tras 3 fallos de cobro) — distinto de
+  // "Reanudar"/descongelar, que solo cierra una ventana de PAUSADA. No hay RPC
+  // atómica aquí (no hace falta ventana que cerrar), pero SÍ hay que recalcular
+  // fecha_fin: la de una suscripción cancelada hace tiempo suele estar en el
+  // pasado, y reactivarla dejándola tal cual la caducaría al instante. Mismo
+  // criterio que un alta nueva (`calcularReactivacion`, espejo de `assignPlan`).
+  //
+  // Alcance deliberadamente acotado: si la suscripción tenía `stripeSubscriptionId`
+  // (cobro automático), este botón NO reintenta cobrar en Stripe — solo la
+  // reactiva en Tentare, a la espera del próximo ciclo normal de
+  // renovación/dunning. Reactivar un PaymentIntent/Subscription real en Stripe
+  // desde aquí es una pieza de riesgo/alcance distinta, no construida.
+  async function reactivarSuscripcion(susId: string): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'CANCELADA') return { ok: false, error: 'Esta suscripción no está cancelada.' };
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return { ok: false, error: 'No se encuentra el plan de esta suscripción.' };
+
+    const ahoraISO = new Date().toISOString();
+    const { fechaFin, sesionesRestantes } = calcularReactivacion(plan, ahoraISO);
+    const changes: Partial<Suscripcion> = { estado: 'ACTIVA', fechaFin };
+    if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') changes.sesionesRestantes = sesionesRestantes;
+
+    const res = await dbUpdateSuscripcion(susId, changes);
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, ...changes } : s));
+    return { ok: true };
+  }
+
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
@@ -2279,7 +2401,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ));
   }
 
-  async function addReserva(sesionId: string, socioId: string, spotId?: string | null): Promise<ResultadoReserva> {
+  async function addReserva(sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }): Promise<ResultadoReserva> {
     const esPrimeraReserva = !reservas.some(r => r.socioId === socioId);
     const sesion = sesiones.find(s => s.id === sesionId);
     // Decisión de aforo/lista de espera: lógica pura y testeada (booking-logic).
@@ -2348,6 +2470,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       : x);
     evaluarLogrosSocio(socioId, reservasFinales);
     evaluarRetosSocio(socioId, reservasFinales);
+
+    // Walk-in (I-alta pilar 6): se le pasa `reservasFinales` como snapshot
+    // explícito en vez de dejar que checkin() lea el `reservas` del cierre de
+    // este render — esa closure todavía no incluye la reserva recién creada
+    // (el `await dbReservarPlaza` de arriba cede el hilo y React puede
+    // renderizar de nuevo, pero esta ejecución sigue con las variables que
+    // tenía al empezar). Sin el override, el check-in se marcaría en BD pero
+    // el paso de créditos/logros no encontraría la reserva y se saltaría en
+    // silencio.
+    if (opciones?.checkInInmediato && r.estado === 'CONFIRMADA') {
+      await checkin(reservaId, reservasFinales);
+    }
 
     return { ok: true, estado: r.estado as EstadoReserva };
   }
@@ -2522,7 +2656,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     if (premiar && referidorId) otorgarCreditos(referidorId, 'REFERIDO_AMIGO', socioId);
   }
 
-  async function checkin(reservaId: string): Promise<ResultadoEscritura> {
+  async function checkin(reservaId: string, snapshotOverride?: Reserva[]): Promise<ResultadoEscritura> {
+    // Doble check-in (I-alta pilar 6): la UI ya oculta el botón en cuanto una
+    // reserva pasa a ASISTIDA (ListaClientas solo lo pinta sobre CONFIRMADA),
+    // pero "marcar todas" (barrido de confirmadasSinCheckin) puede llamar a
+    // checkin() dos veces sobre la misma reserva en la misma tanda. El
+    // otorgamiento de crédito ya estaba deduplicado (UNIQUE studio+trigger+ref),
+    // así que esto era inofensivo en dinero — pero seguía marcando
+    // logros/retos/racha una segunda vez sin necesidad. Cortar aquí, no allí.
+    const base = snapshotOverride ?? reservas;
+    if (base.find(r => r.id === reservaId)?.estado === 'ASISTIDA') return { ok: true };
     if (publicSlug) {
       // Kiosk público: el check-in (ASISTIDA + créditos + premio de referido) lo
       // hace el servidor; se re-sincroniza al terminar.
@@ -2531,7 +2674,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return { ok: true };
     }
     const checkInEn = new Date().toISOString();
-    const reservasActualizadas = reservas.map(r =>
+    const reservasActualizadas = base.map(r =>
       r.id === reservaId ? { ...r, estado: 'ASISTIDA' as const, checkInEn } : r
     );
     setReservas(reservasActualizadas);
@@ -2557,7 +2700,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         .then(h => fetch('/api/integrations/kisi/abrir', { method: 'POST', headers: h }))
         .catch(() => {});
     }
-    const reserva = reservas.find(r => r.id === reservaId);
+    const reserva = base.find(r => r.id === reservaId);
     if (!reserva) return res;
     otorgarCreditos(reserva.socioId, 'ASISTENCIA_CLASE', reservaId);
     evaluarLogrosSocio(reserva.socioId, reservasActualizadas);
@@ -2798,9 +2941,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         creadaEn: new Date().toISOString(),
       }, ...prev]);
     };
-    if ((plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') && sus.sesionesRestantes === 0) {
+    // Se guarda QUÉ entregó este cobro (ver `dbGuardarEntrega` y la migración
+    // 20260806160000). Sin esto, si el dinero se devuelve no hay forma de saber
+    // qué habría que deshacer. Es best-effort: un fallo aquí no puede tumbar una
+    // renovación ya aplicada, solo deja el recibo sin snapshot ("no lo sé").
+    const anotarEntrega = (e: Parameters<typeof dbGuardarEntrega>[1]) =>
+      void dbGuardarEntrega(recibo.id, e);
+
+    if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') {
+      if (sus.sesionesRestantes !== 0) {
+        anotarEntrega({
+          tipo: 'BONO', aplicada: false,
+          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+          fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
+          estadoAntes: sus.estado ?? null,
+        });
+        return;
+      }
       const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: plan.sesiones, estado: 'ACTIVA' });
       if (!res.ok) { avisarFallo(res.error); return; }
+      anotarEntrega({
+        tipo: 'BONO', aplicada: true,
+        sesionesAntes: 0, sesionesDespues: plan.sesiones ?? null,
+        // Esta rama no toca fechaFin: antes y después iguales, o la
+        // comprobación de interferencia daría un falso positivo.
+        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: sus.fechaFin ?? null,
+        estadoAntes: sus.estado ?? null,
+      });
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, sesionesRestantes: plan.sesiones, estado: 'ACTIVA' as const } : s
       ));
@@ -2808,8 +2975,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const nuevaFin = new Date();
       nuevaFin.setMonth(nuevaFin.getMonth() + 1);
       const fechaFin = nuevaFin.toISOString().slice(0, 10);
+      // ⚠️ Este guard FALTABA aquí, y sí está en el espejo de servidor
+      // (`renovacion-server.ts`). Sin él, cobrar una renovación de una
+      // suscripción cuya fecha_fin estaba MÁS LEJOS se la ACORTABA: la socia
+      // pagaba y perdía días. Y de paso, sin el guard el snapshot habría
+      // registrado como entrega algo que en realidad quitó tiempo.
+      if (sus.fechaFin && sus.fechaFin >= fechaFin) {
+        anotarEntrega({
+          tipo: 'MENSUAL', aplicada: false,
+          sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+          fechaFinAntes: sus.fechaFin, fechaFinDespues: sus.fechaFin,
+          estadoAntes: sus.estado ?? null,
+        });
+        return;
+      }
       const res = await dbUpdateSuscripcion(sus.id, { fechaFin, estado: 'ACTIVA' });
       if (!res.ok) { avisarFallo(res.error); return; }
+      anotarEntrega({
+        tipo: 'MENSUAL', aplicada: true,
+        sesionesAntes: sus.sesionesRestantes ?? null, sesionesDespues: sus.sesionesRestantes ?? null,
+        fechaFinAntes: sus.fechaFin ?? null, fechaFinDespues: fechaFin,
+        estadoAntes: sus.estado ?? null,
+      });
       setSuscripciones(prev => prev.map(s =>
         s.id === sus.id ? { ...s, fechaFin, estado: 'ACTIVA' as const } : s
       ));
@@ -2978,9 +3165,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setFacturas(prev => [...prev, ...nuevasFacturas]);
       for (const fac of nuevasFacturas) void sellarFacturaYActualizar(fac);
     }
-    // Refill bonos / extend mensual for every recibo being paid
+    // Refill de bonos / extensión del mensual de cada recibo cobrado.
+    //
+    // ⚠️ EN SERIE y con `await`. Sin él, dos recibos MENSUALES de la MISMA
+    // suscripción cobrados a la vez leían los dos la misma `fechaFin` y ambos
+    // escribían hoy+1mes: la socia pagaba dos meses y recibía uno. Además ahora
+    // cada pasada escribe el snapshot de la entrega, y concurrentes se pisarían
+    // entre sí dejando un registro que no describe lo que pasó.
     for (const recibo of cobradosAhora) {
-      aplicarRenovacionSuscripcion(recibo);
+      await aplicarRenovacionSuscripcion(recibo);
     }
     return res;
   }
@@ -3372,9 +3565,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const res = await dbOtorgarCreditoDisparador(socioId, studioId, trigger, refId);
       if ('error' in res) return; // condición no cumplida o sin regla activa
       if (!res.otorgado) return; // ya se había concedido antes para este refId
+      if (!res.accionId) {
+        // Defensivo: la RPC siempre devuelve accion_id cuando otorgado=true; si
+        // alguna vez no lo hiciera, no fabricar un id local — insertarlo violaría
+        // reward_history_action_id_fkey (bug JAVASCRIPT-NEXTJS-11 de Sentry). El
+        // saldo ya se actualizó server-side; solo se pierde el registro de
+        // historial de este otorgamiento puntual, no el crédito en sí.
+        capturarMensaje('[otorgarCreditos] RPC otorgado=true sin accionId', 'error', { tags: { area: 'gamificacion' } });
+        return;
+      }
 
       const now = new Date().toISOString();
-      const action: RewardAction = { id: `rwa-${uid()}`, studioId, socioId, trigger, refId, creadoEn: now };
+      const action: RewardAction = { id: res.accionId, studioId, socioId, trigger, refId, creadoEn: now };
       const historyEntry: RewardHistory = {
         id: `rwh-${uid()}`, studioId, socioId, ruleId: regla.id, actionId: action.id,
         creditos: regla.creditos, descripcion: descripcionOverride ?? regla.nombre, creadoEn: now,
@@ -3848,6 +4050,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // Notas de progreso: extraídas a useProgressNotesStore (Fase B).
 
+  // El borrador del editor pisa a lo publicado, y entero: `temaJs` es un objeto
+  // completo, así que no puede quedar la cabecera del borrador con los retos de
+  // lo publicado. Fuera del preview es `null` y esto es exactamente lo de antes.
+  const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
+  const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
+  const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
+
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
     salas,
@@ -3858,10 +4067,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     homeBloques,
     bloquesClases,
     bloquesBonos,
-    tabBarStyle,
-    barraClasica,
-    variantes,
+    tabBarStyle: tabBarStyleEfectivo,
+    barraClasica: barraClasicaEfectiva,
+    variantes: variantesEfectivas,
     navPortal,
+    themeIdPublicado,
+    portalReact,
     redesSociales,
     favoritos,
     toggleFavorito,
@@ -3925,6 +4136,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     assignPlan,
     pausarSuscripcion,
     reanudarSuscripcion,
+    reactivarSuscripcion,
     addNota,
     deleteNota,
     condicionesSalud,
@@ -4005,8 +4217,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     toggleLikePost: content.toggleLikePost,
     integraciones,
     upsertIntegracion: integrationsStore.upsertIntegracion,
-    preferenciasSocio,
-    upsertPreferenciasSocio: upsertPreferenciasSocioPub,
     rewardRules,
     rewardActions,
     rewardHistory,
@@ -4062,15 +4272,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dataLoaded,
     planMasElegidoId,
     recargarPublico: cargarPublico,
+    refrescarAforo,
     studio,
     updateAvatarAdmin,
     updateStudio,
     updateHorarioEstudio,
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps deliberately cover only state read by
-  // `value`'s ~80 inline functions (verified: every closed-over identifier is listed below); the
-  // functions themselves are intentionally excluded since they're recreated every render anyway.
+  // deps deliberately cover only state read by `value`'s ~80 inline functions
+  // (verified: every closed-over identifier is listed below); the functions
+  // themselves are intentionally excluded since they're recreated every render
+  // anyway.
+  //
+  // El disable va en la línea de justo antes del array, no encima del comentario:
+  // la regla señala esta línea, y las dos versiones anteriores (una arriba del
+  // todo y otra pegada al `]`) no tapaban nada y llevaban avisando sin que se
+  // notara.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyle, barraClasica, variantes, navPortal, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdPublicado, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
@@ -4079,7 +4298,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     actividadReciente, notificaciones,
     content.videosOnDemand, content.postsComunidad, content.likedPostIds,
     integrationsStore.integraciones,
-    memberPrefsStore.preferenciasSocio,
     rewardRules, rewardActions, rewardHistory, creditTransactions, memberCredits,
     rewardCatalog, rewardRedemptions,
     achievementDefinitions, achievementProgress, achievementHistory,
@@ -4089,10 +4307,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     backups,
     studioConfig,
     automationRules, automationLogs, progressNotesStore.notasProgreso,
-    dataLoaded,
+    dataLoaded, planMasElegidoId,
     studio,
     authUserId, publicSlug, studioIdOverride,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   function resetDatosPilates() {
@@ -4130,7 +4347,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       content.setPostsComunidad(data.postsComunidad);
       dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
       integrationsStore.setIntegraciones(data.integraciones ?? []);
-      memberPrefsStore.setPreferenciasSocio(data.preferenciasSocio ?? []);
       setRewardRules(data.rewardRules ?? []);
       setRewardActions(data.rewardActions ?? []);
       setRewardHistory(data.rewardHistory ?? []);

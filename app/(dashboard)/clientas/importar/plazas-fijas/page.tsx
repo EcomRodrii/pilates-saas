@@ -56,7 +56,7 @@ export default function ImportarPlazasFijasPage() {
   const validadas = useMemo(() => (parsed ? validarFilasPlazaFija(parsed.rows, mapeo) : []), [parsed, mapeo]);
   const conteo = useMemo(() => {
     let ok = 0, err = 0;
-    for (const f of validadas) (f.estado === 'ok' ? ok++ : err++);
+    for (const f of validadas) { if (f.estado === 'ok') ok++; else err++; }
     return { ok, err };
   }, [validadas]);
 
@@ -110,7 +110,7 @@ export default function ImportarPlazasFijasPage() {
   }
 
   return (
-    <div className="space-y-6 min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
         back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
         title="Importar plazas fijas"

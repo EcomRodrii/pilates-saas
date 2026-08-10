@@ -3,7 +3,7 @@
 //
 // Azúcar para que los módulos de negocio publiquen eventos en UNA línea sin
 // preocuparse de reunir las variables de plantilla. Cada emisor reúne los datos
-// de display (clase, cuándo, socia, importe…) y llama a NotificationEngine.publish.
+// de display (clase, cuándo, socia, importe…) y llama a `publish` (engine.ts).
 // TODO best-effort: envuelto en try/catch; una notificación jamás rompe el negocio.
 //
 // (Optimización futura: sacar la reunión de variables del hilo del request. Para
@@ -96,6 +96,33 @@ export async function emitirReservaCancelada(
     });
   } catch (e) {
     console.error('[notifications] emitirReservaCancelada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Plaza fija no materializada: el cron nocturno (materializar-plazas) no ha
+// podido generar la reserva de esta semana para "tu reformer fijo". dedupKey
+// por (sesión, socia) — con el UNIQUE(studio_id, dedup_key) del motor, cada
+// semana que falla genera como mucho un aviso, para siempre, sin necesidad de
+// un "último periodo avisado" tipo Fase 2b de gestoría.
+export async function emitirPlazaFijaNoMaterializada(
+  admin: SupabaseClient,
+  p: { studioId: string; sesionId: string; socioId: string; motivo: 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo' },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const motivoTexto = p.motivo === 'sesion_cancelada'
+      ? ' Esa clase está cancelada esta semana.'
+      : p.motivo === 'suscripcion_pausada'
+        ? ' Tu suscripción está en pausa, así que no la hemos reservado por ti.'
+        : ' Esta semana está completa — resérvala manualmente si quieres entrar en lista de espera.';
+    await publish({
+      type: EVENTOS.RESERVA_PLAZA_FIJA_NO_MATERIALIZADA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, motivoTexto },
+      resource: { type: 'sesion', id: p.sesionId },
+      dedupKey: `plaza-fija-no-materializada:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPlazaFijaNoMaterializada:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -215,6 +242,44 @@ export async function emitirPenalizacionBloqueada(
     });
   } catch (e) {
     console.error('[notifications] emitirPenalizacionBloqueada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Se ha devuelto dinero (reembolso total o parcial) o se ha perdido una
+// disputa. Lo accionable NO es el dinero —ya se movió en Stripe pase lo que
+// pase— sino que la socia conserva lo que se le entregó (el bono recargado, el
+// mes extendido) hasta que alguien lo revise.
+//
+// `dedupKey` por DEVOLUCIÓN y no por recibo: un mismo cobro puede tener dos
+// reembolsos parciales, o un parcial y luego un chargeback, y cada uno es un
+// hecho que hay que contar.
+export async function emitirDevolucion(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; socioId: string | null; devolucionId: string;
+    importe: number; origen: 'REEMBOLSO_TOTAL' | 'REEMBOLSO_PARCIAL' | 'CHARGEBACK';
+  },
+): Promise<void> {
+  try {
+    const { data: socio } = p.socioId
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
+      : { data: null };
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta';
+    const esChargeback = p.origen === 'CHARGEBACK';
+    await publish({
+      type: esChargeback ? EVENTOS.PAGO_CHARGEBACK_PERDIDO : EVENTOS.PAGO_DEVUELTO,
+      studioId: p.studioId,
+      data: {
+        importe: p.importe, socia, socioId: p.socioId,
+        // Solo se nombra cuando es parcial: en una devolución normal, decir
+        // "(total)" es ruido.
+        tipoTexto: p.origen === 'REEMBOLSO_PARCIAL' ? ' (devolución parcial)' : '',
+      },
+      resource: { type: 'devolucion', id: p.devolucionId },
+      dedupKey: `devolucion:${p.devolucionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDevolucion:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -363,6 +428,18 @@ export async function emitirPagoRealizado(
       resource: { type: 'recibo', id: p.reciboId },
       dedupKey: `pago-ok:${p.reciboId}`,
     });
+    // Al mostrador: el aviso de "ha entrado dinero" (toast+cha-ching en tiempo
+    // real de la campana). Mismo recibo, evento propio — ver comentario del
+    // catálogo (VENTA_REGISTRADA) sobre por qué no es la misma regla que la de
+    // arriba.
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.VENTA_REGISTRADA, studioId: p.studioId,
+      data: { concepto: recibo.concepto ?? 'una compra', importe: recibo.importe, socia },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `venta:${p.reciboId}`,
+    });
   } catch (e) {
     console.error('[notifications] emitirPagoRealizado:', e instanceof Error ? e.message : e);
   }
@@ -447,16 +524,19 @@ export async function emitirInstructoraAusencia(
 }
 
 // Sustitución rechazada: la candidata dice que no → la dueña debe elegir a otra.
+// `siguiente` es la frase que cierra el aviso, y la decide quien llama porque
+// depende del modo de autonomía: en asistido le toca buscar a ella, en autónomo
+// el motor ya ha preguntado a la siguiente y solo se le está contando.
 export async function emitirSustitucionRechazada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string },
+  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string; siguiente: string },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: instr } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
     await publish({
       type: EVENTOS.SUSTITUCION_RECHAZADA, studioId: p.studioId,
-      data: { ...ctx, instructora: (instr?.nombre as string | null) ?? 'Una instructora' },
+      data: { ...ctx, instructora: (instr?.nombre as string | null) ?? 'Una instructora', siguiente: p.siguiente },
       resource: { type: 'sustitucion', id: p.sustitucionId },
       dedupKey: `sustitucion-rechazada:${p.sustitucionId}:${p.instructorId}`,
     });

@@ -86,7 +86,12 @@ export function contarReservasActivasFuturas(
 
 // Plazas realmente ocupadas en una sesión: solo cuentan las confirmadas o ya
 // asistidas. La lista de espera NO ocupa aforo.
-export function plazasOcupadas(sesionId: string, reservas: Reserva[]): number {
+//
+// Pide solo los dos campos que mira, no una `Reserva` entera: el camino
+// público (`fetchPublicStudioData` → `aforoReservas`) trae a propósito una
+// fila recortada (`id, sesion_id, estado, spot_id`) para no sacar PII de nadie,
+// y con la firma ancha había que castear. Cualquier `Reserva[]` sigue valiendo.
+export function plazasOcupadas(sesionId: string, reservas: Pick<Reserva, 'sesionId' | 'estado'>[]): number {
   return reservas.filter(
     r => r.sesionId === sesionId && (r.estado === 'CONFIRMADA' || r.estado === 'ASISTIDA'),
   ).length;

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UsersRound, RefreshCw, ChevronDown, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { InstructorDependencySnapshot, NivelRiesgoDependencia } from '@/lib/types';
+import type { InstructorDependencySnapshot } from '@/lib/types';
 
 // Estados alineados con SpecialistCard (Mi Equipo).
 const ESTADO = {

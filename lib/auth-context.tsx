@@ -1,10 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { fijarUsuario } from '@/lib/sentry-cliente';
 import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
+import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { setCurrentStudioId } from './supabase-data';
 
 // B0.6: identifica al usuario en Sentry para poder medir el impacto real de cada
@@ -61,17 +62,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //
   // Pasa siempre que el proyecto tiene el captcha activado y el navegador no
   // manda token, que es TODO entorno sin NEXT_PUBLIC_TURNSTILE_SITE_KEY: local
-  // y las preview de Vercel. Ahí el alta es directamente imposible — al
-  // contrario de lo que dice el comentario de components/auth/turnstile-widget,
-  // que da por hecho que sin la variable «el formulario sigue funcionando igual
-  // que hoy». No es un fallo que se pueda arreglar desde aquí (hace falta la
-  // env var, o apagar el captcha en el proyecto de Supabase), pero al menos que
-  // el mensaje diga qué pasa y en el idioma del producto.
+  // y las preview de Vercel. Ahí el alta de equipo es directamente imposible
+  // (gotrue rechaza sin token, mire lo que mire la app), y no es un fallo que
+  // se pueda arreglar desde aquí: hace falta la env var, o apagar el captcha en
+  // el proyecto de Supabase. Al menos que el mensaje diga qué pasa y en el
+  // idioma del producto.
+  //
+  // El texto es el MISMO que el del widget, importado y no copiado: eran dos
+  // frases distintas para el mismo fallo, y desde que el widget se reinicia
+  // solo, la de aquí seguía mandando a recargar cuando casi siempre basta con
+  // volver a pulsar.
   function mensajeDeError(error: { message: string }): string {
     const m = error.message.toLowerCase();
-    if (m.includes('captcha')) {
-      return 'No se ha podido verificar que no eres un robot. Recarga la página e inténtalo otra vez; si sigue pasando, escríbenos.';
-    }
+    if (m.includes('captcha')) return ERROR_CAPTCHA;
     if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos';
     if (m.includes('email not confirmed')) {
       return 'Te falta confirmar tu email. Busca nuestro correo (mira también en spam) y pulsa el enlace.';
@@ -231,8 +234,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  // El value va memoizado (mismo patrón y misma limitación que documenta
+  // CoreProvider en core-context.tsx): antes era un literal creado en cada
+  // render, así que CUALQUIER render de este provider —que vive en el layout
+  // raíz— daba una referencia nueva y re-renderizaba a sus 18 consumidores
+  // aunque la sesión no hubiera cambiado. Las funciones se siguen recreando en
+  // cada render (no están en useCallback), pero cierran solo sobre `supabase`
+  // y setters de estado, que son estables: solo el ESTADO decide cuándo
+  // recalcular.
+  const value = useMemo(() => ({
+    session, user: session?.user ?? null, loading,
+    signIn, signUp, signOut, updateProfile, updateEmail, updatePassword,
+    recuperarPassword, establecerPassword, reenviarConfirmacion,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [session, loading]);
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, updateProfile, updateEmail, updatePassword, recuperarPassword, establecerPassword, reenviarConfirmacion }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

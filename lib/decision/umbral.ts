@@ -54,6 +54,17 @@ const IMPACTO_MIN_EUR_POR_SOCIA_SEDE_MES = 0.05;
 // para mover el listón — se queda en el punto de partida.
 const MIN_MUESTRAS_PARA_CALIBRAR = 5;
 
+// Impacto REAL medido por tipo (Pilar 3 de "Tentare 2030", ver
+// dbCalcularImpactoRealPorTipo) — el subconjunto `confianza_medicion=MEDIDO`
+// es un subconjunto de las ya "seguidas", así que exige más muestra que la
+// puerta de urgencia antes de fiarse de él.
+export interface ImpactoRealCalibracion {
+  nMedido: number;
+  promedioReal: number;
+  promedioEstimadoOriginal: number;
+}
+const MIN_MUESTRAS_IMPACTO_REAL = 8;
+
 /**
  * Ajusta el listón de urgencia/impacto para un `tipo` según su propio
  * historial de seguimiento en ESTE estudio — no un € o urgencia fijos para
@@ -61,12 +72,33 @@ const MIN_MUESTRAS_PARA_CALIBRAR = 5;
  * propietaria ya demostró que le importa); si casi nunca se sigue, exige más
  * (está gastando su atención en algo que no le compensa). Acotado en ambas
  * direcciones para no desbocarse con pocas muestras o una racha rara.
+ *
+ * `impactoRealPorTipo` (Fase 3, opcional): cuando hay evidencia REAL suficiente
+ * de cuánto valió de verdad este tipo de recomendación, sustituye el
+ * `impactoFactor` derivado de la tasa de seguimiento por uno derivado del
+ * cociente € real / € estimado al crear — una corrección más directa sobre la
+ * misma puerta (¿compensa el impacto?) con una señal más cercana a lo que esa
+ * puerta pregunta. `urgenciaMin` NO se toca por esta fuente: sigue siendo
+ * puramente comportamental, mezclar ambas puertas sería una abstracción
+ * prematura para un caso que hoy no tiene datos que la justifiquen. Sin
+ * muestra suficiente, cae exactamente al comportamiento de Fase 2 de hoy —
+ * ningún estudio nuevo o pequeño cambia de comportamiento.
  */
-export function calibrarUmbral(tipo: TipoRecomendacion, tasas: Map<TipoRecomendacion, TasaSeguimiento>): { urgenciaMin: number; impactoFactor: number } {
+export function calibrarUmbral(
+  tipo: TipoRecomendacion,
+  tasas: Map<TipoRecomendacion, TasaSeguimiento>,
+  impactoRealPorTipo: Map<TipoRecomendacion, ImpactoRealCalibracion> = new Map(),
+): { urgenciaMin: number; impactoFactor: number } {
   const t = tasas.get(tipo);
-  if (!t || t.total < MIN_MUESTRAS_PARA_CALIBRAR) {
-    return { urgenciaMin: URGENCIA_MINIMA_HOY, impactoFactor: 1 };
-  }
+  const base = !t || t.total < MIN_MUESTRAS_PARA_CALIBRAR
+    ? { urgenciaMin: URGENCIA_MINIMA_HOY, impactoFactor: 1 }
+    : porTasaDeSeguimiento(t);
+
+  const factorReal = factorDesdeImpactoReal(impactoRealPorTipo.get(tipo));
+  return factorReal === null ? base : { urgenciaMin: base.urgenciaMin, impactoFactor: factorReal };
+}
+
+function porTasaDeSeguimiento(t: TasaSeguimiento): { urgenciaMin: number; impactoFactor: number } {
   const tasaSeguimiento = t.seguidas / t.total;
   if (tasaSeguimiento >= 0.8) {
     return { urgenciaMin: Math.max(0.30, URGENCIA_MINIMA_HOY - 0.10), impactoFactor: 0.6 };
@@ -75,6 +107,14 @@ export function calibrarUmbral(tipo: TipoRecomendacion, tasas: Map<TipoRecomenda
     return { urgenciaMin: Math.min(0.65, URGENCIA_MINIMA_HOY + 0.15), impactoFactor: 2 };
   }
   return { urgenciaMin: URGENCIA_MINIMA_HOY, impactoFactor: 1 };
+}
+
+// Acotado [0.5, 2]× — mismo principio de "no desbocarse" que el resto de esta
+// función: una sola racha de mediciones raras no puede disparar el factor.
+function factorDesdeImpactoReal(c: ImpactoRealCalibracion | undefined): number | null {
+  if (!c || c.nMedido < MIN_MUESTRAS_IMPACTO_REAL || c.promedioEstimadoOriginal <= 0) return null;
+  const ratio = c.promedioReal / c.promedioEstimadoOriginal;
+  return Math.min(2, Math.max(0.5, ratio));
 }
 
 function eurMesDe(impacto: Impacto): number | null {
@@ -106,6 +146,9 @@ export function esNovedad(candidata: CandidataPriorizada, historialReciente: Reg
  * ciclo — si el sistema ya lo va a resolver, no compite por el mensaje.
  * `tasasPorTipo` calibra las puertas 1 y 5 por tipo con el historial real de
  * este estudio (Fase 2) — vacío por defecto, mismo comportamiento que Fase 1.
+ * `impactoRealPorTipo` (Fase 3, ver `calibrarUmbral`) refina la puerta 5 con
+ * € realmente medidos cuando hay evidencia suficiente — vacío por defecto,
+ * mismo comportamiento que Fase 2.
  */
 export function elegirMensajeDelDia(
   candidatas: CandidataPriorizada[],
@@ -113,9 +156,10 @@ export function elegirMensajeDelDia(
   historialReciente: RegistroMensajeDia[],
   yaAutoResueltas: Set<string> = new Set(),
   tasasPorTipo: Map<TipoRecomendacion, TasaSeguimiento> = new Map(),
+  impactoRealPorTipo: Map<TipoRecomendacion, ImpactoRealCalibracion> = new Map(),
 ): ResultadoUmbral {
   const elegibles = candidatas.filter(c => {
-    const { urgenciaMin, impactoFactor } = calibrarUmbral(c.tipo, tasasPorTipo);
+    const { urgenciaMin, impactoFactor } = calibrarUmbral(c.tipo, tasasPorTipo, impactoRealPorTipo);
     if (c.urgencia < urgenciaMin) return false;                         // 1. decae si se espera
     if (yaAutoResueltas.has(c.dedupeKey)) return false;                 // 2. necesita criterio humano
     if (!esNovedad(c, historialReciente)) return false;                 // 3. primera vez que se sabe

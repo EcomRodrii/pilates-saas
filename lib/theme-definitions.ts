@@ -86,40 +86,19 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     capabilities: [],
     defaults: {},
   },
-  {
-    id: 'geometric',
-    version: 1,
-    label: 'Geométrico',
-    description: 'Titulares en Outfit, una geométrica de trazo limpio. Mismos colores de marca.',
-    capabilities: ['typography'],
-    defaults: { portalHeadingFontId: 'outfit' },
-  },
-  {
-    id: 'editorial',
-    version: 2,
-    label: 'Editorial',
-    // Sin la palabra "tarjetas" a propósito: colisionaba con el encabezado
-    // de esa sección en "Personalizar" (getByText('Tarjetas') dejaba de ser
-    // único, e2e/apariencia-boton-tarjeta.spec.ts).
-    description: 'Titulares en negrita, contenido destacado y barra inferior con pestaña expandible.',
-    capabilities: ['typography', 'buttons', 'cards', 'nav'],
-    defaults: {
-      portalHeadingFontId: 'instrumentSansBold',
-      buttonStyle: 'solid',
-      cardStyle: 'elevated',
-      tabBarStyle: 'pestanaActiva',
-      // Editorial YA enseñaba la bienvenida antes del login, con el gate
-      // `tabBarStyle === 'pestanaActiva'`. Al pasar ese gate a `variantes`, hay
-      // que declararlo aquí — ⚠️ pero eso NO basta para los estudios que ya lo
-      // tienen instalado: `defaults` no es retroactivo (instalar() los congela
-      // en el borrador). Por eso el gate mantiene el OR con `tabBarStyle`,
-      // ver app/portal/[slug]/login/page.tsx.
-      variantes: { bienvenida: 'foto' },
-    },
-  },
+  // ⚠️ Aquí vivían 'geometric' y 'editorial'. Se retiran a propósito: la
+  // biblioteca queda con el PREDETERMINADO ('classic') y los tres temas de
+  // diseño (Oliva, Bloom, Noir), que es lo que se pidió.
+  //
+  // Los ids NO se reciclan nunca para otro tema. Un estudio puede tener
+  // 'editorial' guardado en su borrador (lo tiene Pilates doll a fecha de
+  // hoy): sus colores no se pierden —se guardan en su fila, no se buscan por
+  // id— pero `getThemeDefinition` devuelve `undefined` y la biblioteca deja de
+  // marcarle ninguna tarjeta como "En uso". Reutilizar el id le cambiaría el
+  // tema por sorpresa, que es mucho peor.
   {
     id: 'oliva',
-    version: 3,
+    version: 5,
     label: 'Oliva',
     description: 'Oliva profundo sobre crema. Premium, natural y sin adornos: para estudios boutique.',
     capabilities: ['colors', 'typography', 'buttons', 'cards'],
@@ -141,10 +120,14 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       cardStyle: 'flat',
       // Valores exactos del prototipo (paleta() → radCard/radBoton/radChip).
       radioTema: { card: 26, boton: 20, chip: 999, acceso: 20 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 17, tituloPantalla: 30, saludo: 19, tituloHero: 25, bienvenida: 46, numeroBono: 60 },
       barraClasica: true,
       // Forma por bloque: rejilla de baldosas y la barra con las 4 etiquetas
       // y el icono activo relleno (`relleno: activo && esOliva` del prototipo).
-      variantes: { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' },
+      variantes: { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
     },
     // La tarjeta de "próxima clase" está siempre arriba, fuera de este
     // sistema — no es un bloque `sistema` reordenable, ver
@@ -152,11 +135,11 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
     // tira de los 7 días, luego lo del estudio. `estaSemana`/`invitarAmiga`
     // no están en la lista → se instalan OCULTOS, no borrados (el encargo no
     // los pide en el Inicio de Oliva; la propietaria los puede reactivar).
-    bloquesHome: ['accesosRapidos', 'tiraSemana', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'accesosRapidos', 'tiraSemana', 'contenidoEstudio'],
   },
   {
     id: 'bloom',
-    version: 3,
+    version: 5,
     label: 'Bloom',
     description: 'Lila y rosa, esquinas de píldora y una barra que flota. Energía y comunidad, para público joven.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -180,19 +163,26 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       barraFlotante: true,
       // Valores exactos del prototipo: botón 100% píldora (radBoton: 999).
       radioTema: { card: 30, boton: 999, chip: 999, acceso: 22 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 20, tituloPantalla: 28, saludo: 19, tituloHero: 25, bienvenida: 33, numeroBono: 60 },
       // Bloom es el ÚNICO que conserva la píldora flotante, así que su barra
       // sigue con etiqueta solo en la activa (`conTexto: !tabPill || activo`).
       // Cabecera con titular grande y retos con fondo de color propio.
-      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', bienvenida: 'marca' },
+      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'rejilla', retos: 'color', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
     },
     // Retos primero, como en el prototipo original — justo antes de
     // "Accesos rápidos". Contenido fijo (lib/retos-portal.ts) + conteo REAL
     // de apuntadas por estudio (nunca la cifra de marketing del prototipo).
-    bloquesHome: ['retos', 'accesosRapidos', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'retos', 'accesosRapidos', 'contenidoEstudio'],
   },
   {
     id: 'noir',
-    version: 3,
+    // 4 → 5: `cardStyle` pasa de flat a elevated. Sube la versión porque
+    // `defaults` NO es retroactivo — sin esto, un estudio que ya tenga Noir
+    // instalado se queda con las tarjetas planas para siempre y sin enterarse.
+    version: 6,
     label: 'Noir',
     description: 'Verde casi negro con dorado y barra inferior oscura. Lujo discreto, para marcas muy cuidadas.',
     capabilities: ['colors', 'typography', 'buttons', 'cards', 'nav'],
@@ -212,19 +202,27 @@ export const THEME_DEFINITIONS: ThemeDefinition[] = [
       portalHeadingFontId: 'instrumentSansBold',
       radius: 'rounded',
       buttonStyle: 'solid',
-      // Plana como Oliva a propósito — el prototipo solo da sombra a Bloom.
-      cardStyle: 'flat',
+      // ⚠️ Aquí decía `flat`, con el comentario "plana como Oliva a propósito —
+      // el prototipo solo da sombra a Bloom". Era una lectura del prototipo que
+      // contradice la tabla de valores del encargo (`entrega/HANDOFF-temas.md`,
+      // §1), que para Noir dice `elevated` explícitamente. Manda la tabla:
+      // es la fuente que el diseño da como "sácalos de aquí, no del ojo".
+      cardStyle: 'elevated',
       barraOscura: true,
       barraClasica: true,
       // Valores exactos del prototipo (paleta() → radCard/radBoton de Noir).
       radioTema: { card: 24, boton: 18, chip: 999 },
+      // Escala tipográfica: valores EXACTOS de `typography.scale` en el
+      // tokens.json que entregó diseño. Es token del tema, no constante del
+      // producto — el portal usaba 24 y 30 en rótulos sin criterio.
+      escalaTexto: { seccion: 17, tituloPantalla: 28, saludo: 24, tituloHero: 26, bienvenida: 40, numeroBono: 60 },
       // Accesos en CÍRCULO (el rasgo propio de Noir en el prototipo, frente a
       // las baldosas de Oliva/Bloom) y barra con las 4 etiquetas — pero sin
       // relleno: el icono activo de Noir es dorado, no macizo.
-      variantes: { cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' },
+      variantes: { cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' },
     },
     // El anillo de progreso semanal primero, luego accesos rápidos.
-    bloquesHome: ['progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
+    bloquesHome: ['proximaClase', 'progresoSemanal', 'accesosRapidos', 'contenidoEstudio'],
   },
 ];
 

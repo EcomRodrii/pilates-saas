@@ -4,10 +4,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
-import { calcularRacha } from '@/lib/engines/streak-engine';
 import { estadoReto, calcularProgresoReto } from '@/lib/engines/challenge-engine';
 import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
-import type { NivelInfo } from '@/lib/engines/level-engine';
 import type { EstadoReto, RewardCatalogItem } from '@/lib/types';
 import { useModo, type ModoTokens } from '@/lib/portal-modo';
 import { resumenProgreso, barrasPorSemana, claseFavorita } from '@/lib/progreso-socia';
@@ -180,72 +178,6 @@ export default function ProgresoPage() {
             />
           </>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Resumen ────────────────────────────────────────────────────────────────
-
-function ResumenTab({ t, nivel, semanas, maxSem }: {
-  t: ModoTokens;
-  nivel: NivelInfo | null;
-  semanas: { label: string; count: number }[];
-  maxSem: number;
-}) {
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {nivel?.actual && (
-        <div
-          style={{ display: 'flex', alignItems: 'center', gap: 12, borderRadius: 20, padding: 16, backgroundColor: `${nivel.actual.color}18`, border: `1px solid ${t.line}` }}
-        >
-          <div
-            style={{ width: 48, height: 48, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0, backgroundColor: `${nivel.actual.color}30` }}
-          >
-            {nivel.actual.icono}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 800, color: t.ink, lineHeight: 1.1 }}>Nivel {nivel.actual.nombre}</p>
-            {nivel.siguiente ? (
-              <>
-                <p style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
-                  {nivel.creditosParaSiguiente} créditos para {nivel.siguiente.nombre}
-                </p>
-                <div style={{ width: '100%', height: 6, borderRadius: 999, background: t.bar, marginTop: 6, overflow: 'hidden' }}>
-                  <div
-                    style={{ height: '100%', borderRadius: 999, width: `${Math.round(nivel.progreso * 100)}%`, backgroundColor: nivel.actual.color }}
-                  />
-                </div>
-              </>
-            ) : (
-              <p style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>Nivel máximo alcanzado</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <p style={{ ...microLabel, marginBottom: 12 }}>Últimas 4 semanas</p>
-        <div style={{ background: t.surface, borderRadius: 20, padding: 16, border: `1px solid ${t.line}` }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 80 }}>
-            {semanas.map((s, i) => (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: t.ink }}>{s.count}</span>
-                <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', height: 52 }}>
-                  <div
-                    style={{
-                      width: '100%', borderRadius: '10px 10px 0 0',
-                      height: s.count === 0 ? 4 : Math.max(8, Math.round((s.count / maxSem) * 52)),
-                      backgroundColor: s.count === 0 ? t.surface2 : 'var(--portal-brand)',
-                    }}
-                  />
-                </div>
-                <span style={{ fontSize: 10, color: t.muted, textAlign: 'center', lineHeight: 1.2 }}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

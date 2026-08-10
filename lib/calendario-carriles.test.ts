@@ -42,6 +42,11 @@ test('un carril libre se reutiliza en vez de abrir uno nuevo cuando ya cabe', ()
   assert.equal(puesto.get('a'), 0);
   assert.equal(puesto.get('b'), 1);
   assert.equal(puesto.get('c'), 0);
+  // Que se REUTILICE el carril es justo esto: el grupo sigue midiendo 2 de
+  // ancho, no 3. Sin esta comprobación el test pasaba igual abriendo un carril
+  // nuevo para `c`, que es lo que dice su nombre que no debe pasar.
+  assert.equal(total.get('a'), 2);
+  assert.equal(total.get('c'), 2);
 });
 
 test('grupos de solape separados en el tiempo no comparten total', () => {

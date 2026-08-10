@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Wrench, CreditCard, RotateCcw, CalendarClock, ChevronRight, type LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,14 +24,27 @@ export function BandejaHoy() {
     sesiones, reservas, socios, salas, socioExcepciones,
   } = useStudio();
 
-  // Date.now() aquí (cliente) — la lógica pura lo recibe inyectado y es testeable.
+  // La hora entra por estado, no con un `Date.now()` dentro del memo. Estaba
+  // fuera de las dependencias, así que el resultado se quedaba congelado hasta
+  // que cambiara algún dato: una pestaña abierta desde ayer seguía enseñando la
+  // bandeja de AYER, y esta tarjeta se llama "Para hoy". El intervalo de un
+  // minuto es lo que la hace pasar de día sola (mismo patrón que dashboard).
+  // La lógica pura sigue recibiéndolo inyectado, que es lo que la hace testeable.
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reloj: sincroniza con el paso del TIEMPO, un sistema externo. Es el caso de uso que la regla considera legítimo.
+    setAhoraMs(Date.now());
+    const t = setInterval(() => setAhoraMs(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   const items = useMemo(
     () => construirBandeja({
-      ahoraMs: Date.now(),
+      ahoraMs,
       recuperaciones, recibos, plazasFijas, bloqueosMaquina,
       sesiones, reservas, socios, salas, excepciones: socioExcepciones,
     }),
-    [recuperaciones, recibos, plazasFijas, bloqueosMaquina, sesiones, reservas, socios, salas, socioExcepciones],
+    [ahoraMs, recuperaciones, recibos, plazasFijas, bloqueosMaquina, sesiones, reservas, socios, salas, socioExcepciones],
   );
 
   if (items.length === 0) return null;

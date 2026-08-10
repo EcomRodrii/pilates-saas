@@ -6,6 +6,8 @@ import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { RecursosBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 type Category = 'todos' | 'sustituciones' | 'rentabilidad' | 'operacion' | 'espana' | 'software';
 
@@ -37,6 +39,13 @@ type Article = {
 const ARTICLES: Article[] = [
   {
     category: 'rentabilidad',
+    title: 'Qué puedes aprender de los estudios de pilates que más crecen',
+    body: 'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana.',
+    href: '/recursos/estudios-pilates-de-exito',
+    meta: '9 min · ago 2026',
+  },
+  {
+    category: 'rentabilidad',
     title: 'Reformer vs. mat: cómo poner precio a cada clase',
     body: 'Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios que reflejen la diferencia — sin dejar dinero sobre la mesa.',
     href: '/recursos/precios-reformer-mat',
@@ -52,20 +61,23 @@ const ARTICLES: Article[] = [
   {
     category: 'rentabilidad',
     title: 'Cómo subir la ocupación de tus clases valle',
-    body: 'Las 10:00 de un martes vacías cuestan dinero. Tácticas de horario, listas de espera y precios para llenarlas.',
-    meta: 'En preparación',
+    body: 'Las 10:00 de un martes vacías cuestan dinero. Lo que hace ClassPass con el precio dinámico, y lo que puedes copiar sin depender de nadie.',
+    href: '/recursos/ocupacion-clases-valle',
+    meta: '7 min · ago 2026',
   },
   {
     category: 'operacion',
     title: 'Reduce las cancelaciones de última hora',
-    body: 'Políticas, recordatorios y listas de espera que protegen tus plazas sin espantar a las alumnas.',
-    meta: 'En preparación',
+    body: 'Lo que cobran de verdad SoulCycle o Barry\'s, y lo que dice la evidencia clínica sobre los recordatorios.',
+    href: '/recursos/reducir-cancelaciones-ultima-hora',
+    meta: '7 min · ago 2026',
   },
   {
     category: 'software',
     title: 'Checklist: cómo elegir el software de tu estudio',
-    body: 'Las preguntas que debes hacer en una demo — y las señales de alarma que ahorran meses de arrepentimiento.',
-    meta: 'En preparación',
+    body: 'Lo que dicen miles de reseñas en Capterra y G2 — y las preguntas exactas para la demo.',
+    href: '/recursos/checklist-elegir-software-estudio',
+    meta: '8 min · ago 2026',
   },
   {
     category: 'sustituciones',
@@ -85,7 +97,9 @@ const FEATURED = {
 
 export default function RecursosPage() {
   const [cat, setCat] = useState<Category>('todos');
-  const [query, setQuery] = useState('');
+  // Lee ?q= una vez al montar para que el SearchAction del WebSite JSON-LD
+  // (components/OrganizationStructuredData.tsx) sea real, no solo declarado.
+  const [query, setQuery] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('q') ?? ''));
 
   const q = query.trim().toLowerCase();
   const filtered = useMemo(
@@ -97,6 +111,8 @@ export default function RecursosPage() {
 
   return (
     <PageShell>
+      <OrganizationStructuredData />
+      <RecursosBreadcrumb />
       <SiteNav backHref="/recursos" backLabel="Recursos" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,48px)' }}>
@@ -211,7 +227,7 @@ export default function RecursosPage() {
         </div>
       </div>
 
-      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }]} />
+      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }, { href: '/glosario', label: 'Glosario' }]} />
 
       <style>{`
         .rec-feat { display: grid; grid-template-columns: 1.08fr .92fr; gap: 0; }

@@ -5,8 +5,10 @@ import { supabasePortal } from '@/lib/db/supabase-portal';
 import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
-import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
+import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
 import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
+import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 
@@ -27,19 +29,59 @@ export async function portalAuthHeader(): Promise<Record<string, string>> {
 }
 
 // ── Tema white-label (editor de marca, solo propietario) ─────────────────────
+// ─── Deduplicación de peticiones EN VUELO ────────────────────────────────────
+//
+// Varias piezas del panel piden lo mismo al montar: `fetchLayout` lo llaman el
+// sidebar, el dashboard, el editor de temas y studio-context — cuatro sitios,
+// sin saber unos de otros. Medido en producción, eso son dos peticiones
+// idénticas por carga a /api/layout, /api/theme y /api/billing/status. Cada una
+// arrastra además `verificarSesionStaff` entero en el servidor.
+//
+// Esto NO es una caché: la entrada se borra en cuanto la petición termina, así
+// que solo pueden compartirla las llamadas literalmente simultáneas. No puede
+// servir un dato viejo ni retrasar una invalidación — el peor caso es que no
+// coincidan y se hagan las dos, exactamente como ahora.
+//
+// Por eso no lleva TTL: un TTL sí introduciría staleness, y estos tres datos
+// (menú, tema, estado de suscripción) los reescribe el propio panel y tienen
+// que verse al instante.
+const enVuelo = new Map<string, Promise<unknown>>();
+
+function unaVez<T>(clave: string, hacer: () => Promise<T>): Promise<T> {
+  const yaVa = enVuelo.get(clave);
+  if (yaVa) return yaVa as Promise<T>;
+  // `finally` y no `then`: la entrada también tiene que soltarse si la petición
+  // falla, o un fallo puntual dejaría a todo el mundo pegado a una promesa
+  // rechazada para siempre.
+  const p = hacer().finally(() => { enVuelo.delete(clave); });
+  enVuelo.set(clave, p);
+  return p;
+}
+
 export async function fetchThemeBorrador(): Promise<ThemeConfig> {
-  const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el tema');
-  return res.json();
+  return unaVez('theme-borrador', async () => {
+    const res = await fetch('/api/theme?draft=1', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 // El tema PUBLICADO — el que ven las socias ahora mismo. La biblioteca de temas
 // lo necesita para poder decir "N cambios sin publicar" comparándolo con el
 // borrador; el resto del editor solo trabaja contra el borrador.
+//
+// ⚠️ Se INTENTÓ juntarlo con el borrador en una sola petición (`?ambos=1`) para
+// ahorrar un viaje al abrir el editor, y se revirtió: `/api/theme` lo pide el
+// panel ENTERO, así que cambiarle la forma obliga a que todos sus lectores
+// —y los 55 specs que lo mockean— conozcan el sobre nuevo. Un viaje de ~140 ms
+// en una pantalla no paga eso. Lo caro de verdad es el arranque en frío, y eso
+// no se arregla desde aquí.
 export async function fetchThemePublicado(): Promise<ThemeConfig> {
-  const res = await fetch('/api/theme', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
-  return res.json();
+  return unaVez('theme-publicado', async () => {
+    const res = await fetch('/api/theme', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el tema publicado');
+    return res.json() as Promise<ThemeConfig>;
+  });
 }
 
 export async function guardarThemeBorrador(parche: ThemeDraft): Promise<ThemeConfig> {
@@ -71,9 +113,11 @@ export async function publicarThemeApi(): Promise<ResultadoPublicar> {
 
 // ── Configuración de menú por estudio (Fase 4) ───────────────────────────────
 export async function fetchLayout(): Promise<LayoutConfig> {
-  const res = await fetch('/api/layout', { headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo cargar el menú');
-  return res.json();
+  return unaVez('layout', async () => {
+    const res = await fetch('/api/layout', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo cargar el menú');
+    return res.json() as Promise<LayoutConfig>;
+  });
 }
 
 export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfig> {
@@ -97,7 +141,71 @@ export async function guardarLayoutApi(parche: LayoutDraft): Promise<LayoutConfi
 export async function fetchBloquesBorrador(pantalla: PantallaId): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, { headers: await authHeader() });
   if (!res.ok) throw new Error('No se pudieron cargar los bloques del portal');
-  return res.json();
+  // ⚠️ `resolverBloques`, no `res.json()` a secas. El EDITOR tiene que ver
+  // exactamente lo mismo que el render, y el render sí resuelve
+  // (`resolveBloquesPantalla`, server-side). Con el JSON crudo, un campo que
+  // el estudio no ha tocado llega `undefined` y su casilla sale VACÍA —
+  // enseñando un texto que no es el que ve la socia, y guardando `''` encima
+  // en cuanto el autoguardado dispara: borrando el texto de verdad.
+  //
+  // No se notaba con los bloques del catálogo porque su config siempre venía
+  // entera del servidor; salió al abrir campos en los bloques de sistema,
+  // cuyo jsonb no tiene `config` en ningún estudio existente.
+  // `conFijos` por el mismo motivo que `resolverBloques`: el editor tiene que
+  // ver EXACTAMENTE lo mismo que el render. El GET devuelve el borrador crudo
+  // tal cual está guardado; el camino del servidor le añade los fijos que
+  // falten, y sin esta llamada el panel se los comía.
+  return conFijos(resolverBloques(await res.json()), pantalla);
+}
+/**
+ * Los bloques BORRADOR de las tres pantallas, en una sola petición.
+ *
+ * El editor las necesita las tres al abrir y antes las pedía por separado. Las
+ * tres salen de la misma lectura del layout en el servidor, así que eran tres
+ * viajes para un dato. Mismo tratamiento por pantalla que
+ * `fetchBloquesBorrador` —`resolverBloques` + `conFijos`— para que el editor
+ * vea EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesBorradorTodas(): Promise<Record<PantallaId, BloqueHome[]>> {
+  return unaVez('bloques-borrador-todas', async () => {
+    const res = await fetch('/api/portal-bloques?pantalla=todas', { headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudieron cargar los bloques del portal');
+    const crudo = (await res.json()) as Record<string, unknown>;
+    const salida = {} as Record<PantallaId, BloqueHome[]>;
+    for (const p of PANTALLA_IDS) salida[p] = conFijos(resolverBloques(crudo[p]), p);
+    return salida;
+  });
+}
+
+/**
+ * Los bloques que están viendo las socias ahora mismo en esa pantalla.
+ *
+ * Mismo tratamiento que el borrador —`resolverBloques` + `conFijos`— por el
+ * mismo motivo: quien lo lea tiene que ver EXACTAMENTE lo que ve el render.
+ */
+export async function fetchBloquesPublicado(pantalla: PantallaId): Promise<BloqueHome[]> {
+  const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}&estado=publicado`, { headers: await authHeader() });
+  if (!res.ok) throw new Error('No se pudieron cargar los bloques publicados del portal');
+  return conFijos(resolverBloques(await res.json()), pantalla);
+}
+
+
+/**
+ * La sesión de staff ya no vale. Se distingue del resto de fallos porque
+ * pide una acción DISTINTA: reintentar no arregla nada, hay que volver a
+ * entrar.
+ *
+ * ⚠️ Salió de mirar el editor en producción: con la sesión caducada, todas
+ * las llamadas daban 401 y el autoguardado se quedaba reintentando cada
+ * minuto con un «no se ha podido guardar» genérico. La propietaria podía
+ * seguir editando media hora sin enterarse de que nada se estaba guardando.
+ */
+export class ErrorSesionCaducada extends Error {
+  constructor() { super('Tu sesión ha caducado.'); this.name = 'ErrorSesionCaducada'; }
+}
+
+export function esSesionCaducada(e: unknown): boolean {
+  return e instanceof ErrorSesionCaducada;
 }
 
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
@@ -107,6 +215,7 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
     body: JSON.stringify(bloques),
   });
   if (!res.ok) {
+    if (res.status === 401) throw new ErrorSesionCaducada();
     const b = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los bloques del portal. Vuelve a intentarlo.'));
   }
@@ -125,24 +234,53 @@ export async function publicarBloquesApi(pantalla: PantallaId): Promise<BloqueHo
 // Token firmado de corta duración para /portal-preview/[slug] (Fase 4 del
 // editor de temas — preview en vivo del constructor de bloques). Ver
 // lib/theme/home-preview-token.ts.
-export async function fetchHomePreviewToken(): Promise<string> {
-  const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
-  if (!res.ok) throw new Error('No se pudo preparar la vista previa');
-  const b = (await res.json()) as { token: string };
-  return b.token;
+/**
+ * Token + slug del estudio de la sesión, en una sola petición.
+ *
+ * El slug viene de aquí y no de `useStudio()` a propósito: así la vista previa
+ * puede arrancar sin esperar a que cargue el contexto entero del panel. Ver el
+ * comentario del endpoint.
+ */
+export async function fetchHomePreviewToken(): Promise<{ token: string; slug: string | null }> {
+  return unaVez('home-preview-token', async () => {
+    const res = await fetch('/api/theme/home-preview-token', { method: 'POST', headers: await authHeader() });
+    if (!res.ok) throw new Error('No se pudo preparar la vista previa');
+    const b = (await res.json()) as { token: string; slug?: string | null };
+    return { token: b.token, slug: b.slug ?? null };
+  });
 }
 
 // ── Datos públicos (proxy scopeado) ─────────────────────────────────────────
 // Carga el catálogo del estudio + (si hay socia en sesión) sus datos, vía el
 // endpoint de servidor con service-role. Sustituye el acceso anónimo directo.
-export async function cargarDatosPublicos(slug: string) {
+//
+// `liviano` (audit de rendimiento de los widgets embebibles): /reservar/[slug]
+// nunca lee vídeos/recompensas/niveles/logros/retos/contenido de portal — solo
+// el portal instalable (app/portal/[slug]) los usa. Sin esta señal el servidor
+// no puede distinguir quién llama al mismo endpoint compartido.
+export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean }) {
   // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
   // deriva sus datos del token. Sin sesión → solo catálogo público.
   const res = await fetch('/api/public/studio-data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),
   });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+// Solo el aforo de las clases próximas — lo ÚNICO que necesita el tic de 5s del
+// portal. `cargarDatosPublicos` de arriba trae el catálogo entero del estudio y
+// el histórico financiero de la socia, que no cambian en cinco segundos.
+//
+// Sin cabecera de sesión a propósito: la respuesta no lleva ningún dato
+// personal, así que mandar el Bearer solo serviría para que la caché de la CDN
+// dejara de ser compartida entre socias del mismo estudio.
+export async function cargarAforoPublico(
+  slug: string,
+): Promise<{ sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[] } | null> {
+  const res = await fetch(`/api/public/aforo?slug=${encodeURIComponent(slug)}`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -461,6 +599,54 @@ export async function descartarSustitucion(sustitucionId: string): Promise<{ ok:
 
 // ── Stripe ────────────────────────────────────────────────────────────────────
 
+// ⚠️ Estas dos NUNCA deben lanzar. Devolvían `res.json()` a pelo, y sus
+// llamadores del portal (`pagarRecibo`, `renovar`, `domiciliar`) no envuelven en
+// try/catch: con la red caída —o con un 500, que responde HTML y hace reventar
+// al `res.json()`— la promesa rechazaba, el `setComprando(null)` no llegaba a
+// ejecutarse y la socia se quedaba con el overlay a pantalla completa y el
+// spinner girando para siempre, sin mensaje y sin salida salvo recargar.
+async function postCheckout(ruta: string, params: unknown): Promise<{ url: string } | { error: string }> {
+  let res: Response;
+  try {
+    res = await fetch(ruta, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  } catch {
+    return { error: 'No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.' };
+  }
+  // El cuerpo se lee con catch aparte: un 500 de Next devuelve HTML, y sin esto
+  // el fallo del servidor se le contaba a la socia como un problema de SU red.
+  const data = await res.json().catch(() => null) as { url?: string; error?: string } | null;
+  if (!res.ok) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+  if (!data?.url) return { error: mensajeSeguro(data?.error, 'No se ha podido iniciar el pago.') };
+  return { url: data.url };
+}
+
+/**
+ * Contratar un PLAN (bono o suscripción) desde el portal: abre el Checkout
+ * alojado de Stripe. El importe lo deriva SIEMPRE el servidor del plan real —
+ * lo que se manda desde aquí no es superficie de fraude.
+ *
+ * Existe como función compartida porque el portal tiene ahora dos pantallas de
+ * compra (la de siempre, `/compras`, y la de Bonos del kit de temas) y la
+ * segunda no podía volver a escribir a mano el manejo de errores de la
+ * primera: el "leer `res.ok` ANTES del cuerpo" de ahí abajo se arregló tras un
+ * fallo real en el que un 500 del servidor se le contaba a la socia como un
+ * problema de SU conexión.
+ */
+export async function crearCheckoutPlan(params: {
+  studioId: string;
+  planId: string;
+  socioId: string | null;
+  socioEmail: string | null;
+  socioNombre: string;
+  origen?: OrigenPago;
+}): Promise<{ url: string } | { error: string }> {
+  return postCheckout('/api/stripe/checkout', params);
+}
+
 export async function crearCheckoutStripe(params: {
   reciboId: string;
   socioId: string;
@@ -469,13 +655,10 @@ export async function crearCheckoutStripe(params: {
   importe: number;
   socioEmail: string | null;
   socioNombre: string;
+  /** Desde dónde se paga: decide a qué pantalla devuelve Stripe. */
+  origen?: OrigenPago;
 }): Promise<{ url: string } | { error: string }> {
-  const res = await fetch('/api/stripe/checkout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  return res.json() as Promise<{ url: string } | { error: string }>;
+  return postCheckout('/api/stripe/checkout', params);
 }
 
 // Fase 1 · PR-2 — inicia el alta del mandato SEPA (domiciliación). Devuelve la
@@ -486,12 +669,7 @@ export async function iniciarDomiciliacionSepa(params: {
   socioId: string;
   slug: string;
 }): Promise<{ url: string } | { error: string }> {
-  const res = await fetch('/api/stripe/setup-sepa', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  return res.json() as Promise<{ url: string } | { error: string }>;
+  return postCheckout('/api/stripe/setup-sepa', params);
 }
 
 // Comprobación proactiva antes de OFRECER el botón "Domiciliar": sin esto, la
@@ -510,12 +688,17 @@ export async function sepaDisponibleParaEstudio(studioId: string): Promise<boole
 
 // Aprobación de un toque: cobra un recibo pendiente con la tarjeta ya
 // guardada de la socia, sin redirigirla a ningún sitio.
+// ⚠️ `ok: true` NO significa "todo cerrado": el servidor responde 202 con
+// `aviso: 'COBRADO_SIN_PERSISTIR'` cuando el dinero entró en Stripe pero no se
+// pudo dejar escrito. Ese caso llegaba antes como un `{ok:true}` pelado porque
+// **202 entra en `res.ok`**, así que el diseño del 202 moría aquí. La lectura
+// vive en `lib/billing/resultado-cobro.ts`, con tests.
 export async function aprobarCobroAutonomo(params: {
   logId: string;
   reciboId: string;
   socioId: string;
   studioId: string;
-}): Promise<{ ok: true } | { error: string }> {
+}): Promise<CobroAprobado | { error: string }> {
   const res = await fetch('/api/stripe/charge-off-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -523,12 +706,16 @@ export async function aprobarCobroAutonomo(params: {
   });
   const data = await res.json();
   if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  return { ok: true };
+  const aviso = leerAvisoCobro(data);
+  return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
 // Fase 3: aprueba un cobro de penalización pendiente (cancelación
 // tardía/no-show) con la tarjeta ya guardada de la socia.
-export async function aprobarPenalizacion(penalizacionId: string): Promise<{ ok: true } | { error: string }> {
+// Mismo 202 que `aprobarCobroAutonomo`: el cargo entró en Stripe y la
+// penalización quedó FALLIDA por no poder persistirlo. Antes se perdía aquí y
+// la fila desaparecía de la lista con un "Cobro aprobado" alegre.
+export async function aprobarPenalizacion(penalizacionId: string): Promise<CobroAprobado | { error: string }> {
   const res = await fetch('/api/penalizaciones/aprobar', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -536,7 +723,26 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<{ ok:
   });
   const data = await res.json();
   if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
-  return { ok: true };
+  const aviso = leerAvisoCobro(data);
+  return aviso ? { ok: true, ...aviso } : { ok: true };
+}
+
+// Resuelve una devolución: deshace lo que entregó el cobro, o lo descarta.
+//
+// `huella` es lo que se le enseñó a la propietaria. El servidor recalcula y, si
+// no coincide, responde 409 con los números nuevos en vez de escribir algo que
+// ella no llegó a ver.
+export async function resolverDevolucion(
+  devolucionId: string, accion: 'REVERTIR' | 'DESCARTAR', huella?: string,
+): Promise<{ ok: true; accion: string } | { error: string }> {
+  const res = await fetch('/api/devoluciones/revertir', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ devolucionId, accion, huella }),
+  });
+  const data = await res.json().catch(() => null) as { accion?: string; error?: string } | null;
+  if (!res.ok) return { error: mensajeSeguro(data?.error, mensajeHttp(res.status)) };
+  return { ok: true, accion: data?.accion ?? accion };
 }
 
 // Manda (o vuelve a mandar) el email de invitación a alguien que ya está en el
@@ -572,13 +778,15 @@ export interface EstadoBilling {
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
 // no-bloqueado para no dejar a nadie fuera por un error de red.
 export async function estadoBilling(): Promise<EstadoBilling | null> {
-  try {
-    const res = await fetch('/api/billing/status', { headers: { ...(await authHeader()) } });
-    if (!res.ok) return null;
-    return (await res.json()) as EstadoBilling;
-  } catch {
-    return null;
-  }
+  return unaVez('billing-status', async () => {
+    try {
+      const res = await fetch('/api/billing/status', { headers: { ...(await authHeader()) } });
+      if (!res.ok) return null;
+      return (await res.json()) as EstadoBilling;
+    } catch {
+      return null;
+    }
+  });
 }
 
 // Abre el Checkout de Stripe para suscribir el estudio al plan elegido.
@@ -614,7 +822,9 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 
-import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija } from '@/lib/csv';
+import type { FilaSocia, FilaMembresia, FilaClase, FilaReserva, FilaCita, FilaPlazaFija, FilaPago } from '@/lib/csv';
+
+
 
 export interface ResultadoImport {
   // Migración Mágica: aviso si el lote no quedó registrado para deshacer.
@@ -988,6 +1198,22 @@ export async function obtenerComunicacionesSocio(socioId: string): Promise<Array
 }> | null> {
   try {
     const res = await fetch(`/api/socios/${socioId}/comunicaciones`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Pagos históricos importados de la plataforma anterior para una socia
+// concreta (solo lectura). `null` en fallo (red/permiso), NO `[]` — mismo
+// criterio que obtenerComunicacionesSocio: un array vacío significa "esta
+// socia no tiene pagos históricos", que es una respuesta distinta.
+export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Array<{
+  id: string; fecha: string; concepto: string | null; importe: number; medioPago: string | null;
+}> | null> {
+  try {
+    const res = await fetch(`/api/socios/${socioId}/pagos-historicos`, { headers: await authHeader() });
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -1403,6 +1629,34 @@ export async function importarCitas(rows: FilaCita[], batchId?: string): Promise
     const data = await res.json();
     if (!res.ok) return { ...vacio, ...data, error: data.error ?? `Error HTTP ${res.status}` };
     return data as ResultadoImportCitas;
+  } catch {
+    return { ...vacio, error: 'No se pudo conectar con el servidor' };
+  }
+}
+
+// Resultado de importar pagos históricos.
+export interface ResultadoImportPagos {
+  batchAviso?: string | null;
+  importadas: number;
+  sinSocia: number;
+  errores: { fila: number; motivo: string }[];
+  error?: string;
+}
+
+// Importa pagos históricos. Empareja socia por email; el studio_id sale del
+// JWT. No crea ningún recibo real (ver comentario en el route): es solo
+// lectura, para que la ficha de la socia no empiece en blanco tras migrar.
+export async function importarPagosHistoricos(rows: FilaPago[], batchId?: string): Promise<ResultadoImportPagos> {
+  const vacio = { importadas: 0, sinSocia: 0, errores: [] };
+  try {
+    const res = await fetch('/api/pagos-historicos/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ rows, batchId }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ...vacio, ...data, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as ResultadoImportPagos;
   } catch {
     return { ...vacio, error: 'No se pudo conectar con el servidor' };
   }

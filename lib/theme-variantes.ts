@@ -30,8 +30,21 @@
  * estudio sin tema) no cambia absolutamente nada. Hay un test que lo fija.
  */
 export const VARIANTES_PORTAL = {
-  /** Cabecera del Inicio: saludo + subtítulo (hoy) vs titular grande aparte. */
-  cabeceraInicio: ['clasica', 'titular'],
+  /**
+   * Cabecera del Inicio:
+   *  · `clasica` — la de siempre: "Hola, {nombre}." a 50px, sin avatar, y la
+   *    campana como CONTADOR numérico.
+   *  · `saludo` — la de Oliva en el prototipo: avatar + "Hola, {nombre}" a un
+   *    tamaño medio y la pregunta debajo, con la campana como ICONO con punto.
+   *  · `nombre` — la de Noir: avatar + saludo por hora pequeño arriba y el
+   *    nombre como encabezado debajo.
+   *  · `titular` — la de Bloom: igual que `nombre` y ADEMÁS un titular grande
+   *    aparte, debajo de la fila del saludo. En el prototipo solo Bloom lo
+   *    lleva; Noir se queda en el nombre.
+   * Las tres del prototipo llevan avatar y campana de icono con punto; lo que
+   * cambia entre ellas es la jerarquía del texto.
+   */
+  cabeceraInicio: ['clasica', 'saludo', 'nombre', 'titular'],
   /** Accesos rápidos: filas de lista (hoy), rejilla de baldosas, o círculos. */
   accesosRapidos: ['filas', 'rejilla', 'circulos'],
   /** Barra inferior: etiqueta solo en la activa (hoy), en todas, o en todas
@@ -39,6 +52,16 @@ export const VARIANTES_PORTAL = {
   barra: ['soloActiva', 'todas', 'todasRelleno'],
   /** Retos: tarjeta neutra (hoy) o con fondo de color propio por reto. */
   retos: ['neutro', 'color'],
+  /**
+   * La tarjeta principal del Inicio:
+   *  · `hero` — la de siempre: bloque grande, con la foto del estudio si la
+   *    hay, en TODOS los casos incluido "no tienes clases reservadas".
+   *  · `rotulada` — la del prototipo: un rótulo de sección encima ("Tu
+   *    semana" sin clase, "Próxima clase" con ella) y, en el estado VACÍO,
+   *    una tarjeta sencilla en vez del bloque grande. Con clase reservada
+   *    sigue siendo el hero, que es lo que el prototipo también hace.
+   */
+  tarjetaPrincipal: ['hero', 'rotulada'],
   /** Bienvenida antes del login: ninguna (hoy), sobre la foto del estudio, o
    *  sobre el color de marca. */
   bienvenida: ['ninguna', 'foto', 'marca'],

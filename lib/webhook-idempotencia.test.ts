@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { reclamarWebhookEvent, marcarWebhookProcesado } from './webhook-idempotencia.ts';
+import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from './webhook-idempotencia.ts';
 
 // Fake admin client que reproduce EXACTAMENTE la semántica SQL de la RPC
 // reclamar_webhook_event / completar_webhook_event (migr. 20260730109000):
@@ -87,4 +87,53 @@ test('fail-open: si la RPC de reclamación falla, se procesa igualmente (no se p
   };
   const resultado = await reclamarWebhookEvent(adminRoto as any, 'evt_roto', 'checkout.session.completed', 120);
   assert.equal(resultado, true, 'ante un error de infraestructura, reclamarWebhookEvent debe fallar abierto y dejar procesar');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Regresión del cobro perdido del 8-ago-2026 (1 €).
+//
+// Stripe entregó un `checkout.session.completed` de la compra de un bono al
+// destino del SaaS (/api/billing/webhook). Ese handler no tenía nada que hacer
+// con él, pero SÍ reclamó el `event.id` en esta tabla compartida y lo marcó
+// completado. Cuando el evento llegara al webhook que entrega el bono, lo vería
+// como duplicado y no haría nada: la socia pagó y no recibió su bono.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('⚠️ el caso del bug: un ámbito NO puede consumir la reclamación del otro', async () => {
+  const admin = crearAdminFake(() => 4_000_000);
+  const evento = 'evt_bono_1eur';
+
+  // El webhook del SaaS recibe el evento primero, no es suyo, y lo completa.
+  const reclamaBilling = await reclamarWebhookEvent(
+    admin as any, claveWebhook('billing', evento), 'checkout.session.completed', 120,
+  );
+  assert.equal(reclamaBilling, true);
+  await marcarWebhookProcesado(admin as any, claveWebhook('billing', evento));
+
+  // El webhook de Connect —el que SÍ entrega el bono— tiene que poder procesarlo.
+  const reclamaConnect = await reclamarWebhookEvent(
+    admin as any, claveWebhook('connect', evento), 'checkout.session.completed', 120,
+  );
+  assert.equal(
+    reclamaConnect, true,
+    'el webhook que entrega el bono debe poder procesar el evento aunque el del SaaS ya lo haya visto',
+  );
+});
+
+test('dentro del MISMO ámbito, la idempotencia sigue intacta', async () => {
+  const admin = crearAdminFake(() => 5_000_000);
+  const clave = claveWebhook('connect', 'evt_mismo_ambito');
+
+  assert.equal(await reclamarWebhookEvent(admin as any, clave, 'checkout.session.completed', 120), true);
+  await marcarWebhookProcesado(admin as any, clave);
+  assert.equal(
+    await reclamarWebhookEvent(admin as any, clave, 'checkout.session.completed', 120), false,
+    'separar por ámbito no puede abrir la puerta a procesar dos veces el mismo evento en el mismo webhook',
+  );
+});
+
+test('la clave lleva el ámbito por delante del id del evento', () => {
+  assert.equal(claveWebhook('connect', 'evt_1'), 'connect:evt_1');
+  assert.equal(claveWebhook('billing', 'evt_1'), 'billing:evt_1');
+  assert.notEqual(claveWebhook('connect', 'evt_1'), claveWebhook('billing', 'evt_1'));
 });

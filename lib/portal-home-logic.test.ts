@@ -115,6 +115,20 @@ test('accesosRapidosDe: el punto de aviso solo con notificaciones sin leer', () 
   assert.equal(accesosRapidosDe({ slug: 's', proximas: 0, totalAsistidas: 0, sinLeer: 2, nInstructoras: 0 })[2].punto, true);
 });
 
+test('accesosRapidosDe: "no se sabe" (null) no es "Al día"', () => {
+  // Los avisos vienen del servidor: mientras la respuesta no llega —o si falla—
+  // la fila NO puede afirmar que la socia está al día. Colapsar null a 0 hacía
+  // justo eso, y encima en palabras, mientras la campana de al lado se callaba
+  // prudentemente: dos contadores de la misma cosa contradiciéndose en la misma
+  // pantalla, que es el bug que se vino a matar.
+  const sinSaber = accesosRapidosDe({ slug: 's', proximas: 0, totalAsistidas: 0, sinLeer: null, nInstructoras: 0 })[2];
+  assert.equal(sinSaber.valor, '—');
+  assert.equal(sinSaber.punto, false);
+
+  const alDia = accesosRapidosDe({ slug: 's', proximas: 0, totalAsistidas: 0, sinLeer: 0, nInstructoras: 0 })[2];
+  assert.equal(alDia.valor, 'Al día');
+});
+
 test('rotuloAccesos: la variante de FILAS no lleva encabezado (es la de hoy)', () => {
   // Si lo llevara, todo estudio sin tema vería un <h2> nuevo de la noche a la
   // mañana — justo lo que este mecanismo promete que no pasa.

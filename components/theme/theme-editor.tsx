@@ -14,13 +14,22 @@ import {
   eliminarLogoEstudio,
   subirFaviconEstudio,
   eliminarFaviconEstudio,
+  subirImagenBienvenida,
+  eliminarImagenBienvenida,
 } from '@/lib/portal-storage';
 import {
   DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
-  type ThemeConfig, type RedSocialId,
+  type ThemeConfig, type RedSocialId, POSICION_FOTO,
 } from '@/lib/theme-schema';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
+import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
+import { CamposForm, FilaOpciones } from './inspector/campos-form';
+import type { CampoSchema } from '@/lib/theme/campos';
+import {
+  CAMPOS_FORMA_PORTAL, CAMPOS_BARRA_PORTAL, CAMPOS_ACENTO, CAMPOS_RADIO, CAMPOS_ESCALA_TEXTO,
+  valoresFormaDesdeTema, escrituraDeCampoForma,
+} from '@/lib/theme/campos-forma';
 import { type ThemeDefinition } from '@/lib/theme-definitions';
 import { derivarPaleta } from '@/lib/color-utils';
 import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavConfig, type NavSegId, type NavIconoId } from '@/lib/portal-nav';
@@ -47,9 +56,18 @@ export const AJUSTES_CATEGORIAS = [
   { id: 'esquinas', label: 'Esquinas' },
   { id: 'boton', label: 'Botón principal' },
   { id: 'tarjetas', label: 'Tarjetas' },
+  { id: 'forma-portal', label: 'Forma del portal' },
   { id: 'navegacion-portal', label: 'Navegación del portal' },
   { id: 'redes-sociales', label: 'Redes sociales' },
-  { id: 'logo-favicon', label: 'Logo y favicon' },
+  // ⚠️ Se llamaba "Logo y favicon", y ese nombre escondía lo más buscado de
+  // toda la categoría: la FOTO del portal. El feedback fue literal — «no se
+  // puede poner imagen en la bienvenida ni en las tarjetas» — cuando sí se
+  // podía desde el principio: esa misma foto es el fondo de la pantalla de
+  // acceso, de la bienvenida Y de la tarjeta grande del Inicio
+  // (`conFoto` en portal-home-view.tsx). No faltaba la función, faltaba
+  // encontrarla. Nombrar la categoría por lo que la propietaria viene a hacer
+  // —poner sus fotos— y no por los dos ficheros técnicos que también lleva.
+  { id: 'logo-favicon', label: 'Imágenes de tu marca' },
 ] as const;
 export type AjustesCategoriaId = (typeof AJUSTES_CATEGORIAS)[number]['id'];
 
@@ -112,18 +130,40 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 export function useThemeEditor() {
   const { studio, updateStudio } = useStudio();
   const { rol } = usePermisos();
-  const [draft, setDraft] = useState<ThemeConfig>(DEFAULT_THEME);
+  // El borrador del tema vive DENTRO de un historial, igual que los bloques.
+  // Antes el botón "Deshacer" de la barra decía en su propio tooltip que "los
+  // ajustes del tema todavía no entran": cambiar un color no se podía
+  // deshacer, y quien probaba cinco paletas seguidas no tenía vuelta atrás.
+  const [hist, setHist] = useState(() => crearHistorial(DEFAULT_THEME));
+  const draft = hist.presente;
+  /**
+   * Todas las ediciones del tema pasan por aquí, así que hay UN solo punto
+   * donde registrar un paso. `clave` funde pulsaciones seguidas sobre el mismo
+   * campo: teclear un hex es un paso, no seis.
+   */
+  function setDraft(f: (d: ThemeConfig) => ThemeConfig, clave?: string) {
+    setHist((h) => registrar(h, f(h.presente), { clave }));
+  }
+  /**
+   * Reemplaza la BASE del historial en vez de apilar un paso. Para la carga
+   * inicial y para "restaurar": ninguna de las dos es una edición, y apilarlas
+   * haría que el primer deshacer devolviera al tema de fábrica en vez de a lo
+   * que la propietaria tenía. Mismo criterio que `useBloquesEditor`.
+   */
+  function rebasar(t: ThemeConfig) {
+    setHist(crearHistorial(t));
+  }
   const [estado, setEstado] = useState<'cargando' | 'listo'>('cargando');
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | null>(null);
+  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | 'bienvenida' | null>(null);
 
   useEffect(() => {
     let vivo = true;
     fetchThemeBorrador()
       .then((t) => {
-        if (vivo) setDraft(t);
+        if (vivo) rebasar(t);
       })
       .catch(() => {})
       .finally(() => {
@@ -146,7 +186,8 @@ export function useThemeEditor() {
   // deriva que permitirá en el futuro avisar de actualizaciones sin pisar lo
   // que el estudio ya tocó a mano.
   function setCampo<K extends keyof ThemeConfig>(key: K, value: ThemeConfig[K]) {
-    setDraft((d) => ({ ...d, [key]: value, themeCustomized: true }));
+    // La clave es el campo: teclear un hex letra a letra es UN paso.
+    setDraft((d) => ({ ...d, [key]: value, themeCustomized: true }), String(key));
     setAviso(null);
   }
 
@@ -291,8 +332,33 @@ export function useThemeEditor() {
     setCampo('faviconUrl', null);
   }
 
+  // Imagen de bienvenida/portada del portal — NO es `studio.fotoUrl` (esa es
+  // la foto de perfil de la propietaria, solo panel). Se persiste directo con
+  // `updateStudio`, igual que el logo: sin borrador, no forma parte del JSON
+  // de tema.
+  async function handleImagenBienvenida(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !studio) return;
+    setSubiendo('bienvenida');
+    const r = await subirImagenBienvenida(studio.id, file);
+    setSubiendo(null);
+    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
+    const res = await updateStudio({ imagenBienvenidaUrl: r.url });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+  }
+
+  async function handleQuitarImagenBienvenida() {
+    if (!studio) return;
+    setSubiendo('bienvenida');
+    await eliminarImagenBienvenida(studio.id);
+    setSubiendo(null);
+    const res = await updateStudio({ imagenBienvenidaUrl: null });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+  }
+
   function restaurar() {
-    setDraft(DEFAULT_THEME);
+    rebasar(DEFAULT_THEME);
     setAviso(null);
   }
 
@@ -301,7 +367,10 @@ export function useThemeEditor() {
   // `restaurar()`, que resetea al tema del SISTEMA (DEFAULT_THEME), no al
   // último guardado.
   function recargar() {
-    fetchThemeBorrador().then(setDraft).catch(() => {});
+    // `rebasar`, no `setDraft`: releer el servidor descarta las ediciones
+    // locales, así que es una base nueva. Apilarlo como paso dejaría un
+    // "deshacer" que resucita lo que la propietaria acaba de descartar.
+    fetchThemeBorrador().then(rebasar).catch(() => {});
     setAviso(null);
   }
 
@@ -309,8 +378,48 @@ export function useThemeEditor() {
     rol, studio, draft, estado, guardando, publicando, aviso, subiendo, contraste,
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
-    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar, recargar,
+    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon,
+    handleImagenBienvenida, handleQuitarImagenBienvenida, restaurar, recargar,
+    // Deshacer/rehacer de los AJUSTES. `instanteUltimo` es lo que permite a la
+    // barra superior decidir qué pila deshacer cuando hay dos (bloques y
+    // ajustes): la del paso más reciente, que es lo que la propietaria
+    // entiende por "lo último que hice".
+    deshacer: () => setHist(deshacerHist),
+    rehacer: () => setHist(rehacerHist),
+    puedeDeshacer: hist.pasado.length > 0,
+    puedeRehacer: hist.futuro.length > 0,
+    instanteUltimo: hist.instanteUltima,
   };
+}
+
+
+/**
+ * Puente entre el Inspector genérico y el editor de temas.
+ *
+ * Los campos de forma se DECLARAN (lib/theme/campos-forma.ts) y se pintan
+ * solos; lo único que hace falta aquí es traducir "se tocó este campo" al
+ * `setCampo(clave, valor)` del hook. Un eje de `variantes` no se puede
+ * escribir suelto —hay que reenviar el objeto entero— y esa regla vive en el
+ * módulo puro, con tests, no repartida por el JSX.
+ */
+function CamposDelTema({
+  campos, hook,
+}: {
+  campos: readonly CampoSchema[];
+  hook: ReturnType<typeof useThemeEditor>;
+}) {
+  const { draft, setCampo } = hook;
+  return (
+    <CamposForm
+      campos={campos}
+      valores={valoresFormaDesdeTema(draft)}
+      onChange={(_valores, campoId) => {
+        const w = escrituraDeCampoForma(draft, campoId, _valores[campoId]);
+        if (!w) return;
+        setCampo(w.clave as keyof ThemeConfig, w.valor as ThemeConfig[keyof ThemeConfig]);
+      }}
+    />
+  );
 }
 
 export function AjustesCategoriaPanel({
@@ -325,6 +434,7 @@ export function AjustesCategoriaPanel({
   // romper las reglas de hooks, aunque solo se usen en la rama 'logo-favicon'.
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
+  const bienvenidaRef = useRef<HTMLInputElement>(null);
 
   if (categoriaId === 'paleta') {
     return (
@@ -356,6 +466,7 @@ export function AjustesCategoriaPanel({
     return (
       <div className="space-y-3">
         <ColorField label="Color de marca" value={draft.primary} onChange={(v) => hook.setCampo('primary', v)} />
+        <CamposDelTema campos={CAMPOS_ACENTO} hook={hook} />
         <button
           onClick={() => aplicarPaleta(draft.primary)}
           className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border"
@@ -380,32 +491,56 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'tipografia') {
     return (
-      <select
-        value={draft.fontId}
-        onChange={(e) => setCampo('fontId', e.target.value as ThemeConfig['fontId'])}
-        className="w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background"
-      >
-        {FUENTES.map((f) => (
-          <option key={f.id} value={f.id}>{f.label}</option>
-        ))}
-      </select>
+      <div className="space-y-3">
+        <select
+          value={draft.fontId}
+          onChange={(e) => setCampo('fontId', e.target.value as ThemeConfig['fontId'])}
+          aria-label="Fuente del portal"
+          className="w-full text-[13px] px-3 py-2 rounded-xl border border-border bg-background"
+        >
+          {FUENTES.map((f) => (
+            <option key={f.id} value={f.id}>{f.label}</option>
+          ))}
+        </select>
+
+        {/* El tamaño va DEBAJO de la fuente y no en una categoría propia: es
+            donde la propietaria lo busca. Y en una sección plegada, porque son
+            seis casillas que casi nadie toca — quien no las abra ve la
+            tipografía tal cual estaba. */}
+        <div className="pt-1 border-t border-border">
+          <p className="text-[11.5px] text-muted-foreground mb-2">
+            Tamaño de cada texto, en píxeles. Déjalo vacío para usar el del tema.
+          </p>
+          <CamposDelTema campos={CAMPOS_ESCALA_TEXTO} hook={hook} />
+        </div>
+      </div>
     );
   }
 
   if (categoriaId === 'esquinas') {
     return (
-      <div className="flex gap-2">
-        {RADIOS.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setCampo('radius', r.id)}
-            className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
-              draft.radius === r.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
-            }`}
-          >
-            {r.label}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          {RADIOS.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setCampo('radius', r.id)}
+              aria-pressed={draft.radius === r.id}
+              className={`flex-1 text-[13px] font-semibold py-2 rounded-xl border transition-colors ${
+                draft.radius === r.id ? 'border-brand bg-brand text-brand-foreground' : 'border-border text-foreground'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <div className="pt-1 border-t border-border space-y-2">
+          <p className="text-[11.5px] text-muted-foreground">
+            Y si quieres afinar una pieza concreta, en píxeles. Deja la casilla
+            vacía para que siga el tema.
+          </p>
+          <CamposDelTema campos={CAMPOS_RADIO} hook={hook} />
+        </div>
       </div>
     );
   }
@@ -442,6 +577,18 @@ export function AjustesCategoriaPanel({
             {c.label}
           </button>
         ))}
+      </div>
+    );
+  }
+
+  if (categoriaId === 'forma-portal') {
+    return (
+      <div className="space-y-3">
+        <p className="text-[11.5px] text-muted-foreground">
+          La FORMA de cada pieza del portal, no su color. Antes esto solo se
+          podía cambiar instalando un tema entero de la biblioteca.
+        </p>
+        <CamposDelTema campos={CAMPOS_FORMA_PORTAL} hook={hook} />
       </div>
     );
   }
@@ -493,12 +640,20 @@ export function AjustesCategoriaPanel({
           })}
         </div>
 
+        <div className="pt-1 border-t border-border">
+          <CamposDelTema campos={CAMPOS_BARRA_PORTAL} hook={hook} />
+        </div>
+
         {/* Preview en vivo (sin iframe: el widget de verdad, con las CSS
             vars del borrador aplicadas directamente — mismo componente que
             usa portal-shell.tsx, así que lo que se ve aquí es exacto). */}
         <div style={themeToCssVars(draft)} className="rounded-2xl border border-border bg-muted/40 p-4">
           <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Así se ve</p>
-          <div style={{ position: 'relative', height: altura.tabbar }}>
+          {/* Alto de la MISMA variable que la barra: con la altura fija de
+              antes, un tema que la sube (Bloom, 66px) se salía de su caja en
+              esta previsualización — y esta caja es justo donde la propietaria
+              comprueba cómo queda. */}
+          <div style={{ position: 'relative', height: `var(--portal-tabbar-height, ${altura.tabbar}px)` }}>
             <PortalNav
               items={navItemsVisibles(navPortalResuelto, NAV_DISPONIBLES)}
               activeIndex={0}
@@ -541,6 +696,10 @@ export function AjustesCategoriaPanel({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        {/* Rótulos por bloque: sin ellos esta categoría eran tres pares de
+            "miniatura + botón Subir" seguidos, indistinguibles de un vistazo.
+            Quien buscaba dónde poner su foto no lo encontraba. */}
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Logo</p>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
             {studio?.logoUrl ? (
@@ -567,6 +726,90 @@ export function AjustesCategoriaPanel({
         <p className="text-[11px] text-muted-foreground">
           Recomendado: 512×512 px, cuadrado, fondo transparente o sólido (sin márgenes de sobra).
         </p>
+      </div>
+
+      {/* Imagen de bienvenida/portada del portal.
+          ─────────────────────────────────────────────────────────────────
+          NO es la foto de perfil de la propietaria (esa vive en Configuración
+          → Perfil y solo sale en el panel, nunca aquí): esta es la que ven
+          las alumnas al entrar al portal — pantalla de bienvenida, cabecera
+          de acceso, hero de inicio. Compartir un solo campo para las dos
+          cosas era el bug: subir una selfie para el sidebar la enseñaba de
+          golpe a toda socia del estudio. */}
+      <div className="space-y-2 border-t border-border pt-4">
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Foto del portal</p>
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-10 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+            {studio?.imagenBienvenidaUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={studio.imagenBienvenidaUrl} alt="Imagen de bienvenida" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[9px] text-muted-foreground text-center px-1">Sin imagen</span>
+            )}
+          </div>
+          <button onClick={() => bienvenidaRef.current?.click()} disabled={subiendo === 'bienvenida'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
+            <Upload size={14} /> {studio?.imagenBienvenidaUrl ? 'Cambiar imagen' : 'Subir imagen'}
+          </button>
+          {studio?.imagenBienvenidaUrl && (
+            <button onClick={hook.handleQuitarImagenBienvenida} disabled={subiendo === 'bienvenida'} className="text-muted-foreground hover:text-destructive" aria-label="Quitar imagen de bienvenida">
+              <Trash2 size={16} />
+            </button>
+          )}
+          <input ref={bienvenidaRef} type="file" accept="image/*" hidden onChange={hook.handleImagenBienvenida} />
+        </div>
+        {/* Decir DÓNDE sale, y no solo que «la ven tus alumnas». El feedback
+            fue «no se puede poner imagen en la bienvenida ni en las tarjetas»
+            — cuando esta misma foto es las tres cosas. Enumerarlas es la
+            diferencia entre una función que existe y una que se encuentra. */}
+        <p className="text-[11px] text-muted-foreground">
+          Es la foto de tu estudio, no tu foto de perfil. Con una sola se visten tres sitios:
+          la <strong>pantalla de acceso</strong>, la <strong>bienvenida</strong> y el fondo de la
+          <strong> tarjeta grande del Inicio</strong>. Sin ella, esos tres usan un fondo liso del color de tu marca.
+        </p>
+      </div>
+
+      {/* Encuadre de la imagen de bienvenida.
+          ─────────────────────────────────────────────────────────────────
+          Solo aparece si hay imagen: sin ella el control no tiene nada que
+          encuadrar y sería un ajuste que no hace nada visible.
+
+          La miniatura no es decorativa — es el control. El recorte se juzga
+          a ojo, así que hay que enseñar el resultado, no describirlo: la
+          proporción imita la portada del portal y el punto blanco marca
+          dónde caería el logo, que es justo lo que se estaba tapando. */}
+      {studio?.imagenBienvenidaUrl?.trim() && (
+        <div className="space-y-2 border-t border-border pt-4">
+          <div
+            className="relative w-full rounded-xl overflow-hidden border border-border"
+            style={{
+              aspectRatio: '390 / 200',
+              backgroundImage: `url(${JSON.stringify(studio.imagenBienvenidaUrl)})`,
+              backgroundSize: 'cover',
+              backgroundPosition: POSICION_FOTO[draft.fotoEncuadre] ?? POSICION_FOTO.centro,
+              transition: 'background-position 250ms ease',
+            }}
+          >
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.10) 40%, rgba(0,0,0,.45) 100%)' }} />
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-3 w-8 h-8 rounded-full bg-white/90 border-2 border-white" aria-hidden />
+          </div>
+          <FilaOpciones
+            etiqueta="Encuadre de la foto"
+            opciones={[
+              { id: 'arriba', label: 'Arriba' },
+              { id: 'centro', label: 'Centro' },
+              { id: 'abajo', label: 'Abajo' },
+            ]}
+            activa={draft.fotoEncuadre}
+            onElegir={(v) => hook.setCampo('fotoEncuadre', v as ThemeConfig['fotoEncuadre'])}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Qué parte de la foto se ve en la portada del portal. Con una foto vertical
+            —un retrato, por ejemplo— «Centro» suele dejar la cara justo detrás del logo.
+          </p>
+        </div>
+      )}
+      <div className="space-y-2 border-t border-border pt-4">
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Favicon</p>
       </div>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">

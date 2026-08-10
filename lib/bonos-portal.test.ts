@@ -97,6 +97,44 @@ test('el saldo no se sale de la barra aunque los datos vengan raros', () => {
   assert.equal(b?.progreso, 1);
 });
 
+test('con un único bono activo, otrosActivos va vacío', () => {
+  const b = bonoActivo(
+    [sus({ id: 'a', planId: 'p1', sesionesRestantes: 8, fechaFin: '2026-09-30' })],
+    [plan({ id: 'p1' })], TIPOS, 'soc-1',
+  );
+  assert.deepEqual(b?.otrosActivos, []);
+});
+
+test('con 2 bonos activos, el elegido sigue siendo el que caduca antes y el otro sale en otrosActivos', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 'pronto', planId: 'p1', sesionesRestantes: 2, fechaFin: '2026-08-05' }),
+      sus({ id: 'tarde', planId: 'p2', sesionesRestantes: 4, fechaFin: '2026-12-31' }),
+    ],
+    [plan({ id: 'p1', nombre: 'Bono 4', sesiones: 4 }), plan({ id: 'p2', nombre: 'Bono 8', sesiones: 8 })],
+    TIPOS, 'soc-1',
+  );
+  assert.equal(b?.suscripcionId, 'pronto');
+  assert.equal(b?.otrosActivos.length, 1);
+  assert.equal(b?.otrosActivos[0]?.nombre, 'Bono 8');
+  assert.equal(b?.otrosActivos[0]?.restantes, 4);
+});
+
+test('con 3+ bonos activos, otrosActivos trae todos menos el elegido', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 'a', planId: 'p1', sesionesRestantes: 2, fechaFin: '2026-08-05' }),
+      sus({ id: 'b', planId: 'p2', sesionesRestantes: 4, fechaFin: '2026-09-01' }),
+      sus({ id: 'c', planId: 'p3', sesionesRestantes: 1, fechaFin: '2026-10-01' }),
+    ],
+    [plan({ id: 'p1', nombre: 'Bono 4' }), plan({ id: 'p2', nombre: 'Bono 8' }), plan({ id: 'p3', nombre: 'Bono 2' })],
+    TIPOS, 'soc-1',
+  );
+  assert.equal(b?.suscripcionId, 'a');
+  assert.equal(b?.otrosActivos.length, 2);
+  assert.deepEqual(b?.otrosActivos.map(o => o.nombre), ['Bono 8', 'Bono 2']);
+});
+
 // ── Plaza fija ───────────────────────────────────────────────────────────────
 
 const pf = (o: Partial<PlazaFija> = {}): PlazaFija => ({

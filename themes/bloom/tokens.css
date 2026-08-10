@@ -1,0 +1,162 @@
+/* Convertido de `:root` a `html[data-theme="…"]` para que los tres temas
+ * convivan: el activo se elige poniendo el atributo en <html>, no cargando
+ * una hoja u otra. Ver "Cómo convertir esto en un tema instalable" del
+ * encargo. Salvo ese selector y las dos fuentes, el fichero es el que
+ * entregó diseño.
+ *
+ * ⚠️ Dos cosas que NO se pueden simplificar aquí:
+ *
+ * 1. `html[...]` y no `[...]` a secas. El layout raíz ya declara
+ *    `--font-display` (Instrument Serif, del portal actual) en <html> con una
+ *    clase de `next/font`. Clase y atributo pesan lo mismo, así que a secas
+ *    ganaría el que el bundler pusiera último — y el tema se vería con la
+ *    tipografía del otro portal según el día. Con `html[…]` gana siempre este.
+ *
+ * 2. Las fuentes van por `var(--font-…)` y no por nombre de familia. Este repo
+ *    ya las sirve con `next/font` desde nuestro propio dominio (a propósito:
+ *    cero petición a fonts.googleapis.com), así que el `<link>` a Google que
+ *    traía el proyecto de diseño sobra. Pedir 'Outfit' por su nombre también
+ *    resolvería —`next/font` registra la familia con su nombre real—, pero por
+ *    la variable se gana la familia de respaldo con métricas ajustadas que
+ *    genera `next/font`, y sobre todo queda atado a lo que el layout carga de
+ *    verdad: si algún día deja de cargarla, esto se ve, en vez de degradarse a
+ *    system-ui en silencio.
+ * ═══════════════════════════════════════════════════════════════════════
+ * ═══════════════════════════════════════════════════════════════════════
+ * Bloom — tokens de diseño
+ * Fuente única de verdad del tema. Ningún componente escribe un color, un
+ * radio o una duración a mano: todo sale de aquí.
+ * Generado desde tokens/tokens.json.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+html[data-theme="bloom"] {
+  /* ── Marca ─────────────────────────────────────────────────────────── */
+  --brand: #7C5CFC;
+  --brand-hover: #9474FF;
+  --on-brand: #FFFFFF;
+  --support: #EFEAFF;
+  --support-soft: color-mix(in srgb, #EFEAFF 26%, #FFFFFF);
+  --accent: #FF8FB1;
+  --accent-soft: color-mix(in srgb, #FF8FB1 18%, #FFFFFF);
+  --accent-ink: #FF8FB1;
+
+  /* ── Superficies y texto ───────────────────────────────────────────── */
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --border: #EEEAFB;
+  --ink: #1B1430;
+  --muted: #6F6785;
+  --card-hover-border: color-mix(in srgb, #1B1430 26%, #EEEAFB);
+  --focus-ring: color-mix(in srgb, #7C5CFC 22%, transparent);
+
+  /* ── Semánticos ────────────────────────────────────────────────────── */
+  --success: #2F6B4F;
+  --warning: #8A6B22;
+  --danger: #A33B3B;
+  --dot: #7C5CFC;
+  --fav: #FF8FB1;
+  --done-bg: #EFEAFF;
+  --done-ink: #7C5CFC;
+  --track: #F0EDFB;
+
+  /* ── Tipografía ────────────────────────────────────────────────────── */
+  --font-display: var(--font-poppins), system-ui, sans-serif;
+  --font-body: var(--font-poppins), system-ui, sans-serif;
+  --weight-display: 700;
+
+  --size-section: 20px;
+  --size-screen-title: 28px;
+  --size-greeting: 19px;
+  --size-hero-title: 25px;
+  --size-pass-name: 24px;
+  --size-detail-label: 14px;
+
+  /* ── Espaciado ─────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --canvas-gap: 18px;
+
+  /* ── Rejilla ───────────────────────────────────────────────────────── */
+  --page-width: 1200px;
+  --gutter: 24px;
+  --grid-gap: 22px;
+  --section-pad-block: 84px;
+
+  /* ── Radios ────────────────────────────────────────────────────────── */
+  --radius-card: 30px;
+  --radius-button: 999px;
+  --radius-chip: 999px;
+  --radius-input: 999px;
+  --radius-quick-link: 22px;
+
+  /* ── Sombras ───────────────────────────────────────────────────────── */
+  --shadow-card: 0 12px 30px -22px rgba(60,40,90,.4);
+  --shadow-card-hover: 0 18px 40px -26px rgba(20,28,22,.45);
+  --shadow-float: 0 16px 40px -18px rgba(20,28,22,.4);
+  --shadow-control: 0 14px 30px -12px rgba(124,92,252,.7);
+
+  /* ── Teléfono ──────────────────────────────────────────────────────── */
+  --phone-width: 392px;
+  --phone-height: 812px;
+  --bezel: #F0A87E;
+  --desk: #EEEEE8;
+  --desk-ink: #1A1A1A;
+  --desk-muted: #8E8E86;
+
+  /* ── Componentes ───────────────────────────────────────────────────── */
+  --chip-height: 40px;
+  --chip-bg: #F5F3FF;
+  --tab-bar-bg: #FFFFFF;
+  --tab-bar-border: none;
+  --tab-active: #7C5CFC;
+  --tab-idle: #6F6785;
+  --bell-bg: #F5F3FF;
+  --bell-border: none;
+  --photo-bg: #E7DCEF;
+  --control-bg: #F5F3FF;
+  --control-border: none;
+
+  /* ── Próxima clase ─────────────────────────────────────────────────── */
+  --hero-bg: #7C5CFC;
+  --hero-veil: linear-gradient(96deg,#7C5CFC 0%,#7C5CFC 45%,rgba(124,92,252,.7) 62%,rgba(124,92,252,.05) 100%);
+  --hero-ink: #FFFFFF;
+  --hero-ink-soft: rgba(255,255,255,.74);
+  --hero-ink-strong: rgba(255,255,255,.92);
+  --hero-cta-bg: #FFFFFF;
+  --hero-cta-ink: #7C5CFC;
+  --hero-arrow: inherit;
+  --hero-arrow-opacity: 0.7;
+
+  /* ── Bienvenida ────────────────────────────────────────────────────── */
+  --welcome-bg: #FFC0D2;
+  --welcome-veil: linear-gradient(180deg,rgba(255,152,186,.5) 0%,rgba(255,176,198,.18) 42%,rgba(255,255,255,.78) 86%,#FFFFFF 100%);
+  --welcome-ink: #1B1430;
+  --welcome-ink-soft: #6F6785;
+  --welcome-accent: inherit;
+  --welcome-pad: 0 24px 26px;
+  --welcome-measure: 16ch;
+  --welcome-leading: 1.18;
+  --size-welcome: 33px;
+  --size-welcome-text: 14px;
+  --welcome-cta-bg: #FFFFFF;
+  --welcome-cta-ink: #1B1430;
+  --welcome-cta-height: 68px;
+  --welcome-cta-justify: space-between;
+  --welcome-cta-pad: 0 10px 0 28px;
+  --welcome-cta-shadow: 0 14px 34px -18px rgba(60,40,90,.4);
+  --welcome-dots: flex-start;
+  --welcome-dot-on: #7C5CFC;
+  --welcome-dot-off: rgba(27,20,48,.18);
+
+  /* ── Hero de la web pública ────────────────────────────────────────── */
+  --hero-section-veil: linear-gradient(180deg,rgba(255,152,186,.5) 0%,rgba(255,176,198,.18) 42%,rgba(255,255,255,.78) 86%,#FFFFFF 100%);
+  --hero-section-ink: #1B1430;
+  --hero-section-ink-soft: #6F6785;
+}

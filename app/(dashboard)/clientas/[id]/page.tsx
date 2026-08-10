@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef, useMemo, useId } from 'react';
+import { use, useState, useEffect, useRef, useMemo } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
@@ -11,7 +11,7 @@ import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
 import type { LeadStage } from '@/lib/types';
-import { enviarEmailCampana, obtenerComunicacionesSocio } from '@/lib/api-client';
+import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
 import { FichaSalud } from '@/components/socios/ficha-salud';
 import { FichaPlazaFija } from '@/components/socios/ficha-plaza-fija';
@@ -22,12 +22,14 @@ import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperaci
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
+import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion';
+import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock,
-  ChevronDown, Send, CheckCircle2, Filter, RotateCcw, ShieldCheck, FileSignature,
-  Bot, Loader2, Mic,
+  Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
+  Bot, Loader2, Mic, RefreshCw,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
@@ -45,23 +47,15 @@ const TAGS_OPTIONS = [
   { label: 'Profesora', bg: '#FEF9C3', text: '#713F12' },
 ];
 
-const AVATAR_COLORS = [
-  { bg: '#FFF2F7', text: 'var(--brand)' },
-  { bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
-  { bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
-  { bg: '#FCE7F3', text: '#9D174D' },
-  { bg: '#E8EBDD', text: '#22251A' },
-  { bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: '#7A2F1D' },
-];
-
 const BADGE_RECIBO: Record<string, string> = {
   COBRADO: 'bg-success/10 text-success',
   PENDIENTE: 'bg-warning/10 text-warning',
   DEVUELTO: 'bg-destructive/10 text-destructive',
   EN_CURSO: 'bg-info/10 text-info',
+  FALLIDO: 'bg-destructive/10 text-destructive',
 };
 const LABEL_RECIBO: Record<string, string> = {
-  COBRADO: 'Cobrado', PENDIENTE: 'Pendiente', DEVUELTO: 'Devuelto', EN_CURSO: 'En curso',
+  COBRADO: 'Cobrado', PENDIENTE: 'Pendiente', DEVUELTO: 'Devuelto', EN_CURSO: 'En curso', FALLIDO: 'Fallido',
 };
 
 const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }> = {
@@ -76,11 +70,6 @@ const BADGE_RESERVA: Record<string, { bg: string; text: string; label: string }>
 
 function tagStyle(label: string) {
   return TAGS_OPTIONS.find(t => t.label === label) ?? { bg: 'var(--muted)', text: 'var(--muted-foreground)' };
-}
-
-function avatarColor(id: string) {
-  const idx = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
 }
 
 function localDate(d: Date | string): string {
@@ -99,7 +88,6 @@ function formatHora(iso: string) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-foreground transition-colors";
-const selectCls = inputCls + " appearance-none";
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   const { htmlFor, control } = useCampoAsociado(children);
@@ -225,7 +213,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
     tiposClase, salas, instructores, notasInternas,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
-    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion,
+    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
@@ -251,6 +239,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
 
   // ── Hydration fix ──────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   // Estable entre renders (solo cambia al montar): así el useMemo del resumen no
   // se invalida en cada tecleo por un `new Date()` nuevo.
@@ -273,6 +262,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  const [reactivando, setReactivando] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -326,6 +316,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     if (!id) return;
     // Se limpia YA, síncrono: cambiar de ficha no debe seguir enseñando el
     // historial de la clienta anterior mientras carga la nueva.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona del historial con bandera 'ignorar' para que una respuesta tardía no pinte datos de otra clienta. El estado viene de la red.
     setComunicaciones([]);
     let ignorar = false;
     // A partir de aquí, null (fallo de red/permiso) no pisa lo que ya había
@@ -335,6 +326,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     obtenerComunicacionesSocio(id).then(data => { if (!ignorar && data) setComunicaciones(data); });
     return () => { ignorar = true; };
   }, [id]);
+
+  // ── Pagos históricos importados (migración asistida) ─────────────────────
+  // Mismo criterio que comunicaciones justo arriba: fuera del snapshot global,
+  // solo lectura, gate `puedeVerFinanzas` (mismo que la pestaña "Pagos"). Solo
+  // se pide si el rol puede verlos — no tiene sentido pedirlo para nada.
+  const [pagosHistoricos, setPagosHistoricos] = useState<Array<{
+    id: string; fecha: string; concepto: string | null; importe: number; medioPago: string | null;
+  }>>([]);
+
+  useEffect(() => {
+    if (!id || !verFinanzas) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga asíncrona con bandera 'ignorar', mismo patrón que comunicaciones. El estado viene de la red.
+    setPagosHistoricos([]);
+    let ignorar = false;
+    obtenerPagosHistoricosSocio(id).then(data => { if (!ignorar && data) setPagosHistoricos(data); });
+    return () => { ignorar = true; };
+  }, [id, verFinanzas]);
 
   const socio = socios.find(s => s.id === id);
 
@@ -365,6 +373,27 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     [socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now],
   );
 
+  // Otras suscripciones ACTIVA del mismo socio, aparte de la que ya se
+  // enseña en la tarjeta "Plan" — el staff es quien decide si hace falta
+  // activar algo a mano, así que necesita verlo tanto o más que la propia
+  // socia (mismo aviso que el portal, `lib/bonos-portal.ts`). Depende de
+  // `resumen.suscripcion` (ya calculado arriba) en vez del `suscripcion`
+  // desestructurado más abajo: este hook tiene que ir ANTES del guard
+  // `if (!socio)`, igual que `resumen`.
+  const otrosBonosActivos = useMemo(() => {
+    if (!resumen.suscripcion) return [];
+    return suscripciones
+      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id)
+      .map(s => {
+        const p = planesTarifa.find(pt => pt.id === s.planId);
+        if (!p) return null;
+        const tipos = p.tiposClaseIds ?? [];
+        const nombreTipo = tipos.length === 1 ? tiposClase.find(tc => tc.id === tipos[0])?.nombre ?? null : null;
+        return { nombre: nombreTipo ? `${p.nombre} · ${nombreTipo}` : p.nombre, restantes: s.sesionesRestantes ?? null };
+      })
+      .filter((x): x is { nombre: string; restantes: number | null } => x !== null);
+  }, [suscripciones, planesTarifa, tiposClase, id, resumen.suscripcion]);
+
   if (!socio) {
     return (
       <div className="text-center py-20">
@@ -380,7 +409,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const {
     suscripcion, plan, tags, proximasReservas, asistidas, estesMes, bonosComprados,
     totalGastado, pendientes, diasSinVenir, planActivo, bonosActivos,
-    pendientesImporte, cumpleanos, sparklineWeeks,
+    pendientesImporte, cumpleanos, sparklineWeeks, pagosFallidos,
   } = resumen;
 
   // Filtered reservas for "Reservas" tab
@@ -510,7 +539,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
         instructorId: yo?.id ?? instructores[0]?.id ?? '',
       });
       setAiResult(resultado);
-    } catch (err) {
+    } catch {
       setToast('Error al procesar con IA');
     } finally {
       setAiLoading(false);
@@ -557,6 +586,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ── Sessions progress ──────────────────────────────────────────────────────
   const sesionesRestantes = suscripcion?.sesionesRestantes ?? null;
   const sesionesTotales = plan?.sesiones ?? null;
+  // "Caduca en N días"/"Próxima renovación en N días" — mismo cálculo puro
+  // reutilizado por la tabla de Clientas y por el portal de la socia.
+  const estadoSus = calcularEstadoSuscripcion(suscripcion ?? null, plan ?? null);
+  const textoCaducidadSus = textoCaducidad(estadoSus);
+  const colorCaducidadSus =
+    estadoSus.kind === 'bono' ? (estadoSus.caducado ? 'var(--destructive)' : estadoSus.urgente ? 'var(--warning)' : 'var(--muted-foreground)') :
+    estadoSus.kind === 'recurrente' ? (estadoSus.urgente ? 'var(--warning)' : 'var(--muted-foreground)') :
+    'var(--muted-foreground)';
   const sesionesColor =
     sesionesRestantes === 0 ? 'var(--destructive)' :
     sesionesRestantes !== null && sesionesRestantes <= 2 ? 'var(--warning)' :
@@ -567,7 +604,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
+    <div className="min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       {/* Back nav */}
       <div className="px-6 pt-6 pb-0">
         <Link href="/clientas" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors mb-5">
@@ -618,6 +655,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </p>
                               {suscripcion.estado === 'PAUSADA' && (
                                 <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}>Pausada</span>
+                              )}
+                              {suscripcion.estado === 'CANCELADA' && (
+                                <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>Cancelada</span>
+                              )}
+                              {textoCaducidadSus && suscripcion.estado === 'ACTIVA' && (
+                                <p className="inline-flex items-center gap-1 text-xs font-semibold mt-1.5" style={{ color: colorCaducidadSus }}>
+                                  {estadoSus.kind === 'recurrente' ? <RefreshCw size={12} /> : <Calendar size={12} />}
+                                  {textoCaducidadSus}
+                                </p>
                               )}
                             </div>
                             {verFinanzas && (
@@ -694,7 +740,33 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               estaban fuera de `verFinanzas`: una instructora las veía y
                               podía cancelarle el plan a una clienta. Es lo único de esta
                               pantalla que la migración 0112 habría dejado como botón roto. */}
-                          {puedeCobrar && (
+                          {puedeCobrar && suscripcion.estado === 'CANCELADA' && (
+                          <div className="mt-4 flex gap-2">
+                            {/* Hallazgo B (auditoría dunning 2026-08-10): reactiva ESTA misma
+                                suscripción (mismo id, con su histórico) — distinto de "Asignar
+                                plan", que crea una fila nueva desde cero. Recalcula fecha_fin
+                                a hoy (calcularReactivacion) para no reactivar algo ya caducado
+                                con la fecha vieja. */}
+                            <button
+                              onClick={async () => {
+                                setReactivando(true);
+                                try {
+                                  const res = await reactivarSuscripcion(suscripcion.id);
+                                  if (!res.ok) setToast(res.error);
+                                  else setToast('Suscripción reactivada');
+                                } finally {
+                                  setReactivando(false);
+                                }
+                              }}
+                              disabled={reactivando}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40"
+                              style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
+                            >
+                              <Play size={12} />{reactivando ? 'Reactivando…' : 'Reactivar'}
+                            </button>
+                          </div>
+                          )}
+                          {puedeCobrar && suscripcion.estado !== 'CANCELADA' && (
                           <div className="mt-4 flex gap-2">
                             {suscripcion.estado === 'ACTIVA' ? (
                               <button
@@ -1171,6 +1243,39 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                       </div>
                     </>
                   )}
+
+                  {pagosHistoricos.length > 0 && (
+                    <div className="mt-8">
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                        Pagos históricos (importados)
+                      </p>
+                      <div className="border border-border rounded-xl overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-muted border-b border-border">
+                              <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Fecha</th>
+                              <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Concepto</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Importe</th>
+                              <th className="text-right px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Medio</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-muted">
+                            {pagosHistoricos.map(p => (
+                              <tr key={p.id} className="hover:bg-muted transition-colors">
+                                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fecha(p.fecha)}</td>
+                                <td className="px-4 py-3 font-semibold text-foreground max-w-[200px] truncate">{p.concepto ?? '—'}</td>
+                                <td className="px-4 py-3 text-right font-extrabold text-foreground tabular-nums">{formatEuro(p.importe)}</td>
+                                <td className="px-4 py-3 text-right text-xs text-muted-foreground">{p.medioPago ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-2">
+                        Importados de la plataforma anterior — no son recibos de Tentare y no entran en el cierre fiscal.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1279,6 +1384,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 >
                   <span aria-hidden>{SEMAFORO_META[semaforoSocio].emoji}</span>
                   {SEMAFORO_META[semaforoSocio].label}
+                </button>
+              )}
+              {verFinanzas && pagosFallidos.length > 0 && (
+                <button
+                  onClick={() => setActiveTab('pagos')}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full mt-2 ml-2 hover:brightness-95 cursor-pointer"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}
+                  title="Ver pagos"
+                >
+                  <AlertTriangle size={12} aria-hidden />
+                  {pagosFallidos.length === 1 ? 'Pago fallido' : `${pagosFallidos.length} pagos fallidos`}
                 </button>
               )}
             </div>
@@ -1407,6 +1523,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                   {pendientesImporte.toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
                 </span>
               </div>
+              {pagosFallidos.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Pagos fallidos</span>
+                  <span className="text-xs font-bold" style={{ color: 'var(--destructive)' }}>
+                    {pagosFallidos.reduce((acc, r) => acc + r.importe, 0).toLocaleString('es-ES', { minimumFractionDigits: 0 })} €
+                  </span>
+                </div>
+              )}
               {cumpleanos && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Cumpleaños</span>
@@ -1428,11 +1552,29 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <Card>
               <SectionTitle>Plan</SectionTitle>
               <p className="text-sm font-bold text-foreground">{plan.nombre}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {plan.tipo === 'MENSUAL' ? 'Ilimitado' : sesionesRestantes !== null ? `${sesionesRestantes} sesiones restantes` : ''}
-              </p>
+              {plan.tipo === 'MENSUAL' && estadoSus.kind !== 'recurrente' && (
+                <p className="text-xs text-muted-foreground mt-0.5">Ilimitado</p>
+              )}
+              <div className="mt-1.5">
+                <EstadoSuscripcion suscripcion={suscripcion} plan={plan} />
+              </div>
               {suscripcion.fechaFin && (
-                <p className="text-xs text-muted-foreground mt-0.5">Expira: {fecha(suscripcion.fechaFin)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{estadoSus.kind === 'recurrente' ? 'Próximo cobro' : 'Fecha exacta'}: {fecha(suscripcion.fechaFin)}</p>
+              )}
+              {otrosBonosActivos.length > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-muted">
+                  <p className="text-[11px] font-semibold" style={{ color: 'var(--warning)' }}>
+                    +{otrosBonosActivos.length} bono{otrosBonosActivos.length === 1 ? '' : 's'} más en cola
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {otrosBonosActivos.map((o, i) => (
+                      <span key={i}>
+                        {o.nombre}{o.restantes != null ? ` (${o.restantes} ses.)` : ''}
+                        {i < otrosBonosActivos.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </p>
+                </div>
               )}
               {puedeCobrar && (
               <button

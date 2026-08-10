@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { BLOQUES_SISTEMA_IDS } from './portal-home-bloques.ts';
 import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
-import { validarContrasteTheme } from './theme-runtime.ts';
+import { validarContrasteTheme, themeToCssVars } from './theme-runtime.ts';
 import { VARIANTES_PORTAL } from './theme-variantes.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
@@ -21,25 +22,8 @@ test('THEME_DEFINITIONS: cada "defaults" es un ThemeDraft válido (nada que romp
   }
 });
 
-test('getThemeDefinition: "geometric" fija portalHeadingFontId a outfit y declara la capability', () => {
-  const geo = getThemeDefinition('geometric');
-  assert.ok(geo);
-  assert.equal(geo!.defaults.portalHeadingFontId, 'outfit');
-  assert.ok(geo!.capabilities.includes('typography'));
-});
-
 test('getThemeDefinition: id desconocido → undefined', () => {
   assert.equal(getThemeDefinition('no-existe'), undefined);
-});
-
-test('getThemeDefinition: "editorial" fija tipografía negrita, botón/tarjeta y barra de pestaña activa', () => {
-  const ed = getThemeDefinition('editorial');
-  assert.ok(ed);
-  assert.equal(ed!.defaults.portalHeadingFontId, 'instrumentSansBold');
-  assert.equal(ed!.defaults.buttonStyle, 'solid');
-  assert.equal(ed!.defaults.cardStyle, 'elevated');
-  assert.equal(ed!.defaults.tabBarStyle, 'pestanaActiva');
-  assert.deepEqual(ed!.capabilities.sort(), ['buttons', 'cards', 'nav', 'typography']);
 });
 
 // ── Tanda Oliva/Bloom/Noir ──────────────────────────────────────────────────
@@ -63,11 +47,19 @@ test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar
   }
 });
 
-test('THEME_DEFINITIONS: siguen estando los temas anteriores a esta tanda', () => {
-  // Un estudio que ya eligió `geometric`/`editorial` tiene ese id guardado en su
-  // ThemeConfig; borrarlos del registro dejaría su tema sin nombre en la galería.
-  for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
-    assert.ok(getThemeDefinition(id), `Falta el tema "${id}" en el registro`);
+test('la biblioteca es el predeterminado y los tres temas de diseño, nada más', () => {
+  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['classic', 'oliva', 'bloom', 'noir']);
+});
+
+// ⚠️ Antes había una guardia que exigía lo contrario ("siguen estando los
+// temas anteriores"), porque borrar un id deja sin nombre al estudio que lo
+// tenga guardado. Se retiran igualmente por decisión de producto: la
+// biblioteca debe ser el predeterminado y los tres temas de diseño. Lo que sí
+// sigue prohibido es RECICLAR un id — a un estudio con 'editorial' guardado le
+// cambiaría el tema por sorpresa, que es mucho peor que quedarse sin nombre.
+test('los ids retirados no se reciclan para otro tema', () => {
+  for (const id of ['geometric', 'editorial']) {
+    assert.equal(getThemeDefinition(id), undefined, `"${id}" ha vuelto al registro`);
   }
 });
 
@@ -98,10 +90,15 @@ test('radioTema completo (card+boton) por tema, con los valores exactos del prot
   assert.deepEqual(getThemeDefinition('noir')!.defaults.radioTema, { card: 24, boton: 18, chip: 999 });
 });
 
-test('cardStyle: solo Bloom tiene sombra de tarjeta — Oliva y Noir son planas, como el prototipo', () => {
+test('cardStyle: Bloom y Noir con sombra, Oliva plana — según la tabla del encargo', () => {
+  // ⚠️ Noir estaba en `flat` con el comentario "plana como Oliva a propósito —
+  // el prototipo solo da sombra a Bloom". Era una lectura del prototipo que
+  // contradecía la tabla de `entrega/HANDOFF-temas.md` §1, que dice `elevated`
+  // para Noir. Manda la tabla: el propio encargo pide "sácalos de aquí, no del
+  // ojo". Corregido a petición expresa.
   assert.equal(getThemeDefinition('oliva')!.defaults.cardStyle, 'flat');
   assert.equal(getThemeDefinition('bloom')!.defaults.cardStyle, 'elevated');
-  assert.equal(getThemeDefinition('noir')!.defaults.cardStyle, 'flat');
+  assert.equal(getThemeDefinition('noir')!.defaults.cardStyle, 'elevated');
 });
 
 test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la marca se rechaza', () => {
@@ -114,9 +111,10 @@ test('validarContrasteTheme: con barra oscura, un destacado ilegible sobre la ma
 });
 
 test('validarContrasteTheme: con barra flotante (sin oscura), el par destacado/marca NO se comprueba', () => {
-  // Solo `barraOscura` pinta `--portal-tabbar-bg` como la marca (varsBarra);
-  // la barra flotante deja el fondo de la pastilla activa en su claro de
-  // siempre — `destacado` nunca se pinta sobre `primary` ahí.
+  // Solo `barraOscura` pinta `destacado` SOBRE la marca (varsBarra). La barra
+  // flotante también tiene la marca de fondo desde que su pastilla activa es
+  // de marca, pero encima va el foreground autoderivado por contraste, no
+  // `destacado` — así que este par sigue sin aplicar ahí.
   const r = validarContrasteTheme({
     ...DEFAULT_THEME, ...getThemeDefinition('bloom')!.defaults,
     destacado: getThemeDefinition('bloom')!.defaults.primary, // a propósito, ilegible SI se comprobara
@@ -135,7 +133,10 @@ test('validarContrasteTheme: sin `destacado`, el gate cae a `secondary` (tema gu
 });
 
 test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids reales de bloques sistema', () => {
-  const idsValidos = new Set(['estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'listadoClases', 'listadoBonos', 'tiraSemana', 'progresoSemanal', 'retos']);
+  // Derivado, NO escrito a mano: la lista a mano se quedó desfasada en cuanto
+  // se añadió `proximaClase` y este test falló por su propia copia, no por un
+  // id malo de verdad.
+  const idsValidos = new Set<string>(BLOQUES_SISTEMA_IDS);
   for (const id of ['oliva', 'bloom', 'noir']) {
     const def = getThemeDefinition(id)!;
     assert.ok(def.bloquesHome && def.bloquesHome.length > 0, `"${id}" no trae bloquesHome`);
@@ -145,7 +146,12 @@ test('THEME_DEFINITIONS: bloquesHome de Oliva/Bloom/Noir solo referencia ids rea
   }
   // Retos sí se construyó de verdad (conteo real, ver lib/retos-portal.ts) —
   // Bloom lo instala primero, antes de "Accesos rápidos".
-  assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['retos', 'accesosRapidos', 'contenidoEstudio']);
+  // `proximaClase` va PRIMERO en los tres, como manda el diseño aprobado. Se
+  // había caído de los tres porque ese bloque no existía todavía.
+  assert.deepEqual(getThemeDefinition('bloom')!.bloquesHome, ['proximaClase', 'retos', 'accesosRapidos', 'contenidoEstudio']);
+  for (const id of ['oliva', 'bloom', 'noir']) {
+    assert.equal(getThemeDefinition(id)!.bloquesHome![0], 'proximaClase', id);
+  }
 });
 
 // ── Variantes de forma por bloque ───────────────────────────────────────────
@@ -168,7 +174,7 @@ test('THEME_DEFINITIONS: toda `variantes` declarada usa ejes y valores del catá
 test('Variantes exactas por tema, según el prototipo real', () => {
   // Oliva: baldosas + las 4 etiquetas con icono activo relleno.
   assert.deepEqual(getThemeDefinition('oliva')!.defaults.variantes,
-    { accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
+    { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' });
   // Bloom es el único que conserva la píldora flotante → su barra se queda con
   // etiqueta solo en la activa (`conTexto: !tabPill || activo` del prototipo).
   assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.barra, undefined);
@@ -179,16 +185,101 @@ test('Variantes exactas por tema, según el prototipo real', () => {
     THEME_DEFINITIONS.filter((t) => t.defaults.variantes?.accesosRapidos === 'circulos').length, 1);
 });
 
-test('Editorial declara su bienvenida al mudarse el gate de tabBarStyle a variantes', () => {
-  // Sin esto, un estudio que instale Editorial DESPUÉS de esta fase perdería
-  // la bienvenida. (Los que ya la tienen instalada se cubren con el OR de
-  // tabBarStyle en login/page.tsx: `defaults` no es retroactivo.)
-  assert.equal(getThemeDefinition('editorial')!.defaults.variantes?.bienvenida, 'foto');
+test('cada cambio de defaults sube la versión — `defaults` NO es retroactivo', () => {
+  // Sin subirla, un estudio que ya tenga el tema instalado se queda con los
+  // valores viejos para siempre y sin enterarse. Los tres suben con
+  // `escalaTexto`; Noir iba una por delante desde que su `cardStyle` pasó a
+  // `elevated`.
+  assert.equal(getThemeDefinition('oliva')!.version, 5);
+  assert.equal(getThemeDefinition('bloom')!.version, 5);
+  assert.equal(getThemeDefinition('noir')!.version, 6);
 });
 
-test('los 3 temas suben de versión al ganar variantes (para poder avisar de que hay una nueva)', () => {
+test('los 3 temas piden la tarjeta principal rotulada (rótulo + estado vacío simple)', () => {
   for (const id of ['oliva', 'bloom', 'noir']) {
-    assert.equal(getThemeDefinition(id)!.version, 3, `"${id}" debería ir por la v3`);
+    assert.equal(getThemeDefinition(id)!.defaults.variantes?.tarjetaPrincipal, 'rotulada', id);
   }
-  assert.equal(getThemeDefinition('editorial')!.version, 2);
+  // Y el default sigue siendo el hero de siempre para todo lo demás.
+  assert.equal(getThemeDefinition('classic')!.defaults.variantes, undefined);
+});
+
+test('cabecera: Oliva `saludo`, Noir `nombre`, y solo Bloom `titular` (con titular grande)', () => {
+  assert.equal(getThemeDefinition('oliva')!.defaults.variantes?.cabeceraInicio, 'saludo');
+  assert.equal(getThemeDefinition('bloom')!.defaults.variantes?.cabeceraInicio, 'titular');
+  // Noir NO lleva titular grande — en el prototipo ese solo lo tiene Bloom.
+  assert.equal(getThemeDefinition('noir')!.defaults.variantes?.cabeceraInicio, 'nombre');
+});
+
+// ── La barra inferior de los tres temas, contra el prototipo ────────────────
+// El encargo la resuelve con dos ejes (`tabPill` de Bloom y `barraOscura` de
+// Noir) y NINGUNO de los tres lleva la píldora blanca con sombra que el
+// componente trae de fábrica. Se comprobaba solo el fondo de la barra oscura,
+// así que las tres desviaciones convivieron sin que nada fallara.
+function varsDe(id: string): Record<string, string> {
+  return themeToCssVars({ ...DEFAULT_THEME, ...getThemeDefinition(id)!.defaults }) as Record<string, string>;
+}
+
+test('Oliva: barra pegada abajo SIN pastilla, activo del color de marca', () => {
+  const v = varsDe('oliva');
+  assert.equal(v['--portal-tabbar-active-bg'], 'transparent');
+  assert.equal(v['--portal-tabbar-active-shadow'], 'none');
+  assert.equal(v['--portal-tabbar-active-fg'], '#3D4A2F'); // = la marca del prototipo
+  assert.equal(v['--portal-tabbar-border'], undefined);    // sí lleva línea arriba
+});
+
+test('Bloom: la pastilla activa es de MARCA, no blanca, y el icono va encima en claro', () => {
+  const v = varsDe('bloom');
+  assert.equal(v['--portal-tabbar-active-bg'], '#7C5CFC');
+  assert.equal(v['--portal-tabbar-active-shadow'], 'none'); // la sombra es de la barra
+  assert.notEqual(v['--portal-tabbar-active-fg'], '#FF8FB1'); // el rosa NO es el icono activo
+  assert.equal(v['--portal-tabbar-radius'], '999px');
+  assert.equal(v['--portal-tabbar-height'], '66px');
+});
+
+test('Noir: barra oscura, activo dorado y SIN línea superior', () => {
+  const v = varsDe('noir');
+  assert.equal(v['--portal-tabbar-bg'], '#1E2B22');
+  assert.equal(v['--portal-tabbar-active-fg'], '#D9B166');
+  assert.equal(v['--portal-tabbar-active-bg'], 'transparent');
+  assert.equal(v['--portal-tabbar-border'], 'none');
+});
+
+test('un estudio sin ninguno de los tres ejes conserva la píldora blanca de siempre', () => {
+  // La regresión que más caro saldría: estos vars no deben declararse para el
+  // resto de estudios, que heredan el fallback del componente.
+  const v = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  for (const clave of ['--portal-tabbar-active-bg', '--portal-tabbar-active-shadow',
+                       '--portal-tabbar-active-fg', '--portal-tabbar-border']) {
+    assert.equal(v[clave], undefined, clave);
+  }
+});
+
+test('escalaTexto: los valores EXACTOS de `typography.scale` del encargo, y distintos por tema', () => {
+  // ⚠️ La escala es identidad del TEMA, no una constante del producto. Se llegó
+  // a recomendar una escala única para todos los estudios y los tokens que
+  // entregó diseño lo contradicen: Noir y Oliva titulan sus secciones a 17 y
+  // Bloom a 20. Este test es el que impide que vuelva a unificarse "por
+  // coherencia".
+  assert.equal(getThemeDefinition('oliva')!.defaults.escalaTexto?.seccion, 17);
+  assert.equal(getThemeDefinition('noir')!.defaults.escalaTexto?.seccion, 17);
+  assert.equal(getThemeDefinition('bloom')!.defaults.escalaTexto?.seccion, 20);
+  // El saludo es donde más se separan: Noir lo pone 5px por encima.
+  assert.equal(getThemeDefinition('noir')!.defaults.escalaTexto?.saludo, 24);
+  assert.equal(getThemeDefinition('oliva')!.defaults.escalaTexto?.saludo, 19);
+  // Y la bienvenida, donde más: 33 / 40 / 46.
+  assert.deepEqual(
+    ['bloom', 'noir', 'oliva'].map((id) => getThemeDefinition(id)!.defaults.escalaTexto?.bienvenida),
+    [33, 40, 46],
+  );
+});
+
+test('escalaTexto: un estudio SIN tema de esta tanda no declara ninguna var de texto', () => {
+  // La regresión cara: estos tamaños no deben cambiarle el portal a nadie más.
+  const v = themeToCssVars(DEFAULT_THEME) as Record<string, string>;
+  assert.equal(Object.keys(v).some((k) => k.startsWith('--portal-text-')), false);
+  // Y con tema, las SEIS. Seis y no siete: el `timer` del encargo no se
+  // declara porque el portal no tiene pantalla de sesión guiada.
+  const oliva = themeToCssVars({ ...DEFAULT_THEME, ...getThemeDefinition('oliva')!.defaults }) as Record<string, string>;
+  assert.equal(Object.keys(oliva).filter((k) => k.startsWith('--portal-text-')).length, 6);
+  assert.equal(oliva['--portal-text-seccion'], '17px');
 });

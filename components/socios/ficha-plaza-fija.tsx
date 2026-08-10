@@ -61,7 +61,11 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
   );
 
   const spotsSala = spots.filter(s => s.salaId === f.salaId && s.activo);
-  const puedeGuardar = !!f.salaId && !!f.horaInicio && !!f.vigenciaDesde && !guardando;
+  // "Hasta" es opcional (vacío = sin fecha de fin), así que solo se compara
+  // cuando SÍ se ha puesto — un rango invertido no tiene ningún momento en
+  // que esté activo (#873).
+  const rangoInvertido = !!f.vigenciaHasta && f.vigenciaHasta < f.vigenciaDesde;
+  const puedeGuardar = !!f.salaId && !!f.horaInicio && !!f.vigenciaDesde && !rangoInvertido && !guardando;
 
   function abrir() {
     setF(formVacio(salas[0]?.id ?? ''));
@@ -186,6 +190,11 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
                 <input id={`${uid}-hasta`} type="date" className={inputCls} value={f.vigenciaHasta} onChange={e => setF(p => ({ ...p, vigenciaHasta: e.target.value }))} />
               </div>
             </div>
+            {rangoInvertido && (
+              <p role="alert" className="text-xs font-medium text-destructive">
+                “Hasta” no puede ser anterior a “Desde” — ese rango nunca estaría activo.
+              </p>
+            )}
             {error && <p className="text-xs font-medium text-destructive">{error}</p>}
           </div>
           <div className="flex justify-end gap-2 pt-2">

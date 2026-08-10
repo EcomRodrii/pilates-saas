@@ -22,6 +22,11 @@ export default function SuscripcionPage() {
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoBilling | null>(null);
   const [cargandoEstado, setCargandoEstado] = useState(true);
+  // Los días de prueba que quedan se calculan aquí y no abajo con el resto de
+  // derivados: abajo ya se ha pasado por `if (loading || !session) return null`,
+  // así que no cabe ningún hook, y leer el reloj en render es impuro. La
+  // granularidad es de días: no hace falta refrescarlo mientras la página vive.
+  const [diasPrueba, setDiasPrueba] = useState<number | null>(null);
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +40,9 @@ export default function SuscripcionPage() {
     estadoBilling().then((e) => {
       if (vivo) {
         setEstado(e);
+        setDiasPrueba(e?.pruebaTermina
+          ? Math.max(0, Math.ceil((new Date(e.pruebaTermina).getTime() - Date.now()) / 86400000))
+          : null);
         setCargandoEstado(false);
       }
     });
@@ -46,7 +54,11 @@ export default function SuscripcionPage() {
     setAccion(plan);
     const r = await iniciarSuscripcion(plan);
     if ('url' in r) {
-      window.location.href = r.url;
+      // `assign()` en vez de `href = …`: mismo salto de página, pero es una
+      // llamada y no la mutación de un global, que es lo que marcaba
+      // `react-hooks/immutability`. Es además lo que ya usa portal/compras
+      // para estas mismas redirecciones a Stripe Checkout.
+      window.location.assign(r.url);
     } else {
       setError(r.error);
       setAccion(null);
@@ -58,7 +70,7 @@ export default function SuscripcionPage() {
     setAccion('portal');
     const r = await gestionarSuscripcion();
     if ('url' in r) {
-      window.location.href = r.url;
+      window.location.assign(r.url);
     } else {
       setError(r.error);
       setAccion(null);
@@ -73,9 +85,6 @@ export default function SuscripcionPage() {
   const enPrueba = estado?.enPrueba ?? false;
   // Primera suscripción (nunca se ha suscrito) → tiene derecho a la prueba gratis.
   const primeraVez = !estado?.subscriptionStatus;
-  const diasPrueba = estado?.pruebaTermina
-    ? Math.max(0, Math.ceil((new Date(estado.pruebaTermina).getTime() - Date.now()) / 86400000))
-    : null;
   // Fecha del próximo cobro, en cristiano. Durante la prueba es el primer cargo.
   const proximoCobro = estado?.periodoTermina
     ? new Date(estado.periodoTermina).toLocaleDateString('es-ES', {

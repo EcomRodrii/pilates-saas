@@ -4,7 +4,7 @@ import { useState, useId, useEffect } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { esRutaCongelada } from '@/lib/frozen-features';
 import { useRol, puedeMoverDinero } from '@/lib/permisos';
-import { Package, Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Check, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Tag, Users, Repeat, Zap, ShoppingBag, X, Search } from 'lucide-react';
 import type { PlanTarifa, ProductoPOS } from '@/lib/types';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';

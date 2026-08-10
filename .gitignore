@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# eslint (caché local; en CI se restaura con actions/cache)
+.eslintcache
+
 # graphify (knowledge-graph build output)
 /graphify-out/
 

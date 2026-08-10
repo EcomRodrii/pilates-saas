@@ -11,6 +11,7 @@ import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type Recomen
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { conReintentoResend } from '@/lib/emails/resend-reintentos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from '../emails/remitente.ts';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
@@ -202,7 +203,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     const { error } = await conReintentoResend(() =>
       resend!.emails.send(
         {
-          from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+          from: remitentePorMarca(studioNombre || 'Tentare'),
           to: [email],
           subject: c.titulo,
           html,
@@ -309,7 +310,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     // Mismo reintento ante fallos transitorios que en procesarCandidato.
     const { error } = await conReintentoResend(() =>
       resend!.emails.send(
-        { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+        { from: remitentePorMarca(opts.studioNombre || 'Tentare'), to: [c.socio.email], subject: c.asunto, html },
         { idempotencyKey: base.id },
       )
     );
@@ -386,7 +387,39 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       throw new Error('Resend no configurado (RESEND_API_KEY)');
     }
 
-    const data = await step.run('fetch-data', () => fetchAllStudioData(studioId));
+    // Lo que sale de un `step.run` se serializa ENTERO como estado de Inngest:
+    // viaja a Inngest, se guarda, y se reconstruye en cada replay del handler.
+    // `fetchAllStudioData` devuelve ~55 conjuntos (es el arranque completo del
+    // panel) y este cron usa ONCE — los otros ~44 se serializaban, se
+    // almacenaban y se volvían a deserializar en cada reintento sin que nadie
+    // los leyera nunca.
+    //
+    // El recorte va DENTRO del step, no fuera: fuera no serviría de nada,
+    // porque lo que se guarda es justo lo que el step devuelve.
+    //
+    // La lista es la unión exacta de lo que consumen las dos llamadas de abajo
+    // (`computeAutomationCandidatos` y `computeAutomatizacionMktCandidatos`),
+    // ambas con desestructurado explícito y sin spread — si alguna pide un
+    // campo nuevo, `tsc` lo nombra aquí.
+    //
+    // No se toca `construirSnapshot` (Decision OS): ese YA devuelve un
+    // SnapshotEstudio recortado, con ventanas temporales incluidas.
+    const data = await step.run('fetch-data', async () => {
+      const d = await fetchAllStudioData(studioId);
+      return {
+        automationRules: d.automationRules,
+        automationLogs: d.automationLogs,
+        automatizaciones: d.automatizaciones,
+        socios: d.socios,
+        reservas: d.reservas,
+        recibos: d.recibos,
+        sesiones: d.sesiones,
+        citas: d.citas,
+        tiposClase: d.tiposClase,
+        suscripciones: d.suscripciones,
+        planesTarifa: d.planesTarifa,
+      };
+    });
 
     // Puro y determinista: se recomputa igual en cada replay del handler.
     const candidatos = computeAutomationCandidatos(

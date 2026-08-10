@@ -3,8 +3,16 @@
 // PENDIENTE_APROBACION una vez empezada su clase. La regla de negocio en sí
 // vive en la RPC `resolver_reserva_pendiente` (una aprobación tardía siempre
 // vuelve CANCELADA, pase lo que pase con este cron) — este cron es solo el
-// aviso proactivo a la socia, por eso corre cada minuto y no cada 15 min como
-// el resto de crons de notificaciones: el desfase debe ser mínimo.
+// aviso proactivo a la socia.
+//
+// Cada 5 min, no cada minuto. Corría cada minuto para que el desfase del aviso
+// fuera mínimo, pero eso son 43.800 tics al mes y, contando el step de Inngest
+// como invocación propia, ~87.600 invocaciones de Vercel: el 70 % de todas las
+// que generan los crons de este repo, para una tabla en la que casi siempre no
+// hay nada que expirar. Lo que se paga con el cambio es que el aviso puede
+// llegar hasta 4 minutos más tarde; lo que NO cambia es la corrección, porque
+// la guardia de "clase ya empezada" está dentro de la RPC y no depende de que
+// este cron llegue a tiempo ni de que llegue siquiera.
 //
 // Sin fan-out por estudio (a diferencia de notif-automations.ts): es una
 // única query global de "sesión ya empezada", no hay nada que decidir por
@@ -15,7 +23,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { expirarReservaPendiente } from '@/lib/db/supabase-data-admin';
 
 export const expirarReservasPendientesDispatcher = inngest.createFunction(
-  { id: 'reservas-pendientes-expirar', triggers: [{ cron: '* * * * *' }] },
+  { id: 'reservas-pendientes-expirar', triggers: [{ cron: '*/5 * * * *' }] },
   async ({ step }) => {
     return step.run('expirar', async () => {
       const admin = getSupabaseAdmin();

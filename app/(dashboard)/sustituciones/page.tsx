@@ -429,15 +429,31 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
   const [hora, setHora] = useState('');
 
   // Prefill con el horario actual de la clase al abrir.
-  useEffect(() => {
-    if (!s?.sesiones?.inicio) return;
+  //
+  // Ajuste en render, no efecto: con efecto los dos campos se pintaban vacíos
+  // un frame antes de rellenarse, que es el parpadeo que se veía al abrir el
+  // diálogo de cambio de horario.
+  const claveClase = `${s?.id ?? ''} ${s?.sesiones?.inicio ?? ''}`;
+  const [claveClasePrevia, setClaveClasePrevia] = useState<string | null>(null);
+  if (s?.sesiones?.inicio && claveClase !== claveClasePrevia) {
+    setClaveClasePrevia(claveClase);
     const d = new Date(s.sesiones.inicio);
     setFecha(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
     setHora(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-  }, [s?.sesiones?.inicio, s?.id]);
+  }
+
+  // El "ahora" contra el que se valida no puede leerse en render (Date.now() es
+  // impuro y además haría que dos renders del mismo diálogo dieran resultados
+  // distintos). Se fija al abrir: este diálogo está siempre montado, así que un
+  // mount-once daría la hora de carga de la página, no la de abrirlo.
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render; es justo lo que la regla de pureza prohíbe.
+    if (s) setAhoraMs(Date.now());
+  }, [s]);
 
   const inicioISO = fecha && hora ? new Date(`${fecha}T${hora}:00`).toISOString() : null;
-  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < Date.now();
+  const enPasado = !!inicioISO && new Date(inicioISO).getTime() < ahoraMs;
   const inputCls = 'w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm text-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition-all';
 
   return (

@@ -65,6 +65,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   let bloquesHomeActuales: unknown[] = BLOQUES_HOME_DEFAULT;
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());
+    // El editor pide las tres de una vez al abrir. Este test solo modela
+    // `home`; las otras dos van vacías, como antes.
+    if (url.searchParams.get('pantalla') === 'todas') {
+      return json(route, { home: bloquesHomeActuales, clases: [], bonos: [] });
+    }
     if (url.searchParams.get('pantalla') !== 'home') return json(route, []);
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as unknown[];
@@ -74,6 +79,18 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     }
     return json(route, bloquesHomeActuales);
   });
+  // Las miniaturas son iframes del portal real y necesitan token. Sin este
+  // mock caen en el `**/api/**` genérico, que devuelve `{}` — y sin token la
+  // miniatura pinta su hueco gris, que es justo lo que NO se quiere probar.
+  await page.route('**/api/theme/home-preview-token**', route => json(route, { token: 'token-e2e' }));
+  // Y el contenido de las miniaturas se stubea: seis iframes renderizando el
+  // portal de verdad contra `next dev` atascan la página entera — tumbaba
+  // incluso el test de navegación de "Personalizar", que no toca miniaturas.
+  // Lo que se prueba aquí es el ARMAZÓN (que hay un iframe por fila, al portal
+  // de ese estudio y sin interacción); que el portal renderice bien es cosa de
+  // los e2e del portal.
+  await page.route('**/portal-preview/**', route =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>preview</body></html>' }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
     json(route, { id: STUDIO_ID, nombre: 'Studio Carmen', slug: 'studio-carmen', owner_auth_user_id: AUTH_UID }));
@@ -89,13 +106,37 @@ function filaTema(page: Page, id: string) {
 }
 
 test.describe('Biblioteca de temas', () => {
+  // La miniatura pasa a ser el portal REAL en pequeño (ThemeThumbVivo), no un
+  // dibujo a mano. El dibujo reflejaba color, accesos y barra — pero NO la
+  // cabecera, ni la tarjeta principal, ni `bloquesHome`, que es justo lo que
+  // separa un tema de una paleta.
+  test('cada tema enseña el portal de verdad, con los bloques que ESE tema dejaría', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    // Un iframe por fila, apuntando al portal real del estudio.
+    // La miniatura no se monta hasta que se ve (IntersectionObserver): sin
+    // acercar la fila, el test comprueba un iframe que a propósito no existe.
+    await filaTema(page, 'oliva').scrollIntoViewIfNeeded();
+    const marcoOliva = filaTema(page, 'oliva').locator('iframe');
+    await expect(marcoOliva).toHaveCount(1);
+    await expect(marcoOliva).toHaveAttribute('src', /\/portal-preview\/studio-carmen/);
+
+    // No se navega dentro de una miniatura de 96 px.
+    await expect(marcoOliva).toHaveCSS('pointer-events', 'none');
+  });
+
   test('lista los temas de la galería, con el activo marcado "En uso"', async ({ page }) => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    // Los tres temas con paleta propia de la última tanda, y los previos.
-    for (const id of ['classic', 'geometric', 'editorial', 'oliva', 'bloom', 'noir']) {
+    // El predeterminado y los tres temas de diseño. Ni uno más: 'geometric' y
+    // 'editorial' se retiraron de la biblioteca.
+    for (const id of ['classic', 'oliva', 'bloom', 'noir']) {
       await expect(filaTema(page, id)).toBeVisible();
+    }
+    for (const id of ['geometric', 'editorial']) {
+      await expect(filaTema(page, id)).toHaveCount(0);
     }
     // Sin themeId guardado, el tema resuelto es "classic" → es el que está en uso.
     await expect(filaTema(page, 'classic').getByText('En uso')).toBeVisible();
@@ -103,7 +144,7 @@ test.describe('Biblioteca de temas', () => {
   });
 
   test('"Tu tema" muestra el tema instalado con su versión', async ({ page }) => {
-    await montar(page, { themeId: 'editorial', themeVersion: 1 });
+    await montar(page, { themeId: 'oliva', themeVersion: 1 });
     await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('v1').first()).toBeVisible();
   });
@@ -113,15 +154,15 @@ test.describe('Biblioteca de temas', () => {
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
     // "Usar" solo aparece en los temas que NO están en uso.
-    const usarGeometrico = filaTema(page, 'geometric').getByRole('button', { name: 'Usar' });
+    const usarOliva = filaTema(page, 'oliva').getByRole('button', { name: 'Usar' });
     await Promise.all([
       page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
-      usarGeometrico.click(),
+      usarOliva.click(),
     ]);
 
     const body = puts.at(-1)!;
-    expect(body.themeId).toBe('geometric');
-    expect(body.themeVersion).toBe(1);
+    expect(body.themeId).toBe('oliva');
+    expect(body.themeVersion).toBe(5);
     expect(body.portalHeadingFontId).toBe('outfit');
     expect(body.themeCustomized).toBe(false);
   });
@@ -142,12 +183,20 @@ test.describe('Biblioteca de temas', () => {
     expect(body.primary).toBe('#1E2B22');
     expect(body.secondary).toBe('#A9B79B');
     expect(body.destacado).toBe('#D9B166');
-    expect(body.cardStyle).toBe('flat');
+    // Noir con sombra: lo dice la tabla del encargo (HANDOFF-temas §1). Estaba
+    // en `flat` por una lectura del prototipo que la contradecía.
+    expect(body.cardStyle).toBe('elevated');
     expect(body.radioTema).toEqual({ card: 24, boton: 18, chip: 999 });
     // Noir es el ÚNICO con accesos en círculo, y su barra lleva las 4
     // etiquetas pero SIN relleno (su icono activo es dorado, no macizo).
-    expect(body.variantes).toEqual({ cabeceraInicio: 'titular', accesosRapidos: 'circulos', barra: 'todas', bienvenida: 'marca' });
-    expect(body.themeVersion).toBe(3);
+    // Noir NO lleva titular grande — ése solo lo tiene Bloom en el prototipo.
+    expect(body.variantes).toEqual({ cabeceraInicio: 'nombre', accesosRapidos: 'circulos', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'marca' });
+    // ⚠️ La versión se afirma en DOS sitios (aquí y en theme-definitions.test.ts)
+    // y al subirlas por `escalaTexto` solo actualicé el unitario. Noir va una
+    // por delante desde que su cardStyle pasó a `elevated`. `defaults` no es
+    // retroactivo: subir la versión es lo que hace que el cambio llegue a quien
+    // ya lo tenga instalado.
+    expect(body.themeVersion).toBe(6);
   });
 
   test('"Usar" en Bloom manda la barra flotante y el radio de la tarjeta', async ({ page }) => {
@@ -171,7 +220,7 @@ test.describe('Biblioteca de temas', () => {
     const variantesBloom = body.variantes as Record<string, string>;
     expect(variantesBloom.barra).toBeUndefined();
     expect(variantesBloom.retos).toBe('color');
-    expect(body.themeVersion).toBe(3);
+    expect(body.themeVersion).toBe(5);
   });
 
   test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {
@@ -189,8 +238,8 @@ test.describe('Biblioteca de temas', () => {
     expect(body.barraOscura).toBeFalsy(); // clásica, no oscura — esa es solo de Noir
     expect(body.cardStyle).toBe('flat');
     expect(body.radioTema).toEqual({ card: 26, boton: 20, chip: 999, acceso: 20 });
-    expect(body.variantes).toEqual({ accesosRapidos: 'rejilla', barra: 'todasRelleno', bienvenida: 'foto' });
-    expect(body.themeVersion).toBe(3);
+    expect(body.variantes).toEqual({ cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todasRelleno', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' });
+    expect(body.themeVersion).toBe(5);
   });
 
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {
@@ -220,10 +269,43 @@ test.describe('Biblioteca de temas', () => {
     expect(body.some((b) => b.kind === 'texto' && b.id === 'b-texto-1')).toBe(true);
   });
 
-  test('"Personalizar" lleva al editor', async ({ page }) => {
+  // ⚠️ "Personalizar" era un Link FIJO a la ruta del editor, SIN el id del
+  // tema de su fila: pulsaras el que pulsaras, entrabas con TU tema. Por eso
+  // Oliva, Bloom y Noir parecían el mismo tema — nunca llegabas a verlos.
+  test('"Personalizar" en un tema que NO tienes lo instala y abre el editor', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    const fila = filaTema(page, 'noir');
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      fila.getByRole('button', { name: 'Personalizar' }).click(),
+    ]);
+
+    // Se instala EL DE SU FILA, no el que ya tenías.
+    expect(puts.at(-1)!.themeId).toBe('noir');
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 15_000 });
+  });
+
+  test('"Personalizar" del tema EN USO sigue siendo un enlace directo, sin reinstalar', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+    // Sin themeId guardado el tema en uso es "classic".
+    await filaTema(page, 'classic').getByRole('link', { name: 'Personalizar' }).click();
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 15_000 });
+    // Reinstalarlo pisaría los ajustes finos que la propietaria ya tuviera.
+    expect(puts).toHaveLength(0);
+  });
+
+  test('"Personalizar" (arriba, Tu tema) lleva al editor', async ({ page }) => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Tu tema' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('link', { name: 'Personalizar' }).first().click();
-    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/);
+    // Timeout explícito, como los toBeVisible de arriba: el webServer es
+    // `next dev`, así que la PRIMERA navegación a /editor tiene que compilar la
+    // ruta bajo demanda y eso se come de sobra los 5s por defecto de
+    // toHaveURL. En CI no se veía porque `retries: 1` reintentaba con la ruta
+    // ya compilada; en local, sin reintento, fallaba 2 de cada 3 veces.
+    await expect(page).toHaveURL(/\/configuracion\/apariencia\/editor/, { timeout: 30_000 });
   });
 });

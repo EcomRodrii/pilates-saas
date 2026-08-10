@@ -165,7 +165,6 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     marcarDevuelto,
     reintentar,
     deleteRecibo,
-    cobrarTodosPendientes,
     addRecibo,
     crearFacturaDirecta,
     resetDatosPilates,
@@ -173,6 +172,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
   // ── Hydration guard ─────────────────────────────────────────────────────────
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
   const now = mounted ? new Date() : new Date('2026-06-29');
 
@@ -194,6 +194,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
       // Stripe hubiera cobrado nada. El webhook de checkout.session.completed
       // ya hace ese trabajo en servidor, con el importe verificado contra
       // Stripe. Aquí no se escribe: se relee el estado real.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Retorno de Stripe: lee la URL para saber si el pago se completó y la limpia con history.replaceState. Sincronización con el navegador.
       setStripeToast({ tipo: 'ok', msg: 'Pago completado. Actualizando…' });
       window.history.replaceState({}, '', '/cobros?tab=deudas');
       resetDatosPilates();
@@ -530,7 +531,9 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     });
     setStripeLoading(null);
     if ('url' in result && result.url) {
-      window.location.href = result.url;
+      // `assign()` en vez de `href = …`: mismo salto, pero llamada en vez de
+      // mutación de un global (lo que marcaba `react-hooks/immutability`).
+      window.location.assign(result.url);
     } else {
       const err = 'error' in result ? result.error : 'Error desconocido';
       setStripeToast({ tipo: 'error', msg: err });

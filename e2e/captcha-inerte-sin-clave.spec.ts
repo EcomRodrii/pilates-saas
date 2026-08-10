@@ -26,25 +26,18 @@ test('login: sin clave de Turnstile, el botón de entrar no se queda deshabilita
   await expect(page.getByText('Email o contraseña incorrectos')).toBeVisible();
 });
 
-test('crear-estudio: sin clave de Turnstile, el alta llega hasta pedir el email al backend', async ({ page }) => {
-  let signUpLlamado = false;
-  await page.route('**/auth/v1/signup**', route => {
-    signUpLlamado = true;
-    return json(route, { message: 'ya existe una cuenta con ese email' }, 400);
+test('crear-estudio: sin clave de Turnstile, el formulario de interés llega hasta el backend', async ({ page }) => {
+  let interesLlamado = false;
+  await page.route('**/api/public/interes-lanzamiento', route => {
+    interesLlamado = true;
+    return json(route, { ok: true });
   });
 
   await page.goto('/crear-estudio');
-  await page.getByRole('textbox', { name: 'Nombre del estudio' }).fill('Pilates Test');
-  await page.getByRole('textbox', { name: 'Ciudad' }).fill('Madrid');
-  await page.getByRole('textbox', { name: 'Teléfono' }).fill('600000000');
-  await page.getByRole('button', { name: /Continuar/ }).click();
-
-  await page.getByRole('textbox', { name: 'Nombre completo' }).fill('Ana Test');
   await page.getByRole('textbox', { name: 'Email' }).fill('ana@example.com');
-  await page.getByRole('textbox', { name: 'Contraseña' }).fill('contraseña123');
 
-  const submit = page.getByRole('button', { name: /Crear estudio/ });
+  const submit = page.getByRole('button', { name: /Avísame cuando esté activo/ });
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect.poll(() => signUpLlamado).toBe(true);
+  await expect.poll(() => interesLlamado).toBe(true);
 });

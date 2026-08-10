@@ -4,6 +4,7 @@ import { inngest, EVENTS } from '@/lib/inngest/client';
 import { contactarDesde, alertarPropietaria, type RankingItem } from '@/lib/sustituciones/contacto';
 import { mensajeSeguro } from '@/lib/errores';
 import { tieneFeature } from '@/lib/billing/entitlements';
+import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 
 // ── Núcleo de "marcar una baja" ─────────────────────────────────────────────
 //
@@ -65,6 +66,9 @@ export async function crearBaja(
     .eq('id', sesionId).eq('studio_id', studioId).maybeSingle();
   if (!clase) return { ok: false, error: 'Clase no encontrada', status: 404 };
   if (clase.cancelada) return { ok: false, error: 'La clase ya está cancelada', status: 409 };
+  if (sesionYaEmpezada(clase.inicio as string)) {
+    return { ok: false, error: MENSAJE_CLASE_YA_EMPEZADA, status: 409 };
+  }
 
   // Una instructora solo puede darse de baja de SUS clases. Mismo mensaje que
   // "no encontrada" para no filtrar qué clases existen en el estudio.

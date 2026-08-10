@@ -32,6 +32,7 @@ export function useModo() {
   const [modo, setModoState] = useState<Modo>(POR_DEFECTO);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee localStorage y escucha eventos 'storage' para sincronizar entre pestañas. Sistema externo.
     setModoState(readModo());
     const sync = () => setModoState(readModo());
     window.addEventListener(EVT, sync);

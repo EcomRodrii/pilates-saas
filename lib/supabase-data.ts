@@ -1,25 +1,21 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
+import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { conCacheCatalogo } from '@/lib/cache/catalogo-estudio';
-import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
+// (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
+// no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
+// —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
+// de cliente— pero eran una arista latente: bastaba con que alguien usara una
+// de esas funciones aquí para enganchar `resend` + `@react-email` al grafo del
+// layout raíz, que es cliente.)
 import { uid } from '@/lib/utils';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
-import { siguienteEnEspera, contarReservasActivasFuturas, esCancelacionTardia } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
 import { idEstudioDe } from '@/lib/id-estudio';
 import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
-import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
-import { calcularMetrica } from '@/lib/engines/achievement-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { decidirPremioReferido } from '@/lib/booking-logic';
-import { evaluarFeature, evaluarLimiteSocias } from '@/lib/billing/billing-rules';
-import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores';
-import { planMasElegido } from '@/lib/estudio-publico';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   RowAchievementDefinitions,
@@ -55,7 +51,6 @@ import type {
   RowNotificaciones,
   RowPlanesTarifa,
   RowPostsComunidad,
-  RowPreferenciasSocio,
   RowProductosPos,
   RowRecibos,
   RowReservas,
@@ -79,6 +74,7 @@ import type {
   RowStudioHorario,
   RowMandatosSepa,
   RowSuscripciones,
+  RowCadenaTiposClase,
   RowTiposClase,
   RowFavoritosClase,
   RowRetoParticipaciones,
@@ -111,7 +107,6 @@ import type {
   Factura,
   Instructor,
   Integracion,
-  TipoIntegracion,
   LevelDefinition,
   MemberCredits,
   MensajeEquipo,
@@ -126,7 +121,6 @@ import type {
   PlanTarifa,
   PostComunidad,
   ComentarioComunidad,
-  PreferenciasSocio,
   ProductoPOS,
   Recibo,
   Reserva,
@@ -135,7 +129,6 @@ import type {
   RewardHistory,
   RewardRedemption,
   RewardRule,
-  RewardTrigger,
   Sala,
   BloqueoMaquina,
   PlazaFija,
@@ -151,6 +144,7 @@ import type {
   DiaHorario,
   MandatoSEPA,
   Suscripcion,
+  CadenaTipoClase,
   TipoClase,
   FavoritoClase,
   RetoParticipacion,
@@ -161,10 +155,6 @@ import type {
   VentaPOS,
   VideoOnDemand,
 } from '@/lib/types';
-import {
-  generarHuecosDia, dentroDeDisponibilidad, horaParedAInstante,
-  type IntervaloOcupado, type HuecoCita,
-} from '@/lib/citas/slots';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -344,13 +334,53 @@ export function mapUsuario(r: RowUsuarios): Usuario {
   } as Usuario;
 }
 
-export function mapSocio(r: RowSocios): Socio {
+
+// ─── Filas del ARRANQUE del panel ────────────────────────────────────────────
+// El bootstrap pide columnas concretas, no `select('*')`. Estos tipos son el
+// contrato de esa lista: si el select se queda corto, `tsc` falla NOMBRANDO la
+// columna que falta, en vez de que llegue `undefined` en tiempo de ejecución.
+//
+// ⚠️ Para que esa comprobación exista, la cadena del select tiene que ser UN
+// literal de UNA línea. Partirla en `'a,b' + 'c,d'` la degrada a `string`,
+// supabase-js pierde la inferencia y se pierde toda la verificación EN SILENCIO.
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en'>;
+export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
+// El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
+// entrega: son columnas que solo lee el dunning (servidor) y la card de
+// devoluciones, y meterlas aquí engordaría el payload de arranque de TODAS las
+// pantallas para nada (ver la fase B de "columnas, no consultas").
+export type FilaReciboPanel = Omit<RowRecibos,
+  | 'proximo_reintento'
+  | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
+  | 'entrega_sesiones_antes' | 'entrega_sesiones_despues'
+  | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
+  | 'entrega_estado_antes' | 'importe_devuelto'>;
+
+export function mapSocio(r: FilaSocioPanel): Socio {
+  // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
+  //
+  // `socios.aceptacion_version` no guarda un número de versión: guarda el TEXTO
+  // LEGAL COMPLETO que aceptó la socia (`textoLegalCompleto()`), unos 2,7 KB por
+  // fila e idéntico para todas. Viajaba al navegador con cada socia y no lo leía
+  // NADIE: el panel solo usa `.firma`, `.fecha`, `.origen` y `.introducidaPor`
+  // (ver clientas/[id]/page.tsx) y la existencia del objeto, que depende de
+  // `aceptacion_fecha`, no de este campo. Sacarlo del select bajó `socios` un 79 %.
+  //
+  // Su único lector real es el guard de consentimiento del cron de penalizaciones
+  // (`lib/inngest/penalizaciones.ts:44`), que hace su PROPIO select en servidor
+  // con la columna incluida — así que sigue comparando contra el texto completo.
+  //
+  // Si algún día hace falta en el panel, hay que volver a pedir la columna en el
+  // select de `fetchCriticalStudioData`, no leer este campo esperando contenido.
   const aceptacionContrato =
     r.aceptacion_fecha
       ? {
           fecha: r.aceptacion_fecha,
           firma: r.aceptacion_firma ?? '',
-          versionTexto: r.aceptacion_version ?? '',
+          // Vacío a propósito, y ahora también por tipo: `FilaSocioPanel` excluye
+          // `aceptacion_version`, así que esto no puede volver a leerse por
+          // descuido — habría que reponer la columna en el select primero.
+          versionTexto: '',
           ...(r.aceptacion_origen ? { origen: r.aceptacion_origen as 'PORTAL' | 'MOSTRADOR' } : {}),
           ...(r.aceptacion_por ? { introducidaPor: r.aceptacion_por } : {}),
         }
@@ -398,21 +428,6 @@ function mapCampoPersonalizado(r: RowCamposPersonalizados): CampoPersonalizado {
     orden: r.orden ?? 0,
     activo: r.activo ?? true,
   };
-}
-
-export function mapPreferenciasSocio(r: RowPreferenciasSocio): PreferenciasSocio {
-  return {
-    socioId: r.socio_id,
-    studioId: r.studio_id,
-    disponibilidad: r.disponibilidad ?? {},
-    instructorFavoritoId: r.instructor_favorito_id ?? null,
-    tipoClaseFavorita: r.tipo_clase_favorita ?? null,
-    duracionPreferida: r.duracion_preferida ?? null,
-    nivel: r.nivel ?? null,
-    notifEmail: r.notif_email ?? true,
-    notifWhatsapp: r.notif_whatsapp ?? true,
-    actualizadoEn: r.actualizado_en,
-  } as PreferenciasSocio;
 }
 
 export function mapRewardRule(r: RowRewardRules): RewardRule {
@@ -813,7 +828,7 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
 }
 
 
-export function mapSesion(r: RowSesiones): Sesion {
+export function mapSesion(r: FilaSesionPanel): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -847,7 +862,7 @@ export function mapReserva(r: RowReservas): Reserva {
   } as Reserva;
 }
 
-export function mapRecibo(r: RowRecibos): Recibo {
+export function mapRecibo(r: FilaReciboPanel): Recibo {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -1308,26 +1323,6 @@ function reciboToDb(rec: Recibo) {
     metodo_cobro: rec.metodoCobro ?? null,
     sepa_estado: rec.sepaEstado ?? null,
     proximo_reintento: rec.proximoReintento ?? null,
-  };
-}
-
-function facturaToDb(fac: Factura) {
-  return {
-    id: fac.id,
-    studio_id: fac.studioId ?? STUDIO_ID,
-    recibo_id: fac.reciboId,
-    numero_completo: fac.numeroCompleto,
-    fecha_emision: fac.fechaEmision,
-    receptor_nombre: fac.receptorNombre,
-    receptor_nif: fac.receptorNIF ?? null,
-    base_imponible: fac.baseImponible,
-    tipo_iva: fac.tipoIVA,
-    cuota_iva: fac.cuotaIVA,
-    total: fac.total,
-    verifactu_hash: fac.verifactuHash ?? null,
-    verifactu_prev_hash: fac.verifactuPrevHash ?? null,
-    verifactu_ts: fac.verifactuTs ?? null,
-    verifactu_seq: fac.verifactuSeq ?? null,
   };
 }
 
@@ -2342,6 +2337,38 @@ export async function dbMarcarCobrado(
   return ESCRITURA_OK;
 }
 
+/**
+ * Guarda en el recibo QUÉ entregó su cobro. Escritor dedicado en vez de ampliar
+ * `dbUpdateRecibo` con ocho campos que no usa nadie más: esto lo escribe UNA
+ * vez cada camino de entrega y no se vuelve a tocar.
+ *
+ * El espejo de servidor vive en `lib/billing/renovacion-server.ts` (que lo
+ * escribe con service-role); esta es la del panel. Los dos tienen que guardar lo
+ * mismo o la reversión leerá dos formas distintas del mismo hecho.
+ */
+export async function dbGuardarEntrega(reciboId: string, entrega: {
+  tipo: 'BONO' | 'MENSUAL' | 'ALTA_WEB' | 'NINGUNA';
+  aplicada: boolean;
+  sesionesAntes: number | null;
+  sesionesDespues: number | null;
+  fechaFinAntes: string | null;
+  fechaFinDespues: string | null;
+  estadoAntes: string | null;
+}): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('recibos').update({
+    entrega_tipo: entrega.tipo,
+    entrega_aplicada: entrega.aplicada,
+    entrega_aplicada_en: new Date().toISOString(),
+    entrega_sesiones_antes: entrega.sesionesAntes,
+    entrega_sesiones_despues: entrega.sesionesDespues,
+    entrega_fecha_fin_antes: entrega.fechaFinAntes,
+    entrega_fecha_fin_despues: entrega.fechaFinDespues,
+    entrega_estado_antes: entrega.estadoAntes,
+  }).eq('id', reciboId);
+  if (error) return falloEscritura('[dbGuardarEntrega]', error);
+  return ESCRITURA_OK;
+}
+
 export async function dbUpdateRecibo(id: string, changes: Partial<Recibo>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('socioId' in changes) db.socio_id = changes.socioId;
@@ -2399,7 +2426,12 @@ export async function dbDeleteRecibo(id: string): Promise<ResultadoEscritura> {
 
 // NOTA: las facturas se crean y sellan (huella Veri*Factu) en el servidor vía
 // /api/facturas/sellar. No insertar facturas directamente desde el cliente: se
-// saltaría la huella encadenada. facturaToDb se conserva para los backups.
+// saltaría la huella encadenada.
+//
+// Antes esta nota decía además que `facturaToDb` se conservaba "para los
+// backups". No era cierto: el motor de backups copia filas crudas por nombre
+// de tabla (`BACKUP_TABLES` en lib/engines/backup-engine.ts) y nunca pasó por
+// ese mapeador. Llevaba sin usarse desde entonces, así que se ha borrado.
 
 export async function dbInsertCita(cita: Cita): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('citas').insert(citaToDb(cita));
@@ -2488,23 +2520,6 @@ export async function dbInsertMensajeEquipo(m: MensajeEquipo): Promise<boolean> 
   return true;
 }
 
-export async function dbUpsertPreferenciasSocio(p: PreferenciasSocio) {
-  const row = {
-    socio_id: p.socioId,
-    studio_id: p.studioId ?? STUDIO_ID,
-    disponibilidad: p.disponibilidad,
-    instructor_favorito_id: p.instructorFavoritoId ?? null,
-    tipo_clase_favorita: p.tipoClaseFavorita ?? null,
-    duracion_preferida: p.duracionPreferida ?? null,
-    nivel: p.nivel ?? null,
-    notif_email: p.notifEmail,
-    notif_whatsapp: p.notifWhatsapp,
-    actualizado_en: new Date().toISOString(),
-  };
-  const { error } = await supabase.from('preferencias_socio').upsert(row, { onConflict: 'socio_id' });
-  if (error) reportDbError('[dbUpsertPreferenciasSocio]', error);
-}
-
 // ─── Gamificación: créditos y recompensas ────────────────────────────────────
 
 export async function dbInsertRewardRule(r: RewardRule): Promise<ResultadoEscritura> {
@@ -2561,7 +2576,7 @@ export async function dbInsertCreditTransaction(t: CreditTransaction) {
 // cuando otorgado=true, si no duplicaría esas filas en un reintento.
 export async function dbOtorgarCreditoDisparador(
   socioId: string, studioId: string, trigger: string, refId: string, configId?: string,
-): Promise<{ ok: true; saldo: number; otorgado: boolean } | { error: string }> {
+): Promise<{ ok: true; saldo: number; otorgado: boolean; accionId: string | null } | { error: string }> {
   const { data, error } = await supabase.rpc('otorgar_credito_disparador', {
     p_socio_id: socioId, p_studio_id: studioId, p_trigger: trigger, p_ref_id: refId,
     p_config_id: configId ?? null,
@@ -2583,7 +2598,10 @@ export async function dbOtorgarCreditoDisparador(
     reportDbError('[dbOtorgarCreditoDisparador]', { message: 'La RPC no devolvió ninguna fila' });
     return { error: 'No se pudo confirmar el crédito' };
   }
-  return { ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean };
+  return {
+    ok: true, saldo: row.saldo as number, otorgado: row.otorgado as boolean,
+    accionId: (row.accion_id as string | null) ?? null,
+  };
 }
 
 // P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
@@ -2667,6 +2685,21 @@ export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: str
   const { data, error } = await supabase.rpc('ingresos_por_dia', { p_desde: desde });
   if (error) { reportDbError('[dbIngresosPorDia]', error); return []; }
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
+}
+
+// Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
+// /informes, agregado SERVER-SIDE (migr 20260810150000, mismo patrón que
+// dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin
+// suscripcion_id (histórico migrado, POS/otros) caen en 'OTROS'. `hasta` es
+// inclusive — se usa para acotar el período anterior sin solapar con el actual.
+export async function dbVentasPorTipo(
+  desde: string | null,
+  hasta: string | null,
+): Promise<{ tipo: string; nVentas: number; total: number }[]> {
+  const { data, error } = await supabase.rpc('ventas_por_tipo', { p_desde: desde, p_hasta: hasta });
+  if (error) { reportDbError('[dbVentasPorTipo]', error); return []; }
+  return ((data ?? []) as { tipo: string; n_ventas: number; total: number }[])
+    .map((r) => ({ tipo: r.tipo, nVentas: Number(r.n_ventas), total: Number(r.total) }));
 }
 
 // F1 (B1): contadores de clientas SERVER-SIDE (migr 0097). Sustituye a los 4 filter/
@@ -3191,6 +3224,56 @@ export async function dbUpsertIntegracion(intg: Integracion) {
   if (error) reportDbError('[dbUpsertIntegracion]', error);
 }
 
+// ─── Catálogo de tipos de clase de la cadena (plantilla, ver lib/types.ts) ───
+
+function mapCadenaTipoClase(r: RowCadenaTiposClase): CadenaTipoClase {
+  return {
+    id: r.id,
+    cadenaId: r.cadena_id,
+    nombre: r.nombre,
+    color: r.color ?? '#4F46E5',
+    duracionMinutos: r.duracion_minutos ?? 60,
+    descripcion: r.descripcion ?? null,
+    nivel: (r.nivel as CadenaTipoClase['nivel']) ?? 'TODOS',
+    fotoUrl: r.foto_url ?? null,
+    creadoEn: r.creado_en,
+    actualizadoEn: r.actualizado_en,
+  };
+}
+
+export async function dbListCadenaTiposClase(cadenaId: string): Promise<CadenaTipoClase[]> {
+  const { data, error } = await supabase.from('cadena_tipos_clase').select('*').eq('cadena_id', cadenaId).order('nombre');
+  if (error) { reportDbError('[dbListCadenaTiposClase]', error); return []; }
+  return (data ?? []).map(mapCadenaTipoClase);
+}
+
+export async function dbInsertCadenaTipoClase(t: CadenaTipoClase): Promise<ResultadoEscritura> {
+  const row = {
+    id: t.id, cadena_id: t.cadenaId, nombre: t.nombre, color: t.color,
+    duracion_minutos: t.duracionMinutos, descripcion: t.descripcion ?? null, nivel: t.nivel,
+    foto_url: t.fotoUrl ?? null,
+  };
+  const { error } = await supabase.from('cadena_tipos_clase').insert(row);
+  return error ? falloEscritura('[dbInsertCadenaTipoClase]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdateCadenaTipoClase(id: string, changes: Partial<CadenaTipoClase>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
+  if ('nombre' in changes) db.nombre = changes.nombre;
+  if ('color' in changes) db.color = changes.color;
+  if ('duracionMinutos' in changes) db.duracion_minutos = changes.duracionMinutos;
+  if ('descripcion' in changes) db.descripcion = changes.descripcion;
+  if ('nivel' in changes) db.nivel = changes.nivel;
+  if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  const { error } = await supabase.from('cadena_tipos_clase').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdateCadenaTipoClase]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeleteCadenaTipoClase(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('cadena_tipos_clase').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeleteCadenaTipoClase]', error) : ESCRITURA_OK;
+}
+
 export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritura> {
   const row = {
     id: t.id, studio_id: t.studioId ?? STUDIO_ID, nombre: t.nombre, color: t.color,
@@ -3468,6 +3551,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('depVentanaDias' in changes) db.dep_ventana_dias = changes.depVentanaDias;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('imagenBienvenidaUrl' in changes) db.imagen_bienvenida_url = changes.imagenBienvenidaUrl;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
@@ -3487,6 +3571,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
   // actualiza su propio estudio con su sesión (misma RLS que el resto de campos).
@@ -3503,6 +3588,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('onbPrioridad' in changes) db.onb_prioridad = changes.onbPrioridad;
   if ('onbAyudaAlta' in changes) db.onb_ayuda_alta = changes.onbAyudaAlta;
   if ('decisionContratoVistoEn' in changes) db.decision_contrato_visto_en = changes.decisionContratoVistoEn;
+  if ('tourVistoEn' in changes) db.tour_visto_en = changes.tourVistoEn;
+  if ('gestoriaEnvioAutomatico' in changes) db.gestoria_envio_automatico = changes.gestoriaEnvioAutomatico;
   const { error } = await supabase.from('studios').update(db).eq('id', STUDIO_ID);
   return error ? falloEscritura('[dbUpdateStudio]', error) : ESCRITURA_OK;
 }
@@ -3718,6 +3805,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     telefono: r.telefono,
     colorPrimario: r.color_primario,
     temaPortal: r.tema_portal ?? 'original',
+    portalReact: r.portal_react ?? false,
     logoUrl: r.logo_url ?? null,
     ivaPorDefecto: r.iva_por_defecto ?? 21,
     depUmbralAlto: r.dep_umbral_alto ?? 25,
@@ -3726,6 +3814,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     fotoUrl: r.foto_url ?? null,
+    imagenBienvenidaUrl: r.imagen_bienvenida_url ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
     creadoEn: r.creado_en,
@@ -3734,6 +3823,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
     gestoriaEmail: r.gestoria_email ?? null,
+    gestoriaEnvioAutomatico: (r.gestoria_envio_automatico as 'desactivado' | 'trimestral') ?? 'desactivado',
     cadenaId: r.cadena_id ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
@@ -3756,6 +3846,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    requiereCheckinQr: r.requiere_checkin_qr ?? true,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
     onboardingDescartadoEn: r.onboarding_descartado_en ?? null,
@@ -3777,6 +3868,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     onbPrioridad: r.onb_prioridad ?? null,
     onbAyudaAlta: r.onb_ayuda_alta ?? null,
     decisionContratoVistoEn: r.decision_contrato_visto_en ?? null,
+    tourVistoEn: r.tour_visto_en ?? null,
     horarioSemana: horario?.map(mapDiaHorario),
   } as Studio;
 }
@@ -3812,6 +3904,47 @@ export function mapInstructor(r: RowInstructores): Instructor {
 // de fetchPublicStudioData ya prometía "nada de PII" en este catálogo —
 // mapInstructor() se usaba ahí directamente y sí la llevaba (el mismo mapper
 // que alimenta el panel interno, nunca pensado para salir del estudio).
+
+// Cuántas de las consultas del arranque se resuelven a la vez.
+//
+// POR QUÉ NO TODAS DE GOLPE. `Promise.all` sobre las ~53 consultas lanzaba un
+// abanico de 55 peticiones simultáneas desde el navegador. Medido en producción
+// con la Resource Timing API sobre el dashboard real: una consulta SOLA tarda
+// 107-117 ms, y dentro de ese abanico la mediana sube a 1.452 ms — un factor
+// ~13. No son consultas lentas: se estorban entre ellas. La ventana completa
+// era de 9,4 s.
+//
+// Es el MISMO hallazgo que ya está documentado en backup-engine.ts
+// (`TABLAS_A_LA_VEZ = 8`): «52 consultas simultáneas multiplican por ~19 lo que
+// tarda cada una por separado». Aquel lo aprendió para los backups; al arranque
+// del panel, que es la pantalla que abre todo el mundo, nunca llegó.
+//
+// Ni 1 (serían ~53 viajes en serie) ni 53. Se usa el mismo 8 ya medido en este
+// proyecto contra esta misma base de datos.
+const CONSULTAS_A_LA_VEZ = 8;
+
+/**
+ * Resuelve una lista de consultas con un límite de concurrencia, devolviendo
+ * una TUPLA con la misma forma que `Promise.all` — el desestructurado
+ * posicional de abajo (53 posiciones) depende de eso, y un `T[]` genérico
+ * colapsaría los tipos a una unión.
+ *
+ * Funciona porque los builders de supabase-js son PEREZOSOS: `db.from(...)
+ * .select(...)` no dispara ninguna petición hasta que se espera — el `fetch`
+ * vive dentro de `then()` (PostgrestBuilder). Verificado en el fuente de
+ * @supabase/postgrest-js 2.110.2 antes de escribir esto. Por eso se puede
+ * construir la lista entera y resolverla por tandas sin tocar ni una consulta.
+ */
+async function enTandas<T extends readonly unknown[] | []>(
+  consultas: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  const res = await mapLimit(
+    consultas as unknown as unknown[],
+    CONSULTAS_A_LA_VEZ,
+    (q) => Promise.resolve(q),
+  );
+  return res as { -readonly [P in keyof T]: Awaited<T[P]> };
+}
 
 export async function fetchCriticalStudioData(studioId?: string) {
   const sid = studioId ?? getCurrentStudioId();
@@ -3855,7 +3988,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     respuestasSesionRes,
     integracionesRes,
     mensajesEquipoRes,
-    preferenciasSocioRes,
     rewardRulesRes,
     rewardActionsRes,
     memberCreditsRes,
@@ -3876,7 +4008,15 @@ export async function fetchCriticalStudioData(studioId?: string) {
     mandatosSepaRes,
     contenidoPortalRes,
     bannersPortalRes,
-  ] = await Promise.all([
+    // Añadido AL FINAL de la lista a propósito: el desestructurado es
+    // posicional, así que meterlo en medio desplazaría las 52 posiciones
+    // siguientes. Antes esta consulta se hacía DESPUÉS del Promise.all
+    // (dentro de hidratarTiposDePlanes), o sea un viaje de red entero en
+    // serie colgando del arranque del panel, cuando en realidad solo
+    // necesita `sid` — lo que necesita los planes ya cargados es el cruce en
+    // memoria, no la consulta.
+    planTiposClaseRes,
+  ] = await enTandas([
     db.from('studios').select('*').eq('id', sid).single(),
     db.from('studio_horario').select('*').eq('studio_id', sid).order('dia_semana', { ascending: true }),
     db.from('usuarios').select('*').eq('studio_id', sid),
@@ -3886,17 +4026,17 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('*').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
-    db.from('suscripciones').select('*').eq('studio_id', sid),
+    db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('*').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
@@ -3927,7 +4067,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // para no romper el desestructurado posicional de abajo, pero acotado para
     // no traer el histórico completo en cada arranque.
     db.from('mensajes_equipo').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(1),
-    db.from('preferencias_socio').select('*').eq('studio_id', sid),
     db.from('reward_rules').select('*').eq('studio_id', sid),
     db.from('reward_actions').select('*').eq('studio_id', sid),
     db.from('member_credits').select('*').eq('studio_id', sid),
@@ -3952,11 +4091,16 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // gestionarlos — el filtro para lo que se muestra en el portal vive en
     // fetchPublicStudioData.
     db.from('contenido_portal_banners').select('*').eq('studio_id', sid).order('orden', { ascending: true }),
+    db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', sid),
   ]);
 
   // Tipos de clase que cubre cada plan (0111): viven en tabla puente, así que
   // no llegan en el SELECT. Sin esto, el panel creería que todo bono vale para todo.
-  const planesConTiposPanel = await hidratarTiposDePlanes(db as never, sid, (planesTarifaRes.data ?? []).map(mapPlanTarifa));
+  // El cruce es en memoria; la consulta ya vino arriba, en paralelo con el resto.
+  const planesConTiposPanel = unirTiposAPlanes(
+    (planesTarifaRes.data ?? []).map(mapPlanTarifa),
+    planTiposClaseRes.data as { plan_id: string; tipo_clase_id: string }[] | null,
+  );
   return {
     studio: studioRes.data ? mapStudio(studioRes.data, studioHorarioRes.data ?? undefined) : null,
     // Política/términos persistidos (0107); null = el cliente aplica el texto por
@@ -3996,7 +4140,6 @@ export async function fetchCriticalStudioData(studioId?: string) {
     respuestasSesion: (respuestasSesionRes.data ?? []).map(mapRespuestaSesion),
     integraciones: (integracionesRes.data ?? []).map(mapIntegracion),
     mensajesEquipo: (mensajesEquipoRes.data ?? []).map(mapMensajeEquipo),
-    preferenciasSocio: (preferenciasSocioRes.data ?? []).map(mapPreferenciasSocio),
     rewardRules: (rewardRulesRes.data ?? []).map(mapRewardRule),
     rewardActions: (rewardActionsRes.data ?? []).map(mapRewardAction),
     memberCredits: (memberCreditsRes.data ?? []).map(mapMemberCredits),
@@ -4032,7 +4175,7 @@ export async function fetchDeferredStudioData(studioId?: string) {
     challengeHistoryRes,
     notasProgresoRes,
     backupsRes,
-  ] = await Promise.all([
+  ] = await enTandas([
     // I5: estos tres historiales son append-only y crecen sin fin, pero ninguna
     // vista de STAFF los consume (el portal usa la versión member-scoped de otro
     // fetch). Se cargan acotados a los más recientes en vez de años de filas.
@@ -4159,6 +4302,8 @@ export async function contarSedesCadena(cadenaId: string): Promise<number> {
 
 
 export async function fetchAllStudioData(studioId?: string) {
+  // Aquí sí `Promise.all`: estos dos elementos ya son llamadas INVOCADAS (no
+  // builders perezosos), así que arrancan igual. Cada una limita por dentro.
   const [critical, deferred] = await Promise.all([
     fetchCriticalStudioData(studioId),
     fetchDeferredStudioData(studioId),
@@ -4184,9 +4329,20 @@ export async function hidratarTiposDePlanes<C extends { from: (t: string) => nev
     from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { plan_id: string; tipo_clase_id: string }[] | null }> } };
   };
   const { data } = await db.from('plan_tipos_clase').select('plan_id, tipo_clase_id').eq('studio_id', studioId);
-  if (!data || data.length === 0) return planes;
+  return unirTiposAPlanes(planes, data);
+}
+
+// El cruce en memoria, separado de la consulta. Lo comparten
+// `hidratarTiposDePlanes` (que consulta y cruza, para quien no tiene ya las
+// filas) y `fetchCriticalStudioData` (que trae las filas dentro de su
+// Promise.all y solo necesita cruzar). Misma lógica en un único sitio.
+export function unirTiposAPlanes(
+  planes: PlanTarifa[],
+  filas: { plan_id: string; tipo_clase_id: string }[] | null,
+): PlanTarifa[] {
+  if (planes.length === 0 || !filas || filas.length === 0) return planes;
   const porPlan = new Map<string, string[]>();
-  for (const f of data) {
+  for (const f of filas) {
     const arr = porPlan.get(f.plan_id) ?? [];
     arr.push(f.tipo_clase_id);
     porPlan.set(f.plan_id, arr);
@@ -4252,3 +4408,100 @@ export async function dbListarPenalizacionesPendientes(): Promise<PenalizacionPe
 
 
 
+
+// ── Devoluciones pendientes de revisar ──────────────────────────────────────
+//
+// Igual que `dbListarPenalizacionesPendientes`: cliente con RLS y SIN `studioId`
+// — el acotado por estudio y por rol lo hace la policy `devoluciones_lectura`
+// (`current_studio_id()` + `puede_ver_finanzas()`), no el parámetro.
+//
+// Trae de una vez todo lo que necesita la vista previa: el snapshot de lo que
+// entregó el cobro y el estado ACTUAL de la suscripción. La comparación entre
+// los dos es lo que decide si la reversión sigue siendo exacta, así que ninguno
+// de los dos puede faltar.
+
+export interface DevolucionPendiente {
+  id: string;
+  socioNombre: string;
+  origen: 'REEMBOLSO_TOTAL' | 'REEMBOLSO_PARCIAL' | 'CHARGEBACK';
+  importeCobrado: number;
+  importeDevuelto: number;
+  detectadaEn: string;
+  /** Lo que el cobro entregó, guardado al entregarlo. */
+  snapshot: Snapshot;
+  /** Cómo está la suscripción AHORA. `null` = ya no existe. */
+  actual: SuscripcionActual | null;
+  planNombre: string | null;
+}
+
+export async function dbListarDevolucionesPendientes(): Promise<DevolucionPendiente[]> {
+  const { data, error } = await supabase
+    .from('devoluciones')
+    .select('id, socio_id, suscripcion_id, recibo_id, origen, importe_cobrado, importe_devuelto, detectada_en')
+    .eq('estado', 'PENDIENTE_REVISION')
+    .order('detectada_en', { ascending: true }) as {
+      data: Array<{
+        id: string; socio_id: string | null; suscripcion_id: string | null; recibo_id: string;
+        origen: string; importe_cobrado: number; importe_devuelto: number; detectada_en: string;
+      }> | null;
+      error: { message: string } | null;
+    };
+  if (error) { reportDbError('[dbListarDevolucionesPendientes]', error); return []; }
+  if (!data?.length) return [];
+
+  // Joins a mano, como el resto del fichero: PostgREST no cruza sin FK-embed
+  // declarada y aquí son tres tablas.
+  const socioIds = [...new Set(data.map(d => d.socio_id).filter(Boolean))] as string[];
+  const susIds = [...new Set(data.map(d => d.suscripcion_id).filter(Boolean))] as string[];
+  const reciboIds = [...new Set(data.map(d => d.recibo_id))];
+
+  const [{ data: socios }, { data: suscripciones }, { data: recibos }] = await Promise.all([
+    socioIds.length
+      ? supabase.from('socios').select('id, nombre, apellidos').in('id', socioIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    susIds.length
+      ? supabase.from('suscripciones').select('id, plan_id, sesiones_restantes, fecha_fin, estado').in('id', susIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    supabase.from('recibos')
+      .select('id, entrega_tipo, entrega_aplicada, entrega_sesiones_antes, entrega_sesiones_despues, entrega_fecha_fin_antes, entrega_fecha_fin_despues, entrega_estado_antes')
+      .in('id', reciboIds),
+  ]);
+
+  const nombrePorSocio = new Map((socios ?? []).map(s => [s.id as string, `${s.nombre} ${s.apellidos}`.trim()]));
+  const susPorId = new Map((suscripciones ?? []).map(s => [s.id as string, s]));
+  const recPorId = new Map((recibos ?? []).map(r => [r.id as string, r]));
+
+  const planIds = [...new Set((suscripciones ?? []).map(s => s.plan_id as string).filter(Boolean))];
+  const { data: planes } = planIds.length
+    ? await supabase.from('planes_tarifa').select('id, nombre').in('id', planIds)
+    : { data: [] as Array<Record<string, unknown>> };
+  const planPorId = new Map((planes ?? []).map(p => [p.id as string, p.nombre as string]));
+
+  return data.map(d => {
+    const rec = recPorId.get(d.recibo_id);
+    const sus = d.suscripcion_id ? susPorId.get(d.suscripcion_id) : undefined;
+    return {
+      id: d.id,
+      socioNombre: (d.socio_id && nombrePorSocio.get(d.socio_id)) || 'Una clienta',
+      origen: d.origen as DevolucionPendiente['origen'],
+      importeCobrado: d.importe_cobrado,
+      importeDevuelto: d.importe_devuelto,
+      detectadaEn: d.detectada_en,
+      snapshot: {
+        tipo: (rec?.entrega_tipo ?? null) as Snapshot['tipo'],
+        aplicada: (rec?.entrega_aplicada ?? null) as boolean | null,
+        sesionesAntes: (rec?.entrega_sesiones_antes ?? null) as number | null,
+        sesionesDespues: (rec?.entrega_sesiones_despues ?? null) as number | null,
+        fechaFinAntes: (rec?.entrega_fecha_fin_antes ?? null) as string | null,
+        fechaFinDespues: (rec?.entrega_fecha_fin_despues ?? null) as string | null,
+        estadoAntes: (rec?.entrega_estado_antes ?? null) as string | null,
+      },
+      actual: sus ? {
+        sesionesRestantes: (sus.sesiones_restantes ?? null) as number | null,
+        fechaFin: (sus.fecha_fin ?? null) as string | null,
+        estado: (sus.estado ?? null) as string | null,
+      } : null,
+      planNombre: sus ? (planPorId.get(sus.plan_id as string) ?? null) : null,
+    };
+  });
+}

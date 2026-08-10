@@ -94,6 +94,39 @@ export function construirTraza(
 }
 
 /**
+ * Qué contestó una instructora a la ÚLTIMA vez que se le preguntó, o null si
+ * esa pregunta sigue sin respuesta.
+ *
+ * Existe porque el estado de la `sustitucion` no sirve para saberlo: al
+ * rechazar, la sustitución se queda en 'contactando' (el motor pasa a la
+ * siguiente candidata), así que quien volvía a abrir su enlace se encontraba
+ * otra vez "¿puedes cubrir esta clase?" después de haber dicho que no.
+ *
+ * No vale mirar la fila más reciente: una sola ronda de contacto puede dejar
+ * VARIAS filas (email + nudge de WhatsApp) y la respuesta solo marca la del
+ * token que se pulsó — la otra se queda en 'enviado' para siempre. Por eso se
+ * compara la última respuesta contra el último envío: si es posterior, ya
+ * contestó; si el envío es más nuevo, es que se le ha vuelto a preguntar.
+ *
+ * `enviado_en`/`respondido_en` llegan de PostgREST en ISO-8601 con el mismo
+ * huso, así que se ordenan bien como texto sin construir Date.
+ */
+export function ultimaRespuestaDe(filas: ContactoFila[]): 'aceptado' | 'rechazado' | null {
+  let ultimoEnvio = '';
+  let respuesta: { en: string; estado: 'aceptado' | 'rechazado' } | null = null;
+
+  for (const c of filas) {
+    if (c.enviado_en && c.enviado_en > ultimoEnvio) ultimoEnvio = c.enviado_en;
+    const contesto = c.estado === 'aceptado' || c.estado === 'rechazado';
+    if (contesto && c.respondido_en && (!respuesta || c.respondido_en > respuesta.en)) {
+      respuesta = { en: c.respondido_en, estado: c.estado as 'aceptado' | 'rechazado' };
+    }
+  }
+
+  return respuesta && respuesta.en >= ultimoEnvio ? respuesta.estado : null;
+}
+
+/**
  * Resumen de una línea para la cabecera de la card ("3 avisos · última respuesta
  * hace un rato"). Devuelve null si no hay nada que contar todavía.
  */

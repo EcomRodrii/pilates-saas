@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad } from './layout-schema.ts';
+import { resolveLayout, aplicarLayout, DEFAULT_LAYOUT, layoutConfigSchema, type OrdenVisibilidad, bloqueHomeSchema } from './layout-schema.ts';
 import { DEFAULT_BLOQUES_SHAPE } from './portal-home-bloques.ts';
 
 test('resolveLayout: null/garbage → default', () => {
@@ -29,13 +29,21 @@ test('resolveLayout: config válida se respeta', () => {
 test('resolveLayout: resuelve bloques.home (Fase 3) — ver portal-home-bloques.test.ts para el detalle de resolveBloquesPantalla', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveLayout({ bloques: { home: guardado } });
-  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+  // Los bloques FIJOS (cabecera y tarjeta de próxima clase) se añaden delante
+  // siempre: existen por definición, no son algo que el estudio pueda no tener.
+  // Lo que este test protege es que SUS bloques salen intactos.
+  const suyos = r.bloques.home.publicado.filter((b) => b.kind !== 'sistema');
+  assert.deepEqual(suyos, guardado.publicado);
 });
 
 test('resolveLayout: homeBloques legacy (antes de la Fase 1 del Theme Builder) se sigue leyendo como bloques.home', () => {
   const guardado = { draft: [], publicado: [{ id: 'b1', kind: 'texto', config: { titulo: 'Hola', texto: 'x' } }] };
   const r = resolveLayout({ homeBloques: guardado });
-  assert.deepEqual(r.bloques.home.publicado, guardado.publicado);
+  // Los bloques FIJOS (cabecera y tarjeta de próxima clase) se añaden delante
+  // siempre: existen por definición, no son algo que el estudio pueda no tener.
+  // Lo que este test protege es que SUS bloques salen intactos.
+  const suyos = r.bloques.home.publicado.filter((b) => b.kind !== 'sistema');
+  assert.deepEqual(suyos, guardado.publicado);
 });
 
 test('resolveLayout: resuelve bloques.clases/bonos de forma independiente', () => {
@@ -131,7 +139,12 @@ test('layoutConfigSchema: acepta `estilo` por bloque (fondo/color/alineación/es
   });
   assert.equal(r.success, true);
   if (r.success) {
-    const bloque = r.data.bloques.home.draft[0];
+    // `draft` es ahora una unión (array o documento) porque el zod acepta las
+    // dos formas — ver pantallaGuardadaSchema. Aquí el caso de prueba es un
+    // array, así que se estrecha explícitamente.
+    const draft = r.data.bloques.home.draft;
+    assert.ok(Array.isArray(draft));
+    const bloque = draft[0]!;
     assert.equal(bloque.kind, 'texto');
     if (bloque.kind === 'texto') {
       assert.deepEqual(bloque.estilo, { fondo: '#1E3A8A', color: '#FFFFFF', alineacion: 'centro', espaciado: 'amplio' });
@@ -202,4 +215,9 @@ test('layoutConfigSchema: rechaza un valor de estilo fuera del enum', () => {
     },
   });
   assert.equal(r.success, false);
+});
+
+test('bloqueHomeSchema conserva `fijo` — si zod lo podara, el bloque volvería a ser movible', () => {
+  const r = bloqueHomeSchema.parse({ id: 'sistema-cabecera', kind: 'sistema', sistemaId: 'cabecera', fijo: true });
+  assert.equal((r as { fijo?: true }).fijo, true);
 });

@@ -65,7 +65,7 @@ export default async function DisponibilidadPage({
 
 function Aviso({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+    <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
         <div className="text-4xl mb-3">🔒</div>
         <h1 className="text-lg font-semibold text-slate-900">{titulo}</h1>

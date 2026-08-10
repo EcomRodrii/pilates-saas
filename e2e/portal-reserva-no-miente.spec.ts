@@ -40,3 +40,32 @@ test('si el servidor la acepta, se confirma como siempre', async ({ page }) => {
 
   await expect(page.getByText('Reservada. Te esperamos.')).toBeVisible();
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Decir POR QUÉ no puede reservar es la mitad. La otra es decirle qué hacer.
+//
+// Reportado desde un estudio real: «cuando una alumna no tiene plan no le
+// facilita cómo y dónde pagar el bono». El portal SÍ tenía tienda (/compras) y
+// la pantalla de Bonos ya invitaba a ir — pero el error de la hoja era texto
+// plano, así que había que deducir sola que existía esa pestaña.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('sin plan, el error lleva a la tienda en vez de dejarla ahí', async ({ page }) => {
+  await montarPortal(page, { conSesion: true, reservaRechazada: MOTIVO });
+  await abrirHojaYConfirmar(page);
+
+  const irACompras = page.getByRole('button', { name: 'Ver los bonos' });
+  await expect(irACompras).toBeVisible();
+  await irACompras.click();
+  await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/compras`));
+});
+
+test('un rechazo que NO se arregla comprando no ofrece la tienda', async ({ page }) => {
+  // Mandar a comprar a quien ya tiene bono y lo que pasa es que la clase está
+  // llena sugiere que le van a cobrar por algo que ya pagó.
+  await montarPortal(page, { conSesion: true, reservaRechazada: 'La clase está completa.' });
+  await abrirHojaYConfirmar(page);
+
+  await expect(page.getByText('La clase está completa.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ver los bonos' })).toHaveCount(0);
+});

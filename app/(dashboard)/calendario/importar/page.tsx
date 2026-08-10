@@ -8,9 +8,10 @@ import {
   ArrowRight, CalendarDays, PartyPopper, Info, Repeat, Users,
 } from 'lucide-react';
 import {
-  parseCsv, autoMapearClase, validarFilasClase, serializeCsv, CAMPOS_CLASE,
+  autoMapearClase, validarFilasClase, serializeCsv, CAMPOS_CLASE,
   type CampoClase, type ParsedCsv,
 } from '@/lib/csv';
+import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarClases, type ResultadoImportClases } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -79,13 +80,12 @@ export default function ImportarHorarioPage() {
 
   async function cargarArchivo(file: File) {
     setErrorCarga(null);
-    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
-      setErrorCarga('Sube un archivo .csv. Si tienes Excel, expórtalo como CSV primero.');
+    if (!esArchivoTabularValido(file)) {
+      setErrorCarga(MENSAJE_ARCHIVO_NO_VALIDO);
       return;
     }
     try {
-      const texto = await file.text();
-      const p = parseCsv(texto);
+      const p = await leerArchivoTabular(file);
       if (p.headers.length === 0 || p.rows.length === 0) {
         setErrorCarga('El archivo no tiene filas de datos.');
         return;
@@ -145,10 +145,10 @@ export default function ImportarHorarioPage() {
           >
             <Upload size={28} className="text-muted-foreground" />
             <div>
-              <p className="text-[14px] font-semibold text-foreground">Arrastra tu archivo CSV aquí</p>
+              <p className="text-[14px] font-semibold text-foreground">Arrastra tu archivo CSV o Excel aquí</p>
               <p className="text-[12.5px] text-muted-foreground mt-0.5">o haz clic para elegirlo</p>
             </div>
-            <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden"
+            <input ref={inputRef} type="file" accept={ACCEPT_ARCHIVO_TABULAR} className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) cargarArchivo(f); }} />
           </div>
 

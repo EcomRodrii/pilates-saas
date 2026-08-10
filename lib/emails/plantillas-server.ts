@@ -43,7 +43,7 @@ export function interpolar(texto: string, vars: { nombre?: string; estudio?: str
     .replace(/\{clase\}/gi, vars.clase ?? '');
 }
 
-export type MarcaEstudio = { colorPrimario?: string | null; logoUrl?: string | null; slug?: string | null };
+export type MarcaEstudio = { nombre?: string | null; colorPrimario?: string | null; logoUrl?: string | null; slug?: string | null };
 
 // Resuelve el logo + color + slug de un estudio para pintarlos en la
 // plantilla premium compartida (lib/emails/layout.tsx) y, si hace falta,
@@ -57,18 +57,19 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
   if (!admin) return {};
   const { data } = await admin
     .from('studios')
-    .select('color_primario, logo_url, slug')
+    .select('nombre, color_primario, logo_url, slug')
     .eq('id', studioId)
     .maybeSingle();
   if (!data) return {};
   return {
+    nombre: data.nombre as string | null,
     colorPrimario: (data.color_primario as string | null) ?? undefined,
     logoUrl: data.logo_url as string | null,
     slug: data.slug as string | null,
   };
 }
 
-function appUrl(): string {
+export function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
 }
 

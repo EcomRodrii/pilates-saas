@@ -5,24 +5,35 @@ on:
     branches: [main]
   pull_request:
 
-# Cancela ejecuciones anteriores de la misma rama/PR.
+# Cancela ejecuciones anteriores del mismo PR. En `main` NO se cancela: cada
+# commit que entra en producción tiene que quedar verificado por sí mismo.
+# (Antes se cancelaba también en main — 5 de los 15 últimos runs de main
+# quedaron "cancelled", es decir, commits en producción sin CI verde.)
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Valores dummy compartidos por todos los jobs: el build y el servidor crean el
+# cliente de Supabase con estas envs, pero los tests mockean toda la red — no se
+# conecta a nada real.
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
+  SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # B0.3: siembra el estudio en la resolución server-side para que la E2E
+  # (registro · reserva · pago) corra de verdad y bloquee el deploy.
+  E2E_TEST: '1'
+  NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  test:
+  # ---------------------------------------------------------------------------
+  # Verificación estática. Corre EN PARALELO con el build — no está en el camino
+  # crítico, así que aquí sí cabe el lint (que antes no corría en CI en absoluto).
+  # ---------------------------------------------------------------------------
+  calidad:
+    name: Tipos · lint · tests unitarios
     runs-on: ubuntu-latest
-    # Valores dummy: el build y el dev server crean el cliente de Supabase con
-    # estas envs, pero los tests mockean toda la red — no se conecta a nada real.
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
-      SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      # B0.3: siembra el estudio en la resolución server-side para que la E2E
-      # (registro · reserva · pago) corra de verdad y bloquee el deploy.
-      E2E_TEST: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -31,28 +42,282 @@ jobs:
           node-version: '22'
           cache: npm
 
+      # MEDIDO: restaurar node_modules tarda 4s; `npm ci` con la caché de ~/.npm
+      # caliente tarda 19s. 15s por job x 14 jobs. En el camino crítico
+      # (build + shard más lento) son 289s -> 262s de media, comparando 6 runs
+      # sin caché contra 2 con ella.
+      #
+      # ⚠️ Ese ahorro NO se ve mirando el wall clock de un run suelto: el tiempo
+      # de ENCOLADO de los 14 runners va de 10s a 257s entre ejecuciones, y se
+      # come la señal. Para comparar cambios de CI en este repo hay que aislar
+      # el trabajo del camino crítico, no leer el total.
+      #
+      # La caché ocupa 147 MB (zstd comprime bien los 900 MB / 65k ficheros) y
+      # no desaloja nada: el repo usa 3,5 GB de los 10 disponibles.
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
         run: npm ci
+
+      # tsc --noEmit con "incremental": true escribe tsconfig.tsbuildinfo. Sin
+      # cachearlo, cada run recomprueba los ~700 ficheros desde cero.
+      - name: Restaurar caché de TypeScript
+        uses: actions/cache@v4
+        with:
+          path: tsconfig.tsbuildinfo
+          key: tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            tsbuildinfo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            tsbuildinfo-${{ runner.os }}-
+
+      - name: Restaurar caché de ESLint
+        uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-${{ github.sha }}
+          restore-keys: |
+            eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
+            eslintcache-${{ runner.os }}-
 
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # BLOQUEA, y ahora también con los avisos. Entró como informativo porque
+      # el lint no había corrido nunca en CI y llegó con 117 errores + 268
+      # avisos; ambos están a 0. `--max-warnings 0` es lo que impide que la
+      # deuda vuelva a acumularse: sin él, "0 avisos" dura hasta el siguiente
+      # import sin usar, y nadie se entera hasta que son 200 otra vez.
+      - name: Lint
+        run: npm run lint -- --cache --cache-location .eslintcache --max-warnings 0
+
       - name: Tests unitarios (dinero · reservas · aforo · fiscal)
         run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Build de producción, UNA sola vez. El artefacto lo consumen los shards de
+  # E2E, que antes recompilaban la app entera bajo demanda con `next dev`.
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build de producción
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      # Caché de compilación entre runs (docs de Next: "CI Build Caching").
+      # ⚠️ MEDIDO: hoy no sirve de nada. En Next 16 el bundler por defecto es
+      # Turbopack, y su caché persistente de build es opt-in
+      # (`experimental.turbopackFileSystemCacheForBuild`, marcada experimental
+      # para producción). Sin ella, `.next/cache` se guarda con 0 MB — se
+      # comprobó en la caché real del repo. Se deja el paso porque cuesta 2s y
+      # es correcto el día que esa opción se estabilice o se vuelva a webpack;
+      # NO se activa la experimental a propósito: haría que el build de CI
+      # dejara de ser el mismo que el de Vercel, y una caché experimental
+      # sirviendo salida obsoleta convierte un CI verde en una mentira.
+      - name: Restaurar caché de Next.js
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            nextjs-${{ runner.os }}-
 
       - name: Build de producción
         run: npm run build
 
+      # El artefacto NO incluye .next/cache (solo sirve para recompilar, y son
+      # cientos de MB que multiplicarían la subida y las 6 bajadas de los shards).
+      - name: Empaquetar salida del build
+        run: tar -cf build.tar --exclude=.next/cache .next
+
+      - name: Subir salida del build
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: build.tar
+          retention-days: 1
+          compression-level: 1
+
+  # ---------------------------------------------------------------------------
+  # E2E repartida en shards, servida por `next start` sobre el build ya hecho.
+  # Este era el 89% del tiempo de CI (1308s de 1473s) porque corría contra
+  # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
+  #
+  # 12 -> 6 shards al pasar el repo a PRIVADO. El reparto se eligió en su día
+  # para bajar el WALL CLOCK, que es lo único que costaba en un repo público:
+  # allí Actions es gratis e ilimitado, así que 12 runners en paralelo salían
+  # igual de baratos que 1. En privado se factura por MINUTO DE RUNNER, y ahí el
+  # sharding no reparte el coste: lo multiplica, porque cada shard paga otra vez
+  # el checkout, el setup de node, la restauración de cachés y la descarga del
+  # artefacto del build. Esa parte fija se paga tantas veces como shards haya, y
+  # los tests en sí tardan lo mismo repartidos entre 6 que entre 12.
+  #
+  # El intercambio es explícito: se paga con wall clock (el shard más lento pasa
+  # a durar aproximadamente el doble) a cambio de la mitad de sobrecarga fija por
+  # run. Si algún día el repo vuelve a ser público, o el reloj de pared vuelve a
+  # ser lo que duele, subir el número otra vez es cambiar dos sitios: esta lista
+  # y el `--shard=N/6` de abajo.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E ${{ matrix.shard }}/6
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Descargar salida del build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Desempaquetar salida del build
+        run: tar -xf build.tar && rm build.tar
+
+      # La versión de Playwright fija la del navegador: si no cambia el
+      # package-lock, el binario cacheado sirve tal cual.
+      - name: Restaurar navegador de Playwright
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar navegador de Playwright
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: E2E (registro · reserva · pago)
-        run: npx playwright test
+        # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
+        # `next start` en vez de `next dev` (ver playwright.config.ts).
+        env:
+          E2E_USA_BUILD: '1'
+        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=blob
 
-      - name: Subir reporte de Playwright si falla
+      - name: Subir reporte parcial si falla
         if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Solo cuando algo falla: junta los blobs de los shards en un único informe
+  # HTML navegable. En verde no corre, así que no alarga el camino feliz.
+  # ---------------------------------------------------------------------------
+  informe-e2e:
+    name: Informe E2E (solo si falla)
+    if: always() && needs.e2e.result == 'failure'
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restaurar node_modules
+        id: cache-nm
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: nm-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar dependencias
+        if: steps.cache-nm.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Descargar reportes parciales
+        uses: actions/download-artifact@v4
+        with:
+          path: blobs
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Juntar en un informe HTML
+        run: npx playwright merge-reports --reporter html ./blobs
+
+      - name: Subir informe de Playwright
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # ⚠️ NO RENOMBRAR ESTE JOB. La protección de rama de `main` exige un check
+  # llamado EXACTAMENTE `test` (era el nombre del único job que había antes de
+  # partir el pipeline). GitHub casa por NOMBRE del check: al renombrar los
+  # jobs, ese check dejó de existir y el PR se quedó en `BLOCKED` para siempre
+  # — y de haberse forzado el merge, TODOS los PRs siguientes del repo se
+  # habrían quedado bloqueados igual, porque el check exigido ya no lo produce
+  # nadie.
+  #
+  # Se resuelve con un job agregador en vez de tocando la protección de rama:
+  # así el contrato con `main` no cambia, y sigue valiendo aunque mañana se
+  # añadan, quiten o renumeren shards.
+  # ---------------------------------------------------------------------------
+  test:
+    name: test
+    if: always()
+    needs: [calidad, build, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar que todo lo anterior ha pasado
+        run: |
+          echo "calidad = ${{ needs.calidad.result }}"
+          echo "build   = ${{ needs.build.result }}"
+          echo "e2e     = ${{ needs.e2e.result }}"
+          fallo=0
+          for r in "${{ needs.calidad.result }}" "${{ needs.build.result }}" "${{ needs.e2e.result }}"; do
+            [ "$r" = "success" ] || fallo=1
+          done
+          if [ "$fallo" = "1" ]; then
+            echo "::error::Alguna parte del pipeline no ha pasado — ver los jobs de arriba."
+            exit 1
+          fi
+          echo "Todo en verde."

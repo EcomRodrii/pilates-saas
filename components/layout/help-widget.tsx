@@ -124,7 +124,7 @@ export function HelpWidget({ open, onClose }: { open: boolean; onClose: () => vo
                     );
                   })}
                   {faqsFiltrados.length === 0 && (
-                    <p className="text-[13px] text-muted-foreground text-center py-6">Sin resultados para "{query}"</p>
+                    <p className="text-[13px] text-muted-foreground text-center py-6">Sin resultados para «{query}»</p>
                   )}
                 </div>
               </div>

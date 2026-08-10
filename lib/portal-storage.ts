@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/db/supabase';
 import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
+import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
+// La higienización de la clave vive en un módulo SIN imports para que
+// `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
+import { claveDeImagenPortal } from '@/lib/storage-clave';
 
 // Fotos de perfil de socias — bucket público "avatars" en Supabase Storage.
 // Se sobrescribe siempre el mismo path (sin extensión) para no tener que
@@ -39,9 +43,10 @@ export function validarFotoPerfil(file: File): string | null {
 }
 
 export async function subirFotoPerfil(socioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(socioId, file, { upsert: true, contentType: file.type });
+    .upload(socioId, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -61,9 +66,10 @@ export async function eliminarFotoPerfil(socioId: string): Promise<{ ok: true } 
 // path con prefijo distinto para no colisionar con IDs de socias.
 export async function subirFotoClase(tipoClaseId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `clase-${tipoClaseId}`;
+  const img = await redimensionarImagen(file, LADO_FOTO_CLASE);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -86,9 +92,12 @@ export async function subirBannerEstudio(bannerId: string, file: File): Promise<
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };
   const path = `banner-${bannerId}`;
+  // La validación de arriba mira el fichero ORIGINAL a propósito: el límite es
+  // un contrato con quien sube, no algo que debamos esquivar encogiendo después.
+  const img = await redimensionarImagen(file, LADO_BANNER);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -106,9 +115,10 @@ export async function eliminarBannerEstudio(bannerId: string): Promise<{ ok: tru
 // para no colisionar con el path de socias (que no llevan prefijo).
 export async function subirFotoAdmin(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `admin-${studioId}`;
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -125,9 +135,10 @@ export async function eliminarFotoAdmin(studioId: string): Promise<{ ok: true } 
 // Foto de perfil de instructora — mismo bucket público, prefijo propio.
 export async function subirFotoInstructor(instructorId: string, file: File): Promise<{ url: string } | { error: string }> {
   const path = `instructor-${instructorId}`;
+  const img = await redimensionarImagen(file, LADO_AVATAR);
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, img, { upsert: true, contentType: img.type });
 
   if (uploadError) return { error: uploadError.message };
 
@@ -141,6 +152,66 @@ export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok
   return { ok: true };
 }
 
+// Imagen de bienvenida/portada del portal — mismo bucket público, prefijo
+// propio. Distinta de `subirFotoAdmin` (foto de perfil de la propietaria,
+// solo panel): esta es la que ven las alumnas al entrar al portal
+// (BienvenidaPortal, PortadaAcceso, hero de inicio...). Mismo redimensionado
+// que un banner: es una imagen grande a pantalla completa, no un avatar.
+export async function subirImagenBienvenida(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `bienvenida-${studioId}`;
+  const img = await redimensionarImagen(file, LADO_BANNER);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarImagenBienvenida(studioId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`bienvenida-${studioId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Cualquier imagen que se sube DESDE el editor de apariencia: la foto de un
+ * banner, la de una tarjeta, la de una galería…
+ *
+ * Las nueve funciones de arriba son de una pieza concreta cada una (el logo,
+ * el favicon, la foto de ESA instructora). Ésta es la genérica, y hacía falta
+ * porque hasta ahora un campo de imagen del editor era **una casilla para
+ * pegar una URL**: para poner una foto en un banner había que subirla a otro
+ * sitio y copiar el enlace. Nadie que lleve un estudio de Pilates hace eso.
+ *
+ * ⚠️ La `clave` la compone quien llama y entra en el path, así que se
+ * higieniza aquí y no en el llamador: un id de bloque con `/` o `..` escribiría
+ * fuera de su carpeta. Se limita a lo que puede salir de un id o un nombre de
+ * campo, y el `studioId` va SIEMPRE por delante — dos estudios no pueden
+ * pisarse aunque coincidan las claves.
+ */
+export async function subirImagenPortal(
+  studioId: string, clave: string, file: File,
+): Promise<{ url: string } | { error: string }> {
+  const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
+  if (invalido) return { error: invalido };
+  const limpia = claveDeImagenPortal(clave);
+  if (!limpia) return { error: 'No se ha podido guardar la imagen. Vuelve a intentarlo.' };
+  const path = `portal-${studioId}-${limpia}`;
+  const img = await redimensionarImagen(file, LADO_BANNER);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+  if (uploadError) return { error: uploadError.message };
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  // `?v=` para que el navegador no siga enseñando la anterior: el path se
+  // reutiliza (`upsert`) y sin esto cambiar la foto no se notaba hasta vaciar
+  // la caché.
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
 // en el portal público de reservas cuando existe.
 //
@@ -151,6 +222,12 @@ export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok
 // 1508×1043 de lienzo con 1451×297 de tinta — a 32 px, solo 9 eran logo. Al
 // subirlo no se nota (el editor lo enseña a lo grande); se nota en la bandeja
 // de la clienta, que es donde ya no puedes arreglarlo.
+//
+// ⚠️ SIN redimensionar, a diferencia de las cinco funciones de foto de arriba.
+// No es un olvido: `validarImagenMarca` admite SVG e ICO, y pasar un SVG por
+// canvas lo rasteriza — se perdería el vector justo en el activo que más
+// necesita escalar bien. Un logo tampoco tiene el problema de tamaño de las
+// fotos de móvil: ya está acotado a 2 MB (y el favicon a 512 KB).
 export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };

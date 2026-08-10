@@ -17,8 +17,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Camera, CheckCircle2, AlertCircle, DoorOpen } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, AlertCircle, DoorOpen, QrCode } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
+import { useStudio } from '@/lib/studio-context';
 
 interface Resultado {
   ok: boolean;
@@ -41,6 +42,7 @@ declare global {
 
 export default function LeerPasePage() {
   useParams();
+  const { studio, dataLoaded } = useStudio();
   const videoRef = useRef<HTMLVideoElement>(null);
   // Ya no hay estado «sin-soporte»: con el respaldo de jsQR la cámara lee en
   // cualquier navegador con `getUserMedia`. Lo único que puede faltar ahora es
@@ -145,6 +147,34 @@ export default function LeerPasePage() {
   const caja: React.CSSProperties = {
     background: 'var(--card, #fff)', border: '1px solid var(--border, #E7E7E0)', borderRadius: 18, padding: 20,
   };
+
+  // Esta pantalla se alcanza por URL directa (favorito, atajo guardado en el
+  // móvil de recepción) además de por el enlace del calendario — ese enlace ya
+  // se oculta con el flag desactivado, pero si alguien llega aquí igual, mejor
+  // explicarlo que dejar la cámara encendida sin ningún pase real que leer.
+  if (dataLoaded && studio && !studio.requiereCheckinQr) {
+    return (
+      <div className="p-4 max-w-md mx-auto flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <Link href="/calendario" aria-label="Volver al calendario" className="p-2 -ml-2">
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="text-xl font-bold">Leer un pase</h1>
+        </div>
+        <div style={caja} className="flex flex-col items-center gap-3 text-center py-10">
+          <QrCode size={26} className="opacity-40" />
+          <p className="text-sm font-semibold">El check-in por QR está desactivado</p>
+          <p className="text-sm opacity-70">
+            Este estudio da por asistida cada reserva confirmada al terminar la clase, sin pedir ningún pase.
+            Puedes activarlo de nuevo en Configuración → Reservas y cancelaciones.
+          </p>
+          <Link href="/configuracion" className="text-sm font-bold underline mt-1">
+            Ir a Configuración
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 max-w-md mx-auto flex flex-col gap-4">

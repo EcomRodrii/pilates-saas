@@ -51,7 +51,7 @@ export function StudioSlugGate({
 
   if (!state.studioId) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#EEEEE8] px-4">
+      <div className="min-h-dvh flex items-center justify-center bg-[#EEEEE8] px-4">
         <p className="text-[15px] text-muted-foreground">No encontramos ningún estudio en esta dirección.</p>
       </div>
     );

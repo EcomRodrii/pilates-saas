@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolveTheme } from '../lib/theme-schema.ts';
+import { abrirCategoriaTema } from './apariencia-mock.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estilo de botón principal y de tarjetas, por estudio — dentro del editor a
@@ -54,6 +55,11 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
   await page.route('**/api/portal-bloques**', route => {
     if (route.request().url().endsWith('/publish')) return json(route, []);
     if (route.request().method() === 'PUT') return json(route, route.request().postDataJSON());
+    // El editor carga las tres pantallas de una sola vez; con la forma de una
+    // sola se quedaba sin bloques.
+    if (new URL(route.request().url()).searchParams.get('pantalla') === 'todas') {
+      return json(route, { home: [], clases: [], bonos: [] });
+    }
     return json(route, []);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
@@ -74,13 +80,13 @@ test.describe('Editor a pantalla completa — estilo de botón y tarjetas', () =
   test('un tema sin buttonStyle/cardStyle (guardado antes de esta fase) muestra Sólido/Plana seleccionados', async ({ page }) => {
     await montar(page);
 
-    await page.getByRole('button', { name: 'Botón principal' }).click();
+    await abrirCategoriaTema(page, 'Botón principal');
     const solido = page.getByRole('button', { name: 'Sólido' });
     await expect(solido).toBeVisible({ timeout: 30_000 });
     await expect(solido).toHaveClass(/bg-brand/);
     await expect(page.getByRole('button', { name: 'Contorno', exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Tarjetas' }).click();
+    await abrirCategoriaTema(page, 'Tarjetas');
     const plana = page.getByRole('button', { name: 'Plana' });
     await expect(plana).toBeVisible();
     await expect(plana).toHaveClass(/bg-brand/);
@@ -90,13 +96,13 @@ test.describe('Editor a pantalla completa — estilo de botón y tarjetas', () =
   test('elegir Contorno + Elevada y publicar manda el patch correcto a /api/theme', async ({ page }) => {
     const { puts } = await montar(page);
 
-    await page.getByRole('button', { name: 'Botón principal' }).click();
+    await abrirCategoriaTema(page, 'Botón principal');
     const contorno = page.getByRole('button', { name: 'Contorno', exact: true });
     await expect(contorno).toBeVisible({ timeout: 30_000 });
     await contorno.click();
     await expect(contorno).toHaveClass(/bg-brand/);
 
-    await page.getByRole('button', { name: 'Tarjetas' }).click();
+    await abrirCategoriaTema(page, 'Tarjetas');
     const elevada = page.getByRole('button', { name: 'Elevada' });
     await expect(elevada).toBeVisible();
     await elevada.click();

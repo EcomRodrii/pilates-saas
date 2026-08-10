@@ -5,6 +5,8 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
 import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 
 export const metadata: Metadata = {
   title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
@@ -17,6 +19,16 @@ export const metadata: Metadata = {
     url: 'https://tentare.app/comparativa',
   },
 };
+
+const COMPETITORS = [
+  { slug: 'tentare-vs-mindbody', name: 'Mindbody' },
+  { slug: 'tentare-vs-bsport', name: 'bsport' },
+  { slug: 'tentare-vs-momence', name: 'Momence' },
+  { slug: 'tentare-vs-timp', name: 'TIMP' },
+  { slug: 'tentare-vs-eversports', name: 'Eversports' },
+  { slug: 'tentare-vs-lorari', name: 'Lorari' },
+  { slug: 'tentare-vs-bonsai', name: 'Bonsai' },
+];
 
 type Verdict = 'yes' | 'no' | 'partial';
 
@@ -39,6 +51,8 @@ const ROWS: { feature: string; tentare: [Verdict, string]; bsport: [Verdict, str
 export default function ComparativaPage() {
   return (
     <PageShell>
+      <OrganizationStructuredData />
+      <PageBreadcrumb path="/comparativa" name="Comparativa" />
       <SiteNav backHref="/" backLabel="Volver a Tentare" />
 
       <header style={{ position: 'relative', padding: 'clamp(48px,7vw,88px) clamp(20px,4vw,44px) clamp(32px,4vw,44px)' }}>
@@ -86,6 +100,24 @@ export default function ComparativaPage() {
         </div>
       </section>
 
+      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          <Reveal className="lp-mono" style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', marginBottom: 16 }}>Comparativa 1 a 1</Reveal>
+          <div className="cmp-links">
+            {COMPETITORS.map((c, i) => (
+              <Reveal key={c.slug} delay={i * 40}>
+                <a href={`/comparativa/${c.slug}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '18px 20px', textDecoration: 'none', color: 'inherit' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 700 }}>
+                    Tentare vs {c.name}
+                  </span>
+                  <span style={{ color: '#A8A89F', fontSize: 15 }}>→</span>
+                </a>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section style={{ background: '#0F0F0F', color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Con honestidad</Reveal>
@@ -110,10 +142,13 @@ export default function ComparativaPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter links={[{ href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }, { href: '/glosario', label: 'Glosario' }]} />
 
       <style>{`
         .cmp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .cmp-links { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+        @media (max-width: 900px) { .cmp-links { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .cmp-links { grid-template-columns: 1fr; } }
         @media (max-width: 760px) {
           .cmp-two { grid-template-columns: 1fr; }
           .cmp-hint { display: flex !important; }

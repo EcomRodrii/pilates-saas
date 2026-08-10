@@ -43,9 +43,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<la ANON_KEY que imprime>
 ```
 
 Lo de comentarla no es opcional. La Supabase local no pide captcha, pero si la
-variable está puesta el widget se pinta igual y el formulario se queda esperando
-un token que **nunca llega**: el botón de «Crear estudio» no se habilita jamás y
-no hay ningún mensaje que explique por qué.
+variable está puesta el widget se monta igual y, al enviar, el formulario espera
+un token que **nunca llega**: se queda 30 segundos en «Enviando…» y acaba en
+«No hemos podido comprobar que no eres un robot».
+
+**`TURNSTILE_SECRET_KEY` (opcional, solo producción).** Es la otra mitad del par,
+y **no** es pública: la usa `/api/public/interes-lanzamiento` para verificar el
+token contra el `siteverify` de Cloudflare (`lib/auth/captcha-servidor.ts`). Sin
+ella ese endpoint no verifica nada y solo queda el límite por IP — que es como
+estuvo hasta ahora. En local déjala sin poner: el verificador detecta que no hay
+secreto y deja pasar sin llamar a nadie. El resto de pantallas con captcha no la
+necesitan: ahí quien verifica el token es Supabase, no la app.
+
+⚠️ Si se pone el secreto, la site key pública **tiene que estar puesta también**
+en ese mismo entorno. Con secreto y sin site key el navegador no emite token, el
+servidor lo exige, y el formulario deja de aceptar altas.
 
 Para volver a producción, deshaz esas tres líneas. `npx supabase stop` apaga los
 contenedores y `colima stop` la VM.

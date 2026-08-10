@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Notification Engine — API pública (server, pero SIN canales).
 //
-// Los módulos de negocio SOLO llaman a NotificationEngine.publish(evento).
+// Los módulos de negocio SOLO llaman a publish(evento) — normalmente a través
+// de los emisores de emit.ts, que reúnen las variables de plantilla.
 //
 // publish() hace DOS cosas, en este orden y con esta garantía:
 //   1. Escribe la notificación IN-APP en el acto (INSERT síncrono). NO depende de
@@ -17,7 +18,6 @@
 // cliente vía import dinámico, así que aquí NO se tocan los canales: el salto es
 // un fetch a una URL, sin ningún import que arrastre Node al bundle.
 // ─────────────────────────────────────────────────────────────────────────────
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
 import { crearInApp, type NotificacionCreada } from './inapp.ts';
@@ -79,37 +79,25 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
   }
 }
 
-// ── Acciones sobre notificaciones ya creadas (las llaman las rutas API) ──────────
-// El comentario que había aquí decía "RLS garantiza que solo toca lo suyo" —
-// falso: `notification_update` (migración 0092) autoriza el UPDATE también con
-// `studio_id = current_studio_id()`, así que CUALQUIER staff del estudio podía
-// marcar leída/archivar la notificación de OTRA persona (p. ej. una instructora
-// archivando el aviso de pago fallido de la propietaria). Hoy no hay ninguna
-// ruta que llame a estas tres sin acotar por destinatario (el único camino real,
-// app/api/notifications/route.ts PATCH, ya filtra bien con service-role), pero
-// dejarlas así era una trampa para el próximo que las reutilizara confiando en
-// el comentario. Se exige userId y se filtra explícitamente.
-
-export async function marcarLeida(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
-  await supa.from('notification').update({ read_at: new Date().toISOString() })
-    .eq('id', notificationId).eq('recipient_user_id', userId).is('read_at', null);
-}
-
-export async function marcarNoLeida(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
-  await supa.from('notification').update({ read_at: null })
-    .eq('id', notificationId).eq('recipient_user_id', userId);
-}
-
-export async function marcarTodasLeidas(supa: SupabaseClient, userId: string): Promise<void> {
-  await supa.from('notification').update({ read_at: new Date().toISOString() })
-    .eq('recipient_user_id', userId).is('read_at', null);
-}
-
-export async function archivar(supa: SupabaseClient, notificationId: string, userId: string): Promise<void> {
-  await supa.from('notification').update({ archived_at: new Date().toISOString() })
-    .eq('id', notificationId).eq('recipient_user_id', userId);
-}
-
-export const NotificationEngine = {
-  publish, marcarLeida, marcarNoLeida, marcarTodasLeidas, archivar,
-};
+// ── Acciones sobre notificaciones ya creadas ────────────────────────────────
+//
+// Aquí vivían `marcarLeida`/`marcarNoLeida`/`marcarTodasLeidas`/`archivar` y el
+// objeto `NotificationEngine` que las agrupaba. Borradas: nunca tuvieron un solo
+// llamador —el único camino real es el PATCH de app/api/notifications/route.ts,
+// que hace sus propias queries— y se habían convertido en una trampa que ya
+// había mordido dos veces.
+//
+// La primera: su comentario afirmaba que "la RLS garantiza que solo toca lo
+// suyo", y era falso — `notification_update` autorizaba el UPDATE también por
+// `studio_id = current_studio_id()`, así que cualquier staff del estudio podía
+// archivar el aviso de otra persona. Se arregló acotando por `userId`.
+//
+// La segunda: `recipient_user_id` a secas tampoco basta. Una persona puede ser
+// staff Y socia del mismo estudio con la misma cuenta (en prod hay una), así
+// que estas cuatro cruzaban las dos bandejas — justo lo que
+// `lib/notifications/ambito.ts` vino a separar.
+//
+// Arreglarlas por tercera vez era añadir un parámetro de ámbito a código que
+// nadie ejecuta, y dejarlas era garantizar una tercera mordida. Si algún día
+// hace falta una acción de notificación fuera de la ruta, se escribe entonces —
+// con el ámbito desde el primer día, y con quien la use delante.

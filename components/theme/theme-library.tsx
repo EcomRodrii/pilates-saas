@@ -4,28 +4,31 @@
 //
 // Sustituye a la categoría "Tema" que vivía dentro del editor (una rejilla de
 // botones con solo el nombre y una frase): un tema se elige mirándolo, no
-// leyéndolo, así que aquí cada uno se ve pintado (ThemeThumb) antes de
-// instalarlo. El afinado campo a campo sigue viviendo en el editor
+// leyéndolo, así que aquí cada uno se ve pintado (ThemeThumbVivo: el portal de
+// verdad en pequeño, no un dibujo) antes de instalarlo. El afinado campo a campo sigue viviendo en el editor
 // (/configuracion/apariencia/editor), al que se llega con "Personalizar".
 //
 // Instalar un tema NO publica: vuelca sus `defaults` en el BORRADOR (mismo
 // `elegirTema` del hook que ya usaba el editor) y deja que la propietaria lo
 // mire y decida. Publicar sigue siendo un acto aparte y explícito.
 
+import { sembrarBloquesHome } from '@/lib/portal-home-bloques';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Check, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
-import { ThemeThumb } from './theme-thumb';
+import { useStudio } from '@/lib/studio-context';
+import { ThemeThumbVivo } from './theme-thumb-vivo';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
-import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, guardarBloquesBorradorApi } from '@/lib/api-client';
+import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import {
-  DEFAULT_THEME, FUENTES, ESTILOS_TITULAR_PORTAL, type ThemeConfig,
+  DEFAULT_THEME, FUENTES, ESTILOS_TITULAR_PORTAL, instalarTema, type ThemeConfig,
 } from '@/lib/theme-schema';
 
 const RUTA_EDITOR = '/configuracion/apariencia/editor';
@@ -59,28 +62,6 @@ function nombreTitular(id: ThemeConfig['portalHeadingFontId']): string {
   return ESTILOS_TITULAR_PORTAL.find((f) => f.id === id)?.label ?? id;
 }
 
-/**
- * Reordena/oculta los bloques `sistema` del Inicio según `bloquesHome` de un
- * `ThemeDefinition` — los que aparecen en la lista pasan a visibles, en ese
- * orden; los que no, se ocultan (nunca se borran: un bloque `sistema` no se
- * puede quitar del todo). Los bloques del CATÁLOGO se preservan tal cual, al
- * final — "cambiar de tema no debe borrar tu contenido".
- */
-function sembrarBloquesHome(actuales: BloqueHome[], orden: string[]): BloqueHome[] {
-  const sistema = actuales.filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => b.kind === 'sistema');
-  const catalogo = actuales.filter((b) => b.kind !== 'sistema');
-  const porId = new Map(sistema.map((b) => [b.sistemaId, b]));
-
-  const listados = orden
-    .map((id) => porId.get(id as Extract<BloqueHome, { kind: 'sistema' }>['sistemaId']))
-    .filter((b): b is Extract<BloqueHome, { kind: 'sistema' }> => !!b)
-    .map((b) => ({ ...b, oculto: false }));
-  const noListados = sistema
-    .filter((b) => !orden.includes(b.sistemaId))
-    .map((b) => ({ ...b, oculto: true }));
-
-  return [...listados, ...noListados, ...catalogo];
-}
 
 /** La fila de los cinco colores del tema. */
 function Colores({ config }: { config: ThemeConfig }) {
@@ -103,15 +84,29 @@ function Colores({ config }: { config: ThemeConfig }) {
 }
 
 export function ThemeLibrary() {
+  const router = useRouter();
   const hook = useThemeEditor();
+  const { dataLoaded } = useStudio();
   const { draft, rol, estado, elegirTema, handlePublicar, publicando, aviso, contraste } = hook;
   const [publicado, setPublicado] = useState<ThemeConfig | null>(null);
   const [instalando, setInstalando] = useState<string | null>(null);
+  // El token de la vista previa se pide UNA vez y lo comparten las seis
+  // miniaturas: es del estudio, no del tema. Era la mitad de la objeción que
+  // el dibujo a mano documentaba contra usar iframes aquí.
+  const [tokenPreview, setTokenPreview] = useState<string | null>(null);
+  // Los bloques del Inicio que el estudio tiene AHORA — la base sobre la que
+  // cada tema siembra los suyos para la miniatura.
+  const [bloquesActuales, setBloquesActuales] = useState<BloqueHome[] | null>(null);
   const [errorInstalar, setErrorInstalar] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
     fetchThemePublicado().then((t) => { if (vivo) setPublicado(t); }).catch(() => {});
+    // Un token para todas las miniaturas, y los bloques de partida. Si algo de
+    // esto falla, las miniaturas se quedan en su hueco gris: la biblioteca
+    // sigue siendo usable (nombre, descripción, colores, Usar/Personalizar).
+    fetchHomePreviewToken().then(({ token }) => { if (vivo) setTokenPreview(token); }).catch(() => {});
+    fetchBloquesBorrador('home').then((b) => { if (vivo) setBloquesActuales(b); }).catch(() => {});
     return () => { vivo = false; };
   }, []);
 
@@ -130,20 +125,24 @@ export function ThemeLibrary() {
     await fetchThemePublicado().then(setPublicado).catch(() => {});
   }
 
-  async function instalar(def: ThemeDefinition) {
+  /**
+   * `irAlEditor` es lo que arregla "Personalizar".
+   *
+   * ⚠️ Ese botón era un `Link` FIJO a la ruta del editor, sin el id del tema de
+   * su fila. Daba igual en cuál pulsaras: entrabas al editor con TU tema. Por
+   * eso Oliva, Bloom y Noir se veían los tres iguales — no porque los temas lo
+   * fueran (declaran cabecera, accesos y bloques distintos), sino porque nunca
+   * llegabas a verlos.
+   *
+   * Instala en el BORRADOR, que es exactamente lo que ya hacía "Usar": no
+   * publica nada, y se deshace con "Volver a lo publicado".
+   */
+  async function instalar(def: ThemeDefinition, irAlEditor = false) {
     setInstalando(def.id);
     setErrorInstalar(null);
-    const nuevo: ThemeConfig = {
-      ...draft, ...def.defaults,
-      // El spread es superficial: sin clonar, `variantes`/`radioTema`
-      // compartirían referencia con la constante del módulo. Hoy no muerde
-      // (se serializa a JSON al guardar), pero muerde el día que el editor
-      // deje tocar una variante in place — y ese bug sería invisible hasta
-      // que un tema empezara a "contagiar" al siguiente.
-      ...(def.defaults.variantes ? { variantes: { ...def.defaults.variantes } } : {}),
-      ...(def.defaults.radioTema ? { radioTema: { ...def.defaults.radioTema } } : {}),
-      themeId: def.id, themeVersion: def.version, themeCustomized: false,
-    };
+    // Instalar un tema SUSTITUYE el estado, no lo fusiona. Ver `instalarTema`
+    // y el bug de los tres ejes de barra conviviendo que lo motivó.
+    const nuevo = instalarTema(draft, def.defaults, { themeId: def.id, themeVersion: def.version });
     try {
       await guardarThemeBorrador(nuevo);
       if (def.bloquesHome && def.bloquesHome.length > 0) {
@@ -151,6 +150,10 @@ export function ThemeLibrary() {
         await guardarBloquesBorradorApi('home', sembrarBloquesHome(actuales, def.bloquesHome));
       }
       elegirTema(def); // refleja en pantalla lo que ya está guardado
+      // La base de las miniaturas acaba de cambiar: sin esto seguirían
+      // sembrando sobre los bloques de antes de instalar.
+      fetchBloquesBorrador('home').then(setBloquesActuales).catch(() => {});
+      if (irAlEditor) router.push(RUTA_EDITOR);
     } catch (e) {
       setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
     } finally {
@@ -158,7 +161,21 @@ export function ThemeLibrary() {
     }
   }
 
-  if (rol !== 'PROPIETARIO') {
+  // ⚠️ Solo se niega el acceso cuando el rol se CONOCE.
+  //
+  // `useRol()` sale de `instructores`/`studio` del contexto, y hasta que
+  // cargan devuelve 'INSTRUCTOR' por defecto. Con la comprobación a secas, la
+  // propietaria leía "Solo la propietaria..." durante los primeros segundos —y
+  // peor: este `return` es anterior a la vista previa, así que el iframe no se
+  // montaba ni pedía su token hasta entonces. Medido en producción: el token
+  // salía a los 3752 ms y el iframe a los 5108 ms; el `load` de la página es a
+  // 1305 ms.
+  //
+  // Esto NO afloja ningún permiso: la UI nunca es el límite de seguridad en
+  // este repo. Guardar y publicar los comprueba el servidor
+  // (`/api/theme`, `/api/portal-bloques`), y el token de la vista previa exige
+  // sesión de staff desde antes de este cambio.
+  if (dataLoaded && rol !== 'PROPIETARIO') {
     return <p className="text-sm text-muted-foreground">Solo la propietaria del estudio puede cambiar la apariencia.</p>;
   }
   if (estado === 'cargando') {
@@ -172,12 +189,41 @@ export function ThemeLibrary() {
   // ya están viendo — la vuelta atrás de quien ha probado algo y no le
   // convence. Distinto de `hook.restaurar()`, que vuelve al tema del SISTEMA
   // (y que por eso se queda en el editor, con el resto del ajuste fino).
+  /**
+   * Deshace TODO lo que se haya probado: colores, forma y secciones.
+   *
+   * ⚠️ Antes solo deshacía el tema. Construía una definición sintética sin
+   * `bloquesHome`, así que `instalar()` se saltaba la siembra y el borrador se
+   * quedaba con las secciones del tema que estabas probando. Probar Bloom y
+   * volver atrás te dejaba los colores de Noir con los retos de Bloom — un
+   * generador de "el editor enseña una cosa y el portal otra". Encontrado
+   * probándolo en un estudio real.
+   *
+   * Las secciones se restauran TAL CUAL están publicadas, no sembrando desde
+   * la lista del tema: volver atrás es volver a lo que ven las socias, incluso
+   * si la propietaria había reordenado a mano.
+   */
   async function volverAPublicado() {
     if (!publicado) return;
-    await instalar({
-      id: publicado.themeId, version: publicado.themeVersion,
-      label: '', description: '', capabilities: [], defaults: publicado,
-    });
+    setInstalando(publicado.themeId);
+    setErrorInstalar(null);
+    try {
+      const nuevo = instalarTema(draft, publicado, {
+        themeId: publicado.themeId, themeVersion: publicado.themeVersion,
+      });
+      await guardarThemeBorrador(nuevo);
+      const bloquesPub = await fetchBloquesPublicado('home');
+      await guardarBloquesBorradorApi('home', bloquesPub);
+      setBloquesActuales(bloquesPub);
+      elegirTema({
+        id: publicado.themeId, version: publicado.themeVersion,
+        label: '', description: '', capabilities: [], defaults: publicado,
+      });
+    } catch (e) {
+      setErrorInstalar(mensajeSeguro((e as Error).message, ERROR_RED));
+    } finally {
+      setInstalando(null);
+    }
   }
 
   return (
@@ -187,7 +233,11 @@ export function ThemeLibrary() {
         <h2 className="text-[15px] font-bold text-foreground">Tu tema</h2>
         <Card className="p-4">
           <div className="flex gap-4 items-start">
-            <ThemeThumb config={draft} ancho={96} />
+            <ThemeThumbVivo
+              config={draft} bloques={bloquesActuales}
+              slug={hook.studio?.slug ?? null} token={tokenPreview}
+              ancho={96} etiqueta={definicion?.label ?? 'tu tema'}
+            />
             <div className="flex-1 min-w-0 space-y-2.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[15px] font-bold text-foreground">
@@ -269,7 +319,17 @@ export function ThemeLibrary() {
                 data-tema={def.id}
                 className={`flex gap-4 items-center p-4 hover:bg-muted/40 transition-colors ${i > 0 ? 'border-t border-border' : ''}`}
               >
-                <ThemeThumb config={config} ancho={96} />
+                {/* Los bloques que dejaría ESTE tema al instalarse — misma
+                    función que usa `instalar()`, así que la miniatura enseña
+                    exactamente lo que va a pasar al pulsar "Usar". */}
+                <ThemeThumbVivo
+                  config={config}
+                  bloques={bloquesActuales && def.bloquesHome?.length
+                    ? sembrarBloquesHome(bloquesActuales, def.bloquesHome)
+                    : bloquesActuales}
+                  slug={hook.studio?.slug ?? null} token={tokenPreview}
+                  ancho={96} etiqueta={def.label}
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[14px] font-bold text-foreground">{def.label}</span>
@@ -283,9 +343,21 @@ export function ThemeLibrary() {
                   <p className="text-[12.5px] text-muted-foreground mt-1 line-clamp-1">{def.description}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-none">
-                  <Link href={RUTA_EDITOR} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-                    Personalizar
-                  </Link>
+                  {enUso ? (
+                    <Link href={RUTA_EDITOR} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                      Personalizar
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={instalando !== null}
+                      onClick={() => instalar(def, true)}
+                      title={`Pone ${def.label} en tu borrador y abre el editor. No publica nada.`}
+                    >
+                      {instalando === def.id ? 'Abriendo…' : 'Personalizar'}
+                    </Button>
+                  )}
                   {!enUso && (
                     <Button size="sm" disabled={instalando !== null} onClick={() => instalar(def)}>
                       {instalando === def.id ? 'Instalando…' : 'Usar'}

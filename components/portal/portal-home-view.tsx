@@ -42,14 +42,13 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
-import { buildPortalNotifications, usePortalNotifUnreadCount } from '@/lib/portal-notifications';
+import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
 import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
-import { pedirPaseDeAcceso } from '@/lib/api-client';
+import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
 import {
-  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque,
-} from '@/lib/portal-design';
+  dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
 import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
@@ -58,6 +57,18 @@ import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
 // componente se resuelve aquí — así lib/portal-home-logic.ts sigue sin React.
 const ICONOS_ACCESO: Record<string, LucideIcon> = { CalendarDays, Sparkles, Bell, User };
+
+// Valor de `now` mientras el reloj de abajo todavía no ha latido (render del
+// servidor y primer render del cliente, antes del efecto). Constante de MÓDULO
+// y no `new Date()`: un `new Date()` en el cuerpo del componente es una
+// referencia distinta en cada render, así que los cinco useMemo que dependen de
+// `now` se recalculaban SIEMPRE — justo lo que la memoización pretendía evitar.
+// La fecha concreta da igual: todo lo que consume `now` antes de montar sale de
+// datos del estudio (sesiones/reservas/banners), que StudioProvider carga en un
+// efecto y por tanto están vacíos en ese momento. El único consumidor que
+// pintaría algo real sin datos —el saludo por hora— se resuelve con `ahora` ya
+// montado, no con esta constante.
+const FECHA_PLACEHOLDER_SSR = new Date('2026-06-29T00:00:00Z');
 
 // Un banner "de home" está listo para mostrarse si sigue activo y, si tiene
 // ventana de fechas, "hoy" cae dentro. El filtro de ubicación/activo ya lo
@@ -93,15 +104,28 @@ function GlifoAcceso({ color }: { color: string }) {
   );
 }
 
-export function PortalHomeView({ session, homeBloquesOverride }: { session: PortalSession | null; homeBloquesOverride?: BloqueHome[] }) {
+export function PortalHomeView({ session, homeBloquesOverride, escribible = true }: {
+  session: PortalSession | null;
+  homeBloquesOverride?: BloqueHome[];
+  /**
+   * `false` en el preview de temas: misma vista, pero sin servidor real detrás
+   * al que preguntar. Mismo criterio que portal-clases-view/reservas-view.
+   */
+  escribible?: boolean;
+}) {
   const { slug } = useParams<{ slug: string }>();
   const {
-    socios, suscripciones, planesTarifa, sesiones, reservas, recibos,
+    socios, suscripciones, planesTarifa, sesiones, reservas,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
     homeBloques: homeBloquesPublicado,
     retosApuntados, retoConteos, toggleReto, variantes,
   } = useStudio();
   const homeBloques = homeBloquesOverride ?? homeBloquesPublicado;
+  // Las dos cabeceras del prototipo llevan avatar y campana de icono; solo
+  // cambia la jerarquía del texto entre ellas. La `clasica` (default, todo
+  // estudio sin tema) se queda exactamente como estaba.
+  const cabeceraConAvatar = variantes.cabeceraInicio !== 'clasica';
+  const tarjetaRotulada = variantes.tarjetaPrincipal === 'rotulada';
   const { t, noche } = useModo();
   const [paseAbierto, setPaseAbierto] = useState(false);
 
@@ -121,7 +145,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     const id = setInterval(() => setAhora(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
-  const now = ahora ?? new Date();
+  const now = ahora ?? FECHA_PLACEHOLDER_SSR;
   const bannersVigentes = useMemo(() => {
     // Fecha LOCAL, no toISOString() (UTC): con un estudio en España, la hora
     // siguiente a medianoche local todavía cae en el día UTC anterior, y un
@@ -148,8 +172,56 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     // los del catálogo: sirve para acotar una aserción a SU bloque (varios de
     // estos destinos salen también en la barra inferior, así que buscar el
     // href a secas encuentra dos).
-    return { 'data-bloque-sistema': sistemaId, style: { order: i === -1 ? 0 : i }, hidden: i === -1 };
+    //
+    // `data-bloque-id` es lo que hace al bloque SELECCIONABLE desde el
+    // preview del editor (portal-preview-bridge.ts busca ese atributo con
+    // `closest()`). Los dos conviven a propósito: el `sistemaId` es el tipo
+    // de módulo —el mismo en todos los estudios— y el `id` es esta fila
+    // concreta en la lista de esta pantalla, que es lo que el editor
+    // selecciona. Fuera del preview no cambia nada: en el portal de verdad
+    // este atributo no lo lee nadie.
+    return {
+      'data-bloque-sistema': sistemaId,
+      'data-bloque-id': i === -1 ? undefined : bloquesOrdenados[i].id,
+      style: { order: i === -1 ? 0 : i },
+      hidden: i === -1,
+    };
   };
+  /**
+   * La config de un bloque de SISTEMA, ya resuelta.
+   *
+   * Los textos de estos bloques estaban escritos a fuego aquí — el titular de
+   * "Invita a una amiga" era copy de un estudio concreto servido a todos. Ahora
+   * salen del bloque guardado, y `resolverBloques` ya ha rellenado con el texto
+   * de siempre lo que el estudio no haya tocado: sin config guardada esto
+   * devuelve EXACTAMENTE lo que se pintaba antes.
+   */
+  const cfgSistema = (sistemaId: BloqueSistemaId): Record<string, unknown> => {
+    const b = bloquesOrdenados.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    return (b && b.kind === 'sistema' && b.config) || {};
+  };
+  const txt = (sistemaId: BloqueSistemaId, campo: string, siVacio = ''): string => {
+    const v = cfgSistema(sistemaId)[campo];
+    // ⚠️ La cadena VACÍA cuenta como "no puesto" y cae al literal de quien
+    // llama — el parámetro se llama `siVacio`. Sin esto, un campo cuyo
+    // `porDefecto` es '' (como `fraseConClase`, que va vacío a propósito para
+    // que cada variante de cabecera conserve SU frase) borraba el texto en vez
+    // de heredarlo. Lo cazó el e2e de la cabecera `titular` en CI.
+    return typeof v === 'string' && v !== '' ? v : siVacio;
+  };
+
+  /**
+   * El id de un bloque FIJO, para que el editor pueda seleccionarlo desde la
+   * vista previa. Estos dos no entran en el contenedor que ordena los demás
+   * con CSS `order` —el saludo y la tarjeta se mantienen siempre arriba, y los
+   * efectos de scroll dependen de esa estructura— así que no pasan por
+   * `wrap()` y necesitan su propio enganche.
+   */
+  const idFijo = (sistemaId: BloqueSistemaId): string | undefined => {
+    const b = homeBloques.find((x) => x.kind === 'sistema' && x.sistemaId === sistemaId);
+    return b?.id;
+  };
+
   const bloquesPersonalizados = useMemo(
     () => bloquesOrdenados
       .map((b, i) => ({ b, orden: i }))
@@ -219,11 +291,16 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
     racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
-  const notifItems = useMemo(() => {
-    if (!session?.socioId) return [];
-    return buildPortalNotifications({ socioId: session.socioId, reservas, recibos, sesiones, tiposClase, instructores });
-  }, [session?.socioId, reservas, recibos, sesiones, tiposClase, instructores]);
-  const sinLeer = usePortalNotifUnreadCount(session?.socioId, notifItems);
+  // Los avisos salen del motor de notificaciones, la MISMA fuente que la
+  // pantalla a la que enlaza la campana — si el número y la lista se calculan
+  // por separado, dejan de coincidir (ver lib/notifications/use-unread.ts).
+  // `null` = todavía no se sabe.
+  const sinLeerReal = useNotificacionesSinLeer(portalAuthHeader, studio?.id, escribible);
+  // En el preview el hook nunca pide nada, así que se quedaría en `null` para
+  // siempre y el editor enseñaría un círculo VACÍO, que no es un estado real
+  // del portal. Un valor de muestra fijo: la propietaria juzga el diseño con lo
+  // que verá una socia al día, no con un estado de carga congelado.
+  const sinLeer = escribible ? sinLeerReal : 0;
 
   const totalAsistidas = misReservas.filter(r => r.estado === 'ASISTIDA').length;
   const proximas = misReservas.filter(r => {
@@ -271,7 +348,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
         const h = Math.floor(mins / 60);
         const esHoy = inicio.toDateString() === now.toDateString();
         return {
-          volanta: 'Tu próxima clase',
+          volanta: txt('proximaClase', 'proximaVolanta', 'Tu próxima clase'),
           contador: ahora ? (h > 0 ? `EN ${h} H ${mins % 60} MIN` : `EN ${mins} MIN`) : null,
           titulo: homeCard.tipo?.nombre ?? 'Clase',
           meta: [
@@ -279,45 +356,49 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             homeCard.instructor?.nombre,
             homeCard.sala?.nombre,
           ].filter(Boolean) as string[],
-          cta: 'Ver mi acceso',
+          cta: txt('proximaClase', 'proximaBoton', 'Ver mi acceso'),
           href: `/portal/${slug}/reservas`,
           abrePase: true,
         };
       }
       case 'ULTIMA_SESION':
         return {
-          volanta: 'Tu bono se acaba', contador: null,
-          titulo: 'Te queda una sesión',
-          meta: [plan?.nombre, 'Renuévalo y sigues igual'].filter(Boolean) as string[],
-          cta: 'Renovar mi bono', href: `/portal/${slug}/compras`,
+          volanta: txt('proximaClase', 'bonoVolanta', 'Tu bono se acaba'), contador: null,
+          titulo: txt('proximaClase', 'bonoTitulo', 'Te queda una sesión'),
+          meta: [plan?.nombre, txt('proximaClase', 'bonoTexto', 'Renuévalo y sigues igual')].filter(Boolean) as string[],
+          cta: txt('proximaClase', 'bonoBoton', 'Renovar mi bono'), href: `/portal/${slug}/compras`,
         };
       case 'RACHA_EN_RIESGO':
         return {
           volanta: `Racha de ${homeCard.semanas} semanas`, contador: null,
-          titulo: 'No la pierdas ahora',
-          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, 'Reserva esta semana'],
-          cta: 'Buscar mi clase', href: `/portal/${slug}/clases`,
+          titulo: txt('proximaClase', 'rachaTitulo', 'No la pierdas ahora'),
+          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, txt('proximaClase', 'rachaTexto', 'Reserva esta semana')],
+          cta: txt('proximaClase', 'rachaBoton', 'Buscar mi clase'), href: `/portal/${slug}/clases`,
         };
       case 'INACTIVA':
         return {
           volanta: `${homeCard.diasSinVenir} días sin venir`, contador: null,
-          titulo: 'Tu sitio te espera',
-          meta: ['Hay clases con hueco esta semana'],
-          cta: 'Volver a reservar', href: `/portal/${slug}/clases`,
+          titulo: txt('proximaClase', 'inactivaTitulo', 'Tu sitio te espera'),
+          meta: [txt('proximaClase', 'inactivaTexto', 'Hay clases con hueco esta semana')],
+          cta: txt('proximaClase', 'inactivaBoton', 'Volver a reservar'), href: `/portal/${slug}/clases`,
         };
       default:
         return {
-          volanta: 'Sin clases reservadas', contador: null,
-          titulo: 'Empieza por aquí',
-          meta: ['Elige el día que mejor te venga'],
-          cta: 'Ver la agenda', href: `/portal/${slug}/clases`,
+          volanta: txt('proximaClase', 'vaciaVolanta', 'Sin clases reservadas'), contador: null,
+          titulo: txt('proximaClase', 'vaciaTitulo', 'Empieza por aquí'),
+          meta: [txt('proximaClase', 'vaciaTexto', 'Elige el día que mejor te venga')],
+          cta: txt('proximaClase', 'vaciaBoton', 'Ver la agenda'), href: `/portal/${slug}/clases`,
         };
     }
   })();
 
   const filas = accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
-  const conFoto = !!studio?.fotoUrl;
+  // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, y si
+  // no la del portal — que es lo que hacía siempre. La herencia va en este
+  // orden a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
+  const fotoTarjeta = txt('proximaClase', 'fotoUrl', '') || studio?.imagenBienvenidaUrl || '';
+  const conFoto = !!fotoTarjeta;
   const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
   const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
   const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
@@ -351,17 +432,49 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             ⚠️ `saludoRef` se queda SIEMPRE en este envoltorio exterior: el
             efecto de scroll le escribe opacity/transform directamente (ver
             más arriba), y moverlo a una rama rompería el paralaje en silencio. */}
-        <div ref={saludoRef} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}>
-          {variantes.cabeceraInicio === 'titular' ? (
+        <div
+          ref={saludoRef}
+          data-bloque-sistema="cabecera"
+          data-bloque-id={idFijo('cabecera')}
+          style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, willChange: 'transform, opacity' }}
+        >
+          {cabeceraConAvatar ? (
             <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* El avatar sube a la cabecera (en la variante clásica vive solo
                   en la pestaña Perfil, y aquí abajo en un sr-only). */}
               <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="lg" />
               <div style={{ minWidth: 0 }}>
-                <div style={{ ...texto.meta, color: t.muted2 }}>{saludoPorHora(now)}</div>
-                <h1 style={{ ...display(24), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {nombre}
-                </h1>
+                {/* `saludo` (Oliva) pone el nombre ARRIBA y grande, con la
+                    pregunta debajo; `titular` (Bloom/Noir) lo hace al revés:
+                    saludo por hora pequeño arriba y el nombre como encabezado.
+                    Es la única diferencia entre las dos — ambas llevan avatar. */}
+                {variantes.cabeceraInicio === 'saludo' ? (
+                  <>
+                    <h1 style={{ ...display(escala('saludo', 21)), color: t.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      Hola, {nombre}
+                    </h1>
+                    <p style={{ ...texto.meta, color: t.muted2, marginTop: 2 }}>
+                      {homeCard.caso === 'PROXIMA_CLASE'
+                        ? txt('cabecera', 'fraseConClase', '¿Lista para tu sesión de hoy?')
+                        : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    {/* Con `ahora`, no con `now`: es lo ÚNICO de esta pantalla
+                        que pinta contenido real derivado solo de la hora (lo
+                        demás sale de datos del estudio, vacíos hasta montar).
+                        Con el placeholder saldría "Buenas noches" y cambiaría
+                        de golpe al montar; y leerlo del reloj del servidor
+                        (UTC) tampoco vale, porque la franja horaria de la socia
+                        puede caer en otro saludo y eso es un desajuste de
+                        hidratación. Mismo criterio que `fechaHoy` más abajo. */}
+                    <div style={{ ...texto.meta, color: t.muted2 }}>{ahora ? saludoPorHora(ahora) : ' '}</div>
+                    <h1 style={{ ...display(escala('saludo', 24)), color: t.ink, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {nombre}
+                    </h1>
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -371,13 +484,15 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               Hola, {nombre}.
             </h1>
             <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
-              {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+              {homeCard.caso === 'PROXIMA_CLASE'
+              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
+              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
             </p>
           </div>
           )}
           <Link
             href={`/portal/${slug}/notificaciones`}
-            aria-label={sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
+            aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
             style={{
               position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 22,
               borderRadius: '50%', border: `1px solid ${noche ? 'rgba(243,241,233,.14)' : 'rgba(34,38,31,.14)'}`,
@@ -386,8 +501,15 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               transition: transicion(['transform']),
             }}
           >
-            <span style={{ ...display(17), color: t.ink }}>{sinLeer}</span>
-            {sinLeer > 0 && (
+            {/* Con avatar en la cabecera, la campana es un ICONO con punto
+                (prototipo); sin él sigue siendo el contador numérico de
+                siempre — el número necesita más peso cuando está solo.
+                El numeral queda en blanco mientras carga: el "0" del diseño es
+                una afirmación ("estás al día"), y todavía no se sabe. */}
+            {cabeceraConAvatar
+              ? <Bell size={18} strokeWidth={1.9} style={{ color: t.ink }} />
+              : <span style={{ ...display(17), color: t.ink }}>{sinLeer ?? ''}</span>}
+            {sinLeer !== null && sinLeer > 0 && (
               <span style={{ position: 'absolute', top: 2, right: 2, width: 6, height: 6, borderRadius: '50%', background: 'var(--portal-brand)' }} />
             )}
           </Link>
@@ -397,13 +519,64 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             MENSAJE REAL del día (el mismo que en la variante clásica es
             subtítulo, ascendido), no una frase de marketing de la maqueta. */}
         {variantes.cabeceraInicio === 'titular' && (
-          <p style={{ ...display(30, false, 1.18), color: t.ink, marginTop: 20 }}>
-            {homeCard.caso === 'PROXIMA_CLASE' ? 'Hoy tienes una cita contigo.' : 'Tu sitio sigue aquí.'}
+          <p style={{ ...display(escala('titulo-hero', 30), false, 1.18), color: t.ink, marginTop: 20 }}>
+            {homeCard.caso === 'PROXIMA_CLASE'
+              ? txt('cabecera', 'fraseConClase', 'Hoy tienes una cita contigo.')
+              : txt('cabecera', 'fraseSinClase', 'Tu sitio sigue aquí.')}
           </p>
         )}
 
         <div style={{ height: 32 }} />
 
+        {/* Rótulo de sección encima de la tarjeta (prototipo): "Tu semana"
+            cuando no hay clase reservada, "Próxima clase" cuando la hay
+            ("Tu próxima clase" en el tema de barra oscura). Sin la variante,
+            no se pinta nada — la tarjeta ya se explica sola con su volanta. */}
+        {tarjetaRotulada && (
+          <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 12 }}>
+            {/* El prototipo dice "Tu próxima clase" solo en Noir; es una
+                palabra de diferencia que obligaría a exponer otro campo del
+                tema hasta aquí, así que se unifica. */}
+            {homeCard.caso === 'PROXIMA_CLASE' ? 'Próxima clase' : 'Tu semana'}
+          </h2>
+        )}
+
+        {/* Estado VACÍO en la variante rotulada: tarjeta sencilla en vez del
+            bloque grande. Con clase reservada se sigue usando el hero de
+            abajo, igual que hace el prototipo. */}
+        {/* Las DOS ramas de la tarjeta llevan la misma marca: para el editor
+            es el mismo bloque, aunque el tema decida pintarlo de otra forma. */}
+        {tarjetaRotulada && homeCard.caso !== 'PROXIMA_CLASE' ? (
+          <Link
+            href={'href' in tarjeta ? tarjeta.href : `/portal/${slug}/clases`}
+            data-tarjeta="principal"
+            style={{
+              display: 'block', textDecoration: 'none', padding: 22,
+              background: t.surface,
+              border: `var(--portal-card-border, 1px solid ${t.line})`,
+              boxShadow: 'var(--portal-card-shadow, none)',
+              borderRadius: `var(--portal-radius-card, ${radio.card}px)`,
+            }}
+          >
+            {/* Mismos textos que el hero (`tarjeta`), no unos propios: el
+                estado vacío cambia de FORMA, no de mensaje. */}
+            <p style={{ ...display(19, false, 1.2), color: t.ink }}>{tarjeta.titulo}</p>
+            {tarjeta.meta[0] && (
+              <p style={{ ...texto.meta, color: t.muted2, marginTop: 7, lineHeight: 1.5 }}>{tarjeta.meta[0]}</p>
+            )}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', height: 42, padding: '0 20px', marginTop: 16,
+              borderRadius: `var(--portal-radius-boton, ${radio.pill}px)`,
+              background: 'var(--portal-btn-bg, var(--portal-brand))',
+              color: 'var(--portal-btn-fg, var(--portal-brand-foreground))',
+              border: 'var(--portal-btn-border, none)',
+              ...texto.metaFuerte,
+            }}>
+              {tarjeta.cta}
+            </span>
+          </Link>
+        ) : (
+        <>
         {/* Tarjeta grande.
             Con foto del estudio, es exactamente el diseño: 476 px de imagen con
             la tarjeta de cristal flotando abajo. SIN foto —el caso de casi
@@ -415,6 +588,12 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
           // ni texto propio con el que localizarla (el titular cambia según el
           // caso), y colgar el test de su estructura lo rompe al primer div.
           data-tarjeta="principal"
+          // Se marca AQUÍ y no en un envoltorio nuevo: la rama grande es un
+          // fragment con varios hijos directos del contenedor con padding, y
+          // meterles un div encima cambiaría el layout de la pieza más visible
+          // del portal. Este ancla ya existía para las pruebas de geometría.
+          data-bloque-sistema="proximaClase"
+          data-bloque-id={idFijo('proximaClase')}
           style={{
             position: 'relative',
             height: conFoto ? altura.heroCard : undefined,
@@ -430,7 +609,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
           {conFoto && (
             <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <img src={fotoTarjeta} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
             </div>
           )}
 
@@ -463,7 +642,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
             border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
           }}>
             <Link href={tarjeta.href} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{ ...display(36, true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ ...display(escala('titulo-hero', 36), true), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {tarjeta.titulo}
               </div>
             </Link>
@@ -489,12 +668,18 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                   <span aria-hidden style={{ fontSize: 16, color: 'var(--portal-brand-foreground)', opacity: 0.7 }}>→</span>
                 </>
               );
-              return 'abrePase' in tarjeta && tarjeta.abrePase
+              // Con el check-in QR desactivado (Configuración → Reservas), la
+              // reserva se marca asistida sola al terminar la clase: no hay
+              // ningún pase que enseñar, así que el botón lleva directo a la
+              // reserva, como en el resto de estados de esta tarjeta.
+              return 'abrePase' in tarjeta && tarjeta.abrePase && (studio?.requiereCheckinQr ?? true)
                 ? <button type="button" onClick={() => setPaseAbierto(true)} style={estilo}>{dentro}</button>
                 : <Link href={tarjeta.href} style={estilo}>{dentro}</Link>;
             })()}
           </div>
         </div>
+        </>
+        )}
 
         {/* Zona de Inicio construida con bloques (Fase 3 del editor de temas):
             cada módulo de siempre se ordena por CSS `order` sin mover el DOM,
@@ -511,9 +696,9 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               <>
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                  <h2 style={{ ...display(30), color: t.ink }}>Esta semana</h2>
+                  <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
                   <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
-                    Agenda →
+                    {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
                 </div>
                 {/* Sin `scroll-snap`. Lo añadí de más y se comía la sangría: con
@@ -556,9 +741,11 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               estudio sin tema, y no se refactoriza de paso. */}
           <div {...wrap('accesosRapidos')}>
             <div style={{ height: 40 }} />
-            {rotuloAccesos(variantes.accesosRapidos) && (
-              <h2 style={{ ...display(24), color: t.ink, marginBottom: 14 }}>
-                {rotuloAccesos(variantes.accesosRapidos)}
+            {/* El rótulo del estudio manda sobre el del tema; vacío en los dos
+                = sin rótulo, que es lo que hacen las variantes que no lo llevan. */}
+            {(txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)) && (
+              <h2 style={{ ...display(escala('seccion', 24)), color: t.ink, marginBottom: 14 }}>
+                {txt('accesosRapidos', 'titulo') || rotuloAccesos(variantes.accesosRapidos)}
               </h2>
             )}
             {variantes.accesosRapidos === 'filas' && filas.map((f, i) => (
@@ -644,9 +831,9 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 transition: transicion(['transform'], dur.card),
               }}
             >
-              {studio?.fotoUrl ? (
+              {studio?.imagenBienvenidaUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={studio.imagenBienvenidaUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
               )}
@@ -657,12 +844,16 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                   : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
               }} />
               <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
-                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>Trae a quien quieras</span>
+                <span style={{ ...micro(8.5, 0.26, 600), color: t.heroAccent }}>
+                  {txt('invitarAmiga', 'antetitulo', 'Trae a quien quieras')}
+                </span>
                 <div>
-                  <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
-                    La calma se comparte mejor.
+                  <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>
+                    {txt('invitarAmiga', 'titulo', 'La calma se comparte mejor.')}
                   </div>
-                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>Invita a una amiga y ganáis las dos</div>
+                  <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>
+                    {txt('invitarAmiga', 'subtitulo', 'Invita a una amiga y ganáis las dos')}
+                  </div>
                 </div>
               </div>
               <span aria-hidden style={{
@@ -695,7 +886,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 <>
                   {b.imagenUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={b.imagenUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
                   ) : (
                     <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
                   )}
@@ -706,7 +897,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                       : 'linear-gradient(94deg, rgba(246,244,239,.97) 6%, rgba(246,244,239,.88) 42%, rgba(246,244,239,.35) 72%, rgba(246,244,239,.06) 100%)',
                   }} />
                   <div style={{ position: 'absolute', inset: 0, padding: '26px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pointerEvents: 'none' }}>
-                    {b.titulo && <div style={{ ...display(29, true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
+                    {b.titulo && <div style={{ ...display(escala('titulo-hero', 29), true, 1.12), color: t.ink, maxWidth: 220, textWrap: 'pretty' } as React.CSSProperties}>{b.titulo}</div>}
                     {b.texto && <div style={{ ...texto.nota, color: t.muted, marginTop: 12 }}>{b.texto}</div>}
                   </div>
                   <span aria-hidden style={{
@@ -784,7 +975,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 </div>
               </div>
               <div>
-                <div style={{ ...display(22), color: t.ink }}>Tu semana</div>
+                <div style={{ ...display(22), color: t.ink }}>{txt('progresoSemanal', 'titulo', 'Tu semana')}</div>
                 <div style={{ ...texto.meta, color: t.muted2, marginTop: 4 }}>
                   {progresoSemanal} {progresoSemanal === 1 ? 'clase' : 'clases'} reservada{progresoSemanal === 1 ? '' : 's'} esta semana
                 </div>
@@ -798,7 +989,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
               Oculto por defecto. */}
           <div {...wrap('retos')}>
             <div style={{ height: 40 }} />
-            <h2 style={{ ...display(30), color: t.ink }}>Retos</h2>
+            <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('retos', 'titulo', 'Retos')}</h2>
             <div style={{ display: 'flex', gap: 12, overflowX: 'auto', margin: '0 -24px', padding: '18px 24px 8px', scrollbarWidth: 'none' } as React.CSSProperties}>
               {RETOS_PORTAL.map((reto) => {
                 const apuntada = retosApuntados.includes(reto.key);
@@ -808,6 +999,9 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                 // sería casi blanco encima y quedaría ilegible.
                 const conColor = variantes.retos === 'color';
                 const tinta = conColor ? reto.tinta : t.ink;
+                // `imagenCore`/`imagenCara`: campo del bloque, no del tema —
+                // es contenido del estudio, y cada estudio sube el suyo.
+                const fotoReto = txt('retos', reto.key === 'core' ? 'imagenCore' : 'imagenCara');
                 return (
                   <div
                     key={reto.key}
@@ -819,6 +1013,21 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
                       boxShadow: conColor ? 'none' : sombra.cardSemana,
                     }}
                   >
+                    {/* La foto que haya subido el estudio para ESTE reto. Sin
+                        foto, la tarjeta se queda con su color — que es como se
+                        ve hoy en todos los estudios. Va arriba, sangrando el
+                        relleno de la tarjeta, y el texto sigue debajo: así el
+                        conteo real de apuntadas no compite con la imagen. */}
+                    {fotoReto !== '' && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={fotoReto} alt=""
+                        style={{
+                          display: 'block', width: 'calc(100% + 36px)', height: 116,
+                          margin: '-18px -18px 14px', objectFit: 'cover',
+                        }}
+                      />
+                    )}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                       <span style={{ ...display(18, false, 1.2), color: tinta }}>{reto.label}</span>
                       <span style={{
@@ -898,7 +1107,7 @@ export function PortalHomeView({ session, homeBloquesOverride }: { session: Port
       {/* El avatar vive en el menú de abajo (pestaña Perfil), como en el diseño.
           Se deja este bloque fuera de la vista para que los lectores de pantalla
           sigan anunciando de quién es la sesión al entrar. */}
-      {variantes.cabeceraInicio !== 'titular' && (
+      {!cabeceraConAvatar && (
         <span className="sr-only">
           <ProfileAvatar avatarId={socio?.avatar} fotoUrl={socio?.fotoUrl} nombre={session?.nombre ?? ''} size="md" />
         </span>

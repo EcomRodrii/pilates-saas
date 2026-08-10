@@ -53,6 +53,51 @@ export function detectarDelimitador(texto: string): string {
   return maxCuenta > 0 ? mejor : ',';
 }
 
+/**
+ * Encuentra la fila de CABECERA real dentro de una tabla ya trimeada (sin
+ * líneas totalmente vacías) y separa cabecera de filas de datos.
+ *
+ * Compartida entre `parseCsv` (tras tokenizar el texto) y el lector de Excel
+ * (`lib/xlsx-import.ts`, tras leer la hoja) para no duplicar la heurística:
+ * muchos exports caseros —CSV o Excel por igual— meten un título ("Listado de
+ * clientas 2026") y/o filas en blanco ANTES de la cabecera real. Tomar la fila
+ * 1 a ciegas hacía que TODO el archivo quedara sin clasificar. La cabecera es
+ * la primera fila cuyo nº de columnas coincide con el ancho dominante (la
+ * moda de las primeras filas) — las de preámbulo, más estrechas (un título es
+ * 1 sola celda), se saltan.
+ */
+export function detectarCabeceraYFilas(limpios: string[][]): { headers: string[]; rows: string[][] } {
+  const muestraN = Math.min(limpios.length, 12);
+  const cuentas = new Map<number, number>();
+  for (let k = 0; k < muestraN; k++) {
+    const n = limpios[k].length;
+    if (n >= 2) cuentas.set(n, (cuentas.get(n) ?? 0) + 1);
+  }
+  let anchoDom = 0;
+  let mejorCuenta = 0;
+  for (const [n, c] of cuentas) {
+    if (c > mejorCuenta || (c === mejorCuenta && n > anchoDom)) { anchoDom = n; mejorCuenta = c; }
+  }
+  // Solo se saltan filas de preámbulo cuando la PRIMERA fila es más estrecha que
+  // el ancho dominante (un título/nota ocupa 1 celda). Si la fila 1 ya es tan
+  // ancha como el resto, es la cabecera y no se toca — así no se pierde la
+  // cabecera en archivos cuyas filas de datos traen menos columnas (celdas
+  // finales vacías omitidas).
+  let inicio = 0;
+  if (anchoDom >= 2 && (limpios[0]?.length ?? 0) < anchoDom) {
+    const idx = limpios.findIndex((r) => r.length >= anchoDom);
+    if (idx > 0) inicio = idx;
+  }
+  // Una fila de solo separadores (";;;;;") tiene el ancho correcto pero está
+  // vacía. Excel las cuela entre el título y la cabecera de verdad, y como
+  // "encaja" se tomaba como cabecera: todas las columnas salían sin nombre y el
+  // archivo no mapeaba ni un campo. Se salta hacia la primera fila que tenga
+  // algún nombre de columna.
+  while (inicio < limpios.length && limpios[inicio].every((c) => c.trim() === '')) inicio++;
+  const headers = (limpios[inicio] ?? []).map((h) => h.trim());
+  return { headers, rows: limpios.slice(inicio + 1) };
+}
+
 /** Parsea un CSV completo a cabeceras + filas. Trimea valores no vacíos. */
 export function parseCsv(input: string): ParsedCsv {
   // Quita BOM si existe.
@@ -105,41 +150,8 @@ export function parseCsv(input: string): ParsedCsv {
   // Descarta registros totalmente vacíos (líneas en blanco).
   const limpios = registros.filter((r) => !(r.length === 1 && r[0] === ''));
 
-  // Detección de la fila de CABECERA real. Muchos export caseros (y algún Excel)
-  // meten un título ("Listado de clientas 2026") y/o filas en blanco ANTES de la
-  // cabecera; tomar la fila 1 a ciegas hacía que TODO el archivo quedara sin
-  // clasificar. La cabecera es la primera fila cuyo nº de columnas coincide con
-  // el ancho dominante (la moda de las primeras filas) — las de preámbulo, más
-  // estrechas (un título es 1 sola celda), se saltan.
-  const muestraN = Math.min(limpios.length, 12);
-  const cuentas = new Map<number, number>();
-  for (let k = 0; k < muestraN; k++) {
-    const n = limpios[k].length;
-    if (n >= 2) cuentas.set(n, (cuentas.get(n) ?? 0) + 1);
-  }
-  let anchoDom = 0;
-  let mejorCuenta = 0;
-  for (const [n, c] of cuentas) {
-    if (c > mejorCuenta || (c === mejorCuenta && n > anchoDom)) { anchoDom = n; mejorCuenta = c; }
-  }
-  // Solo se saltan filas de preámbulo cuando la PRIMERA fila es más estrecha que
-  // el ancho dominante (un título/nota ocupa 1 celda). Si la fila 1 ya es tan
-  // ancha como el resto, es la cabecera y no se toca — así no se pierde la
-  // cabecera en archivos cuyas filas de datos traen menos columnas (celdas
-  // finales vacías omitidas).
-  let inicio = 0;
-  if (anchoDom >= 2 && limpios[0].length < anchoDom) {
-    const idx = limpios.findIndex((r) => r.length >= anchoDom);
-    if (idx > 0) inicio = idx;
-  }
-  // Una fila de solo separadores (";;;;;") tiene el ancho correcto pero está
-  // vacía. Excel las cuela entre el título y la cabecera de verdad, y como
-  // "encaja" se tomaba como cabecera: todas las columnas salían sin nombre y el
-  // archivo no mapeaba ni un campo. Se salta hacia la primera fila que tenga
-  // algún nombre de columna.
-  while (inicio < limpios.length && limpios[inicio].every((c) => c.trim() === '')) inicio++;
-  const headers = (limpios[inicio] ?? []).map((h) => h.trim());
-  return { headers, rows: limpios.slice(inicio + 1), delimiter };
+  const { headers, rows } = detectarCabeceraYFilas(limpios);
+  return { headers, rows, delimiter };
 }
 
 /** Serializa filas a CSV (para plantilla descargable y reporte de errores). */
@@ -255,6 +267,21 @@ const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function emailValido(email: string): boolean {
   return RE_EMAIL.test(email.trim());
+}
+
+/**
+ * Comprueba si un teléfono PARECE razonable (España): 9 dígitos, con prefijo
+ * internacional opcional (+34 / 0034), admitiendo espacios/guiones/puntos/
+ * paréntesis. Deliberadamente laxo — este importador recibe datos de
+ * captación antigua con formatos raros de verdad, y el teléfono no es
+ * obligatorio: un valor que no encaja aquí NO invalida la fila (ver
+ * `validarFilas`), solo genera un aviso no bloqueante para que se revise.
+ */
+export function telefonoValido(telefono: string): boolean {
+  let s = telefono.trim().replace(/[\s\-().]/g, '').replace(/^\+/, '');
+  if (s.startsWith('0034')) s = s.slice(4);
+  else if (s.startsWith('34') && s.length === 11) s = s.slice(2);
+  return /^\d{9}$/.test(s);
 }
 
 function fechaValidaISO(y: number, mo: number, d: number): string | null {
@@ -426,17 +453,27 @@ export interface FilaValidada {
   datos: FilaSocia;
   estado: 'ok' | 'error' | 'duplicada';
   motivo?: string;
+  // Aviso NO bloqueante: el teléfono no tiene pinta de válido, pero no es
+  // motivo para descartar la fila (el teléfono no es obligatorio y los
+  // exports viejos traen formatos raros de verdad). Solo estado 'ok' lo lleva.
+  avisoTelefono?: boolean;
 }
 
 /**
  * Aplica el mapeo a las filas crudas y valida cada una. Detecta duplicados
- * de email DENTRO del archivo (los de la BD se detectan en el servidor).
+ * de email DENTRO del archivo, y opcionalmente contra las socias YA
+ * EXISTENTES en el estudio (`emailsExistentes`, en minúsculas) — la
+ * previsualización puede así avisar antes de importar, no solo al hacerlo
+ * (el servidor también los omite en `app/api/socios/import`, red de
+ * seguridad final si esta lista no llegó a tiempo o quedó desactualizada).
  */
 export function validarFilas(
   rows: string[][],
   mapeo: Record<CampoSocia, number>,
+  opts?: { emailsExistentes?: ReadonlySet<string> },
 ): FilaValidada[] {
   const emailsVistos = new Set<string>();
+  const emailsExistentes = opts?.emailsExistentes;
   const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
 
     // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
@@ -470,9 +507,11 @@ export function validarFilas(
     if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email' };
     if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
     if (emailsVistos.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Email repetido en el archivo' };
+    if (emailsExistentes?.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Ya existe en tu lista de clientas' };
 
     emailsVistos.add(email);
-    return { ...base, estado: 'ok' as const };
+    const avisoTelefono = !!telefono && !telefonoValido(telefono);
+    return { ...base, estado: 'ok' as const, ...(avisoTelefono ? { avisoTelefono: true } : {}) };
   });
 }
 
@@ -1050,6 +1089,82 @@ export function validarFilasCita(
     if (!emailValido(email)) return err('El email no es válido');
     if (!fecha) return err('Falta la fecha o no se entiende');
     if (!horaInicio) return err('Falta la hora de inicio o no se entiende');
+    return { fila: i + 1, datos, estado: 'ok' };
+  });
+}
+
+// ─── Importación de PAGOS HISTÓRICOS ─────────────────────────────────────────
+// Sexta pieza de la migración asistida. A diferencia de reservas/citas, esto NO
+// crea ningún recibo real (`recibos` arrastra Stripe/Veri·Factu/AEAT/dunning) —
+// es un registro de solo lectura de lo que la socia ya pagó en la plataforma
+// anterior, para que su ficha no empiece "en blanco" el día del cambio.
+
+export type CampoPago = 'email' | 'fecha' | 'concepto' | 'importe' | 'medio_pago';
+
+interface CampoMetaPago { campo: CampoPago; etiqueta: string; obligatorio: boolean }
+
+export const CAMPOS_PAGO: CampoMetaPago[] = [
+  { campo: 'email', etiqueta: 'Email de la socia', obligatorio: true },
+  { campo: 'fecha', etiqueta: 'Fecha del pago', obligatorio: true },
+  { campo: 'importe', etiqueta: 'Importe', obligatorio: true },
+  { campo: 'concepto', etiqueta: 'Concepto', obligatorio: false },
+  { campo: 'medio_pago', etiqueta: 'Medio de pago', obligatorio: false },
+];
+
+const SINONIMOS_PAGO: Record<CampoPago, string[]> = {
+  email: ['email', 'e-mail', 'correo', 'correo electronico', 'mail', 'socia', 'socio', 'cliente', 'alumna'],
+  fecha: ['fecha', 'date', 'fecha pago', 'fecha de pago', 'payment date', 'paid date'],
+  concepto: ['concepto', 'concept', 'descripcion', 'description', 'plan', 'producto', 'item', 'detalle'],
+  importe: ['importe', 'precio', 'price', 'total', 'amount', 'monto', 'cantidad', 'coste'],
+  medio_pago: ['medio de pago', 'medio pago', 'metodo de pago', 'payment method', 'forma de pago', 'metodo'],
+};
+
+export function autoMapearPago(headers: string[]): Record<CampoPago, number> {
+  return mapearColumnas(headers, CAMPOS_PAGO.map((c) => c.campo), SINONIMOS_PAGO);
+}
+
+export interface FilaPago {
+  email: string;
+  fecha: string;   // 'YYYY-MM-DD'
+  concepto: string | null;
+  importe: number;
+  medioPago: string | null;
+}
+
+export interface FilaPagoValidada {
+  fila: number;
+  datos: FilaPago;
+  estado: 'ok' | 'error';
+  motivo?: string;
+}
+
+/** Aplica el mapeo y valida las filas de pagos históricos. */
+export function validarFilasPago(
+  rows: string[][],
+  mapeo: Record<CampoPago, number>,
+): FilaPagoValidada[] {
+  const val = (fila: string[], idx: number) => (idx >= 0 && idx < fila.length ? fila[idx].trim() : '');
+  // Momence/Mindbody exportan MM/DD: se deduce mirando la columna entera.
+  const orden = inferirOrdenFecha([...columna(rows, mapeo.fecha)]);
+  return rows.map((fila, i) => {
+    const email = val(fila, mapeo.email).toLowerCase();
+    const fecha = parsearFecha(val(fila, mapeo.fecha), orden);
+    const importeRaw = val(fila, mapeo.importe).replace(',', '.').replace(/[^\d.-]/g, '');
+    const importe = importeRaw !== '' && Number.isFinite(Number(importeRaw)) ? Number(importeRaw) : null;
+
+    const datos: FilaPago = {
+      email, fecha: fecha ?? '',
+      concepto: val(fila, mapeo.concepto) || null,
+      importe: importe ?? 0,
+      medioPago: val(fila, mapeo.medio_pago) || null,
+    };
+
+    const err = (motivo: string): FilaPagoValidada => ({ fila: i + 1, datos, estado: 'error', motivo });
+    if (!email) return err('Falta el email de la socia');
+    if (!emailValido(email)) return err('El email no es válido');
+    if (!fecha) return err('Falta la fecha o no se entiende');
+    if (importe === null) return err('Falta el importe o no se entiende');
+    if (importe < 0) return err('El importe no puede ser negativo');
     return { fila: i + 1, datos, estado: 'ok' };
   });
 }

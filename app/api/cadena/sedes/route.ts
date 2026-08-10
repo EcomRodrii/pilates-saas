@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { slugify } from '@/lib/supabase-data';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
+import { aplicarCatalogoCadena } from '@/lib/db/supabase-data-admin';
 
 // "Añadir sede" (Configuración → Estudio, solo con el plan CADENA activo).
 // Server-side porque hace falta un gate que RLS por sí sola no puede expresar:
@@ -58,7 +59,17 @@ export async function POST(req: NextRequest) {
         cadena_id: studio.cadena_id,
         slug,
       });
-      if (!error) return NextResponse.json({ id, slug });
+      if (!error) {
+        // Best-effort: si el catálogo de la cadena no se pudo copiar, la sede
+        // ya está creada y operativa igualmente — solo nace vacía de tipos de
+        // clase, como pasaba antes de esta pieza.
+        try {
+          await aplicarCatalogoCadena({ cadenaId: studio.cadena_id as string, studioId: id });
+        } catch (e) {
+          console.error('[cadena/sedes] aplicarCatalogoCadena:', e instanceof Error ? e.message : e);
+        }
+        return NextResponse.json({ id, slug });
+      }
       if (error.code !== '23505' || !error.message.includes('studios_slug_key')) {
         throw new Error(`insert studios: ${error.message}`);
       }

@@ -52,7 +52,14 @@ import {
 import { expirarReservasPendientesDispatcher } from '@/lib/inngest/reservas-pendientes';
 import { listaEsperaOfertasExpirarDispatcher } from '@/lib/inngest/lista-espera-ofertas';
 import { minimoAsistentesDispatcher } from '@/lib/inngest/minimo-asistentes';
+import { checkinAutomaticoDispatcher } from '@/lib/inngest/checkin-automatico';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
+import { conciliarCobrosDispatcher } from '@/lib/inngest/conciliar-cobros';
+import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
+import {
+  resumenSemanalDispatcher,
+  procesarResumenSemanalEstudio,
+} from '@/lib/inngest/resumen-semanal';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -92,6 +99,11 @@ export const { GET, POST, PUT } = serve({
     expirarReservasPendientesDispatcher,
     listaEsperaOfertasExpirarDispatcher,
     minimoAsistentesDispatcher,
+    checkinAutomaticoDispatcher,
     penalizacionesDispatcher,
+    conciliarCobrosDispatcher,
+    cierreGestoriaAutomaticoDispatcher,
+    resumenSemanalDispatcher,
+    procesarResumenSemanalEstudio,
   ],
 });

@@ -218,10 +218,14 @@ comprobar el aforo en ese momento con lock (`FOR UPDATE`, mismo patrón que
 que su clase haya empezado — la guardia vive DENTRO de la RPC (si
 `sesiones.inicio <= now()`, fuerza `CANCELADA` pase lo que pase con
 `p_aprobar`), no en el cron. El cron `lib/inngest/reservas-pendientes.ts`
-(cada minuto, sin fan-out por estudio — es una query global) solo hace el
+(cada 5 min, sin fan-out por estudio — es una query global) solo hace el
 aviso proactivo a la socia vía `expirarReservaPendiente()`; si el cron se
 retrasara o no corriera un tick, la regla de negocio seguiría siendo
-correcta, solo el aviso llegaría tarde.
+correcta, solo el aviso llegaría tarde. Corría cada minuto; se bajó a 5 min
+porque eran ~87.600 invocaciones de Vercel al mes (el 70 % de las de todos
+los crons juntos) para una tabla en la que casi siempre no hay nada que
+expirar — decisión de producto explícita del fundador, el precio es que el
+aviso puede tardar hasta 4 minutos más.
 
 **Cero eventos de notificación nuevos salvo uno** (petición explícita del
 usuario: reusar antes que crear estado/evento nuevo). `RESERVA_APROBADA` y
@@ -672,14 +676,84 @@ squash/renumeración antiguo, o por sesiones en paralelo). Se encontraron y
 corrigieron dos ficheros locales obsoletos: `20260731150000_socios_email_...`
 tenía un bug (índice sin excluir `borrado_en`) que nunca llegó a aplicarse
 porque otra sesión ya había aplicado la versión correcta bajo
-`20260730231442` — renombrado y corregido para que coincida. Quedan sin
-resolver `20260730109000_sesiones_reservas_solo_propias_instructor.sql` y
-`20260730110000_editar_serie_desde_restringe_instructor.sql`: ficheros
-locales que, si se aplicaran tal cual, REGRESARÍAN la seguridad (la política
-real en prod para `reservas_escritura_update`/`sesiones_escritura_insert` es
-más restrictiva que lo que estos ficheros crearían — evolucionada por
-migraciones posteriores ya aplicadas). No tocados a propósito por
-incertidumbre sobre su procedencia exacta — decisión pendiente de tomar.
+`20260730231442` — renombrado y corregido para que coincida.
+
+**RESUELTO (2026-08-06)**: la nota anterior daba por "sin resolver"
+`20260730109000_sesiones_reservas_solo_propias_instructor.sql` y
+`20260730110000_editar_serie_desde_restringe_instructor.sql` — pero esa nota
+quedó desfasada nada más escribirse: esos dos nombres de fichero **no
+existen en `main`** (`git show origin/main:supabase/migrations/<fichero>`
+falla con "existe en disco, pero no en origin/main"). Solo estaban en la
+rama `claude/redesign-team-panel-7c9716`, que en el momento de investigar
+esto iba 134 commits por detrás de `main` y no tenía ningún PR abierto —
+sus propios PRs ya se habían mergeado todos por separado. Otra sesión ya
+había hecho el renombrado correcto DIRECTAMENTE en `main` (mismo patrón que
+el caso de `20260731150000_socios_email_...` de arriba): las piezas reales
+son `20260730012600_sesiones_reservas_solo_propias_instructor.sql` y
+`20260730012700_editar_serie_desde_restringe_instructor.sql`, ya con el
+timestamp de aplicación real. No había nada que tocar en `main` — la única
+acción real fue corregir esta nota, que describía un problema ya resuelto
+en otro sitio.
+
+## El captcha invisible: `appearance` NO basta, hace falta `execution`
+
+Turnstile tiene dos parámetros que suenan igual y no lo son, y confundirlos
+costó **dos despliegues fallidos seguidos** (`components/auth/turnstile-widget.tsx`):
+
+- `appearance` → cuándo se **VE** el widget.
+- `execution` → cuándo **CORRE** el desafío. Su valor por defecto (`'render'`)
+  lo arranca al pintar, y entonces `appearance` no tiene nada que ocultar.
+
+La combinación que lo deja invisible de verdad es **`execution: 'execute'` +
+`appearance: 'interaction-only'`**, medida en producción (2026-08-10) contra la
+site key real: en reposo 0 px y sin token; tras `execute()`, token en 3,5–7 s y
+sigue midiendo 0 px. Historial: `interaction-only` a secas (#832) tumbó el
+acceso entero; `appearance: 'execute'` a secas (#842) lo devolvió pero dejó el
+recuadro puesto; cerrado en #843.
+
+Consecuencias que arrastra y que hay que respetar en cualquier pantalla nueva:
+
+- **El token se pide AL ENVIAR y tarda segundos.** Todo formulario debe encender
+  su estado de carga **antes** de `await pedirToken()` (se pasó por alto en
+  `/reservar/[slug]`, #843) y no dejar pulsar dos veces.
+- **Nada de `mt-3`/`mb-3` alrededor del widget**: mide 0 px casi siempre y el
+  margen deja aire en blanco permanente.
+- **El widget se cae y no vuelve solo** (`Error: 300031`, «Turnstile Widget seem
+  to have crashed»): a partir de ahí `execute()` no emite ningún token más.
+  `useCaptcha` lo reinicia hasta 3 veces por carga (#852), y el reinicio va
+  también en el TIMEOUT porque en el caso medido **el `error-callback` nunca se
+  disparó** — el widget se quedó mudo, no dio error.
+
+⚠️ **Verificar SIEMPRE en una pestaña limpia por prueba.** Pedir varios tokens
+seguidos en la misma pestaña provoca ese 300031, y el síntoma es idéntico al de
+un acceso roto en producción (30 s sin token). Por poco se revierte un
+despliegue sano por esto: en pestaña nueva daba token en 5,7 s.
+
+Quién verifica el token **no es la app, salvo en un sitio**: en las cinco
+pantallas de auth lo valida gotrue (el captcha se exige a nivel de PROYECTO en
+Supabase). El único endpoint propio que lo comprueba es
+`/api/public/interes-lanzamiento`, vía `lib/auth/captcha-servidor.ts` (#847), y
+necesita `TURNSTILE_SECRET_KEY`; sin esa variable devuelve `'ok'` sin llamar a
+nadie. Fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no
+llega a completarse.
+
+## ⚠️ Un merge de solo documentación NO despliega
+
+`vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
+contra el commit anterior solo toca `docs/**`, `**/*.md`, `e2e/**` o
+`**/*.test.ts`. Es deliberado (ahorra builds), pero tiene una trampa: el check
+de Vercel sale **verde** igualmente, con el texto «Canceled by Ignored Build
+Step». Verde ahí significa «no había nada que construir», no «desplegado».
+
+Costó una hora de diagnóstico equivocado: tras añadir `TURNSTILE_SECRET_KEY` en
+Vercel se mergeó un PR de solo `.md` para forzar el despliegue, el check salió
+verde, la variable seguía sin aplicarse y se dio por hecho que estaba mal
+puesta. No lo estaba — **no había habido ningún build**.
+
+Regla: para que producción recoja una variable de entorno nueva hace falta un
+cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
+corrió de verdad, no solo que el check está en verde — es el mismo error de
+categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 

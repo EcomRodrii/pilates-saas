@@ -8,6 +8,7 @@ import {
   presetAThemeConfig,
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
+import { cumpleContraste } from './wcag-contrast.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
   assert.equal(foregroundParaFondo('#131313'), '#FFFFFF');
@@ -62,6 +63,22 @@ test('validarContrasteTheme: texto sin contraste falla con mensaje', () => {
   const r = validarContrasteTheme({ ...DEFAULT_THEME, text: '#EEEEEE', background: '#FFFFFF' });
   assert.equal(r.ok, false);
   assert.ok(r.errores.some((e) => e.includes('texto')));
+});
+
+// `secondary` NO se valida en este gate a propósito — en Oliva/Bloom/Noir es una
+// "superficie suave" deliberadamente pastel, no texto (ver THEME_DEFINITIONS).
+// Su legibilidad como texto del PANEL se garantiza en themeToVarMap
+// (--brand-secondary vía colorLegibleSobreClaro), comprobado más abajo.
+test('themeToVarMap (vía themeToCssVars): --brand-secondary de un tema con secondary pastel (Ciruela) sale legible; --portal-brand-secondary conserva el original', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, secondary: '#C4B5FD', background: '#FFFFFF' }) as Record<string, string>;
+  assert.equal(vars['--portal-brand-secondary'], '#C4B5FD');
+  assert.notEqual(vars['--brand-secondary'], '#C4B5FD');
+  assert.equal(cumpleContraste(vars['--brand-secondary'], '#FFFFFF', { grande: true }), true);
+});
+
+test('themeToVarMap: --brand-secondary de un secondary ya legible no se toca', () => {
+  const vars = themeToCssVars({ ...DEFAULT_THEME, secondary: '#402964', background: '#FFFFFF' }) as Record<string, string>;
+  assert.equal(vars['--brand-secondary'], '#402964');
 });
 
 test('presetAThemeConfig: deriva un tema válido del preset viejo', () => {
@@ -147,4 +164,17 @@ test('themeToCssVars: `variantes` no emite ninguna var — se resuelven en JS', 
 test('themeToCssVars: `radioTema.acceso` declara el radio de la baldosa de accesos', () => {
   const vars = themeToCssVars({ ...DEFAULT_THEME, radioTema: { acceso: 22 } }) as Record<string, string>;
   assert.equal(vars['--portal-radius-acceso'], '22px');
+});
+
+test('themeToCssVars: --portal-foto-pos sale del encuadre elegido', () => {
+  // La pantalla de acceso y el hero del Inicio no reciben el ThemeConfig:
+  // leen esta variable. Si deja de salir, la portada vuelve a centrarse
+  // siempre y el ajuste del editor no hace nada visible — sin error alguno.
+  const pos = (t: unknown) => (themeToCssVars(t) as Record<string, string>)['--portal-foto-pos'];
+  assert.equal(pos({ ...DEFAULT_THEME, fotoEncuadre: 'arriba' }), 'center top');
+  assert.equal(pos({ ...DEFAULT_THEME, fotoEncuadre: 'abajo' }), 'center bottom');
+  // Y un tema guardado antes de que este token existiera sigue centrando.
+  const sinToken = { ...DEFAULT_THEME } as Record<string, unknown>;
+  delete sinToken.fotoEncuadre;
+  assert.equal(pos(sinToken), 'center center');
 });

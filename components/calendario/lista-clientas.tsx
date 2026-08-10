@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2, RefreshCw, X } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, RefreshCw, Repeat, X } from 'lucide-react';
 import { horaEstudio } from '@/lib/utils';
 import type { Reserva } from '@/lib/types';
 
@@ -14,12 +15,21 @@ export interface ListaClientasProps {
   /** Cada acción es opcional — su ausencia decide qué puede hacer el rol,
    *  mismo patrón que `accion` en BloqueClase. */
   onCheckin?: (reservaId: string) => void;
+  /** Presente = el check-in existe pero está bloqueado (#870: clase todavía
+   *  futura) — el botón se pinta deshabilitado con este texto de motivo, en
+   *  vez de desaparecer sin explicación o dejar pasar el check-in. */
+  checkinBloqueadoPor?: string;
   onNoShow?: (reservaId: string) => void;
   onDeshacerCheckin?: (reservaId: string) => void;
   onRevertirNoShow?: (reservaId: string) => void;
   onAprobar?: (reservaId: string) => void;
   onRechazar?: (reservaId: string) => void;
   onQuitar?: (reservaId: string) => void;
+  /** "Repite como la semana pasada" — vuelve a apuntarla a la misma sala+tipo
+   *  de clase, 7 días después. Solo tiene sentido sobre una reserva ya
+   *  CONFIRMADA (repetir una lista de espera o pendiente de aprobar repite el
+   *  estado, no la clase). */
+  onRepetirSemanaSiguiente?: (reservaId: string) => void;
   /** Punto de color del semáforo de salud (§11 ficha clínica) — ausente si el
    *  rol no lo puede ver (puedeVerSemaforo). Genérico a propósito: este
    *  componente no importa tipos de lib/ficha-clinica. */
@@ -43,8 +53,8 @@ function etiquetaEstado(r: Reserva): string {
 const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors';
 
 export function ListaClientas({
-  reservas, nombreClienta, onCheckin, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
-  semaforoPorSocio, filaExtra,
+  reservas, nombreClienta, onCheckin, checkinBloqueadoPor, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
+  onRepetirSemanaSiguiente, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
 
@@ -76,7 +86,9 @@ export function ListaClientas({
                 const s = semaforoPorSocio?.(r.socioId);
                 return s ? <span className="w-2 h-2 rounded-full shrink-0" title={s.label} style={{ background: s.color }} /> : null;
               })()}
-              <span className="truncate">{nombreClienta(r.socioId)}</span>
+              <Link href={`/clientas/${r.socioId}`} className="truncate hover:text-brand-medio hover:underline transition-colors">
+                {nombreClienta(r.socioId)}
+              </Link>
             </p>
             <p className="text-[10px] text-muted-foreground">{etiquetaEstado(r)}</p>
             {filaExtra?.(r)}
@@ -96,16 +108,31 @@ export function ListaClientas({
                 )}
               </>
             )}
-            {r.estado === 'CONFIRMADA' && (onCheckin || onNoShow) && (
+            {r.estado === 'CONFIRMADA' && (onCheckin || onNoShow || onRepetirSemanaSiguiente) && (
               <>
                 {onCheckin && (
-                  <button onClick={() => onCheckin(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
-                    <CheckCircle2 size={11} />Check-in
-                  </button>
+                  checkinBloqueadoPor ? (
+                    <button disabled title={checkinBloqueadoPor} className={`${BOTON} opacity-40 cursor-not-allowed`} style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>
+                      <CheckCircle2 size={11} />Check-in
+                    </button>
+                  ) : (
+                    <button onClick={() => onCheckin(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
+                      <CheckCircle2 size={11} />Check-in
+                    </button>
+                  )
                 )}
                 {onNoShow && (
                   <button onClick={() => onNoShow(r.id)} title="Marcar que no se presentó" className={BOTON} style={{ background: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
                     No vino
+                  </button>
+                )}
+                {onRepetirSemanaSiguiente && (
+                  <button
+                    onClick={() => onRepetirSemanaSiguiente(r.id)}
+                    title="Apuntarla a la misma clase la semana que viene"
+                    className={`${BOTON} text-muted-foreground hover:bg-muted opacity-60 group-hover:opacity-100`}
+                  >
+                    <Repeat size={11} />Repetir
                   </button>
                 )}
               </>

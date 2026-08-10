@@ -80,4 +80,8 @@ export const EVENTS = {
   // mismo motivo: reemplaza el route de Vercel Cron que recorría las
   // condiciones de salud de TODOS los estudios en una sola invocación.
   REVISIONES_SALUD_ESTUDIO: 'revisiones-salud/studio.sweep',
+  // Resumen semanal del Umbral (semanas silenciosas) — un evento por estudio
+  // (fan-out del dispatcher cron semanal), mismo patrón que
+  // NOTIF_AUTOMACION_ESTUDIO.
+  RESUMEN_SEMANAL_ESTUDIO: 'resumen-semanal/studio.sweep',
 } as const;

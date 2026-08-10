@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useSearchParams } from 'next/navigation';
@@ -257,6 +257,21 @@ const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
 const SUB_CLASES_SALAS = new Map([['clases', 'clases'], ['salas', 'salas']]);
 const SUB_CITAS = new Map([['servicios-cita', 'servicios'], ['horario-citas', 'horario']]);
 
+// Los 4 ids internos de las últimas pestañas (campos/plantillas/backups/perfil)
+// no se parecen a su etiqueta visible ("Campos de clienta"/"Emails"/"Copias de
+// seguridad"/"Mi perfil") — a diferencia de las 7 primeras, donde id y label
+// casi coinciden. Un `?tab=` escrito a mano o pegado desde fuera a partir de lo
+// que se VE en la pestaña (#848) caía en silencio a "Planes y tarifas" en la
+// carga directa, aunque un clic en la propia pestaña sí funcionara siempre
+// (ese camino nunca pasa por esta comprobación de la URL). Mismo patrón que
+// SUB_GAMIFICACION/SUB_CLASES_SALAS/SUB_CITAS más arriba.
+const TAB_ALIASES = new Map<string, TabId>([
+  ['campos-de-cliente', 'campos'],
+  ['emails', 'plantillas'],
+  ['copias-de-seguridad', 'backups'],
+  ['mi-perfil', 'perfil'],
+]);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
@@ -275,6 +290,7 @@ export default function ConfiguracionPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const searchParams = useSearchParams();
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: el SSR pinta una fecha fija y el cliente pasa a la real tras montar. El segundo render es el OBJETIVO, no un efecto colateral; quitar el efecto reintroduce el mismatch de hidratación.
   useEffect(() => setMounted(true), []);
 
   // Sincroniza el tab activo con ?tab= (incluye compatibilidad con los ids
@@ -288,15 +304,15 @@ export default function ConfiguracionPage() {
       setGamificacionSub(tab);
       setActiveTab('gamificacion');
     } else if (SUB_CLASES_SALAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClasesSalasSub(SUB_CLASES_SALAS.get(tab));
       setActiveTab('clases-salas');
     } else if (SUB_CITAS.has(tab)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCitasSub(SUB_CITAS.get(tab));
       setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
       setActiveTab(tab as TabId);
+    } else if (TAB_ALIASES.has(tab)) {
+      setActiveTab(TAB_ALIASES.get(tab)!);
     }
     if (tab === 'estudio') {
       const sub = searchParams.get('sub');
@@ -307,7 +323,7 @@ export default function ConfiguracionPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <div data-tour="configuracion-vista" className="space-y-6">
       <PageHeader
         title="Configuración"
         description="Gestiona los planes, clases, salas, instructoras e integraciones de tu estudio"

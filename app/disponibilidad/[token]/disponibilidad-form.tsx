@@ -47,7 +47,7 @@ export function DisponibilidadForm({
 
   if (estado === 'ok') {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
           <div className="text-4xl mb-3">✅</div>
           <h1 className="text-lg font-semibold text-slate-900">¡Guardado!</h1>
@@ -64,7 +64,7 @@ export function DisponibilidadForm({
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <main className="min-h-dvh bg-slate-50 p-4 sm:p-6">
       <div className="mx-auto max-w-md">
         <header className="mb-5 pt-2">
           <h1 className="text-xl font-semibold text-slate-900">Hola, {instructorNombre}</h1>

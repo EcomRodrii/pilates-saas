@@ -30,6 +30,12 @@
 //   3. Volver a añadir su entrada de menú en lib/nav-config.ts y su permiso en
 //      lib/permisos.ts si se quitaron (ver comentarios "CONGELADO" allí).
 //   Para el "Vídeos" del portal: poner PORTAL_VIDEOS_CONGELADO a false.
+//   ⚠️ SOLO PARA /chat: volver a meter la tabla en la publicación de Realtime
+//      (`alter publication supabase_realtime add table public.mensajes_equipo;`).
+//      Se sacó por coste — Realtime era el 58 % del CPU de la BD y esta tabla
+//      pagaba WAL por una feature inalcanzable (migr 20260806150000). Sin este
+//      paso el chat NO da error: los mensajes simplemente no llegan en vivo,
+//      que es justo el tipo de fallo mudo que no se descubre solo.
 //
 // Detalle completo en docs/FEATURE-FREEZE-2026-07.md.
 
