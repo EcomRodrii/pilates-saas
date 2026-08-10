@@ -59,7 +59,15 @@ export const AJUSTES_CATEGORIAS = [
   { id: 'forma-portal', label: 'Forma del portal' },
   { id: 'navegacion-portal', label: 'Navegación del portal' },
   { id: 'redes-sociales', label: 'Redes sociales' },
-  { id: 'logo-favicon', label: 'Logo y favicon' },
+  // ⚠️ Se llamaba "Logo y favicon", y ese nombre escondía lo más buscado de
+  // toda la categoría: la FOTO del portal. El feedback fue literal — «no se
+  // puede poner imagen en la bienvenida ni en las tarjetas» — cuando sí se
+  // podía desde el principio: esa misma foto es el fondo de la pantalla de
+  // acceso, de la bienvenida Y de la tarjeta grande del Inicio
+  // (`conFoto` en portal-home-view.tsx). No faltaba la función, faltaba
+  // encontrarla. Nombrar la categoría por lo que la propietaria viene a hacer
+  // —poner sus fotos— y no por los dos ficheros técnicos que también lleva.
+  { id: 'logo-favicon', label: 'Imágenes de tu marca' },
 ] as const;
 export type AjustesCategoriaId = (typeof AJUSTES_CATEGORIAS)[number]['id'];
 
@@ -674,6 +682,10 @@ export function AjustesCategoriaPanel({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
+        {/* Rótulos por bloque: sin ellos esta categoría eran tres pares de
+            "miniatura + botón Subir" seguidos, indistinguibles de un vistazo.
+            Quien buscaba dónde poner su foto no lo encontraba. */}
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Logo</p>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
             {studio?.logoUrl ? (
@@ -711,6 +723,7 @@ export function AjustesCategoriaPanel({
           cosas era el bug: subir una selfie para el sidebar la enseñaba de
           golpe a toda socia del estudio. */}
       <div className="space-y-2 border-t border-border pt-4">
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Foto del portal</p>
         <div className="flex items-center gap-3">
           <div className="w-16 h-10 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
             {studio?.imagenBienvenidaUrl ? (
@@ -730,9 +743,14 @@ export function AjustesCategoriaPanel({
           )}
           <input ref={bienvenidaRef} type="file" accept="image/*" hidden onChange={hook.handleImagenBienvenida} />
         </div>
+        {/* Decir DÓNDE sale, y no solo que «la ven tus alumnas». El feedback
+            fue «no se puede poner imagen en la bienvenida ni en las tarjetas»
+            — cuando esta misma foto es las tres cosas. Enumerarlas es la
+            diferencia entre una función que existe y una que se encuentra. */}
         <p className="text-[11px] text-muted-foreground">
-          Esta imagen la ven tus alumnas al entrar a la app — no es tu foto de perfil.
-          Sin ella, el portal usa un fondo liso del color de tu marca.
+          Es la foto de tu estudio, no tu foto de perfil. Con una sola se visten tres sitios:
+          la <strong>pantalla de acceso</strong>, la <strong>bienvenida</strong> y el fondo de la
+          <strong> tarjeta grande del Inicio</strong>. Sin ella, esos tres usan un fondo liso del color de tu marca.
         </p>
       </div>
 
@@ -776,6 +794,9 @@ export function AjustesCategoriaPanel({
           </p>
         </div>
       )}
+      <div className="space-y-2 border-t border-border pt-4">
+        <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Favicon</p>
+      </div>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
           {draft.faviconUrl ? (
