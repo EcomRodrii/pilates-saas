@@ -28,7 +28,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { EASE, dur, display, micro, texto } from '@/lib/portal-design';
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada,
@@ -47,7 +47,7 @@ export default function PortalLogin() {
   const [ver, setVer] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { widget: captcha, pedirToken } = useCaptcha();
   const [entrando, setEntrando] = useState(false);
 
   // Sin email en la URL no hay paso 2 que valga: se vuelve al paso 1. Pasa si
@@ -58,13 +58,18 @@ export default function PortalLogin() {
     if (!email) router.replace(`/portal/${slug}/acceso`);
   }, [email, router, slug]);
 
-  const listo = password.length > 0 && (!turnstileConfigurado() || !!captchaToken);
+  const listo = password.length > 0;
 
   async function entrar() {
     if (!listo || loading) return;
     setError('');
     setLoading(true);
-    const r = await loginConPassword(email, password, captchaToken ?? undefined);
+    // El token se pide aquí, no antes: el widget está invisible hasta que
+    // hace falta. `null` = no se pudo verificar; abortamos con un mensaje
+    // entendible en vez de dejar que Supabase responda su error crudo.
+    const token = await pedirToken();
+    if (token === null) { setLoading(false); setError(ERROR_CAPTCHA); return; }
+    const r = await loginConPassword(email, password, token || undefined);
     if ('error' in r) {
       setLoading(false);
       setError(r.error || 'Email o contraseña incorrectos.');
@@ -84,7 +89,9 @@ export default function PortalLogin() {
   async function mandarEnlace() {
     setError('');
     setLoading(true);
-    const r = await enviarEnlace(email, captchaToken ?? undefined);
+    const token = await pedirToken();
+    if (token === null) { setLoading(false); setError(ERROR_CAPTCHA); return; }
+    const r = await enviarEnlace(email, token || undefined);
     setLoading(false);
     if ('error' in r) { setError(r.error || 'No se pudo enviar el enlace.'); return; }
     router.push(`/portal/${slug}/acceso?enviado=1&email=${encodeURIComponent(email)}`);
@@ -156,7 +163,7 @@ export default function PortalLogin() {
         </div>
 
         <div style={{ ...entrada(3) }}>
-          <TurnstileWidget onToken={setCaptchaToken} />
+          {captcha}
           <div style={{ marginTop: 18 }}>
             <BotonCta listo={listo} cargando={loading} onClick={entrar}>Entrar</BotonCta>
           </div>

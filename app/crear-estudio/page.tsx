@@ -3,7 +3,6 @@
 import { useState, useId } from 'react';
 import Link from 'next/link';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 
 // Tentare todavía no está lanzado al público: crear un estudio de verdad aquí
 // crearía cuentas antes de que el producto esté listo para recibirlas. Mientras
@@ -18,11 +17,21 @@ export default function CrearEstudioPage() {
   const [nombre, setNombre] = useState('');
   const [estudio, setEstudio] = useState('');
   const [ciudad, setCiudad] = useState('');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
 
+  // ⚠️ Esta pantalla NO lleva captcha, y quitarlo no debilita nada: nunca
+  // protegió. El widget se pintaba y bloqueaba el botón, pero la petición a
+  // `/api/public/interes-lanzamiento` **jamás incluyó el token** y ese
+  // endpoint no verifica ninguno (comprobado: cero menciones a captcha en sus
+  // 53 líneas). O sea que frenaba a personas y a ningún bot — un bot llama a
+  // la API directamente sin pasar por el formulario.
+  //
+  // Si se quiere proteger de verdad, hace falta mandar el token Y validarlo
+  // en el servidor contra el siteverify de Cloudflare. Eso es trabajo de
+  // servidor y una decisión de seguridad propia, no un efecto colateral de
+  // quitar un recuadro feo.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -117,11 +126,10 @@ export default function CrearEstudioPage() {
                 <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
               )}
 
-              <TurnstileWidget onToken={setCaptchaToken} />
 
               <button
                 type="submit"
-                disabled={enviando || (turnstileConfigurado() && !captchaToken)}
+                disabled={enviando}
                 className="w-full py-3 rounded-xl bg-[var(--brand)] text-[var(--brand-foreground)] font-semibold text-[15px] hover:brightness-110 transition-all disabled:opacity-60"
               >
                 {enviando ? 'Enviando…' : 'Avísame cuando esté activo →'}

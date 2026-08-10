@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 
 export default function LoginPage() {
   const uid = useId();
@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que hoy.
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { widget: captcha, pedirToken } = useCaptcha();
   // Recuperar la contraseña no existía en esta pantalla. Quien la olvidaba se
   // quedaba fuera de su propio negocio: la clienta sí tenía cómo
   // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
@@ -107,12 +107,10 @@ export default function LoginPage() {
   // también lo necesita: sin token, gotrue la rechaza igual que un login.
   async function reenviarElCorreoDeConfirmacion() {
     setError(''); setInfo('');
-    if (turnstileConfigurado() && !captchaToken) {
-      setError('Espera a que termine la verificación de "no soy un robot" y vuelve a pulsar.');
-      return;
-    }
     setRecuperando(true);
-    const r = await reenviarConfirmacion(email, captchaToken ?? undefined);
+    const token = await pedirToken();
+    if (token === null) { setRecuperando(false); setError(ERROR_CAPTCHA); return; }
+    const r = await reenviarConfirmacion(email, token || undefined);
     setRecuperando(false);
     if (r.error) { setError(r.error); return; }
     setFaltaConfirmar(false);
@@ -125,12 +123,10 @@ export default function LoginPage() {
       setError('Escribe tu email arriba y vuelve a pulsar.');
       return;
     }
-    if (turnstileConfigurado() && !captchaToken) {
-      setError('Espera a que termine la verificación de "no soy un robot" y vuelve a pulsar.');
-      return;
-    }
     setRecuperando(true);
-    const r = await recuperarPassword(email, captchaToken ?? undefined);
+    const token = await pedirToken();
+    if (token === null) { setRecuperando(false); setError(ERROR_CAPTCHA); return; }
+    const r = await recuperarPassword(email, token || undefined);
     setRecuperando(false);
     if (r.error) { setError(r.error); return; }
     // A propósito NO se dice si ese email tiene cuenta: eso convertiría esta
@@ -147,8 +143,13 @@ export default function LoginPage() {
     setInfo('');
     setSubmitting(true);
 
+    // Un solo token para los dos modos: se pide antes de bifurcar para no
+    // duplicar la llamada ni el manejo del fallo.
+    const token = await pedirToken();
+    if (token === null) { setSubmitting(false); setError(ERROR_CAPTCHA); return; }
+
     if (modo === 'entrar') {
-      const { error } = await signIn(email, password, captchaToken ?? undefined);
+      const { error } = await signIn(email, password, token || undefined);
       if (error) {
         // Antes se aplastaba CUALQUIER error a «Email o contraseña incorrectos».
         // Recién dada de alta, con la contraseña buena, lo que fallaba era que
@@ -172,7 +173,7 @@ export default function LoginPage() {
       const { error, needsConfirmation } = await signUp(
         email, password,
         invitacion ? { [CLAVE_INVITACION]: invitacion } : undefined,
-        captchaToken ?? undefined,
+        token || undefined,
       );
       if (error) {
         setError(error);
@@ -258,11 +259,11 @@ export default function LoginPage() {
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
             )}
 
-            <TurnstileWidget onToken={setCaptchaToken} />
+            {captcha}
 
             <button
               type="submit"
-              disabled={submitting || (turnstileConfigurado() && !captchaToken)}
+              disabled={submitting}
               className="w-full py-3 rounded-full text-[14px] font-bold text-white transition-all hover:brightness-110 disabled:opacity-60"
               style={{ background: 'var(--brand)', color: 'var(--brand-foreground)', boxShadow: '0 10px 22px color-mix(in srgb, var(--brand) 28%, transparent)' }}
             >
