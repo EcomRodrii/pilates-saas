@@ -3355,16 +3355,17 @@ export async function dbInsertInstructor(i: Instructor): Promise<ResultadoEscrit
   }
 }
 
-export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>) {
+export async function dbUpdateInstructor(id: string, changes: Partial<Instructor>): Promise<ResultadoEscritura> {
   try {
     const res = await fetch('/api/equipo', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...(await staffAuthHeader()) },
       body: JSON.stringify({ id, changes }),
     });
-    if (!res.ok) reportDbError('[dbUpdateInstructor]', await res.json().catch(() => ({ status: res.status })));
+    if (!res.ok) return falloEscritura('[dbUpdateInstructor]', await res.json().catch(() => ({ status: res.status })));
+    return ESCRITURA_OK;
   } catch (e) {
-    reportDbError('[dbUpdateInstructor]', e);
+    return falloEscritura('[dbUpdateInstructor]', e);
   }
 }
 

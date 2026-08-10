@@ -254,11 +254,27 @@ export async function montarPortal(page: Page, opciones: {
  */
 export async function abrirHojaDeReserva(page: Page) {
   const reservar = page.getByRole('button', { name: /^Reservar / });
-  if (await reservar.count() > 0) { await reservar.first().click(); return; }
   const dias = page.getByRole('button', { name: /^(lunes|martes|miércoles|jueves|viernes|sábado|domingo)/ });
-  for (let i = 0; i < await dias.count(); i++) {
-    await dias.nth(i).click();
+
+  // ⚠️ Y si esta semana no queda ninguna, se pasa a la siguiente.
+  //
+  // Las clases del mock están a +3h, +26h, +50h y +74h de AHORA, así que a qué
+  // semana caen depende de la hora a la que corra la suite. Un sábado por la
+  // noche solo la de +3h sigue en esta semana — y esa es justo la que ya tiene
+  // reservada Marta, así que no hay ningún botón "Reservar" y el ayudante
+  // moría con "no hay ninguna clase libre". Pasó en CI un sábado a las 23:16,
+  // tumbando una PR que no tocaba el portal.
+  //
+  // Mirar también la semana siguiente hace que el ayudante funcione a
+  // cualquier hora del año sin fijar ningún día a mano, que es lo que ya
+  // evitaba el bucle de días de abajo.
+  for (const semana of [0, 1]) {
+    if (semana > 0) await page.getByRole('button', { name: 'Semana siguiente' }).click();
     if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    for (let i = 0; i < await dias.count(); i++) {
+      await dias.nth(i).click();
+      if (await reservar.count() > 0) { await reservar.first().click(); return; }
+    }
   }
-  throw new Error('No hay ninguna clase libre esta semana en el mock');
+  throw new Error('No hay ninguna clase libre ni esta semana ni la siguiente en el mock');
 }

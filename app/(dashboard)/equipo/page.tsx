@@ -330,7 +330,11 @@ export default function EquipoPage() {
         showToast(`${fields.nombre} ya está en tu equipo`);
       }
     } else if (editId) {
-      updateInstructor(editId, fields);
+      // Se espera el resultado: si el servidor rechaza (RLS/red), updateInstructor
+      // ya revirtió el optimista; aquí se muestra el error inline y se deja el
+      // modal abierto para reintentar, en vez de cantar "Cambios guardados".
+      const resEdit = await updateInstructor(editId, fields);
+      if (!resEdit.ok) { setErrorGuardar(resEdit.error); return; }
       const tarifaAnterior = tarifas[editId] ?? null;
       const tarifaNueva = tarifaHoraInput.trim() === '' ? null : Number(tarifaHoraInput);
       let mensaje = 'Cambios guardados';
@@ -356,7 +360,10 @@ export default function EquipoPage() {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     setForm(f => ({ ...f, fotoUrl: result.url }));
-    if (editId) updateInstructor(editId, { fotoUrl: result.url });
+    if (editId) {
+      const r = await updateInstructor(editId, { fotoUrl: result.url });
+      if (!r.ok) setErrorFoto(r.error);
+    }
   }
 
   async function handleEliminarFoto() {
@@ -365,7 +372,10 @@ export default function EquipoPage() {
     setSubiendoFoto(false);
     if ('error' in result) { setErrorFoto(result.error); return; }
     setForm(f => ({ ...f, fotoUrl: null }));
-    if (editId) updateInstructor(editId, { fotoUrl: null });
+    if (editId) {
+      const r = await updateInstructor(editId, { fotoUrl: null });
+      if (!r.ok) setErrorFoto(r.error);
+    }
   }
 
   const activos = tarjetas.filter(m => m.activo).length;

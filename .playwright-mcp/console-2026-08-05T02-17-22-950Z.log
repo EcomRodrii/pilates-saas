@@ -1,0 +1,60 @@
+[     711ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[     819ms] [LOG] [HMR] connected @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[     950ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[    1079ms] [LOG] [Fast Refresh] done in 229ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   44859ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   45748ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3431/tmp-verificacion-temas?_rsc=wF8445_s9UCVwe_l:0
+[   45781ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   45796ms] [LOG] [Fast Refresh] done in 983ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   45897ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3431/tmp-verificacion-temas?_rsc=wF8445_s9UCVwe_l:0
+[   45909ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   45994ms] [LOG] [Fast Refresh] done in 187ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   46144ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3431/tmp-verificacion-temas?_rsc=wF8445_s9UCVwe_l:0
+[   46162ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   46180ms] [LOG] [Fast Refresh] done in 118ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   46492ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3431/tmp-verificacion-temas:0
+[   46771ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   46862ms] [LOG] [HMR] connected @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  137887ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  138121ms] [LOG] [Fast Refresh] done in 335ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  173379ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  173640ms] [LOG] [Fast Refresh] done in 362ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  199572ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  199637ms] [LOG] [Fast Refresh] done in 167ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  262648ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  262735ms] [LOG] [Fast Refresh] done in 190ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  278928ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  279403ms] [LOG] [Fast Refresh] done in 581ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  295937ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  296001ms] [LOG] [Fast Refresh] done in 167ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  332205ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  332496ms] [LOG] [Fast Refresh] done in 391ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  349064ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  349174ms] [LOG] [Fast Refresh] done in 212ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  361908ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  361923ms] [LOG] [Fast Refresh] done in 118ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  393921ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  394121ms] [LOG] [Fast Refresh] done in 304ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  406425ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  406495ms] [LOG] [Fast Refresh] done in 174ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  418016ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  418047ms] [LOG] [Fast Refresh] done in 134ms @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  436867ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  437872ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  438876ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  439880ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  440886ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  445910ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  450959ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  456007ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  461070ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  466156ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  471274ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[  476559ms] [ERROR] WebSocket connection to 'ws://localhost:3431/_next/webpack-hmr?id=JSUesPvDDZGHEcxSSnJnM' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3431/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423

@@ -489,7 +489,7 @@ interface StudioContextValue {
 
   // Instructores (mutable)
   addInstructor: (fields: Omit<Instructor, 'id' | 'studioId'>, id?: string) => Promise<ResultadoEscritura>;
-  updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => void;
+  updateInstructor: (id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteInstructor: (id: string) => void;
 
   // Studio config (policy, terms)
@@ -1000,7 +1000,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // dedupea por reciboId pero solo hasta que la primera inserción commitea —
   // hay ventana de carrera. Llamar siempre desde el cuerpo de la función, una
   // sola vez, con el resultado ya calculado).
-  async function sellarFacturaYActualizar(fac: Factura) {
+  async function sellarFacturaYActualizar(fac: Factura): Promise<ResultadoEscritura> {
     const r = await sellarFactura(fac);
     if (r.ok && r.factura) {
       const s = r.factura;
@@ -1020,13 +1020,19 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         cuotaIVA: s.cuotaIVA ?? f.cuotaIVA,
         total: s.total ?? f.total,
       } : f));
+      return { ok: true };
     } else {
       // El sellado en servidor falló (NIF inválido, red, RLS...): la factura
       // optimista nunca se llegó a persistir en `facturas`, así que hay que
       // quitarla del estado local o el usuario la ve en pantalla hasta el
-      // próximo refresco desde el servidor, sin saber que nunca se guardó.
+      // próximo refresco desde el servidor, sin saber que nunca se guardó. El
+      // fallo ya se muestra en el banner global (`setDbError`); además se
+      // devuelve `ResultadoEscritura` para que quien cobra pueda comprobarlo
+      // (consistente con el resto de escrituras de dinero).
+      const error = r.error ?? 'No se ha podido generar la factura';
       setFacturas(prev => prev.filter(f => f.id !== fac.id));
-      setDbError({ msg: r.error ?? 'No se ha podido generar la factura', key: Date.now() });
+      setDbError({ msg: error, key: Date.now() });
+      return { ok: false, error };
     }
   }
 
@@ -1354,16 +1360,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     addActividadReciente('EQUIPO_ALTA', `${actorNombre ?? 'Alguien'} añadió a ${nuevo.nombre} al equipo (${nuevo.rol})`);
     return res;
   }
-  function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>) {
+  async function updateInstructor(id: string, changes: Partial<Omit<Instructor, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const anterior = instructores.find(i => i.id === id);
     setInstructores(prev => prev.map(i => i.id === id ? { ...i, ...changes } : i));
-    dbUpdateInstructor(id, changes);
+    const res = await dbUpdateInstructor(id, changes);
+    if (!res.ok) {
+      // El servidor rechazó (RLS fuera de alcance, red...): revertir la fila al
+      // valor previo para que el estado local no diverja del servidor y quien
+      // llama pueda avisar en vez de cantar "guardado".
+      if (anterior) setInstructores(prev => prev.map(i => i.id === id ? anterior : i));
+      return res;
+    }
     if (anterior) {
       const detalle = 'rol' in changes && changes.rol !== anterior.rol
         ? `rol ${anterior.rol} → ${changes.rol}`
         : 'datos actualizados';
       addActividadReciente('EQUIPO_EDITADO', `${actorNombre ?? 'Alguien'} editó a ${anterior.nombre} del equipo (${detalle})`);
     }
+    return res;
   }
   function deleteInstructor(id: string) {
     const instructor = instructores.find(i => i.id === id);
@@ -2174,30 +2188,39 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setReservas(reservasActualizadas);
     // La inserción real pasa por la función Postgres atómica reservar_plaza
     // (bloquea la fila de la sesión mientras decide) — la estimación de arriba
-    // es solo para pintar algo al instante. Si dos altas concurrentes compiten
-    // por la última plaza, la decisión de la base de datos manda: se corrige el
-    // estado local y los efectos (bono/créditos/logros) se disparan sobre ese
-    // resultado autoritativo, no sobre la estimación.
-    dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId).then(r => {
-      if (!r || 'error' in r) return;
-      if (r.estado !== estado) {
-        setReservas(prev => prev.map(x => x.id === reservaId
-          ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
-      }
-      if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
-      if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
-      // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
-      // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
-      // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
-      // otorgaría logros como si la clase contara.
-      const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
-        ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera }
-        : x);
-      evaluarLogrosSocio(socioId, reservasFinales);
-      evaluarRetosSocio(socioId, reservasFinales);
-    });
+    // es solo para pintar algo al instante. Se ESPERA su resultado: la RPC
+    // rechaza legítimamente (clase empezada, tope semanal, sin bono, o carrera
+    // por la última plaza) y antes ese rechazo no revertía el optimista ni
+    // llegaba a la pantalla — quedaba una reserva fantasma y el toast mentía.
+    const r = await dbReservarPlaza(getCurrentStudioId(), sesionId, socioId, reservaId);
+    if (!r || 'error' in r) {
+      // La plaza NO se creó en BD: quitar la reserva optimista para que el
+      // estado local no diverja del servidor.
+      setReservas(prev => prev.filter(x => x.id !== reservaId));
+      return { ok: false, error: r?.error ?? 'No se pudo reservar la plaza' };
+    }
+    // La decisión de la base de datos manda sobre la estimación: si dos altas
+    // concurrentes compiten por la última plaza, la BD puede devolver
+    // LISTA_ESPERA donde la estimación dijo CONFIRMADA. Los efectos
+    // (bono/créditos/logros) se disparan sobre ese resultado autoritativo.
+    const estadoFinal = r.estado as EstadoReserva;
+    if (estadoFinal !== estado) {
+      setReservas(prev => prev.map(x => x.id === reservaId
+        ? { ...x, estado: estadoFinal, posicionEspera: r.posicionEspera } : x));
+    }
+    if (estadoFinal === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
+    if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
+    // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
+    // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
+    // pero la BD devolvió LISTA_ESPERA, evaluar sobre reservasActualizadas
+    // otorgaría logros como si la clase contara.
+    const reservasFinales = reservasActualizadas.map(x => x.id === reservaId
+      ? { ...x, estado: estadoFinal, posicionEspera: r.posicionEspera }
+      : x);
+    evaluarLogrosSocio(socioId, reservasFinales);
+    evaluarRetosSocio(socioId, reservasFinales);
 
-    return { ok: true, estado };
+    return { ok: true, estado: estadoFinal };
   }
 
   // Favorito por TIPO de clase (catálogo), no por sesión puntual — así una

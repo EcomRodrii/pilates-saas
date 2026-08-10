@@ -40,7 +40,12 @@ export function PilotoAutomatico() {
   }, []);
 
   const guardar = useCallback(async (next: AutonomiaConfig) => {
-    setConfig(next); // optimista
+    // Capturamos el valor previo DENTRO del updater (no desde el closure, que
+    // está stale por las deps vacías) para poder revertir si el servidor
+    // rechaza: apagar el piloto con un PUT fallido no debe mostrarlo OFF
+    // mientras el servidor lo mantiene ON y sigue auto-enviando mensajes.
+    let prev: AutonomiaConfig | null = null;
+    setConfig(c => { prev = c; return next; }); // optimista
     setGuardando(true);
     setError(null);
     try {
@@ -49,10 +54,11 @@ export function PilotoAutomatico() {
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
         body: JSON.stringify(next),
       });
-      if (!res.ok) { setError('No se pudo guardar'); return; }
+      if (!res.ok) { setConfig(prev); setError('No se pudo guardar'); return; }
       const d = await res.json();
       setConfig(d.config); // el servidor devuelve la config saneada (autoritativa)
     } catch {
+      setConfig(prev); // red caída: el estado local no puede divergir del servidor
       setError('Error de conexión');
     } finally {
       setGuardando(false);

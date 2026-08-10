@@ -1,0 +1,228 @@
+[   12889ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   13116ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   97121ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[   99852ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  103515ms] [LOG] [Fast Refresh] done in 2831ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  103617ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  103785ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=wF8445_s9UCVwe_l:0
+[  103803ms] [LOG] [Fast Refresh] done in 287ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  104855ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=wF8445_s9UCVwe_l:0
+[  104978ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[  105178ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  105258ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  105418ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[  105499ms] [LOG] [Fast Refresh] done in 181ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1160520ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1173454ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1174083ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1174140ms] [LOG] [Fast Refresh] done in 13686ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1174665ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1175044ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1175065ms] [LOG] [Fast Refresh] done in 501ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1175738ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1175798ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1175977ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1176009ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1261359ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1261754ms] [LOG] [Fast Refresh] done in 497ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1266813ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1266923ms] [LOG] [Fast Refresh] done in 212ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1298461ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1298661ms] [LOG] [Fast Refresh] done in 304ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1311884ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1312011ms] [LOG] [Fast Refresh] done in 231ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1325751ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1326277ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1326282ms] [LOG] [Fast Refresh] done in 480ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1326308ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1326433ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1326596ms] [LOG] [Fast Refresh] done in 264ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1326614ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1326678ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1326735ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1334111ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1334274ms] [LOG] [Fast Refresh] done in 265ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1339819ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1339950ms] [LOG] [Fast Refresh] done in 234ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1344548ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1344617ms] [LOG] [Fast Refresh] done in 172ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1356740ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1356888ms] [LOG] [Fast Refresh] done in 252ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1361125ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1361201ms] [LOG] [Fast Refresh] done in 179ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1369900ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1369973ms] [LOG] [Fast Refresh] done in 175ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1378910ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1379293ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1379308ms] [LOG] [Fast Refresh] done in 486ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1379593ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1379688ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1379721ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1391959ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1392127ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1392137ms] [LOG] [Fast Refresh] done in 269ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1392347ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1392396ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1392452ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1396250ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1396927ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1397022ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1397085ms] [LOG] [Fast Refresh] done in 893ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1397190ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1397398ms] [LOG] [Fast Refresh] done in 309ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1397452ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1397614ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas?_rsc=gJvLbHS0Udr_qZza:0
+[ 1397642ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1397767ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1397801ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1404008ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1404291ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1404303ms] [LOG] [Fast Refresh] done in 380ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1404517ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1404634ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1404662ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1409598ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1409829ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1409843ms] [LOG] [Fast Refresh] done in 331ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1410190ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1410255ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1410287ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1413211ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1413433ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1413445ms] [LOG] [Fast Refresh] done in 322ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1413660ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1413712ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1413731ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1428761ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1428941ms] [LOG] [Fast Refresh] done in 282ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1439420ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1439570ms] [LOG] [Fast Refresh] done in 253ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1445251ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1445307ms] [LOG] [Fast Refresh] done in 157ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1452026ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1452065ms] [LOG] [Fast Refresh] done in 140ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1459390ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1459474ms] [LOG] [Fast Refresh] done in 185ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1467060ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1467134ms] [LOG] [Fast Refresh] done in 176ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1479575ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1479664ms] [LOG] [Fast Refresh] done in 191ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1490617ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1490710ms] [LOG] [Fast Refresh] done in 195ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1500938ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1501042ms] [LOG] [Fast Refresh] done in 206ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1508582ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1508639ms] [LOG] [Fast Refresh] done in 159ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1569063ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1569121ms] [WARNING] [Fast Refresh] performing full reload
+
+Fast Refresh will perform a full reload when you edit a file that's imported by modules outside of the React rendering tree.
+You might have a file which exports a React component but also exports a value that is imported by a non-React component file.
+Consider migrating the non-React component export to a separate file and importing it into both files.
+
+It is also possible the parent component of the component you edited is a class component, which disables Fast Refresh.
+Fast Refresh requires at least one parent function component in your React tree. @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1569139ms] [LOG] [Fast Refresh] done in 159ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1569378ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3410/tmp-verificacion-temas:0
+[ 1569430ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1569457ms] [LOG] [HMR] connected @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1604170ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1604257ms] [LOG] [Fast Refresh] done in 188ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1622626ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1622664ms] [LOG] [Fast Refresh] done in 141ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1638976ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1639010ms] [LOG] [Fast Refresh] done in 136ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1662424ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1662503ms] [LOG] [Fast Refresh] done in 183ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1671506ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1671806ms] [LOG] [Fast Refresh] done in 403ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1730316ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1730724ms] [LOG] [Fast Refresh] done in 515ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1748644ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1748761ms] [LOG] [Fast Refresh] done in 219ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1825935ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1826190ms] [LOG] [Fast Refresh] done in 357ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1863561ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1863699ms] [LOG] [Fast Refresh] done in 240ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1887820ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1887926ms] [LOG] [Fast Refresh] done in 208ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1914284ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1914301ms] [LOG] [Fast Refresh] done in 120ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1921092ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1921176ms] [LOG] [Fast Refresh] done in 186ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1946134ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1946312ms] [LOG] [Fast Refresh] done in 280ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1954944ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1955038ms] [LOG] [Fast Refresh] done in 196ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1976892ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1977080ms] [LOG] [Fast Refresh] done in 289ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1990483ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 1990696ms] [LOG] [Fast Refresh] done in 315ms @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2483
+[ 2029881ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2030887ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2031890ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2032894ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2033900ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2038924ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2043954ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2048988ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2054032ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2059080ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2064227ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423
+[ 2069536ms] [ERROR] WebSocket connection to 'ws://localhost:3410/_next/webpack-hmr?id=VfSkD3HICjaonKVkJ8jER' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3410/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13423

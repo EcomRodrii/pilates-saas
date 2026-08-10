@@ -1,0 +1,2 @@
+[    1641ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:3555/.image-slots.state.json:0
+[    3875ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:3555/favicon.ico:0

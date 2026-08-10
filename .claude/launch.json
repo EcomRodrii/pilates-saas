@@ -7,6 +7,12 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "dev-temas",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", ".claude/worktrees/temas-radio-continuar", "--", "--port", "3210"],
+      "port": 3210
     }
   ]
 }

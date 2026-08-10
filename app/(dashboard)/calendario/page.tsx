@@ -1125,19 +1125,24 @@ export default function Calendario() {
       });
       return;
     }
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
   }
 
-  function confirmarAddReserva(sesionId: string, socioId: string) {
-    const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
+  async function confirmarAddReserva(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? socio.nombre : 'La clienta';
-    const { estado, posicionEspera } = decidirReservaNueva(sesion?.aforoMaximo, sesionId, reservas);
-    void addReserva(sesionId, socioId);
-    showToast(estado === 'LISTA_ESPERA'
-      ? `Clase llena — ${nombre} va a lista de espera (nº ${posicionEspera})`
-      : `${nombre} añadida a la clase`);
+    // Se espera el resultado AUTORITATIVO de la RPC: el toast ya no miente si el
+    // servidor rechaza (clase empezada, tope semanal, sin bono, carrera por la
+    // última plaza) — antes se anunciaba éxito sobre la mera estimación cliente.
+    const res = await addReserva(sesionId, socioId);
     void refrescarVista();
+    if (!res.ok) {
+      showToast(res.error ?? `No se pudo añadir a ${nombre} a la clase`);
+      return;
+    }
+    showToast(res.estado === 'LISTA_ESPERA'
+      ? `Clase llena — ${nombre} va a lista de espera`
+      : `${nombre} añadida a la clase`);
   }
 
   const precioSueltaDe = (sesionId: string): number | null => {
@@ -1162,7 +1167,7 @@ export default function Calendario() {
     const { sesionId, socioId } = avisoSinBono;
     const socio = socios.find(s => s.id === socioId);
     const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La clienta';
-    confirmarAddReserva(sesionId, socioId);
+    void confirmarAddReserva(sesionId, socioId);
     addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
     setAvisoSinBono(null);
   }
@@ -2459,7 +2464,7 @@ export default function Calendario() {
             <button
               className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
               onClick={() => {
-                if (confirmarEspera) confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
+                if (confirmarEspera) void confirmarAddReserva(confirmarEspera.sesionId, confirmarEspera.socioId);
                 setConfirmarEspera(null);
               }}
             >
