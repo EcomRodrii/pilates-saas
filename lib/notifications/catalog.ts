@@ -373,9 +373,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Cubrirás {clase} el {cuando}{sala}. ¡Gracias!',
     deepLink: () => `/calendario`,
   },
+  // `{siguiente}` en vez de un "Busca otra opción" fijo: en modo autónomo el
+  // motor ya ha pasado a la siguiente candidata por su cuenta, y decirle a la
+  // propietaria que busque sería mandarla a hacer un trabajo que no le toca.
   [`${EVENTOS.SUSTITUCION_RECHAZADA}#PROPIETARIO`]: {
     title: 'Sustitución rechazada',
-    body: '{instructora} no puede cubrir {clase} del {cuando}. Busca otra opción.',
+    body: '{instructora} no puede cubrir {clase} del {cuando}. {siguiente}',
     deepLink: () => `/sustituciones`,
   },
   // Pago fallido → dueña, mostrador y socia (mismo evento, textos por rol)
