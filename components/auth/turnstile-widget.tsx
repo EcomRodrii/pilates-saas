@@ -32,15 +32,27 @@ import { alGastarCaptcha } from '@/lib/auth/captcha-usado';
 // de Cloudflare en la pantalla de acceso del estudio — en un producto de
 // marca blanca, debajo del nombre y la foto de la propietaria.
 //
-// ⚠️ El primer intento de quitarlo fue `appearance: 'interaction-only'` y
-// **rompió el acceso entero en producción**: en ese modo el widget no emite
-// token si no hay interacción, y no hay con qué interactuar porque justamente
-// no se pinta. Sin token, las SEIS pantallas dejaban de poder enviar. Medido:
-// `getResponse()` vacía 8 segundos después de cargar.
+// Costó dos intentos fallidos en producción, los dos por la misma confusión:
+// `appearance` (cuándo se VE) y `execution` (cuándo CORRE) son parámetros
+// distintos, y el que manda es el segundo.
 //
-// La vía correcta es `appearance: 'execute'`: se monta invisible y no resuelve
-// nada hasta que se llama a `turnstile.execute()`. Entonces emite token, y
-// solo se hace visible si de verdad hay un desafío que resolver.
+// 1. `appearance: 'interaction-only'` a secas **rompió el acceso entero**: con
+//    `execution` en su valor por defecto (`'render'`) el desafío corría al
+//    pintar, pero el contrato de entonces era pasivo —el formulario esperaba
+//    un token para habilitar el botón— y nunca llegaba. Medido: `getResponse()`
+//    vacía 8 segundos después de cargar. Las SEIS pantallas sin poder enviar.
+// 2. `appearance: 'execute'` a secas devolvió el acceso, pero **el recuadro
+//    seguía puesto**: sin `execution: 'execute'` el desafío arranca solo al
+//    renderizar, así que el widget se pinta enseguida con su «Verificando…».
+//
+// La combinación que sí lo deja invisible está MEDIDA en producción contra la
+// site key real (2026-08-10), no deducida del manual:
+//
+//   reposo          → 0 px, sin token
+//   tras execute()  → 0 px, token en ~3,5 s
+//
+// Por eso hay que pedir el token AL ENVIAR y esperarlo: son segundos reales,
+// y el botón tiene que estar en estado de carga mientras tanto.
 //
 // Eso INVIERTE el contrato: ya no se espera un token para habilitar el botón,
 // se pide el token al pulsarlo. Por eso es un hook con `pedirToken()` y no un
@@ -56,6 +68,12 @@ declare global {
         'expired-callback'?: () => void;
         'error-callback'?: () => void;
         appearance?: 'always' | 'execute' | 'interaction-only';
+        /**
+         * CUÁNDO corre el desafío. Es un parámetro DISTINTO de `appearance`, y
+         * confundirlos es justo lo que dejó el recuadro puesto en producción.
+         * `'render'` (el valor por defecto) lo arranca al pintar el widget.
+         */
+        execution?: 'render' | 'execute';
         size?: 'normal' | 'flexible' | 'compact';
         theme?: 'auto' | 'light' | 'dark';
       }) => string;
@@ -119,7 +137,15 @@ export function useCaptcha() {
         // Un token caducado no avisa a nadie: la siguiente llamada a
         // `pedirToken` vuelve a ejecutar y saca uno nuevo.
         'expired-callback': () => {},
-        appearance: 'execute',
+        // Las DOS son necesarias, y son cosas distintas:
+        //   execution: 'execute'    → el desafío no corre hasta `execute()`.
+        //   appearance: 'interaction-only' → solo se pinta si hay que resolver
+        //                                    algo A MANO.
+        // Sin la primera, el desafío arranca al pintar el widget y `appearance`
+        // no tiene nada que ocultar: eso es exactamente lo que pasaba con
+        // `appearance: 'execute'` a secas.
+        execution: 'execute',
+        appearance: 'interaction-only',
         // Cuando SÍ toca enseñarlo, que ocupe su hueco en vez de los 300 px
         // fijos que se salían del margen en un móvil estrecho.
         size: 'flexible',

@@ -301,6 +301,7 @@ export default function ReservarPage() {
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  const [enviandoEnlace, setEnviandoEnlace] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
   const [errorCancelar, setErrorCancelar] = useState<string | null>(null);
@@ -619,15 +620,23 @@ export default function ReservarPage() {
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
   // nombre+email). La socia entra al pulsar el enlace del correo.
   async function handleEnviarEnlace() {
-    if (!loginForm.email.trim()) return;
+    if (!loginForm.email.trim() || enviandoEnlace) return;
     setLoginError('');
-    // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
-    // a su confirmación — evita la fuga de conversión de re-buscar la clase.
-    const token = await pedirToken();
-    if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
-    const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
-    if ('error' in r) { setLoginError(r.error); return; }
-    setEnlaceEnviado(true);
+    // El estado de carga se enciende ANTES de pedir el token, no después:
+    // el captcha tarda ~3,5 s en resolverse por dentro, y sin esto el botón
+    // se quedaba mudo todo ese rato y admitía un segundo clic.
+    setEnviandoEnlace(true);
+    try {
+      // Propaga la clase elegida al enlace mágico (si la hay) para volver directa
+      // a su confirmación — evita la fuga de conversión de re-buscar la clase.
+      const token = await pedirToken();
+      if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
+      const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
+      if ('error' in r) { setLoginError(r.error); return; }
+      setEnlaceEnviado(true);
+    } finally {
+      setEnviandoEnlace(false);
+    }
   }
 
   // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
@@ -1401,13 +1410,13 @@ export default function ReservarPage() {
                       className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: RT.surface2 }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
-                    <div className="mb-3">
-                      {captcha}
-                    </div>
-                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email}
+                    {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
+                        resolver algo a mano. */}
+                    {captcha}
+                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email || enviandoEnlace}
                       className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                       style={{ backgroundColor: PRIMARY }}>
-                      Enviar enlace de acceso →
+                      {enviandoEnlace ? 'Enviando…' : 'Enviar enlace de acceso →'}
                     </button>
                   </>
                 ) : (

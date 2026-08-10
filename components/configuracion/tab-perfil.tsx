@@ -341,7 +341,10 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
                   />
                 </div>
               </div>
-              <div className="mt-3">{captcha}</div>
+              {/* Sin margen propio: el widget mide 0 px salvo que Cloudflare
+                  pida resolver algo a mano, y un `mt-3` aquí dejaría un hueco
+                  en blanco permanente por un recuadro que casi nunca aparece. */}
+              {captcha}
               <button
                 onClick={cambiarPassword}
                 disabled={
