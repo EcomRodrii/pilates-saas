@@ -1,36 +1,52 @@
 'use client';
 
 import Script from 'next/script';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { alGastarCaptcha } from '@/lib/auth/captcha-usado';
 
 // Cloudflare Turnstile, sin librería de npm: el embed oficial es un <script>
-// global + un div con data-sitekey y un callback — no hace falta envolverlo
-// para lo que es, en esencia, leer un token.
+// global + un div, y esto lo envuelve en un hook.
 //
-// Protege alta de estudio (app/crear-estudio), login de equipo (app/login), y
-// el portal/alta de socias (app/portal/[slug]/{login,acceso}, app/reservar/[slug]).
-// Al principio se dejó fuera el portal de socias ("riesgo bajo", decisión de
-// alcance) — pero el captcha se exige a nivel de PROYECTO en Supabase, no por
-// pantalla: en cuanto se activó, cualquier login/alta de socia sin token
-// empezó a fallar con "captcha protection: request disallowed", dejando a
-// las alumnas sin poder entrar al portal. Cubrir solo una parte de las
-// pantallas de auth no es una opción real con este modelo de captcha.
+// Protege alta de estudio (app/crear-estudio), login de equipo (app/login), el
+// portal de socias (app/portal/[slug]/{acceso,login}), la reserva pública
+// (app/reservar/[slug]) y el cambio de contraseña (configuracion/tab-perfil).
 //
-// Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY el widget no se pinta y `onToken` nunca se
-// llama. `turnstileConfigurado()` es lo que usan los formularios para saber si
-// deben esperar al token antes de dejar enviar.
+// ⚠️ El captcha se exige a nivel de PROYECTO en Supabase, no por pantalla: en
+// cuanto se activó, cualquier login o alta sin token empezó a fallar con
+// «captcha protection: request disallowed». Cubrir solo una parte de las
+// pantallas de auth no es una opción real con este modelo.
 //
-// ⚠️ OJO, esto NO quiere decir que local/preview funcione «igual que antes».
-// El captcha se exige en el PROYECTO de Supabase, no aquí: si está activado,
-// gotrue rechaza cualquier alta o login que llegue sin token, venga de donde
-// venga. Así que en todo entorno sin la env var —local y las preview de
-// Vercel— darse de alta es IMPOSIBLE, y el error que devuelve Supabase es
-// «captcha protection: request disallowed (no captcha_token found)».
-// Para trabajar en local hay dos salidas: poner la env var (vale la site key
-// de prueba de Cloudflare, `1x00000000000000000000AA`), o apagar el captcha
-// en Authentication → Settings del proyecto de Supabase.
-// El mensaje que ve la usuaria se traduce en `mensajeDeError` (lib/auth-context).
+// Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY no se monta nada y `pedirToken` devuelve
+// `''` — «no hay nada que pedir». Eso NO quiere decir que local o las preview
+// funcionen: gotrue sigue rechazando sin token si el captcha está activo en el
+// proyecto. Para trabajar en local: poner la env var (vale la site key de
+// prueba de Cloudflare, `1x00000000000000000000AA`) o apagar el captcha en
+// Authentication → Settings.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POR QUÉ ES UN HOOK Y NO UN COMPONENTE CON `onToken`
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// El widget se pintaba SIEMPRE (`appearance: 'always'`, que es el valor por
+// defecto y nunca lo eligió nadie): un recuadro oscuro de 300 px con el logo
+// de Cloudflare en la pantalla de acceso del estudio — en un producto de
+// marca blanca, debajo del nombre y la foto de la propietaria.
+//
+// ⚠️ El primer intento de quitarlo fue `appearance: 'interaction-only'` y
+// **rompió el acceso entero en producción**: en ese modo el widget no emite
+// token si no hay interacción, y no hay con qué interactuar porque justamente
+// no se pinta. Sin token, las SEIS pantallas dejaban de poder enviar. Medido:
+// `getResponse()` vacía 8 segundos después de cargar.
+//
+// La vía correcta es `appearance: 'execute'`: se monta invisible y no resuelve
+// nada hasta que se llama a `turnstile.execute()`. Entonces emite token, y
+// solo se hace visible si de verdad hay un desafío que resolver.
+//
+// Eso INVIERTE el contrato: ya no se espera un token para habilitar el botón,
+// se pide el token al pulsarlo. Por eso es un hook con `pedirToken()` y no un
+// componente que emite hacia fuera — el formulario necesita esperar, no
+// reaccionar.
+
 declare global {
   interface Window {
     turnstile?: {
@@ -39,16 +55,16 @@ declare global {
         callback: (token: string) => void;
         'expired-callback'?: () => void;
         'error-callback'?: () => void;
-        /** `interaction-only` = solo se pinta si de verdad hay que interactuar. */
         appearance?: 'always' | 'execute' | 'interaction-only';
-        /** `flexible` ocupa el ancho del contenedor en vez de 300 px fijos. */
         size?: 'normal' | 'flexible' | 'compact';
         theme?: 'auto' | 'light' | 'dark';
       }) => string;
+      /** Dispara la verificación de un widget montado en modo `execute`. */
+      execute: (widgetId: string) => void;
+      /** El token ya emitido y sin gastar, o vacío. */
+      getResponse: (widgetId: string) => string | undefined;
       remove: (widgetId: string) => void;
       reset: (widgetId: string) => void;
-      /** Llama a `cb` cuando la API está lista — también si YA lo estaba. */
-      ready: (cb: () => void) => void;
     };
   }
 }
@@ -57,137 +73,115 @@ export function turnstileConfigurado(): boolean {
   return !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 }
 
-export function TurnstileWidget({ onToken }: { onToken: (token: string | null) => void }) {
+/** El mensaje cuando no se puede verificar. Uno solo para las seis pantallas. */
+export const ERROR_CAPTCHA =
+  'No hemos podido comprobar que no eres un robot. Recarga la página e inténtalo de nuevo.';
+
+/** Cuánto se espera a Cloudflare antes de rendirse. */
+const ESPERA_MS = 30_000;
+
+export function useCaptcha() {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
-  // En un ref para que la suscripción se haga UNA vez: los formularios pasan
-  // `setX` de useState, estable, pero alguno podría pasar una función nueva en
-  // cada render y resuscribirse (y perder el widget) en bucle.
-  const onTokenRef = useRef(onToken);
-  // En un efecto, no en el render: escribir un ref durante el render es una
-  // violación de las reglas de React (y lo caza el lint). Sin array de
-  // dependencias a propósito — tiene que quedarse con la última función.
-  useEffect(() => { onTokenRef.current = onToken; });
-  const [scriptListo, setScriptListo] = useState(false);
-  // Si el script no carga (bloqueador de contenido, red que corta
-  // challenges.cloudflare.com) o el propio widget de Cloudflare nunca resuelve,
-  // antes el botón de envío se quedaba deshabilitado PARA SIEMPRE sin ningún
-  // aviso: la visitante veía un email válido y un botón muerto, sin saber por
-  // qué (bug real, encontrado probando /portal/[slug]/acceso en producción).
-  const [fallo, setFallo] = useState(false);
+  // Quién espera un token ahora mismo. Solo puede haber uno: el formulario
+  // aguarda a `pedirToken()` antes de seguir.
+  const esperando = useRef<((t: string | null) => void) | null>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-  // ⚠️ NO basta con el `onLoad` del <Script>. Bug real, encontrado en
-  // producción: `window.turnstile` estaba cargado y disponible, pero
-  // `scriptListo` seguía en `false`, así que `render()` no se llamaba NUNCA —
-  // ni widget, ni token, y a los 10 s el aviso rojo de «no se ha podido
-  // cargar». El botón de la pantalla de acceso quedaba muerto para siempre.
-  //
-  // Pasa cuando este componente se monta DESPUÉS del primer render: el
-  // <Script> se inyecta ya hidratada la página y su `onLoad` no vuelve a
-  // dispararse si el navegador ya tenía el fichero. En el portal eso no es un
-  // caso raro — es toda socia que ve la pantalla de bienvenida, o sea CADA
-  // dispositivo nuevo.
-  //
-  // `turnstile.ready()` es la vía oficial para justo esto: llama al callback
-  // aunque la API estuviera lista de antes. Y si el objeto todavía no existe,
-  // se sondea en vez de confiar en un evento que quizá ya pasó.
-  useEffect(() => {
-    if (!siteKey || scriptListo) return;
-    let vivo = true;
-    const marcarListo = () => { if (vivo) setScriptListo(true); };
+  const resolver = useCallback((t: string | null) => {
+    const fn = esperando.current;
+    esperando.current = null;
+    fn?.(t);
+  }, []);
 
-    if (window.turnstile) {
-      window.turnstile.ready(marcarListo);
-      return () => { vivo = false; };
+  // ⚠️ NO se depende del `onLoad` del <Script>. Bug real de producción: con
+  // `window.turnstile` ya cargado, el estado que desbloqueaba el render se
+  // quedaba en `false` y `render()` no se llamaba NUNCA — le pasaba a quien
+  // montara esto después del primer render, o sea a toda socia que ve la
+  // pantalla de bienvenida (cada dispositivo nuevo). Se sondea el objeto, que
+  // es la única señal que no depende de un evento que quizá ya ocurrió.
+  //
+  // Y NO se usa `turnstile.ready()`: LANZA si el <script> lleva `async`, y
+  // `next/script` se lo pone. Al saltar dentro de un efecto se llevaba la
+  // pantalla entera al error boundary.
+  useEffect(() => {
+    if (!siteKey) return;
+    let vivo = true;
+    let sondeo: ReturnType<typeof setInterval> | null = null;
+    const parar = () => { if (sondeo) { clearInterval(sondeo); sondeo = null; } };
+
+    function montar(): boolean {
+      if (!vivo || widgetId.current || !window.turnstile || !contenedorRef.current) return false;
+      widgetId.current = window.turnstile.render(contenedorRef.current, {
+        sitekey: siteKey!,
+        callback: (token) => resolver(token),
+        'error-callback': () => resolver(null),
+        // Un token caducado no avisa a nadie: la siguiente llamada a
+        // `pedirToken` vuelve a ejecutar y saca uno nuevo.
+        'expired-callback': () => {},
+        appearance: 'execute',
+        // Cuando SÍ toca enseñarlo, que ocupe su hueco en vez de los 300 px
+        // fijos que se salían del margen en un móvil estrecho.
+        size: 'flexible',
+      });
+      return true;
     }
 
-    const sondeo = setInterval(() => {
-      if (!window.turnstile) return;
-      clearInterval(sondeo);
-      window.turnstile.ready(marcarListo);
-    }, 150);
-    const t = setTimeout(() => { if (vivo) setFallo(true); }, 10_000);
-    return () => { vivo = false; clearInterval(sondeo); clearTimeout(t); };
-  }, [siteKey, scriptListo]);
-
-  useEffect(() => {
-    if (!scriptListo || !siteKey || !contenedorRef.current || !window.turnstile) return;
-    widgetId.current = window.turnstile.render(contenedorRef.current, {
-      sitekey: siteKey,
-      callback: (token) => onToken(token),
-      'expired-callback': () => onToken(null),
-      'error-callback': () => onToken(null),
-      // ⚠️⚠️ NO poner `appearance: 'interaction-only'`. Se probó (#832) para
-      // quitar de la pantalla el recuadro de Cloudflare, y **rompió el acceso
-      // entero en producción**: con ese modo el widget se monta pero NO emite
-      // token si no hay interacción — y sin interacción no hay nada que
-      // pulsar, porque justamente no se pinta. Comprobado en vivo: ocho
-      // segundos después, `getResponse()` vacía y el campo oculto
-      // `cf-turnstile-response` vacío. Sin token, `listo` es false para
-      // siempre y NINGUNA de las seis pantallas con captcha deja enviar,
-      // incluido el login del equipo.
-      //
-      // Si algún día se quiere quitar el recuadro de verdad, la vía es
-      // `appearance: 'execute'` + llamar a `turnstile.execute()` al pulsar
-      // enviar, y que el formulario espere el token EN ESE momento en vez de
-      // exigirlo antes. Eso cambia el flujo de los seis formularios y no es
-      // un cambio de una línea.
-      //
-      // `size: 'flexible'` sí se queda: cuando se pinta, que ocupe su hueco en
-      // vez de los 300 px fijos que se salían del margen en un móvil estrecho.
-      size: 'flexible',
-    });
+    if (!montar()) sondeo = setInterval(() => { if (montar()) parar(); }, 150);
     return () => {
-      if (widgetId.current && window.turnstile) window.turnstile.remove(widgetId.current);
+      vivo = false;
+      parar();
+      // Si el formulario se desmonta mientras espera, se desbloquea con `null`
+      // en vez de dejar una promesa colgada para siempre.
+      resolver(null);
+      if (widgetId.current && window.turnstile) {
+        window.turnstile.remove(widgetId.current);
+        widgetId.current = null;
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scriptListo, siteKey]);
+  }, [siteKey, resolver]);
 
   // Un token se gasta al usarlo. Sin esto, el widget emitía uno y no volvía a
-  // emitir nunca: el segundo intento de la misma carga de página fallaba con
-  // `captcha_failed (timeout-or-duplicate)` — un intento por carga, en todas
-  // las pantallas de auth. Ver `lib/auth/captcha-usado.ts`.
+  // emitir nunca: el segundo intento de la misma carga fallaba con
+  // `captcha_failed (timeout-or-duplicate)`. Ver `lib/auth/captcha-usado.ts`.
   useEffect(() => alGastarCaptcha(() => {
-    if (!widgetId.current || !window.turnstile) return;
-    // Se invalida ANTES de pedir el nuevo: entre el reset y el callback no hay
-    // token válido, y dejar el viejo puesto haría que un reintento rápido
-    // volviera a mandar el que acaba de gastarse.
-    onTokenRef.current(null);
-    window.turnstile.reset(widgetId.current);
+    if (widgetId.current && window.turnstile) window.turnstile.reset(widgetId.current);
   }), []);
 
-  if (!siteKey) return null;
+  /**
+   * Pide un token. Se llama AL ENVIAR, no antes.
+   *
+   * - `''`    → no hay captcha configurado: no hay nada que mandar.
+   * - `token` → verificado.
+   * - `null`  → no se pudo (script bloqueado, red cortada, o se agotó la
+   *   espera). El formulario debe abortar y decirlo: mandar sin token haría
+   *   que Supabase respondiera con un error mucho peor de entender.
+   */
+  const pedirToken = useCallback(async (): Promise<string | null> => {
+    if (!siteKey) return '';
+    if (!widgetId.current || !window.turnstile) return null;
 
-  return (
+    // Si ya hay uno emitido y sin gastar se reutiliza: `execute()` sobre un
+    // widget ya resuelto NO vuelve a llamar al callback, así que pedirlo otra
+    // vez se quedaría esperando los 30 segundos enteros.
+    const ya = window.turnstile.getResponse(widgetId.current);
+    if (ya) return ya;
+
+    return new Promise<string | null>((resolve) => {
+      const temporizador = setTimeout(() => resolver(null), ESPERA_MS);
+      esperando.current = (t) => { clearTimeout(temporizador); resolve(t); };
+      window.turnstile!.execute(widgetId.current!);
+    });
+  }, [siteKey, resolver]);
+
+  // El hueco donde el widget se hará visible SI Cloudflare pide resolver algo.
+  // En el caso normal no ocupa nada y no se ve.
+  const widget = siteKey ? (
     <>
-      {/* ⚠️ `async={false}` es obligatorio, no cosmético: Turnstile lanza
-          `TurnstileError` en cuanto se llama a `turnstile.ready()` (#833) si
-          detecta su propio <script> como async/defer — lo comprueba él
-          mismo y lo tira como excepción no capturada, tumbando toda la
-          pantalla ("Algo se ha roto") para cualquier visitante sin sesión.
-          `next/script` con `strategy="afterInteractive"` añade `async` al
-          tag por defecto; hay que desactivarlo explícitamente. */}
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-        strategy="afterInteractive"
-        async={false}
-        onLoad={() => setScriptListo(true)}
-        onError={() => setFallo(true)}
-      />
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
       <div ref={contenedorRef} />
-      {fallo && (
-        <p style={{ fontSize: 12, color: '#B91C1C' }}>
-          No se ha podido cargar la verificación de seguridad. Recarga la página e inténtalo de nuevo.{' '}
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-          >
-            Recargar
-          </button>
-        </p>
-      )}
     </>
-  );
+  ) : null;
+
+  return { widget, pedirToken };
 }

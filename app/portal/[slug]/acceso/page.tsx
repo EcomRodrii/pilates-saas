@@ -22,7 +22,6 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
 import { display, micro, texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
@@ -53,7 +52,11 @@ export default function PortalAcceso() {
   const [email, setEmail] = useState(() => params.get('email') ?? '');
   const [error, setError] = useState('');
   const [enviado, setEnviado] = useState(params.get('enviado') === '1');
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // ⚠️ Aquí NO hay captcha, y no es un olvido: el paso 1 no llama al
+  // servidor. Es la misma regla que hace que esta pantalla no pregunte «¿esta
+  // socia tiene contraseña?» — sin petición no hay nada que proteger, y el
+  // widget solo estaba porque el diseño viejo necesitaba un token para
+  // habilitar el botón. El captcha vive en el paso 2, que es quien envía.
 
   // ── La bienvenida, una vez por dispositivo ────────────────────────────────
   // Vivía en /login. Con la puerta nueva nadie aterriza allí —se llega siempre
@@ -119,7 +122,7 @@ export default function PortalAcceso() {
   // Un nombre largo no se parte en dos líneas: se encoge. Partir un display
   // serif rompe el bloque, y la portada tiene un alto fijo.
   const tamNombre = nombre.length > 22 ? 26 : nombre.length > 15 ? 30 : 36;
-  const listo = pareceEmail(email) && (!turnstileConfigurado() || !!captchaToken);
+  const listo = pareceEmail(email);
 
   return (
     <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
@@ -164,7 +167,6 @@ export default function PortalAcceso() {
               </div>
 
               <div style={{ ...entrada(3) }}>
-                <TurnstileWidget onToken={setCaptchaToken} />
                 <div style={{ marginTop: 18 }}>
                   <BotonCta listo={listo} onClick={seguir}>Seguir</BotonCta>
                 </div>

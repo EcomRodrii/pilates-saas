@@ -9,7 +9,7 @@ import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { subirFotoAdmin, eliminarFotoAdmin, subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import { fetchTarifasEquipo } from '@/lib/api-client';
 import { inputCls, labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
-import { TurnstileWidget, turnstileConfigurado } from '@/components/auth/turnstile-widget';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 
 const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
   PROPIETARIO: { label: 'Propietaria', bg: '#F1F2EA', text: '#343825' },
@@ -22,7 +22,7 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { user, updateProfile, updateEmail, updatePassword } = useAuth();
   // Cambiar la contraseña reautentica por detrás, y eso es una llamada de auth
   // más: con Turnstile activo en el proyecto, sin token la rechaza gotrue.
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const { widget: captcha, pedirToken } = useCaptcha();
 
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const rol = yo?.rol ?? 'PROPIETARIO';
@@ -107,7 +107,9 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
       return;
     }
     setCambiandoPassword(true);
-    const { error } = await updatePassword(passwordForm.actual, passwordForm.nueva, captchaToken ?? undefined);
+    const token = await pedirToken();
+    if (token === null) { setPasswordMsg({ error: true, texto: ERROR_CAPTCHA }); setCambiandoPassword(false); return; }
+    const { error } = await updatePassword(passwordForm.actual, passwordForm.nueva, token || undefined);
     setCambiandoPassword(false);
     if (error) { setPasswordMsg({ error: true, texto: error }); return; }
     setPasswordMsg({ error: false, texto: 'Contraseña actualizada.' });
@@ -339,12 +341,12 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
                   />
                 </div>
               </div>
-              <div className="mt-3"><TurnstileWidget onToken={setCaptchaToken} /></div>
+              <div className="mt-3">{captcha}</div>
               <button
                 onClick={cambiarPassword}
                 disabled={
                   cambiandoPassword || !passwordForm.actual || !passwordForm.nueva
-                  || !passwordForm.confirmar || (turnstileConfigurado() && !captchaToken)
+                  || !passwordForm.confirmar
                 }
                 className="mt-4 px-4 py-2 rounded-lg bg-card border border-border text-[12px] font-medium hover:bg-background transition-colors disabled:opacity-60"
               >
