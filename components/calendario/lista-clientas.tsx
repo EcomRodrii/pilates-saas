@@ -15,6 +15,10 @@ export interface ListaClientasProps {
   /** Cada acción es opcional — su ausencia decide qué puede hacer el rol,
    *  mismo patrón que `accion` en BloqueClase. */
   onCheckin?: (reservaId: string) => void;
+  /** Presente = el check-in existe pero está bloqueado (#870: clase todavía
+   *  futura) — el botón se pinta deshabilitado con este texto de motivo, en
+   *  vez de desaparecer sin explicación o dejar pasar el check-in. */
+  checkinBloqueadoPor?: string;
   onNoShow?: (reservaId: string) => void;
   onDeshacerCheckin?: (reservaId: string) => void;
   onRevertirNoShow?: (reservaId: string) => void;
@@ -49,7 +53,7 @@ function etiquetaEstado(r: Reserva): string {
 const BOTON = 'flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors';
 
 export function ListaClientas({
-  reservas, nombreClienta, onCheckin, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
+  reservas, nombreClienta, onCheckin, checkinBloqueadoPor, onNoShow, onDeshacerCheckin, onRevertirNoShow, onAprobar, onRechazar, onQuitar,
   onRepetirSemanaSiguiente, semaforoPorSocio, filaExtra,
 }: ListaClientasProps) {
   const visibles = reservas.filter(r => r.estado !== 'CANCELADA');
@@ -107,9 +111,15 @@ export function ListaClientas({
             {r.estado === 'CONFIRMADA' && (onCheckin || onNoShow || onRepetirSemanaSiguiente) && (
               <>
                 {onCheckin && (
-                  <button onClick={() => onCheckin(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
-                    <CheckCircle2 size={11} />Check-in
-                  </button>
+                  checkinBloqueadoPor ? (
+                    <button disabled title={checkinBloqueadoPor} className={`${BOTON} opacity-40 cursor-not-allowed`} style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}>
+                      <CheckCircle2 size={11} />Check-in
+                    </button>
+                  ) : (
+                    <button onClick={() => onCheckin(r.id)} className={BOTON} style={{ background: 'color-mix(in srgb, var(--brand-medio) 12%, var(--card))', color: 'var(--brand-medio)' }}>
+                      <CheckCircle2 size={11} />Check-in
+                    </button>
+                  )
                 )}
                 {onNoShow && (
                   <button onClick={() => onNoShow(r.id)} title="Marcar que no se presentó" className={BOTON} style={{ background: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)' }}>
