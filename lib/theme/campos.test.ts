@@ -314,3 +314,54 @@ test('agruparCampos: el bloque de la próxima clase queda en 6 secciones y ningu
   assert.equal(r.grupos[0].titulo, 'Foto');
   for (const g of r.grupos) assert.ok(g.campos.length <= 4, `"${g.titulo}" tiene ${g.campos.length} campos`);
 });
+
+// ── resolverConfig dentro de las listas ─────────────────────────────────────
+// La promesa de "un campo nuevo es retroactivo" se cumplía solo en el primer
+// nivel: una galería guardada antes de que existiera `alt` seguía sin `alt`
+// después de resolver, y ese `undefined` llegaba tal cual al render.
+
+const LISTA: CampoSchema[] = [{
+  tipo: 'lista', id: 'imagenes', etiqueta: 'Imágenes', etiquetaElemento: 'imagen',
+  porDefecto: [],
+  campos: [
+    { tipo: 'imagen', id: 'url', etiqueta: 'Imagen', porDefecto: '' },
+    { tipo: 'texto', id: 'alt', etiqueta: 'Alt', porDefecto: '' },
+  ],
+}];
+
+test('resolverConfig rellena los campos que faltan DENTRO de cada elemento', () => {
+  const r = resolverConfig(LISTA, { imagenes: [{ url: 'a.jpg' }, { url: 'b.jpg' }] });
+  assert.deepEqual(r.imagenes, [
+    { url: 'a.jpg', alt: '' },
+    { url: 'b.jpg', alt: '' },
+  ]);
+});
+
+test('no pisa lo que el elemento SÍ tenía', () => {
+  const r = resolverConfig(LISTA, { imagenes: [{ url: 'a.jpg', alt: 'Mi sala' }] });
+  assert.deepEqual(r.imagenes, [{ url: 'a.jpg', alt: 'Mi sala' }]);
+});
+
+test('un valor falsy guardado sobrevive — `alt: ""` es una decisión, no un hueco', () => {
+  const r = resolverConfig(LISTA, { imagenes: [{ url: '', alt: '' }] });
+  assert.deepEqual(r.imagenes, [{ url: '', alt: '' }]);
+});
+
+test('una lista vacía sigue vacía: rellenar NO puede inventarse elementos', () => {
+  assert.deepEqual(resolverConfig(LISTA, { imagenes: [] }).imagenes, []);
+});
+
+test('si lo guardado no es un array, se respeta el default y no se recorre', () => {
+  // Basura en la BD (un despliegue viejo, una edición a mano). No debe lanzar.
+  assert.deepEqual(resolverConfig(LISTA, { imagenes: 'roto' }).imagenes, 'roto');
+  assert.deepEqual(resolverConfig(LISTA, {}).imagenes, []);
+});
+
+test('un elemento que no es objeto no revienta el resolutor', () => {
+  const r = resolverConfig(LISTA, { imagenes: [null, 42, { url: 'c.jpg' }] });
+  assert.deepEqual(r.imagenes, [
+    { url: '', alt: '' },
+    { url: '', alt: '' },
+    { url: 'c.jpg', alt: '' },
+  ]);
+});
