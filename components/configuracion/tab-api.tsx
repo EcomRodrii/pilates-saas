@@ -69,7 +69,10 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // app/reservar/[slug]/page.tsx. No hace falta que se actualice sola: es
   // una pantalla de configuración, no el propio calendario en vivo.
   const [ahora, setAhora] = useState<number | null>(null);
-  useEffect(() => { setAhora(Date.now()); }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: `Date.now()` no puede llamarse en render, así que se fija tras montar. El segundo render es el OBJETIVO.
+    setAhora(Date.now());
+  }, []);
 
   // Próximas sesiones del estudio, para el widget "Reserva esta clase" — mismo
   // dato que ya carga el resto del panel (useStudio), sin fetch nuevo.
