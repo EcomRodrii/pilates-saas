@@ -3,7 +3,7 @@ import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams, useParams } from 'next/navigation';
+import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
@@ -240,6 +240,7 @@ export default function ReservarPage() {
   const slug = String(params?.slug ?? '');
   const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
+  const router = useRouter();
   const refCode = searchParams.get('ref');
   // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
   // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
@@ -355,17 +356,26 @@ export default function ReservarPage() {
   // necesita memo: solo cambia de identidad cuando cambia de verdad la hora.
   const nowMs = now.getTime();
 
-  // Deep-link del enlace mágico: si volvemos con ?sesion=<id> y ya estamos
-  // autenticadas, abrimos la reserva de ESA clase (una sola vez) en cuanto sus
-  // datos estén cargados. Cierra el bucle de conversión que rompía el magic link.
+  // Deep-link a una sesión concreta: si volvemos con ?sesion=<id> abrimos su
+  // reserva (una sola vez) en cuanto los datos estén cargados. Dos orígenes:
+  // el enlace mágico (la socia ya está autenticada) Y el widget "Reserva
+  // esta clase" (tab-api.tsx) — este último llega a visitantes ANÓNIMAS
+  // (un post, una story, un newsletter), así que YA NO se exige
+  // `autenticado` para esta rama: `openBooking()` sabe manejar el caso sin
+  // sesión (abre el paso 'login' guardando `bookingSesionId`, y el efecto de
+  // más abajo retoma la reserva en cuanto se autentica). Antes exigir
+  // `autenticado` aquí dejaba el widget nuevo mostrando el calendario
+  // genérico en vez de la clase concreta a la primera visita, que es
+  // exactamente el caso de uso que lo motivó.
   //
   // Sin ?sesion (acceso genérico, ver enviarEnlace en use-socia-session.ts) el
   // enlace lleva ?acceso=1: mismo mecanismo, pero reabre el modal en el paso
   // que toque (registro/contrato) sin necesitar una clase concreta — antes no
   // pasaba nada al volver del correo y había que pulsar "Acceder" otra vez.
+  // Esta rama SÍ depende del magic link, así que sigue exigiendo `autenticado`.
   const deepLinkHecho = useRef(false);
   useEffect(() => {
-    if (!mounted || deepLinkHecho.current || !autenticado) return;
+    if (!mounted || deepLinkHecho.current) return;
     const sesionDeepLink = searchParams.get('sesion');
     if (sesionDeepLink) {
       if (!sesiones.some(s => s.id === sesionDeepLink)) return; // esperar a que carguen
@@ -373,7 +383,7 @@ export default function ReservarPage() {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Deep link: lee searchParams para abrir una reserva concreta. Depende de la URL, no de props ni estado.
       setTab('clases');
       openBooking(sesionDeepLink);
-    } else if (searchParams.get('acceso') === '1') {
+    } else if (autenticado && searchParams.get('acceso') === '1') {
       deepLinkHecho.current = true;
       openBooking('');
     }
@@ -391,6 +401,28 @@ export default function ReservarPage() {
     openBooking(bookingSesionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autenticado, socia]);
+
+  // Retorno de Stripe tras comprar un plan (ver lib/billing/origen-pago.ts,
+  // urlsDeRetorno: `${appUrl}/reservar/${slug}?compra=ok|cancelada`). Antes
+  // este parámetro no se leía en ningún sitio — la socia volvía a la MISMA
+  // pantalla de siempre sin ninguna confirmación de que su pago funcionó,
+  // incluso en el camino feliz normal. El mensaje de éxito es
+  // deliberadamente "en unos segundos", no "ya está": la entrega real del
+  // plan ocurre en el webhook (async), no en este redirect — sigue siendo
+  // honesto también en el caso raro de que el plan se borrara justo entre
+  // medias (el cobro ya se hizo; el equipo recibe la alerta de Sentry para
+  // resolverlo a mano, ver lib/billing/entregar-plan-comprado.ts).
+  const [pagoAviso, setPagoAviso] = useState<'ok' | 'cancelada' | null>(null);
+  useEffect(() => {
+    const compra = searchParams.get('compra');
+    if (compra !== 'ok' && compra !== 'cancelada') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno de Stripe una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
+    setPagoAviso(compra);
+    const limpio = new URLSearchParams(searchParams.toString());
+    limpio.delete('compra');
+    router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
   // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
@@ -979,6 +1011,23 @@ export default function ReservarPage() {
           ))}
         </div>
       </div>
+
+      {/* ── AVISO DE PAGO (retorno de Stripe) ───────────────────────────────── */}
+      {pagoAviso && (
+        <div style={{ padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
+          <div
+            className={pagoAviso === 'ok' ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted/50 border-[var(--portal-line)]'}
+            style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
+          >
+            <span>
+              {pagoAviso === 'ok'
+                ? '¡Pago recibido! En unos segundos verás tu plan activo.'
+                : 'Pago cancelado — puedes intentarlo de nuevo cuando quieras.'}
+            </span>
+            <button onClick={() => setPagoAviso(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: 16, lineHeight: 1 }} aria-label="Cerrar aviso">×</button>
+          </div>
+        </div>
+      )}
 
       {/* ── CONTENT ─────────────────────────────────────────────────────────── */}
       <div style={{ padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto' }}>
