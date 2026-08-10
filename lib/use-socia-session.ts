@@ -90,11 +90,36 @@ export function useSociaSession(slug: string) {
     return error ? { error: mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
   }, [slug]);
 
+  // Login del día a día, sin depender de un viaje de email + almacenamiento de
+  // tercero entre pestañas (frágil dentro de un <iframe> embebido en la web
+  // del estudio — Safari/Chrome recortan cada vez más ese acceso). Mismo
+  // patrón que lib/portal-auth.tsx (`loginConPassword`), mismo cliente
+  // Supabase — la socia solo llega aquí tras haber creado su contraseña
+  // (ver `establecerPassword` más abajo).
+  const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
+    if (captchaToken) captchaGastado();
+    if (!error) return { ok: true };
+    const msg = error.message.toLowerCase();
+    if (msg.includes('invalid login credentials')) return { error: 'Email o contraseña incorrectos.' };
+    if (msg.includes('rate limit') || msg.includes('too many')) return { error: 'Demasiados intentos. Espera un minuto y vuelve a intentarlo.' };
+    return { error: mensajeSeguro(error.message, 'No se ha podido iniciar sesión. Inténtalo de nuevo en unos segundos.') };
+  }, []);
+
+  // Requiere una sesión de Supabase ya autenticada (por el magic link de
+  // `enviarEnlace`, que ya probó que controla ese email) — esto solo fija la
+  // contraseña sobre esa sesión, no es una prueba de identidad en sí misma.
+  // Copia literal del mismo método en lib/portal-auth.tsx.
+  const establecerPassword = useCallback(async (password: string): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.updateUser({ password });
+    return error ? { error: mensajeSeguro(error.message, 'No se ha podido guardar la contraseña. Inténtalo de nuevo en unos segundos.') } : { ok: true };
+  }, []);
+
   const logout = useCallback(async () => {
     await supabasePortal.auth.signOut();
     try { localStorage.removeItem('ps_portal_socia'); } catch { /* ignore */ }
     setSocia(null); setUsuarioEmail(null);
   }, []);
 
-  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, enviarEnlace, logout, refrescar: resolver };
+  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar: resolver };
 }
