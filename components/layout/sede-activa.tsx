@@ -85,7 +85,14 @@ export function SedeActiva({ variante = 'sidebar' }: { variante?: 'sidebar' | 't
         className={cn(
           'flex items-center gap-2 w-full rounded-xl transition-colors text-left',
           enSidebar
-            ? 'px-2.5 py-2 bg-card/10 hover:bg-card/15 text-card'
+            // `text-white` a propósito, no `text-card`: el sidebar es SIEMPRE
+            // oscuro (--sidebar no cambia con el tema, ver app/globals.css),
+            // pero `--card` sí — en modo oscuro pasa a ser gris oscuro
+            // (#1E1E22), casi ilegible sobre el fondo del sidebar (#0F0F0F).
+            // Mismo criterio que ya usa el resto del sidebar (sidebar.tsx),
+            // que nunca usa `text-card`/`text-muted-foreground` por este
+            // motivo (#853).
+            ? 'px-2.5 py-2 bg-card/10 hover:bg-card/15 text-white'
             : 'px-2.5 py-1.5 border border-border hover:bg-muted text-foreground max-w-[240px]',
         )}
       >
