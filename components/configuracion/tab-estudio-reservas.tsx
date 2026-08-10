@@ -67,7 +67,13 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
     setPol(studioToPolitica(studio));
   }
 
+  // Sin límite máximo (null) no hay conflicto posible; con límite, mismo
+  // criterio que el override por tipo de clase (#867): comparar en minutos.
+  const ventanaImposible = pol.reservaAntelacionMaximaDias != null
+    && pol.reservaVentanaMinimaMinutos > pol.reservaAntelacionMaximaDias * 24 * 60;
+
   async function guardarPolitica() {
+    if (ventanaImposible) return;
     const res = await updateStudio(pol);
     showToast(res.ok ? 'Política de reservas guardada' : res.error);
   }
@@ -176,6 +182,12 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             <p className="text-[11px] text-muted-foreground mt-1">
               No se puede reservar con más antelación que esta. Vacío = sin límite.
             </p>
+            {ventanaImposible && (
+              <p role="alert" className="text-[11px] text-destructive mt-1">
+                La antelación mínima ({pol.reservaVentanaMinimaMinutos} min) es mayor que la máxima
+                ({pol.reservaAntelacionMaximaDias} días) — nunca habría un momento válido para reservar.
+              </p>
+            )}
           </div>
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <span className="text-[13px] text-foreground">
@@ -265,7 +277,11 @@ export function TabEstudioReservas({ showToast }: { showToast: (m: string) => vo
             </>
           )}
         </div>
-        <button onClick={guardarPolitica} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors">
+        <button
+          onClick={guardarPolitica}
+          disabled={ventanaImposible}
+          className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           Guardar política de reservas
         </button>
       </div>
