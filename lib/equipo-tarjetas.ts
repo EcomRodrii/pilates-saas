@@ -22,6 +22,14 @@ export const DIAS_LARGOS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'
 /** Umbral de "se están quedando vacías" — mismo criterio que `lib/ocupacion.ts` (I-13). */
 export const OCUPACION_ATENCION = 60;
 
+// Con una sola clase pasada (típico de un estudio recién creado, sin
+// clientas reales todavía) el % de ocupación de esa ventana de 30 días es
+// necesariamente 0 o 100 — no una señal real de bajo rendimiento, sino ruido
+// de tamaño de muestra. `app/api/equipo/tarjetas/route.ts` exige al menos
+// este número de clases pasadas en la ventana antes de considerar
+// `ocupacionPct` significativo (#845).
+export const MIN_CLASES_OCUPACION = 3;
+
 /**
  * Semanas sin dar ninguna clase (sin próxima programada) para avisar de que
  * puede que ya no esté trabajando de verdad. No es una desactivación
