@@ -373,6 +373,27 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     [socio, id, misReservas, misRecibos, sesionById, suscripciones, planesTarifa, now],
   );
 
+  // Otras suscripciones ACTIVA del mismo socio, aparte de la que ya se
+  // enseña en la tarjeta "Plan" — el staff es quien decide si hace falta
+  // activar algo a mano, así que necesita verlo tanto o más que la propia
+  // socia (mismo aviso que el portal, `lib/bonos-portal.ts`). Depende de
+  // `resumen.suscripcion` (ya calculado arriba) en vez del `suscripcion`
+  // desestructurado más abajo: este hook tiene que ir ANTES del guard
+  // `if (!socio)`, igual que `resumen`.
+  const otrosBonosActivos = useMemo(() => {
+    if (!resumen.suscripcion) return [];
+    return suscripciones
+      .filter(s => s.socioId === id && s.estado === 'ACTIVA' && s.id !== resumen.suscripcion!.id)
+      .map(s => {
+        const p = planesTarifa.find(pt => pt.id === s.planId);
+        if (!p) return null;
+        const tipos = p.tiposClaseIds ?? [];
+        const nombreTipo = tipos.length === 1 ? tiposClase.find(tc => tc.id === tipos[0])?.nombre ?? null : null;
+        return { nombre: nombreTipo ? `${p.nombre} · ${nombreTipo}` : p.nombre, restantes: s.sesionesRestantes ?? null };
+      })
+      .filter((x): x is { nombre: string; restantes: number | null } => x !== null);
+  }, [suscripciones, planesTarifa, tiposClase, id, resumen.suscripcion]);
+
   if (!socio) {
     return (
       <div className="text-center py-20">
@@ -1539,6 +1560,21 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
               </div>
               {suscripcion.fechaFin && (
                 <p className="text-[11px] text-muted-foreground mt-1">{estadoSus.kind === 'recurrente' ? 'Próximo cobro' : 'Fecha exacta'}: {fecha(suscripcion.fechaFin)}</p>
+              )}
+              {otrosBonosActivos.length > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-muted">
+                  <p className="text-[11px] font-semibold" style={{ color: 'var(--warning)' }}>
+                    +{otrosBonosActivos.length} bono{otrosBonosActivos.length === 1 ? '' : 's'} más en cola
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {otrosBonosActivos.map((o, i) => (
+                      <span key={i}>
+                        {o.nombre}{o.restantes != null ? ` (${o.restantes} ses.)` : ''}
+                        {i < otrosBonosActivos.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </p>
+                </div>
               )}
               {puedeCobrar && (
               <button
