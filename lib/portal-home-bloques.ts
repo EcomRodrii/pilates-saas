@@ -536,6 +536,21 @@ export const CAMPOS_CABECERA = [
 // pliega el resto. El prefijo que antes llevaba cada etiqueta ("Sin clases ·
 // Titular") lo pone ahora el título de la sección.
 export const CAMPOS_PROXIMA_CLASE = [
+  // Foto PROPIA de esta tarjeta. Vacío = la del portal, que es lo que hacía
+  // siempre — ver `conFoto` en portal-home-view.tsx.
+  //
+  // ⚠️ `porDefecto: ''` y no una URL: aquí "vacío" es un tercer estado
+  // ("hereda"), igual que en `estilo` o en las esquinas del tema. Poner una
+  // URL por defecto fijaría esa foto en cuanto se guardara el bloque.
+  //
+  // Va con `grupo` como todos los demás, y primera: los campos SUELTOS se
+  // pintan encima de las secciones, y un test fija que este panel no tenga
+  // ninguno —16 campos en lista plana era el muro que las secciones vinieron a
+  // romper—. Al ser el primer grupo, es el que aparece abierto.
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de esta tarjeta', grupo: 'Foto', porDefecto: '',
+    ayuda: 'Solo para esta tarjeta. Vacío = la foto del portal.',
+  },
   // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
   // propia vista previa.
   { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Etiqueta', grupo: 'Sin clases', porDefecto: 'Sin clases reservadas', maxLargo: 40 },

@@ -300,12 +300,17 @@ test('agruparCampos: respeta `visibleSi` y `obsoleto` — un grupo que se queda 
   assert.deepEqual(abierto.grupos.map((g) => g.titulo), ['Solo si avanzado']);
 });
 
-test('agruparCampos: el bloque de la próxima clase queda en 5 secciones y ninguna suelta', () => {
+test('agruparCampos: el bloque de la próxima clase queda en 6 secciones y ninguna suelta', () => {
   // Es el caso que motivó esto: 16 campos en lista plana. Si alguna sección
   // creciera sola o un campo se quedara sin `grupo`, vuelve el muro.
-  // (Escribí "seis" de memoria al documentarlo; son cinco. Este test lo fijó.)
+  // (Escribí "seis" de memoria al documentarlo; eran cinco. Este test lo fijó.
+  // Con la foto propia de la tarjeta pasan a ser seis — y el test volvió a
+  // hacer su trabajo: el campo nuevo entró sin `grupo` y se quedó suelto.)
   const r = agruparCampos(CAMPOS_PROXIMA_CLASE, {});
   assert.deepEqual(r.sueltos, []);
-  assert.equal(r.grupos.length, 5);
+  assert.equal(r.grupos.length, 6);
+  // La foto va PRIMERA: los grupos salen en el orden de su primer campo, y el
+  // primero es el que el Inspector abre. Es lo que se viene a tocar.
+  assert.equal(r.grupos[0].titulo, 'Foto');
   for (const g of r.grupos) assert.ok(g.campos.length <= 4, `"${g.titulo}" tiene ${g.campos.length} campos`);
 });

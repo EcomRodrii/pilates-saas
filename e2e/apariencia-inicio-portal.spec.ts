@@ -386,22 +386,27 @@ test.describe('Inspector — secciones', () => {
     await expect(page.getByText('Esta semana')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: /Tarjeta de próxima clase/ }).click();
 
-    const panel = page.getByRole('button', { name: 'Sin clases' });
+    // La PRIMERA sección es la que llega abierta, y desde que la tarjeta puede
+    // tener foto propia esa primera es «Foto»: es lo que se viene a tocar, y
+    // los grupos salen en el orden de su primer campo.
+    const panel = page.getByRole('button', { name: 'Foto', exact: true });
     await expect(panel).toBeVisible({ timeout: 30_000 });
     await expect(panel).toHaveAttribute('aria-expanded', 'true');
 
-    // Las otras cuatro existen y llegan plegadas.
-    for (const titulo of ['Próxima clase', 'Bono acabándose', 'Racha en riesgo', 'Sin venir']) {
+    // Las otras cinco existen y llegan plegadas.
+    for (const titulo of ['Sin clases', 'Próxima clase', 'Bono acabándose', 'Racha en riesgo', 'Sin venir']) {
       const s = page.getByRole('button', { name: titulo, exact: true });
       await expect(s).toBeVisible();
       await expect(s).toHaveAttribute('aria-expanded', 'false');
     }
 
     // Plegada = su contenido NO está en el DOM (no es solo `display:none`):
-    // así el panel se recorre de un vistazo y no hay 16 controles a la vez.
-    await expect(page.getByLabel('Titular')).toHaveCount(1);
+    // así el panel se recorre de un vistazo y no hay 17 controles a la vez.
+    // Con solo «Foto» abierta no hay ningún «Titular» — los cuatro que existen
+    // viven en secciones plegadas.
+    await expect(page.getByLabel('Titular')).toHaveCount(0);
     await page.getByRole('button', { name: 'Bono acabándose' }).click();
-    await expect(page.getByLabel('Titular')).toHaveCount(2);
+    await expect(page.getByLabel('Titular')).toHaveCount(1);
   });
 });
 
