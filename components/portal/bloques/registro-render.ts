@@ -11,8 +11,15 @@ import type { BloqueHome, BloqueTipoCatalogo } from '@/lib/portal-home-bloques';
 //
 // Son dos tablas con la MISMA clave, y esa es justo la parte frágil: un
 // bloque con metadatos y sin componente se pinta en blanco, y uno con
-// componente y sin metadatos no se puede ni nombrar en el rail. Hay un test
-// que exige que los dos conjuntos de claves sean idénticos.
+// componente y sin metadatos no se puede ni nombrar en el rail.
+//
+// ⚠️ Aquí ponía «hay un test que exige que los dos conjuntos de claves sean
+// idénticos». Ese test NO existe — y un comentario que promete una red que no
+// está es peor que no decir nada, porque el siguiente que toque esto se creerá
+// cubierto. Lo que sí hay es más fuerte: los DOS registros son
+// `Record<Clave…, …>` sobre el mismo tipo derivado de `BloqueHome['kind']`, así
+// que es el compilador el que obliga a cubrirlos todos. Si alguna vez uno de
+// los dos deja de ser un `Record` completo, entonces sí hará falta el test.
 
 /** Props comunes a todo bloque del catálogo. */
 export interface PropsBloqueRender {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Trash2, Upload } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { subirImagenPortal } from '@/lib/portal-storage';
+import { claveSubidaDeCampo } from '@/lib/storage-clave';
 import {
   agruparCampos, validarCampo,
   type CampoSchema, type CampoSchemaSinLista,
@@ -316,8 +317,13 @@ export function FilaOpciones({
  * de ruido. Es exactamente lo que hacían los tres formularios de antes.
  */
 function ListaCampo({
-  campo, valor, onChange,
-}: { campo: Extract<CampoSchema, { tipo: 'lista' }>; valor: Valores[]; onChange: (v: Valores[]) => void }) {
+  campo, valor, onChange, prefijoSubida,
+}: {
+  campo: Extract<CampoSchema, { tipo: 'lista' }>;
+  valor: Valores[];
+  onChange: (v: Valores[]) => void;
+  prefijoSubida?: string;
+}) {
   function setElemento(i: number, id: string, v: unknown) {
     onChange(valor.map((el, idx) => (idx === i ? { ...el, [id]: v } : el)));
   }
@@ -334,6 +340,11 @@ function ListaCampo({
               campo={sub}
               valor={el[sub.id]}
               sinEtiqueta
+              // ⚠️ El ÍNDICE va en el prefijo. Los elementos de una lista
+              // comparten `sub.id` (las cuatro fotos de una galería son todas
+              // `url`), así que sin esto las cuatro se guardarían con el mismo
+              // nombre y cada subida borraría la anterior.
+              prefijoSubida={claveSubidaDeCampo(prefijoSubida, campo.id, i)}
               onChange={(v) => setElemento(i, sub.id, v)}
             />
           ))}
@@ -401,8 +412,9 @@ function CampoControl({
           valor={(valor as string) ?? ''}
           // La clave entra en el nombre del fichero. Sin el prefijo del bloque,
           // dos banners distintos escribirían en el mismo sitio y el segundo
-          // pisaría la foto del primero.
-          clave={`${prefijoSubida ?? 'campo'}-${campo.id}`}
+          // pisaría la foto del primero. La regla vive en `storage-clave.ts`,
+          // que es donde tiene tests.
+          clave={claveSubidaDeCampo(prefijoSubida, campo.id)}
           onChange={onChange}
         />,
         true,
@@ -476,7 +488,7 @@ function CampoControl({
       return (
         <div>
           {etiqueta}
-          <ListaCampo campo={campo} valor={Array.isArray(valor) ? (valor as Valores[]) : []} onChange={onChange} />
+          <ListaCampo campo={campo} valor={Array.isArray(valor) ? (valor as Valores[]) : []} onChange={onChange} prefijoSubida={prefijoSubida} />
         </div>
       );
   }

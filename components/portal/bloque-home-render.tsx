@@ -256,10 +256,13 @@ function TestimoniosBloque({ bloque }: { bloque: Extract<BloqueHome, { kind: 'te
 }
 
 /**
- * Qué componente pinta cada bloque. La clave es el `kind` persistido, la
- * misma que la de REGISTRO_BLOQUES — hay un test que exige que los dos
- * conjuntos coincidan, porque un bloque con metadatos y sin componente sale
- * en blanco y uno con componente y sin metadatos no se puede ni nombrar.
+ * Qué componente pinta cada bloque. La clave es el `kind` persistido, la misma
+ * que la de `REGISTRO_BLOQUES`.
+ *
+ * Que los dos conjuntos coincidan lo garantiza el COMPILADOR, no un test: los
+ * dos son `Record<…>` sobre el mismo tipo derivado de `BloqueHome['kind']`, así
+ * que dejarse uno no compila. (Antes aquí ponía que había un test; no lo había
+ * — ver la nota de `bloques/registro-render.ts`.)
  */
 const RENDER_BLOQUES: Record<BloqueTipoCatalogo, ComponentType<PropsBloqueRender>> = {
   banner: paraKind<'banner'>(BannerBloque),
