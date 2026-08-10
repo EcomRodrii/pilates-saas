@@ -97,10 +97,12 @@ function relativeTime(iso: string | null | undefined): string {
 function FF({
   label,
   description,
+  required,
   children,
 }: {
   label: string;
   description?: ReactNode;
+  required?: boolean;
   children: ReactNode;
 }) {
   const { htmlFor, control } = useCampoAsociado(children);
@@ -113,7 +115,7 @@ function FF({
   return (
     <div className="space-y-1.5">
       <label htmlFor={htmlFor} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
+        {label}{required && <span className="text-destructive"> *</span>}
       </label>
       {description && (
         <p id={idDesc} className="text-xs leading-relaxed text-muted-foreground text-balance">
@@ -1159,7 +1161,7 @@ export default function Socios() {
           {(showForm === 'editar' || formStep === 1) && (
             <div className="space-y-3.5 mt-2">
               <div className="grid grid-cols-2 gap-3">
-                <FF label="Nombre">
+                <FF label="Nombre" required>
                   <input
                     className={inputCls}
                     placeholder="Laura"
@@ -1167,7 +1169,7 @@ export default function Socios() {
                     onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   />
                 </FF>
-                <FF label="Apellidos">
+                <FF label="Apellidos" required>
                   <input
                     className={inputCls}
                     placeholder="Martínez García"
@@ -1176,7 +1178,7 @@ export default function Socios() {
                   />
                 </FF>
               </div>
-              <FF label="Email" description="Con esto entra al portal y recibe recordatorios y facturas.">
+              <FF label="Email" required description="Con esto entra al portal y recibe recordatorios y facturas.">
                 <input
                   type="email"
                   className={inputCls}
@@ -1345,6 +1347,15 @@ export default function Socios() {
             <p className="flex items-start gap-2 mt-4 p-2.5 rounded-lg bg-red-50 text-[12px] text-red-700">
               <AlertTriangle size={14} className="shrink-0 mt-0.5" />
               <span>{errorGuardar}</span>
+            </p>
+          )}
+
+          {/* "Siguiente" se queda deshabilitado en silencio si falta algún
+              obligatorio (#865) — este aviso dice cuál, en vez de dejar que
+              el botón "no haga nada" sin explicación. */}
+          {showForm === 'nueva' && formStep === 1 && (!form.nombre || !form.apellidos || !form.email) && (
+            <p className="mt-3 text-[11px] text-muted-foreground">
+              Falta {[!form.nombre && 'Nombre', !form.apellidos && 'Apellidos', !form.email && 'Email'].filter(Boolean).join(', ')} para continuar.
             </p>
           )}
 
