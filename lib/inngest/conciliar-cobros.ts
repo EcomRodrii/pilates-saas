@@ -37,6 +37,45 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // recuperable sin mirarlo a mano.
 const VENTANA_HORAS = 12;
 
+// Techo defensivo del autopaginado. 2.000 sesiones en 12 h cubre con holgura al
+// estudio más activo que quepa imaginar; no es el límite de trabajo —para eso
+// está el `for await`—, es el freno para que un filtro roto no deje el barrido
+// girando sobre miles de páginas. Si se alcanza, la suposición se ha roto y hay
+// que enterarse: se avisa y se sigue, nunca se corta en silencio.
+const TECHO_SESIONES = 2000;
+
+// Todas las sesiones de la ventana, no solo las primeras 100.
+//
+// ⚠️ Antes esto era un `.list({ limit: 100 })` a secas del que se leía `.data`.
+// Stripe devuelve de MÁS RECIENTE A MÁS ANTIGUA, así que al pasar de 100 lo que
+// se caía eran las más viejas — exactamente las que llevan más tiempo sin
+// entregar— y, como la ventana es deslizante, una sesión atascada que se salía
+// del top-100 no volvía nunca: dinero cobrado y no entregado, sin error y sin
+// rastro. El `for await` autopagina (Stripe pide de 100 en 100 por debajo);
+// mismo patrón que ya se usaba bien en `app/api/interno/facturacion`.
+async function listarSesionesVentana(
+  stripe: Stripe,
+  cuenta: string,
+  desde: number,
+): Promise<Stripe.Checkout.Session[]> {
+  const todas: Stripe.Checkout.Session[] = [];
+  for await (const s of stripe.checkout.sessions.list(
+    { created: { gte: desde }, limit: 100 },
+    { stripeAccount: cuenta },
+  )) {
+    todas.push(s);
+    if (todas.length >= TECHO_SESIONES) {
+      Sentry.captureMessage('[conciliador] techo de paginado alcanzado: puede quedar dinero sin conciliar', {
+        level: 'error',
+        tags: { area: 'cobros', tipo: 'techo-paginado' },
+        extra: { cuenta, techo: TECHO_SESIONES, ventanaHoras: VENTANA_HORAS },
+      });
+      break;
+    }
+  }
+  return todas;
+}
+
 async function conciliarEstudio(
   admin: SupabaseClient,
   stripe: Stripe,
@@ -44,12 +83,9 @@ async function conciliarEstudio(
 ): Promise<number> {
   const desde = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
 
-  const lista = await stripe.checkout.sessions.list(
-    { created: { gte: desde }, limit: 100 },
-    { stripeAccount: studio.stripe_account_id },
-  );
+  const todas = await listarSesionesVentana(stripe, studio.stripe_account_id, desde);
 
-  const sesiones: SesionCobrada[] = lista.data.map(s => ({
+  const sesiones: SesionCobrada[] = todas.map(s => ({
     id: s.id,
     status: s.status,
     paymentStatus: s.payment_status,
@@ -82,7 +118,7 @@ async function conciliarEstudio(
 
   const pendientes = pendientesDeEntregar(sesiones, studio.id, { recibosCobrados, sesionesEntregadas });
   for (const p of pendientes) {
-    await entregar(admin, stripe, studio.stripe_account_id, p, lista.data.find(s => s.id === p.sesionId));
+    await entregar(admin, stripe, studio.stripe_account_id, p, todas.find(s => s.id === p.sesionId));
   }
   return pendientes.length;
 }

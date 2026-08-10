@@ -21,6 +21,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { heredaOverride, debeCancelarPorMinimoNoAlcanzado } from '@/lib/booking-logic.ts';
 import { cancelarSesionPorMinimoNoAlcanzado } from '@/lib/db/supabase-data-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 
 const DOS_HORAS_MS = 2 * 3600_000;
 
@@ -33,24 +34,37 @@ export const minimoAsistentesDispatcher = inngest.createFunction(
       const ahora = new Date();
       const hasta = new Date(ahora.getTime() + DOS_HORAS_MS).toISOString();
 
-      const { data: sesiones } = await admin
-        .from('sesiones')
-        .select('id, studio_id, tipo_clase_id, inicio')
-        .eq('cancelada', false)
-        .gt('inicio', ahora.toISOString())
-        .lte('inicio', hasta);
-      if (!sesiones?.length) return { revisadas: 0, canceladas: 0 };
+      // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
+      // filas en silencio. Una sesión truncada no se revisaría nunca y la clase
+      // seguiría en pie sin alcanzar el mínimo — el fallo se vería como "la
+      // regla no funciona a veces", que es lo más difícil de diagnosticar.
+      const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string; tipo_clase_id: string | null; inicio: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin
+          .from('sesiones')
+          .select('id, studio_id, tipo_clase_id, inicio')
+          .eq('cancelada', false)
+          .gt('inicio', ahora.toISOString())
+          .lte('inicio', hasta)
+          .range(from, to),
+      );
+      if (!sesiones.length) return { revisadas: 0, canceladas: 0 };
 
-      const studioIds = [...new Set(sesiones.map(s => s.studio_id as string))];
-      const { data: studios } = await admin
-        .from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds);
-      const minimoEstudio = new Map((studios ?? []).map(s => [s.id as string, s.minimo_asistentes_por_clase as number]));
+      const studioIds = [...new Set(sesiones.map(s => s.studio_id))];
+      const { data: studios } = await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number }>(
+        '(global)', 'studios',
+        (from, to) => admin.from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds).range(from, to),
+      );
+      const minimoEstudio = new Map(studios.map(s => [s.id, s.minimo_asistentes_por_clase]));
 
       const tipoIds = [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))];
       const { data: tipos } = tipoIds.length
-        ? await admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds)
+        ? await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number | null }>(
+            '(global)', 'tipos_clase',
+            (from, to) => admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds).range(from, to),
+          )
         : { data: [] as { id: string; minimo_asistentes_por_clase: number | null }[] };
-      const minimoTipo = new Map((tipos ?? []).map(t => [t.id as string, t.minimo_asistentes_por_clase]));
+      const minimoTipo = new Map(tipos.map(t => [t.id, t.minimo_asistentes_por_clase]));
 
       let canceladas = 0;
       for (const s of sesiones) {
