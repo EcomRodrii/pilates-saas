@@ -369,13 +369,33 @@ export function ThemeEditorFullscreen() {
               En rojo cuando falla, porque un aviso gris de "no se ha podido
               guardar" se lee como decoración. */}
           <span
-            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
+            className={`text-[11.5px] mr-1 tabular-nums ${estadoGuardado.tipo === 'error' || estadoGuardado.tipo === 'sesion' ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}
             role="status"
             aria-live="polite"
             data-estado-guardado
           >
             {textoEstado(estadoGuardado, ahora)}
           </span>
+          {/* Con la sesión caducada, el aviso sin salida no basta: hay que
+              poder volver a entrar desde aquí.
+              ⚠️ SIN parámetro de destino, y no es un olvido: `/login` solo
+              acepta rutas `/interno` a propósito —«aceptar cualquier destino
+              convertiría el login en un redirector abierto que se puede usar
+              para phishing con nuestro propio dominio»—, así que un
+              `?volver=` aquí sería un enlace que promete algo que el login
+              descarta. Se abre en otra pestaña para no tirar lo editado, que
+              sigue en pantalla: al volver y refrescar la sesión, el
+              autoguardado lo sube. */}
+          {estadoGuardado.tipo === 'sesion' && (
+            <a
+              href="/login"
+              target="_blank"
+              rel="noopener"
+              className="text-[11.5px] font-semibold text-destructive underline mr-1.5"
+            >
+              Volver a entrar
+            </a>
+          )}
           <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Dispositivo">
             {DISPOSITIVO_IDS.map((id) => {
               const Icono = ICONO_DISPOSITIVO[id];

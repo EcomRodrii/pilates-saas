@@ -21,7 +21,15 @@ export type EstadoGuardado =
   | { tipo: 'guardando' }
   | { tipo: 'guardado'; en: number }
   /** Falló. `intentos` sirve para espaciar los reintentos. */
-  | { tipo: 'error'; intentos: number };
+  | { tipo: 'error'; intentos: number }
+  /**
+   * La sesión caducó. Estado APARTE de `error` porque pide otra cosa: aquí
+   * reintentar no arregla nada —el servidor va a seguir diciendo 401— y lo
+   * único que sirve es volver a entrar. Mezclarlo con `error` dejaba a la
+   * propietaria editando media hora bajo un «se sigue intentando» que era
+   * mentira.
+   */
+  | { tipo: 'sesion' };
 
 export type PorPantalla = Record<PantallaId, BloqueHome[]>;
 
@@ -62,6 +70,7 @@ export function textoEstado(estado: EstadoGuardado, ahora: number): string {
     case 'pendiente': return 'Sin guardar…';
     case 'guardando': return 'Guardando…';
     case 'error': return 'No se ha podido guardar — se sigue intentando';
+    case 'sesion': return 'Tu sesión ha caducado — vuelve a entrar para guardar';
     case 'guardado': {
       const segundos = Math.round((ahora - estado.en) / 1000);
       if (segundos < 5) return 'Guardado';
@@ -80,5 +89,8 @@ export function textoEstado(estado: EstadoGuardado, ahora: number): string {
  * entonces no protege de nada.
  */
 export function avisarAlSalir(estado: EstadoGuardado): boolean {
-  return estado.tipo === 'pendiente' || estado.tipo === 'guardando' || estado.tipo === 'error';
+  // `sesion` incluida: es justo cuando MÁS hay que perder — nada de lo
+  // editado ha llegado al servidor y cerrar la pestaña lo tira todo.
+  return estado.tipo === 'pendiente' || estado.tipo === 'guardando'
+    || estado.tipo === 'error' || estado.tipo === 'sesion';
 }

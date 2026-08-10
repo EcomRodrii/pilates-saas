@@ -6,6 +6,7 @@ import {
   type EstadoGuardado, type PorPantalla,
 } from '@/lib/theme/autoguardado';
 import type { PantallaId } from '@/lib/portal-home-bloques';
+import { esSesionCaducada } from '@/lib/api-client';
 
 /** Espera tras la última tecla antes de mandar. */
 const ESPERA_MS = 1_500;
@@ -94,8 +95,19 @@ export function useAutoguardado(
       enVuelo.current = false;
       fallos.current = 0;
       setEstado(seMandoAlgo ? { tipo: 'guardado', en: Date.now() } : { tipo: 'limpio' });
-    } catch {
+    } catch (e) {
       enVuelo.current = false;
+      // ⚠️ Con la sesión caducada NO se reintenta. El servidor va a seguir
+      // respondiendo 401 hasta que se vuelva a entrar, así que insistir cada
+      // minuto solo sirve para que el aviso siga diciendo «se sigue
+      // intentando» —que es falso— mientras la propietaria cree que su
+      // trabajo va camino del servidor. Lo que hay pendiente NO se toca: sigue
+      // en pantalla y se guardará en cuanto vuelva a haber sesión.
+      if (esSesionCaducada(e)) {
+        if (temporizador.current) clearTimeout(temporizador.current);
+        setEstado({ tipo: 'sesion' });
+        return;
+      }
       // El contador de fallos vive en una ref y no en el propio `setEstado`:
       // programar el reintento dentro del actualizador lo haría impuro y en
       // modo estricto React lo llama dos veces → dos temporizadores.
@@ -116,7 +128,10 @@ export function useAutoguardado(
   useEffect(() => {
     if (!activo || confirmado.current === null) return;
     if (pantallasCambiadas(confirmado.current, bloquesPorPantalla).length === 0) return;
-    setEstado((prev) => (prev.tipo === 'error' ? prev : { tipo: 'pendiente' }));
+    // Con la sesión caducada se deja de programar envíos: seguir mandando
+    // 401 cada vez que se teclea no arregla nada y borraría el aviso, que es
+    // lo único que le dice a la propietaria que pare y vuelva a entrar.
+    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' ? prev : { tipo: 'pendiente' }));
     if (temporizador.current) clearTimeout(temporizador.current);
     temporizador.current = setTimeout(() => void intentar(), ESPERA_MS);
     return () => { if (temporizador.current) clearTimeout(temporizador.current); };
