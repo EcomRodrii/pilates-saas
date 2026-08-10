@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
       // de cliente). Se listan todos los segmentos del panel + el portal/kiosk.
       disallow: [
         '/api', '/login', '/crear-estudio', '/suscripcion',
-        '/portal', '/kiosk',
+        '/portal', '/kiosk', '/reservar', '/invitacion', '/clave-nueva', '/interno',
         '/dashboard', '/centro-de-control', '/calendario', '/citas', '/socios', '/clientas',
         '/cobros', '/pagos', '/transacciones', '/facturas', '/informes', '/equipo',
         '/marketing', '/mensajeria', '/automatizaciones', '/notificaciones',
