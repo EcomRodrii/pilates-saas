@@ -896,6 +896,14 @@ export interface RowPlantillasEmail {
   asunto: string | null;
   intro: string | null;
   activa: boolean;
+  // Personalización total (migr 20260811090000). NULL = hereda lo de siempre.
+  cuerpo: string | null;
+  boton_texto: string | null;
+  color_cabecera: string | null;
+  color_boton: string | null;
+  logo_url: string | null;
+  pie: string | null;
+  fuente: string | null;
   actualizado_en: string | null;
 }
 

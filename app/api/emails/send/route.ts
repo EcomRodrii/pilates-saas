@@ -11,7 +11,7 @@ import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { verificarSesionStaff } from '@/lib/auth-server';
-import { resolverPlantilla, interpolar, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '@/lib/emails/remitente';
@@ -71,6 +71,9 @@ export async function POST(req: NextRequest) {
   const varsPlantilla = { nombre: body.toName, estudio: dv.estudioNombre, clase: dv.claseNombre };
   const introCustom = plantilla.intro ? interpolar(plantilla.intro, varsPlantilla) : undefined;
   const asuntoCustom = plantilla.asunto ? interpolar(plantilla.asunto, varsPlantilla) : undefined;
+  // Personalización total (cuerpo libre, marca y pie por plantilla). Para los
+  // tipos no editables viene vacía y no cambia nada.
+  const personalizacion = interpolarPersonalizacion(plantilla, varsPlantilla);
 
   if (body.tipo === 'recibo') {
     const d = body.data as {
@@ -87,14 +90,14 @@ export async function POST(req: NextRequest) {
     // lo dispara el staff en vez de esperar a que la socia lo pida ella misma.
     // Fallo suave: si algo falla, la bienvenida sale igual, sin el botón.
     const urlAcceso = marca.slug ? await generarEnlaceAccesoSocia(marca.slug, body.to) : null;
-    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, url: urlAcceso ?? undefined, ...marca, ...d }));
+    html = await render(BienvenidaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, url: urlAcceso ?? undefined, ...marca, ...d }));
     subject = asuntoCustom ?? `¡Bienvenida a ${d.estudioNombre ?? 'Tentare'}!`;
   } else if (body.tipo === 'reserva') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string;
     };
-    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    html = await render(ReservaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
     subject = asuntoCustom ?? `Reserva confirmada — ${d.claseNombre}`;
   } else if (body.tipo === 'automatizacion') {
     const d = body.data as { titulo: string; mensaje: string; estudioNombre?: string };
@@ -105,14 +108,14 @@ export async function POST(req: NextRequest) {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoConsumido?: boolean;
     };
-    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    html = await render(PromocionEsperaEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
     subject = asuntoCustom ?? `Se ha liberado tu plaza — ${d.claseNombre}`;
   } else if (body.tipo === 'cancelacion') {
     const d = body.data as {
       claseNombre: string; fecha: string; hora: string;
       sala: string; instructor: string; estudioNombre?: string; bonoDevuelto?: boolean;
     };
-    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, ...marca, ...d }));
+    html = await render(CancelacionClaseEmail({ socioNombre: body.toName, intro: introCustom, personalizacion, ...marca, ...d }));
     subject = asuntoCustom ?? `Clase cancelada — ${d.claseNombre}`;
   } else if (body.tipo === 'cambio') {
     const d = body.data as {

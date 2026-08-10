@@ -297,6 +297,12 @@ export interface InstructorDependencySnapshot {
 // ─── Plantillas de email transaccional (override por estudio) ────────────────
 export type TipoPlantillaEmail = 'bienvenida' | 'reserva' | 'recordatorio' | 'cancelacion' | 'promocion' | 'impago';
 
+// Fuentes seguras en correo. Lista cerrada aquí y con CHECK en la BD (migr
+// 20260811090000): una familia que el cliente de correo no tenga se ve como un
+// fallback cualquiera, así que no se deja escribir a mano.
+export const FUENTES_EMAIL = ['Plus Jakarta Sans', 'Arial', 'Georgia', 'Verdana', 'Times New Roman', 'Courier New'] as const;
+export type FuenteEmail = (typeof FUENTES_EMAIL)[number];
+
 export interface PlantillaEmail {
   id: string;
   studioId: string;
@@ -304,7 +310,21 @@ export interface PlantillaEmail {
   asunto: string | null;
   intro: string | null;
   activa: boolean;
+  // Personalización total. `null` en cualquiera = se mantiene lo de siempre,
+  // campo a campo. `cuerpo` es Markdown con los tokens {datos} y {boton}.
+  cuerpo: string | null;
+  botonTexto: string | null;
+  colorCabecera: string | null;
+  colorBoton: string | null;
+  logoUrl: string | null;
+  pie: string | null;
+  fuente: FuenteEmail | null;
 }
+
+// Lo que el panel puede cambiar de una plantilla en un guardado. Todo parcial:
+// el formulario manda solo lo que ha tocado, y `null` significa "vacío, vuelve
+// al texto por defecto".
+export type CambiosPlantillaEmail = Partial<Omit<PlantillaEmail, 'id' | 'studioId' | 'tipo'>>;
 
 // ─── Campos personalizados de socia (definidos por el estudio) ───────────────
 export type TipoCampoPersonalizado = 'texto' | 'numero' | 'fecha' | 'booleano' | 'seleccion';

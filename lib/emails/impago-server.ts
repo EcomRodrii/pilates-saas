@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
-import { resolverMarcaEstudio, resolverPlantilla, interpolar } from '@/lib/emails/plantillas-server';
+import { resolverMarcaEstudio, resolverPlantilla, interpolar, interpolarPersonalizacion } from '@/lib/emails/plantillas-server';
 import { remitentePorMarca } from './remitente.ts';
 
 // Envío del email de IMPAGO a la socia desde código de servidor (webhook de Stripe
@@ -38,6 +38,7 @@ export async function enviarEmailImpago(params: {
         importe: params.importe,
         definitivo: params.definitivo,
         intro,
+        personalizacion: interpolarPersonalizacion(plantilla, vars),
       }),
     );
     const subject = asuntoOverride ?? (params.definitivo

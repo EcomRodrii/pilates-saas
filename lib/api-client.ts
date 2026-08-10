@@ -1664,7 +1664,21 @@ export async function importarPagosHistoricos(rows: FilaPago[], batchId?: string
 
 // ─── Plantillas de email: vista previa + envío de prueba (P2-11) ─────────────
 
-type BorradorPlantilla = { tipo: string; asunto?: string | null; intro?: string | null };
+// El borrador del formulario, sin guardar: la vista previa y el envío de
+// prueba renderizan exactamente lo que hay en pantalla. `null` = vacío, se usa
+// el texto por defecto.
+type BorradorPlantilla = {
+  tipo: string;
+  asunto?: string | null;
+  intro?: string | null;
+  cuerpo?: string | null;
+  botonTexto?: string | null;
+  colorCabecera?: string | null;
+  colorBoton?: string | null;
+  logoUrl?: string | null;
+  pie?: string | null;
+  fuente?: string | null;
+};
 
 export async function previsualizarPlantilla(datos: BorradorPlantilla): Promise<{ html: string; subject: string } | { error: string }> {
   try {
