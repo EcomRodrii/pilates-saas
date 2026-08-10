@@ -238,7 +238,7 @@ export default function ReservarPage() {
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
   const params = useParams();
   const slug = String(params?.slug ?? '');
-  const { socia, usuarioEmail, autenticado, enviarEnlace, logout, refrescar } = useSociaSession(slug);
+  const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref');
   // Modo embebido (widget en la web del estudio, vía <iframe>): oculta la
@@ -301,6 +301,26 @@ export default function ReservarPage() {
   const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
+  // Login con contraseña (día a día, sin depender del viaje de email — ver
+  // lib/use-socia-session.ts): alternativa al enlace mágico dentro del mismo
+  // paso 'login', para quien ya se creó una contraseña una vez. Un widget
+  // embebido en un <iframe> de tercero no puede fiarse de que el navegador
+  // comparta sesión entre pestañas (Safari/Chrome recortan ese acceso cada
+  // vez más), así que esto es lo que hace viable volver sin salir del widget.
+  const [mostrarPasswordLogin, setMostrarPasswordLogin] = useState(false);
+  const [loginPassword, setLoginPassword] = useState('');
+  const [enviandoLoginPassword, setEnviandoLoginPassword] = useState(false);
+  // Contraseña que se fija en el paso 'registro' (justo tras probar el email
+  // por enlace mágico) — mismo mínimo y patrón de confirmación que
+  // app/portal/[slug]/clave-nueva/page.tsx.
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [nuevaPasswordConfirmar, setNuevaPasswordConfirmar] = useState('');
+  // Si ya tiene contraseña propia (la acaba de fijar en 'registro', o entró
+  // con loginConPassword), la pantalla de confirmación no debe seguir
+  // ofreciendo "crea tu contraseña" — ya no es cierto. No se resetea en
+  // openBooking()/closeBooking(): sigue siendo verdad para el resto de la
+  // visita aunque se abra otra reserva.
+  const [tienePasswordPropia, setTienePasswordPropia] = useState(false);
   const [enviandoEnlace, setEnviandoEnlace] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [gateError, setGateError] = useState('');
@@ -359,6 +379,18 @@ export default function ReservarPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, autenticado, sesiones, searchParams]);
+
+  // Login con contraseña (loginConPassword, sin viaje de email): a diferencia
+  // del magic link, no navega la página ni añade ?sesion=/?acceso=1 a la URL,
+  // así que el useEffect de deep-link de arriba nunca se dispara para él. Sin
+  // esto, tras un login con contraseña correcto el modal se quedaba clavado
+  // en el paso 'login' (autenticado/socia se actualizan, pero nada vuelve a
+  // llamar a openBooking() para decidir el siguiente paso).
+  useEffect(() => {
+    if (bookingSesionId === null || loginStep !== 'login' || !autenticado) return;
+    openBooking(bookingSesionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autenticado, socia]);
 
   // P0-30: se agregan las plazas ocupadas por sesión en UNA pasada y se
   // resuelven tipo/sala/instructora por Map — antes era O(sesiones × reservas)
@@ -592,6 +624,10 @@ export default function ReservarPage() {
     setLoginError('');
     setGateError('');
     setSelectedSpot(null);
+    setMostrarPasswordLogin(false);
+    setLoginPassword('');
+    setNuevaPassword('');
+    setNuevaPasswordConfirmar('');
     if (!autenticado) {
       setLoginStep('login');
     } else if (socia) {
@@ -615,7 +651,10 @@ export default function ReservarPage() {
     }
   }
 
-  function closeBooking() { setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false); }
+  function closeBooking() {
+    setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
+    setMostrarPasswordLogin(false); setLoginPassword(''); setNuevaPassword(''); setNuevaPasswordConfirmar('');
+  }
 
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
   // nombre+email). La socia entra al pulsar el enlace del correo.
@@ -639,9 +678,37 @@ export default function ReservarPage() {
     }
   }
 
-  // Walk-in ya autenticado: solo falta el nombre antes de firmar el contrato.
-  function handleRegistroNombre() {
+  // Login del día a día para quien ya se creó una contraseña (ver paso
+  // 'registro' más abajo) — evita el viaje de email cada vez que vuelve.
+  async function handleLoginConPassword() {
+    if (!loginForm.email.trim() || !loginPassword || enviandoLoginPassword) return;
+    setLoginError('');
+    setEnviandoLoginPassword(true);
+    try {
+      const token = await pedirToken();
+      if (token === null) { setLoginError(ERROR_CAPTCHA); return; }
+      const r = await loginConPassword(loginForm.email, loginPassword, token || undefined);
+      if ('error' in r) { setLoginError(r.error); return; }
+      setTienePasswordPropia(true);
+      // La sesión de Supabase ya está activa (onAuthStateChange en
+      // use-socia-session.ts la resuelve); un useEffect propio (ver más abajo,
+      // junto al deep-link del magic link) reevalúa el paso del modal en
+      // cuanto `autenticado`/`socia` se actualicen.
+    } finally {
+      setEnviandoLoginPassword(false);
+    }
+  }
+
+  // Walk-in ya autenticado por enlace mágico: nombre + fijar la contraseña
+  // que usará a partir de ahora (día a día, sin depender del email otra vez).
+  async function handleRegistroNombre() {
     if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
+    if (nuevaPassword.length < 8) { setLoginError('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (nuevaPassword !== nuevaPasswordConfirmar) { setLoginError('Las dos contraseñas no coinciden.'); return; }
+    setLoginError('');
+    const r = await establecerPassword(nuevaPassword);
+    if ('error' in r) { setLoginError(r.error); return; }
+    setTienePasswordPropia(true);
     setLoginStep('contrato');
   }
 
@@ -781,7 +848,14 @@ export default function ReservarPage() {
       });
       const data = await res.json() as { url?: string; error?: string };
       if (data.url) {
-        window.location.href = data.url;
+        // Escapa del <iframe> del widget embebido: navegar la propia ventana
+        // (window.location) mandaría el checkout de Stripe DENTRO del iframe
+        // de la web del estudio, algo para lo que Stripe no está pensado
+        // (en el mejor caso se ve mal, en el peor el navegador lo bloquea).
+        // `window.top` es la ventana de nivel superior real tanto si el
+        // widget está embebido como si no (entonces top === window, mismo
+        // efecto de siempre en /reservar/[slug] visitado directo).
+        (window.top ?? window).location.href = data.url;
       } else {
         setStripeError(data.error ?? 'Error al procesar el pago');
       }
@@ -1339,15 +1413,24 @@ export default function ReservarPage() {
                 </div>
                 {/* Quien reserva aquí ya es socia, pero nadie se lo dice: tiene
                     portal propio (sus bonos, su historial, sus próximas clases).
-                    Se creó por magic link, así que aún no tiene contraseña — por
-                    eso el enlace va a /acceso, que se la deja poner, y no a
-                    /login, que la rebotaría. */}
+                    Si ya fijó contraseña en 'registro' (o entró con
+                    loginConPassword), el enlace va directo a /login — mandarla
+                    a /acceso otra vez le pediría elegir una contraseña que ya
+                    tiene. Si no (p. ej. socia ya existente que solo firmó el
+                    contrato, sin pasar por 'registro'), sigue sin tenerla y el
+                    enlace va a /acceso, que se la deja poner. */}
                 <div className="w-full pt-3 mt-1 border-t border-[var(--portal-line)]">
                   <p className="text-[var(--portal-muted)] text-xs leading-relaxed text-center">
                     Tus clases y tus bonos están en tu portal.{' '}
-                    <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
-                      Crea tu contraseña
-                    </a>{' '}
+                    {tienePasswordPropia ? (
+                      <a href={`/portal/${slug}/login`} className="font-bold underline" style={{ color: PRIMARY }}>
+                        Entra con tu contraseña
+                      </a>
+                    ) : (
+                      <a href={`/portal/${slug}/acceso`} className="font-bold underline" style={{ color: PRIMARY }}>
+                        Crea tu contraseña
+                      </a>
+                    )}{' '}
                     y entra cuando quieras.
                   </p>
                 </div>
@@ -1400,23 +1483,49 @@ export default function ReservarPage() {
                 {!enlaceEnviado ? (
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
-                    <p className="text-[var(--portal-muted-2)] text-sm mb-5">Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                    <p className="text-[var(--portal-muted-2)] text-sm mb-5">
+                      {mostrarPasswordLogin ? 'Entra con tu email y contraseña.' : 'Te enviamos un enlace de acceso a tu email. Sin contraseñas.'}
+                    </p>
                     <input type="email"
                       placeholder="Tu email"
                       value={loginForm.email}
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
-                      onKeyDown={e => e.key === 'Enter' && handleEnviarEnlace()}
+                      onKeyDown={e => e.key === 'Enter' && (mostrarPasswordLogin ? handleLoginConPassword() : handleEnviarEnlace())}
                       autoFocus
                       className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: RT.surface2 }} />
+                    {mostrarPasswordLogin && (
+                      <input type="password"
+                        placeholder="Tu contraseña"
+                        value={loginPassword}
+                        onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                        onKeyDown={e => e.key === 'Enter' && handleLoginConPassword()}
+                        autoComplete="current-password"
+                        className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                        style={{ backgroundColor: RT.surface2 }} />
+                    )}
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
                         resolver algo a mano. */}
                     {captcha}
-                    <button onClick={handleEnviarEnlace} disabled={!loginForm.email || enviandoEnlace}
-                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
-                      style={{ backgroundColor: PRIMARY }}>
-                      {enviandoEnlace ? 'Enviando…' : 'Enviar enlace de acceso →'}
+                    {mostrarPasswordLogin ? (
+                      <button onClick={handleLoginConPassword} disabled={!loginForm.email || !loginPassword || enviandoLoginPassword}
+                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                        style={{ backgroundColor: PRIMARY }}>
+                        {enviandoLoginPassword ? 'Entrando…' : 'Iniciar sesión →'}
+                      </button>
+                    ) : (
+                      <button onClick={handleEnviarEnlace} disabled={!loginForm.email || enviandoEnlace}
+                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                        style={{ backgroundColor: PRIMARY }}>
+                        {enviandoEnlace ? 'Enviando…' : 'Enviar enlace de acceso →'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setMostrarPasswordLogin(m => !m); setLoginError(''); }}
+                      className="w-full text-center text-[12px] text-[var(--portal-muted-2)] underline mt-3"
+                    >
+                      {mostrarPasswordLogin ? 'Prefiero el enlace por email' : '¿Ya tienes contraseña? Inicia sesión'}
                     </button>
                   </>
                 ) : (
@@ -1452,11 +1561,30 @@ export default function ReservarPage() {
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                  style={{ backgroundColor: RT.surface2 }} />
+                {/* Email ya verificado por el enlace mágico — de aquí en
+                    adelante entra con contraseña, sin depender otra vez del
+                    correo (ver handleLoginConPassword). */}
+                <input type="password"
+                  placeholder="Elige una contraseña"
+                  value={nuevaPassword}
+                  onChange={e => { setNuevaPassword(e.target.value); setLoginError(''); }}
+                  autoComplete="new-password"
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                  style={{ backgroundColor: RT.surface2 }} />
+                <input type="password"
+                  placeholder="Repite la contraseña"
+                  value={nuevaPasswordConfirmar}
+                  onChange={e => { setNuevaPasswordConfirmar(e.target.value); setLoginError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
+                  autoComplete="new-password"
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: RT.surface2 }} />
-                <p className="text-[11px] text-[var(--portal-muted)] mb-5">Solo lo usa {estudioNombre} para avisos de tus clases.</p>
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
+                <p className="text-[11px] text-[var(--portal-muted)] mb-1">Mínimo 8 caracteres. La usarás para entrar la próxima vez.</p>
+                {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
+                <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono) || !nuevaPassword || !nuevaPasswordConfirmar}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
