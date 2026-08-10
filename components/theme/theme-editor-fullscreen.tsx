@@ -515,7 +515,14 @@ export function ThemeEditorFullscreen() {
           No reserva ancho en reposo. */}
       <div className={`flex-1 min-h-0 grid ${hayInspector ? 'grid-cols-[272px_minmax(0,1fr)_344px]' : 'grid-cols-[272px_minmax(0,1fr)]'}`}>
         {/* Rail izquierdo */}
-        <div className="border-r border-border flex flex-col min-h-0">
+        {/* ⚠️ `bg-card` EXPLÍCITO, no heredado. Los dos paneles laterales
+            estaban en transparente (`rgba(0,0,0,0)`, medido en el editor real)
+            y el lienzo en `bg-muted/30`, que sobre fondo claro da #f5f5f1 —
+            casi el mismo blanco. Resultado: las tres columnas se fundían y no
+            se veía dónde acababan los ajustes y empezaba la vista previa.
+            Blanco de tarjeta a los lados, fondo hundido en el centro: lo que
+            se toca queda claramente separado de lo que se mira. */}
+        <div className="border-r border-border flex flex-col min-h-0 bg-card">
           {/* Dos pestañas, no dos bloques apilados en el mismo scroll.
               ────────────────────────────────────────────────────────────
               Antes convivían en una sola columna las diez categorías del
@@ -632,7 +639,15 @@ export function ThemeEditorFullscreen() {
             `data-preview-hueco`: esta columna es la que decide cuánto sitio
             hay. MarcoDispositivo la busca con `closest` para encogerse
             también a lo alto — ver el comentario de ese fichero. */}
-        <div data-preview-hueco className="overflow-auto p-6 flex items-center justify-center bg-muted/30">
+        <div
+          data-preview-hueco
+          className="overflow-auto p-6 flex items-center justify-center"
+          // `color-mix` y no una clase: `bg-muted` en este tema es #f5f5f1, a
+          // un punto del blanco de los paneles. Una mezcla sobre el propio
+          // `--foreground` da un hundido de verdad y sigue funcionando en modo
+          // oscuro sin fijar ningún hex.
+          style={{ background: 'color-mix(in srgb, var(--foreground) 7%, var(--background))' }}
+        >
           {/* Ya NO se escala aquí: el zoom viaja al marco, que lo combina con
               el encogido automático del dispositivo. Escalar dos veces (aquí y
               dentro) multiplicaba los factores sin que nadie lo dijera. */}
@@ -669,7 +684,7 @@ export function ThemeEditorFullscreen() {
         {/* Panel derecho: inspector de lo seleccionado. Solo cuando hay algo
             que inspeccionar — ver el comentario del grid. */}
         {hayInspector && (
-          <div className="border-l border-border overflow-y-auto p-4">
+          <div className="border-l border-border overflow-y-auto p-4 bg-card">
             {nodo.tipo === 'tema' ? (
               <AjustesCategoriaPanel hook={ajustesHook} categoriaId={nodo.categoria} />
             ) : nodo.grupo === 'contenido-portal' ? (
