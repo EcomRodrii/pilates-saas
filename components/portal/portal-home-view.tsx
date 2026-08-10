@@ -394,7 +394,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
   const filas = accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
-  const conFoto = !!studio?.fotoUrl;
+  const conFoto = !!studio?.imagenBienvenidaUrl;
   const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
   const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
   const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
@@ -605,7 +605,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           {conFoto && (
             <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={studio!.fotoUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
+              <img src={studio!.imagenBienvenidaUrl!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
             </div>
           )}
 
@@ -827,9 +827,9 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 transition: transicion(['transform'], dur.card),
               }}
             >
-              {studio?.fotoUrl ? (
+              {studio?.imagenBienvenidaUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={studio.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
+                <img src={studio.imagenBienvenidaUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
               ) : (
                 <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
               )}

@@ -11,6 +11,7 @@ import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type Recomen
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { conReintentoResend } from '@/lib/emails/resend-reintentos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from '../emails/remitente.ts';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
@@ -202,7 +203,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     const { error } = await conReintentoResend(() =>
       resend!.emails.send(
         {
-          from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+          from: remitentePorMarca(studioNombre || 'Tentare'),
           to: [email],
           subject: c.titulo,
           html,
@@ -309,7 +310,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     // Mismo reintento ante fallos transitorios que en procesarCandidato.
     const { error } = await conReintentoResend(() =>
       resend!.emails.send(
-        { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [c.socio.email], subject: c.asunto, html },
+        { from: remitentePorMarca(opts.studioNombre || 'Tentare'), to: [c.socio.email], subject: c.asunto, html },
         { idempotencyKey: base.id },
       )
     );

@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { PedirConfirmacionEmail, RecordatorioConfirmacionEmail, PlazaLiberadaEmail } from '@/lib/emails/confirmacion-riesgo-template';
+import { remitentePorMarca } from '../emails/remitente.ts';
 
 // Emails de "opción 2" del riesgo de plantón (ver lib/confirmacion-riesgo/logica.ts):
 // pedir confirmación a quien tiene riesgo alto, y avisar con delicadeza si no
@@ -15,14 +16,14 @@ interface Marca {
 
 type EnvioResultado = { ok: true; id?: string } | { ok: false; skipped: true } | { ok: false; error: string };
 
-async function enviar(to: string, subject: string, html: string): Promise<EnvioResultado> {
+async function enviar(to: string, subject: string, html: string, estudioNombre: string): Promise<EnvioResultado> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
   if (!to) return { ok: false, error: 'Sin destinatario' };
   const resend = new Resend(apiKey);
   try {
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(estudioNombre || 'Tentare'),
       to: [to],
       subject,
       html,
@@ -39,19 +40,19 @@ export async function enviarEmailPedirConfirmacion(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; url: string;
 }): Promise<EnvioResultado> {
   const html = await render(PedirConfirmacionEmail(params));
-  return enviar(params.to, `¿Vienes a ${params.claseNombre}? — ${params.estudioNombre}`, html);
+  return enviar(params.to, `¿Vienes a ${params.claseNombre}? — ${params.estudioNombre}`, html, params.estudioNombre);
 }
 
 export async function enviarEmailRecordatorioConfirmacion(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string; url: string;
 }): Promise<EnvioResultado> {
   const html = await render(RecordatorioConfirmacionEmail(params));
-  return enviar(params.to, `¿Nos falta tu confirmación? — ${params.claseNombre}`, html);
+  return enviar(params.to, `¿Nos falta tu confirmación? — ${params.claseNombre}`, html, params.estudioNombre);
 }
 
 export async function enviarEmailPlazaLiberada(params: Marca & {
   to: string; toName: string; estudioNombre: string; claseNombre: string; cuando: string;
 }): Promise<EnvioResultado> {
   const html = await render(PlazaLiberadaEmail(params));
-  return enviar(params.to, `Hemos liberado tu plaza en ${params.claseNombre} — ${params.estudioNombre}`, html);
+  return enviar(params.to, `Hemos liberado tu plaza en ${params.claseNombre} — ${params.estudioNombre}`, html, params.estudioNombre);
 }

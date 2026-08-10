@@ -42,7 +42,7 @@ export function PortalPreviewBienvenidaClient() {
   return (
     <BienvenidaPortal
       nombreEstudio={studio?.nombre?.trim() || 'Tu estudio'}
-      fotoUrl={studio?.fotoUrl ?? null}
+      fotoUrl={studio?.imagenBienvenidaUrl ?? null}
       variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
       // En la previsualización el botón no lleva a ninguna parte: lo que se
       // mira es esta pantalla. Navegar dentro del iframe sacaría del preview.

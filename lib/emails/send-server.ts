@@ -6,6 +6,7 @@ import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from './remitente.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Envío de emails transaccionales desde CÓDIGO DE SERVIDOR (no una ruta staff):
@@ -93,9 +94,9 @@ export async function enviarEmailTransaccional(params: {
     const resend = new Resend(apiKey);
     const { data, error } = await resend.emails.send(
       {
-        // Remitente configurable por env (RESEND_FROM). Sin dominio verificado, el
-        // sandbox de Resend solo entrega al email de la cuenta.
-        from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+        // Remitente con el nombre del estudio (misma dirección verificada de
+        // siempre, ver lib/emails/remitente.ts) — sin marca resuelta, cae a Tentare.
+        from: remitentePorMarca(marca.nombre || params.data.estudioNombre || 'Tentare'),
         to: [params.to],
         subject,
         html,

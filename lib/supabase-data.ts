@@ -2687,6 +2687,21 @@ export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: str
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
 }
 
+// Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
+// /informes, agregado SERVER-SIDE (migr 20260810150000, mismo patrón que
+// dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin
+// suscripcion_id (histórico migrado, POS/otros) caen en 'OTROS'. `hasta` es
+// inclusive — se usa para acotar el período anterior sin solapar con el actual.
+export async function dbVentasPorTipo(
+  desde: string | null,
+  hasta: string | null,
+): Promise<{ tipo: string; nVentas: number; total: number }[]> {
+  const { data, error } = await supabase.rpc('ventas_por_tipo', { p_desde: desde, p_hasta: hasta });
+  if (error) { reportDbError('[dbVentasPorTipo]', error); return []; }
+  return ((data ?? []) as { tipo: string; n_ventas: number; total: number }[])
+    .map((r) => ({ tipo: r.tipo, nVentas: Number(r.n_ventas), total: Number(r.total) }));
+}
+
 // F1 (B1): contadores de clientas SERVER-SIDE (migr 0097). Sustituye a los 4 filter/
 // length sobre el array de socios del cliente (capado a 1000). count() en SQL no se
 // capa; la RLS acota por estudio.
@@ -3536,6 +3551,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('depVentanaDias' in changes) db.dep_ventana_dias = changes.depVentanaDias;
   if ('avatarAdmin' in changes) db.avatar_admin = changes.avatarAdmin;
   if ('fotoUrl' in changes) db.foto_url = changes.fotoUrl;
+  if ('imagenBienvenidaUrl' in changes) db.imagen_bienvenida_url = changes.imagenBienvenidaUrl;
   if ('descripcion' in changes) db.descripcion = changes.descripcion;
   if ('anioFundacion' in changes) db.anio_fundacion = changes.anioFundacion;
   if ('cancelacionVentanaHoras' in changes) db.cancelacion_ventana_horas = changes.cancelacionVentanaHoras;
@@ -3798,6 +3814,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     fotoUrl: r.foto_url ?? null,
+    imagenBienvenidaUrl: r.imagen_bienvenida_url ?? null,
     ownerAuthUserId: r.owner_auth_user_id ?? null,
     slug: r.slug ?? null,
     creadoEn: r.creado_en,

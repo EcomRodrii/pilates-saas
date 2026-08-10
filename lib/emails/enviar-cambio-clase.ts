@@ -4,6 +4,7 @@ import { CambioClaseEmail } from '@/lib/emails/cambio-clase-template';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from './remitente.ts';
 
 // Envío server-side del email de "cambio de clase" (instructora y/o
 // hora/sala) a un lote de socias ya resueltas por el servidor (sociasDeSesion,
@@ -57,7 +58,7 @@ export async function enviarEmailesCambioClase(
       cambioHora: datos.cambioHora, cambioSala: datos.cambioSala,
     }));
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+      from: remitentePorMarca(marca.nombre || 'Tentare'),
       to: [d.email],
       subject,
       html,

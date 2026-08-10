@@ -60,3 +60,17 @@ export function planificarTrasFallo(intentosPrevios: number, fechaVencimiento: s
     esDefinitivo: false,
   };
 }
+
+// Hallazgo A (auditoría dunning 2026-08-10): decide si el fallo actual debe
+// AUTO-CANCELAR la suscripción asociada al recibo — solo el fallo definitivo
+// (3er reintento agotado) y solo si el recibo tiene una suscripción real
+// vinculada (una penalización, p. ej., no tiene). Pura y testeable a propósito:
+// el efecto (el UPDATE condicional en `suscripciones`) vive en
+// dunning-server.ts, que es quien no se puede testear con `node --test` por
+// las importaciones en cascada de `impago-server.ts`/`sellar-factura-server.ts`.
+export function debeAutoCancelarSuscripcion(
+  plan: Pick<PlanReintento, 'esDefinitivo'>,
+  suscripcionId: string | null | undefined,
+): boolean {
+  return plan.esDefinitivo && !!suscripcionId;
+}

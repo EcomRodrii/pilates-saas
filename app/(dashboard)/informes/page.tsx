@@ -2,11 +2,12 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useStudio } from '@/lib/studio-context';
-import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport } from '@/lib/supabase-data';
+import { dbInformeIngresos, dbIngresosPorDia, dbOcupacionPorTipo, dbStatsClientas, dbRecibosCobradosParaExport, dbVentasPorTipo } from '@/lib/supabase-data';
 import { fetchTarifasEquipo, type TarifaInstructor } from '@/lib/api-client';
 import { margenSesiones, type MargenSesion } from '@/lib/decision/margen-clase.ts';
+import { combinarConVariacion, type VentaTipoConVariacion } from '@/lib/informes/ventas-por-tipo.ts';
 import type { Sesion } from '@/lib/types';
-import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale } from 'lucide-react';
+import { TrendingUp, Users, CreditCard, Activity, Download, FileText, Scale, Package } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { inicioDeSemana, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
@@ -164,6 +165,9 @@ export default function Informes() {
   // F1 (B4/B1): ocupación por tipo y retención también del servidor.
   const [ocupData, setOcupData] = useState<{ tipoClaseId: string | null; nSesiones: number; aforo: number; ocupadas: number }[]>([]);
   const [retencion, setRetencion] = useState(0);
+  // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) + variación
+  // vs. el período anterior de igual duración — pedido explícito del fundador.
+  const [ventasTipo, setVentasTipo] = useState<VentaTipoConVariacion[] | null>(null);
 
   // `now` en estado en vez de `new Date()` en el cuerpo del render, mismo
   // arreglo que dashboard y calendario. Aquí importaba doblemente: los cuatro
@@ -228,14 +232,25 @@ export default function Informes() {
   useEffect(() => {
     if (!mounted) return;
     const desde = localDate(periodStart);
+    const hasta = localDate(now);
     const mesInicio = localDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    // Período anterior de IGUAL duración, inmediatamente antes de periodStart —
+    // mismo criterio de "periodo" que ya usa esta pantalla (periodStart..now).
+    const duracionDias = Math.max(1, Math.round((now.getTime() - periodStart.getTime()) / 86400000));
+    const prevHasta = new Date(periodStart); prevHasta.setDate(prevHasta.getDate() - 1);
+    const prevDesde = new Date(prevHasta); prevDesde.setDate(prevDesde.getDate() - duracionDias + 1);
     let cancel = false;
-    void Promise.all([dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde), dbOcupacionPorTipo(desde), dbStatsClientas()])
-      .then(([per, mes, dias, ocup, stc]) => {
+    void Promise.all([
+      dbInformeIngresos(desde), dbInformeIngresos(mesInicio), dbIngresosPorDia(desde),
+      dbOcupacionPorTipo(desde), dbStatsClientas(),
+      dbVentasPorTipo(desde, hasta), dbVentasPorTipo(localDate(prevDesde), localDate(prevHasta)),
+    ])
+      .then(([per, mes, dias, ocup, stc, ventasActual, ventasAnterior]) => {
         if (cancel) return;
         setAgg({ total: per.total, nSocias: per.nSocias, mrr: mes.total, porDia: dias });
         setOcupData(ocup);
         setRetencion(stc.total > 0 ? Math.round((stc.activas / stc.total) * 100) : 0);
+        setVentasTipo(combinarConVariacion(ventasActual, ventasAnterior));
       });
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -735,6 +750,49 @@ export default function Informes() {
             <line x1={PADDING_L} y1={CHART_H} x2={Math.max(chartW, 480)} y2={CHART_H} stroke="var(--border)" strokeWidth="1" />
           </svg>
         </CifraPrivada>
+      </div>
+      )}
+
+      {/* ── Section 2b: Ventas por tipo (Planes/Bonos/Clases sueltas/Otros) ──── */}
+      {verFinanzas && (
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-base font-extrabold mb-0.5" style={{ color: 'var(--foreground)' }}>Ventas por tipo</h2>
+        <p className="text-xs mb-5" style={{ color: 'var(--muted-foreground)' }}>
+          Cobrado en el periodo, comparado con un periodo anterior de igual duración
+        </p>
+
+        {ventasTipo === null ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-pulse">
+            {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-border rounded-lg" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {ventasTipo.map(v => (
+              <div key={v.tipo} className="rounded-lg p-4" style={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Package size={13} style={{ color: 'var(--muted-foreground)' }} />
+                  <p className="text-xs font-semibold" style={{ color: 'var(--muted-foreground)' }}>{v.etiqueta}</p>
+                </div>
+                <CifraPrivada className="text-lg font-extrabold leading-none" style={{ color: 'var(--foreground)' }}>
+                  {fmtEurFull(v.total)}
+                </CifraPrivada>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-[11px]" style={{ color: 'var(--muted-foreground)' }}>{v.nVentas} {v.nVentas === 1 ? 'venta' : 'ventas'}</p>
+                  {v.variacionPct === null ? (
+                    <span className="text-[11px] font-medium" style={{ color: 'var(--muted-foreground)' }}>sin datos previos</span>
+                  ) : (
+                    <span
+                      className="text-[11px] font-bold tabular-nums"
+                      style={{ color: v.variacionPct > 0 ? 'var(--success)' : v.variacionPct < 0 ? 'var(--destructive)' : 'var(--muted-foreground)' }}
+                    >
+                      {v.variacionPct > 0 ? '+' : ''}{v.variacionPct}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       )}
 

@@ -163,7 +163,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono } from '@/lib/bono-logic';
+import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -311,6 +311,7 @@ interface StudioContextValue {
   assignPlan: (socioId: string, planId: string | null) => Promise<void>;
   pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
+  reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string) => Promise<ResultadoEscritura>;
@@ -2065,6 +2066,37 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDescongelarSuscripcion(susId, getCurrentStudioId());
     if (!res.ok) return res;
     setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, estado: 'ACTIVA' as const, fechaFin: res.fechaFin } : s));
+    return { ok: true };
+  }
+
+  // Hallazgo B (auditoría dunning 2026-08-10): REACTIVAR una suscripción
+  // CANCELADA (por el botón "Cancelar suscripción" de esta misma pantalla, o
+  // por la auto-cancelación del dunning tras 3 fallos de cobro) — distinto de
+  // "Reanudar"/descongelar, que solo cierra una ventana de PAUSADA. No hay RPC
+  // atómica aquí (no hace falta ventana que cerrar), pero SÍ hay que recalcular
+  // fecha_fin: la de una suscripción cancelada hace tiempo suele estar en el
+  // pasado, y reactivarla dejándola tal cual la caducaría al instante. Mismo
+  // criterio que un alta nueva (`calcularReactivacion`, espejo de `assignPlan`).
+  //
+  // Alcance deliberadamente acotado: si la suscripción tenía `stripeSubscriptionId`
+  // (cobro automático), este botón NO reintenta cobrar en Stripe — solo la
+  // reactiva en Tentare, a la espera del próximo ciclo normal de
+  // renovación/dunning. Reactivar un PaymentIntent/Subscription real en Stripe
+  // desde aquí es una pieza de riesgo/alcance distinta, no construida.
+  async function reactivarSuscripcion(susId: string): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus || sus.estado !== 'CANCELADA') return { ok: false, error: 'Esta suscripción no está cancelada.' };
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    if (!plan) return { ok: false, error: 'No se encuentra el plan de esta suscripción.' };
+
+    const ahoraISO = new Date().toISOString();
+    const { fechaFin, sesionesRestantes } = calcularReactivacion(plan, ahoraISO);
+    const changes: Partial<Suscripcion> = { estado: 'ACTIVA', fechaFin };
+    if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') changes.sesionesRestantes = sesionesRestantes;
+
+    const res = await dbUpdateSuscripcion(susId, changes);
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, ...changes } : s));
     return { ok: true };
   }
 
@@ -4104,6 +4136,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     assignPlan,
     pausarSuscripcion,
     reanudarSuscripcion,
+    reactivarSuscripcion,
     addNota,
     deleteNota,
     condicionesSalud,

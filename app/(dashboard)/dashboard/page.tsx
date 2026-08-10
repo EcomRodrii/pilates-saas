@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/auth-context';
 import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-dialog';
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
+import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -592,7 +593,11 @@ export default function Dashboard() {
 
   // ── MRR ─────────────────────────────────────────────────────────────────────
   const { renovacionesProximas } = useMemo(() => {
-    const activas = suscripciones.filter(s => s.estado === 'ACTIVA');
+    // Hallazgo A (auditoria dunning 2026-08-10): una ACTIVA con fecha_fin ya
+    // vencida no debe contar como ingreso recurrente ni como "activa" aqui — de
+    // cara adelante la auto-cancelacion del dunning ya transiciona el estado,
+    // pero el contador no debe fiarse ciegamente de que quedo sincronizado.
+    const activas = suscripciones.filter(s => s.estado === 'ACTIVA' && (!s.fechaFin || s.fechaFin >= hoyStr));
     // A-16: el MRR (ingreso recurrente) solo cuenta planes MENSUAL. Antes sumaba
     // BONO/PUNTUAL (pago único) prorrateado por sesiones → MRR y ARR (mrr*12)
     // sobrestimados en cualquier estudio que venda bonos o clases sueltas.
@@ -889,6 +894,11 @@ export default function Dashboard() {
             solo se pinta si hay algo pendiente — se oculta sola (ver el componente). */}
         {mueveDinero && <PenalizacionesPendientes onToast={showToast} />}
             {mueveDinero && <DevolucionesPendientes onToast={showToast} />}
+
+        {/* ── Ventas recientes ────────────────────────────────────────────────── */}
+        {/* Vistazo rápido junto al toast+sonido de nueva venta (campana). Igual
+            que las dos de arriba: solo lectura, se oculta sola si no hay nada. */}
+        {verFinanzas && <VentasRecientes />}
 
         {/* ── Revenue card (full width) ──────────────────────────────────────── */}
         {verFinanzas && (

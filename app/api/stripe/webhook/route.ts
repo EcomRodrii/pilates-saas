@@ -266,6 +266,10 @@ export async function POST(req: NextRequest) {
         // Notification Engine: confirmación de pago a la socia.
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId });
+        // Email de confirmación con enlace a su factura — best-effort, ver
+        // enviarEmailReciboWebhook (nunca lanza, no puede tumbar el webhook).
+        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+        await enviarEmailReciboWebhook(admin, { studioId, reciboId });
       }
 
       // Compra de un plan desde el enlace público: crear el bono que se acaba de
@@ -329,6 +333,8 @@ export async function POST(req: NextRequest) {
         }
         const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
         await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
+        const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+        await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
       }
 
       // Guarda la tarjeta (Customer + PaymentMethod) para poder cobrar sola la

@@ -109,7 +109,7 @@ export default function PortalAcceso() {
     return (
       <BienvenidaPortal
         nombreEstudio={nombre}
-        fotoUrl={studio?.fotoUrl ?? null}
+        fotoUrl={studio?.imagenBienvenidaUrl ?? null}
         variante={variantes.bienvenida === 'marca' ? 'marca' : 'foto'}
         onSiguiente={() => { marcarBienvenidaVista(slug); setBienvenidaVista(true); }}
       />
@@ -125,7 +125,7 @@ export default function PortalAcceso() {
     <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
       <PortadaAcceso
         alto={enviado ? 212 : 300}
-        fotoUrl={studio?.fotoUrl?.trim() ? studio.fotoUrl : null}
+        fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
         nombre={nombre}
         ciudad={studio?.ciudad}
         progreso={enviado ? 82 : 34}

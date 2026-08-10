@@ -56,6 +56,12 @@ export interface Studio {
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
   avatarAdmin: string | null;
   fotoUrl: string | null;
+  // Imagen de bienvenida/portada del PORTAL — la ven las alumnas al entrar
+  // (BienvenidaPortal, PortadaAcceso, hero de inicio...). Deliberadamente
+  // separada de `fotoUrl` (foto de perfil de la propietaria, solo panel):
+  // compartir un campo hacía que subir una selfie para el sidebar la
+  // enseñara de golpe a toda socia del estudio.
+  imagenBienvenidaUrl: string | null;
   ownerAuthUserId: string | null;
   slug: string | null;
   creadoEn: string;

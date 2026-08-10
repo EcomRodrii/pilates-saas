@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { planificarTrasFallo, primerReintentoISO, MAX_REINTENTOS, OFFSETS_REINTENTO_DIAS } from './dunning.ts';
+import { planificarTrasFallo, primerReintentoISO, debeAutoCancelarSuscripcion, MAX_REINTENTOS, OFFSETS_REINTENTO_DIAS } from './dunning.ts';
 
 const VENC = '2026-07-01';
 // La cadencia se ancla al más tardío entre el vencimiento y "ahora"; para probar el
@@ -69,4 +69,19 @@ test('vencimiento en el pasado → la cadencia se ancla a "ahora", los reintento
   assert.ok(new Date(f2.proximoReintento!) > new Date(f1.proximoReintento!), 'el 2º va después del 1º');
   assert.equal(f1.proximoReintento, '2026-07-28T10:00:00.000Z'); // ahora +3
   assert.equal(f2.proximoReintento, '2026-08-01T10:00:00.000Z'); // ahora +7
+});
+
+// Hallazgo A (auditoría dunning 2026-08-10): condición pura de auto-cancelación
+// tras agotar los 3 reintentos — el efecto (UPDATE en `suscripciones`) vive en
+// dunning-server.ts (no testeable con `node --test` por la cascada de imports
+// '@/...' en impago-server.ts/sellar-factura-server.ts, fuera de alcance de
+// este cambio), así que esta es la parte que sí queda cubierta por test.
+test('auto-cancelación: solo en el fallo definitivo Y con suscripción asociada', () => {
+  const definitivo = planificarTrasFallo(2, VENC); // 3.er fallo
+  const noDefinitivo = planificarTrasFallo(0, VENC, VENC); // 1.er fallo
+
+  assert.equal(debeAutoCancelarSuscripcion(definitivo, 'sus-1'), true);
+  assert.equal(debeAutoCancelarSuscripcion(noDefinitivo, 'sus-1'), false, 'un fallo intermedio no cancela nada');
+  assert.equal(debeAutoCancelarSuscripcion(definitivo, null), false, 'sin suscripción asociada (p.ej. una penalización) no hay nada que cancelar');
+  assert.equal(debeAutoCancelarSuscripcion(definitivo, undefined), false);
 });

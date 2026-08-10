@@ -14,6 +14,8 @@ import {
   eliminarLogoEstudio,
   subirFaviconEstudio,
   eliminarFaviconEstudio,
+  subirImagenBienvenida,
+  eliminarImagenBienvenida,
 } from '@/lib/portal-storage';
 import {
   DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
@@ -147,7 +149,7 @@ export function useThemeEditor() {
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | null>(null);
+  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | 'bienvenida' | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -322,6 +324,31 @@ export function useThemeEditor() {
     setCampo('faviconUrl', null);
   }
 
+  // Imagen de bienvenida/portada del portal — NO es `studio.fotoUrl` (esa es
+  // la foto de perfil de la propietaria, solo panel). Se persiste directo con
+  // `updateStudio`, igual que el logo: sin borrador, no forma parte del JSON
+  // de tema.
+  async function handleImagenBienvenida(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !studio) return;
+    setSubiendo('bienvenida');
+    const r = await subirImagenBienvenida(studio.id, file);
+    setSubiendo(null);
+    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
+    const res = await updateStudio({ imagenBienvenidaUrl: r.url });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+  }
+
+  async function handleQuitarImagenBienvenida() {
+    if (!studio) return;
+    setSubiendo('bienvenida');
+    await eliminarImagenBienvenida(studio.id);
+    setSubiendo(null);
+    const res = await updateStudio({ imagenBienvenidaUrl: null });
+    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+  }
+
   function restaurar() {
     rebasar(DEFAULT_THEME);
     setAviso(null);
@@ -343,7 +370,8 @@ export function useThemeEditor() {
     rol, studio, draft, estado, guardando, publicando, aviso, subiendo, contraste,
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
-    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon, restaurar, recargar,
+    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon,
+    handleImagenBienvenida, handleQuitarImagenBienvenida, restaurar, recargar,
     // Deshacer/rehacer de los AJUSTES. `instanteUltimo` es lo que permite a la
     // barra superior decidir qué pila deshacer cuando hay dos (bloques y
     // ajustes): la del paso más reciente, que es lo que la propietaria
@@ -398,6 +426,7 @@ export function AjustesCategoriaPanel({
   // romper las reglas de hooks, aunque solo se usen en la rama 'logo-favicon'.
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
+  const bienvenidaRef = useRef<HTMLInputElement>(null);
 
   if (categoriaId === 'paleta') {
     return (
@@ -673,22 +702,56 @@ export function AjustesCategoriaPanel({
         </p>
       </div>
 
-      {/* Encuadre de la foto del estudio.
+      {/* Imagen de bienvenida/portada del portal.
           ─────────────────────────────────────────────────────────────────
-          Solo aparece si hay foto: sin ella el control no tiene nada que
+          NO es la foto de perfil de la propietaria (esa vive en Configuración
+          → Perfil y solo sale en el panel, nunca aquí): esta es la que ven
+          las alumnas al entrar al portal — pantalla de bienvenida, cabecera
+          de acceso, hero de inicio. Compartir un solo campo para las dos
+          cosas era el bug: subir una selfie para el sidebar la enseñaba de
+          golpe a toda socia del estudio. */}
+      <div className="space-y-2 border-t border-border pt-4">
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-10 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+            {studio?.imagenBienvenidaUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={studio.imagenBienvenidaUrl} alt="Imagen de bienvenida" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[9px] text-muted-foreground text-center px-1">Sin imagen</span>
+            )}
+          </div>
+          <button onClick={() => bienvenidaRef.current?.click()} disabled={subiendo === 'bienvenida'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
+            <Upload size={14} /> {studio?.imagenBienvenidaUrl ? 'Cambiar imagen' : 'Subir imagen'}
+          </button>
+          {studio?.imagenBienvenidaUrl && (
+            <button onClick={hook.handleQuitarImagenBienvenida} disabled={subiendo === 'bienvenida'} className="text-muted-foreground hover:text-destructive" aria-label="Quitar imagen de bienvenida">
+              <Trash2 size={16} />
+            </button>
+          )}
+          <input ref={bienvenidaRef} type="file" accept="image/*" hidden onChange={hook.handleImagenBienvenida} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Esta imagen la ven tus alumnas al entrar a la app — no es tu foto de perfil.
+          Sin ella, el portal usa un fondo liso del color de tu marca.
+        </p>
+      </div>
+
+      {/* Encuadre de la imagen de bienvenida.
+          ─────────────────────────────────────────────────────────────────
+          Solo aparece si hay imagen: sin ella el control no tiene nada que
           encuadrar y sería un ajuste que no hace nada visible.
 
           La miniatura no es decorativa — es el control. El recorte se juzga
           a ojo, así que hay que enseñar el resultado, no describirlo: la
           proporción imita la portada del portal y el punto blanco marca
           dónde caería el logo, que es justo lo que se estaba tapando. */}
-      {studio?.fotoUrl?.trim() && (
+      {studio?.imagenBienvenidaUrl?.trim() && (
         <div className="space-y-2 border-t border-border pt-4">
           <div
             className="relative w-full rounded-xl overflow-hidden border border-border"
             style={{
               aspectRatio: '390 / 200',
-              backgroundImage: `url(${JSON.stringify(studio.fotoUrl)})`,
+              backgroundImage: `url(${JSON.stringify(studio.imagenBienvenidaUrl)})`,
               backgroundSize: 'cover',
               backgroundPosition: POSICION_FOTO[draft.fotoEncuadre] ?? POSICION_FOTO.centro,
               transition: 'background-position 250ms ease',

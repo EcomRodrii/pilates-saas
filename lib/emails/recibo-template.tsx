@@ -1,5 +1,5 @@
 import { Text, Section, Hr, Row, Column } from '@react-email/components';
-import { EmailLayout } from '@/lib/emails/layout';
+import { EmailLayout, EmailButton } from '@/lib/emails/layout';
 // Sin maximumFractionDigits, toLocaleString usa 3 por defecto: el Total de un
 // justificante de pago salía como "249,235 €". formatEuro ya fija los 2.
 import { formatEuro } from '@/lib/utils';
@@ -13,6 +13,11 @@ interface Props {
   estudioNombre?: string;
   logoUrl?: string | null;
   colorPrimario?: string | null;
+  // Enlace a "Mis compras" en el portal, donde la socia puede ver/descargar su
+  // factura (el PDF sigue siendo client-side, ver lib/factura-pdf.ts — no hay
+  // generación server-side todavía). Sin él (envío disparado sin studio.slug
+  // resuelto), el email sale igual, solo sin el botón.
+  url?: string;
 }
 
 export function ReciboEmail({
@@ -24,6 +29,7 @@ export function ReciboEmail({
   estudioNombre = 'Tentare',
   logoUrl,
   colorPrimario,
+  url,
 }: Props) {
   const fecha = new Date(fechaCobro).toLocaleDateString('es-ES', {
     day: 'numeric', month: 'long', year: 'numeric',
@@ -70,6 +76,13 @@ export function ReciboEmail({
           </Column>
         )}
       </Row>
+
+      {url && (
+        <>
+          <Hr style={{ borderColor: '#E5E1DA', margin: '20px 0' }} />
+          <EmailButton href={url} colorPrimario={colorPrimario}>Ver mi factura</EmailButton>
+        </>
+      )}
     </EmailLayout>
   );
 }

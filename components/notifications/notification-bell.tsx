@@ -6,9 +6,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, X, Inbox } from 'lucide-react';
+import { Bell, Check, X, Inbox, PartyPopper } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
+import { supabase } from '@/lib/db/supabase';
+import { useAuth } from '@/lib/auth-context';
+import { EVENTOS } from '@/lib/notifications/catalog';
+import { reproducirChaChing } from '@/lib/notifications/sound';
 
 // Esta campana es la del PANEL: enseña lo que NO es de socia, y de todas las
 // sedes de la cadena (un pago fallido de la sede B tiene que verse aunque estés
@@ -30,11 +34,23 @@ function haceCuanto(iso: string): string {
   return `hace ${d} d`;
 }
 
+// Fila cruda de `postgres_changes` sobre `notification` (snake_case de la
+// tabla) — distinta de `NotifItem` (camelCase de /api/notifications) porque
+// aquí llega directa de Realtime, sin pasar por la API.
+interface FilaNotification {
+  id: string; title: string; body: string; deep_link: string | null;
+  category: NotifItem['category']; priority: NotifItem['priority'];
+  event_type: string; resource_type: string | null; resource_id: string | null;
+  created_at: string;
+}
+
 export function NotificationBell() {
   const router = useRouter();
+  const { user } = useAuth();
   const [abierto, setAbierto] = useState(false);
   const [items, setItems] = useState<NotifItem[]>([]);
   const [unread, setUnread] = useState(0);
+  const [ventaToast, setVentaToast] = useState<{ title: string; body: string } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
@@ -57,6 +73,69 @@ export function NotificationBell() {
     document.addEventListener('visibilitychange', alVolver);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
   }, [cargar]);
+
+  // Tiempo real solo para `venta.registrada` (petición del fundador: la venta
+  // tiene que verse AL MOMENTO, no esperar hasta 60s del polling de arriba).
+  // No se convierte TODO el sistema a realtime — el resto sigue con el tic de
+  // 60s, que ya basta para lo que no es "dinero entrando ahora mismo".
+  //
+  // RLS de `notification` (recipient_user_id = auth.uid(), migr
+  // 20260805195208) es también la frontera de Realtime: el filtro de abajo por
+  // `recipient_user_id` es defensa en profundidad, no la cerradura — cada
+  // usuaria solo puede llegar a recibir SUS PROPIAS filas exista o no el
+  // filtro.
+  useEffect(() => {
+    if (!user?.id) return;
+    const uid = user.id;
+    let vivo = true;
+    let canal: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!vivo) return;
+      await supabase.realtime.setAuth(data.session?.access_token ?? null);
+      if (!vivo) return;
+      canal = supabase
+        .channel(`notification:${uid}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notification', filter: `recipient_user_id=eq.${uid}` },
+          payload => {
+            const fila = payload.new as unknown as FilaNotification;
+            if (fila.event_type !== EVENTOS.VENTA_REGISTRADA) return;
+            const item: NotifItem = {
+              id: fila.id, title: fila.title, body: fila.body, deepLink: fila.deep_link,
+              category: fila.category, priority: fila.priority, eventType: fila.event_type,
+              resourceType: fila.resource_type, resourceId: fila.resource_id,
+              readAt: null, createdAt: fila.created_at,
+            };
+            setItems(prev => (prev.some(x => x.id === item.id) ? prev : [item, ...prev]));
+            setUnread(u => u + 1);
+            setVentaToast({ title: fila.title, body: fila.body });
+            reproducirChaChing();
+          },
+        )
+        .subscribe();
+    })();
+    // Mismo motivo que studio-context.tsx (instructores en tiempo real): el JWT
+    // de sesión rota cada ~1h y, sin reenviarlo al canal, la RLS deja de
+    // autorizar la suscripción EN SILENCIO.
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && vivo) {
+        void supabase.realtime.setAuth(session?.access_token ?? null);
+      }
+    });
+    return () => {
+      vivo = false;
+      authSub.subscription.unsubscribe();
+      if (canal) supabase.removeChannel(canal);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!ventaToast) return;
+    const t = setTimeout(() => setVentaToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [ventaToast]);
 
   // Cerrar al hacer clic fuera.
   useEffect(() => {
@@ -90,6 +169,29 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
+      {ventaToast && (
+        <div
+          role="status"
+          onClick={() => { setVentaToast(null); setAbierto(true); }}
+          className="fixed top-4 right-4 z-[60] w-[320px] max-w-[calc(100vw-24px)] flex items-start gap-3 bg-card border border-border rounded-2xl shadow-2xl px-4 py-3 cursor-pointer animate-in fade-in slide-in-from-top-2"
+        >
+          <span className="mt-0.5 flex items-center justify-center w-8 h-8 rounded-full bg-brand/10 text-brand shrink-0">
+            <PartyPopper size={16} />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[13px] font-bold text-foreground">{ventaToast.title}</span>
+            <span className="block text-[12.5px] text-muted-foreground leading-snug mt-0.5">{ventaToast.body}</span>
+          </span>
+          <span
+            onClick={(e) => { e.stopPropagation(); setVentaToast(null); }}
+            className="text-muted-foreground/60 hover:text-destructive shrink-0"
+            aria-label="Cerrar"
+            role="button"
+          >
+            <X size={14} />
+          </span>
+        </div>
+      )}
       <button
         onClick={() => setAbierto(o => !o)}
         aria-label="Notificaciones"
