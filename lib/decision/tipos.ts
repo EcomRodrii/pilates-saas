@@ -6,6 +6,7 @@ import type {
   Socio, Reserva, Sesion, Sala, Recibo, Suscripcion, PlanTarifa, TipoClase,
   Instructor, Campana, AutomationLog,
 } from '@/lib/types';
+import type { Prediccion } from './prediccion.ts';
 
 export type EspecialistaId = 'RETENCION' | 'INGRESOS' | 'AGENDA' | 'CAPTACION' | 'MARKETING' | 'FINANZAS' | 'EQUIPO' | 'ONBOARDING';
 
@@ -73,6 +74,12 @@ export interface Candidata {
   riesgo: Riesgo;
   impacto?: Impacto;
   confianza: Confianza;
+  // Probabilidad de que el hecho ocurra, cuando hay historial suficiente para
+  // estimarla (prediccion.ts). Opcional a propósito y distinta de `confianza`:
+  // `confianza` es cuánto se fía el motor de su diagnóstico, esto es cómo de
+  // probable es el hecho. Ausente = no hay muestra para afirmar nada, que NO
+  // significa probabilidad cero.
+  prediccion?: Prediccion;
   accion: AccionDecision;
   socioId?: string;
   sesionId?: string;

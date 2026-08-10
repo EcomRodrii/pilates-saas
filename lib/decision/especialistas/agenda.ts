@@ -8,6 +8,7 @@ import {
   variacionOcupacionFranja, type IndicesSenal, type FranjaRecurrente,
 } from '../senales.ts';
 import { confianzaSesionInfrautilizada, confianzaOcupacionBajaEstructural, confianzaMoverHorario } from '../confianza.ts';
+import { TZ_ESTUDIO } from '../../utils.ts';
 
 const MS_DIA = 86400000;
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
@@ -23,12 +24,17 @@ const A2_MIN_CLASES = 8;        // por debajo de esto es un estudio recién arra
 const A2_MIN_VACIAS = 6;        // nº de clases casi vacías para que valga la pena avisar
 const A2_PROPORCION_ALTA = 0.4; // fracción de clases casi vacías que sube la confianza
 
-/** Día de la semana + hora de una franja, en formato legible (es-ES, UTC). */
+/**
+ * Día de la semana + hora de una franja, en formato legible (es-ES) y en la
+ * hora LOCAL del estudio. Iba en UTC: en horario de verano español una clase
+ * de las 20:00 se le presentaba a la propietaria como "tu clase de las 18:00",
+ * que es una hora a la que no tiene ninguna clase. Ver franjaLocalDe (senales.ts).
+ */
 function etiquetaFranja(referencia: FranjaRecurrente['sesionesOrdenadas'][number]): { diaSemana: string; hora: string } {
   const inicio = new Date(referencia.inicio);
   return {
-    diaSemana: inicio.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' }),
-    hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }),
+    diaSemana: inicio.toLocaleDateString('es-ES', { weekday: 'long', timeZone: TZ_ESTUDIO }),
+    hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ_ESTUDIO }),
   };
 }
 
@@ -158,9 +164,8 @@ function reglaA1(clave: string, franja: FranjaRecurrente, s: SnapshotEstudio, id
 
   const referencia = franja.sesionesOrdenadas[0];
   const tipo = idx.tipoClasePorId.get(referencia.tipoClaseId);
-  const inicioRef = new Date(referencia.inicio);
-  const diaSemana = inicioRef.toLocaleDateString('es-ES', { weekday: 'long', timeZone: 'UTC' });
-  const hora = inicioRef.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+  // Misma etiqueta que A3 — un solo sitio que decide cómo se nombra una franja.
+  const { diaSemana, hora } = etiquetaFranja(referencia);
 
   const ocupacionMedia = ultimas3.reduce((a, b) => a + b, 0) / ultimas3.length;
   const asistentesMedios = redondear1(ocupacionMedia * referencia.aforoMaximo);

@@ -804,3 +804,35 @@ Lo que sí se tomó de la idea de ECC: agentes especializados con propósito muy
 reglas siempre cargadas, y un loop de calidad disciplinado — construido nativamente con lo
 que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 <!-- END:tentare-development-os -->
+
+## Tentare Brain = Decision OS (no construir uno nuevo)
+
+El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
+(`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0 y 1 entregadas (2026-08-11);
+Fases 2–5 pendientes.** No duplicar la capa: los especialistas nuevos se
+añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
+
+- **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
+  cuánto se fía el motor de su diagnóstico; `Prediccion` es la probabilidad de
+  que el hecho ocurra. Con menos de `MUESTRA_MINIMA` (5) observaciones devuelve
+  **`null`, nunca un número** — y `null` NO es probabilidad cero. Quien lo pinte
+  enseña siempre `base` (las cifras que lo sostienen) junto al porcentaje.
+- ⚠️ **Nadie muta un `SnapshotEstudio` después de construirlo.** `construirIndices`
+  cachea por identidad de objeto en un `WeakMap` (medido: 389 ms → 35 ms por
+  análisis en un estudio de 850 socias). Si alguna vez hace falta cambiar un
+  snapshot, se clona; modificarlo en sitio deja los índices viejos en silencio.
+- **Las franjas recurrentes van en hora LOCAL del estudio**, no UTC
+  (`franjaLocalDe`/`claveFranjaDe` en `senales.ts`). Con UTC, una clase de 00:30
+  caía en el día anterior y una clase semanal se partía en dos franjas al cruzar
+  el cambio de hora. `claveFranjaDe` es la única fuente del formato.
+- **Nunca un porcentaje sin respaldo en pantalla.** La card de sustituciones
+  enseñaba "Compatibilidad 87 %" que era `LEAST(99, GREATEST(55, score))` sobre
+  una heurística fija — dos candidatas opuestas salían las dos al 99 %. Separado
+  en *encaje* (barra, sin cifra) y *probabilidad* real
+  (`lib/sustituciones/encaje.ts`), que solo aparece si hay historial.
+- **Historial de sustituciones**: una oferta es un par (candidata, sustitución),
+  no una fila de `sustitucion_contactos` (a una candidata se le avisa por email y
+  luego por WhatsApp). Y el silencio cuenta como "no aceptó": **nadie escribe
+  nunca el estado `'expirado'`**, así que contar solo aceptado+rechazado daría
+  100 % a quien contesta 1 de cada 10 veces.

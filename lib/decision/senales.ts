@@ -5,6 +5,7 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
+import { TZ_ESTUDIO } from '../utils.ts';
 
 export interface IndicesSenal {
   socioPorId: Map<string, Socio>;
@@ -48,7 +49,35 @@ function ordenarDesc(reservas: Reserva[]): Reserva[] {
   return [...reservas].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 }
 
+// Los índices de un snapshot dado, calculados UNA vez.
+//
+// Cada especialista llamaba a construirIndices() por su cuenta y motor.ts una
+// novena vez, así que el mismo trabajo se repetía 9 veces por análisis: medido
+// sobre un snapshot de tamaño realista (cadena de 2 sedes, 850 socias, 30.000
+// reservas de 180 días) son ~690 ms tirados por estudio y por pasada.
+//
+// Se resuelve aquí y no cambiando la firma de Especialista.detectar() porque
+// el snapshot es de solo lectura de punta a punta del pipeline (lo construye
+// `construirSnapshot` y nadie lo muta), así que cachear por identidad de objeto
+// es correcto por construcción y no obliga a tocar los 8 especialistas ni sus
+// tests. WeakMap y no Map: cuando el análisis del estudio termina y el snapshot
+// deja de estar referenciado, su entrada se recoge sola — sin fugas entre los
+// estudios de un mismo fan-out.
+//
+// ⚠️ La condición que lo sostiene: NADIE muta un SnapshotEstudio después de
+// construirlo. Si algún día hiciera falta, hay que clonar el snapshot, no
+// modificarlo en sitio — si no, los índices quedarían viejos en silencio.
+const INDICES_POR_SNAPSHOT = new WeakMap<SnapshotEstudio, IndicesSenal>();
+
 export function construirIndices(s: SnapshotEstudio): IndicesSenal {
+  const cacheado = INDICES_POR_SNAPSHOT.get(s);
+  if (cacheado) return cacheado;
+  const indices = calcularIndices(s);
+  INDICES_POR_SNAPSHOT.set(s, indices);
+  return indices;
+}
+
+function calcularIndices(s: SnapshotEstudio): IndicesSenal {
   const asistidasPorSocioRaw = agrupar(s.reservas.filter(r => r.estado === 'ASISTIDA'), r => r.socioId);
   const todasPorSocioRaw = agrupar(s.reservas, r => r.socioId);
 
@@ -390,6 +419,40 @@ export interface FranjaRecurrente {
   ocupaciones: number[]; // ratio ocupadas/aforo, alineado con sesionesOrdenadas
 }
 
+// ── Franja horaria LOCAL del estudio ────────────────────────────────────────
+// Las sesiones son `timestamptz` absolutos. Agrupar "el martes a las 20:00" por
+// UTC parece equivalente y no lo es: España cambia de offset dos veces al año,
+// así que la MISMA clase semanal cae en 18:00 UTC en verano y 19:00 UTC en
+// invierno — la franja recurrente se parte en dos al cruzar el cambio de hora,
+// y una clase de 00:30 del martes se agrupa como lunes 22:30. Peor todavía, la
+// etiqueta que lee la propietaria decía la hora UTC ("tu clase de las 18:00"
+// para una clase de las 20:00). Mismo criterio que ya aplicó motor.ts al saludo
+// del Director: la hora local del estudio, nunca UTC.
+const DOW_POR_ETIQUETA: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+// `hourCycle: 'h23'` y no `hour12: false`: este último devuelve "24" a
+// medianoche en algunas versiones de ICU, que rompería la clave de franja.
+const FORMATO_FRANJA_LOCAL = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ_ESTUDIO, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+export interface FranjaLocal {
+  dow: number;    // 0=domingo..6=sábado, en hora del estudio
+  hora: number;
+  minuto: number;
+}
+
+/** Día de la semana + hora de una sesión, en la zona horaria del estudio. */
+export function franjaLocalDe(inicioISO: string): FranjaLocal {
+  let dow = 0, hora = 0, minuto = 0;
+  for (const p of FORMATO_FRANJA_LOCAL.formatToParts(new Date(inicioISO))) {
+    if (p.type === 'weekday') dow = DOW_POR_ETIQUETA[p.value] ?? 0;
+    else if (p.type === 'hour') hora = Number(p.value) % 24;
+    else if (p.type === 'minute') minuto = Number(p.value);
+  }
+  return { dow, hora, minuto };
+}
+
 /**
  * Agrupa sesiones YA celebradas por franja recurrente (mismo día de la semana +
  * hora + tipo de clase), acotado a una ventana reciente — mismo patrón P0-19
@@ -403,8 +466,7 @@ export function agruparFranjasRecurrentes(idx: IndicesSenal, s: SnapshotEstudio,
     if (se.cancelada) continue;
     const t = new Date(se.inicio).getTime();
     if (t > now.getTime() || t < desde) continue;
-    const inicio = new Date(se.inicio);
-    const clave = `${inicio.getUTCDay()}-${inicio.getUTCHours()}:${String(inicio.getUTCMinutes()).padStart(2, '0')}-${se.tipoClaseId}`;
+    const clave = claveFranjaDe(se);
     const grupo = grupos.get(clave) ?? [];
     grupo.push(se);
     grupos.set(clave, grupo);
@@ -446,10 +508,15 @@ export function variacionOcupacionFranja(franja: FranjaRecurrente, n: number): V
   return { pctVariacion: (mediaReciente - mediaAnterior) / mediaAnterior, mediaReciente, mediaAnterior };
 }
 
-/** Clave de franja recurrente de una sesión (mismo formato que agruparFranjasRecurrentes). */
+/**
+ * Clave de franja recurrente de una sesión — la ÚNICA fuente del formato, que
+ * usa también agruparFranjasRecurrentes. En hora local del estudio (ver
+ * franjaLocalDe): con UTC, la misma clase semanal cambiaba de clave al cruzar
+ * el cambio de hora y la franja no llegaba nunca a las ocurrencias mínimas.
+ */
 export function claveFranjaDe(se: Sesion): string {
-  const inicio = new Date(se.inicio);
-  return `${inicio.getUTCDay()}-${inicio.getUTCHours()}:${String(inicio.getUTCMinutes()).padStart(2, '0')}-${se.tipoClaseId}`;
+  const { dow, hora, minuto } = franjaLocalDe(se.inicio);
+  return `${dow}-${hora}:${String(minuto).padStart(2, '0')}-${se.tipoClaseId}`;
 }
 
 /** ¿La franja sigue viva? — hay al menos una sesión FUTURA no cancelada en ella. */
