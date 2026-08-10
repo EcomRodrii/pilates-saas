@@ -162,6 +162,15 @@ export default function EquipoPage() {
   // nunca la pinta directamente, así que no es una fuga nueva.
   const [tarifas, setTarifas] = useState<Record<string, number | null>>({});
   const [tarifaHoraInput, setTarifaHoraInput] = useState('');
+  // El `min={0}` del input es solo una pista visual del navegador — no impide
+  // escribir un negativo. El servidor (app/api/equipo/tarifas/route.ts) ya lo
+  // rechazaba con un 400 y su mensaje de error, pero el diálogo se cerraba
+  // igual (updateInstructor había ido bien) y ese error solo se veía en un
+  // toast fácil de perder — parecía que "no había pasado nada" (#869).
+  // Bloquear el guardado aquí, antes del round-trip, lo hace imposible de
+  // pasar por alto.
+  const tarifaValida = tarifaHoraInput.trim() === ''
+    || (Number.isFinite(Number(tarifaHoraInput)) && Number(tarifaHoraInput) >= 0 && Number(tarifaHoraInput) <= 999.99);
 
   useEffect(() => {
     let vivo = true;
@@ -642,6 +651,11 @@ export default function EquipoPage() {
                   />
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">€/h</span>
                 </div>
+                {!tarifaValida && (
+                  <p role="alert" className="text-[11px] text-destructive mt-1">
+                    Tiene que ser un número entre 0 y 999,99 €/h.
+                  </p>
+                )}
               </div>
             )}
 
@@ -665,7 +679,7 @@ export default function EquipoPage() {
 
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setModal(null)} className="px-4 py-2 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted">Cancelar</button>
-              <button onClick={guardar} disabled={!form.nombre.trim() || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
+              <button onClick={guardar} disabled={!form.nombre.trim() || !tarifaValida || guardando} className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold disabled:opacity-40">
                 {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {guardando ? 'Guardando…' : 'Guardar'}
               </button>
