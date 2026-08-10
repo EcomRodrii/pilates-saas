@@ -17,6 +17,10 @@ export interface NotifItem {
   resourceId: string | null;
   readAt: string | null;
   createdAt: string;
+  // Solo relevante en el ámbito `staff`, que no acota por sede a propósito
+  // (ver lib/notifications/ambito.ts) — el cliente lo usa para etiquetar de
+  // qué sede es cada aviso cuando la cuenta tiene más de una.
+  studioId: string | null;
 }
 
 type Headers = () => Promise<Record<string, string>>;

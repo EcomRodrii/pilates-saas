@@ -16,7 +16,7 @@ import { filtroDeAmbito, ambitoDeCompatibilidad, parsearAmbito, type FiltroAmbit
 
 export const dynamic = 'force-dynamic';
 
-const COLS = 'id, title, body, deep_link, category, priority, event_type, resource_type, resource_id, read_at, created_at';
+const COLS = 'id, title, body, deep_link, category, priority, event_type, resource_type, resource_id, read_at, created_at, studio_id';
 
 function mapRow(r: Record<string, unknown>) {
   return {
@@ -24,6 +24,12 @@ function mapRow(r: Record<string, unknown>) {
     category: r.category, priority: r.priority, eventType: r.event_type,
     resourceType: r.resource_type ?? null, resourceId: r.resource_id ?? null,
     readAt: r.read_at ?? null, createdAt: r.created_at,
+    // El ámbito `staff` deja `studio_id` sin acotar A PROPÓSITO (ver
+    // lib/notifications/ambito.ts): una propietaria de varias sedes ve en la
+    // misma campana los avisos de todas. Sin esto, la campana no da ninguna
+    // pista de a qué sede pertenece cada aviso — el cliente lo usa para
+    // etiquetarlo cuando `misEstudios.length > 1` (notification-bell.tsx).
+    studioId: r.studio_id ?? null,
   };
 }
 
