@@ -538,6 +538,26 @@ export async function dbListMensajesRecientes(studioId: string, now: Date, dias 
   return (data ?? []).map(row => mapMensajeDia(row as RowMensajeDia));
 }
 
+// Una semana es "silenciosa" si el Umbral no encontró NADA que mereciera
+// interrumpir a la propietaria en los 7 días [lunes, domingo] (ambos
+// inclusive, YYYY-MM-DD) — cero filas `tipo='MENSAJE'`. Rango FIJO de
+// calendario, a diferencia de `dbListMensajesRecientes` (ventana rodante
+// "últimos N días" pensada para la UI) — el resumen semanal necesita saber
+// de la semana que acaba de cerrar, no de "los últimos 7 días" desde hoy.
+// `false` en error: no confirmar "silenciosa" ante un fallo de la propia
+// consulta evita mandar un email de "semana tranquila" falso.
+export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, domingo: string): Promise<boolean> {
+  const { count, error } = await db()
+    .from('decision_mensajes_dia')
+    .select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .eq('tipo', 'MENSAJE')
+    .gte('fecha', lunes)
+    .lte('fecha', domingo);
+  if (error) { reportError('[dbSemanaFueSilenciosa]', error); return false; }
+  return (count ?? 0) === 0;
+}
+
 // Tasa de seguimiento por tipo — base del Umbral adaptativo (Fase 2, ver
 // tentare-os.md "El Umbral no es fijo"). Dos consultas en vez de un join
 // (supabase-js no hace joins arbitrarios sin una FK embed declarada, y aquí
