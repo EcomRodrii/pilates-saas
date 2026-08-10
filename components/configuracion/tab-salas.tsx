@@ -382,12 +382,18 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 value={form.capacidad}
                 onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
               />
-              {form.capacidad !== '' && !capacidadValida && (
-                <p role="alert" className="text-[11px] text-destructive mt-1">
-                  Tiene que ser un número de al menos 1 persona.
-                </p>
-              )}
             </Field>
+            {/* Fuera de <Field>: ese wrapper solo asocia htmlFor/id con el
+                input cuando recibe EXACTAMENTE un hijo (useCampoAsociado,
+                components/ui/use-campo-asociado.ts) — un segundo hijo aquí
+                dentro rompía esa asociación en silencio (el e2e de
+                bajar-capacidad-de-sala.spec.ts dejó de encontrar el campo
+                por su etiqueta). */}
+            {form.capacidad !== '' && !capacidadValida && (
+              <p role="alert" className="text-[11px] text-destructive -mt-2.5">
+                Tiene que ser un número de al menos 1 persona.
+              </p>
+            )}
             <Field
               label="Color identificador"
               description="Sirve para distinguirla de un vistazo en la agenda."
