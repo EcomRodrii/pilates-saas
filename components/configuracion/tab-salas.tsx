@@ -98,9 +98,17 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
   // se deja el aforo en las confirmadas, que es el mínimo honesto: no entra
   // nadie más y las que ya tienen plaza la conservan.
   const guardar = useCallback(async (ajustarClases?: boolean) => {
+    // Antes: `parseInt(form.capacidad, 10) || 1` convertía un 0 escrito a mano
+    // (o cualquier NaN) en 1 EN SILENCIO — el diálogo de aviso de aforo (más
+    // abajo) y el guardado real usaban ese 1, mientras el campo seguía
+    // mostrando "0" (#868). `canGuardar` ya bloquea el botón si no es un
+    // número válido ≥1, así que aquí ya no hace falta ningún valor por
+    // defecto — si esto se ejecuta, form.capacidad es válido.
+    const capacidadNum = parseInt(form.capacidad, 10);
+    if (!Number.isFinite(capacidadNum) || capacidadNum < 1) return;
     const fields = {
       nombre: form.nombre.trim(),
-      capacidad: parseInt(form.capacidad, 10) || 1,
+      capacidad: capacidadNum,
       color: form.color,
     };
     const afectadas = modal === 'editar' && editId ? clasesQueSePasan(editId, fields.capacidad) : [];
@@ -164,7 +172,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
     showToast(res.ok ? 'Sala eliminada' : res.error);
   }, [confirmDel, deleteSala, showToast]);
 
-  const canGuardar = form.nombre.trim() && form.capacidad;
+  // El HTML `min={1}` del input es solo una pista visual del navegador — no
+  // impide escribir 0 (#868) — así que la validez real se comprueba aquí.
+  const capacidadValida = Number.isFinite(parseInt(form.capacidad, 10)) && parseInt(form.capacidad, 10) >= 1;
+  const canGuardar = form.nombre.trim() && capacidadValida;
 
   // F2 (B2.7): averías activas = sin fecha de arreglo, o con arreglo aún futuro.
   // El "ahora" se fija una vez al montar: leer el reloj en render es impuro y
@@ -371,6 +382,11 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                 value={form.capacidad}
                 onChange={e => setForm(f => ({ ...f, capacidad: e.target.value }))}
               />
+              {form.capacidad !== '' && !capacidadValida && (
+                <p role="alert" className="text-[11px] text-destructive mt-1">
+                  Tiene que ser un número de al menos 1 persona.
+                </p>
+              )}
             </Field>
             <Field
               label="Color identificador"
