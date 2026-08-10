@@ -50,7 +50,7 @@ import { VistaSemana } from '@/components/calendario/vista-semana';
 import { VistaMes } from '@/components/calendario/vista-mes';
 import { BuscadorRapido } from '@/components/calendario/buscador-rapido';
 import { PanelSesion, horaTextoSesion, type PestanaSesion } from '@/components/calendario/panel-sesion';
-import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, type EstadoSesion } from '@/lib/calendario-estado';
+import { estadoSesion, pideDecision, sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA, MENSAJE_CLASE_AUN_NO_EMPEZADA, type EstadoSesion } from '@/lib/calendario-estado';
 import { prepararColumnasSalaDia, prepararColumnasDiaSemana, type SesionColumna, type SesionSemana } from '@/lib/calendario-columnas';
 import { agregarPorDiaMes, type SesionMes, type DiaMes } from '@/lib/calendario-mes';
 import { type SesionBuscable } from '@/lib/calendario-busqueda';
@@ -2322,7 +2322,9 @@ export default function Calendario() {
           clientas={{
             reservas: reservasActuales,
             nombreClienta: nombreClientaResolver,
-            onCheckin: checkin, onNoShow: marcarNoShow,
+            onCheckin: checkin,
+            checkinBloqueadoPor: sesionYaEmpezada(sesionActual.inicio) ? undefined : MENSAJE_CLASE_AUN_NO_EMPEZADA,
+            onNoShow: marcarNoShow,
             onDeshacerCheckin: deshacerCheckin, onRevertirNoShow: revertirNoShow,
             onAprobar: id => resolverPendiente(id, true), onRechazar: id => resolverPendiente(id, false),
             onQuitar: gestionaClientas ? cancelarReserva : undefined,
@@ -2472,7 +2474,7 @@ export default function Calendario() {
           spots={spotsActuales.length > 0 ? spotsActuales : null}
           reservasConSocio={reservasActuales}
           socios={socios}
-          onCheckinSpot={checkin}
+          onCheckinSpot={sesionYaEmpezada(sesionActual.inicio) ? checkin : undefined}
           onLiberarSpot={liberarSpot}
           onAsignarSpot={(spotId, socioId) => sesionActual && asignarSpot(sesionActual.id, socioId, spotId)}
         />

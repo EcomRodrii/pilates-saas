@@ -80,8 +80,13 @@ export function resumenSocio({
     .map(r => sesionById.get(r.sesionId))
     .filter((s): s is Sesion => !!s)
     .sort((a, b) => b.inicio.localeCompare(a.inicio))[0]?.inicio ?? null;
+  // Red de seguridad, no la corrección real (#870: el check-in ya no debería
+  // poder marcarse sobre una clase futura). Si por lo que sea la fecha de
+  // "última asistencia" queda en el futuro, mostrar "Hace -1 días" es peor
+  // que mostrar "Hoy" — es un valor sin sentido que mina la confianza en el
+  // resto de los datos.
   const diasSinVenir = ultimaAsistidaFecha
-    ? Math.floor((now.getTime() - new Date(ultimaAsistidaFecha).getTime()) / 86400000)
+    ? Math.max(0, Math.floor((now.getTime() - new Date(ultimaAsistidaFecha).getTime()) / 86400000))
     : null;
 
   // Hallazgo A (auditoria dunning 2026-08-10): una ACTIVA con fecha_fin ya
