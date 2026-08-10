@@ -524,16 +524,19 @@ export async function emitirInstructoraAusencia(
 }
 
 // Sustitución rechazada: la candidata dice que no → la dueña debe elegir a otra.
+// `siguiente` es la frase que cierra el aviso, y la decide quien llama porque
+// depende del modo de autonomía: en asistido le toca buscar a ella, en autónomo
+// el motor ya ha preguntado a la siguiente y solo se le está contando.
 export async function emitirSustitucionRechazada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string },
+  p: { studioId: string; sesionId: string; instructorId: string; sustitucionId: string; siguiente: string },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: instr } = await admin.from('instructores').select('nombre').eq('id', p.instructorId).maybeSingle();
     await publish({
       type: EVENTOS.SUSTITUCION_RECHAZADA, studioId: p.studioId,
-      data: { ...ctx, instructora: (instr?.nombre as string | null) ?? 'Una instructora' },
+      data: { ...ctx, instructora: (instr?.nombre as string | null) ?? 'Una instructora', siguiente: p.siguiente },
       resource: { type: 'sustitucion', id: p.sustitucionId },
       dedupKey: `sustitucion-rechazada:${p.sustitucionId}:${p.instructorId}`,
     });

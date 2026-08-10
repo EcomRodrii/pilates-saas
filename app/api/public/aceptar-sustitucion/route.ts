@@ -60,6 +60,24 @@ export async function POST(req: NextRequest) {
       .update({ estado: 'rechazado', respondido_en: new Date().toISOString() })
       .eq('token', body?.token ?? '');
 
+    // El "no puedo" tiene que llegar a la propietaria SIEMPRE, no solo en modo
+    // asistido: en autónomo el motor avanzaba a la siguiente candidata en
+    // silencio absoluto y en el panel no aparecía absolutamente nada, así que
+    // la propietaria no tenía forma de saber que su instructora había
+    // contestado. Es aviso de campana (`canales: []` en el catálogo), no push:
+    // en autónomo no hay nada que ella tenga que hacer — se le está contando,
+    // no se le está pidiendo. Qué frase cierra el aviso lo decide cada camino.
+    const { data: sus } = await admin.from('sustituciones')
+      .select('sesion_id').eq('id', sustitucionId).eq('studio_id', claim.studioId).maybeSingle();
+    const sesionId = (sus?.sesion_id as string | null) ?? null;
+    const avisarRechazo = async (siguiente: string) => {
+      if (!sesionId) return;
+      const { emitirSustitucionRechazada } = await import('@/lib/notifications/emit');
+      await emitirSustitucionRechazada(admin, {
+        studioId: claim.studioId, sesionId, instructorId: claim.instructorId, sustitucionId, siguiente,
+      });
+    };
+
     // En modo AUTÓNOMO, un rechazo explícito debe AVANZAR al siguiente del ranking,
     // igual que el auto-avance por no responder. Antes se ponía SIEMPRE
     // pendiente_aprobacion: en autónomo el escalado se apagaba (exige 'contactando') y
@@ -80,15 +98,25 @@ export async function POST(req: NextRequest) {
             name: EVENTS.SUSTITUCION_CONTACTADA,
             data: { sustitucionId, studioId: claim.studioId, instructorId: avance.instructorId, idx: avance.idx },
           });
+          const { data: sig } = await admin.from('instructores')
+            .select('nombre').eq('id', avance.instructorId).eq('studio_id', claim.studioId).maybeSingle();
+          await avisarRechazo(sig?.nombre
+            ? `Ya se lo hemos preguntado a ${sig.nombre}.`
+            : 'Ya se lo hemos preguntado a la siguiente de la lista.');
           return NextResponse.json({ ok: true, rechazado: true, avanzada: true });
         }
         // Ranking agotado: marca 'agotada' (compare-and-set) y alerta a la dueña.
         await admin.from('sustituciones')
           .update({ estado: 'agotada' })
           .eq('id', sustitucionId).eq('studio_id', claim.studioId).eq('estado', 'contactando');
+        // Las dos cosas, no una: `alertarPropietaria` sale por email/WhatsApp y
+        // el aviso de campana no existe hasta aquí — no son el mismo canal.
+        await avisarRechazo('No queda nadie más a quien preguntar.');
         await alertarPropietaria(admin, { studioId: claim.studioId, sesion: v.sesion, tipo: 'agotada' });
         return NextResponse.json({ ok: true, rechazado: true, agotada: true });
       }
+      // El escalado ya había avanzado por su cuenta antes de este tap.
+      await avisarRechazo('Ya estábamos preguntando a otra persona.');
       return NextResponse.json({ ok: true, rechazado: true });
     }
 
@@ -97,15 +125,7 @@ export async function POST(req: NextRequest) {
       .update({ estado: 'pendiente_aprobacion' })
       .eq('id', sustitucionId).eq('studio_id', claim.studioId).eq('estado', 'contactando');
     // Notification Engine: la dueña debe elegir a otra candidata.
-    const { data: sus } = await admin.from('sustituciones')
-      .select('sesion_id').eq('id', sustitucionId).eq('studio_id', claim.studioId).maybeSingle();
-    if (sus?.sesion_id) {
-      const { emitirSustitucionRechazada } = await import('@/lib/notifications/emit');
-      await emitirSustitucionRechazada(admin, {
-        studioId: claim.studioId, sesionId: sus.sesion_id as string,
-        instructorId: claim.instructorId, sustitucionId,
-      });
-    }
+    await avisarRechazo('Busca otra opción.');
     return NextResponse.json({ ok: true, rechazado: true });
   }
 
