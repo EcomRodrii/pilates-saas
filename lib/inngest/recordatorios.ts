@@ -10,6 +10,7 @@
 // propios y concurrencia acotada — hallazgo M-5 de la auditoría 2026-07-29.
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 import { enviarRecordatoriosClasesProximas } from '@/lib/db/supabase-data-admin';
 
 // Dispatcher: diario a las 08:00 UTC (misma hora que tenía el Vercel Cron, ver
@@ -29,9 +30,7 @@ export const recordatoriosDispatcher = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       // `suspendido_en`: un estudio suspendido no debe seguir mandando
       // recordatorios de clase a sus socias.
-      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      return idsEstudios(admin);
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-recordatorios', EVENTS.RECORDATORIOS_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, desdeISO, hastaISO }));

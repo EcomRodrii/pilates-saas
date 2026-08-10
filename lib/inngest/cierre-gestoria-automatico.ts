@@ -17,6 +17,7 @@
 // hasta que hubiera facturas, en vez de solo una vez por trimestre real.
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { generarYEnviarCierreGestoria } from '@/lib/fiscal/cierre-envio-server';
 
 function trimestreQueAcabaDeCerrar(hoy: Date): { anio: number; trimestre: 1 | 2 | 3 | 4 } | null {
@@ -40,12 +41,18 @@ export const cierreGestoriaAutomaticoDispatcher = inngest.createFunction(
       if (!periodo) return { skipped: 'no toca hoy' };
       const clavePeriodo = `${periodo.anio}-T${periodo.trimestre}`;
 
-      const { data: studios } = await admin
-        .from('studios')
-        .select('id, gestoria_email, gestoria_ultimo_envio_periodo')
-        .eq('gestoria_envio_automatico', 'trimestral')
-        .not('gestoria_email', 'is', null);
-      if (!studios?.length) return { revisados: 0, enviados: 0 };
+      // Paginado: PostgREST corta a 1.000 filas en silencio, y aquí eso sería
+      // un estudio al que no le llega el cierre trimestral a su gestoría.
+      const { data: studios } = await fetchAllRows<{ id: string; gestoria_email: string | null; gestoria_ultimo_envio_periodo: string | null }>(
+        '(global)', 'studios',
+        (from, to) => admin
+          .from('studios')
+          .select('id, gestoria_email, gestoria_ultimo_envio_periodo')
+          .eq('gestoria_envio_automatico', 'trimestral')
+          .not('gestoria_email', 'is', null)
+          .range(from, to),
+      );
+      if (!studios.length) return { revisados: 0, enviados: 0 };
 
       let enviados = 0;
       for (const s of studios) {

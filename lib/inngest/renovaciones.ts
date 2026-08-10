@@ -15,6 +15,7 @@
 // crons (07:00 automatizaciones, 06:30/14:30 Decision OS).
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -28,9 +29,7 @@ export const renovacionesDispatcher = inngest.createFunction(
       // para cobro manual — el dunning ya filtra por Stripe conectado al cobrar.
       // `suspendido_en`: un estudio suspendido no debe seguir generando
       // recibos de renovación en su nombre.
-      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      return idsEstudios(admin);
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-renovaciones', EVENTS.RENOVACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));

@@ -186,14 +186,17 @@ fuera del corte dejan de existir para el sistema**: sin backups, sin
 recordatorios, sin renovaciones, sin dunning, sin análisis del Decision OS. En
 silencio.
 
-**Dónde está.** 16 sitios, todos con la misma forma
-(`admin.from('studios').select('id')…` sin `.range()`):
-`backups.ts:39`, `recordatorios.ts:32`, `renovaciones.ts:31`,
-`revisiones-salud.ts:25`, `valoraciones.ts:34`, `resumen-semanal.ts:22`,
-`decision.ts:55`, `automatizaciones.ts:345`, `dunning.ts:30`,
-`penalizaciones.ts:27`, `conciliar-cobros.ts:212`,
-`cierre-gestoria-automatico.ts:44,63`, `confirmacion-riesgo.ts:78,179`,
-`notif-automations.ts:33`.
+**Dónde está.** **14 sitios** (no 16 — al implementarlo se comprobó que
+`penalizaciones.ts:27` lee UN estudio, no una lista, y
+`cierre-gestoria-automatico.ts:63` es un `update`, no un `select`; ninguno de los
+dos trunca):
+
+- **7 con la forma idéntica** `select('id')` + filtro de suspendidos:
+  `backups.ts`, `recordatorios.ts`, `renovaciones.ts`, `revisiones-salud.ts`,
+  `valoraciones.ts`, `resumen-semanal.ts`, `notif-automations.ts`.
+- **7 con columnas o filtros propios**: `decision.ts`, `automatizaciones.ts`,
+  `confirmacion-riesgo.ts` (×2), `dunning.ts`, `conciliar-cobros.ts`,
+  `cierre-gestoria-automatico.ts`.
 
 **Por qué ocurre.** Es la misma causa que C-2 (PostgREST corta a 1.000 en
 silencio), pero sobre una tabla que crece con **clientes**, no con uso. Por eso
@@ -202,13 +205,18 @@ el umbral es distinto y mucho más lejano: exactamente 1.000 estudios.
 **Impacto actual / 100 / 1.000.** Nulo · nulo · **total a partir del estudio
 1.001**. Es el único hallazgo de este informe con un umbral exacto y conocido.
 
-**Solución recomendada.** Un único helper `listarStudiosActivos()` paginado, y
-sustituir los 16 sitios por él — no 16 copias de `fetchAllRows`. Es mecánico pero
-toca 16 ficheros, así que **no se ha incluido en el arreglo de C-2**: medio
-arreglarlo (3 de 16) daría sensación de cobertura sin tenerla.
+**Solución aplicada.** No un helper único para los 14, como decía la primera
+versión de este informe: al mirarlos de cerca, la mitad usa columnas o filtros
+propios (`stripe_account_id`, `pedir_confirmacion_riesgo`, `plan`,
+`gestoria_email`…), y forzarlos todos por un mismo helper lo habría hecho crecer
+en opciones hasta dejar de ser uno. Se hizo lo que encaja con la variación real:
 
-**Prioridad.** Baja en tiempo (hay 100× de margen), alta en facilidad. Buen
-candidato a hacerlo de una pasada antes de pasar de ~500 estudios.
+- `idsEstudios()` (`lib/inngest/estudios.ts`) para los **7 idénticos**, con un
+  único parámetro `incluirSuspendidos` porque `backups` deliberadamente no filtra
+  suspendidos (los backups son continuidad de datos, no comunicación).
+- `fetchAllRows` directo en los **7 con forma propia**.
+
+**Prioridad.** Baja en tiempo (hay 100× de margen), alta en facilidad.
 
 **Riesgo si no se corrige.** Con 10 estudios hoy, ninguno a corto plazo. El
 peligro real es que se olvide: el fallo aparecería de golpe, afectando solo a los
@@ -416,12 +424,13 @@ Siguiendo tu regla final (estabilidad antes que funcionalidad):
    código, y para la sangría de hoy. ⬅️ **PENDIENTE, requiere el panel de Stripe**
 2. ✅ **C-1(2)** — paginar `conciliar-cobros` + aviso al tocar el techo. *Hecho.*
 3. ✅ **C-2** — paginado en los 5 crons globales + test de regresión. *Hecho.*
-4. **I-2** — `/api/health` y `/api/health/flujos`, base de las métricas de éxito
+4. ✅ **C-3** — `idsEstudios()` + `fetchAllRows` en los 14 sitios. *Hecho.*
+5. ✅ **I-0** — N+1 de `minimo-asistentes` sustituido por una lectura agregada.
+   *Hecho.*
+6. **I-2** — `/api/health` y `/api/health/flujos`, base de las métricas de éxito
    por flujo crítico.
-5. **I-0** — quitar el N+1 de `minimo-asistentes` (lo destapó el arreglo de C-2).
-6. **I-1** — cursor en los 3 barridos de Vercel.
-7. **I-3** — barrido de detección a 72 h.
-8. **C-3** — helper `listarStudiosActivos()` paginado en los 16 sitios.
+7. **I-1** — cursor en los 3 barridos de Vercel.
+8. **I-3** — barrido de detección a 72 h.
 9. **O-1** — bajar `conciliar-cobros`, `lista-espera-ofertas` y
    `reservas-pendientes` a */10 (−31 % de ticks).
 10. **O-2** — los 2 `auth_rls_initplan`. Lo demás de advisors, no tocar.
@@ -435,11 +444,23 @@ Hecho en `claude/tentare-reliability-standard-a9f76d`:
 - `notif-automations.ts`, `lista-espera-ofertas.ts`, `reservas-pendientes.ts`,
   `minimo-asistentes.ts`, `checkin-automatico.ts` — lecturas globales envueltas
   en `fetchAllRows`.
-- `lib/inngest/crons-paginacion.test.ts` — test de regresión nuevo. **Verificado
-  que falla de verdad**: quitando un `.range()` da `fail 1`; restaurado, `pass 6`.
+- `estudios.ts` (nuevo) + 14 sitios — la lista de estudios de cada fan-out va
+  paginada (C-3).
+- `minimo-asistentes.ts` — el `count` por sesión dentro del bucle pasa a una sola
+  lectura agregada contada en JS (I-0).
+- `lib/inngest/crons-paginacion.test.ts` — test de regresión nuevo, 19 casos.
+  **Verificado que falla de verdad** en las dos familias: quitando un `.range()`
+  a un cron global da `fail 1`, y quitándoselo a `dunning` (lista de estudios)
+  también.
 
-Verificación: `npx tsc --noEmit` limpio · `npm test` **2.095/2.095** ·
-`eslint --max-warnings 0` limpio en los ficheros tocados.
+Verificación: `npx tsc --noEmit` limpio · `npm test` **2.114/2.114** ·
+`eslint lib/inngest --max-warnings 0` limpio.
+
+⚠️ **Nota de método**: en una pasada intermedia faltaba el `import` de
+`fetchAllRows` en `conciliar-cobros.ts` y **la suite pasó igualmente** — el test
+de regresión lee el fuente como texto, así que ve el `.range()` pero no compila
+nada. Lo cazó `tsc`. Son comprobaciones complementarias, no redundantes: el test
+protege la *intención*, `tsc` protege que el código *exista*.
 
 **No verificado end-to-end**: no hay Stripe test mode ni Supabase local en este
 entorno, así que el autopaginado real contra >100 sesiones y el paginado real

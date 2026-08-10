@@ -69,6 +69,44 @@ for (const rel of CRONS_GLOBALES) {
   });
 }
 
+// C-3: la lista de estudios que alimenta CADA fan-out. Si se trunca, un estudio
+// entero deja de existir para el sistema —sin backups, sin recordatorios, sin
+// renovaciones— y no hay error que lo señale. Umbral exacto: 1.000 estudios.
+const DISPATCHERS = [
+  'lib/inngest/backups.ts',
+  'lib/inngest/recordatorios.ts',
+  'lib/inngest/renovaciones.ts',
+  'lib/inngest/revisiones-salud.ts',
+  'lib/inngest/valoraciones.ts',
+  'lib/inngest/resumen-semanal.ts',
+  'lib/inngest/notif-automations.ts',
+  'lib/inngest/decision.ts',
+  'lib/inngest/automatizaciones.ts',
+  'lib/inngest/confirmacion-riesgo.ts',
+  'lib/inngest/dunning.ts',
+  'lib/inngest/conciliar-cobros.ts',
+  'lib/inngest/cierre-gestoria-automatico.ts',
+];
+
+for (const rel of DISPATCHERS) {
+  test(`${rel}: la lista de estudios del fan-out va paginada`, () => {
+    const fuente = leer(rel);
+    for (const s of sentencias(fuente)) {
+      if (!s.includes(".from('studios')")) continue;
+      if (!s.includes('.select(')) continue;
+      // Acotadas a un estudio concreto: no son listas, no truncan.
+      if (s.includes(".eq('id'") || s.includes('.single()') || s.includes('.maybeSingle()')) continue;
+      assert.ok(
+        s.includes('.range(') || s.includes('idsEstudios('),
+        `Lista de estudios sin paginar en ${rel}.\n` +
+        `Pasado el estudio 1.001, los de fuera del corte dejan de recibir este cron EN SILENCIO.\n` +
+        `Usa idsEstudios() (lib/inngest/estudios.ts) o fetchAllRows.\n` +
+        `Fragmento: ${s.trim().slice(0, 220)}`,
+      );
+    }
+  });
+}
+
 test('conciliar-cobros pagina las sesiones de Stripe (no se queda en la primera página)', () => {
   const fuente = leer('lib/inngest/conciliar-cobros.ts');
 

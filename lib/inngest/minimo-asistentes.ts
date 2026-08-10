@@ -66,17 +66,41 @@ export const minimoAsistentesDispatcher = inngest.createFunction(
         : { data: [] as { id: string; minimo_asistentes_por_clase: number | null }[] };
       const minimoTipo = new Map(tipos.map(t => [t.id, t.minimo_asistentes_por_clase]));
 
-      let canceladas = 0;
-      for (const s of sesiones) {
-        const minimo = heredaOverride(minimoTipo.get(s.tipo_clase_id as string) ?? null, minimoEstudio.get(s.studio_id as string) ?? 0);
-        if (minimo <= 0) continue;
-        if (new Date(s.inicio as string).getTime() - ahora.getTime() > DOS_HORAS_MS) continue;
+      // Las que de verdad toca revisar en este tic: con mínimo configurado y ya
+      // dentro de la ventana de corte. Se resuelve ANTES de tocar `reservas`
+      // para no traer las confirmadas de sesiones que no se van a evaluar.
+      const aRevisar = sesiones
+        .map(s => ({
+          s,
+          minimo: heredaOverride(minimoTipo.get(s.tipo_clase_id as string) ?? null, minimoEstudio.get(s.studio_id) ?? 0),
+        }))
+        .filter(({ s, minimo }) => minimo > 0 && new Date(s.inicio).getTime() - ahora.getTime() <= DOS_HORAS_MS);
+      if (!aRevisar.length) return { revisadas: sesiones.length, canceladas: 0 };
 
-        const { count } = await admin
-          .from('reservas').select('id', { count: 'exact', head: true })
-          .eq('sesion_id', s.id).eq('estado', 'CONFIRMADA');
-        if (debeCancelarPorMinimoNoAlcanzado(count ?? 0, minimo)) {
-          await cancelarSesionPorMinimoNoAlcanzado({ studioId: s.studio_id as string, sesionId: s.id as string });
+      // Las confirmadas de TODAS esas sesiones en UNA lectura, y se cuenta en
+      // JS — mismo criterio que checkin-automatico.
+      //
+      // ⚠️ Antes esto era un `count` por sesión DENTRO del bucle. Tenía un techo
+      // accidental: como `sesiones` venía truncado a 1.000 por PostgREST, el
+      // N+1 no podía crecer más. Al paginar (C-2) ese techo desapareció, así que
+      // el bucle pasó a poder disparar una consulta por sesión sin cota alguna
+      // cada 15 min. Arreglar el truncado sin arreglar esto habría cambiado un
+      // fallo de corrección por uno de consumo.
+      const { data: confirmadas } = await fetchAllRows<{ sesion_id: string }>(
+        '(global)', 'reservas',
+        (from, to) => admin.from('reservas').select('sesion_id')
+          .in('sesion_id', aRevisar.map(({ s }) => s.id))
+          .eq('estado', 'CONFIRMADA').range(from, to),
+      );
+      const confirmadasPorSesion = new Map<string, number>();
+      for (const r of confirmadas) {
+        confirmadasPorSesion.set(r.sesion_id, (confirmadasPorSesion.get(r.sesion_id) ?? 0) + 1);
+      }
+
+      let canceladas = 0;
+      for (const { s, minimo } of aRevisar) {
+        if (debeCancelarPorMinimoNoAlcanzado(confirmadasPorSesion.get(s.id) ?? 0, minimo)) {
+          await cancelarSesionPorMinimoNoAlcanzado({ studioId: s.studio_id, sesionId: s.id });
           canceladas++;
         }
       }

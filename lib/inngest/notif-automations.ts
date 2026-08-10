@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
@@ -30,8 +31,7 @@ type TipoAutomacion = 'bonos' | 'inactivas';
 async function estudiosIds(): Promise<string[]> {
   const admin = getSupabaseAdmin();
   if (!admin) return [];
-  const { data } = await admin.from('studios').select('id').is('suspendido_en', null);
-  return (data ?? []).map((s) => s.id as string);
+  return (await idsEstudios(admin)).map((s) => s.id);
 }
 // Recordatorios (24 h y 1 h antes): cada 15 min.
 //

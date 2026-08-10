@@ -25,6 +25,7 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { entregarPlanComprado, idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { pendientesDeEntregar, type SesionCobrada, type Pendiente } from '@/lib/billing/conciliar-sesiones';
@@ -208,12 +209,16 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
       // Solo estudios que pueden cobrar. Hoy son un puñado; si algún día son
       // cientos, esto pasa a fan-out — pero no antes, que es cuando duele la
       // cuota de Inngest sin motivo.
-      const { data: studios } = await admin
-        .from('studios')
-        .select('id, stripe_account_id')
-        .not('stripe_account_id', 'is', null)
-        .is('suspendido_en', null);
-      if (!studios?.length) return { entregados: 0 };
+      const { data: studios } = await fetchAllRows<{ id: string; stripe_account_id: string }>(
+        '(global)', 'studios',
+        (from, to) => admin
+          .from('studios')
+          .select('id, stripe_account_id')
+          .not('stripe_account_id', 'is', null)
+          .is('suspendido_en', null)
+          .range(from, to),
+      );
+      if (!studios.length) return { entregados: 0 };
 
       const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
       let entregados = 0;
