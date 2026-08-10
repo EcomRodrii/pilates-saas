@@ -92,11 +92,24 @@ export function turnstileConfigurado(): boolean {
 }
 
 /** El mensaje cuando no se puede verificar. Uno solo para las seis pantallas. */
+// «Vuelve a intentarlo» va PRIMERO, y no es un matiz de redacción: con el
+// reinicio automático de abajo, el segundo intento suele funcionar sin
+// recargar. Mandar a recargar de entrada le haría perder lo escrito a alguien
+// que solo necesita volver a pulsar.
 export const ERROR_CAPTCHA =
-  'No hemos podido comprobar que no eres un robot. Recarga la página e inténtalo de nuevo.';
+  'No hemos podido comprobar que no eres un robot. Vuelve a intentarlo; si sigue fallando, recarga la página.';
 
 /** Cuánto se espera a Cloudflare antes de rendirse. */
 const ESPERA_MS = 30_000;
+
+/**
+ * Cuántas veces se reinicia el widget por su cuenta antes de dejar de
+ * intentarlo. Acotado a propósito: si Cloudflare está decidido a no dar un
+ * token, reiniciar en bucle no lo arregla y sí quema la cuota de la site key.
+ * Tres reintentos cubren el caso real (equivocarse de contraseña un par de
+ * veces); a partir de ahí el mensaje pide recargar, que sí funciona siempre.
+ */
+const MAX_REINICIOS = 3;
 
 export function useCaptcha() {
   const contenedorRef = useRef<HTMLDivElement>(null);
@@ -104,12 +117,39 @@ export function useCaptcha() {
   // Quién espera un token ahora mismo. Solo puede haber uno: el formulario
   // aguarda a `pedirToken()` antes de seguir.
   const esperando = useRef<((t: string | null) => void) | null>(null);
+  const reinicios = useRef(0);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const resolver = useCallback((t: string | null) => {
     const fn = esperando.current;
     esperando.current = null;
     fn?.(t);
+  }, []);
+
+  /**
+   * Devuelve el widget a cero tras un intento fallido.
+   *
+   * ⚠️ Sin esto, un widget que se cae **no se recupera nunca**: Cloudflare lo
+   * tumba (`Error: 300031`, «Turnstile Widget seem to have crashed») y a partir
+   * de ahí `execute()` no emite ningún token más, así que el segundo intento y
+   * todos los siguientes se comen los 30 segundos enteros y fallan. Medido en
+   * producción pidiendo tokens seguidos en la misma pestaña; le pasa a
+   * cualquiera que se equivoque de contraseña un par de veces.
+   *
+   * Va también en el TIMEOUT y no solo en `error-callback`, porque en ese caso
+   * medido **el `error-callback` nunca se disparó**: el widget se quedó mudo,
+   * no dio error. Confiar solo en el callback habría dejado el fallo igual.
+   */
+  const reiniciar = useCallback(() => {
+    if (reinicios.current >= MAX_REINICIOS) return;
+    if (!widgetId.current || !window.turnstile) return;
+    reinicios.current += 1;
+    try {
+      window.turnstile.reset(widgetId.current);
+    } catch {
+      // Un widget destruido del todo tira aquí. No hay nada que salvar: el
+      // siguiente intento fallará y el mensaje ya pide recargar.
+    }
   }, []);
 
   // ⚠️ NO se depende del `onLoad` del <Script>. Bug real de producción: con
@@ -133,7 +173,7 @@ export function useCaptcha() {
       widgetId.current = window.turnstile.render(contenedorRef.current, {
         sitekey: siteKey!,
         callback: (token) => resolver(token),
-        'error-callback': () => resolver(null),
+        'error-callback': () => { resolver(null); reiniciar(); },
         // Un token caducado no avisa a nadie: la siguiente llamada a
         // `pedirToken` vuelve a ejecutar y saca uno nuevo.
         'expired-callback': () => {},
@@ -165,7 +205,7 @@ export function useCaptcha() {
         widgetId.current = null;
       }
     };
-  }, [siteKey, resolver]);
+  }, [siteKey, resolver, reiniciar]);
 
   // Un token se gasta al usarlo. Sin esto, el widget emitía uno y no volvía a
   // emitir nunca: el segundo intento de la misma carga fallaba con
@@ -194,11 +234,14 @@ export function useCaptcha() {
     if (ya) return ya;
 
     return new Promise<string | null>((resolve) => {
-      const temporizador = setTimeout(() => resolver(null), ESPERA_MS);
+      // Agotar la espera casi siempre significa que el widget se ha caído en
+      // silencio, así que se reinicia ANTES de devolver el fallo: quien
+      // reintente parte de un widget sano en vez de repetir los 30 segundos.
+      const temporizador = setTimeout(() => { reiniciar(); resolver(null); }, ESPERA_MS);
       esperando.current = (t) => { clearTimeout(temporizador); resolve(t); };
       window.turnstile!.execute(widgetId.current!);
     });
-  }, [siteKey, resolver]);
+  }, [siteKey, resolver, reiniciar]);
 
   // El hueco donde el widget se hará visible SI Cloudflare pide resolver algo.
   // En el caso normal no ocupa nada y no se ve.
