@@ -625,7 +625,17 @@ export const CAMPOS_RETOS = [
   },
 ] as const satisfies readonly CampoSchema[];
 
+// ⚠️ La foto de Clases y la de Bonos NO heredan la del portal cuando están
+// vacías, a diferencia de la tarjeta grande del Inicio. No es una
+// inconsistencia: la tarjeta del Inicio YA salía con la foto del portal, así
+// que heredar es conservar su aspecto. Estas dos pantallas hoy no tienen
+// ninguna foto — heredarla les cambiaría la cara a TODOS los estudios sin que
+// nadie lo pidiera. Vacío = como hasta ahora.
 export const CAMPOS_LISTADO_CLASES = [
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
+    ayuda: 'Sale sobre el título. Vacío = sin foto, como hasta ahora.',
+  },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Clases', maxLargo: 40 },
   {
     tipo: 'texto', id: 'vacioDia', etiqueta: 'Cuando no hay clases ese día',
@@ -639,6 +649,10 @@ export const CAMPOS_LISTADO_CLASES = [
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_LISTADO_BONOS = [
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
+    ayuda: 'Sale sobre el título. Vacío = sin foto, como hasta ahora.',
+  },
   { tipo: 'texto', id: 'antetitulo', etiqueta: 'Texto pequeño de arriba', porDefecto: 'Saldo y planes', maxLargo: 40 },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Bonos', maxLargo: 40 },
 ] as const satisfies readonly CampoSchema[];
