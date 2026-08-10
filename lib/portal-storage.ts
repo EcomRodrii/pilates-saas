@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/db/supabase';
+import { recortarTransparencia } from '@/lib/imagen/recortar-logo';
 import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
 // La higienización de la clave vive en un módulo SIN imports para que
 // `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
@@ -214,6 +215,14 @@ export async function subirImagenPortal(
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
 // en el portal público de reservas cuando existe.
 //
+// Se recorta el aire transparente ANTES de guardar, y aquí y no en el editor de
+// tema para que valga venga de donde venga la subida. Motivo: los correos
+// pintan este logo con una altura fija (`<Img height="32">`), así que el margen
+// del fichero se come la altura del dibujo. Un logo real en producción tenía
+// 1508×1043 de lienzo con 1451×297 de tinta — a 32 px, solo 9 eran logo. Al
+// subirlo no se nota (el editor lo enseña a lo grande); se nota en la bandeja
+// de la clienta, que es donde ya no puedes arreglarlo.
+//
 // ⚠️ SIN redimensionar, a diferencia de las cinco funciones de foto de arriba.
 // No es un olvido: `validarImagenMarca` admite SVG e ICO, y pasar un SVG por
 // canvas lo rasteriza — se perdería el vector justo en el activo que más
@@ -222,6 +231,9 @@ export async function subirImagenPortal(
 export async function subirLogoEstudio(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
   const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
   if (invalido) return { error: invalido };
+  // Se valida ANTES de recortar: el límite es sobre lo que sube la persona, no
+  // sobre lo que quede después, o un PNG enorme pasaría por haber adelgazado.
+  file = await recortarTransparencia(file);
   const path = `logo-${studioId}`;
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
