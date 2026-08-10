@@ -51,7 +51,13 @@ export async function verificarCaptcha(
   opciones?: { ip?: string; fetchImpl?: typeof fetch; secreto?: string },
 ): Promise<ResultadoCaptcha> {
   const secreto = opciones?.secreto ?? process.env.TURNSTILE_SECRET_KEY;
-  if (!secreto) return 'ok';
+  if (!secreto) {
+    // Deja rastro: «no protege» no puede ser silencioso. Sin esto, la única
+    // forma de saber si la variable llega era mandar un token falso y deducirlo
+    // del mensaje de error — que es como se descubrió que faltaba.
+    console.warn('[captcha] sin TURNSTILE_SECRET_KEY: no se verifica ningún token');
+    return 'ok';
+  }
   if (!token) return 'sin-token';
 
   const hacerFetch = opciones?.fetchImpl ?? fetch;
