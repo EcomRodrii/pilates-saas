@@ -35,6 +35,31 @@ import { useHomeSeccionesEditor, HomeSeccionesList } from './home-editor';
 import { useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel } from './contenido-portal-editor';
 import { useBloquesEditor, CatalogoBloques, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
+
+/**
+ * Qué ajustes se ven en el PORTAL DE LA SOCIA y no en la página pública de
+ * reservas.
+ *
+ * ⚠️ Toda la pestaña «Ajustes del tema» previsualizaba sobre `/reservar/{slug}`
+ * — la página pública— mientras sus controles tocaban el portal: la cabecera
+ * del Inicio, la tarjeta principal, los accesos rápidos, los retos, la
+ * bienvenida y los tamaños de texto. Ninguna de esas piezas existe en
+ * `/reservar`, así que la propietaria elegía «Accesos rápidos → Círculos» y el
+ * lienzo NO se movía. Encima la barra superior decía «Inicio», que tampoco era
+ * lo que se estaba viendo. Visto en el editor real, no leyendo el código.
+ *
+ * Es el mismo fallo que ya costó el «todos los temas parecen iguales»: un
+ * preview que no enseña lo que se está tocando no es una ayuda, es una mentira
+ * que hace desistir.
+ *
+ * `redes-sociales` se queda fuera a propósito — los enlaces solo salen en el
+ * pie de la página pública, así que ahí `/reservar` SÍ es la superficie
+ * correcta.
+ */
+const AJUSTES_EN_EL_PORTAL = new Set<AjustesCategoriaId>([
+  'paleta', 'color-marca', 'tipografia', 'esquinas', 'boton', 'tarjetas',
+  'forma-portal', 'navegacion-portal', 'logo-favicon',
+]);
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
 import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
@@ -612,7 +637,7 @@ export function ThemeEditorFullscreen() {
               el encogido automático del dispositivo. Escalar dos veces (aquí y
               dentro) multiplicaba los factores sin que nadie lo dijera. */}
           <div className="w-full">
-            {nodo.tipo === 'tema' ? (
+            {nodo.tipo === 'tema' && !AJUSTES_EN_EL_PORTAL.has(nodo.categoria) ? (
               <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} dispositivo={dispositivo} zoom={zoom} />
             ) : nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
