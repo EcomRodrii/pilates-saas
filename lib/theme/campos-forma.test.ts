@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMPOS_FORMA, valoresFormaDesdeTema, escrituraDeCampoForma } from './campos-forma.ts';
+import { CAMPOS_FORMA, CAMPOS_ESCALA_TEXTO, valoresFormaDesdeTema, escrituraDeCampoForma } from './campos-forma.ts';
 import { VARIANTES_PORTAL, resolveVariantes } from '../theme-variantes.ts';
 
 function campo(id: string) {
@@ -141,4 +141,60 @@ test('el 0 es un valor real y sobrevive — esquina recta, no "hereda"', () => {
   const w = escrituraDeCampoForma({}, 'radio_card', 0);
   assert.deepEqual(w!.valor, { card: 0 });
   assert.equal(valoresFormaDesdeTema({ radioTema: { card: 0 } }).radio_card, 0);
+});
+
+// ── Escala de texto ─────────────────────────────────────────────────────────
+// Mismo mecanismo que las esquinas, y por tanto las mismas trampas: era el
+// último eje del tema sin control, y el modo de fallar que importa no es
+// "no se guarda" sino "se guarda un número donde había herencia".
+
+test('los tamaños de texto son numeroHeredado con porDefecto null, nunca un número', () => {
+  const campos = CAMPOS_ESCALA_TEXTO;
+  assert.equal(campos.length, 6);
+  for (const c of campos) {
+    assert.equal(c.tipo, 'numeroHeredado', `${c.id} debe poder quedarse VACÍO`);
+    assert.equal(c.porDefecto, null, `${c.id}: un número por defecto mataría la herencia`);
+  }
+});
+
+test('un tema sin escalaTexto se lee como "hereda" en las seis piezas', () => {
+  const v = valoresFormaDesdeTema({});
+  for (const c of CAMPOS_ESCALA_TEXTO) {
+    assert.equal(v[c.id], null, `${c.id} debería heredar, no traer un número inventado`);
+  }
+});
+
+test('fijar un tamaño no toca los demás', () => {
+  const w = escrituraDeCampoForma({ escalaTexto: { seccion: 20 } }, 'texto_saludo', 24);
+  assert.equal(w!.clave, 'escalaTexto');
+  assert.deepEqual(w!.valor, { seccion: 20, saludo: 24 });
+});
+
+test('vaciar un tamaño lo BORRA del objeto — el zod es strict y un undefined lo tumbaría entero', () => {
+  const w = escrituraDeCampoForma({ escalaTexto: { seccion: 20, saludo: 24 } }, 'texto_saludo', null);
+  assert.deepEqual(w!.valor, { seccion: 20 });
+  assert.ok(!('saludo' in (w!.valor as object)), 'la clave tiene que desaparecer, no quedarse en undefined');
+});
+
+test('vaciar el último tamaño quita el campo entero, sin dejar un objeto vacío', () => {
+  const w = escrituraDeCampoForma({ escalaTexto: { seccion: 20 } }, 'texto_seccion', null);
+  assert.equal(w!.valor, undefined);
+});
+
+test('los topes cubren lo que usan los temas de la biblioteca', () => {
+  // `numeroBono` de Bloom es 60. Un máximo por debajo dejaría un tema
+  // instalado fuera de rango: el control enseñaría un valor que él mismo
+  // rechaza.
+  for (const c of CAMPOS_ESCALA_TEXTO) {
+    const campo = c as { min?: number; max?: number };
+    assert.ok((campo.min ?? 0) <= 17, `${c.id}: el rótulo más pequeño de un tema es 17`);
+    assert.ok((campo.max ?? 0) >= 60, `${c.id}: el número de bono de Bloom es 60`);
+  }
+});
+
+test('los ids de texto y de esquina no chocan entre sí', () => {
+  // Los dos grupos viven en el MISMO objeto plano del Inspector. Un id
+  // repetido haría que tocar un tamaño escribiera una esquina, o al revés.
+  const ids = CAMPOS_FORMA.map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length, 'hay ids repetidos entre los grupos de forma');
 });

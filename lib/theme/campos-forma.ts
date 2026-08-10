@@ -152,15 +152,56 @@ export const CAMPOS_RADIO: readonly CampoSchema[] = ([
   marcadorHeredado: 'Del tema',
 }));
 
+/**
+ * Tamaño de texto por pieza. Era el ÚLTIMO eje del tema sin ningún control:
+ * los tres temas de la biblioteca lo fijan (Bloom titula sus secciones a 20 y
+ * Noir a 17) y el portal lo aplica, pero una propietaria no podía tocarlo sin
+ * instalar un tema entero encima de su paleta.
+ *
+ * Mismo mecanismo que `CAMPOS_RADIO`, y por el mismo motivo: vacío = hereda,
+ * que NO es lo mismo que un número. Los valores de siempre viven repartidos en
+ * `portal-design.ts`, y fijarlos aquí al guardar mataría esa herencia — el
+ * error que documenta [["Ausente" no es "valor por defecto"]].
+ *
+ * ⚠️ Los topes no son adorno. Por debajo de 12 px un rótulo deja de leerse en
+ * un móvil, y por encima de 72 el número de sesiones de un bono se sale de su
+ * tarjeta. El máximo real más alto que usa un tema es 60 (`numeroBono` de
+ * Bloom), así que 72 deja margen sin permitir el "200" que rompe la pantalla.
+ */
+export const CAMPOS_ESCALA_TEXTO: readonly CampoSchema[] = ([
+  ['seccion', 'Rótulos de sección', '«Próxima clase», «Esta semana».'],
+  ['tituloPantalla', 'Títulos de pantalla', 'El encabezado de Clases o Bonos.'],
+  ['saludo', 'Saludo del Inicio', 'El «Hola, {nombre}» de la cabecera.'],
+  ['tituloHero', 'Titular de la tarjeta principal', 'El nombre de la clase, en grande.'],
+  ['bienvenida', 'Titular de la bienvenida', 'La pantalla previa al acceso, si la tienes activada.'],
+  ['numeroBono', 'Número de sesiones', 'La cifra grande de tu bono.'],
+] as const).map(([id, etiqueta, ayuda]) => ({
+  tipo: 'numeroHeredado' as const,
+  id: `texto_${id}`,
+  etiqueta,
+  ayuda,
+  porDefecto: null,
+  min: 12,
+  max: 72,
+  paso: 1,
+  marcadorHeredado: 'Del tema',
+}));
+
 /** Los grupos juntos — para los tests y para cualquier validación global. */
 export const CAMPOS_FORMA: readonly CampoSchema[] = [
   ...CAMPOS_FORMA_PORTAL, ...CAMPOS_BARRA_PORTAL, ...CAMPOS_ACENTO, ...CAMPOS_RADIO,
+  ...CAMPOS_ESCALA_TEXTO,
 ];
 
 /** `radio_card` → `card`. Los ids llevan prefijo para no chocar en el plano. */
 const PIEZAS_RADIO = ['card', 'boton', 'chip', 'acceso'] as const;
 type PiezaRadio = (typeof PIEZAS_RADIO)[number];
 const ID_RADIO = new Map<string, PiezaRadio>(PIEZAS_RADIO.map((p) => [`radio_${p}`, p]));
+
+/** `texto_seccion` → `seccion`. Mismo prefijo-para-no-chocar que el radio. */
+const PIEZAS_TEXTO = ['seccion', 'tituloPantalla', 'saludo', 'tituloHero', 'bienvenida', 'numeroBono'] as const;
+type PiezaTexto = (typeof PIEZAS_TEXTO)[number];
+const ID_TEXTO = new Map<string, PiezaTexto>(PIEZAS_TEXTO.map((p) => [`texto_${p}`, p]));
 
 /** Los ids que van dentro de `variantes` y no son claves sueltas del tema. */
 const IDS_VARIANTE = new Set<string>(EJES_EXPUESTOS.map((e) => e.eje));
@@ -170,6 +211,7 @@ export function valoresFormaDesdeTema(tema: {
   variantes?: unknown; barraClasica?: boolean; barraFlotante?: boolean;
   barraOscura?: boolean; destacado?: string | null;
   radioTema?: Partial<Record<PiezaRadio, number>>;
+  escalaTexto?: Partial<Record<PiezaTexto, number>>;
 }): Record<string, unknown> {
   // `resolveVariantes` ya devuelve el objeto COMPLETO con el aspecto de hoy en
   // los ejes ausentes — no hace falta (ni se debe) pasar esto por
@@ -184,6 +226,7 @@ export function valoresFormaDesdeTema(tema: {
     // `?? null` y NUNCA un número: ausente significa hereda. Poner aquí el
     // fallback de alguna superficie fijaría ESE valor en cuanto se guardara.
     ...Object.fromEntries(PIEZAS_RADIO.map((p) => [`radio_${p}`, tema.radioTema?.[p] ?? null])),
+    ...Object.fromEntries(PIEZAS_TEXTO.map((p) => [`texto_${p}`, tema.escalaTexto?.[p] ?? null])),
   };
 }
 
@@ -196,10 +239,24 @@ export function valoresFormaDesdeTema(tema: {
  * objeto entero, así que se parte del resuelto y se cambia una clave.
  */
 export function escrituraDeCampoForma(
-  tema: { variantes?: unknown; radioTema?: Partial<Record<PiezaRadio, number>> },
+  tema: {
+    variantes?: unknown;
+    radioTema?: Partial<Record<PiezaRadio, number>>;
+    escalaTexto?: Partial<Record<PiezaTexto, number>>;
+  },
   campoId: string,
   valor: unknown,
 ): { clave: string; valor: unknown } | null {
+  const letra = ID_TEXTO.get(campoId);
+  if (letra) {
+    // Idéntico a `radioTema` abajo, y por los mismos dos motivos: el zod es
+    // `.strict()` (una clave con `undefined` dentro tumba el objeto entero) y
+    // vaciar una pieza tiene que BORRARLA, que es como se escribe "hereda".
+    const siguiente = { ...(tema.escalaTexto ?? {}) };
+    if (typeof valor === 'number') siguiente[letra] = valor;
+    else delete siguiente[letra];
+    return { clave: 'escalaTexto', valor: Object.keys(siguiente).length > 0 ? siguiente : undefined };
+  }
   const pieza = ID_RADIO.get(campoId);
   if (pieza) {
     // `radioTema` es `.strict()` en el zod: una clave con `undefined` dentro
