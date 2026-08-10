@@ -65,6 +65,7 @@ export const metadata: Metadata = {
   title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
   description:
     'El software completo para tu estudio de Pilates en España: reservas, cobros, calendario, alumnas e instructoras — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'es_ES',
