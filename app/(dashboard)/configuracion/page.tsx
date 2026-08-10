@@ -257,6 +257,21 @@ const SUB_GAMIFICACION = new Set(['recompensas', 'logros', 'niveles', 'retos']);
 const SUB_CLASES_SALAS = new Map([['clases', 'clases'], ['salas', 'salas']]);
 const SUB_CITAS = new Map([['servicios-cita', 'servicios'], ['horario-citas', 'horario']]);
 
+// Los 4 ids internos de las últimas pestañas (campos/plantillas/backups/perfil)
+// no se parecen a su etiqueta visible ("Campos de clienta"/"Emails"/"Copias de
+// seguridad"/"Mi perfil") — a diferencia de las 7 primeras, donde id y label
+// casi coinciden. Un `?tab=` escrito a mano o pegado desde fuera a partir de lo
+// que se VE en la pestaña (#848) caía en silencio a "Planes y tarifas" en la
+// carga directa, aunque un clic en la propia pestaña sí funcionara siempre
+// (ese camino nunca pasa por esta comprobación de la URL). Mismo patrón que
+// SUB_GAMIFICACION/SUB_CLASES_SALAS/SUB_CITAS más arriba.
+const TAB_ALIASES = new Map<string, TabId>([
+  ['campos-de-cliente', 'campos'],
+  ['emails', 'plantillas'],
+  ['copias-de-seguridad', 'backups'],
+  ['mi-perfil', 'perfil'],
+]);
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function ConfiguracionPage() {
@@ -296,6 +311,8 @@ export default function ConfiguracionPage() {
       setActiveTab('citas');
     } else if (TABS.some(t => t.id === tab)) {
       setActiveTab(tab as TabId);
+    } else if (TAB_ALIASES.has(tab)) {
+      setActiveTab(TAB_ALIASES.get(tab)!);
     }
     if (tab === 'estudio') {
       const sub = searchParams.get('sub');
