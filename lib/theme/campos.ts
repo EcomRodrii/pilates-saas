@@ -275,7 +275,16 @@ export function resolverConfig(
   // podará — pero leerlas no debe perderlas.
   const out: Record<string, unknown> = { ...guardado };
   for (const campo of campos) {
-    if (!(campo.id in out)) out[campo.id] = clonar(campo.porDefecto);
+    if (!(campo.id in out)) { out[campo.id] = clonar(campo.porDefecto); continue; }
+    // ⚠️ Y DENTRO de una lista, elemento a elemento. Sin esto, la promesa de
+    // "un campo nuevo es retroactivo" se quedaba a mitad: se cumplía en el
+    // primer nivel y no dentro de los repetidores. Una galería guardada antes
+    // de que existiera `alt` seguía sin `alt` después de resolver — y el
+    // siguiente campo que se añada a un testimonio o a una imagen llegaría
+    // `undefined` al render, que es donde revientan estas cosas.
+    if (campo.tipo === 'lista' && Array.isArray(out[campo.id])) {
+      out[campo.id] = (out[campo.id] as unknown[]).map((el) => resolverConfig(campo.campos, el));
+    }
   }
   return out;
 }

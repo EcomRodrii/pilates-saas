@@ -6,13 +6,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, X, Inbox, PartyPopper } from 'lucide-react';
+import { Bell, Check, X, Inbox, PartyPopper, Volume2, VolumeX } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
 import { supabase } from '@/lib/db/supabase';
 import { useAuth } from '@/lib/auth-context';
 import { EVENTOS } from '@/lib/notifications/catalog';
-import { reproducirChaChing } from '@/lib/notifications/sound';
+import { reproducirChaChing, sonidoVentaSilenciado, alternarSonidoVenta } from '@/lib/notifications/sound';
 import { fetchMisEstudios } from '@/lib/supabase-data';
 
 // Esta campana es la del PANEL: enseña lo que NO es de socia, y de todas las
@@ -58,6 +58,15 @@ export function NotificationBell() {
   // de varias sedes no tiene ninguna pista de a cuál pertenece cada aviso.
   // Vacío para quien solo tiene una sede: ahí etiquetar no aporta nada.
   const [nombrePorSede, setNombrePorSede] = useState<Record<string, string>>({});
+  // Arranca en `false` (sonido activo) y se corrige al montar: leer
+  // localStorage en el render daría un valor distinto en servidor y cliente
+  // (mismo patrón de guarda de hidratación que ya usa este repo, p.ej.
+  // isInactiva30d en clientas/page.tsx).
+  const [silenciado, setSilenciado] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: lee localStorage, no existe en el render de servidor.
+    setSilenciado(sonidoVentaSilenciado());
+  }, []);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -226,11 +235,21 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-[360px] max-w-[calc(100vw-24px)] bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <p className="text-[14px] font-extrabold text-foreground">Notificaciones</p>
-            {unread > 0 && (
-              <button onClick={marcarTodas} className="flex items-center gap-1 text-[12px] font-semibold text-brand-medio hover:underline">
-                <Check size={13} /> Marcar todas
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSilenciado(alternarSonidoVenta())}
+                title={silenciado ? 'Activar sonido de nueva venta' : 'Silenciar sonido de nueva venta'}
+                aria-label={silenciado ? 'Activar sonido de nueva venta' : 'Silenciar sonido de nueva venta'}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {silenciado ? <VolumeX size={15} /> : <Volume2 size={15} />}
               </button>
-            )}
+              {unread > 0 && (
+                <button onClick={marcarTodas} className="flex items-center gap-1 text-[12px] font-semibold text-brand-medio hover:underline">
+                  <Check size={13} /> Marcar todas
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-[70vh] overflow-y-auto">

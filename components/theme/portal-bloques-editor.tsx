@@ -96,6 +96,10 @@ function ConfigForm({ bloque, onChange }: { bloque: BloqueHome; onChange: (b: Bl
       // encima, igual que antes: dentro de la lista el marcador de cada
       // casilla ya dice qué es, y un "Preguntas" suelto solo añadía ruido.
       etiquetaListaSinTitulo
+      // El id del bloque nombra los ficheros que se suban desde este panel:
+      // dos banners distintos tienen que poder tener fotos distintas, y sin
+      // esto el segundo pisaría la del primero.
+      prefijoSubida={bloque.id}
       onChange={(config, campoId) => onChange({ ...bloque, config } as BloqueHome, campoId)}
     />
   );

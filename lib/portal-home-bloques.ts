@@ -536,6 +536,21 @@ export const CAMPOS_CABECERA = [
 // pliega el resto. El prefijo que antes llevaba cada etiqueta ("Sin clases ·
 // Titular") lo pone ahora el título de la sección.
 export const CAMPOS_PROXIMA_CLASE = [
+  // Foto PROPIA de esta tarjeta. Vacío = la del portal, que es lo que hacía
+  // siempre — ver `conFoto` en portal-home-view.tsx.
+  //
+  // ⚠️ `porDefecto: ''` y no una URL: aquí "vacío" es un tercer estado
+  // ("hereda"), igual que en `estilo` o en las esquinas del tema. Poner una
+  // URL por defecto fijaría esa foto en cuanto se guardara el bloque.
+  //
+  // Va con `grupo` como todos los demás, y primera: los campos SUELTOS se
+  // pintan encima de las secciones, y un test fija que este panel no tenga
+  // ninguno —16 campos en lista plana era el muro que las secciones vinieron a
+  // romper—. Al ser el primer grupo, es el que aparece abierto.
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de esta tarjeta', grupo: 'Foto', porDefecto: '',
+    ayuda: 'Solo para esta tarjeta. Vacío = la foto del portal.',
+  },
   // Sin clases reservadas — la que ve una socia nueva, y la que ves tú en tu
   // propia vista previa.
   { tipo: 'texto', id: 'vaciaVolanta', etiqueta: 'Etiqueta', grupo: 'Sin clases', porDefecto: 'Sin clases reservadas', maxLargo: 40 },
@@ -610,7 +625,17 @@ export const CAMPOS_RETOS = [
   },
 ] as const satisfies readonly CampoSchema[];
 
+// ⚠️ La foto de Clases y la de Bonos NO heredan la del portal cuando están
+// vacías, a diferencia de la tarjeta grande del Inicio. No es una
+// inconsistencia: la tarjeta del Inicio YA salía con la foto del portal, así
+// que heredar es conservar su aspecto. Estas dos pantallas hoy no tienen
+// ninguna foto — heredarla les cambiaría la cara a TODOS los estudios sin que
+// nadie lo pidiera. Vacío = como hasta ahora.
 export const CAMPOS_LISTADO_CLASES = [
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
+    ayuda: 'Sale sobre el título. Vacío = sin foto, como hasta ahora.',
+  },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Clases', maxLargo: 40 },
   {
     tipo: 'texto', id: 'vacioDia', etiqueta: 'Cuando no hay clases ese día',
@@ -624,6 +649,10 @@ export const CAMPOS_LISTADO_CLASES = [
 ] as const satisfies readonly CampoSchema[];
 
 export const CAMPOS_LISTADO_BONOS = [
+  {
+    tipo: 'imagen', id: 'fotoUrl', etiqueta: 'Foto de cabecera', porDefecto: '',
+    ayuda: 'Sale sobre el título. Vacío = sin foto, como hasta ahora.',
+  },
   { tipo: 'texto', id: 'antetitulo', etiqueta: 'Texto pequeño de arriba', porDefecto: 'Saldo y planes', maxLargo: 40 },
   { tipo: 'texto', id: 'titulo', etiqueta: 'Título de la pantalla', porDefecto: 'Bonos', maxLargo: 40 },
 ] as const satisfies readonly CampoSchema[];

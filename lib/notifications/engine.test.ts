@@ -10,7 +10,7 @@ test('equipo y sistema: reglas + plantillas que renderizan', () => {
     [EVENTOS.INSTRUCTORA_BAJA, { instructora: 'Marta', clase: 'Reformer', cuando: 'martes 9:00', motivo: ' (gripe)' }, /Marta.*Reformer.*gripe/],
     [EVENTOS.SISTEMA_STRIPE_DESCONECTADO, {}, /Stripe/],
     [EVENTOS.SISTEMA_EMAIL_FALLIDO, { error: 'domain not verified' }, /domain not verified/],
-    [EVENTOS.SUSTITUCION_RECHAZADA, { instructora: 'Lucía', clase: 'Mat', cuando: 'hoy' }, /Lucía.*Mat/],
+    [EVENTOS.SUSTITUCION_RECHAZADA, { instructora: 'Lucía', clase: 'Mat', cuando: 'hoy', siguiente: 'Ya se lo hemos preguntado a Berta.' }, /Lucía.*Mat.*Berta/],
     [EVENTOS.INSTRUCTORA_AUSENCIA, { instructora: 'Ana', desde: '1 de agosto', hasta: '15 de agosto', clases: ' · 6 clases suyas en esas fechas por cubrir' }, /Ana.*1 de agosto.*15 de agosto.*6 clases/],
   ];
   for (const [evento, data, re] of casos) {

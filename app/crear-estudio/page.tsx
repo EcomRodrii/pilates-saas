@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { captchaGastado } from '@/lib/auth/captcha-usado';
+import { CAMPO_TRAMPA } from '@/lib/auth/trampa-bots';
 
 // Tentare todavía no está lanzado al público: crear un estudio de verdad aquí
 // crearía cuentas antes de que el producto esté listo para recibirlas. Mientras
@@ -22,6 +23,9 @@ export default function CrearEstudioPage() {
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
+  // El campo trampa. Una persona no puede verlo ni enfocarlo, así que esto se
+  // queda vacío siempre; si llega con algo, lo ha rellenado un bot.
+  const [trampa, setTrampa] = useState('');
   const { widget: captcha, pedirToken } = useCaptcha();
 
   // El captcha de esta pantalla estuvo un tiempo siendo decoración: el widget
@@ -44,7 +48,7 @@ export default function CrearEstudioPage() {
       const res = await fetch('/api/public/interes-lanzamiento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, nombre, estudio, ciudad, captchaToken: token || undefined }),
+        body: JSON.stringify({ email, nombre, estudio, ciudad, captchaToken: token || undefined, [CAMPO_TRAMPA]: trampa }),
       });
       // Un token se gasta al verificarlo, vaya bien o mal. Sin esto, corregir
       // el email y reintentar fallaría por el captcha y no por el email.
@@ -127,6 +131,26 @@ export default function CrearEstudioPage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#E5E7EB] text-[14px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:border-[#1A1A1A] focus:ring-2 focus:ring-[#1A1A1A]/10 transition"
                   />
                 </div>
+              </div>
+
+              {/* El campo trampa. Fuera de la pantalla y no `display:none`: hay
+                  bots que saltan lo oculto por CSS pero no lo que está
+                  desplazado. `aria-hidden` + `tabIndex={-1}` lo dejan
+                  inalcanzable para un lector de pantalla y para el tabulador,
+                  así que ninguna persona puede rellenarlo sin querer.
+                  `autoComplete="off"` evita que el navegador lo rellene solo,
+                  que sería un falso positivo con nombre y apellidos. */}
+              <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}>
+                <label htmlFor={`${uid}-${CAMPO_TRAMPA}`}>Tu página web</label>
+                <input
+                  id={`${uid}-${CAMPO_TRAMPA}`}
+                  name={CAMPO_TRAMPA}
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={trampa}
+                  onChange={e => setTrampa(e.target.value)}
+                />
               </div>
 
               {error && (

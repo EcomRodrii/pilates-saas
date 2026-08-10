@@ -171,11 +171,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
   // Solo in-app a propósito: el canal que importa aquí es el toast+sonido en
-  // tiempo real de la campana (realtime, no un "canal" del catálogo), no un
-  // push que llegaría igual con la pestaña cerrada — eso ya lo cubre
-  // PAGO_FALLIDO cuando el dinero es un problema. Aquí el dinero es una buena
-  // noticia que quiere verse AL MOMENTO con el panel abierto.
-  [EVENTOS.VENTA_REGISTRADA]:      { category: 'pagos',    priority: 'MEDIA',  canales: [],       audiencia: 'mostrador' },
+  // tiempo real de la campana (realtime, no un "canal" del catálogo) cuando el
+  // panel está abierto. CON push además: si la propietaria tiene el móvil con
+  // el PWA instalado (panel.webmanifest) y no está mirando el panel en ese
+  // momento, quiere enterarse igual — pedido explícito del fundador tras
+  // probar un pago real sin tener el panel en pantalla.
+  [EVENTOS.VENTA_REGISTRADA]:      { category: 'pagos',    priority: 'MEDIA',  canales: ['PUSH'], audiencia: 'mostrador' },
   // Sin EMAIL: el recibo (ReciboEmail) ya se manda por separado.
   [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
@@ -373,9 +374,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Cubrirás {clase} el {cuando}{sala}. ¡Gracias!',
     deepLink: () => `/calendario`,
   },
+  // `{siguiente}` en vez de un "Busca otra opción" fijo: en modo autónomo el
+  // motor ya ha pasado a la siguiente candidata por su cuenta, y decirle a la
+  // propietaria que busque sería mandarla a hacer un trabajo que no le toca.
   [`${EVENTOS.SUSTITUCION_RECHAZADA}#PROPIETARIO`]: {
     title: 'Sustitución rechazada',
-    body: '{instructora} no puede cubrir {clase} del {cuando}. Busca otra opción.',
+    body: '{instructora} no puede cubrir {clase} del {cuando}. {siguiente}',
     deepLink: () => `/sustituciones`,
   },
   // Pago fallido → dueña, mostrador y socia (mismo evento, textos por rol)

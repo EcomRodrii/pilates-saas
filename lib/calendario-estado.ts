@@ -114,6 +114,12 @@ export function sesionYaEmpezada(inicio: string | Date, ahora: Date = new Date()
 
 export const MENSAJE_CLASE_YA_EMPEZADA = 'Esta clase ya ha empezado';
 
+// Guardia inversa (#870): antes se podía marcar "Asistida" a una clienta en
+// una clase todavía futura — nada comprobaba `sesionYaEmpezada` en sentido
+// contrario para el check-in. Consecuencia visible: "Última asistencia: Hace
+// -1 días" en la ficha de la clienta.
+export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'Esta clase todavía no ha empezado';
+
 // ¿Esta clase exige que alguien decida algo? (punto 3: franja de decisiones,
 // y el punto de atención en la cabecera de cada sala/día). No es solo el
 // estado: una clase PROGRAMADA con más aforo del que cabe en la sala también

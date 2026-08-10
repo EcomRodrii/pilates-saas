@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { ChevronDown, Trash2, Upload } from 'lucide-react';
+import { useStudio } from '@/lib/studio-context';
+import { subirImagenPortal } from '@/lib/portal-storage';
+import { claveSubidaDeCampo } from '@/lib/storage-clave';
 import {
   agruparCampos, validarCampo,
   type CampoSchema, type CampoSchemaSinLista,
@@ -171,6 +174,108 @@ function CampoTextoRico({
 }
 
 /**
+ * Una imagen: se SUBE, no se pega.
+ *
+ * ⚠️ Hasta ahora `tipo: 'imagen'` pintaba un `<input>` de texto donde había
+ * que escribir una URL. Para poner una foto en un banner había que subirla a
+ * otro sitio y copiar el enlace — nadie que lleve un estudio de Pilates hace
+ * eso, así que el campo existía y no se usaba.
+ *
+ * El campo de texto SIGUE estando, debajo y plegado: hay quien tiene la foto
+ * en su web y pegar el enlace es más rápido que volver a subirla. Quitarlo
+ * habría sido cambiar un problema por otro.
+ *
+ * Esto ata el Inspector al panel (`useStudio`), que hasta ahora era agnóstico.
+ * Es aceptable porque el Inspector solo se monta dentro del editor de
+ * apariencia; la alternativa —pasar el estudio por props desde cinco
+ * llamadores— era peor.
+ */
+function CampoImagen({
+  campo, valor, clave, onChange,
+}: {
+  campo: Extract<CampoSchema, { tipo: 'imagen' }>;
+  valor: string;
+  clave: string;
+  onChange: (v: string) => void;
+}) {
+  const { studio } = useStudio();
+  const ref = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [error, setError] = useState('');
+  const [verEnlace, setVerEnlace] = useState(false);
+
+  async function alElegir(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Se limpia SIEMPRE el input: sin esto, elegir el mismo fichero dos veces
+    // seguidas (tras un error, que es justo cuando se reintenta) no dispara
+    // `change` y parece que el botón se ha quedado muerto.
+    e.target.value = '';
+    if (!file || !studio?.id) return;
+    setError('');
+    setSubiendo(true);
+    try {
+      const r = await subirImagenPortal(studio.id, clave, file);
+      if ('error' in r) { setError(r.error); return; }
+      onChange(r.url);
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  return (
+    <div>
+      <span className={labelCls}>{campo.etiqueta}</span>
+      <div className="flex items-center gap-2">
+        <div className="w-16 h-11 rounded-lg border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center">
+          {valor ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={valor} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[9px] text-muted-foreground text-center px-1">Sin foto</span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => ref.current?.click()}
+          disabled={subiendo}
+          className="flex items-center gap-1.5 text-[12.5px] font-semibold px-2.5 py-1.5 rounded-lg border border-border disabled:opacity-50"
+        >
+          <Upload size={13} /> {subiendo ? 'Subiendo…' : valor ? 'Cambiar' : 'Subir foto'}
+        </button>
+        {valor && !subiendo && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            aria-label={`Quitar ${campo.etiqueta}`}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+        <input ref={ref} type="file" accept="image/*" hidden onChange={alElegir} />
+      </div>
+      {error && <span className="text-[11px] text-destructive block mt-1">{error}</span>}
+      <button
+        type="button"
+        onClick={() => setVerEnlace((v) => !v)}
+        className="text-[11px] text-muted-foreground underline mt-1.5"
+      >
+        {verEnlace ? 'Ocultar el enlace' : 'o pegar un enlace'}
+      </button>
+      {verEnlace && (
+        <input
+          className={`${inputCls} mt-1`}
+          value={valor}
+          placeholder={campo.marcador ?? 'https://…'}
+          onChange={(e) => onChange(e.target.value)}
+          aria-label={`Enlace de ${campo.etiqueta}`}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
  * Fila de botones para los campos de enum.
  *
  * Exportada porque el panel de "Logo y favicon" —escrito a mano, no derivado
@@ -212,8 +317,13 @@ export function FilaOpciones({
  * de ruido. Es exactamente lo que hacían los tres formularios de antes.
  */
 function ListaCampo({
-  campo, valor, onChange,
-}: { campo: Extract<CampoSchema, { tipo: 'lista' }>; valor: Valores[]; onChange: (v: Valores[]) => void }) {
+  campo, valor, onChange, prefijoSubida,
+}: {
+  campo: Extract<CampoSchema, { tipo: 'lista' }>;
+  valor: Valores[];
+  onChange: (v: Valores[]) => void;
+  prefijoSubida?: string;
+}) {
   function setElemento(i: number, id: string, v: unknown) {
     onChange(valor.map((el, idx) => (idx === i ? { ...el, [id]: v } : el)));
   }
@@ -230,6 +340,11 @@ function ListaCampo({
               campo={sub}
               valor={el[sub.id]}
               sinEtiqueta
+              // ⚠️ El ÍNDICE va en el prefijo. Los elementos de una lista
+              // comparten `sub.id` (las cuatro fotos de una galería son todas
+              // `url`), así que sin esto las cuatro se guardarían con el mismo
+              // nombre y cada subida borraría la anterior.
+              prefijoSubida={claveSubidaDeCampo(prefijoSubida, campo.id, i)}
               onChange={(v) => setElemento(i, sub.id, v)}
             />
           ))}
@@ -253,8 +368,14 @@ function ListaCampo({
 
 /** UN campo. El único `switch` por tipo de todo el editor. */
 function CampoControl({
-  campo, valor, onChange, sinEtiqueta,
-}: { campo: CampoSchema | CampoSchemaSinLista; valor: unknown; onChange: (v: unknown) => void; sinEtiqueta?: boolean }) {
+  campo, valor, onChange, sinEtiqueta, prefijoSubida,
+}: {
+  campo: CampoSchema | CampoSchemaSinLista;
+  valor: unknown;
+  onChange: (v: unknown) => void;
+  sinEtiqueta?: boolean;
+  prefijoSubida?: string;
+}) {
   const error = validarCampo(campo as CampoSchema, valor);
   const etiqueta = sinEtiqueta ? null : <span className={labelCls}>{campo.etiqueta}</span>;
   const ayuda = campo.ayuda ? <span className="text-[11px] text-muted-foreground block mt-1">{campo.ayuda}</span> : null;
@@ -262,8 +383,9 @@ function CampoControl({
   // nada valida, y perder lo escrito por eso sería peor que el error.
   const aviso = error ? <span className="text-[11px] text-destructive block mt-1">{error}</span> : null;
 
-  function envoltorio(control: React.ReactNode) {
-    return <div>{etiqueta}{control}{ayuda}{aviso}</div>;
+  /** `etiquetaPropia`: el control ya pinta la suya y repetirla saldría doble. */
+  function envoltorio(control: React.ReactNode, etiquetaPropia = false) {
+    return <div>{etiquetaPropia ? null : etiqueta}{control}{ayuda}{aviso}</div>;
   }
 
   switch (campo.tipo) {
@@ -283,9 +405,22 @@ function CampoControl({
           aria-label={campo.etiqueta}
         />,
       );
+    case 'imagen':
+      return envoltorio(
+        <CampoImagen
+          campo={campo}
+          valor={(valor as string) ?? ''}
+          // La clave entra en el nombre del fichero. Sin el prefijo del bloque,
+          // dos banners distintos escribirían en el mismo sitio y el segundo
+          // pisaría la foto del primero. La regla vive en `storage-clave.ts`,
+          // que es donde tiene tests.
+          clave={claveSubidaDeCampo(prefijoSubida, campo.id)}
+          onChange={onChange}
+        />,
+        true,
+      );
     case 'texto':
     case 'url':
-    case 'imagen':
       return envoltorio(
         <input
           className={inputCls}
@@ -353,7 +488,7 @@ function CampoControl({
       return (
         <div>
           {etiqueta}
-          <ListaCampo campo={campo} valor={Array.isArray(valor) ? (valor as Valores[]) : []} onChange={onChange} />
+          <ListaCampo campo={campo} valor={Array.isArray(valor) ? (valor as Valores[]) : []} onChange={onChange} prefijoSubida={prefijoSubida} />
         </div>
       );
   }
@@ -365,7 +500,7 @@ function CampoControl({
  * que su valor guardado desaparezca**.
  */
 export function CamposForm({
-  campos, valores, valoresCondicion, onChange, etiquetaListaSinTitulo,
+  campos, valores, valoresCondicion, onChange, etiquetaListaSinTitulo, prefijoSubida,
 }: {
   campos: readonly CampoSchema[];
   valores: Valores;
@@ -385,6 +520,12 @@ export function CamposForm({
   onChange: (v: Valores, campoId: string) => void;
   /** Oculta la etiqueta de un campo `lista` que ya se explica por su bloque. */
   etiquetaListaSinTitulo?: boolean;
+  /**
+   * Qué distingue a ESTE panel de otro igual, para nombrar los ficheros que se
+   * suban desde él. Normalmente el id del bloque. Sin esto, dos banners
+   * escribirían su foto en el mismo path y el segundo pisaría al primero.
+   */
+  prefijoSubida?: string;
 }) {
   const { sueltos, grupos } = agruparCampos(campos, valoresCondicion ?? valores);
   const control = (campo: CampoSchema) => (
@@ -393,6 +534,7 @@ export function CamposForm({
       campo={campo}
       valor={valores[campo.id]}
       sinEtiqueta={etiquetaListaSinTitulo && campo.tipo === 'lista'}
+      prefijoSubida={prefijoSubida}
       onChange={(v) => onChange({ ...valores, [campo.id]: v }, campo.id)}
     />
   );

@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/db/supabase';
 import { redimensionarImagen, LADO_AVATAR, LADO_FOTO_CLASE, LADO_BANNER } from '@/lib/imagen-cliente';
+// La higienización de la clave vive en un módulo SIN imports para que
+// `node --test` pueda probarla: no resuelve el alias `@/`, y este fichero lo usa.
+import { claveDeImagenPortal } from '@/lib/storage-clave';
 
 // Fotos de perfil de socias — bucket público "avatars" en Supabase Storage.
 // Se sobrescribe siempre el mismo path (sin extensión) para no tener que
@@ -170,6 +173,42 @@ export async function eliminarImagenBienvenida(studioId: string): Promise<{ ok: 
   const { error } = await supabase.storage.from(BUCKET).remove([`bienvenida-${studioId}`]);
   if (error) return { error: error.message };
   return { ok: true };
+}
+
+/**
+ * Cualquier imagen que se sube DESDE el editor de apariencia: la foto de un
+ * banner, la de una tarjeta, la de una galería…
+ *
+ * Las nueve funciones de arriba son de una pieza concreta cada una (el logo,
+ * el favicon, la foto de ESA instructora). Ésta es la genérica, y hacía falta
+ * porque hasta ahora un campo de imagen del editor era **una casilla para
+ * pegar una URL**: para poner una foto en un banner había que subirla a otro
+ * sitio y copiar el enlace. Nadie que lleve un estudio de Pilates hace eso.
+ *
+ * ⚠️ La `clave` la compone quien llama y entra en el path, así que se
+ * higieniza aquí y no en el llamador: un id de bloque con `/` o `..` escribiría
+ * fuera de su carpeta. Se limita a lo que puede salir de un id o un nombre de
+ * campo, y el `studioId` va SIEMPRE por delante — dos estudios no pueden
+ * pisarse aunque coincidan las claves.
+ */
+export async function subirImagenPortal(
+  studioId: string, clave: string, file: File,
+): Promise<{ url: string } | { error: string }> {
+  const invalido = validarImagenMarca(file, LOGO_MAX_BYTES);
+  if (invalido) return { error: invalido };
+  const limpia = claveDeImagenPortal(clave);
+  if (!limpia) return { error: 'No se ha podido guardar la imagen. Vuelve a intentarlo.' };
+  const path = `portal-${studioId}-${limpia}`;
+  const img = await redimensionarImagen(file, LADO_BANNER);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+  if (uploadError) return { error: uploadError.message };
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  // `?v=` para que el navegador no siga enseñando la anterior: el path se
+  // reutiliza (`upsert`) y sin esto cambiar la foto no se notaba hasta vaciar
+  // la caché.
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
 }
 
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra

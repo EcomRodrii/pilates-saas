@@ -176,7 +176,14 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
     showToast(res.ok ? 'Tipo de clase eliminado' : res.error);
   }, [confirmDel, deleteTipoClase, showToast]);
 
-  const canGuardar = form.nombre.trim() && form.duracionMinutos;
+  // Los dos campos van en unidades distintas (min vs días) y ambos son
+  // overrides opcionales ("hereda" si están vacíos, #867): solo se comparan
+  // cuando ESTE tipo de clase fija los dos explícitamente.
+  const minMinReserva = form.reservaVentanaMinimaMinutos.trim() === '' ? null : parseInt(form.reservaVentanaMinimaMinutos, 10) || 0;
+  const maxDiasReserva = form.reservaAntelacionMaximaDias.trim() === '' ? null : parseInt(form.reservaAntelacionMaximaDias, 10) || 0;
+  const ventanaImposible = minMinReserva != null && maxDiasReserva != null && minMinReserva > maxDiasReserva * 24 * 60;
+
+  const canGuardar = form.nombre.trim() && form.duracionMinutos && !ventanaImposible;
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -372,6 +379,12 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 />
               </Field>
             </div>
+            {ventanaImposible && (
+              <p role="alert" className="text-[12px] text-destructive">
+                La antelación mínima ({form.reservaVentanaMinimaMinutos} min) es mayor que la máxima
+                ({form.reservaAntelacionMaximaDias} días) — nunca habría un momento válido para reservar esta clase.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Field
                 label="Exigir plan/bono activo"

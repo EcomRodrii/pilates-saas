@@ -18,6 +18,7 @@ import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } fro
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { semantic } from '@/lib/portal-tokens';
+import { BandaFoto } from '@/components/portal/banda-foto';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
@@ -97,7 +98,15 @@ export function PortalBonosView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoBonos')}>
-      <div style={{ padding: '62px 24px 24px' }}>
+      {/* La foto de ESTA pantalla. El padding de arriba se lo queda la banda
+          cuando hay foto: si no, la imagen aparecería flotando 62 px por
+          debajo del borde, con un hueco vacío encima que no pinta nada. */}
+      {txt('listadoBonos', 'fotoUrl', '') && (
+        <div style={{ paddingTop: 62 }}>
+          <BandaFoto url={txt('listadoBonos', 'fotoUrl', '')} />
+        </div>
+      )}
+      <div style={{ padding: txt('listadoBonos', 'fotoUrl', '') ? '0 24px 24px' : '62px 24px 24px' }}>
         <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
         <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 
@@ -170,7 +179,34 @@ export function PortalBonosView({
               {bono.esMensual ? 'Cambiar de plan' : 'Renovar bono'}
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {bono && bono.otrosActivos.length > 0 && (
+          // El bono elegido es el que caduca antes (se gasta primero, a
+          // propósito); esto solo avisa de que hay más en cola, que antes
+          // quedaban invisibles del todo.
+          <div
+            style={{
+              marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
+              background: noche ? t.surface2 : '#EEF0EA',
+              border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
+              padding: '18px 24px',
+            }}
+          >
+            <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
+              Tienes {bono.otrosActivos.length} bono{bono.otrosActivos.length === 1 ? '' : 's'} más en cola:{' '}
+              {bono.otrosActivos.map((o, i) => (
+                <span key={i} style={{ color: t.ink, fontWeight: 600 }}>
+                  {o.nombre}{o.restantes != null ? ` (${o.restantes} sesion${o.restantes === 1 ? '' : 'es'})` : ''}
+                  {i < bono.otrosActivos.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+              . Se usarán en cuanto se agote el actual.
+            </span>
+          </div>
+        )}
+
+        {!bono && (
           // Sin bono la pantalla no se queda muda: lo que toca es comprar uno.
           <div style={{
             marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
