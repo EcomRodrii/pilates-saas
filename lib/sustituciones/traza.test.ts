@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { construirTraza, resumenTraza, type ContactoFila } from './traza.ts';
+import { construirTraza, resumenTraza, ultimaRespuestaDe, type ContactoFila } from './traza.ts';
 
 const NOMBRES = { 'ins-1': 'Ana María Ruiz', 'ins-2': 'Berta Gil' };
 
@@ -90,4 +90,44 @@ test('resumen: los fallos se cuentan aparte, no como avisos enviados', () => {
     fila({ instructor_id: 'ins-2', canal: 'whatsapp', estado: 'fallido', enviado_en: '2026-07-20T18:05:00Z' }),
   ], NOMBRES);
   assert.equal(resumenTraza(t), '1 aviso enviado · 1 sin salir');
+});
+
+// ── ultimaRespuestaDe ────────────────────────────────────────────────────────
+
+test('sin respuesta todavía: la pregunta sigue abierta', () => {
+  assert.equal(ultimaRespuestaDe([fila({ instructor_id: 'ins-1' })]), null);
+});
+
+test('rechazó: no se le vuelve a preguntar aunque la sustitución siga contactando', () => {
+  assert.equal(ultimaRespuestaDe([
+    fila({ instructor_id: 'ins-1', estado: 'rechazado', respondido_en: '2026-07-20T18:12:00Z' }),
+  ]), 'rechazado');
+});
+
+test('aceptó: se le dice que la clase es suya, no que otra la cogió antes', () => {
+  assert.equal(ultimaRespuestaDe([
+    fila({ instructor_id: 'ins-1', estado: 'aceptado', respondido_en: '2026-07-20T18:12:00Z' }),
+  ]), 'aceptado');
+});
+
+test('el nudge de WhatsApp de la MISMA ronda no reabre la pregunta ya contestada', () => {
+  // Solo se marca la fila del token que se pulsó; la otra se queda en 'enviado'
+  // para siempre. Mirar "la fila más reciente" volvería a preguntar.
+  assert.equal(ultimaRespuestaDe([
+    fila({ instructor_id: 'ins-1', estado: 'rechazado', respondido_en: '2026-07-20T18:12:00Z' }),
+    fila({ instructor_id: 'ins-1', canal: 'whatsapp', enviado_en: '2026-07-20T18:03:00Z' }),
+  ]), 'rechazado');
+});
+
+test('si se le vuelve a preguntar DESPUÉS de contestar, la pregunta se reabre', () => {
+  assert.equal(ultimaRespuestaDe([
+    fila({ instructor_id: 'ins-1', estado: 'rechazado', respondido_en: '2026-07-20T18:12:00Z' }),
+    fila({ instructor_id: 'ins-1', enviado_en: '2026-07-22T09:00:00Z' }),
+  ]), null);
+});
+
+test('un envío fallido no cuenta como respuesta', () => {
+  assert.equal(ultimaRespuestaDe([
+    fila({ instructor_id: 'ins-1', canal: 'sms', estado: 'fallido', respondido_en: '2026-07-20T18:12:00Z' }),
+  ]), null);
 });
