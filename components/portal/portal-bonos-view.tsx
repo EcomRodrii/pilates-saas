@@ -17,6 +17,7 @@ import { bonoActivo, plazaFijaTexto, fechaLarga } from '@/lib/bonos-portal';
 import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
+import { semantic } from '@/lib/portal-tokens';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
@@ -132,9 +133,21 @@ export function PortalBonosView({
               <div style={{ ...display(30, true), color: t.ink, marginTop: 22 }}>Sesiones ilimitadas</div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
-              <span style={{ fontFamily: sans, fontSize: 11, color: t.muted }}>
-                {bono.caducaEn ? `Caduca el ${fechaLarga(bono.caducaEn)}` : 'Sin fecha de caducidad'}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  fontFamily: sans, fontSize: 11, fontWeight: bono.urgente || bono.caducado ? 700 : 400,
+                  color: bono.caducado
+                    ? (noche ? semantic.danger.textNoche : semantic.danger.text)
+                    : bono.urgente
+                    ? (noche ? semantic.warning.textNoche : semantic.warning.text)
+                    : t.muted,
+                }}
+              >
+                {bono.textoCaducidad
+                  ? `${bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
+                  : bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}`
+                  : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad'}
               </span>
               {bono.precio != null && (
                 <span style={{ fontFamily: sans, fontSize: 11, color: t.muted, whiteSpace: 'nowrap' }}>

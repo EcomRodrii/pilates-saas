@@ -22,7 +22,10 @@ test.describe('Portal — Bonos', () => {
     // El bono del mock está acotado a Reformer: el nombre lo dice.
     await expect(page.getByText('Bono 10 · Reformer')).toBeVisible();
     await expect(page.getByText('de 10 sesiones disponibles')).toBeVisible();
-    await expect(page.getByText('Caduca el 30 de septiembre')).toBeVisible();
+    // La cuenta de días es relativa a "hoy" (p.ej. "Caduca en 51 días · 30 de
+    // septiembre") y cambia cada día que pasa — se valida solo la fecha
+    // absoluta, estable, no el número de días.
+    await expect(page.getByText(/Caduca (en \d+ días?|hoy) · 30 de septiembre/)).toBeVisible();
   });
 
   test('la plaza fija se lee en día y hora', async ({ page }) => {

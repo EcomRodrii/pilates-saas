@@ -75,6 +75,16 @@ export const EVENTOS = {
   SUSTITUCION_RECHAZADA: 'sustitucion.rechazada',
   PAGO_FALLIDO: 'pago.fallido',
   PAGO_REALIZADO: 'pago.realizado',
+  // Mismo hecho que PAGO_REALIZADO (mismo recibo, mismo publish desde
+  // emitirPagoRealizado), pero PAGO_REALIZADO es BAJA/sin canales porque su
+  // destinataria es la socia (un recibo más, nada que celebrar desde su lado).
+  // El mostrador SÍ quiere enterarse al momento de que ha entrado dinero — es
+  // el aviso que dispara el toast+sonido "cha-ching" del panel — así que es un
+  // evento propio en vez de ampliar la audiencia de PAGO_REALIZADO: la
+  // prioridad/canales se declaran por evento, y mezclar audiencias con
+  // necesidades de urgencia distintas en una sola regla las igualaría a la
+  // baja (mismo criterio que separó PAGO_CHARGEBACK_PERDIDO de PAGO_DEVUELTO).
+  VENTA_REGISTRADA: 'venta.registrada',
   // Disputa/chargeback de Stripe: el dinero ya se cobró y ahora se impugna.
   // Distinto de PAGO_FALLIDO (ahí nunca llegó a cobrarse) — el estudio tiene
   // un plazo real de la propia Stripe para responder con evidencia.
@@ -160,6 +170,12 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // Sin EMAIL: el dunning ya manda su propio correo a la socia (1.er aviso).
   [EVENTOS.PAGO_FALLIDO]:          { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'mostrador-y-socia' },
   [EVENTOS.PAGO_REALIZADO]:        { category: 'pagos',    priority: 'BAJA',   canales: [],       audiencia: 'socia-del-evento' },
+  // Solo in-app a propósito: el canal que importa aquí es el toast+sonido en
+  // tiempo real de la campana (realtime, no un "canal" del catálogo), no un
+  // push que llegaría igual con la pestaña cerrada — eso ya lo cubre
+  // PAGO_FALLIDO cuando el dinero es un problema. Aquí el dinero es una buena
+  // noticia que quiere verse AL MOMENTO con el panel abierto.
+  [EVENTOS.VENTA_REGISTRADA]:      { category: 'pagos',    priority: 'MEDIA',  canales: [],       audiencia: 'mostrador' },
   // Sin EMAIL: el recibo (ReciboEmail) ya se manda por separado.
   [EVENTOS.PAGO_PENALIZACION]:     { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH'], audiencia: 'socia-del-evento' },
   // Solo in-app, sin push: es accionable pero no urgente de interrumpir.
@@ -381,6 +397,23 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.PAGO_REALIZADO}#SOCIA`]: {
     title: 'Pago recibido',
     body: 'Hemos recibido tu pago de {concepto} ({importe} €). ¡Gracias!',
+  },
+  // Nueva venta → mostrador (dueña/manager/recepción). Mismo texto para las
+  // tres, mismo criterio que el resto de plantillas `mostrador`.
+  [`${EVENTOS.VENTA_REGISTRADA}#PROPIETARIO`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
+  },
+  [`${EVENTOS.VENTA_REGISTRADA}#MANAGER`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
+  },
+  [`${EVENTOS.VENTA_REGISTRADA}#RECEPCION`]: {
+    title: 'Nueva venta',
+    body: '{socia} ha comprado {concepto} — {importe} €.',
+    deepLink: () => `/cobros?tab=cobrado`,
   },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',

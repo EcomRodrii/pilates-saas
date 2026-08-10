@@ -257,6 +257,12 @@ function studioPublico(r: RowStudios) {
     // hueco de diseño y era un campo que no viajaba: nada fallaba, nada
     // avisaba, la foto simplemente no llegaba.
     fotoUrl: r.foto_url ?? null,
+    // Imagen de bienvenida/portada del portal — separada de `fotoUrl` (foto
+    // de perfil de la propietaria, panel). Ver migr
+    // 20260810140000_studios_imagen_bienvenida.sql: comparten el mismo bug de
+    // "lista blanca" que ya avisa el comentario de arriba en `fotoUrl`, así
+    // que va explícita desde el principio.
+    imagenBienvenidaUrl: (r as { imagen_bienvenida_url?: string | null }).imagen_bienvenida_url ?? null,
     plan: r.plan,
     avatarAdmin: r.avatar_admin ?? null,
     slug: r.slug ?? null,

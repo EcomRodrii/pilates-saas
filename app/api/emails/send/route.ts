@@ -14,6 +14,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { resolverPlantilla, interpolar, resolverMarcaEstudio, generarEnlaceAccesoSocia } from '@/lib/emails/plantillas-server';
 import { validarDatosEmail } from '@/lib/emails/validar-datos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
+import { remitentePorMarca } from '@/lib/emails/remitente';
 import { registrarComunicacion } from '@/lib/db/supabase-data-admin';
 
 export async function POST(req: NextRequest) {
@@ -136,10 +137,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await resend.emails.send({
-    // Remitente configurable por env: una vez verificado el dominio propio en
-    // Resend, poner RESEND_FROM='Tentare <hola@tudominio.com>'. Sin verificar,
-    // el sandbox de Resend solo entrega al email de la cuenta.
-    from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>',
+    // Remitente con el nombre del estudio (misma dirección verificada de
+    // siempre, ver lib/emails/remitente.ts) — sin nombre resuelto, cae a Tentare.
+    from: remitentePorMarca(marca.nombre || dv.estudioNombre || 'Tentare'),
     to: [body.to],
     subject,
     html,

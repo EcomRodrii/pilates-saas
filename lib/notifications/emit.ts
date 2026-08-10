@@ -428,6 +428,18 @@ export async function emitirPagoRealizado(
       resource: { type: 'recibo', id: p.reciboId },
       dedupKey: `pago-ok:${p.reciboId}`,
     });
+    // Al mostrador: el aviso de "ha entrado dinero" (toast+cha-ching en tiempo
+    // real de la campana). Mismo recibo, evento propio — ver comentario del
+    // catálogo (VENTA_REGISTRADA) sobre por qué no es la misma regla que la de
+    // arriba.
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.VENTA_REGISTRADA, studioId: p.studioId,
+      data: { concepto: recibo.concepto ?? 'una compra', importe: recibo.importe, socia },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `venta:${p.reciboId}`,
+    });
   } catch (e) {
     console.error('[notifications] emitirPagoRealizado:', e instanceof Error ? e.message : e);
   }

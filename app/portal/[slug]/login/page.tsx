@@ -105,7 +105,7 @@ export default function PortalLogin() {
           que se ha avanzado un paso, sin escribir «paso 2 de 2». */}
       <PortadaAcceso
         alto={212}
-        fotoUrl={studio?.fotoUrl?.trim() ? studio.fotoUrl : null}
+        fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
         nombre={nombre}
         ciudad={studio?.ciudad}
         progreso={68}

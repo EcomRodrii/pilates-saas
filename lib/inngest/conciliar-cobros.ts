@@ -115,6 +115,8 @@ async function entregar(
     await aplicarRenovacionServidor(admin, { studioId: p.studioId, reciboId: p.reciboId });
     const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
     await emitirPagoRealizado(admin, { studioId: p.studioId, reciboId: p.reciboId });
+    const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+    await enviarEmailReciboWebhook(admin, { studioId: p.studioId, reciboId: p.reciboId });
     return;
   }
 
@@ -154,6 +156,8 @@ async function entregar(
 
   const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
   await emitirPagoRealizado(admin, { studioId: p.studioId, reciboId: entrega.reciboId });
+  const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+  await enviarEmailReciboWebhook(admin, { studioId: p.studioId, reciboId: entrega.reciboId });
 }
 
 export const conciliarCobrosDispatcher = inngest.createFunction(

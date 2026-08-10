@@ -156,12 +156,16 @@ test.describe('Portal de la clienta — se ve bien en cualquier teléfono', () =
 });
 
 test.describe('Portal de la clienta — con foto del estudio', () => {
-  // Un PNG de 1×1 en verde: basta para que `fotoUrl` no sea nulo y la tarjeta
-  // entre en su composición de diseño, sin depender de ninguna red.
+  // Un PNG de 1×1 en verde: basta para que `imagenBienvenidaUrl` no sea nulo
+  // y la tarjeta entre en su composición de diseño, sin depender de ninguna
+  // red. NO se usa `fotoUrl` aquí a propósito: es la foto de perfil de la
+  // propietaria, un campo distinto — la tarjeta del portal lee la imagen de
+  // bienvenida, y este test existe precisamente para que ambos campos no se
+  // mezclen (ver migración 20260810140000_studios_imagen_bienvenida).
   const FOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAACwtJQAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
 
   test('con foto, la tarjeta mide los 476 px del diseño', async ({ page }) => {
-    await montarPortal(page, { conSesion: true, fotoUrl: FOTO });
+    await montarPortal(page, { conSesion: true, imagenBienvenidaUrl: FOTO });
     await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();

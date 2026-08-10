@@ -148,6 +148,30 @@ export async function eliminarFotoInstructor(instructorId: string): Promise<{ ok
   return { ok: true };
 }
 
+// Imagen de bienvenida/portada del portal — mismo bucket público, prefijo
+// propio. Distinta de `subirFotoAdmin` (foto de perfil de la propietaria,
+// solo panel): esta es la que ven las alumnas al entrar al portal
+// (BienvenidaPortal, PortadaAcceso, hero de inicio...). Mismo redimensionado
+// que un banner: es una imagen grande a pantalla completa, no un avatar.
+export async function subirImagenBienvenida(studioId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `bienvenida-${studioId}`;
+  const img = await redimensionarImagen(file, LADO_BANNER);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarImagenBienvenida(studioId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`bienvenida-${studioId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 // Logo del estudio (marca) — mismo bucket público, prefijo propio. Se muestra
 // en el portal público de reservas cuando existe.
 //

@@ -8,9 +8,10 @@ import {
   ArrowLeft, ArrowRight, Clock, PartyPopper, Info,
 } from 'lucide-react';
 import {
-  parseCsv, autoMapearCita, validarFilasCita, serializeCsv, CAMPOS_CITA,
+  autoMapearCita, validarFilasCita, serializeCsv, CAMPOS_CITA,
   type CampoCita, type ParsedCsv,
 } from '@/lib/csv';
+import { esArchivoTabularValido, leerArchivoTabular, ACCEPT_ARCHIVO_TABULAR, MENSAJE_ARCHIVO_NO_VALIDO } from '@/lib/importar-archivo';
 import { importarCitas, type ResultadoImportCitas } from '@/lib/api-client';
 
 // Asistente de importación de CITAS 1:1 — última pieza de la migración asistida.
@@ -72,13 +73,12 @@ export default function ImportarCitasPage() {
 
   async function cargarArchivo(file: File) {
     setErrorCarga(null);
-    if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
-      setErrorCarga('Sube un archivo .csv. Si tienes Excel, expórtalo como CSV primero.');
+    if (!esArchivoTabularValido(file)) {
+      setErrorCarga(MENSAJE_ARCHIVO_NO_VALIDO);
       return;
     }
     try {
-      const texto = await file.text();
-      const p = parseCsv(texto);
+      const p = await leerArchivoTabular(file);
       if (p.headers.length === 0 || p.rows.length === 0) {
         setErrorCarga('El archivo no tiene filas de datos.');
         return;
@@ -149,10 +149,10 @@ export default function ImportarCitasPage() {
           >
             <Upload size={28} className="text-muted-foreground" />
             <div>
-              <p className="text-[14px] font-semibold text-foreground">Arrastra tu archivo CSV aquí</p>
+              <p className="text-[14px] font-semibold text-foreground">Arrastra tu archivo CSV o Excel aquí</p>
               <p className="text-[12.5px] text-muted-foreground mt-0.5">o haz clic para elegirlo</p>
             </div>
-            <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden"
+            <input ref={inputRef} type="file" accept={ACCEPT_ARCHIVO_TABULAR} className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) cargarArchivo(f); }} />
           </div>
 

@@ -92,3 +92,25 @@ test('resumenSocio: tolera socio undefined sin romper', () => {
   assert.equal(r.cumpleanos, null);
   assert.equal(r.asistidas, 2); // el resto sigue calculándose
 });
+
+// Hallazgo B (auditoría dunning 2026-08-10): sin ninguna ACTIVA/PAUSADA, cae
+// a la CANCELADA más reciente — para que "Reactivar" tenga sobre qué actuar.
+test('resumenSocio: sin ACTIVA/PAUSADA, cae a la CANCELADA más reciente (para "Reactivar")', () => {
+  const susCanceladas = [
+    { socioId: 'soc1', estado: 'CANCELADA', planId: 'p1', fechaInicio: '2026-01-01' },
+    { socioId: 'soc1', estado: 'CANCELADA', planId: 'p1', fechaInicio: '2026-05-01' }, // más reciente
+    { socioId: 'other', estado: 'ACTIVA', planId: 'p1', fechaInicio: '2026-06-01' },
+  ] as unknown as Suscripcion[];
+  const r = resumenSocio({ ...base, suscripciones: susCanceladas });
+  assert.equal(r.suscripcion?.fechaInicio, '2026-05-01');
+  assert.equal(r.plan?.id, 'p1');
+});
+
+test('resumenSocio: con una ACTIVA, la ignora frente a cualquier CANCELADA (prioridad de la vigente)', () => {
+  const mix = [
+    { socioId: 'soc1', estado: 'CANCELADA', planId: 'p1', fechaInicio: '2026-06-01' },
+    { socioId: 'soc1', estado: 'ACTIVA', planId: 'p1', fechaInicio: '2026-01-01' },
+  ] as unknown as Suscripcion[];
+  const r = resumenSocio({ ...base, suscripciones: mix });
+  assert.equal(r.suscripcion?.estado, 'ACTIVA');
+});

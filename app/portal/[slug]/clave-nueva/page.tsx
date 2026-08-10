@@ -56,7 +56,7 @@ export default function PortalClaveNueva() {
     <div style={{ minHeight: '100dvh', background: t.bg, display: 'flex', flexDirection: 'column' }}>
       <PortadaAcceso
         alto={212}
-        fotoUrl={studio?.fotoUrl?.trim() ? studio.fotoUrl : null}
+        fotoUrl={studio?.imagenBienvenidaUrl?.trim() ? studio.imagenBienvenidaUrl : null}
         nombre={nombre}
         ciudad={studio?.ciudad}
         // 88 y no 100: la socia todavía tiene que elegir la clave. El hilo

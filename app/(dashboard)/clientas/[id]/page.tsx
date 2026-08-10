@@ -22,12 +22,14 @@ import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperaci
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
+import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion';
+import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock,
   Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
-  Bot, Loader2, Mic,
+  Bot, Loader2, Mic, RefreshCw,
 } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
@@ -211,7 +213,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
     tiposClase, salas, instructores, notasInternas,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
-    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion,
+    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion,
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
@@ -260,6 +262,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [reservasPage, setReservasPage] = useState(20);
   const [toast, setToast] = useState<string | null>(null);
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  const [reactivando, setReactivando] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // ── AI instructor notes ────────────────────────────────────────────────────
@@ -562,6 +565,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   // ── Sessions progress ──────────────────────────────────────────────────────
   const sesionesRestantes = suscripcion?.sesionesRestantes ?? null;
   const sesionesTotales = plan?.sesiones ?? null;
+  // "Caduca en N días"/"Próxima renovación en N días" — mismo cálculo puro
+  // reutilizado por la tabla de Clientas y por el portal de la socia.
+  const estadoSus = calcularEstadoSuscripcion(suscripcion ?? null, plan ?? null);
+  const textoCaducidadSus = textoCaducidad(estadoSus);
+  const colorCaducidadSus =
+    estadoSus.kind === 'bono' ? (estadoSus.caducado ? 'var(--destructive)' : estadoSus.urgente ? 'var(--warning)' : 'var(--muted-foreground)') :
+    estadoSus.kind === 'recurrente' ? (estadoSus.urgente ? 'var(--warning)' : 'var(--muted-foreground)') :
+    'var(--muted-foreground)';
   const sesionesColor =
     sesionesRestantes === 0 ? 'var(--destructive)' :
     sesionesRestantes !== null && sesionesRestantes <= 2 ? 'var(--warning)' :
@@ -623,6 +634,15 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               </p>
                               {suscripcion.estado === 'PAUSADA' && (
                                 <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)' }}>Pausada</span>
+                              )}
+                              {suscripcion.estado === 'CANCELADA' && (
+                                <span className="inline-block mt-2 text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: 'var(--muted)', color: 'var(--muted-foreground)' }}>Cancelada</span>
+                              )}
+                              {textoCaducidadSus && suscripcion.estado === 'ACTIVA' && (
+                                <p className="inline-flex items-center gap-1 text-xs font-semibold mt-1.5" style={{ color: colorCaducidadSus }}>
+                                  {estadoSus.kind === 'recurrente' ? <RefreshCw size={12} /> : <Calendar size={12} />}
+                                  {textoCaducidadSus}
+                                </p>
                               )}
                             </div>
                             {verFinanzas && (
@@ -699,7 +719,33 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                               estaban fuera de `verFinanzas`: una instructora las veía y
                               podía cancelarle el plan a una clienta. Es lo único de esta
                               pantalla que la migración 0112 habría dejado como botón roto. */}
-                          {puedeCobrar && (
+                          {puedeCobrar && suscripcion.estado === 'CANCELADA' && (
+                          <div className="mt-4 flex gap-2">
+                            {/* Hallazgo B (auditoría dunning 2026-08-10): reactiva ESTA misma
+                                suscripción (mismo id, con su histórico) — distinto de "Asignar
+                                plan", que crea una fila nueva desde cero. Recalcula fecha_fin
+                                a hoy (calcularReactivacion) para no reactivar algo ya caducado
+                                con la fecha vieja. */}
+                            <button
+                              onClick={async () => {
+                                setReactivando(true);
+                                try {
+                                  const res = await reactivarSuscripcion(suscripcion.id);
+                                  if (!res.ok) setToast(res.error);
+                                  else setToast('Suscripción reactivada');
+                                } finally {
+                                  setReactivando(false);
+                                }
+                              }}
+                              disabled={reactivando}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-40"
+                              style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
+                            >
+                              <Play size={12} />{reactivando ? 'Reactivando…' : 'Reactivar'}
+                            </button>
+                          </div>
+                          )}
+                          {puedeCobrar && suscripcion.estado !== 'CANCELADA' && (
                           <div className="mt-4 flex gap-2">
                             {suscripcion.estado === 'ACTIVA' ? (
                               <button
@@ -1485,11 +1531,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             <Card>
               <SectionTitle>Plan</SectionTitle>
               <p className="text-sm font-bold text-foreground">{plan.nombre}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {plan.tipo === 'MENSUAL' ? 'Ilimitado' : sesionesRestantes !== null ? `${sesionesRestantes} sesiones restantes` : ''}
-              </p>
+              {plan.tipo === 'MENSUAL' && estadoSus.kind !== 'recurrente' && (
+                <p className="text-xs text-muted-foreground mt-0.5">Ilimitado</p>
+              )}
+              <div className="mt-1.5">
+                <EstadoSuscripcion suscripcion={suscripcion} plan={plan} />
+              </div>
               {suscripcion.fechaFin && (
-                <p className="text-xs text-muted-foreground mt-0.5">Expira: {fecha(suscripcion.fechaFin)}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">{estadoSus.kind === 'recurrente' ? 'Próximo cobro' : 'Fecha exacta'}: {fecha(suscripcion.fechaFin)}</p>
               )}
               {puedeCobrar && (
               <button

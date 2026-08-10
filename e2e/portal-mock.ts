@@ -139,7 +139,7 @@ const AVISOS_BASE = [
 ];
 
 export async function montarPortal(page: Page, opciones: {
-  conSesion: boolean; fotoUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
+  conSesion: boolean; fotoUrl?: string | null; imagenBienvenidaUrl?: string | null; sinPlazas?: boolean; sinHistorial?: boolean; sinAvisos?: boolean;
   /** Motivo con el que el servidor RECHAZA la reserva (400). Sin esto, acepta. */
   reservaRechazada?: string;
   /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
@@ -188,7 +188,7 @@ export async function montarPortal(page: Page, opciones: {
    */
   tema?: string;
 }) {
-  const { conSesion, fotoUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
+  const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
           retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
@@ -314,7 +314,7 @@ export async function montarPortal(page: Page, opciones: {
   await page.route('**/api/public/studio-data', route => json(route, {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
-      colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl,
+      colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl, imagenBienvenidaUrl,
     },
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,

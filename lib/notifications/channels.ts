@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } from './types.ts';
+import { remitentePorMarca } from '../emails/remitente.ts';
 
 export interface ResultadoCanal {
   status: DeliveryStatus;
@@ -119,8 +120,13 @@ const email: Canal = {
     try {
       const { Resend } = await import('resend');
       const resend = new Resend(apiKey);
+      // Este canal EMAIL lo usan tanto avisos a staff (propietaria/manager/
+      // recepción/instructora) como a socias — el remitente con nombre del
+      // estudio solo tiene sentido cuando quien recibe es una socia; el resto
+      // sigue viendo "Tentare" (es el propio producto avisando al equipo).
+      const from = destinatario.role === 'SOCIA' ? remitentePorMarca(estudio) : (process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>');
       const { data, error } = await resend.emails.send(
-        { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [destinatario.email], subject: notificacion.title, html },
+        { from, to: [destinatario.email], subject: notificacion.title, html },
         { idempotencyKey: `noti-${notificacion.id}` },
       );
       if (error) return { status: 'FAILED', error: error.message };

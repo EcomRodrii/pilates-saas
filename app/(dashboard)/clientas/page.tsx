@@ -11,13 +11,15 @@ import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { ERROR_GENERICO } from '@/lib/errores';
-import type { Socio, NivelSemaforo } from '@/lib/types';
+import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
+import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
   ChevronUp, ChevronDown, ChevronsUpDown, Mail, Pencil,
   Trash2, AlertTriangle, CheckCircle2, Upload, X, UserX,
   Tag, Bookmark, FileText, PenLine, ArrowLeft, ShieldCheck, Loader2,
+  CircleDashed,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -311,28 +313,68 @@ export default function Socios() {
     setAhoraMs(Date.now());
   }, []);
 
-  function isInactiva30d(socioId: string): boolean {
+  // Mismo criterio que el contador del servidor (migr 0128): quien no tiene
+  // ninguna reserva ASISTIDA no se cuenta desde 1970, se cuenta desde su alta.
+  // Antes esto marcaba "Sin asistencia" a CUALQUIER clienta recién creada
+  // (sin visitas todavía) igual que a una que llevaba 30 días sin venir —
+  // exactamente el "todas aparecen como Sin asistencia" que reportó el
+  // fundador, porque una base nueva tiene casi solo altas recientes.
+  function isInactiva30d(socioId: string, s?: Socio): boolean {
     if (!ahoraMs) return false;
     const last = getLastVisit(socioId);
-    if (!last) return true;
-    return ahoraMs - new Date(last).getTime() > 30 * 86400000;
+    const desde = last ?? s?.fechaAlta;
+    if (!desde) return true;
+    return ahoraMs - new Date(desde).getTime() > 30 * 86400000;
+  }
+
+  // Distingue "todavía no le ha dado tiempo a venir" (dada de alta hace poco,
+  // sin visitas) de "llevaba viniendo y dejó de asistir" — antes ambas
+  // compartían la misma etiqueta "Sin asistencia" y la primera es la mayoría
+  // en cualquier estudio con altas recientes.
+  function sinDatosDeAsistencia(socioId: string, s: Socio): boolean {
+    return isInactiva30d(socioId, s) && !getLastVisit(socioId);
   }
 
   function isBonoExpirado(socioId: string): boolean {
     return expiradaPorSocio.has(socioId) && !getActiveSus(socioId);
   }
 
-  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle } {
-    if (!s.activo) return { label: 'Inactiva', bg: 'var(--muted)', color: 'var(--muted-foreground)' };
+  // "Caduca en N días"/"Próxima renovación en N días" para la fila de la
+  // tabla y la card móvil — mismo cálculo puro que la ficha de la clienta
+  // (lib/suscripcion-estado.ts), sin reimplementar la cuenta de días aquí.
+  function textoCaducidadFila(sus: Suscripcion | undefined, plan: PlanTarifa | null): string | null {
+    if (!sus || !plan) return null;
+    return textoCaducidad(calcularEstadoSuscripcion(sus, plan));
+  }
+  function colorCaducidadFila(sus: Suscripcion | undefined, plan: PlanTarifa | null): string {
+    if (!sus || !plan) return 'var(--muted-foreground)';
+    const estado = calcularEstadoSuscripcion(sus, plan);
+    if (estado.kind === 'bono') return estado.caducado ? 'var(--destructive)' : estado.urgente ? 'var(--warning)' : 'var(--muted-foreground)';
+    if (estado.kind === 'recurrente') return estado.urgente ? 'var(--warning)' : 'var(--muted-foreground)';
+    return 'var(--muted-foreground)';
+  }
+
+  // Estados por orden de prioridad: baja de staff > bono caducado > (recién
+  // dada de alta sin visitas todavía) > (llevaba viniendo y dejó) > activa.
+  // "Sin datos" e "Inactiva" (30d) comparten el mismo hecho (isInactiva30d),
+  // pero son causas distintas para la propietaria — una no es un problema,
+  // la otra puede que sí.
+  function estadoBadgeInfo(s: Socio): { label: string; bg: string; color: string; Icon?: typeof AlertCircle; title?: string } {
+    if (!s.activo) return { label: 'Inactiva', bg: 'var(--muted)', color: 'var(--muted-foreground)', title: 'Dada de baja por el estudio.' };
     if (isBonoExpirado(s.id)) return { label: 'Bono expirado', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', color: 'var(--destructive)', Icon: AlertCircle };
-    if (isInactiva30d(s.id)) return { label: 'Sin asistencia', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)', Icon: Clock };
+    if (isInactiva30d(s.id, s)) {
+      if (sinDatosDeAsistencia(s.id, s)) {
+        return { label: 'Sin datos', bg: 'var(--muted)', color: 'var(--muted-foreground)', Icon: CircleDashed, title: 'Esta alumna todavía no ha registrado ninguna asistencia.' };
+      }
+      return { label: 'Sin asistencia reciente', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', color: 'var(--warning)', Icon: Clock, title: 'Más de 30 días desde su última clase asistida.' };
+    }
     return { label: 'Activa', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' };
   }
 
   function EstadoBadge({ s }: { s: Socio }) {
-    const { label, bg, color, Icon } = estadoBadgeInfo(s);
+    const { label, bg, color, Icon, title } = estadoBadgeInfo(s);
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
+      <span title={title} className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: bg, color }}>
         {Icon ? <Icon size={10} /> : <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />}
         {label}
       </span>
@@ -363,7 +405,7 @@ export default function Socios() {
       if (smartFilter === 'activas') matchF = s.activo;
       if (smartFilter === 'sin_bono') matchF = !getActiveSus(s.id);
       if (smartFilter === 'bono_expirado') matchF = isBonoExpirado(s.id);
-      if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id);
+      if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
       return matchB && matchF;
     });
 
@@ -910,15 +952,33 @@ export default function Socios() {
                       )}
                     </td>
 
-                    {/* Sesiones restantes */}
+                    {/* Sesiones restantes + caducidad/renovación */}
                     <td className="px-4 py-3.5 hidden md:table-cell">
                       {sesRest != null ? (
-                        <span
-                          className="inline-block text-[12px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ backgroundColor: sesBg, color: sesColor }}
-                        >
-                          {sesRest}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className="inline-block text-[12px] font-semibold px-2 py-0.5 rounded-md"
+                            style={{ backgroundColor: sesBg, color: sesColor }}
+                          >
+                            {sesRest}
+                          </span>
+                          {textoCaducidadFila(sus, plan) && (
+                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                              {textoCaducidadFila(sus, plan)}
+                            </span>
+                          )}
+                        </div>
+                      ) : sus && plan ? (
+                        // Mensual/plan recurrente sin contador de sesiones: no hay "—" vacío,
+                        // se enseña la renovación (o "Activo" si no hay fecha).
+                        <div className="flex flex-col gap-0.5 items-start">
+                          <span className="text-[11px] font-semibold text-success">Activo</span>
+                          {textoCaducidadFila(sus, plan) && (
+                            <span className="text-[10.5px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                              {textoCaducidadFila(sus, plan)}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[12px] text-muted-foreground">—</span>
                       )}
@@ -1019,6 +1079,11 @@ export default function Socios() {
                           style={{ backgroundColor: sesRest <= 0 ? 'color-mix(in srgb, var(--destructive) 12%, var(--card))' : sesRest <= 2 ? 'color-mix(in srgb, var(--warning) 12%, var(--card))' : 'color-mix(in srgb, var(--success) 12%, var(--card))', color: sesRest <= 0 ? 'var(--destructive)' : sesRest <= 2 ? 'var(--warning)' : 'var(--success)' }}
                         >
                           {sesRest} ses.
+                        </span>
+                      )}
+                      {textoCaducidadFila(sus, plan) && (
+                        <span className="text-[11px] font-medium" style={{ color: colorCaducidadFila(sus, plan) }}>
+                          {textoCaducidadFila(sus, plan)}
                         </span>
                       )}
                     </div>

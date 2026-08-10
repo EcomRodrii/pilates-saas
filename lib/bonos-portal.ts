@@ -8,6 +8,7 @@
 // que puede hacer esta pantalla.
 
 import type { PlanTarifa, PlazaFija, Sala, Suscripcion, TipoClase } from './types.ts';
+import { calcularEstadoSuscripcion, textoCaducidad } from './suscripcion-estado.ts';
 
 export interface BonoActivo {
   suscripcionId: string;
@@ -20,6 +21,18 @@ export interface BonoActivo {
   caducaEn: string | null;
   precio: number | null;
   esMensual: boolean;
+  /**
+   * «Caduca en 18 días» (bono) / «Próxima renovación en 6 días» (mensual) —
+   * mismo cálculo (`lib/suscripcion-estado.ts`) que la ficha de la clienta en
+   * el panel, para que socia y estudio nunca vean una cuenta de días distinta.
+   * `null` cuando la suscripción no tiene `fecha_fin` (sin caducidad/mensual
+   * aún no renovado por Stripe/mostrador).
+   */
+  textoCaducidad: string | null;
+  /** ≤3 días o ≤2 sesiones — mismo umbral que ya resalta el badge del panel. */
+  urgente: boolean;
+  /** Solo aplica a bonos: `fecha_fin` ya pasada. Un mensual nunca "caduca", renueva. */
+  caducado: boolean;
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -69,6 +82,10 @@ export function bonoActivo(
     ? tiposClase.find(tc => tc.id === tipos[0])?.nombre ?? null
     : null;
 
+  const estado = calcularEstadoSuscripcion(s, plan);
+  const urgente = estado.kind === 'bono' ? estado.urgente : estado.kind === 'recurrente' ? estado.urgente : false;
+  const caducado = estado.kind === 'bono' && estado.caducado;
+
   return {
     suscripcionId: s.id,
     nombre: nombreTipo ? `${plan!.nombre} · ${nombreTipo}` : plan!.nombre,
@@ -82,6 +99,9 @@ export function bonoActivo(
     caducaEn: s.fechaFin,
     precio: plan!.precio ?? null,
     esMensual: plan!.tipo === 'MENSUAL',
+    textoCaducidad: textoCaducidad(estado),
+    urgente,
+    caducado,
   };
 }
 

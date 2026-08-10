@@ -650,6 +650,7 @@ export interface RowStudios {
   gestoria_envio_automatico: string | null;
   gestoria_ultimo_envio_periodo: string | null;
   requiere_checkin_qr: boolean | null;
+  imagen_bienvenida_url: string | null;
 }
 
 export interface RowSuscripciones {

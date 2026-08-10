@@ -115,6 +115,27 @@ export function calcularFechaFinBono(fechaInicioISO: string, validezDias: number
   return base.toISOString().slice(0, 10);
 }
 
+// Hallazgo B (auditoría dunning 2026-08-10) — REACTIVAR una suscripción
+// CANCELADA/EXPIRADA (botón "Reactivar" en la ficha de clienta), a diferencia
+// de PAUSAR/DESCONGELAR (que solo cierra una ventana de congelación) o de
+// aplicarRenovacionServidor (que TOPA UN CICLO YA VIGENTE: en BONO/PUNTUAL
+// deja fecha_fin intacta a propósito). Aquí el ciclo anterior ya terminó del
+// todo — reactivar con la fecha_fin vieja la dejaría caducada al instante —
+// así que se recalcula igual que un alta nueva (mismo criterio que
+// `assignPlan` en studio-context.tsx): BONO/PUNTUAL arranca hoy con las
+// sesiones del plan a tope; MENSUAL con el próximo ciclo a un mes vista.
+export function calcularReactivacion(
+  plan: Pick<PlanTarifa, 'tipo' | 'sesiones' | 'validezDias'>,
+  ahoraISO: string,
+): { fechaFin: string | null; sesionesRestantes: number | null } {
+  if (plan.tipo === 'MENSUAL') {
+    const nuevaFin = new Date(`${ahoraISO.slice(0, 10)}T00:00:00Z`);
+    nuevaFin.setUTCMonth(nuevaFin.getUTCMonth() + 1);
+    return { fechaFin: nuevaFin.toISOString().slice(0, 10), sesionesRestantes: null };
+  }
+  return { fechaFin: calcularFechaFinBono(ahoraISO, plan.validezDias ?? null), sesionesRestantes: plan.sesiones };
+}
+
 // ¿La socia ya alcanzó el tope semanal del bono? reservasEnSemana = reservas
 // CONFIRMADA/ASISTIDA suyas en la misma semana ISO (lo cuenta quien llama, con
 // contexto de reservas+sesiones). Sin tope (null) nunca supera.

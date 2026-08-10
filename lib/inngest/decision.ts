@@ -8,6 +8,7 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { remitentePorMarca } from '../emails/remitente.ts';
 import { uid } from '@/lib/utils';
 import { construirSnapshot } from '@/lib/decision/snapshot';
 import { ejecutarAnalisis } from '@/lib/decision/motor';
@@ -336,7 +337,7 @@ async function ejecutarEnvioEmail(r: Recomendacion): Promise<{ ok: boolean; deta
     colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
   }));
   const { error } = await resend.emails.send(
-    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
+    { from: remitentePorMarca(estudioNombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
@@ -387,7 +388,7 @@ async function ejecutarContactoSocia(r: Recomendacion): Promise<{ ok: boolean; d
     colorPrimario: studio?.color_primario, logoUrl: studio?.logo_url,
   }));
   const { error } = await resend.emails.send(
-    { from: process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>', to: [socio.email], subject: mensaje.asunto, html },
+    { from: remitentePorMarca(studio?.nombre || 'Tentare'), to: [socio.email], subject: mensaje.asunto, html },
     { idempotencyKey: r.id }
   );
   if (error) return { ok: false, detalle: error.message };
