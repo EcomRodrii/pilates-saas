@@ -695,6 +695,48 @@ timestamp de aplicación real. No había nada que tocar en `main` — la única
 acción real fue corregir esta nota, que describía un problema ya resuelto
 en otro sitio.
 
+## El captcha invisible: `appearance` NO basta, hace falta `execution`
+
+Turnstile tiene dos parámetros que suenan igual y no lo son, y confundirlos
+costó **dos despliegues fallidos seguidos** (`components/auth/turnstile-widget.tsx`):
+
+- `appearance` → cuándo se **VE** el widget.
+- `execution` → cuándo **CORRE** el desafío. Su valor por defecto (`'render'`)
+  lo arranca al pintar, y entonces `appearance` no tiene nada que ocultar.
+
+La combinación que lo deja invisible de verdad es **`execution: 'execute'` +
+`appearance: 'interaction-only'`**, medida en producción (2026-08-10) contra la
+site key real: en reposo 0 px y sin token; tras `execute()`, token en 3,5–7 s y
+sigue midiendo 0 px. Historial: `interaction-only` a secas (#832) tumbó el
+acceso entero; `appearance: 'execute'` a secas (#842) lo devolvió pero dejó el
+recuadro puesto; cerrado en #843.
+
+Consecuencias que arrastra y que hay que respetar en cualquier pantalla nueva:
+
+- **El token se pide AL ENVIAR y tarda segundos.** Todo formulario debe encender
+  su estado de carga **antes** de `await pedirToken()` (se pasó por alto en
+  `/reservar/[slug]`, #843) y no dejar pulsar dos veces.
+- **Nada de `mt-3`/`mb-3` alrededor del widget**: mide 0 px casi siempre y el
+  margen deja aire en blanco permanente.
+- **El widget se cae y no vuelve solo** (`Error: 300031`, «Turnstile Widget seem
+  to have crashed»): a partir de ahí `execute()` no emite ningún token más.
+  `useCaptcha` lo reinicia hasta 3 veces por carga (#852), y el reinicio va
+  también en el TIMEOUT porque en el caso medido **el `error-callback` nunca se
+  disparó** — el widget se quedó mudo, no dio error.
+
+⚠️ **Verificar SIEMPRE en una pestaña limpia por prueba.** Pedir varios tokens
+seguidos en la misma pestaña provoca ese 300031, y el síntoma es idéntico al de
+un acceso roto en producción (30 s sin token). Por poco se revierte un
+despliegue sano por esto: en pestaña nueva daba token en 5,7 s.
+
+Quién verifica el token **no es la app, salvo en un sitio**: en las cinco
+pantallas de auth lo valida gotrue (el captcha se exige a nivel de PROYECTO en
+Supabase). El único endpoint propio que lo comprueba es
+`/api/public/interes-lanzamiento`, vía `lib/auth/captcha-servidor.ts` (#847), y
+necesita `TURNSTILE_SECRET_KEY`; sin esa variable devuelve `'ok'` sin llamar a
+nadie. Fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no
+llega a completarse.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),
