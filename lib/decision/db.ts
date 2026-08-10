@@ -558,6 +558,30 @@ export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, dom
   return (count ?? 0) === 0;
 }
 
+// Suma de ingresos cobrados en [desde, hasta] (YYYY-MM-DD, ambos inclusive)
+// para UN estudio. Base de la "prueba comparativa" del resumen semanal
+// (lib/inngest/resumen-semanal.ts): comparar la semana silenciosa contra la
+// anterior. No reutiliza la RPC informe_ingresos (0096) porque esa RPC es
+// SECURITY INVOKER y depende de la RLS de `recibos` (studio_id =
+// current_studio_id(), atada a auth.uid()) — este cron corre server-side con
+// el admin client, sin sesión, así que esa RPC devolvería 0 filas aquí.
+// Consulta directa filtrada a mano por studio_id, mismo patrón que
+// dbSemanaFueSilenciosa. El aviso de 0096 sobre el cap de 1000 filas del
+// fetch de PostgREST es sobre el HISTÓRICO completo del estudio; una sola
+// semana de recibos está muy lejos de esa escala. `0` en error: ante un
+// fallo de la propia consulta, no se inventa un % de crecimiento.
+export async function dbIngresosEnRango(studioId: string, desde: string, hasta: string): Promise<number> {
+  const { data, error } = await db()
+    .from('recibos')
+    .select('importe')
+    .eq('studio_id', studioId)
+    .eq('estado', 'COBRADO')
+    .gte('fecha_cobro', desde)
+    .lte('fecha_cobro', hasta);
+  if (error) { reportError('[dbIngresosEnRango]', error); return 0; }
+  return (data ?? []).reduce((sum, r) => sum + Number(r.importe ?? 0), 0);
+}
+
 // Tasa de seguimiento por tipo — base del Umbral adaptativo (Fase 2, ver
 // tentare-os.md "El Umbral no es fijo"). Dos consultas en vez de un join
 // (supabase-js no hace joins arbitrarios sin una FK embed declarada, y aquí
