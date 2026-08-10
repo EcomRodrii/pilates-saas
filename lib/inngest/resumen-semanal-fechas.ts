@@ -18,3 +18,17 @@ export function semanaAnterior(hoy: Date): { lunes: string; domingo: string; ran
   const rangoTexto = `${lunes.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' })} – ${domingo.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`;
   return { lunes: iso(lunes), domingo: iso(domingo), rangoTexto };
 }
+
+// Lunes–domingo de la semana ANTERIOR a `lunesDeReferencia` (YYYY-MM-DD) —
+// el período de comparación de la prueba de ingresos: dado el lunes de la
+// semana silenciosa, la semana previa a ESA es contra la que se mide el %
+// de crecimiento (lib/decision/db.ts, dbIngresosEnRango).
+export function semanaPrevia(lunesDeReferencia: string): { lunes: string; domingo: string } {
+  const lunesRef = new Date(`${lunesDeReferencia}T00:00:00.000Z`);
+  const domingo = new Date(lunesRef);
+  domingo.setUTCDate(domingo.getUTCDate() - 1);
+  const lunes = new Date(domingo);
+  lunes.setUTCDate(lunes.getUTCDate() - 6);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { lunes: iso(lunes), domingo: iso(domingo) };
+}

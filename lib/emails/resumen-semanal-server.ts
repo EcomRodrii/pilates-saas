@@ -17,6 +17,7 @@ export async function enviarEmailResumenSemanal(params: {
   studioId: string;
   estudioNombre: string;
   rangoTexto: string;
+  crecimientoPct?: number;
 }): Promise<{ ok: boolean; skipped?: boolean; error?: string; id?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey.startsWith('re_XXXX')) return { ok: false, skipped: true };
@@ -30,6 +31,7 @@ export async function enviarEmailResumenSemanal(params: {
       logoUrl: marcaEstudio.logoUrl,
       colorPrimario: marcaEstudio.colorPrimario,
       rangoTexto: params.rangoTexto,
+      crecimientoPct: params.crecimientoPct,
     }));
     const marca = nombreAppPorRol('PROPIETARIO');
     const resend = new Resend(apiKey);

@@ -12,9 +12,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client.ts';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { dbSemanaFueSilenciosa, dbListFeatureFlagRows } from '@/lib/decision/db';
+import { dbSemanaFueSilenciosa, dbListFeatureFlagRows, dbIngresosEnRango } from '@/lib/decision/db';
 import { enviarEmailResumenSemanal } from '@/lib/emails/resumen-semanal-server';
-import { semanaAnterior } from './resumen-semanal-fechas.ts';
+import { semanaAnterior, semanaPrevia } from './resumen-semanal-fechas.ts';
+import { calcularVariacionPct } from '@/lib/informes/ventas-por-tipo';
 
 async function estudiosIds(): Promise<string[]> {
   const admin = getSupabaseAdmin();
@@ -55,12 +56,26 @@ export const procesarResumenSemanalEstudio = inngest.createFunction(
       const { data: studio } = await admin.from('studios').select('nombre, email').eq('id', studioId).maybeSingle();
       if (!studio?.email) return { skipped: 'sin email de contacto' };
 
+      // Prueba comparativa: solo se añade al email cuando hay algo
+      // genuinamente bueno que contar — mismo criterio de honestidad que el
+      // resto del Umbral ("nunca se explica de más"). Un % nulo (sin base,
+      // semana previa sin ingresos) o ≤0 se queda fuera del email sin más,
+      // no se disfraza de "0%" ni se muestra en negativo.
+      const previa = semanaPrevia(lunes);
+      const [ingresosActual, ingresosPrevia] = await Promise.all([
+        dbIngresosEnRango(studioId, lunes, domingo),
+        dbIngresosEnRango(studioId, previa.lunes, previa.domingo),
+      ]);
+      const variacion = calcularVariacionPct(ingresosActual, ingresosPrevia);
+      const crecimientoPct = variacion !== null && variacion > 0 ? variacion : undefined;
+
       const resultado = await enviarEmailResumenSemanal({
         to: studio.email as string,
         propietariaNombre: (studio.nombre as string | null) ?? 'Propietaria',
         studioId,
         estudioNombre: (studio.nombre as string | null) ?? 'tu estudio',
         rangoTexto,
+        crecimientoPct,
       });
       return resultado;
     });
