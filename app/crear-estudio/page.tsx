@@ -3,6 +3,8 @@
 import { useState, useId } from 'react';
 import Link from 'next/link';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { captchaGastado } from '@/lib/auth/captcha-usado';
 
 // Tentare todavía no está lanzado al público: crear un estudio de verdad aquí
 // crearía cuentas antes de que el producto esté listo para recibirlas. Mientras
@@ -20,28 +22,33 @@ export default function CrearEstudioPage() {
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
+  const { widget: captcha, pedirToken } = useCaptcha();
 
-  // ⚠️ Esta pantalla NO lleva captcha, y quitarlo no debilita nada: nunca
-  // protegió. El widget se pintaba y bloqueaba el botón, pero la petición a
-  // `/api/public/interes-lanzamiento` **jamás incluyó el token** y ese
-  // endpoint no verifica ninguno (comprobado: cero menciones a captcha en sus
-  // 53 líneas). O sea que frenaba a personas y a ningún bot — un bot llama a
-  // la API directamente sin pasar por el formulario.
+  // El captcha de esta pantalla estuvo un tiempo siendo decoración: el widget
+  // se pintaba y bloqueaba el botón, pero la petición **jamás incluyó el
+  // token** y el endpoint no comprobaba ninguno. Frenaba a personas y a ningún
+  // bot, porque un bot llama a la API directamente sin abrir el formulario.
   //
-  // Si se quiere proteger de verdad, hace falta mandar el token Y validarlo
-  // en el servidor contra el siteverify de Cloudflare. Eso es trabajo de
-  // servidor y una decisión de seguridad propia, no un efecto colateral de
-  // quitar un recuadro feo.
+  // Ahora el token viaja y `/api/public/interes-lanzamiento` lo verifica
+  // contra el `siteverify` de Cloudflare. Y ya no se ve nada: el widget está
+  // invisible hasta que de verdad haya que resolver algo a mano.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setEnviando(true);
     try {
+      // Se pide AL ENVIAR, con el botón ya en «Enviando…»: tarda unos
+      // segundos, y antes de esta llamada no hay nada que verificar.
+      const token = await pedirToken();
+      if (token === null) { setError(ERROR_CAPTCHA); return; }
       const res = await fetch('/api/public/interes-lanzamiento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, nombre, estudio, ciudad }),
+        body: JSON.stringify({ email, nombre, estudio, ciudad, captchaToken: token || undefined }),
       });
+      // Un token se gasta al verificarlo, vaya bien o mal. Sin esto, corregir
+      // el email y reintentar fallaría por el captcha y no por el email.
+      if (token) captchaGastado();
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         setError(data?.error || 'No se ha podido registrar tu email. Inténtalo de nuevo.');
@@ -126,6 +133,9 @@ export default function CrearEstudioPage() {
                 <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
               )}
 
+              {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
+                  resolver algo a mano. */}
+              {captcha}
 
               <button
                 type="submit"
