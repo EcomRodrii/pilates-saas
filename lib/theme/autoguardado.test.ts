@@ -89,3 +89,25 @@ test('todos los estados tienen texto — ninguno se queda en blanco por olvido',
     if (e.tipo !== 'limpio') assert.ok(t.length > 0, `${e.tipo} sin texto`);
   }
 });
+
+// ── Sesión caducada ────────────────────────────────────────────────────────
+// Estado APARTE de `error`, y no un matiz cosmético: encontrado mirando el
+// editor en producción con la sesión vencida. Todas las llamadas daban 401 y
+// el aviso decía «se sigue intentando» — que era mentira: el servidor iba a
+// responder 401 para siempre. La propietaria podía editar media hora creyendo
+// que su trabajo estaba a salvo.
+
+test('el aviso de sesión caducada dice qué hacer, no que se siga intentando', () => {
+  assert.equal(
+    textoEstado({ tipo: 'sesion' }, Date.now()),
+    'Tu sesión ha caducado — vuelve a entrar para guardar',
+  );
+  // Y NO se parece al genérico: son dos situaciones con acciones distintas.
+  assert.notEqual(textoEstado({ tipo: 'sesion' }, 0), textoEstado({ tipo: 'error', intentos: 0 }, 0));
+});
+
+test('con la sesión caducada TAMBIÉN se avisa antes de cerrar la pestaña', () => {
+  // Es justo cuando más hay que perder: nada de lo editado ha llegado al
+  // servidor. Olvidar este caso sería tirar el trabajo sin preguntar.
+  assert.equal(avisarAlSalir({ tipo: 'sesion' }), true);
+});

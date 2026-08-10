@@ -190,6 +190,24 @@ export async function fetchBloquesPublicado(pantalla: PantallaId): Promise<Bloqu
 }
 
 
+/**
+ * La sesión de staff ya no vale. Se distingue del resto de fallos porque
+ * pide una acción DISTINTA: reintentar no arregla nada, hay que volver a
+ * entrar.
+ *
+ * ⚠️ Salió de mirar el editor en producción: con la sesión caducada, todas
+ * las llamadas daban 401 y el autoguardado se quedaba reintentando cada
+ * minuto con un «no se ha podido guardar» genérico. La propietaria podía
+ * seguir editando media hora sin enterarse de que nada se estaba guardando.
+ */
+export class ErrorSesionCaducada extends Error {
+  constructor() { super('Tu sesión ha caducado.'); this.name = 'ErrorSesionCaducada'; }
+}
+
+export function esSesionCaducada(e: unknown): boolean {
+  return e instanceof ErrorSesionCaducada;
+}
+
 export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: BloqueHome[]): Promise<BloqueHome[]> {
   const res = await fetch(`/api/portal-bloques?pantalla=${pantalla}`, {
     method: 'PUT',
@@ -197,6 +215,7 @@ export async function guardarBloquesBorradorApi(pantalla: PantallaId, bloques: B
     body: JSON.stringify(bloques),
   });
   if (!res.ok) {
+    if (res.status === 401) throw new ErrorSesionCaducada();
     const b = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(mensajeSeguro(b.error, 'No se han podido guardar los bloques del portal. Vuelve a intentarlo.'));
   }
