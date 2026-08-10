@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
-import { Search, ArrowRight, Calendar, CreditCard, X, Zap } from 'lucide-react';
+import { Search, ArrowRight, Calendar, CreditCard, X, Zap, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermisos } from '@/lib/permisos';
 import { buscarTareas, rutaBase } from '@/lib/tareas';
@@ -30,7 +30,7 @@ export function GlobalSearch({
   const setOpen = (v: boolean) => { setOpenInterno(v); onAbiertoChange?.(v); };
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const { socios, sesiones, recibos, tiposClase } = useStudio();
+  const { socios, sesiones, recibos, tiposClase, instructores } = useStudio();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // El cierre con Escape lo gestiona DashboardSheet (useDialogA11y) cuando
@@ -113,7 +113,18 @@ export function GlobalSearch({
     [q, puedeVer],
   );
 
-  const hasResults = tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0;
+  // Instructoras/equipo (#849): mismo criterio de nombre que sociosRes, y
+  // acotado a quien ya puede ver /equipo (RECEPCION no) — el mismo guard que
+  // ya bloquea esa sección en el menú, no uno nuevo.
+  const puedeVerEquipo = puedeVer('/equipo');
+  const instructoresRes = useMemo(() => {
+    if (!puedeVerEquipo) return [];
+    return q.length >= 1
+      ? instructores.filter(i => i.activo && i.nombre.toLowerCase().includes(q)).slice(0, 5)
+      : instructores.filter(i => i.activo).slice(0, 3);
+  }, [instructores, puedeVerEquipo, q]);
+
+  const hasResults = tareasRes.length > 0 || sociosRes.length > 0 || sesionesRes.length > 0 || recibosRes.length > 0 || instructoresRes.length > 0;
 
   function go(href: string) { router.push(href); setOpen(false); }
 
@@ -218,6 +229,28 @@ export function GlobalSearch({
                           {s.tags![0]}
                         </span>
                       )}
+                      <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Equipo */}
+              {instructoresRes.length > 0 && (
+                <div className="mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
+                    {q ? 'Equipo' : 'Equipo activo'}
+                  </p>
+                  {instructoresRes.map(i => (
+                    <button key={i.id} onClick={() => go('/equipo')}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 12%, var(--card))' }}>
+                        <Users size={14} style={{ color: 'var(--brand)' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{i.nombre}</p>
+                        {i.email && <p className="text-xs truncate" style={{ color: 'var(--muted-foreground)' }}>{i.email}</p>}
+                      </div>
                       <ArrowRight size={13} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--muted-foreground)' }} />
                     </button>
                   ))}
