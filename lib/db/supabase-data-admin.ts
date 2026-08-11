@@ -691,11 +691,23 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
   if (nuevoSaldo == null) {
     // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
-    // pero el RPC no descontó: bono agotado en una carrera con otra reserva. La
-    // reserva ya está CONFIRMADA, así que esto es una clase servida sin cobrar.
-    // No se revierte aquí —cancelar una plaza ya confirmada es peor experiencia
-    // y es decisión de producto— pero deja de ser invisible: sin esto no había
-    // ni rastro.
+    // pero el RPC no descontó. La reserva ya está CONFIRMADA, así que esto es
+    // una clase servida sin cobrar. No se revierte aquí —cancelar una plaza ya
+    // confirmada es peor experiencia y es decisión de producto— pero deja de ser
+    // invisible: sin esto no había ni rastro.
+    //
+    // ⚠️ Este comentario decía "bono agotado en una carrera con otra reserva", y
+    // esa NO era la causa real de las veces que saltó. El 2026-08-11 se vio en
+    // producción que `bonoConsumible` no descartaba los bonos a 0: como agotarse
+    // no cambia el estado ACTIVA, el bono vacío seguía siendo candidato y el
+    // orden determinista lo elegía SIEMPRE, así que con varios bonos activos
+    // esto no saltaba por una carrera sino en cada reserva, indefinidamente.
+    // Arreglado en `bonoConsumible` (filtro `sesionesRestantes > 0`).
+    //
+    // La carrera sigue siendo posible y esta guardia sigue haciendo falta —dos
+    // reservas simultáneas sobre el último saldo—, pero ya no es la explicación
+    // por defecto: si esto vuelve a saltar de forma repetida y no simultánea,
+    // buscar otra causa antes de darlo por una carrera.
     reportDbError(
       '[consumirBonoServidor] bono consumible sin descontar (posible clase no cobrada)',
       { studioId, socioId, suscripcionId: sus.id },

@@ -39,6 +39,36 @@ test('bonoConsumible null si el plan es MENSUAL (no de sesiones)', () => {
   assert.equal(bonoConsumible('a', suscripciones, [plan({ id: 'p1', tipo: 'MENSUAL' })]), null);
 });
 
+// ── Coherencia entre la PUERTA y el COBRO ────────────────────────────────────
+//
+// Que `bonoConsumible` no elija un bono agotado ya lo cubren los tests del bloque
+// "Varios bonos a la vez" (más abajo, del arreglo del mismo fallo encontrado en
+// paralelo). Lo que se blinda AQUÍ es otra propiedad, la que explicaba por qué
+// el fallo era invisible: `tieneEntitlementActivo` (¿puede reservar?) y
+// `bonoConsumible` (¿de dónde se descuenta?) tienen que estar de acuerdo sobre
+// qué bonos cuentan.
+//
+// Cuando no lo estaban, la puerta veía el bono LLENO y dejaba reservar con toda
+// la razón, y el cobro descontaba de otro DISTINTO que estaba vacío. Ninguna de
+// las dos funciones estaba mal por separado — y por eso ningún test de una sola
+// de ellas lo habría cazado.
+test('la puerta y el cobro coinciden: si hay saldo, ambas lo ven en el MISMO bono', () => {
+  const suscripciones = [
+    sus({ id: 'sus-aaa', socioId: 'a', planId: 'p1', sesionesRestantes: 0 }),
+    sus({ id: 'sus-zzz', socioId: 'a', planId: 'p1', sesionesRestantes: 4 }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+  assert.equal(tieneEntitlementActivo('a', suscripciones, planes, '2026-08-11'), true);
+  assert.equal(bonoConsumible('a', suscripciones, planes)?.suscripcion.id, 'sus-zzz');
+});
+
+test('sin ningún bono con saldo, ni la puerta deja entrar ni el cobro elige nada', () => {
+  const suscripciones = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: 0 })];
+  const planes = [plan({ id: 'p1', tipo: 'BONO' })];
+  assert.equal(tieneEntitlementActivo('a', suscripciones, planes, '2026-08-11'), false);
+  assert.equal(bonoConsumible('a', suscripciones, planes), null);
+});
+
 test('bonoConsumible null si sesionesRestantes es null (saldo no gestionado por sesiones)', () => {
   const suscripciones = [sus({ socioId: 'a', planId: 'p1', sesionesRestantes: null })];
   assert.equal(bonoConsumible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })]), null);

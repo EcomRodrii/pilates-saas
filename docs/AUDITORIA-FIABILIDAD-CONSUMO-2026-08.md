@@ -375,17 +375,35 @@ como debe— pero sin dejar ninguna vía de resolución. Coincide con Sentry
 de Connect en el panel de Stripe). Es la primera pregunta que responder al
 abordar C-1(1).
 
-## I-3 · La ventana de 12 h del conciliador es un límite duro sin aviso
+## I-3 · La ventana de 12 h del conciliador era un límite duro y mudo — RESUELTO
 
-**Dónde.** `lib/inngest/conciliar-cobros.ts:38`, `VENTANA_HORAS = 12`.
+**Dónde.** `lib/inngest/conciliar-cobros.ts`, `VENTANA_HORAS = 12`.
 
-**Por qué.** Está bien razonado en el comentario ("pasado un día ya no es un
-retraso recuperable sin mirarlo a mano"), pero **no hay nada que mire a mano**: un
-cobro que pase de 12 h sin entregar sale de la ventana y desaparece del sistema
-sin dejar rastro ni tarea pendiente.
+**Por qué.** Estaba bien razonado en el comentario ("pasado un día ya no es un
+retraso recuperable sin mirarlo a mano"), pero **nada ni nadie avisaba de que
+había algo que mirar**: un cobro que pasaba de 12 h sin entregar salía del
+alcance del conciliador y desaparecía del sistema, sin error y sin tarea
+pendiente.
 
-**Solución.** Un barrido diario de rango más amplio (72 h) que **no entregue**,
-solo detecte y abra un aviso accionable. Separar "recuperar" de "detectar".
+**Solución aplicada.** `conciliarCobrosVigilancia`, cron diario a rango de 72 h,
+que **detecta y avisa pero NO entrega**.
+
+Que no entregue es deliberado: si un cobro lleva más de 12 h sin entregarse, la
+causa no es un retraso —eso ya lo cubre el barrido de 5 min— sino algo
+estructural (justo lo de C-1/I-2b: el webhook rechazando por cuenta y metadata
+que no cuadran). Entregarlo en silencio taparía la señal que hace falta para
+arreglar la causa. Añadir la entrega el día que se decida es barato; recuperar
+una señal que nunca se emitió, no.
+
+Solo avisa de lo que **ya está fuera** del alcance del barrido de recuperación
+(`created < now − 12 h`). Sin ese filtro sería ruido diario garantizado, y un
+aviso que siempre suena deja de ser un aviso.
+
+Recuperación y vigilancia comparten **la misma función de detección**
+(`detectarPendientes`, parametrizada por ventana). Si fueran dos consultas
+parecidas escritas aparte, bastaría con tocar una para que la vigilancia dejara
+de ver exactamente lo que la otra se deja — que es el fallo que esto viene a
+cerrar. Va con test.
 
 ---
 
@@ -409,11 +427,32 @@ Es un **suelo fijo**: no baja con menos estudios ni sube con más. Con el plan f
 fan-out diario por estudio. **Con ~30-40 estudios el fan-out diario se come el
 margen restante.**
 
-Lo barato de recortar, por orden: `conciliar-cobros` de */5 a */10 (−144/día) una
-vez arreglado C-1(1), ya que dejaría de ser el camino principal; y
-`lista-espera-ofertas`/`reservas-pendientes` de */5 a */10 (−288/día) — el coste es
-retraso de aviso, no corrección, porque en ambos la regla de negocio vive en la
-RPC. Total: **−432 ticks/día (−31 %)** sin tocar ninguna garantía.
+**Aplicado: −288 tics/día (−21 %)**, no el −31 % que estimaba la primera versión
+de este informe. La diferencia es que dos de los tres candidatos que había
+señalado **no se debían tocar**, y al mirar los números aparecieron otros dos
+mejores:
+
+| cron | de → a | por qué |
+|---|---|---|
+| `reservas-pendientes` | */5 → */10 | la regla vive en la RPC; solo se retrasa el aviso |
+| `penalizaciones` | */10 → */30 | la detección ya ocurrió antes; esto solo cobra. Es la urgencia más baja de todo el dinero |
+| `checkin-automatico` | */15 → */30 | su único consumidor aguas abajo corre 1 vez al día (23:00) |
+| ~~`conciliar-cobros`~~ | **sin tocar** | hoy **no es la red sino el camino principal** por el que llegan cobros reales (C-1). Espaciarlo dobla lo que una socia espera a su bono. Reconsiderar cuando C-1(1) esté cerrado |
+| ~~`lista-espera-ofertas`~~ | **sin tocar** | la tolerancia razonada es "5 sobre una ventana de 15"; a */10 sería **dos tercios** de la ventana, y el retraso se **encadena** por cada persona de la cola que no acepta |
+
+Se verificó que ninguna de las tres bajadas abre huecos: las tres consultas
+filtran por estado o miran una ventana muy superior al periodo, así que lo que no
+se procesa en un tic se procesa en el siguiente. Las cinco decisiones —incluidas
+las dos negativas— van fijadas con test, para que una pasada futura no "termine
+el trabajo" a ojo.
+
+**El recorte de verdad, si algún día aprieta la cuota**, no es seguir espaciando:
+es dejar de sondear. `reservas-pendientes` podría programarse por reserva
+(`step.sleepUntil` al inicio de la clase) en vez de mirar cada 10 minutos por si
+acaso: pasaría de 144 tics/día fijos a ~1 paso por reserva pendiente — con 10
+estudios, del orden del 95 % menos **y** con mejor latencia, porque dispararía a
+la hora exacta en vez de "hasta 10 min tarde". Es un cambio de arquitectura, no
+un ajuste, así que se documenta en vez de hacerlo por iniciativa propia.
 
 ## O-2 · Advisors de Supabase: 87 avisos, ninguno grave
 
@@ -425,8 +464,14 @@ RPC. Total: **−432 ticks/día (−31 %)** sin tocar ninguna garantía.
   `challenge_*`, `achievement_history`, `citas`) — coherente con el feature-freeze,
   no hay nada que arreglar; su coste es escritura, y esas tablas casi no se
   escriben. **No tocar.**
-- Los 2 `auth_rls_initplan` sí valen el arreglo (`auth.<fn>()` → `(select auth.<fn>())`):
-  son dos líneas y evitan reevaluar por fila.
+- ✅ Los 2 `auth_rls_initplan` **arreglados** (migr `20260811015255`):
+  `mensajes_equipo.staff_escribe_mensajes_equipo` y
+  `cadena_tipos_clase.owner_cadena_tipos_clase`, `auth.uid()` → `(select auth.uid())`,
+  mismo arreglo que ya se aplicó al resto en `0069_rls_auth_initplan_fix` (estas dos
+  son posteriores y se quedaron fuera). Verificado con `BEGIN`/`ROLLBACK` que las
+  expresiones resultantes son **idénticas salvo el envoltorio** y que se conservan
+  `cmd` y `roles` — recrear una política es `DROP`+`CREATE`, y perder el `TO` la
+  abriría a roles que antes no la tenían. Advisors: **87 → 85 lints, `auth_rls_initplan` a 0**.
 - Los 20 `multiple_permissive_policies` son consecuencia del modelo de roles; el
   arreglo real es consolidar políticas, y **no compensa** con 45 MB de datos.
 
@@ -516,10 +561,12 @@ Siguiendo tu regla final (estabilidad antes que funcionalidad):
    *Hecho.*
 6. ✅ **I-2** — `/api/health` y `/api/health/flujos`. *Hecho.*
 7. ✅ **I-1** — los 3 barridos de Vercel. *Hecho.*
-8. **I-3** — barrido de detección a 72 h.
-9. **O-1** — bajar `conciliar-cobros`, `lista-espera-ofertas` y
-   `reservas-pendientes` a */10 (−31 % de ticks).
-10. **O-2** — los 2 `auth_rls_initplan`. Lo demás de advisors, no tocar.
+8. ✅ **I-3** — barrido de vigilancia a 72 h. *Hecho.*
+9. ✅ **O-1** — −288 tics/día (−21 %). *Hecho.*
+10. ✅ **O-2** — los 2 `auth_rls_initplan`. *Hecho.* Lo demás de advisors, no tocar.
+
+**Queda abierto un único punto, y es el 🔴**: **C-1(1)**, la causa raíz en Stripe.
+Todo lo demás de este informe está cerrado.
 
 ## Estado del arreglo (2026-08-11)
 

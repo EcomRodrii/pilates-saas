@@ -7,6 +7,14 @@
 // siguiente en la cola, por eso corre cada 5 min: un desfase de hasta 5 min
 // sobre una ventana típica de 15 es tolerable, no es una regla de seguridad.
 //
+// ⚠️ NO bajar a */10. La auditoría de consumo (2026-08-11, O-1) lo propuso y se
+// descartó al mirar el número: la tolerancia razonada arriba es "5 sobre 15",
+// un tercio de la ventana; a */10 pasaría a ser dos tercios, y además el retraso
+// se ENCADENA — cada persona de la cola que no acepta suma su propio desfase
+// antes de que se entere la siguiente. Se bajaron `reservas-pendientes`,
+// `penalizaciones` y `checkin-automatico` en su lugar, que no tienen ninguna
+// ventana con la que competir.
+//
 // Sin fan-out por estudio (igual que reservas-pendientes.ts): es una única
 // query global de "oferta caducada", no hay nada que decidir por estudio.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -169,7 +169,15 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
 }
 
 export const penalizacionesDispatcher = inngest.createFunction(
-  { id: 'penalizaciones-procesar', triggers: [{ cron: '*/10 * * * *' }] },
+  // Cada 30 min (antes 10) — auditoría de consumo 2026-08-11, O-1. Aquí la
+  // urgencia es la más baja de todos los crons de dinero: la DETECCIÓN ya
+  // ocurrió (en la RPC de cancelación o en el trigger de no-show, no aquí), y
+  // esto solo crea el recibo y cobra o lo deja pendiente de aprobación. Que una
+  // penalización tarde 30 min en cobrarse no cambia nada para nadie.
+  //
+  // Sin ventana atada al periodo: filtra por `estado = DETECTADA`, así que
+  // espaciarlo no abre huecos, solo alarga la cola.
+  { id: 'penalizaciones-procesar', triggers: [{ cron: '*/30 * * * *' }] },
   async ({ step }) => {
     return step.run('procesar', async () => {
       const admin = getSupabaseAdmin();

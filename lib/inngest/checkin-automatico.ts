@@ -37,7 +37,15 @@ import { fetchAllRows } from '@/lib/supabase-data';
 const VENTANA_MS = 2 * 3600_000;
 
 export const checkinAutomaticoDispatcher = inngest.createFunction(
-  { id: 'checkin-automatico', triggers: [{ cron: '*/15 * * * *' }] },
+  // Cada 30 min (antes 15) — auditoría de consumo 2026-08-11, O-1. Marcar
+  // asistencia después de que la clase haya terminado no compite con nada: el
+  // único consumidor aguas abajo es el barrido de no-shows, que corre una vez al
+  // día a las 23:00. Con media hora de desfase llega de sobra.
+  //
+  // Espaciarlo NO abre huecos porque la ventana de búsqueda (VENTANA_MS = 2 h
+  // hacia atrás) es muy superior al periodo: cada pasada solapa de sobra con la
+  // anterior. Si alguna vez se acortara esa ventana, hay que revisar esto.
+  { id: 'checkin-automatico', triggers: [{ cron: '*/30 * * * *' }] },
   async ({ step }) => {
     return step.run('marcar-asistidas', async () => {
       const admin = getSupabaseAdmin();

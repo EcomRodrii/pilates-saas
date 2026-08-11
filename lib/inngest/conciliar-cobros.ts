@@ -20,6 +20,14 @@
 // aparezca su bono. Query global sin fan-out por estudio (misma lección que
 // reservas-pendientes/lista-espera): una invocación por tic, no una por
 // estudio, que es lo que se comió la cuota de Inngest en su día.
+//
+// ⚠️ NO bajar a */10 mientras el webhook siga sin entregar. La auditoría de
+// consumo (2026-08-11, O-1) lo puso sobre la mesa y se descartó a propósito:
+// este barrido NO es hoy la red de seguridad que dice ser arriba, es el camino
+// principal por el que llegan cobros reales (`cs_live_`, Sentry
+// JAVASCRIPT-NEXTJS-13). Espaciarlo dobla lo que una socia espera a su bono por
+// un ahorro de 144 tics/día. Cuando C-1(1) esté cerrado y el webhook entregue de
+// verdad, esto vuelve a ser una red y entonces sí puede espaciarse.
 // ─────────────────────────────────────────────────────────────────────────────
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
@@ -77,12 +85,20 @@ async function listarSesionesVentana(
   return todas;
 }
 
-async function conciliarEstudio(
+// Detecta qué está cobrado y sin entregar en una ventana dada. NO entrega nada.
+//
+// Separar "detectar" de "entregar" es lo que permite que el barrido que RECUPERA
+// (12 h) y la vigilancia que solo AVISA (72 h) usen exactamente el mismo criterio
+// sin poder divergir nunca. Si fueran dos consultas parecidas escritas aparte,
+// bastaría con tocar una para que la vigilancia dejara de ver justo lo que el
+// otro se deja.
+async function detectarPendientes(
   admin: SupabaseClient,
   stripe: Stripe,
   studio: { id: string; stripe_account_id: string },
-): Promise<number> {
-  const desde = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
+  ventanaHoras: number,
+): Promise<{ pendientes: Pendiente[]; sesionPorId: Map<string, Stripe.Checkout.Session> }> {
+  const desde = Math.floor(Date.now() / 1000) - ventanaHoras * 3600;
 
   const todas = await listarSesionesVentana(stripe, studio.stripe_account_id, desde);
 
@@ -118,11 +134,112 @@ async function conciliarEstudio(
   }
 
   const pendientes = pendientesDeEntregar(sesiones, studio.id, { recibosCobrados, sesionesEntregadas });
+  return { pendientes, sesionPorId: new Map(todas.map(s => [s.id, s])) };
+}
+
+async function conciliarEstudio(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+): Promise<number> {
+  const { pendientes, sesionPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_HORAS);
   for (const p of pendientes) {
-    await entregar(admin, stripe, studio.stripe_account_id, p, todas.find(s => s.id === p.sesionId));
+    await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId));
   }
   return pendientes.length;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// I-3 · Vigilancia: lo que se le ESCAPÓ al barrido de recuperación.
+//
+// `VENTANA_HORAS` (12) es un límite duro y hasta ahora era mudo: un cobro sin
+// entregar que se pasaba de esa ventana salía del alcance del conciliador y
+// desaparecía del sistema — sin error, sin aviso y sin ninguna tarea pendiente
+// que lo recordara. El comentario de la ventana ya decía que pasado un día "ya
+// no es un retraso recuperable sin mirarlo a mano"; el problema era que **nada
+// ni nadie avisaba de que había algo que mirar**.
+//
+// Esto NO entrega. A propósito: si un cobro lleva más de 12 h sin entregarse, la
+// causa no es un retraso —eso ya lo cubre el barrido de 5 min— sino algo
+// estructural (el webhook rechazando por cuenta/metadata que no cuadran, una
+// cuenta Connect mal configurada). Entregarlo en silencio taparía justo la señal
+// que hace falta para arreglar la causa. Entregar es barato de añadir el día que
+// se decida; recuperar una señal que nunca se emitió, no.
+// ─────────────────────────────────────────────────────────────────────────────
+const VENTANA_VIGILANCIA_HORAS = 72;
+
+async function vigilarEstudio(
+  admin: SupabaseClient,
+  stripe: Stripe,
+  studio: { id: string; stripe_account_id: string },
+): Promise<number> {
+  const { pendientes, sesionPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
+
+  // Solo lo que ya está FUERA del alcance del barrido de recuperación. Lo más
+  // reciente que 12 h no es un problema todavía: el otro cron lo cogerá en su
+  // próximo tic, y avisar de ello sería ruido diario garantizado.
+  const limite = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
+  const escapados = pendientes.filter(p => {
+    const s = sesionPorId.get(p.sesionId);
+    return s !== undefined && s.created < limite;
+  });
+
+  for (const p of escapados) {
+    const s = sesionPorId.get(p.sesionId);
+    Sentry.captureMessage('[conciliador] cobro sin entregar FUERA de la ventana de recuperación', {
+      level: 'error',
+      tags: { area: 'cobros', tipo: 'fuera-de-ventana' },
+      extra: {
+        studioId: studio.id,
+        sesionId: p.sesionId,
+        tipo: p.tipo,
+        creadoEn: s ? new Date(s.created * 1000).toISOString() : null,
+        horasSinEntregar: s ? Math.round((Date.now() / 1000 - s.created) / 3600) : null,
+        queHacer: 'El conciliador ya NO lo va a recuperar solo. Revisar por qué el webhook no lo entregó y entregarlo a mano.',
+      },
+    });
+  }
+  return escapados.length;
+}
+
+export const conciliarCobrosVigilancia = inngest.createFunction(
+  // Una vez al día: no es un barrido de recuperación, es una red por debajo de
+  // la red. Un tic diario no mueve la aguja del consumo (O-1) y cierra el
+  // agujero de que un cobro perdido no deje rastro en ninguna parte.
+  { id: 'conciliar-cobros-vigilancia', triggers: [{ cron: '20 7 * * *' }] },
+  async ({ step }) => {
+    return step.run('vigilar', async () => {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key || key.startsWith('sk_test_XXXX')) return { skipped: 'stripe no configurado' };
+      const admin = getSupabaseAdmin();
+      if (!admin) return { skipped: 'sin service-role' };
+
+      const { data: studios } = await fetchAllRows<{ id: string; stripe_account_id: string }>(
+        '(global)', 'studios',
+        (from, to) => admin
+          .from('studios')
+          .select('id, stripe_account_id')
+          .not('stripe_account_id', 'is', null)
+          .is('suspendido_en', null)
+          .range(from, to),
+      );
+      if (!studios.length) return { escapados: 0 };
+
+      const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+      let escapados = 0;
+      for (const s of studios) {
+        try {
+          escapados += await vigilarEstudio(admin, stripe, s as { id: string; stripe_account_id: string });
+        } catch (e) {
+          Sentry.captureException(e instanceof Error ? e : new Error('vigilancia conciliador'), {
+            level: 'error', tags: { area: 'cobros' }, extra: { studioId: (s as { id: string }).id },
+          });
+        }
+      }
+      return { estudios: studios.length, escapados };
+    });
+  },
+);
 
 async function entregar(
   admin: SupabaseClient,

@@ -5,14 +5,21 @@
 // vuelve CANCELADA, pase lo que pase con este cron) — este cron es solo el
 // aviso proactivo a la socia.
 //
-// Cada 5 min, no cada minuto. Corría cada minuto para que el desfase del aviso
-// fuera mínimo, pero eso son 43.800 tics al mes y, contando el step de Inngest
-// como invocación propia, ~87.600 invocaciones de Vercel: el 70 % de todas las
-// que generan los crons de este repo, para una tabla en la que casi siempre no
-// hay nada que expirar. Lo que se paga con el cambio es que el aviso puede
-// llegar hasta 4 minutos más tarde; lo que NO cambia es la corrección, porque
-// la guardia de "clase ya empezada" está dentro de la RPC y no depende de que
-// este cron llegue a tiempo ni de que llegue siquiera.
+// Cada 10 min. Corría cada minuto para que el desfase del aviso fuera mínimo,
+// pero eso son 43.800 tics al mes y, contando el step de Inngest como invocación
+// propia, ~87.600 invocaciones de Vercel: el 70 % de todas las que generan los
+// crons de este repo, para una tabla en la que casi siempre no hay nada que
+// expirar. Se bajó a 5 min, y de ahí a 10 en la auditoría de consumo de
+// 2026-08-11 (O-1) — el suelo de tics de Inngest es fijo, no baja con menos
+// estudios, y dejaba solo un 17 % de margen sobre el plan free para todo el
+// fan-out diario.
+//
+// Lo que se paga es que el aviso puede llegar hasta 9 minutos más tarde. Lo que
+// NO cambia es la corrección: la guardia de "clase ya empezada" está dentro de
+// la RPC y no depende de que este cron llegue a tiempo ni de que llegue
+// siquiera. Y la consulta no tiene ventana atada al periodo (filtra por estado,
+// no por "lo ocurrido desde el último tic"), así que espaciarla no abre huecos:
+// lo que no se procese en un tic se procesa en el siguiente.
 //
 // Sin fan-out por estudio (a diferencia de notif-automations.ts): es una
 // única query global de "sesión ya empezada", no hay nada que decidir por
@@ -24,7 +31,7 @@ import { expirarReservaPendiente } from '@/lib/db/supabase-data-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 
 export const expirarReservasPendientesDispatcher = inngest.createFunction(
-  { id: 'reservas-pendientes-expirar', triggers: [{ cron: '*/5 * * * *' }] },
+  { id: 'reservas-pendientes-expirar', triggers: [{ cron: '*/10 * * * *' }] },
   async ({ step }) => {
     return step.run('expirar', async () => {
       const admin = getSupabaseAdmin();
