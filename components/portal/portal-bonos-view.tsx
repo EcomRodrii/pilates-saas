@@ -202,6 +202,18 @@ export function PortalBonosView({
                 </span>
               ))}
               . Se usarán en cuanto se agote el actual.
+              {/* La suma, dicha y no deducida: el titular enseña el saldo del
+                  bono en curso, así que con varios en cola la socia tenía que
+                  sumar a mano para saber cuántas clases le quedan de verdad —
+                  que es justo lo que vino a mirar. */}
+              {bono.totalRestantes != null && (
+                <>
+                  {' '}En total te quedan{' '}
+                  <span style={{ color: t.ink, fontWeight: 600 }}>
+                    {bono.totalRestantes} sesion{bono.totalRestantes === 1 ? '' : 'es'}
+                  </span>.
+                </>
+              )}
             </span>
           </div>
         )}

@@ -42,6 +42,13 @@ export function bonoConsumible(
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
   const candidatas = suscripciones.filter(s => {
     if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) return false;
+    // ⚠️ Un bono AGOTADO no es candidato. Parece obvio y no lo era: el filtro
+    // solo miraba `!== null`, así que un bono a 0 seguía compitiendo — y con el
+    // desempate por id podía GANAR siempre. Visto en producción: una socia con
+    // cuatro bonos (uno a 0 y tres a 4) reservaba y no se descontaba de ningún
+    // sitio, porque el elegido ya no tenía nada que descontar. Doce sesiones
+    // pagadas que no se iban a gastar nunca, sin un solo error por ningún lado.
+    if (s.sesionesRestantes <= 0) return false;
     const plan = planesTarifa.find(p => p.id === s.planId);
     if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) return false;
     if (!planCubreTipoClase(plan, tipoClaseId)) return false;
