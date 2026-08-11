@@ -274,19 +274,79 @@ marcan — lo que además falsea el scoring de riesgo y las penalizaciones.
 estudio vía Inngest (que ya tiene reintentos y concurrencia). Mientras tanto,
 medir la duración real y alertar al superar el 60 % del techo.
 
-## I-2 · No existe ningún health check
+## I-2 · No existía ningún health check — RESUELTO
 
-**Dónde.** No hay `app/api/health/` ni equivalente. Verificado.
+**Dónde.** No había `app/api/health/` ni equivalente. Verificado.
 
-**Por qué importa.** El estándar pide detectar antes que la propietaria. Hoy la
-detección de que Stripe, Supabase, Inngest o Resend están caídos es *reactiva*:
-llega por Sentry cuando algo ya falló, o por una llamada de la clienta.
+**Por qué importa.** El estándar pide detectar antes que la propietaria. La
+detección de que algo se había quedado a medias era *reactiva*: llegaba por
+Sentry cuando ya había fallado, o por una llamada de la clienta.
 
-**Solución.** Un `/api/health` que compruebe conectividad de Supabase, Stripe,
-Inngest y Resend con timeouts cortos, y un `/api/health/flujos` que valide los
-invariantes críticos (reservas sin sesión, recibos `COBRADO` sin entrega,
-penalizaciones atascadas en `DETECTADA` > 1 h). Es la base de las métricas de
-"CRITICAL FLOW SUCCESS RATE" que pides.
+**Solución aplicada.** Dos endpoints, separados por lo que cuestan y por lo que
+revelan:
+
+- **`GET /api/health`** — liveness. Público, una sola consulta `head` a la BD con
+  timeout de 3 s. Es lo que un monitor externo puede sondear cada minuto. **No
+  llama a Stripe, Resend ni Inngest a propósito**: sondear terceros cada minuto
+  desde un endpoint público es regalar cuota de API y una vía de abuso. Y no
+  filtra nada del negocio, porque no puede pedir credenciales a un monitor.
+- **`GET /api/health/flujos`** — los invariantes. Cerrado, con **dos puertas**:
+  sesión interna con permiso `logs.read`, o `Bearer CRON_SECRET`. La segunda no
+  es un extra: sin ella esto sería un panel que alguien tiene que acordarse de
+  mirar, y un panel que hay que recordar mirar no detecta nada de noche.
+
+Devuelve 200 aunque haya fallos: el código HTTP dice si la *comprobación* se pudo
+hacer, no si el sistema está sano. Mezclarlo haría indistinguible "hay 3 cobros
+atascados" de "el endpoint está roto".
+
+**Los cinco invariantes** (todos contrastados contra producción antes de
+escribirlos, para no meter ninguno que naciera en rojo por ruido). Cuatro son
+además **detectores de cron muerto**: si un cron deja de correr, su invariante
+crece solo — el hueco que Sentry no ve, porque no hay excepción, simplemente no
+pasa nada.
+
+| id | qué detecta | valor real hoy |
+|---|---|---|
+| `reservas-pendientes-sin-expirar` | cron de reservas pendientes parado | 0 |
+| `ofertas-lista-espera-sin-expirar` | cron de ofertas parado | 0 |
+| `webhooks-sin-completar` | pago que el webhook empezó y no terminó | **2** ⚠️ |
+| `penalizaciones-atascadas` | cron de penalizaciones parado | 0 |
+| `recibos-cobrados-sin-fecha` | incoherencia en el histórico de dinero | 0 |
+
+Descartada `reservas-huerfanas`: `reservas_sesion_id_fkey` es `ON DELETE
+CASCADE`, así que es imposible por construcción. Una comprobación que no puede
+saltar nunca es ruido.
+
+**Una comprobación que falla NO cuenta como `ok`**, cuenta como `fallo`. Es el
+bug clásico de los health checks —el panel verde mientras el sistema arde— y va
+cubierto con un test.
+
+## I-2b · Lo que encontró el propio health check: el webhook de Connect se atasca solo
+
+Construir la comprobación `webhooks-sin-completar` destapó algo que no estaba en
+la primera versión de este informe y que **afina la causa raíz de C-1**.
+
+Hay **2 filas en `webhook_events` con estado `procesando` desde el 9-ago 22:10**.
+Las dos son del ámbito `connect:` (el que entrega el bono). Sus gemelas
+`billing:` completaron sin problema.
+
+El mecanismo, ya localizado en el código:
+[`app/api/stripe/webhook/route.ts:202`](../app/api/stripe/webhook/route.ts#L202)
+devuelve `403` cuando `tenantAutorizado(studioDeCuenta, studioId)` falla —y ese
+`return` **no marca el evento como procesado**. La reclamación caduca a los
+120 s, Stripe reintenta, vuelve a dar 403, y el evento se queda en `procesando`
+para siempre. El bono no lo entrega nunca el webhook: lo acaba entregando el
+conciliador.
+
+Esto significa que C-1 no es solo "los eventos van al destino equivocado".
+Hay además **un desajuste entre la cuenta Connect que firma el evento y el
+`studioId` de la metadata**, que el webhook detecta correctamente y rechaza —
+como debe— pero sin dejar ninguna vía de resolución. Coincide con Sentry
+`JAVASCRIPT-NEXTJS-15` (3 eventos).
+
+**No he podido determinar POR QUÉ no cuadran** (haría falta ver la configuración
+de Connect en el panel de Stripe). Es la primera pregunta que responder al
+abordar C-1(1).
 
 ## I-3 · La ventana de 12 h del conciliador es un límite duro sin aviso
 
@@ -427,8 +487,7 @@ Siguiendo tu regla final (estabilidad antes que funcionalidad):
 4. ✅ **C-3** — `idsEstudios()` + `fetchAllRows` en los 14 sitios. *Hecho.*
 5. ✅ **I-0** — N+1 de `minimo-asistentes` sustituido por una lectura agregada.
    *Hecho.*
-6. **I-2** — `/api/health` y `/api/health/flujos`, base de las métricas de éxito
-   por flujo crítico.
+6. ✅ **I-2** — `/api/health` y `/api/health/flujos`. *Hecho.*
 7. **I-1** — cursor en los 3 barridos de Vercel.
 8. **I-3** — barrido de detección a 72 h.
 9. **O-1** — bajar `conciliar-cobros`, `lista-espera-ofertas` y
@@ -455,6 +514,28 @@ Hecho en `claude/tentare-reliability-standard-a9f76d`:
 
 Verificación: `npx tsc --noEmit` limpio · `npm test` **2.114/2.114** ·
 `eslint lib/inngest --max-warnings 0` limpio.
+
+Y de I-2:
+
+- `lib/salud/comprobaciones.ts` + `lib/salud/secreto.ts` + los dos endpoints.
+- `lib/salud/salud.test.ts` — 10 casos. El que más importa:
+  **con `CRON_SECRET` sin configurar, el endpoint no autoriza a nadie** (sin esa
+  guardia, `Bearer ` + `''` compararía dos cadenas iguales y quedaría abierto).
+- Verificado en vivo contra el servidor de desarrollo, las tres puertas:
+  secreto correcto → pasa; secreto incorrecto → 401; sin cabecera → 401. Y las
+  dos ramas del import diferido: sin config → 503 legible, con config → 401.
+- La sintaxis del embed `sesiones!inner(...)` con `count` se validó contra el
+  PostgREST real con control positivo y negativo (200 con la relación buena,
+  400 `PGRST200` con una inventada) — no se dio por buena de memoria.
+
+⚠️ **Un fallo de diseño que salió al probarlo**: `exigirPermiso` arrastra
+`lib/auth-server.ts` → `lib/db/supabase.ts`, que hace `createClient` **a nivel de
+módulo** y lanza si falta `NEXT_PUBLIC_SUPABASE_URL`. Importado arriba, tumbaba
+el endpoint con un 500 y un stack **antes de ejecutar una sola línea propia** —
+justo el endpoint cuyo trabajo es avisar de que algo está mal configurado. Se
+resolvió difiriendo el import al handler. La coupling es preexistente y la
+comparten todas las rutas de `/interno`; ahí es tolerable (sin config no hay
+app), aquí no.
 
 ⚠️ **Nota de método**: en una pasada intermedia faltaba el `import` de
 `fetchAllRows` en `conciliar-cobros.ts` y **la suite pasó igualmente** — el test
