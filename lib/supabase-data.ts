@@ -2583,7 +2583,14 @@ export async function dbInsertRewardHistory(h: RewardHistory) {
     id: h.id, studio_id: h.studioId ?? STUDIO_ID, socio_id: h.socioId, rule_id: h.ruleId,
     action_id: h.actionId, creditos: h.creditos, descripcion: h.descripcion, creado_en: h.creadoEn,
   };
-  const { error } = await supabase.from('reward_history').insert(row);
+  // Misma carrera de visibilidad de FK que dbInsertRecibo (Sentry
+  // JAVASCRIPT-NEXTJS-11): `action_id` referencia la fila de `reward_actions`
+  // que acaba de crear `otorgar_credito_disparador` — el cliente la inserta
+  // justo después de recibir el `accionId` de esa RPC, pero puede llegar
+  // antes de que la fila sea visible a esta conexión.
+  const { error } = await conReintentoFK('reward_history_action_id_fkey', () =>
+    supabase.from('reward_history').insert(row),
+  );
   if (error) reportDbError('[dbInsertRewardHistory]', error);
 }
 
