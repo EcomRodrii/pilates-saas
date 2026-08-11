@@ -49,9 +49,11 @@ async function montar(page: Page) {
   await page.goto('/configuracion?tab=plantillas');
 }
 
-// h3 → div (label+descripción) → div.flex (cabecera) → div de la tarjeta.
-function tarjetaImpago(page: Page) {
-  return page.getByRole('heading', { name: 'Pago fallido' }).locator('../../..');
+// La lista es un índice: cada correo es una fila que abre su editor. Antes eran
+// seis tarjetas abiertas a la vez y se llegaba a los campos sin abrir nada.
+async function abrirImpago(page: Page) {
+  await page.getByRole('button', { name: /Pago fallido/ }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
 }
 
 test.describe('Plantillas de email: vista previa y envío de prueba', () => {
@@ -61,25 +63,32 @@ test.describe('Plantillas de email: vista previa y envío de prueba', () => {
     await expect(page.getByText('Cuando un cobro automático no se completa.', { exact: false })).toBeVisible();
   });
 
-  test('la vista previa renderiza el borrador sin guardarlo', async ({ page }) => {
-    let guardadoLlamado = false;
+  // Ya no hay botón de "Vista previa": el correo está siempre delante y se
+  // rehace solo al dejar de teclear. Se comprueba lo mismo de antes —que
+  // renderiza el BORRADOR sin guardarlo— pero sobre el flujo nuevo.
+  test('la vista previa se rehace sola con el borrador, sin guardarlo', async ({ page }) => {
+    let pruebaLlamada = false;
+    const cuerposPedidos: { tipo?: string; asunto?: string | null }[] = [];
     await montar(page);
     await page.route('**/api/plantillas-email/preview', route => {
-      const body = route.request().postDataJSON();
-      expect(body.tipo).toBe('impago');
-      expect(body.asunto).toBe('Tu cuota no se ha podido cobrar');
-      return json(route, { html: '<html><body>Hola Ana García</body></html>', subject: 'Tu cuota no se ha podido cobrar' });
+      cuerposPedidos.push(route.request().postDataJSON());
+      return json(route, {
+        html: '<html><body>Hola Ana García</body></html>',
+        subject: 'Tu cuota no se ha podido cobrar',
+      });
     });
-    await page.route('**/api/plantillas-email/prueba', () => { guardadoLlamado = true; });
+    await page.route('**/api/plantillas-email/prueba', () => { pruebaLlamada = true; });
 
-    await page.getByText('Pago fallido').scrollIntoViewIfNeeded();
-    const asuntoImpago = tarjetaImpago(page).getByPlaceholder('Problema con tu pago — {estudio}');
-    await asuntoImpago.fill('Tu cuota no se ha podido cobrar');
-    await tarjetaImpago(page).getByRole('button', { name: 'Vista previa' }).click();
+    await abrirImpago(page);
+    await page.getByPlaceholder('Problema con tu pago — {estudio}').fill('Tu cuota no se ha podido cobrar');
 
-    await expect(page.getByRole('dialog', { name: 'Vista previa — Pago fallido' })).toBeVisible();
-    await expect(page.getByText('Tu cuota no se ha podido cobrar')).toBeVisible();
-    expect(guardadoLlamado).toBe(false); // solo previsualiza: no ha llamado a guardar ni a enviar prueba
+    // El asunto viaja en la petición de vista previa sin haber pulsado nada.
+    await expect
+      .poll(() => cuerposPedidos.some(c => c.tipo === 'impago' && c.asunto === 'Tu cuota no se ha podido cobrar'))
+      .toBe(true);
+    // Y se ve en la línea de bandeja, que es lo único que lee la clienta antes de abrir.
+    await expect(page.getByText('Tu cuota no se ha podido cobrar').first()).toBeVisible();
+    expect(pruebaLlamada).toBe(false); // solo previsualiza: no ha guardado ni enviado nada
   });
 
   test('enviar una prueba manda el email de verdad a quien la pide, y lo dice', async ({ page }) => {
@@ -87,8 +96,8 @@ test.describe('Plantillas de email: vista previa y envío de prueba', () => {
     await page.route('**/api/plantillas-email/prueba', route =>
       json(route, { ok: true, enviadoA: 'duena@example.com' }));
 
-    await page.getByText('Pago fallido').scrollIntoViewIfNeeded();
-    await tarjetaImpago(page).getByRole('button', { name: 'Enviarme una prueba' }).click();
+    await abrirImpago(page);
+    await page.getByRole('button', { name: 'Enviarme una prueba' }).click();
 
     await expect(page.getByText('Prueba enviada a duena@example.com')).toBeVisible();
   });
@@ -98,8 +107,8 @@ test.describe('Plantillas de email: vista previa y envío de prueba', () => {
     await page.route('**/api/plantillas-email/prueba', route =>
       json(route, { error: 'Resend no configurado. Añade RESEND_API_KEY en .env.local' }, 503));
 
-    await page.getByText('Pago fallido').scrollIntoViewIfNeeded();
-    await tarjetaImpago(page).getByRole('button', { name: 'Enviarme una prueba' }).click();
+    await abrirImpago(page);
+    await page.getByRole('button', { name: 'Enviarme una prueba' }).click();
 
     await expect(page.getByText(/Resend no configurado/)).toBeVisible();
   });
