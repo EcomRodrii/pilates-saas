@@ -148,6 +148,31 @@ const navConfigSchema = z
 const fontIdSchema = z.enum(FUENTES.map((f) => f.id) as [FontId, ...FontId[]]);
 const radiusSchema = z.enum(RADIOS.map((r) => r.id) as [RadiusId, ...RadiusId[]]);
 const faviconSchema = z.string().url().nullable();
+
+/**
+ * Lo que se ve al compartir el enlace del estudio (WhatsApp, Instagram) y en
+ * el resultado de Google.
+ *
+ * Hasta ahora el título y la descripción de `/reservar/{slug}` se fabricaban
+ * a partir del nombre y la ciudad, SIN ninguna forma de tocarlos, y no había
+ * imagen de Open Graph en absoluto: pegar el enlace en un grupo de WhatsApp
+ * daba un recuadro de texto gris. Es lo primero que ve una posible clienta y
+ * era lo único de toda la marca que la propietaria no podía decidir.
+ *
+ * ⚠️ **Cadena vacía = «genérate el mío»**, no «déjalo en blanco». Un título
+ * vacío de verdad sería peor que el automático de hoy, así que el vacío es la
+ * señal de herencia — mismo criterio de "ausente hereda" que ya usan
+ * `EstiloBloque` y los overrides por tipo de clase.
+ *
+ * Los límites (60/160) son los que recortan Google y las tarjetas sociales.
+ * Se validan aquí y se avisan en el editor ANTES de publicar, en vez de
+ * dejar que el estudio descubra el corte en el móvil de una clienta.
+ */
+export const SEO_TITULO_MAX = 60;
+export const SEO_DESCRIPCION_MAX = 160;
+const seoTituloSchema = z.string().max(SEO_TITULO_MAX);
+const seoDescripcionSchema = z.string().max(SEO_DESCRIPCION_MAX);
+const seoImagenSchema = z.string().url().nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
@@ -273,6 +298,12 @@ export const themeConfigSchema = z
     fontId: fontIdSchema,
     radius: radiusSchema,
     faviconUrl: faviconSchema.default(null),
+    // Compartir y buscadores — ver el comentario de los schemas arriba.
+    // Vacío/null = se genera solo, que es lo que hacía antes de existir estos
+    // campos: ningún tema guardado cambia de comportamiento.
+    seoTitulo: seoTituloSchema.default(''),
+    seoDescripcion: seoDescripcionSchema.default(''),
+    seoImagenUrl: seoImagenSchema.default(null),
     // Opcionales con default: un tema guardado ANTES de esta fase no trae
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
@@ -343,6 +374,9 @@ export const DEFAULT_THEME: ThemeConfig = {
   fontId: 'jakarta',
   radius: 'rounded',
   faviconUrl: null,
+  seoTitulo: '',
+  seoDescripcion: '',
+  seoImagenUrl: null,
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
@@ -369,9 +403,20 @@ export const DEFAULT_THEME: ThemeConfig = {
  * decisiones suyas sobre qué enseña su portal. Cambiar de Oliva a Noir no
  * puede borrarle el favicon ni reordenarle el menú.
  *
+ * Los tres `seo*` van aquí por el mismo motivo, y es el caso más claro de
+ * todos: el título con el que sales en Google y la foto que se ve al pegar
+ * tu enlace en un grupo de WhatsApp son TEXTO DE TU NEGOCIO, no aspecto. Que
+ * probar un tema nuevo te borrara la descripción que escribiste —y encima en
+ * silencio, porque no se ve en ninguna pantalla del panel— sería la peor
+ * clase de pérdida: la que no te enteras hasta que alguien te dice que tu
+ * enlace se ve raro.
+ *
  * Todo lo demás de `ThemeConfig` es aspecto y se REEMPLAZA por completo.
  */
-export const CAMPOS_DEL_ESTUDIO = ['faviconUrl', 'navPortal', 'redesSociales'] as const;
+export const CAMPOS_DEL_ESTUDIO = [
+  'faviconUrl', 'navPortal', 'redesSociales',
+  'seoTitulo', 'seoDescripcion', 'seoImagenUrl',
+] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
  *  quedarse desactualizada al añadir un campo. */
@@ -437,6 +482,9 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     fontId: pick('fontId', fontIdSchema),
     radius: pick('radius', radiusSchema),
     faviconUrl: pick('faviconUrl', faviconSchema),
+    seoTitulo: pick('seoTitulo', seoTituloSchema),
+    seoDescripcion: pick('seoDescripcion', seoDescripcionSchema),
+    seoImagenUrl: pick('seoImagenUrl', seoImagenSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
