@@ -6,6 +6,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
 import { evaluarReembolso, type PoliticaReembolso } from '@/lib/billing/politica-reembolso';
+import { paramsReembolso } from '@/lib/billing/reembolso-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,18 +110,27 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: piId,
-      // La comisión de plataforma (R2, apagada por defecto) vuelve también: si
-      // no, el estudio devuelve 60 € y encima paga la comisión de una venta que
-      // ya no existe. Stripe la ignora cuando no hubo comisión.
-      refund_application_fee: true,
-    }, {
-      stripeAccount: cuenta,
-      // Doble clic, doble pestaña, o el mismo mostrador dos veces: sin esto son
-      // dos devoluciones del mismo dinero. Por recibo, que es lo que se devuelve.
-      idempotencyKey: `reembolso-${recibo.id}`,
-    });
+    // Hay que preguntarle a Stripe si este cobro llevó comisión de plataforma
+    // ANTES de pedir el reembolso: mandar `refund_application_fee` cuando no la
+    // hay no se ignora, da error y tumba la devolución entera (pasó con la
+    // primera devolución real, 11-ago-2026 — ver lib/billing/reembolso-params.ts).
+    const pi = await stripe.paymentIntents.retrieve(piId, {}, { stripeAccount: cuenta });
+    const refund = await stripe.refunds.create(
+      paramsReembolso(piId, pi.application_fee_amount),
+      {
+        stripeAccount: cuenta,
+        // Doble clic, doble pestaña, o el mismo mostrador dos veces: sin esto
+        // son dos devoluciones del mismo dinero. Por recibo, que es lo que se
+        // devuelve.
+        //
+        // El `-v2` no es decorativo: Stripe guarda el resultado de una clave de
+        // idempotencia AUNQUE la respuesta fuera un error, así que las claves
+        // de los intentos que murieron por el fallo de arriba devolverían ese
+        // mismo error para siempre. Si alguna vez vuelve a cambiar la FORMA de
+        // esta petición, sube el número.
+        idempotencyKey: `reembolso-v2-${recibo.id}`,
+      },
+    );
 
     // A propósito no se toca `recibos` aquí: lo hace el webhook de
     // `charge.refunded`, igual que con un reembolso hecho desde Stripe. Un solo
