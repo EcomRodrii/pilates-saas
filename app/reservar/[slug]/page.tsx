@@ -258,7 +258,7 @@ export default function ReservarPage() {
   const heroFoto = studio?.fotoUrl || studio?.imagenBienvenidaUrl || null;
   const params = useParams();
   const slug = String(params?.slug ?? '');
-  const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar } = useSociaSession(slug);
+  const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
   const searchParams = useSearchParams();
   const router = useRouter();
   const refCode = searchParams.get('ref');
@@ -379,14 +379,13 @@ export default function ReservarPage() {
   const [mostrarPasswordLogin, setMostrarPasswordLogin] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
   const [enviandoLoginPassword, setEnviandoLoginPassword] = useState(false);
-  // Contraseña que se fija en el paso 'registro' (justo tras probar el email
-  // por enlace mágico) — mismo mínimo y patrón de confirmación que
-  // app/portal/[slug]/clave-nueva/page.tsx.
-  const [nuevaPassword, setNuevaPassword] = useState('');
-  const [nuevaPasswordConfirmar, setNuevaPasswordConfirmar] = useState('');
-  // Si ya tiene contraseña propia (la acaba de fijar en 'registro', o entró
-  // con loginConPassword), la pantalla de confirmación no debe seguir
-  // ofreciendo "crea tu contraseña" — ya no es cierto. No se resetea en
+  // Si ya tiene contraseña propia (entró con loginConPassword, o la fijó
+  // alguna vez desde /acceso), la pantalla de confirmación no debe seguir
+  // ofreciendo "crea tu contraseña" — ya no es cierto. El paso 'registro' YA
+  // NO pide contraseña (P0 "reservar sin cuenta": el enlace mágico ya
+  // verifica el email, pedir además una contraseña aquí era un paso de más
+  // que Momence, el competidor auditado, ni siquiera exige) — este flag solo
+  // puede llegar a `true` por loginConPassword. No se resetea en
   // openBooking()/closeBooking(): sigue siendo verdad para el resto de la
   // visita aunque se abra otra reserva.
   const [tienePasswordPropia, setTienePasswordPropia] = useState(false);
@@ -839,16 +838,15 @@ export default function ReservarPage() {
     }
   }
 
-  // Walk-in ya autenticado por enlace mágico: nombre + fijar la contraseña
-  // que usará a partir de ahora (día a día, sin depender del email otra vez).
+  // Walk-in ya autenticada por enlace mágico: solo pide nombre + teléfono.
+  // P0 "reservar sin cuenta" (auditoría Momence vs Tentare): antes este paso
+  // exigía además fijar contraseña — el enlace mágico YA verifica el email,
+  // así que era un paso de más que ni el competidor auditado exige. Quien
+  // quiera volver sin depender del email cada vez puede fijarla más tarde
+  // desde /acceso (ver el enlace "Crea tu contraseña" en el paso 'done').
   async function handleRegistroNombre() {
     if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
-    if (nuevaPassword.length < 8) { setLoginError('La contraseña debe tener al menos 8 caracteres.'); return; }
-    if (nuevaPassword !== nuevaPasswordConfirmar) { setLoginError('Las dos contraseñas no coinciden.'); return; }
     setLoginError('');
-    const r = await establecerPassword(nuevaPassword);
-    if ('error' in r) { setLoginError(r.error); return; }
-    setTienePasswordPropia(true);
     setLoginStep('contrato');
   }
 
@@ -1925,30 +1923,12 @@ export default function ReservarPage() {
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                  style={{ backgroundColor: RT.surface2 }} />
-                {/* Email ya verificado por el enlace mágico — de aquí en
-                    adelante entra con contraseña, sin depender otra vez del
-                    correo (ver handleLoginConPassword). */}
-                <input type="password"
-                  placeholder="Elige una contraseña"
-                  value={nuevaPassword}
-                  onChange={e => { setNuevaPassword(e.target.value); setLoginError(''); }}
-                  autoComplete="new-password"
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                  style={{ backgroundColor: RT.surface2 }} />
-                <input type="password"
-                  placeholder="Repite la contraseña"
-                  value={nuevaPasswordConfirmar}
-                  onChange={e => { setNuevaPasswordConfirmar(e.target.value); setLoginError(''); }}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
-                  autoComplete="new-password"
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
                   style={{ backgroundColor: RT.surface2 }} />
-                <p className="text-[11px] text-[var(--portal-muted)] mb-1">Mínimo 8 caracteres. La usarás para entrar la próxima vez.</p>
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
-                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono) || !nuevaPassword || !nuevaPasswordConfirmar}
+                <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
                   className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
                   style={{ backgroundColor: PRIMARY }}>
                   Continuar →
