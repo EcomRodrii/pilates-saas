@@ -14,10 +14,7 @@
 // en utils), aquí se ancla Madrid.
 
 import { fechaLocalDe, horaParedAInstante } from './citas/slots.ts';
-
-// La zona del estudio. Constante en todo el sistema (utils.TZ_ESTUDIO,
-// citas.TZ_CITAS, migraciones 0084/0105/0114): España peninsular.
-const TZ_ESTUDIO = 'Europe/Madrid';
+import { TZ_ESTUDIO } from './utils.ts';
 
 /**
  * Nuevo inicio/fin (ISO/UTC) de una sesión manteniendo su FECHA local (Madrid) y

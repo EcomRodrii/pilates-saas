@@ -12,13 +12,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
+import { cuandoEstudio, horaEstudio, fechaCortaEstudio } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
   try {
-    const d = new Date(iso);
-    const dia = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-    const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-    return `${dia} a las ${hora}`;
+    return cuandoEstudio(new Date(iso));
   } catch { return ''; }
 }
 
@@ -170,7 +168,7 @@ export async function emitirOfertaListaEspera(
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
-    const hora = new Date(p.expiraEn).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+    const hora = horaEstudio(p.expiraEn);
     await publish({
       type: EVENTOS.RESERVA_OFERTA_LISTA_ESPERA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, hora },
@@ -297,7 +295,7 @@ export async function emitirPagoDisputado(
       ? await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle()
       : { data: null };
     const plazo = p.plazoUnix
-      ? new Date(p.plazoUnix * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' })
+      ? fechaCortaEstudio(new Date(p.plazoUnix * 1000))
       : 'la fecha que indique Stripe';
     await publish({
       type: EVENTOS.PAGO_DISPUTADO, studioId: p.studioId,
@@ -503,8 +501,7 @@ export async function emitirInstructoraAusencia(
   },
 ): Promise<void> {
   try {
-    const fecha = (iso: string) =>
-      new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+    const fecha = (iso: string) => fechaCortaEstudio(new Date(`${iso}T12:00:00Z`));
     await publish({
       type: EVENTOS.INSTRUCTORA_AUSENCIA, studioId: p.studioId,
       data: {

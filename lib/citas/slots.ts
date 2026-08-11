@@ -12,7 +12,9 @@
 // El día de la semana usa la convención de Postgres DOW: 0=domingo..6=sábado.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const TZ_CITAS = 'Europe/Madrid';
+import { TZ_ESTUDIO } from '../utils.ts';
+
+export const TZ_CITAS = TZ_ESTUDIO;
 
 // Solape de intervalos semiabiertos [aIni,aFin) y [bIni,bFin), en ms. Réplica
 // local de `solapan` de lib/calendar-logic para mantener este módulo puro y sin

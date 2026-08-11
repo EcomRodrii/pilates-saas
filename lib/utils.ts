@@ -150,6 +150,13 @@ export function fechaLargaEstudio(fecha: Date | string): string {
   });
 }
 
+/** "25 de julio" en hora del estudio (sin día de la semana). */
+export function fechaCortaEstudio(fecha: Date | string): string {
+  return new Date(fecha).toLocaleDateString('es-ES', {
+    day: 'numeric', month: 'long', timeZone: TZ_ESTUDIO,
+  });
+}
+
 /** "09:00" en hora del estudio. */
 export function horaEstudio(fecha: Date | string): string {
   return new Date(fecha).toLocaleTimeString('es-ES', {
