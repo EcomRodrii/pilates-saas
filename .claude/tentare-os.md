@@ -809,8 +809,7 @@ que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
 (`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
-`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1, 2, 4 y 5 entregadas
-(2026-08-11); queda solo la 3 (revenue predictivo).** No duplicar la capa: los especialistas nuevos se
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Las 6 fases entregadas (2026-08-11).** No duplicar la capa: los especialistas nuevos se
 añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 
 - **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
@@ -874,3 +873,27 @@ añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
   Un `[...data.prioridades]` a secas con un `{}` por respuesta no rompe su
   tarjeta: rompe la pantalla principal del negocio. Lo destapó un e2e ajeno que
   mockea `/api/**` como `{}`.
+
+### Fase 3 (dinero) — construida, NO probada con un cobro real
+
+- ⚠️ **`socios.tarjeta_exp_*` (migr `20260811090114`) es el único sitio donde vive
+  la caducidad de la tarjeta.** Se rellena por dos caminos y `lib/billing/
+  caducidad-tarjeta.ts` es el único que sabe leerla de Stripe: el webhook al
+  guardar una tarjeta nueva, y un relleno por goteo (25/pasada) DENTRO del cron
+  de dunning — que ya corre para estos estudios y ya tiene el `stripeAccount`.
+  **Nunca un cron nuevo**: Inngest sigue al ~84 % del plan free.
+- ⚠️ **Una tarjeta 09/2026 vale hasta el ÚLTIMO día de septiembre.** `caducaAntesDe`
+  lo resuelve; equivocarse ahí avisa a la socia un mes antes de tiempo, o tarde.
+- **Las reglas de dinero avisan, nunca cobran.** Ninguna emite `COBRAR_RECIBOS`,
+  y `confianzaRiesgoDeCobro` no puede llegar a ALTA — que es justo lo que el
+  piloto automático exige para ejecutar solo. Una estimación no mueve dinero.
+- **Un umbral de riesgo de cobro tiene que ser RELATIVO al estudio.** Con un 0.35
+  absoluto no saltaba nunca: el suavizado hacia la media del estudio empuja a
+  todos hacia ella. Y "cobra mal" no significa lo mismo donde entra el 98 % que
+  donde entra el 70 %.
+- **Una ventana de aviso fija miente.** F3 (bono que caduca sin usar) con 14 días
+  fijos no habría avisado a tiempo de NINGUNO de los dos bonos reales que hay en
+  producción. Va atada a la frecuencia real de cada socia.
+- ⚠️ **Por Stripe no ha pasado un euro real**: 1 socia de 202 con tarjeta guardada,
+  0 con SEPA. F4 no detectará nada hasta que las haya. Probar el primer cobro en
+  un estudio de pruebas antes de fiarse de esto con clientas reales.
