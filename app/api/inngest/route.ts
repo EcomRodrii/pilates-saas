@@ -32,33 +32,12 @@ import {
   procesarConfirmacionCorteEstudio,
 } from '@/lib/inngest/confirmacion-riesgo';
 import {
-  notifRecordatoriosDispatcher,
-  notifBonosDispatcher,
-  notifInactivasDispatcher,
-  procesarAutomacionEstudio,
-} from '@/lib/inngest/notif-automations';
-import {
-  backupsDispatcher,
-  procesarBackupsEstudio,
-} from '@/lib/inngest/backups';
-import {
   recordatoriosDispatcher,
   procesarRecordatoriosEstudio,
 } from '@/lib/inngest/recordatorios';
-import {
-  revisionesSaludDispatcher,
-  procesarRevisionesSaludEstudio,
-} from '@/lib/inngest/revisiones-salud';
-import { expirarReservasPendientesDispatcher } from '@/lib/inngest/reservas-pendientes';
-import { minimoAsistentesDispatcher } from '@/lib/inngest/minimo-asistentes';
-import { checkinAutomaticoDispatcher } from '@/lib/inngest/checkin-automatico';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
 import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inngest/conciliar-cobros';
 import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
-import {
-  resumenSemanalDispatcher,
-  procesarResumenSemanalEstudio,
-} from '@/lib/inngest/resumen-semanal';
 
 // Endpoint que Inngest llama para descubrir y ejecutar las funciones. El
 // handshake se autentica con INNGEST_SIGNING_KEY (env var). maxDuration alto
@@ -85,24 +64,11 @@ export const { GET, POST, PUT } = serve({
     procesarConfirmacionAskEstudio,
     confirmacionRiesgoCorteDispatcher,
     procesarConfirmacionCorteEstudio,
-    notifRecordatoriosDispatcher,
-    notifBonosDispatcher,
-    notifInactivasDispatcher,
-    procesarAutomacionEstudio,
-    backupsDispatcher,
-    procesarBackupsEstudio,
     recordatoriosDispatcher,
     procesarRecordatoriosEstudio,
-    revisionesSaludDispatcher,
-    procesarRevisionesSaludEstudio,
-    expirarReservasPendientesDispatcher,
-    minimoAsistentesDispatcher,
-    checkinAutomaticoDispatcher,
     penalizacionesDispatcher,
     conciliarCobrosDispatcher,
     conciliarCobrosVigilancia,
     cierreGestoriaAutomaticoDispatcher,
-    resumenSemanalDispatcher,
-    procesarResumenSemanalEstudio,
   ],
 });

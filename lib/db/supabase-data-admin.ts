@@ -1528,7 +1528,7 @@ export async function ofrecerPlazaLibre(params: {
 }
 
 // Expira una reserva PENDIENTE_APROBACION cuya sesión ya empezó — llamado por
-// el cron `lib/inngest/reservas-pendientes.ts`, no por un usuario. Sin sesión
+// el cron `lib/reservas-pendientes/expirar.ts`, no por un usuario. Sin sesión
 // de staff detrás: la guardia de inicio de la RPC ya obliga a CANCELADA sin
 // importar qué se pida, así que aquí basta con pedir "rechazar" tal cual.
 export async function expirarReservaPendiente(params: {
@@ -1619,7 +1619,7 @@ export async function expirarOfertaListaEspera(params: {
 
 // Fase 2c: cancela una sesión completa porque no alcanzó el mínimo de
 // asistentes a 2h del inicio — llamado solo por el cron
-// (lib/inngest/minimo-asistentes.ts), sin sesión de staff detrás. A
+// (lib/minimo-asistentes/cancelar-por-minimo.ts), sin sesión de staff detrás. A
 // diferencia de dbCancelarReservasPorSesiones (cancelación manual, cliente,
 // nunca devuelve bono), aquí SÍ se devuelve a cada CONFIRMADA: no es
 // decisión de la socia, es el sistema el que rompe el compromiso.

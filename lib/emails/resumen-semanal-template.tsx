@@ -14,7 +14,7 @@ interface Props {
 // merezca interrumpir a la propietaria. Cuando una semana entera pasa sin
 // que encuentre nada así, hoy esa "semana tranquila" solo se ve si ella abre
 // la app — este email cierra ese hueco: activo por defecto (opt-out vía
-// decision_feature_flags, ver lib/inngest/resumen-semanal.ts), deliberadamente
+// decision_feature_flags, ver lib/decision/resumen-semanal-cron.ts), deliberadamente
 // el ÚNICO caso en que el Umbral manda algo por email en vez de push (el
 // mensaje diario es push en exclusiva a propósito, para no diluir esa
 // promesa — un resumen semanal no urgente encaja mejor con email).

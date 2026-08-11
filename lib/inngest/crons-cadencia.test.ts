@@ -23,10 +23,46 @@ function cronDe(fuente: string, id: string): string | null {
   return m ? m[1] : null;
 }
 
+// Extrae el schedule de un cron.schedule('job', 'schedule', ...) de una
+// migración SQL, por nombre de job.
+function cronScheduleDeMigracion(fuente: string, jobName: string): string | null {
+  const re = new RegExp(`cron\\.schedule\\(\\s*\\n?\\s*'${jobName}',\\s*\\n?\\s*'([^']+)'`);
+  const m = fuente.match(re);
+  return m ? m[1] : null;
+}
+
 test('las cadencias bajadas en O-1 se mantienen', () => {
-  assert.equal(cronDe(leer('lib/inngest/reservas-pendientes.ts'), 'reservas-pendientes-expirar'), '*/10 * * * *');
   assert.equal(cronDe(leer('lib/inngest/penalizaciones.ts'), 'penalizaciones-procesar'), '*/30 * * * *');
-  assert.equal(cronDe(leer('lib/inngest/checkin-automatico.ts'), 'checkin-automatico'), '*/30 * * * *');
+});
+
+// Piloto de arquitectura, resto del bucket A (2026-08-11): estos siete
+// barridos salieron de Inngest a pg_cron + pg_net en la misma tanda que
+// lista-espera-ofertas-expirar. Las cadencias reales (incluida la razonada
+// de O-1 para reservas-pendientes/checkin-automatico) NO cambiaron, solo el
+// motor que las dispara.
+test('bucket A (resto): cadencias preservadas en la migración pg_cron', () => {
+  const migracion = leer('supabase/migrations/20260811140000_pg_cron_bucket_a_resto.sql');
+  assert.equal(cronScheduleDeMigracion(migracion, 'checkin-automatico'), '*/30 * * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'minimo-asistentes-cancelar'), '*/15 * * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'reservas-pendientes-expirar'), '*/10 * * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'notif-recordatorios'), '*/15 * * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'backups-diarios'), '0 3 * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'notif-bonos'), '0 9 * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'notif-inactivas'), '0 10 * * 1');
+  assert.equal(cronScheduleDeMigracion(migracion, 'revisiones-salud'), '0 7 * * *');
+  assert.equal(cronScheduleDeMigracion(migracion, 'resumen-semanal'), '15 9 * * 1');
+});
+
+test('bucket A (resto): ninguno debe quedar registrado en Inngest', () => {
+  const route = leer('app/api/inngest/route.ts');
+  for (const nombre of [
+    'checkinAutomaticoDispatcher', 'minimoAsistentesDispatcher', 'expirarReservasPendientesDispatcher',
+    'notifRecordatoriosDispatcher', 'notifBonosDispatcher', 'notifInactivasDispatcher', 'procesarAutomacionEstudio',
+    'backupsDispatcher', 'procesarBackupsEstudio', 'revisionesSaludDispatcher', 'procesarRevisionesSaludEstudio',
+    'resumenSemanalDispatcher', 'procesarResumenSemanalEstudio',
+  ]) {
+    assert.ok(!route.includes(nombre), `${nombre} no debe seguir registrado: correría por duplicado junto al piloto pg_cron`);
+  }
 });
 
 // ⚠️ Las dos que NO se bajaron, y por qué. No es purismo: bajarlas degrada algo

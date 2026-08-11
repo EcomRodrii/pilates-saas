@@ -5,7 +5,7 @@ import { remitentePorMarca } from '@/lib/emails/remitente';
 import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
 import { nombreAppPorRol } from '@/lib/permisos-reglas';
 
-// Envío del resumen de "semana tranquila" (lib/inngest/resumen-semanal.ts).
+// Envío del resumen de "semana tranquila" (lib/decision/resumen-semanal-cron.ts).
 // Va siempre a la PROPIETARIA (equipo, no una socia), así que el remitente
 // usa nombreAppPorRol('PROPIETARIO') = 'Tentare Manager' — mismo criterio que
 // invitacion-equipo-server.ts para el resto de emails al equipo del estudio.

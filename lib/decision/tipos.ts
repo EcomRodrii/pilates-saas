@@ -251,7 +251,7 @@ export interface MensajeDia {
 // no una reapertura de nada. Necesario para que el filtro por especialista
 // de motor.ts pueda apagar/encender los 7 especialistas, no solo 6.
 // RESUMEN_SEMANAL: no es un especialista, es el opt-out del email de "semana
-// tranquila" (lib/inngest/resumen-semanal.ts) — ausente o `true` = activo
+// tranquila" (lib/decision/resumen-semanal-cron.ts) — ausente o `true` = activo
 // (por defecto para todas las propietarias), `false` = lo desactivó.
 export type DecisionFlag = 'DECISIONES' | 'RETENCION' | 'INGRESOS' | 'FINANZAS' | 'AGENDA' | 'MARKETING' | 'EQUIPO' | 'CAPTACION' | 'ONBOARDING' | 'RESUMEN_SEMANAL';
 export interface DecisionFeatureFlag {

@@ -1,5 +1,5 @@
 // Lógica pura de fechas del resumen semanal, separada de
-// lib/inngest/resumen-semanal.ts (que importa @/lib/db/supabase-admin y
+// lib/decision/resumen-semanal-cron.ts (que importa @/lib/db/supabase-admin y
 // otros módulos con efectos) para que node --test pueda importarla sin
 // arrastrar imports con alias @/ que el runtime de node no resuelve sin
 // loader — mismo criterio que lib/decision/director.ts/tipos.ts, que solo
