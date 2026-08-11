@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
@@ -19,7 +20,7 @@ import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 // idempotencyKey de Stripe: un reintento del step de Inngest tras un fallo de
 // red nunca duplica el cargo.
 
-export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'SUSCRIPCION_PAUSADA';
+export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -47,6 +48,16 @@ export async function cobrarReciboOffSession(params: {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return { ok: false, error: 'Stripe no configurado', errorCode: 'NO_CONFIGURADO' };
+  }
+  // El modo de la clave tiene que pegar con dónde corre esto. Va AQUÍ, en el
+  // único sitio por el que pasa todo cobro automático (dunning, penalizaciones,
+  // charge-off-session): un `npm run dev` con el `.env.local` de producción
+  // copiado cobraría de verdad a socias reales, y una clave de test en
+  // producción marcaría recibos COBRADO sin que entrara un euro.
+  // Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) {
+    return { ok: false, error: modo.motivo ?? 'Modo de Stripe incompatible con el entorno', errorCode: 'MODO_STRIPE_CRUZADO' };
   }
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 

@@ -21,6 +21,9 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   CUENTA_NO_LISTA: 409,
   FALLO_COBRO: 402,
   SUSCRIPCION_PAUSADA: 409,
+  // Mal configurado el entorno, no culpa de quien pulsa: 503, como el resto de
+  // "esto no está listo para cobrar" (ver lib/billing/modo-stripe.ts).
+  MODO_STRIPE_CRUZADO: 503,
 };
 
 export async function POST(req: NextRequest) {
