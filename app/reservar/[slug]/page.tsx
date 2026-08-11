@@ -17,6 +17,8 @@ import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { RejillaSemana } from '@/components/reserva/rejilla-semana';
+import { RailFiltros } from '@/components/reserva/rail-filtros';
+import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -288,6 +290,9 @@ export default function ReservarPage() {
   const [filtroNivel, setFiltroNivel] = useState('');
   const [filtroHorario, setFiltroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
   const [filtroDias, setFiltroDias] = useState<number[]>([]);
+  // Filtrar por instructora faltaba, y es de las tres formas en que se elige
+  // cuando ya conoces el estudio (con quién, qué día, a qué hora).
+  const [filtroInstructor, setFiltroInstructor] = useState('');
   // `null` hasta que el efecto de sessionStorage decida (evita el flash de
   // "mostrar banner → ocultarlo" en cada carga si ya se descartó antes).
   const [bannerQuizVisible, setBannerQuizVisible] = useState<boolean | null>(null);
@@ -313,7 +318,7 @@ export default function ReservarPage() {
     () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
     [tiposClase],
   );
-  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0;
+  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '';
   function reiniciarFiltrosQuiz() {
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
     setQuizCompletado(false);
@@ -502,6 +507,19 @@ export default function ReservarPage() {
     }));
   }, [sesiones, tiposClase, salas, instructores, reservas]);
 
+  // ⚠️ Las opciones del rail salen de las clases SIN filtrar. Contándolas sobre
+  // las ya filtradas, elegir «Laura» dejaría su desplegable con una sola opción
+  // —ella— y no habría forma de volver a ver el resto: el filtro se cerraría
+  // sobre sí mismo.
+  const slotsParaFiltros = useMemo(() => sesionesRich
+    .filter(s => new Date(s.inicio).getTime() > nowMs && !s.cancelada)
+    .map(s => ({
+      tipoClaseId: s.tipoClaseId,
+      nivel: s.tipo?.nivel ?? 'TODOS',
+      instructorNombre: s.instructor?.nombre ?? null,
+      horario: horarioDeSesion(s.inicio),
+    })), [sesionesRich, nowMs]);
+
   // ── Vista-modelo para el calendario compartido ──────────────────────────────
   // Se proyectan los datos crudos a ReservaSlot[] EXACTAMENTE como en el portal
   // (app/portal/[slug]/clases): índices en una pasada, respetando aforo/plazas,
@@ -585,6 +603,7 @@ export default function ReservarPage() {
       .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
+      .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
       .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
       .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
       .map(s => {
@@ -613,7 +632,7 @@ export default function ReservarPage() {
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1199,27 +1218,11 @@ export default function ReservarPage() {
                 </div>
               ) : null}
 
-              {/* Filtros por tipo de clase (se aplican a los slots del calendario) */}
-              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                {['', ...tiposClase.map(t => t.id)].map(id => {
-                  const tipo = tiposClase.find(t => t.id === id);
-                  const active = filtroTipo === id;
-                  return (
-                    <button key={id || 'all'} onClick={() => setFiltroTipo(id)}
-                      style={{
-                        flex: '0 0 auto', height: 38, padding: '0 18px', borderRadius: R.pill,
-                        display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                        whiteSpace: 'nowrap', transition: 'background .3s ease, color .3s ease',
-                        border: active ? '1px solid transparent' : '1px solid var(--portal-line)',
-                        background: active ? (tipo?.color ?? PRIMARY) : 'rgba(255,255,255,.7)',
-                        color: active ? (tipo?.color ? '#fff' : PRIMARY_FG) : 'var(--portal-muted-2)',
-                      }}>
-                      {tipo && <span style={{ width: 6, height: 6, borderRadius: 999, background: active ? 'rgba(255,255,255,0.8)' : tipo.color }} />}
-                      {tipo ? tipo.nombre : 'Todas'}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Los filtros ya no viven aquí: están en el rail de la columna
+                  lateral (RailFiltros). La fila de chips solo filtraba por
+                  TIPO y se salía de la pantalla en cuanto un estudio tenía
+                  cinco tipos de clase — y tener el mismo filtro en dos sitios
+                  es lo que hace dudar de cuál manda. */}
 
               {/* Calendario de reservas — componente compartido (estilo Acuity), el
                   mismo que usa el portal de socias, re-vestido con el lenguaje
@@ -1285,7 +1288,34 @@ export default function ReservarPage() {
 
             {/* Columna lateral: explicación del flujo (copy fijo, sin datos que
                 puedan quedar desactualizados). */}
-            <div style={{ flex: '0 1 320px' }}>
+            <div style={{ flex: '0 1 320px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* El rail de filtros, encima del «cómo funciona»: lo primero de
+                  esta columna tiene que ser lo que se USA, no lo que se lee una
+                  vez. Se pinta solo si algún filtro tiene de verdad más de una
+                  opción (ver RailFiltros). */}
+              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
+                <RailFiltros
+                  clases={slotsParaFiltros}
+                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario }}
+                  onCambiar={(campo, valor) => {
+                    if (campo === 'tipo') setFiltroTipo(valor);
+                    else if (campo === 'instructor') setFiltroInstructor(valor);
+                    else if (campo === 'nivel') setFiltroNivel(valor);
+                    else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
+                  }}
+                  onLimpiar={() => {
+                    setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel('');
+                    setFiltroHorario(''); setFiltroDias([]);
+                  }}
+                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, dias: filtroDias })}
+                  nResultados={slots.length}
+                  etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
+                  etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
+                  horarioDe={(c) => (c as { horario?: string | null }).horario ?? null}
+                  fontFamily={sans}
+                />
+              </div>
+
               <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 <div style={eyebrow(9)}>CÓMO FUNCIONA</div>
                 {[
