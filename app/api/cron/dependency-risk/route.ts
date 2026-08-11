@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
-import { calcularDependenciaTodosLosEstudios, evaluarRetencionTrasBajas } from '@/lib/instructor-dependency';
+import { calcularDependenciaTodosLosEstudios, evaluarRetencionTrasBajas, CONCURRENCIA_ESTUDIOS } from '@/lib/instructor-dependency';
+import { mapLimit } from '@/lib/concurrency';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -36,21 +37,35 @@ export async function GET(req: NextRequest) {
     // dedupKey (instructor + mes) para no repetir el mismo aviso.
     const { publish } = await import('@/lib/notifications/engine');
     const { EVENTOS } = await import('@/lib/notifications/catalog');
-    let alertas = 0;
-    for (const { studioId, transiciones } of resultados) {
+
+    // En paralelo acotado, igual que el cálculo de arriba y por el mismo motivo:
+    // esto era un doble `for` con un `await` por transición y otro por estudio,
+    // dentro de una función con techo de 300 s. La idempotencia la sigue dando
+    // el `dedupKey` (instructor + mes), que no depende del orden, así que
+    // paralelizar no puede duplicar ningún aviso.
+    const alertasPorEstudio = await mapLimit(resultados, CONCURRENCIA_ESTUDIOS, async ({ studioId, transiciones }) => {
+      let n = 0;
       for (const t of transiciones) {
-        await publish({
-          type: EVENTOS.RIESGO_DEPENDENCIA, studioId,
-          data: { instructora: t.nombre || 'Un instructor', porcentaje: t.porcentaje, instructorId: t.instructorId },
-          resource: { type: 'instructor', id: t.instructorId },
-          dedupKey: `riesgo-dep:${t.instructorId}:${mes}`,
-        });
-        alertas++;
+        try {
+          await publish({
+            type: EVENTOS.RIESGO_DEPENDENCIA, studioId,
+            data: { instructora: t.nombre || 'Un instructor', porcentaje: t.porcentaje, instructorId: t.instructorId },
+            resource: { type: 'instructor', id: t.instructorId },
+            dedupKey: `riesgo-dep:${t.instructorId}:${mes}`,
+          });
+          n++;
+        } catch (e) {
+          // Un aviso que no sale no puede tumbar los de los demás estudios, pero
+          // tampoco desaparecer: `mapLimit` exige que la tarea no lance.
+          Sentry.captureException(e, { tags: { cron: 'dependency-risk' }, extra: { studioId, instructorId: t.instructorId } });
+        }
       }
       // Fila 18: mismo cron semanal, evalúa retención de las bajas con
       // cartera congelada que ya llevan las 6 semanas de margen.
       await evaluarRetencionTrasBajas(admin, studioId).catch(e => Sentry.captureException(e));
-    }
+      return n;
+    });
+    const alertas = alertasPorEstudio.reduce((a, b) => a + b, 0);
 
     return NextResponse.json({ ok: true, estudios: resultados.length, alertasCreadas: alertas });
   } catch (e) {

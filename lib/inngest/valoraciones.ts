@@ -5,6 +5,7 @@
 // aunque el barrido se solape o reintente.
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { enviarEmailPedirValoracion } from '@/lib/valoraciones/email';
 
@@ -31,9 +32,7 @@ export const valoracionesDispatcher = inngest.createFunction(
       if (!admin) throw new Error('Service role no configurada');
       // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
       // valoraciones a sus socias en su nombre.
-      const { data, error } = await admin.from('studios').select('id').is('suspendido_en', null);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      return idsEstudios(admin);
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-valoraciones', EVENTS.VALORACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));

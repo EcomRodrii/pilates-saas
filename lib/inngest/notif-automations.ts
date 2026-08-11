@@ -12,6 +12,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import type { TipoExcepcion } from '@/lib/excepciones';
@@ -29,8 +31,7 @@ type TipoAutomacion = 'bonos' | 'inactivas';
 async function estudiosIds(): Promise<string[]> {
   const admin = getSupabaseAdmin();
   if (!admin) return [];
-  const { data } = await admin.from('studios').select('id').is('suspendido_en', null);
-  return (data ?? []).map((s) => s.id as string);
+  return (await idsEstudios(admin)).map((s) => s.id);
 }
 // Recordatorios (24 h y 1 h antes): cada 15 min.
 //
@@ -94,22 +95,43 @@ async function recordatoriosGlobal(admin: SupabaseClient) {
   const ahora = Date.now();
   const desde = new Date(ahora).toISOString();
   const hasta = new Date(ahora + 25 * 3600_000).toISOString();
-  const { data: studiosActivos } = await admin.from('studios').select('id, slug').is('suspendido_en', null);
-  if (!studiosActivos?.length) return { publicados: 0 };
-  const slugById = new Map(studiosActivos.map((s) => [s.id as string, (s.slug as string | null) ?? '']));
+  // ⚠️ Todas las lecturas de aquí van PAGINADAS (`fetchAllRows`), no por gusto:
+  // al colapsar el fan-out por estudio en una query global —lo que salvó la
+  // cuota de Inngest— cada lectura pasó de "las filas de UN estudio" a "las de
+  // TODOS", y PostgREST corta en 1.000 filas EN SILENCIO. Sin paginar, a partir
+  // de unas decenas de estudios activos las socias de la parte truncada dejan
+  // de recibir el recordatorio de su clase sin que salte ningún error. Es
+  // exactamente el fallo que ya costó los backups (#684).
+  const { data: studiosActivos } = await fetchAllRows<{ id: string; slug: string | null }>(
+    '(global)', 'studios',
+    (from, to) => admin.from('studios').select('id, slug').is('suspendido_en', null).range(from, to),
+  );
+  if (!studiosActivos.length) return { publicados: 0 };
+  const slugById = new Map(studiosActivos.map((s) => [s.id, s.slug ?? '']));
 
-  const { data: sesiones } = await admin.from('sesiones')
-    .select('id, studio_id, inicio, tipo_clase_id').eq('cancelada', false)
-    .in('studio_id', studiosActivos.map((s) => s.id as string))
-    .gte('inicio', desde).lte('inicio', hasta);
-  if (!sesiones?.length) return { publicados: 0 };
-  const sesById = new Map(sesiones.map((s) => [s.id as string, s]));
+  const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string; inicio: string; tipo_clase_id: string | null }>(
+    '(global)', 'sesiones',
+    (from, to) => admin.from('sesiones')
+      .select('id, studio_id, inicio, tipo_clase_id').eq('cancelada', false)
+      .in('studio_id', studiosActivos.map((s) => s.id))
+      .gte('inicio', desde).lte('inicio', hasta).range(from, to),
+  );
+  if (!sesiones.length) return { publicados: 0 };
+  const sesById = new Map(sesiones.map((s) => [s.id, s]));
 
   const [{ data: tipos }, { data: reservas }] = await Promise.all([
-    admin.from('tipos_clase').select('id, nombre').in('id', [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))]),
-    admin.from('reservas').select('id, studio_id, socio_id, sesion_id').eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]),
+    fetchAllRows<{ id: string; nombre: string }>(
+      '(global)', 'tipos_clase',
+      (from, to) => admin.from('tipos_clase').select('id, nombre')
+        .in('id', [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))]).range(from, to),
+    ),
+    fetchAllRows<{ id: string; studio_id: string; socio_id: string | null; sesion_id: string }>(
+      '(global)', 'reservas',
+      (from, to) => admin.from('reservas').select('id, studio_id, socio_id, sesion_id')
+        .eq('estado', 'CONFIRMADA').in('sesion_id', [...sesById.keys()]).range(from, to),
+    ),
   ]);
-  const nombre = new Map((tipos ?? []).map((t) => [t.id as string, t.nombre as string]));
+  const nombre = new Map(tipos.map((t) => [t.id, t.nombre]));
 
   // "No enviarle recordatorios" (B2.9). `lib/excepciones.ts` lo describe sin
   // matices —"no recibirá el recordatorio automático de sus clases próximas"— y
@@ -118,14 +140,18 @@ async function recordatoriosGlobal(admin: SupabaseClient) {
   // `enviarRecordatoriosClasesProximas`) sí lo respetaba, así que la propietaria
   // marcaba la casilla, dejaba de salir el correo, y el móvil le seguía sonando
   // con el push. Se consulta aquí en lote, mismo criterio que allí.
-  const socioIds = [...new Set((reservas ?? []).map(r => r.socio_id as string).filter(Boolean))];
+  const socioIds = [...new Set(reservas.map(r => r.socio_id as string).filter(Boolean))];
   const { data: exentosR } = socioIds.length
-    ? await admin.from('socio_excepciones').select('socio_id').eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds)
+    ? await fetchAllRows<{ socio_id: string }>(
+        '(global)', 'socio_excepciones',
+        (from, to) => admin.from('socio_excepciones').select('socio_id')
+          .eq('tipo', EXENCION_RECORDATORIO).in('socio_id', socioIds).range(from, to),
+      )
     : { data: [] as { socio_id: string }[] };
-  const exentos = new Set((exentosR ?? []).map(e => e.socio_id as string));
+  const exentos = new Set(exentosR.map(e => e.socio_id));
 
   let publicados = 0;
-  for (const r of reservas ?? []) {
+  for (const r of reservas) {
     const ses = sesById.get(r.sesion_id as string);
     if (!ses || !r.socio_id) continue;
     if (exentos.has(r.socio_id as string)) continue;

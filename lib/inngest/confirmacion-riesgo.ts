@@ -16,6 +16,7 @@
 //    que el motor de escalado de sustituciones).
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { construirSnapshot } from '@/lib/decision/snapshot';
 import { construirIndices, riesgoNoShowDeSocio } from '@/lib/decision/senales';
 import {
@@ -75,9 +76,14 @@ export const confirmacionRiesgoAskDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
       // confirmación de riesgo de plantón a sus socias.
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id').eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null);
+      // Paginado: PostgREST corta a 1.000 filas en silencio.
+      const { data, error } = await fetchAllRows<{ id: string }>(
+        '(global)', 'studios',
+        (from, to) => requireSupabaseAdmin().from('studios').select('id')
+          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).range(from, to),
+      );
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return data;
     });
     await enviarFanOutEnLotes(step, 'fan-out-confirmacion-ask', EVENTS.CONFIRMACION_RIESGO_ASK_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, ejecutadoEn: nowISO };
@@ -176,9 +182,14 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       // `suspendido_en`: un estudio suspendido no debe seguir cortando
       // reservas de riesgo (esa gestión ya no le corresponde).
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id').eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null);
+      // Paginado: PostgREST corta a 1.000 filas en silencio.
+      const { data, error } = await fetchAllRows<{ id: string }>(
+        '(global)', 'studios',
+        (from, to) => requireSupabaseAdmin().from('studios').select('id')
+          .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).range(from, to),
+      );
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return data;
     });
     await enviarFanOutEnLotes(step, 'fan-out-confirmacion-corte', EVENTS.CONFIRMACION_RIESGO_CORTE_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
     return { estudios: studios.length, ejecutadoEn: nowISO };

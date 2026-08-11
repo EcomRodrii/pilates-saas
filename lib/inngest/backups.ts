@@ -11,6 +11,7 @@
 // estudio es un job aislado con reintentos propios y concurrencia acotada.
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 import { guardarBackup, podarBackupsAntiguos, type TipoBackup } from '@/lib/engines/backup-engine';
 
 // Dispatcher: diario a las 03:00 UTC (mismo minuto que tenía el Vercel Cron). Los
@@ -36,9 +37,7 @@ export const backupsDispatcher = inngest.createFunction(
       // con las socias — un estudio suspendido por impago puede reactivarse,
       // y frenar sus backups cambia el perfil de riesgo de pérdida de datos
       // sin relación con el motivo real de la suspensión.
-      const { data, error } = await admin.from('studios').select('id');
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      return idsEstudios(admin, { incluirSuspendidos: true });
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-backups', EVENTS.BACKUPS_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, tipos }));

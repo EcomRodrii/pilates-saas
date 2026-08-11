@@ -21,6 +21,7 @@ import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { heredaOverride, debeCancelarPorMinimoNoAlcanzado } from '@/lib/booking-logic.ts';
 import { cancelarSesionPorMinimoNoAlcanzado } from '@/lib/db/supabase-data-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 
 const DOS_HORAS_MS = 2 * 3600_000;
 
@@ -33,36 +34,73 @@ export const minimoAsistentesDispatcher = inngest.createFunction(
       const ahora = new Date();
       const hasta = new Date(ahora.getTime() + DOS_HORAS_MS).toISOString();
 
-      const { data: sesiones } = await admin
-        .from('sesiones')
-        .select('id, studio_id, tipo_clase_id, inicio')
-        .eq('cancelada', false)
-        .gt('inicio', ahora.toISOString())
-        .lte('inicio', hasta);
-      if (!sesiones?.length) return { revisadas: 0, canceladas: 0 };
+      // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
+      // filas en silencio. Una sesión truncada no se revisaría nunca y la clase
+      // seguiría en pie sin alcanzar el mínimo — el fallo se vería como "la
+      // regla no funciona a veces", que es lo más difícil de diagnosticar.
+      const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string; tipo_clase_id: string | null; inicio: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin
+          .from('sesiones')
+          .select('id, studio_id, tipo_clase_id, inicio')
+          .eq('cancelada', false)
+          .gt('inicio', ahora.toISOString())
+          .lte('inicio', hasta)
+          .range(from, to),
+      );
+      if (!sesiones.length) return { revisadas: 0, canceladas: 0 };
 
-      const studioIds = [...new Set(sesiones.map(s => s.studio_id as string))];
-      const { data: studios } = await admin
-        .from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds);
-      const minimoEstudio = new Map((studios ?? []).map(s => [s.id as string, s.minimo_asistentes_por_clase as number]));
+      const studioIds = [...new Set(sesiones.map(s => s.studio_id))];
+      const { data: studios } = await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number }>(
+        '(global)', 'studios',
+        (from, to) => admin.from('studios').select('id, minimo_asistentes_por_clase').in('id', studioIds).range(from, to),
+      );
+      const minimoEstudio = new Map(studios.map(s => [s.id, s.minimo_asistentes_por_clase]));
 
       const tipoIds = [...new Set(sesiones.map(s => s.tipo_clase_id as string).filter(Boolean))];
       const { data: tipos } = tipoIds.length
-        ? await admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds)
+        ? await fetchAllRows<{ id: string; minimo_asistentes_por_clase: number | null }>(
+            '(global)', 'tipos_clase',
+            (from, to) => admin.from('tipos_clase').select('id, minimo_asistentes_por_clase').in('id', tipoIds).range(from, to),
+          )
         : { data: [] as { id: string; minimo_asistentes_por_clase: number | null }[] };
-      const minimoTipo = new Map((tipos ?? []).map(t => [t.id as string, t.minimo_asistentes_por_clase]));
+      const minimoTipo = new Map(tipos.map(t => [t.id, t.minimo_asistentes_por_clase]));
+
+      // Las que de verdad toca revisar en este tic: con mínimo configurado y ya
+      // dentro de la ventana de corte. Se resuelve ANTES de tocar `reservas`
+      // para no traer las confirmadas de sesiones que no se van a evaluar.
+      const aRevisar = sesiones
+        .map(s => ({
+          s,
+          minimo: heredaOverride(minimoTipo.get(s.tipo_clase_id as string) ?? null, minimoEstudio.get(s.studio_id) ?? 0),
+        }))
+        .filter(({ s, minimo }) => minimo > 0 && new Date(s.inicio).getTime() - ahora.getTime() <= DOS_HORAS_MS);
+      if (!aRevisar.length) return { revisadas: sesiones.length, canceladas: 0 };
+
+      // Las confirmadas de TODAS esas sesiones en UNA lectura, y se cuenta en
+      // JS — mismo criterio que checkin-automatico.
+      //
+      // ⚠️ Antes esto era un `count` por sesión DENTRO del bucle. Tenía un techo
+      // accidental: como `sesiones` venía truncado a 1.000 por PostgREST, el
+      // N+1 no podía crecer más. Al paginar (C-2) ese techo desapareció, así que
+      // el bucle pasó a poder disparar una consulta por sesión sin cota alguna
+      // cada 15 min. Arreglar el truncado sin arreglar esto habría cambiado un
+      // fallo de corrección por uno de consumo.
+      const { data: confirmadas } = await fetchAllRows<{ sesion_id: string }>(
+        '(global)', 'reservas',
+        (from, to) => admin.from('reservas').select('sesion_id')
+          .in('sesion_id', aRevisar.map(({ s }) => s.id))
+          .eq('estado', 'CONFIRMADA').range(from, to),
+      );
+      const confirmadasPorSesion = new Map<string, number>();
+      for (const r of confirmadas) {
+        confirmadasPorSesion.set(r.sesion_id, (confirmadasPorSesion.get(r.sesion_id) ?? 0) + 1);
+      }
 
       let canceladas = 0;
-      for (const s of sesiones) {
-        const minimo = heredaOverride(minimoTipo.get(s.tipo_clase_id as string) ?? null, minimoEstudio.get(s.studio_id as string) ?? 0);
-        if (minimo <= 0) continue;
-        if (new Date(s.inicio as string).getTime() - ahora.getTime() > DOS_HORAS_MS) continue;
-
-        const { count } = await admin
-          .from('reservas').select('id', { count: 'exact', head: true })
-          .eq('sesion_id', s.id).eq('estado', 'CONFIRMADA');
-        if (debeCancelarPorMinimoNoAlcanzado(count ?? 0, minimo)) {
-          await cancelarSesionPorMinimoNoAlcanzado({ studioId: s.studio_id as string, sesionId: s.id as string });
+      for (const { s, minimo } of aRevisar) {
+        if (debeCancelarPorMinimoNoAlcanzado(confirmadasPorSesion.get(s.id) ?? 0, minimo)) {
+          await cancelarSesionPorMinimoNoAlcanzado({ studioId: s.studio_id, sesionId: s.id });
           canceladas++;
         }
       }

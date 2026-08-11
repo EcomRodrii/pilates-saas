@@ -4,6 +4,7 @@ import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
+import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
@@ -690,11 +691,23 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
   if (error) { reportDbError('[consumirBonoServidor]', error); return false; }
   if (nuevoSaldo == null) {
     // La socia SÍ tenía un bono consumible (`bonoConsumible` lo confirmó arriba)
-    // pero el RPC no descontó: bono agotado en una carrera con otra reserva. La
-    // reserva ya está CONFIRMADA, así que esto es una clase servida sin cobrar.
-    // No se revierte aquí —cancelar una plaza ya confirmada es peor experiencia
-    // y es decisión de producto— pero deja de ser invisible: sin esto no había
-    // ni rastro.
+    // pero el RPC no descontó. La reserva ya está CONFIRMADA, así que esto es
+    // una clase servida sin cobrar. No se revierte aquí —cancelar una plaza ya
+    // confirmada es peor experiencia y es decisión de producto— pero deja de ser
+    // invisible: sin esto no había ni rastro.
+    //
+    // ⚠️ Este comentario decía "bono agotado en una carrera con otra reserva", y
+    // esa NO era la causa real de las veces que saltó. El 2026-08-11 se vio en
+    // producción que `bonoConsumible` no descartaba los bonos a 0: como agotarse
+    // no cambia el estado ACTIVA, el bono vacío seguía siendo candidato y el
+    // orden determinista lo elegía SIEMPRE, así que con varios bonos activos
+    // esto no saltaba por una carrera sino en cada reserva, indefinidamente.
+    // Arreglado en `bonoConsumible` (filtro `sesionesRestantes > 0`).
+    //
+    // La carrera sigue siendo posible y esta guardia sigue haciendo falta —dos
+    // reservas simultáneas sobre el último saldo—, pero ya no es la explicación
+    // por defecto: si esto vuelve a saltar de forma repetida y no simultánea,
+    // buscar otra causa antes de darlo por una carrera.
     reportDbError(
       '[consumirBonoServidor] bono consumible sin descontar (posible clase no cobrada)',
       { studioId, socioId, suscripcionId: sus.id },
@@ -879,6 +892,9 @@ export async function aplicarCatalogoCadena(params: { cadenaId: string; studioId
 // semanas. Lo dispara el cron nocturno. Todo el trabajo (emparejamiento por hora
 // local, aforo, idempotencia) es set-based en la RPC. Devuelve cuántas creó.
 
+// Mismo límite que el resto de abanicos contra Supabase de este repo.
+const CONCURRENCIA_AVISOS = 8;
+
 export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ creadas: number; noMaterializadas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -897,12 +913,26 @@ export async function materializarPlazasFijas(horizonteDias = 42): Promise<{ cre
     noMaterializadas = filas.length;
     if (filas.length > 0) {
       const { emitirPlazaFijaNoMaterializada } = await import('@/lib/notifications/emit');
-      for (const f of filas) {
-        await emitirPlazaFijaNoMaterializada(admin, {
-          studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id,
-          motivo: f.motivo as 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo',
-        });
-      }
+      // En paralelo acotado, no en serie: era un `await` por hueco dentro de una
+      // función de Vercel con techo de 300 s. Los huecos crecen con el número de
+      // estudios × plazas fijas, así que a escala este bucle era lo que agotaba
+      // el techo — y al morir a media pasada, las socias del final de la lista
+      // no se enteraban de que su plaza fija no había salido.
+      await mapLimit(filas, CONCURRENCIA_AVISOS, async (f) => {
+        try {
+          await emitirPlazaFijaNoMaterializada(admin, {
+            studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id,
+            motivo: f.motivo as 'sesion_cancelada' | 'suscripcion_pausada' | 'sin_aforo',
+          });
+        } catch (e) {
+          // `mapLimit` exige que la tarea no lance. Y un aviso que falla no
+          // puede llevarse por delante los de las demás socias.
+          capturarExcepcion(e, {
+            tags: { area: 'plazas-fijas' },
+            extra: { studioId: f.studio_id, sesionId: f.sesion_id, socioId: f.socio_id },
+          });
+        }
+      });
     }
   } catch (e) {
     console.error('[materializarPlazasFijas] aviso de huecos:', e instanceof Error ? e.message : e);
@@ -930,24 +960,43 @@ export async function barrerNoShows(nowISO: string) {
   // O sea: pasadas las 1000 sesiones pasadas, las RECIENTES — las únicas que
   // hay que barrer — eran justo las que se quedaban fuera. Un fallo de
   // corrección nacido de un patrón de rendimiento.
+  //
+  // Se pide EL TRABAJO, no el universo donde podría haberlo. Antes se listaban
+  // TODAS las sesiones terminadas de la ventana (30 días) y se lanzaba un
+  // UPDATE por lotes sobre todas, aunque ya se hubieran barrido las noches
+  // anteriores: en régimen estacionario eso re-barre 30 veces lo mismo, porque
+  // cada día vuelve a incluir los 29 previos. Medido en producción (2026-08-11):
+  // **35 sesiones escaneadas para 1 con trabajo real**.
+  //
+  // Preguntando directamente por las reservas que siguen CONFIRMADA en una clase
+  // ya terminada, el conjunto ES el trabajo: se encoge a ~0 en cuanto el barrido
+  // va al día, y el coste deja de crecer con la ventana. El conjunto resultante
+  // es EL MISMO — verificado en vivo cruzando ambas formulaciones (1 = 1) —, y
+  // `sesiones!inner` mantiene los dos filtros que importaban: la clase tiene que
+  // haber TERMINADO y no estar cancelada (a nadie se le marca falta en una clase
+  // que se canceló).
   const desdeISO = new Date(Date.parse(nowISO) - VENTANA_NO_SHOWS_DIAS * 86_400_000).toISOString();
-  const { filas: sesiones, truncado } = await leerCatalogoCompleto<{ id: string }>(
+  const { filas: pendientes, truncado } = await leerCatalogoCompleto<{ id: string }>(
     (desde, hasta) => admin
-      .from('sesiones')
-      .select('id')
-      .eq('cancelada', false)
-      .lt('fin', nowISO)
-      .gte('fin', desdeISO)
-      .order('fin', { ascending: true })
+      .from('reservas')
+      .select('id, sesiones!inner(fin, cancelada)')
+      .eq('estado', 'CONFIRMADA')
+      .eq('sesiones.cancelada', false)
+      .lt('sesiones.fin', nowISO)
+      .gte('sesiones.fin', desdeISO)
+      // Por `id` (único) y no por la fecha: aquí solo hace falta un orden
+      // ESTABLE para que la paginación no repita ni salte filas. El orden
+      // semántico daba igual, porque se recogen todas antes de tocar nada.
+      .order('id', { ascending: true })
       .range(desde, hasta),
   );
   if (truncado) {
-    capturarMensaje('barrerNoShows: se alcanzó el tope de paginación, quedan sesiones sin barrer', 'warning', {
+    capturarMensaje('barrerNoShows: se alcanzó el tope de paginación, quedan reservas sin barrer', 'warning', {
       tags: { area: 'cron-no-shows' }, extra: { desdeISO, nowISO },
     });
   }
 
-  const ids = sesiones.map(s => s.id);
+  const ids = pendientes.map(r => r.id);
   let marcadas = 0;
   // Actualiza por lotes para no exceder límites de longitud del filtro `in`.
   for (let i = 0; i < ids.length; i += 200) {
@@ -955,13 +1004,16 @@ export async function barrerNoShows(nowISO: string) {
     const { data: upd, error: updErr } = await admin
       .from('reservas')
       .update({ estado: 'NO_ASISTIO' })
-      .in('sesion_id', lote)
+      .in('id', lote)
+      // Se mantiene el filtro por estado aunque ya se filtró al leer: entre la
+      // lectura y este UPDATE alguien puede haber cancelado o marcado asistencia
+      // desde el panel, y no queremos pisar ese cambio con una falta.
       .eq('estado', 'CONFIRMADA')
       .select('id');
     if (updErr) throw new Error(updErr.message);
     marcadas += (upd ?? []).length;
   }
-  return { sesionesRevisadas: ids.length, reservasMarcadas: marcadas };
+  return { reservasPendientes: ids.length, reservasMarcadas: marcadas, truncado };
 }
 
 // Recordatorios de clase: para cada sesión no cancelada cuyo inicio cae en la

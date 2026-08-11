@@ -54,7 +54,7 @@ import { listaEsperaOfertasExpirarDispatcher } from '@/lib/inngest/lista-espera-
 import { minimoAsistentesDispatcher } from '@/lib/inngest/minimo-asistentes';
 import { checkinAutomaticoDispatcher } from '@/lib/inngest/checkin-automatico';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
-import { conciliarCobrosDispatcher } from '@/lib/inngest/conciliar-cobros';
+import { conciliarCobrosDispatcher, conciliarCobrosVigilancia } from '@/lib/inngest/conciliar-cobros';
 import { cierreGestoriaAutomaticoDispatcher } from '@/lib/inngest/cierre-gestoria-automatico';
 import {
   resumenSemanalDispatcher,
@@ -102,6 +102,7 @@ export const { GET, POST, PUT } = serve({
     checkinAutomaticoDispatcher,
     penalizacionesDispatcher,
     conciliarCobrosDispatcher,
+    conciliarCobrosVigilancia,
     cierreGestoriaAutomaticoDispatcher,
     resumenSemanalDispatcher,
     procesarResumenSemanalEstudio,

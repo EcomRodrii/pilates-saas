@@ -10,6 +10,7 @@ import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
@@ -26,13 +27,19 @@ export const dunningDispatcher = inngest.createFunction(
       // Solo estudios con Stripe conectado: sin cuenta conectada no hay cobro posible.
       // `suspendido_en`: un estudio suspendido no debe seguir persiguiendo
       // cobros de sus socias en su nombre.
-      const { data, error } = await admin
-        .from('studios')
-        .select('id')
-        .not('stripe_account_id', 'is', null)
-        .is('suspendido_en', null);
+      // Paginado: PostgREST corta a 1.000 filas en silencio, y aquí eso serían
+      // estudios que dejan de perseguir sus cobros impagados sin avisar.
+      const { data, error } = await fetchAllRows<{ id: string }>(
+        '(global)', 'studios',
+        (from, to) => admin
+          .from('studios')
+          .select('id')
+          .not('stripe_account_id', 'is', null)
+          .is('suspendido_en', null)
+          .range(from, to),
+      );
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return data;
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-dunning', EVENTS.DUNNING_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));

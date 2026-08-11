@@ -1,6 +1,14 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
+import { mapLimit } from '@/lib/concurrency';
+import { fetchAllRows } from '@/lib/supabase-data';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 import type { NivelRiesgoDependencia, AlumnaCautiva } from '@/lib/types';
+
+// Mismo límite que ya usa el resto del repo para abanicos contra Supabase
+// (mensajería, studio-context): suficiente para que el barrido quepa de sobra
+// en los 300 s, sin abrir tantas conexiones a la vez que se estorben entre sí.
+export const CONCURRENCIA_ESTUDIOS = 8;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Riesgo de concentración por instructor (Instructor Dependency Risk).
@@ -364,15 +372,29 @@ export async function evaluarRetencionTrasBajas(admin: Admin, studioId: string):
 export async function calcularDependenciaTodosLosEstudios(
   admin: Admin,
 ): Promise<Array<{ studioId: string; transiciones: TransicionRiesgo[] }>> {
-  const { data: studios } = await admin.from('studios').select('id');
-  const out: Array<{ studioId: string; transiciones: TransicionRiesgo[] }> = [];
-  for (const s of studios ?? []) {
+  // Paginado: sin `.range()` PostgREST corta a 1.000 filas en silencio y, pasado
+  // el estudio 1.001, a esos no se les calcularía el riesgo jamás.
+  const { data: studios } = await fetchAllRows<{ id: string }>(
+    '(global)', 'studios',
+    (from, to) => admin.from('studios').select('id').range(from, to),
+  );
+
+  // En paralelo acotado, no en serie. Esto era un `for` con un `await` por
+  // estudio dentro de una función de Vercel con techo de 300 s (`maxDuration`),
+  // y al agotarlo Vercel la mata a media pasada SIN dejar constancia de por
+  // dónde iba: la siguiente ejecución empieza otra vez por el principio, así que
+  // los estudios del final de la lista no se calcularían NUNCA. El fallo no se
+  // vería como una caída, sino como "a unos estudios les funciona el aviso de
+  // riesgo y a otros no", que es de lo más difícil de diagnosticar.
+  const res = await mapLimit(studios, CONCURRENCIA_ESTUDIOS, async (s) => {
     try {
-      const transiciones = await calcularDependenciaEstudio(admin, s.id as string);
-      out.push({ studioId: s.id as string, transiciones });
+      return { studioId: s.id, transiciones: await calcularDependenciaEstudio(admin, s.id) };
     } catch (e) {
-      console.error('[dependency] estudio', s.id, e);
+      // Antes esto era un `console.error` y se perdía: un estudio cuyo cálculo
+      // fallaba desaparecía del informe sin dejar ningún rastro accionable.
+      capturarExcepcion(e, { tags: { area: 'cron-dependency' }, extra: { studioId: s.id } });
+      return null;
     }
-  }
-  return out;
+  });
+  return res.filter((r): r is { studioId: string; transiciones: TransicionRiesgo[] } => r !== null);
 }

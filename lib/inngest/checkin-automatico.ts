@@ -32,11 +32,20 @@
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { checkinPublico } from '@/lib/db/supabase-data-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 
 const VENTANA_MS = 2 * 3600_000;
 
 export const checkinAutomaticoDispatcher = inngest.createFunction(
-  { id: 'checkin-automatico', triggers: [{ cron: '*/15 * * * *' }] },
+  // Cada 30 min (antes 15) — auditoría de consumo 2026-08-11, O-1. Marcar
+  // asistencia después de que la clase haya terminado no compite con nada: el
+  // único consumidor aguas abajo es el barrido de no-shows, que corre una vez al
+  // día a las 23:00. Con media hora de desfase llega de sobra.
+  //
+  // Espaciarlo NO abre huecos porque la ventana de búsqueda (VENTANA_MS = 2 h
+  // hacia atrás) es muy superior al periodo: cada pasada solapa de sobra con la
+  // anterior. Si alguna vez se acortara esa ventana, hay que revisar esto.
+  { id: 'checkin-automatico', triggers: [{ cron: '*/30 * * * *' }] },
   async ({ step }) => {
     return step.run('marcar-asistidas', async () => {
       const admin = getSupabaseAdmin();
@@ -44,39 +53,54 @@ export const checkinAutomaticoDispatcher = inngest.createFunction(
       const ahora = new Date();
       const desde = new Date(ahora.getTime() - VENTANA_MS).toISOString();
 
-      const { data: sesiones } = await admin
-        .from('sesiones')
-        .select('id, studio_id')
-        .eq('cancelada', false)
-        .gt('fin', desde)
-        .lte('fin', ahora.toISOString());
-      if (!sesiones?.length) return { sesiones: 0, marcadas: 0 };
+      // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
+      // filas en silencio. Una reserva truncada aquí se queda SIN marcar como
+      // asistida, así que después el barrido de no-shows la da por ausente: la
+      // socia vino a clase y le consta una falta. Un truncado silencioso aquí
+      // no es "algo que no se hizo", es un dato FALSO en su ficha.
+      const { data: sesiones } = await fetchAllRows<{ id: string; studio_id: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin
+          .from('sesiones')
+          .select('id, studio_id')
+          .eq('cancelada', false)
+          .gt('fin', desde)
+          .lte('fin', ahora.toISOString())
+          .range(from, to),
+      );
+      if (!sesiones.length) return { sesiones: 0, marcadas: 0 };
 
-      const studioIds = [...new Set(sesiones.map(s => s.studio_id as string))];
-      const { data: studios } = await admin
-        .from('studios').select('id, requiere_checkin_qr').in('id', studioIds);
+      const studioIds = [...new Set(sesiones.map(s => s.studio_id))];
+      const { data: studios } = await fetchAllRows<{ id: string; requiere_checkin_qr: boolean | null }>(
+        '(global)', 'studios',
+        (from, to) => admin.from('studios').select('id, requiere_checkin_qr').in('id', studioIds).range(from, to),
+      );
       const sinCheckinQr = new Set(
-        (studios ?? []).filter(s => s.requiere_checkin_qr === false).map(s => s.id as string),
+        studios.filter(s => s.requiere_checkin_qr === false).map(s => s.id),
       );
       if (!sinCheckinQr.size) return { sesiones: sesiones.length, marcadas: 0 };
 
       const sesionIdsElegibles = sesiones
-        .filter(s => sinCheckinQr.has(s.studio_id as string))
-        .map(s => s.id as string);
+        .filter(s => sinCheckinQr.has(s.studio_id))
+        .map(s => s.id);
       if (!sesionIdsElegibles.length) return { sesiones: sesiones.length, marcadas: 0 };
 
-      const { data: reservas } = await admin
-        .from('reservas')
-        .select('id, studio_id')
-        .in('sesion_id', sesionIdsElegibles)
-        .eq('estado', 'CONFIRMADA');
+      const { data: reservas } = await fetchAllRows<{ id: string; studio_id: string }>(
+        '(global)', 'reservas',
+        (from, to) => admin
+          .from('reservas')
+          .select('id, studio_id')
+          .in('sesion_id', sesionIdsElegibles)
+          .eq('estado', 'CONFIRMADA')
+          .range(from, to),
+      );
 
       let marcadas = 0;
-      for (const r of reservas ?? []) {
-        const res = await checkinPublico({ studioId: r.studio_id as string, reservaId: r.id as string });
+      for (const r of reservas) {
+        const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id });
         if ('ok' in res) marcadas++;
       }
-      return { sesiones: sesiones.length, reservasElegibles: reservas?.length ?? 0, marcadas };
+      return { sesiones: sesiones.length, reservasElegibles: reservas.length, marcadas };
     });
   },
 );

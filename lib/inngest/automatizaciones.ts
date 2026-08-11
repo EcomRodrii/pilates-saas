@@ -2,7 +2,7 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { fetchAllStudioData, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
+import { fetchAllRows, fetchAllStudioData, dbUpdateAutomationRule, dbUpdateAutomatizacion } from '@/lib/supabase-data';
 import { dbUpsertAutomationLog } from '@/lib/db/supabase-data-admin';
 import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/engines/automation-engine';
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
@@ -342,9 +342,15 @@ export const automatizacionesDispatcher = inngest.createFunction(
     const studios = await step.run('list-studios', async () => {
       // `suspendido_en`: un estudio suspendido por impago/abuso no debe seguir
       // recibiendo mensajes automáticos con IA a nombre del negocio.
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, color_primario, logo_url').is('suspendido_en', null);
+      // Paginado: sin él, PostgREST corta a 1.000 en silencio y pasado ese
+      // punto habría estudios que no reciben NINGUNA automatización, sin error.
+      const { data, error } = await fetchAllRows<{ id: string; nombre: string; color_primario: string | null; logo_url: string | null }>(
+        '(global)', 'studios',
+        (from, to) => requireSupabaseAdmin().from('studios')
+          .select('id, nombre, color_primario, logo_url').is('suspendido_en', null).range(from, to),
+      );
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return data;
     });
 
     await enviarFanOutEnLotes(

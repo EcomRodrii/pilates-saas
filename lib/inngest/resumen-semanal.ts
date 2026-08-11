@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest, EVENTS, enviarFanOutEnLotes } from './client.ts';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { idsEstudios } from './estudios.ts';
 import { dbSemanaFueSilenciosa, dbListFeatureFlagRows, dbIngresosEnRango } from '@/lib/decision/db';
 import { enviarEmailResumenSemanal } from '@/lib/emails/resumen-semanal-server';
 import { semanaAnterior, semanaPrevia } from './resumen-semanal-fechas.ts';
@@ -20,8 +21,7 @@ import { calcularVariacionPct } from '@/lib/informes/ventas-por-tipo';
 async function estudiosIds(): Promise<string[]> {
   const admin = getSupabaseAdmin();
   if (!admin) return [];
-  const { data } = await admin.from('studios').select('id').is('suspendido_en', null);
-  return (data ?? []).map((s) => s.id as string);
+  return (await idsEstudios(admin)).map((s) => s.id);
 }
 
 export const resumenSemanalDispatcher = inngest.createFunction(

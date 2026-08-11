@@ -5,6 +5,7 @@ import { inngest, EVENTS, enviarFanOutEnLotes } from './client';
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { fetchAllRows } from '@/lib/supabase-data';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
@@ -52,9 +53,16 @@ export const decisionDispatcher = inngest.createFunction(
     const estudios = await step.run('list-estudios-elegibles', async () => {
       // `suspendido_en`: un estudio suspendido no debe seguir generando/
       // ejecutando decisiones autónomas.
-      const { data, error } = await requireSupabaseAdmin().from('studios').select('id, nombre, plan, subscription_status').is('suspendido_en', null);
+      // Paginado (`fetchAllRows`), no un select suelto: PostgREST corta a 1.000
+      // filas en silencio y pasado el estudio 1.001 los de fuera del corte
+      // dejarían de recibir análisis, sin ningún error que lo delatara.
+      const { data, error } = await fetchAllRows<{ id: string; nombre: string; plan: string; subscription_status: string | null }>(
+        '(global)', 'studios',
+        (from, to) => requireSupabaseAdmin().from('studios')
+          .select('id, nombre, plan, subscription_status').is('suspendido_en', null).range(from, to),
+      );
       if (error) throw new Error(error.message);
-      const conPlan = (data ?? []).filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
+      const conPlan = data.filter(s => tieneFeature({ plan: s.plan, subscriptionStatus: s.subscription_status }, 'decisiones'));
       if (conPlan.length === 0) return [];
 
       // El flag DECISIONES es un KILL-SWITCH, no un opt-in. Antes el cron exigía
