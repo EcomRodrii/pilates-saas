@@ -24,6 +24,7 @@ import {
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
+import { PanelVisibilidad } from './panel-visibilidad';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
@@ -76,6 +77,10 @@ export const AJUSTES_CATEGORIAS = [
   // aquí y no en Configuración a propósito: se decide mirando la misma página
   // que se está editando, y se publica con ella.
   { id: 'compartir', label: 'Compartir y buscadores' },
+  // El único ajuste de esta columna que NO pasa por Publicar — tiene efecto al
+  // momento, y el panel lo dice. Está aquí y no en Configuración porque es
+  // donde se busca: junto a lo demás de la cara pública del estudio.
+  { id: 'visibilidad', label: 'Visibilidad de tu página' },
 ] as const;
 export type AjustesCategoriaId = (typeof AJUSTES_CATEGORIAS)[number]['id'];
 
@@ -473,6 +478,8 @@ export function AjustesCategoriaPanel({
   if (categoriaId === 'compartir') {
     return <PanelCompartir hook={hook} fileRef={compartirRef} />;
   }
+
+  if (categoriaId === 'visibilidad') return <PanelVisibilidad />;
 
   if (categoriaId === 'paleta') {
     return (

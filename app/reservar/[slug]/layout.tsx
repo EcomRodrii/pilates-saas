@@ -3,6 +3,9 @@ import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { getThemePublicado } from '@/lib/theme-data';
 import { metadatosPublicos } from '@/lib/theme/seo-publico';
+import { cookies } from 'next/headers';
+import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina';
+import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 
@@ -31,13 +34,38 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: descripcion,
     openGraph: { title: titulo, description: descripcion, type: 'website', locale: 'es_ES', ...imagenes },
     twitter: { card: tarjeta, title: titulo, description: descripcion, ...imagenes },
-    robots: { index: true, follow: true },
+    // ⚠️ Una página oculta NO se indexa, pase lo que pase con la cookie. El
+    // `noindex` va aquí y no en la rama que decide qué pintar porque Google
+    // llega sin cookie: si dependiera del pase, un rastreo hecho justo antes
+    // de ocultarla dejaría el contenido en el índice durante semanas.
+    robots: studio.paginaOculta ? { index: false, follow: false } : { index: true, follow: true },
     ...(theme.faviconUrl ? { icons: { icon: theme.faviconUrl } } : {}),
   };
 }
 
 export default async function ReservarSlugLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const visitante = await getStudioSeo(slug);
+
+  // El gate va en el LAYOUT del servidor, antes de montar nada: así el HTML
+  // que sale por el cable no contiene la página, en vez de pintarla y taparla
+  // con un cartel que cualquiera quita desde el inspector.
+  //
+  // ⚠️ Esto oculta la PÁGINA, no los datos — la API pública del estudio sigue
+  // respondiendo. Es lo que se pidió («que no se vea todavía») y lo que se
+  // puede prometer; la cerradura de los datos en este repo es siempre la RLS.
+  if (visitante?.paginaOculta) {
+    const galleta = await cookies();
+    const veredicto = veredictoPagina({
+      oculta: true,
+      tieneClave: visitante.paginaTieneClave,
+      pase: galleta.get(nombreCookieAcceso(visitante.id))?.value,
+      studioId: visitante.id,
+    });
+    if (veredicto !== 'abierta') {
+      return <PaginaOculta nombre={visitante.nombre} slug={slug} pideClave={veredicto === 'pide-clave'} />;
+    }
+  }
   // Resolvemos el estudio en el SERVIDOR (misma consulta cacheada que la
   // metadata): el gate monta el StudioProvider al instante, sin round-trip de
   // cliente ni el flash en blanco previo.
