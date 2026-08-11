@@ -4,8 +4,8 @@ Fecha: 2026-08-11 · Rama: `claude/tentare-brain-architecture-bf7180`
 Alcance: las 5 áreas del encargo (calendario/reservas, instructoras/sustituciones,
 pagos/membresías, retención/marketing, app de la alumna) + la capa central.
 
-> **Estado: Fases 0, 1 y 2 ENTREGADAS** (2026-08-11). Ver §"Lo entregado" al final.
-> Fases 3–5 siguen pendientes tal como se describen aquí.
+> **Estado: Fases 0, 1, 2 y 4 ENTREGADAS** (2026-08-11). Ver §"Lo entregado" al
+> final. Quedan la **3** (revenue predictivo) y la **5** (Action Center).
 
 ---
 

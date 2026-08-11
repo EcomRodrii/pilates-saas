@@ -809,8 +809,8 @@ que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
 (`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
-`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1 y 2 entregadas (2026-08-11);
-Fases 3–5 pendientes.** No duplicar la capa: los especialistas nuevos se
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1, 2 y 4 entregadas (2026-08-11);
+quedan la 3 (revenue predictivo) y la 5 (Action Center).** No duplicar la capa: los especialistas nuevos se
 añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 
 - **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
@@ -853,3 +853,12 @@ añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 - **La afinidad con una clase pesa la costumbre horaria por encima de todo**
   (`candidatasPorAfinidad`). `candidatasParaHueco` (booking-logic) es binaria y
   responde a otra pregunta: quién PODRÍA venir, no a quién merece la pena avisar.
+- **El portal PROPONE, no solo describe** (`lib/portal-sugerencias.ts`, fase 4).
+  `getHomeCardContext` sigue decidiendo en qué momento está la socia; la
+  sugerencia se le añade debajo sin tocar el tono que escribe la propietaria.
+  Devuelve `null` si no hay hueco o su plan no cubre nada: **proponerle una clase
+  que no puede reservar es peor que no proponerle ninguna**. Y el motivo va
+  SIEMPRE con la propuesta — sin él es una sugerencia aleatoria.
+- **`franjaLocalDe` vive en `lib/utils.ts`**, junto a `TZ_ESTUDIO`. La comparten
+  el motor (`senales.ts` la reexporta) y el portal, que no deben importarse entre
+  sí.
