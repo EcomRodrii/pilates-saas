@@ -481,7 +481,7 @@ interface StudioContextValue {
   // Planes (mutable)
   addPlan: (fields: Omit<PlanTarifa, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
   updatePlan: (id: string, changes: Partial<Omit<PlanTarifa, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
-  deletePlan: (id: string) => Promise<ResultadoEscritura>;
+  deletePlan: (id: string) => Promise<ResultadoEscritura & { archivado?: boolean }>;
 
   // Salas (mutable)
   addSala: (fields: Omit<Sala, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
@@ -1191,8 +1191,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
     return res;
   }
-  async function deletePlan(id: string): Promise<ResultadoEscritura> {
+  async function deletePlan(id: string): Promise<ResultadoEscritura & { archivado?: boolean }> {
     const plan = planesTarifa.find(p => p.id === id);
+    // Un DELETE duro sobre un plan CONTRATADO lo rechaza la BD (23503,
+    // suscripciones_plan_id_fkey) — y las dos pantallas que llaman a esto
+    // prometen "seguirán con su plan, solo desaparece del catálogo", promesa
+    // que un DELETE no puede cumplir. El mecanismo correcto ya existe
+    // (`activo`): degradar a desactivación cuando esté contratada, en vez de
+    // intentar un borrado que la propia BD va a rechazar.
+    const contratada = suscripciones.some(s => s.planId === id && s.estado === 'ACTIVA');
+    if (contratada) {
+      const res = await dbUpdatePlanTarifa(id, { activo: false });
+      if (!res.ok) return res;
+      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, activo: false } : p));
+      if (plan) addActividadReciente('PLAN_EDITADO', `${actorNombre ?? 'Alguien'} archivó el plan "${plan.nombre}" (seguía contratado)`);
+      return { ...res, archivado: true };
+    }
     const res = await dbDeletePlanTarifa(id);
     if (!res.ok) return res;
     setPlanesTarifa(prev => prev.filter(p => p.id !== id));
