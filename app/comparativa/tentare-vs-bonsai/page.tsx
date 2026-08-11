@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs Bonsai: comparativa para estudios de Pilates en España',
   description: 'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-bonsai' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-bonsai') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Bonsai',
     description: 'Precio, permanencia, Veri*factu y sustitución de instructoras — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-bonsai',
+    url: urlDe('/comparativa/tentare-vs-bonsai'),
   },
 };
 

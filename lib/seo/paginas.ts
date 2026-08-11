@@ -17,7 +17,19 @@
 // cosas. Mismo criterio que lib/nav-config.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const BASE_URL = 'https://tentare.app';
+import { LEGAL } from '../legal-info.ts';
+
+/**
+ * Origen canónico del sitio. **No se escribe aquí**: se deriva de `LEGAL.url`,
+ * que es la única definición del dominio en el repo.
+ *
+ * Tenerlo escrito dos veces es justo lo que produjo la divergencia que este
+ * módulo arregla: `LEGAL.url` y este `BASE_URL` decían `https://tentare.app`
+ * mientras el sitio se servía en `www.tentare.app`, y cada canonical apuntaba
+ * a una URL que redirige. `paginas.test.ts` comprueba que nadie vuelva a
+ * escribir el origen a mano en ningún otro sitio.
+ */
+export const BASE_URL: string = LEGAL.url;
 
 /** Los cuatro grupos de la arquitectura, más el bloque legal. */
 export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'legal';

@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PAGINAS, PREFIJOS_NO_INDEXABLES, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
+  BASE_URL, PAGINAS, PREFIJOS_NO_INDEXABLES, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
 } from './paginas.ts';
+import { LEGAL } from '../legal-info.ts';
 
 // ─── Recorrido del árbol de rutas ────────────────────────────────────────────
 
@@ -134,8 +135,9 @@ test('ninguna página queda huérfana', () => {
 });
 
 test('urlDe no genera barras duplicadas', () => {
-  assert.equal(urlDe('/'), 'https://tentare.app');
-  assert.equal(urlDe('/precios'), 'https://tentare.app/precios');
+  assert.equal(urlDe('/'), BASE_URL);
+  assert.equal(urlDe('/precios'), `${BASE_URL}/precios`);
+  assert.ok(!urlDe('/precios').includes('//precios'));
 });
 
 test('relacionadasDe resuelve las páginas y descarta lo que no existe', () => {
@@ -160,4 +162,50 @@ test('ningún prefijo bloqueado tumba una página del registro', () => {
   const bloqueadas = PAGINAS.filter((p) => esNoIndexable(p.path)).map((p) => p.path);
   assert.deepEqual(bloqueadas, [], `Páginas del registro bloqueadas por robots: ${bloqueadas.join(', ')}`);
   assert.ok(PREFIJOS_NO_INDEXABLES.length > 0);
+});
+
+test('el origen canónico es el host que sirve el sitio de verdad', () => {
+  // `tentare.app` a secas devuelve un 308 hacia `www.tentare.app` (medido
+  // 2026-08-11). Declarar el ápice dejaba a TODAS las páginas con un canonical
+  // apuntando a una URL que redirige. Si algún día se quita ese redirect, este
+  // test es el sitio donde consta por qué lleva www.
+  assert.equal(BASE_URL, 'https://www.tentare.app');
+  assert.equal(BASE_URL, LEGAL.url, 'BASE_URL debe derivar de LEGAL.url, no ser una segunda copia');
+  assert.ok(!BASE_URL.endsWith('/'), 'sin barra final: urlDe la concatena');
+});
+
+test('nadie escribe el origen a mano fuera de lib/legal-info.ts', () => {
+  // La divergencia que originó todo esto: el origen estaba copiado en
+  // paginas.ts, en el layout raíz, en StructuredData y en 18 páginas con su
+  // canonical a pelo. Se corrigieron todas a la vez; esto impide que vuelva a
+  // colarse una copia nueva.
+  const RAIZ = process.cwd();
+  const EXENTOS = [
+    'lib/legal-info.ts',        // la definición
+    'lib/seo/paginas.ts',       // la deriva y la documenta en un comentario
+    'lib/seo/paginas.test.ts',  // este fichero
+  ];
+  const sospechosos: string[] = [];
+  const recorrer = (dir: string) => {
+    for (const e of readdirSync(join(RAIZ, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) {
+        if (['node_modules', '.next', '.git'].includes(e.name)) continue;
+        recorrer(rel);
+      } else if (/\.tsx?$/.test(e.name) && !EXENTOS.includes(rel)) {
+        // Se busca el DOMINIO, con o sin www: cualquiera de las dos formas
+        // escrita a mano es una segunda fuente de verdad.
+        if (/https:\/\/(www\.)?tentare\.app/.test(readFileSync(join(RAIZ, rel), 'utf8'))) {
+          sospechosos.push(rel);
+        }
+      }
+    }
+  };
+  for (const raiz of ['app', 'components', 'lib']) recorrer(raiz);
+
+  // Los tests que usan el dominio como DATO de prueba (un enlace cualquiera que
+  // sanear, una condición de tema) no son una segunda fuente de verdad.
+  const reales = sospechosos.filter((f) => !f.endsWith('.test.ts'));
+  assert.deepEqual(reales, [],
+    `Origen escrito a mano; usa urlDe() o LEGAL.url: ${reales.join(', ')}`);
 });

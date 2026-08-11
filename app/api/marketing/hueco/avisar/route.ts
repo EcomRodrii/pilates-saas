@@ -7,6 +7,7 @@ import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
 import { clasesConHuecoProximas, candidatasParaHueco } from '@/lib/booking-logic';
 import { mapSesion, mapReserva, mapSocio, mapSuscripcion, mapPlanTarifa } from '@/lib/supabase-data';
 import type { RowSesiones, RowReservas, RowSocios, RowSuscripciones, RowPlanesTarifa } from '@/lib/db-types';
+import { LEGAL } from '@/lib/legal-info';
 
 // Radar de ocupación → "Avisar a candidatas" (Configuración → Dashboard).
 // Server-only: manda WhatsApp real con credenciales de plataforma y necesita
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
     const nombreClase = tipoRow?.nombre ?? 'pilates';
     const hora = new Date(sesionObj.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
     const fecha = new Date(sesionObj.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.tentare.app';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? LEGAL.url;
     const enlace = studioRow?.slug ? `${appUrl}/reservar/${studioRow.slug}` : appUrl;
 
     let enviados = 0;

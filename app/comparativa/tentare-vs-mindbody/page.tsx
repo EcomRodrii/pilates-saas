@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs Mindbody: comparativa para estudios de Pilates en España',
   description: 'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y comisión por captar clientas — Tentare frente a Mindbody, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-mindbody' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-mindbody') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Mindbody',
     description: 'Precio, permanencia, Veri*factu y dónde viven tus datos — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-mindbody',
+    url: urlDe('/comparativa/tentare-vs-mindbody'),
   },
 };
 

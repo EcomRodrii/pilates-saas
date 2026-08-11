@@ -19,6 +19,7 @@
 // un fetch a una URL, sin ningún import que arrastre Node al bundle.
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
+import { LEGAL } from '../legal-info.ts';
 import { REGLAS } from './catalog.ts';
 import { crearInApp, type NotificacionCreada } from './inapp.ts';
 import type { NotificationEvent } from './types.ts';
@@ -65,7 +66,7 @@ async function entregarExternos(notificationIds: string[]): Promise<void> {
     console.error('[notifications] CRON_SECRET ausente: no se entregan canales externos');
     return;
   }
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://tentare.app';
+  const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
   try {
     const res = await fetch(`${base}/api/notifications/deliver`, {
       method: 'POST',

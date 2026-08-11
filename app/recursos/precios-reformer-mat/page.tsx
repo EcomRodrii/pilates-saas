@@ -6,16 +6,17 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Reformer vs. mat: cómo poner precio a cada clase — Tentare',
   description: 'Dos formatos, dos costes, dos techos de ingresos. Cómo fijar precios de Pilates reformer y mat que reflejen la diferencia, sin dejar dinero sobre la mesa.',
-  alternates: { canonical: 'https://tentare.app/recursos/precios-reformer-mat' },
+  alternates: { canonical: urlDe('/recursos/precios-reformer-mat') },
   openGraph: {
     type: 'article',
     title: 'Reformer vs. mat: cómo poner precio a cada clase',
     description: 'Cómo fijar precios que reflejen la diferencia entre reformer y mat, sin dejar dinero sobre la mesa.',
-    url: 'https://tentare.app/recursos/precios-reformer-mat',
+    url: urlDe('/recursos/precios-reformer-mat'),
   },
 };
 

@@ -11,8 +11,22 @@
 
 export const LEGAL = {
   marca: 'Tentare',
-  dominio: 'tentare.app',
-  url: 'https://tentare.app',
+  // ⚠️ CON www, y no es un capricho de estilo.
+  //
+  // El host que sirve el sitio de verdad es `www.tentare.app`: el ápice
+  // (`tentare.app`) devuelve un 308 hacia él, en los dos sentidos que importan
+  // —la home y cualquier ruta interna—. Medido el 2026-08-11.
+  //
+  // Mientras esto decía `tentare.app` a secas, TODAS las páginas declaraban un
+  // canonical que apuntaba a una URL que redirige. Google lo resuelve siguiendo
+  // el 308, pero es exactamente la señal que un canonical existe para evitar: la
+  // página se sirve en un sitio y dice ser otro.
+  //
+  // Si algún día se quita el redirect y el ápice pasa a servir directamente,
+  // esto vuelve a `https://tentare.app` — y con ese cambio se mueve el sitio
+  // entero, porque de aquí salen canonicals, sitemap, robots y JSON-LD.
+  dominio: 'www.tentare.app',
+  url: 'https://www.tentare.app',
   // Fecha de última revisión del contenido legal (no la de render).
   actualizado: '23 de julio de 2026',
 

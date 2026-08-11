@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs bsport: comparativa para estudios de Pilates en España',
   description: 'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a bsport, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-bsport' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-bsport') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs bsport',
     description: 'Precio, permanencia, Veri*factu y sustitución de instructoras — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-bsport',
+    url: urlDe('/comparativa/tentare-vs-bsport'),
   },
 };
 

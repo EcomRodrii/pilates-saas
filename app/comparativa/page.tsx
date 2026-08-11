@@ -7,16 +7,17 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
   description: 'Compara Tentare con el software de gestión tradicional para estudios de Pilates en España: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
-  alternates: { canonical: 'https://tentare.app/comparativa' },
+  alternates: { canonical: urlDe('/comparativa') },
   openGraph: {
     type: 'website',
     title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
     description: 'Las diferencias que se notan cada día y cada fin de mes en un estudio de Pilates en España.',
-    url: 'https://tentare.app/comparativa',
+    url: urlDe('/comparativa'),
   },
 };
 

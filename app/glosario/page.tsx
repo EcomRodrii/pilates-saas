@@ -7,16 +7,17 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { GlossaryStructuredData } from '@/components/glosario/GlossaryStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Glosario del software de gestión para estudios de Pilates — Tentare',
   description: 'Definiciones claras y neutrales de los términos del sector: software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio y más.',
-  alternates: { canonical: 'https://tentare.app/glosario' },
+  alternates: { canonical: urlDe('/glosario') },
   openGraph: {
     type: 'website',
     title: 'Glosario del software de gestión para estudios de Pilates',
     description: 'Definiciones claras y neutrales de los términos que se usan al gestionar un estudio de Pilates.',
-    url: 'https://tentare.app/glosario',
+    url: urlDe('/glosario'),
   },
 };
 

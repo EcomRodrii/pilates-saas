@@ -4,16 +4,17 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Reduce las cancelaciones de última hora — Tentare',
   description: 'Lo que cobran de verdad SoulCycle, Barry\'s o CorePower por cancelar tarde, y lo que dice la evidencia clínica sobre los recordatorios — aplicado a tu estudio de Pilates.',
-  alternates: { canonical: 'https://tentare.app/recursos/reducir-cancelaciones-ultima-hora' },
+  alternates: { canonical: urlDe('/recursos/reducir-cancelaciones-ultima-hora') },
   openGraph: {
     type: 'article',
     title: 'Reduce las cancelaciones de última hora',
     description: 'Políticas reales de grandes cadenas de fitness, y el dato clínico detrás de por qué un recordatorio SÍ cambia el comportamiento.',
-    url: 'https://tentare.app/recursos/reducir-cancelaciones-ultima-hora',
+    url: urlDe('/recursos/reducir-cancelaciones-ultima-hora'),
   },
 };
 

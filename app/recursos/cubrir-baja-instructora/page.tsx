@@ -6,16 +6,17 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Cómo cubrir una baja de instructora sin hacer una llamada — Tentare',
   description: 'El proceso que roba noches a las propietarias de estudios de Pilates y cómo automatizarlo paso a paso, hasta que la baja se cubre sola.',
-  alternates: { canonical: 'https://tentare.app/recursos/cubrir-baja-instructora' },
+  alternates: { canonical: urlDe('/recursos/cubrir-baja-instructora') },
   openGraph: {
     type: 'article',
     title: 'Cómo cubrir una baja de instructora sin hacer una llamada',
     description: 'El proceso que roba noches a las propietarias — y cómo convertirlo en algo que ocurre solo.',
-    url: 'https://tentare.app/recursos/cubrir-baja-instructora',
+    url: urlDe('/recursos/cubrir-baja-instructora'),
   },
 };
 

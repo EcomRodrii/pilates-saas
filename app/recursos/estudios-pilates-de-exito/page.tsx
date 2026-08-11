@@ -4,17 +4,18 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Qué aprender de los estudios de pilates que más crecen — Tentare',
   description:
     'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto los estudios de pilates que más crecen, y qué puede copiar mañana un estudio pequeño.',
-  alternates: { canonical: 'https://tentare.app/recursos/estudios-pilates-de-exito' },
+  alternates: { canonical: urlDe('/recursos/estudios-pilates-de-exito') },
   openGraph: {
     type: 'article',
     title: 'Qué aprender de los estudios de pilates que más crecen',
     description: 'Lecciones con datos reales de las cadenas líderes y del mercado español, aplicables a cualquier estudio.',
-    url: 'https://tentare.app/recursos/estudios-pilates-de-exito',
+    url: urlDe('/recursos/estudios-pilates-de-exito'),
   },
 };
 

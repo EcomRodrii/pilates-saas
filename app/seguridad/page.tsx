@@ -7,16 +7,17 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Seguridad y privacidad — Tentare',
   description: 'Cómo protege Tentare los datos de tu estudio y tus alumnas: aislamiento por estudio, datos alojados en la UE, RGPD, facturación Veri*factu, pagos con Stripe y copias de seguridad.',
-  alternates: { canonical: 'https://tentare.app/seguridad' },
+  alternates: { canonical: urlDe('/seguridad') },
   openGraph: {
     type: 'website',
     title: 'Seguridad y privacidad — Tentare',
     description: 'Datos aislados por estudio, alojados en la UE y conformes al RGPD. Sin permanencia.',
-    url: 'https://tentare.app/seguridad',
+    url: urlDe('/seguridad'),
   },
 };
 

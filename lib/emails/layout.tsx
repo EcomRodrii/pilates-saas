@@ -2,6 +2,7 @@ import {
   Html, Head, Body, Container, Section, Text, Img, Heading, Font, Preview,
 } from '@react-email/components';
 import { foregroundParaFondo } from '@/lib/wcag-contrast';
+import { LEGAL } from '@/lib/legal-info';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Plantilla base compartida por TODOS los emails del producto (transaccionales,
@@ -19,9 +20,11 @@ import { foregroundParaFondo } from '@/lib/wcag-contrast';
 //      foregroundParaFondo, el mismo criterio que usa el editor de tema.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Sin consumidores hoy. Va a www porque tentare.app hace un 308 y hay proxys de
-// imágenes de correo que no siguen redirecciones.
-export const TENTARE_LOGO_URL = 'https://www.tentare.app/logo-horizontal.png';
+// Sin consumidores hoy. Sale de LEGAL.url, que ya lleva www — importa aquí más
+// que en ninguna parte: hay proxys de imágenes de correo que no siguen el 308
+// del ápice y dejarían el logo roto. Este fichero fue durante un tiempo el
+// ÚNICO sitio del repo que tenía esto en cuenta.
+export const TENTARE_LOGO_URL = `${LEGAL.url}/logo-horizontal.png`;
 export const COLOR_PRIMARIO_DEFECTO = '#343825';
 
 interface EmailLayoutProps {

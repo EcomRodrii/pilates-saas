@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs Momence: comparativa para estudios de Pilates en España',
   description: 'Precio real (con comisiones), facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a Momence, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-momence' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-momence') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Momence',
     description: 'Precio real con comisiones, Veri*factu y dónde viven tus datos — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-momence',
+    url: urlDe('/comparativa/tentare-vs-momence'),
   },
 };
 
