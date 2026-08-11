@@ -100,11 +100,11 @@ async function mockBackend(page: Page, opts: {
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ url: '/e2e/checkout-mock' }) });
   });
 
-  // establecerPassword()/loginConPassword() (paso 'registro' con contraseña,
-  // ver lib/use-socia-session.ts) llaman a Supabase Auth REST directamente
-  // (cross-origin, igual que el mock de studios de arriba) — sin este mock la
-  // E2E dependería de la Supabase real y del token falso sembrado por
-  // seedSession, que no es un JWT válido.
+  // loginConPassword() (paso 'login' de vuelta con contraseña ya fijada
+  // desde /acceso, ver lib/use-socia-session.ts) llama a Supabase Auth REST
+  // directamente (cross-origin, igual que el mock de studios de arriba) —
+  // sin este mock la E2E dependería de la Supabase real y del token falso
+  // sembrado por seedSession, que no es un JWT válido.
   await page.route('**/auth/v1/user*', route => {
     if (route.request().method() === 'OPTIONS') {
       return route.fulfill({ status: 204, headers: {
@@ -171,8 +171,6 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     // Paso registro: nombre → Continuar.
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
     await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
-    await page.getByPlaceholder(/elige una contraseña/i).fill('claveE2E123');
-    await page.getByPlaceholder(/repite la contraseña/i).fill('claveE2E123');
     await page.getByRole('button', { name: /^continuar/i }).click();
 
     // Contrato (clickwrap, ya no hay firma en canvas): aceptar términos → continuar.
@@ -195,8 +193,6 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await abrirYReservar(page);
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
     await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
-    await page.getByPlaceholder(/elige una contraseña/i).fill('claveE2E123');
-    await page.getByPlaceholder(/repite la contraseña/i).fill('claveE2E123');
     await page.getByRole('button', { name: /^continuar/i }).click();
 
     // La casilla nombra los dos documentos…
@@ -219,20 +215,18 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await abrirYReservar(page);
     await page.getByPlaceholder(/tu nombre completo/i).fill('Walk In E2E');
     await page.getByPlaceholder(/tu teléfono/i).fill('+34 600 111 222');
-    await page.getByPlaceholder(/elige una contraseña/i).fill('claveE2E123');
-    await page.getByPlaceholder(/repite la contraseña/i).fill('claveE2E123');
     await page.getByRole('button', { name: /^continuar/i }).click();
     await page.getByRole('checkbox').check();
     await page.getByRole('button', { name: /aceptar y continuar/i }).click();
     await page.getByRole('button', { name: /confirmar reserva/i }).click();
 
     await expect(page.getByText(/reserva confirmada|lista de espera/i)).toBeVisible();
-    // Fijó su contraseña en el paso 'registro' (ver arriba) — el enlace debe
-    // llevar directo a /login, NO a /acceso (que le pediría elegir una
-    // contraseña que ya tiene).
-    const alPortal = page.getByRole('link', { name: /entra con tu contraseña/i });
+    // El paso 'registro' ya no pide contraseña (P0 "reservar sin cuenta") —
+    // el enlace debe llevar a /acceso, que se la deja fijar más tarde si
+    // quiere, NO a /login (que asumiría que ya tiene una).
+    const alPortal = page.getByRole('link', { name: /crea tu contraseña/i });
     await expect(alPortal).toBeVisible();
-    await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/login`);
+    await expect(alPortal).toHaveAttribute('href', `/portal/${SLUG}/acceso`);
   });
 
   test('login: sin sesión, reservar pide magic link (no deja pasar sin email)', async ({ page }) => {
