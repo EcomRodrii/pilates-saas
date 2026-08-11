@@ -50,3 +50,11 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# skills de agente instaladas en local (skillfish / clonadas de GitHub).
+# Fuera del repo a propósito: son herramientas de quien programa, no del
+# producto, y algunas pesan cientos de ficheros.
+# ⚠️ `context7` SÍ está versionada desde antes y se queda: la excepción es
+# explícita para que no parezca un descuido que una sola esté dentro.
+/.claude/skills/*
+!/.claude/skills/context7/
