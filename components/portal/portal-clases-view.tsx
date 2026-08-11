@@ -34,6 +34,7 @@ import { Star } from 'lucide-react';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { esCancelacionTardia } from '@/lib/booking-logic';
+import { alternativasTras, cuandoSugerencia, type SugerenciaClase } from '@/lib/portal-sugerencias';
 import { useModo } from '@/lib/portal-modo';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { HojaPase } from '@/components/portal/hoja-pase';
@@ -167,6 +168,10 @@ export function PortalClasesView({
   const [cancelando, setCancelando] = useState<{ sesion: { inicio: string; tipoClaseId: string }; mia: Reserva | null } | null>(null);
   const [paseAbierto, setPaseAbierto] = useState<{ nombre: string; sub: string } | null>(null);
   const [aviso, setAviso] = useState<AvisoToast | null>(null);
+  // Tras cancelar, las clases con las que puede recuperar esa sesión. Antes,
+  // cancelar terminaba en un toast ("Reserva cancelada.") y un callejón: la
+  // socia se quedaba sin plaza y sin ninguna alternativa delante.
+  const [recuperacion, setRecuperacion] = useState<{ sesionId: string; opciones: SugerenciaClase[] } | null>(null);
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
 
@@ -686,7 +691,25 @@ export function PortalClasesView({
                       setAviso({ texto: 'Vista previa: esta cancelación no se guarda de verdad.', error: false });
                       return;
                     }
-                    void cancelarReserva(mia.id).then(r => setAviso(r.ok ? { texto: 'Reserva cancelada.', error: false } : { texto: r.error, error: true }));
+                    const sesionCancelada = sesiones.find(s => s.id === mia.sesionId) ?? null;
+                    void cancelarReserva(mia.id).then(r => {
+                      if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+                      setAviso({ texto: 'Reserva cancelada.', error: false });
+                      // Y en vez de dejarla ahí, se le ofrece cómo recuperarla.
+                      // Solo si hay algo REAL que ofrecer: sin alternativas no
+                      // se abre nada (una hoja vacía es peor que ninguna hoja).
+                      if (!socioId || !sesionCancelada) return;
+                      const opciones = alternativasTras(sesionCancelada, {
+                        now: new Date(), socioId,
+                        // La reserva recién cancelada sigue en el estado local
+                        // hasta el próximo refresco; se descarta a mano para
+                        // que su sesión pueda volver a ofrecerse.
+                        misReservas: reservas.filter(x => x.socioId === socioId && x.id !== mia.id),
+                        reservas: reservas.filter(x => x.id !== mia.id),
+                        sesiones, tiposClase, suscripciones, planesTarifa,
+                      });
+                      if (opciones.length > 0) setRecuperacion({ sesionId: sesionCancelada.id, opciones });
+                    });
                   }}
                   style={{ flex: 1 }}
                 >
@@ -697,6 +720,54 @@ export function PortalClasesView({
           );
         })()}
       </BottomSheet>
+      {/* Recuperar la clase que acaba de cancelar. No sustituye al toast de
+          confirmación: primero se le dice que su cancelación salió bien, y
+          encima aparece esto. */}
+      <BottomSheet open={!!recuperacion} onClose={() => setRecuperacion(null)}>
+        {recuperacion && (
+          <>
+            <h2 style={{ ...display(18), color: t.ink }}>¿Quieres recuperar tu clase?</h2>
+            <p style={{ ...texto.pie, color: t.muted }}>
+              {recuperacion.opciones.length === 1
+                ? 'He encontrado una opción que te encaja.'
+                : `He encontrado ${recuperacion.opciones.length} opciones que te encajan.`}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+              {recuperacion.opciones.map(o => (
+                <button
+                  key={o.sesion.id}
+                  type="button"
+                  onClick={() => {
+                    setRecuperacion(null);
+                    // Por el camino normal de reserva (HojaReserva), el mismo
+                    // que pulsar la clase en la lista: elegir sitio, aviso de
+                    // aforo y confirmación reales. Nada de una vía paralela.
+                    setReservandoId(o.sesion.id);
+                  }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
+                    padding: '12px 14px', borderRadius: 14, textAlign: 'left', width: '100%',
+                    border: `1px solid ${t.line}`, background: noche ? t.surface2 : '#FFFFFF', color: t.ink,
+                  }}
+                >
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>
+                    {o.tipo?.nombre ?? 'Clase'} · {cuandoSugerencia(o.sesion.inicio, new Date())}
+                  </span>
+                  {/* El porqué va SIEMPRE con la opción: sin él sería una lista
+                      de clases cualquiera, no una recuperación pensada. */}
+                  <span style={{ ...texto.pie, color: t.muted }}>
+                    {o.motivo} · {o.plazasLibres === 1 ? 'queda 1 plaza' : `quedan ${o.plazasLibres} plazas`}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <Button variant="secondary" onClick={() => setRecuperacion(null)} style={{ width: '100%', marginTop: 4 }}>
+              Ahora no
+            </Button>
+          </>
+        )}
+      </BottomSheet>
+
       <HojaPase
         abierta={paseAbierto != null}
         onClose={() => setPaseAbierto(null)}

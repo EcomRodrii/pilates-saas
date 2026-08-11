@@ -5,7 +5,7 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
-import { TZ_ESTUDIO } from '../utils.ts';
+import { franjaLocalDe } from '../utils.ts';
 import { tieneEntitlementActivo } from '../bono-logic.ts';
 
 export interface IndicesSenal {
@@ -438,30 +438,10 @@ export interface FranjaRecurrente {
 // etiqueta que lee la propietaria decía la hora UTC ("tu clase de las 18:00"
 // para una clase de las 20:00). Mismo criterio que ya aplicó motor.ts al saludo
 // del Director: la hora local del estudio, nunca UTC.
-const DOW_POR_ETIQUETA: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-
-// `hourCycle: 'h23'` y no `hour12: false`: este último devuelve "24" a
-// medianoche en algunas versiones de ICU, que rompería la clave de franja.
-const FORMATO_FRANJA_LOCAL = new Intl.DateTimeFormat('en-US', {
-  timeZone: TZ_ESTUDIO, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-});
-
-export interface FranjaLocal {
-  dow: number;    // 0=domingo..6=sábado, en hora del estudio
-  hora: number;
-  minuto: number;
-}
-
-/** Día de la semana + hora de una sesión, en la zona horaria del estudio. */
-export function franjaLocalDe(inicioISO: string): FranjaLocal {
-  let dow = 0, hora = 0, minuto = 0;
-  for (const p of FORMATO_FRANJA_LOCAL.formatToParts(new Date(inicioISO))) {
-    if (p.type === 'weekday') dow = DOW_POR_ETIQUETA[p.value] ?? 0;
-    else if (p.type === 'hour') hora = Number(p.value) % 24;
-    else if (p.type === 'minute') minuto = Number(p.value);
-  }
-  return { dow, hora, minuto };
-}
+// `franjaLocalDe` vive en lib/utils.ts (junto a TZ_ESTUDIO) porque la comparten
+// dos lados que no deberían importarse entre sí: este motor y el portal de la
+// socia. Se reexporta aquí para no cambiar los imports de los especialistas.
+export { franjaLocalDe, type FranjaLocal } from '../utils.ts';
 
 /**
  * Agrupa sesiones YA celebradas por franja recurrente (mismo día de la semana +

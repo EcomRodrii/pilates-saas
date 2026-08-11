@@ -211,7 +211,7 @@ const a5De = (s: SnapshotEstudio): Candidata | undefined =>
   agenda.detectar(s, memoriaVacia(), NOW).find(c => c.tipo === 'CUBRIR_CLASE_EN_RIESGO');
 
 function instructora(id: string, nombre: string) {
-  return { id, studioId: 'e1', nombre, email: `${id}@e.c`, telefono: null, activo: true, color: '#000', avatar: null, rol: 'INSTRUCTOR' as const };
+  return { id, studioId: 'e1', nombre, email: `${id}@e.c`, telefono: null, activo: true, color: '#000', avatar: null, rol: 'INSTRUCTOR' as const, authUserId: null };
 }
 
 test('ausencia de día completo que pisa una clase ya asignada → aviso', () => {

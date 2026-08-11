@@ -628,3 +628,88 @@ juntas para decidir si merece la pena llenar una franja que va a quitar.
 - **UI dedicada.** Ambas reglas salen por el camino que ya existe
   (`RecommendationCard`, Veredicto del Día). No se verificaron en navegador
   autenticado — misma limitación de credenciales de siempre.
+
+---
+
+# LO ENTREGADO — Fase 4 (2026-08-11)
+
+**El portal deja de describir y propone.** `getHomeCardContext` clasificaba muy
+bien en qué momento está la socia —tiene clase, se le acaba el bono, va a perder
+la racha, lleva 10 días sin venir, nunca ha reservado— pero ninguno de esos cinco
+estados proponía NADA concreto: los cuatro que no son "tienes clase" acababan
+mandándola a la lista entera con un texto genérico. "Te echamos de menos" sin un
+botón que lleve a una clase real no cambia el comportamiento de nadie.
+
+## `lib/portal-sugerencias.ts` (nuevo, puro, 16 tests)
+
+`sugerirClase()` cruza su **costumbre real** (día de la semana y hora de sus
+asistencias, ventana de 90 días) con las sesiones futuras que tienen hueco **y**
+que su plan cubre. El día y la hora pesan el doble que la disciplina: quien viene
+los martes por la tarde puede probar otra clase a su hora, pero no cambiar de
+vida para venir un domingo a las 9.
+
+Devuelve `null` —y eso importa tanto como el resto— cuando no hay hueco, cuando
+su plan no cubre ninguna, o cuando no hay nada futuro. **Proponerle una clase que
+no puede reservar es peor que no proponerle ninguna**: gasta su confianza y la
+manda a un callejón. Con `null`, la tarjeta se queda exactamente como estaba.
+
+Con menos de 3 asistencias **no se inventa una costumbre**: se ofrece la más
+próxima que su plan cubre y el motivo lo dice tal cual ("es la próxima con hueco
+que te cubre tu plan"). Es un hecho, no una recomendación fabricada.
+
+⚠️ **El motivo va SIEMPRE con la propuesta.** Sin él sería una sugerencia
+aleatoria, que es justo lo que el encargo prohíbe. Hay un test dedicado a que
+nunca vaya vacío.
+
+## La tarjeta
+
+Los cuatro estados ganan la clase concreta debajo del titular. El tono lo sigue
+escribiendo la propietaria (`txt(...)`) y se respeta — lo que cambia es que
+debajo aparece una clase de verdad y su porqué:
+
+> **RACHA DE 7 SEMANAS**
+> **No la pierdas ahora**
+> Te quedan 6 días · Reformer Flow · el viernes a las 09:00
+> sueles entrenar los viernes por la mañana
+
+`PROXIMA_CLASE` queda fuera a propósito: ya tiene una clase concreta y proponerle
+otra encima sería ruido.
+
+## Cancelar → recuperar
+
+Cancelar terminaba en un toast ("Reserva cancelada.") y un callejón. Ahora, si
+hay alternativas reales, se abre una hoja con hasta 3, priorizando el **mismo
+tipo de clase** (quien cancela un Reformer quiere recuperar ese Reformer, no
+descubrir Mat). Cada opción lleva su motivo y las plazas que quedan, y al
+pulsarla se entra por el camino de reserva de siempre (`HojaReserva`) — nada de
+una vía paralela. Sin alternativas no se abre nada: una hoja vacía es peor que
+ninguna hoja.
+
+## `franjaLocalDe` movida a `lib/utils.ts`
+
+La comparten dos lados que no deberían importarse entre sí: el motor
+(`lib/decision/senales.ts`, que la reexporta para no tocar los especialistas) y
+el portal. Vive junto a `TZ_ESTUDIO`, que es de donde saca la zona.
+
+## Verificación
+
+- `npm test`: **2154/2154** en verde (16 tests nuevos).
+- `npx tsc --noEmit`: **0 errores**. Cazó cuatro roturas que los tests no ven,
+  incluida una de verdad: `app/(dashboard)/informes/page.tsx` construye un
+  `SnapshotEstudio` a mano y se quedó sin el campo que añadió la Fase 2.
+- **Navegador real** (Chromium, `e2e/portal-sugerencia.spec.ts`, 4/4): se ve la
+  clase y su motivo; **nunca** una que su plan no cubra; sin plan activo no
+  aparece ninguna propuesta y se respeta el texto de siempre; con clase
+  reservada la tarjeta sigue igual.
+- Regresión sobre el mock compartido (`portal-mock.ts` gana un flag opcional):
+  29 tests de otros 3 specs del portal, en verde en ejecución serie. En paralelo
+  dieron 3 rojos que son contención local conocida — comprobado ejecutándolos
+  con y sin estos cambios.
+
+## Fuera de Fase 4, a propósito
+
+- **Enlace directo a la clase propuesta.** El CTA sigue llevando a la lista: la
+  vista de clases no tiene hoy deep-link (`semana` + `diaElegido` son estado
+  interno) y añadirlo toca su máquina de estados. La tarjeta ya dice día y hora,
+  así que la socia sabe qué buscar.
+- **Notificación push proactiva** con la sugerencia. Aquí solo se ve al abrir.
