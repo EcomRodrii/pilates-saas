@@ -532,9 +532,9 @@ export function ThemeEditorFullscreen() {
                   <button
                     type="button"
                     onClick={() => { cerrar(); setConfirmarDescartar(true); }}
-                    className="w-full flex items-center gap-2 px-1.5 py-2 rounded-lg text-[12.5px] font-semibold text-destructive hover:bg-destructive/10"
+                    className="w-full flex items-center gap-2 px-1.5 py-2 rounded-lg text-left text-[12.5px] font-semibold text-destructive hover:bg-destructive/10"
                   >
-                    <RotateCcw size={14} className="flex-none" /> Descartar cambios de esta sección
+                    <RotateCcw size={14} className="flex-none" /> Descartar cambios
                   </button>
                 </div>
               </>
