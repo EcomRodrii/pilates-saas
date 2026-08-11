@@ -301,7 +301,12 @@ export function TabRecompensas({ showToast }: { showToast: (m: string) => void }
               </label>
               <div className="flex gap-2">
                 <button onClick={() => setModal(null)} className={btnSecondary}>Cancelar</button>
-                <button onClick={guardar} className={btnPrimary}>
+                <button
+                  onClick={guardar}
+                  disabled={!form.nombre.trim() || form.costeCreditos <= 0}
+                  className={btnPrimary}
+                  title={!form.nombre.trim() ? 'Ponle un nombre a la recompensa' : undefined}
+                >
                   <Check size={14} /> Guardar
                 </button>
               </div>
