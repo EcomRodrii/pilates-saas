@@ -41,6 +41,15 @@ export interface BonoActivo {
    * sitio). Vacío en el caso normal de un único bono/plan activo.
    */
   otrosActivos: { nombre: string; restantes: number | null }[];
+  /**
+   * Sesiones que le quedan SUMANDO todos sus bonos activos, no solo el que
+   * manda en el titular. `null` cuando ninguno cuenta sesiones (mensual).
+   *
+   * Existe porque el titular por sí solo no responde a la pregunta que hace la
+   * socia. Con tres bonos de 4 leía «4 de 4 sesiones disponibles» y tenía que
+   * sumar a mano lo de la cola para saber que en realidad le quedaban 12.
+   */
+  totalRestantes: number | null;
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -61,6 +70,14 @@ export function fechaLarga(iso: string, hoy = new Date()): string {
  * El bono que la socia está usando. Si tiene varios activos —pasa: un mensual y
  * un bono de reformer— gana el que **caduca antes**, que es el que le urge
  * gastar. Con empate, el de menos sesiones restantes.
+ *
+ * ⚠️ Pero un bono AGOTADO nunca es el titular, aunque el desempate lo pusiera
+ * primero. Pasó en producción: cuatro bonos, uno a 0 y tres a 4, y la pantalla
+ * anunciaba «0 de 4 sesiones disponibles» a alguien con doce pagadas. El
+ * desempate «menos sesiones primero» buscaba el que se acaba antes, y un bono
+ * ya gastado es justo el que NO se puede usar. Mismo criterio que
+ * `bonoConsumible`: lo que se enseña y lo que se descuenta tienen que ser el
+ * mismo bono, o la pantalla miente.
  */
 export function bonoActivo(
   suscripciones: Suscripcion[], planes: PlanTarifa[], tiposClase: TipoClase[], socioId: string | null,
@@ -73,7 +90,12 @@ export function bonoActivo(
     .filter(x => x.plan !== null);
   if (candidatas.length === 0) return null;
 
+  const agotado = (x: { s: Suscripcion }) => (x.s.sesionesRestantes ?? Infinity) <= 0;
+
   candidatas.sort((a, b) => {
+    // Los agotados al final, pase lo que pase con la fecha: no son "el bono que
+    // está usando", son los que ya gastó.
+    if (agotado(a) !== agotado(b)) return agotado(a) ? 1 : -1;
     const fa = a.s.fechaFin ?? '9999-12-31';
     const fb = b.s.fechaFin ?? '9999-12-31';
     if (fa !== fb) return fa < fb ? -1 : 1;
@@ -124,6 +146,11 @@ export function bonoActivo(
     urgente,
     caducado,
     otrosActivos,
+    // Suma de TODOS los que cuentan sesiones. `null` si ninguno lo hace (solo
+    // mensuales): ahí no hay saldo que sumar, y un 0 mentiría.
+    totalRestantes: candidatas.some(c => c.s.sesionesRestantes != null)
+      ? candidatas.reduce((n, c) => n + (c.s.sesionesRestantes ?? 0), 0)
+      : null,
   };
 }
 

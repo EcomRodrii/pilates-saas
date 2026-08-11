@@ -167,3 +167,67 @@ test('la caducidad se escribe en palabras, y el año solo si no es este', () => 
   assert.equal(fechaLarga('2027-01-08', hoy), '8 de enero de 2027');
   assert.equal(fechaLarga('', hoy), '');
 });
+
+// ── El caso que rompió la confianza de una alumna real (11-ago-2026) ─────────
+// Compró el mismo bono cuatro veces. Gastó el primero entero y la pantalla le
+// anunciaba «0 de 4 sesiones disponibles» teniendo doce pagadas sin tocar. El
+// desempate «menos sesiones primero» buscaba el bono que se acaba antes — y un
+// bono ya gastado es justo el que NO puede usar.
+
+test('⚠️ un bono agotado no puede ser el titular habiendo otros con saldo', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 'sus-web-a1CyAA', planId: 'p1', sesionesRestantes: 0 }),
+      sus({ id: 'sus-web-a1VCh2', planId: 'p1', sesionesRestantes: 4 }),
+      sus({ id: 'sus-web-a1wx3R', planId: 'p1', sesionesRestantes: 4 }),
+    ],
+    [plan({ id: 'p1', nombre: 'Bono 4 clases', sesiones: 4 })],
+    TIPOS, 'soc-1',
+  );
+  assert.notEqual(b?.suscripcionId, 'sus-web-a1CyAA', 'el agotado nunca manda en el titular');
+  assert.equal(b?.restantes, 4);
+});
+
+test('el total dice cuántas le quedan DE VERDAD, sumando la cola', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's-gastado', planId: 'p1', sesionesRestantes: 0 }),
+      sus({ id: 's-a', planId: 'p1', sesionesRestantes: 4 }),
+      sus({ id: 's-b', planId: 'p1', sesionesRestantes: 4 }),
+      sus({ id: 's-c', planId: 'p1', sesionesRestantes: 4 }),
+    ],
+    [plan({ id: 'p1', nombre: 'Bono 4 clases', sesiones: 4 })],
+    TIPOS, 'soc-1',
+  );
+  // Doce: es la cifra que la alumna no encontraba por ningún lado.
+  assert.equal(b?.totalRestantes, 12);
+  assert.equal(b?.restantes, 4, 'el titular sigue siendo el bono en curso, no la suma');
+});
+
+test('con un solo bono el total coincide con el titular', () => {
+  const b = bonoActivo(
+    [sus({ id: 's1', planId: 'p1', sesionesRestantes: 7 })],
+    [plan({ id: 'p1', sesiones: 10 })], TIPOS, 'soc-1',
+  );
+  assert.equal(b?.totalRestantes, 7);
+  assert.equal(b?.otrosActivos.length, 0);
+});
+
+test('un mensual ilimitado no inventa un total de cero', () => {
+  const b = bonoActivo(
+    [sus({ id: 's1', planId: 'p1', sesionesRestantes: null })],
+    [plan({ id: 'p1', tipo: 'MENSUAL', sesiones: null })], TIPOS, 'soc-1',
+  );
+  assert.equal(b?.totalRestantes, null, 'sin sesiones que contar, null — un 0 diría que se acabó');
+});
+
+test('la caducidad sigue mandando entre los que tienen saldo', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's-tarde', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-12-31' }),
+      sus({ id: 's-pronto', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-09-01' }),
+    ],
+    [plan({ id: 'p1', sesiones: 4 })], TIPOS, 'soc-1',
+  );
+  assert.equal(b?.suscripcionId, 's-pronto');
+});

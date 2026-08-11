@@ -321,3 +321,46 @@ test('calcularReactivacion: PUNTUAL se comporta como BONO (misma rama)', () => {
   assert.equal(r.fechaFin, '2026-02-14');
   assert.equal(r.sesionesRestantes, 1);
 });
+
+// ── Varios bonos a la vez, y uno de ellos agotado ───────────────────────────
+// Caso real de producción (11-ago-2026): una socia compró el mismo bono cuatro
+// veces. El primero se gastó entero; los otros tres seguían intactos. Como el
+// filtro solo miraba `sesionesRestantes !== null`, el agotado seguía siendo
+// candidato y —con el desempate por id— GANABA siempre. Resultado: reservaba y
+// no se descontaba de ningún sitio. Doce sesiones pagadas que no se iban a
+// gastar nunca, sin un error por ninguna parte.
+
+test('⚠️ un bono agotado no puede ser el elegido habiendo otros con saldo', () => {
+  const suscripciones = [
+    sus({ id: 'sus-web-a1CyAA', socioId: 'a', planId: 'p1', sesionesRestantes: 0 }),
+    sus({ id: 'sus-web-a1VCh2', socioId: 'a', planId: 'p1', sesionesRestantes: 4 }),
+    sus({ id: 'sus-web-a1wx3R', socioId: 'a', planId: 'p1', sesionesRestantes: 4 }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  const elegido = bonoConsumible('a', suscripciones, planes, '2026-08-11');
+  assert.ok(elegido, 'con saldo disponible tiene que haber bono del que descontar');
+  assert.ok(elegido!.sesionesRestantes > 0, 'nunca se elige uno a cero');
+  // El id del agotado es el más bajo: sin el filtro, el desempate lo elegía.
+  assert.notEqual(elegido!.suscripcion.id, 'sus-web-a1CyAA');
+});
+
+test('con TODOS agotados no hay nada que consumir', () => {
+  const suscripciones = [
+    sus({ id: 's1', socioId: 'a', planId: 'p1', sesionesRestantes: 0 }),
+    sus({ id: 's2', socioId: 'a', planId: 'p1', sesionesRestantes: 0 }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-08-11'), null);
+});
+
+test('la caducidad sigue mandando entre los que SÍ tienen saldo', () => {
+  // El filtro nuevo no puede haberse llevado por delante la regla de siempre:
+  // entre bonos con saldo, primero el que caduca antes.
+  const suscripciones = [
+    sus({ id: 's-tarde', socioId: 'a', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-12-31' }),
+    sus({ id: 's-pronto', socioId: 'a', planId: 'p1', sesionesRestantes: 4, fechaFin: '2026-09-01' }),
+    sus({ id: 's-cero', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-08-15' }),
+  ];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 4 })];
+  assert.equal(bonoConsumible('a', suscripciones, planes, '2026-08-11')?.suscripcion.id, 's-pronto');
+});
