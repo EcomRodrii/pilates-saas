@@ -20,6 +20,7 @@ import { RejillaSemana } from '@/components/reserva/rejilla-semana';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
+import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import {
@@ -1449,25 +1450,35 @@ export default function ReservarPage() {
                   {stripeError}
                 </div>
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+              {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
+                  y apilados obligaban a recordar el precio anterior al bajar. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
                 {/* F0 · POR-1: no ofrecer planes a 0€ como contratables en público
                     (cualquiera obtendría clases gratis). El precio > 0 es requisito
                     para el checkout de Stripe igualmente. */}
                 {planesTarifa.filter(p => p.activo && p.precio > 0).map(p => {
                   const destacado = p.id === planDestacadoId;
                   const porClase = precioPorClase(p);
+                  // Solo sale si significa algo: sin precio de clase suelta con
+                  // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
+                  const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
                   return (
                     <div key={p.id} style={{
                       borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
-                      padding: '22px 26px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 18,
+                      padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
                       boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
                     }}>
-                      <div style={{ flex: '1 1 180px' }}>
+                      <div style={{ flex: '1 1 auto' }}>
                         {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
                         <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
                         <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
                           {p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
                         </div>
+                        {ahorro !== null && (
+                          <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
+                            Ahorras un {ahorro} % frente a clases sueltas
+                          </div>
+                        )}
                       </div>
                       <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
                         {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>}
@@ -1568,6 +1579,27 @@ export default function ReservarPage() {
           colores") y los mismos enlaces legales de siempre. */}
       <footer style={{ borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
+          {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
+              existe: una fila de contacto con huecos vacíos, o peor, con un
+              teléfono de ejemplo, es un desvío a ninguna parte justo cuando
+              alguien ya se ha decidido a preguntar. El WhatsApp sale de sus
+              redes sociales, que ya se resuelven más abajo. */}
+          {(studio?.telefono || studio?.email) && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 16, fontSize: 12.5 }}>
+              <span style={{ color: 'var(--portal-muted)' }}>¿Dudas? Estamos aquí para ayudarte:</span>
+              {studio?.telefono && (
+                <a href={`tel:${studio.telefono.replace(/\s+/g, '')}`} style={{ color: 'var(--portal-ink)', fontWeight: 600, textDecoration: 'none' }}>
+                  {studio.telefono}
+                </a>
+              )}
+              {studio?.email && (
+                <a href={`mailto:${studio.email}`} style={{ color: 'var(--portal-ink)', fontWeight: 600, textDecoration: 'none' }}>
+                  {studio.email}
+                </a>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--portal-muted-2)' }}>
             {estudioLogo ? (
               // eslint-disable-next-line @next/next/no-img-element
