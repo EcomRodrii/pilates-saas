@@ -164,6 +164,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     marcarCobrado,
     marcarDevuelto,
     reintentar,
+    reintentarSelladoFactura,
     deleteRecibo,
     addRecibo,
     crearFacturaDirecta,
@@ -237,6 +238,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [confirmEliminar, setConfirmEliminar] = useState<string | null>(null);
   const [cobrandoRecibo, setCobrandoRecibo] = useState<string | null>(null); // F2 B2.6: elegir método al cobrar
+  const [reintentandoFactura, setReintentandoFactura] = useState<string | null>(null);
 
   // ── Cobro masivo modal ──────────────────────────────────────────────────────
   const [showMasivo, setShowMasivo]               = useState(false);
@@ -559,6 +561,15 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
         numeroFactura: factura?.numeroCompleto,
       });
     }
+  }
+
+  async function handleReintentarFactura(reciboId: string) {
+    setReintentandoFactura(reciboId);
+    const res = await reintentarSelladoFactura(reciboId);
+    setReintentandoFactura(null);
+    setStripeToast(res.ok
+      ? { tipo: 'ok', msg: 'Factura generada.' }
+      : { tipo: 'error', msg: `Sigue sin poder sellarse: ${res.error}` });
   }
 
   async function crearNuevoCobro() {
@@ -939,7 +950,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                           )}
                           {r.estado === 'COBRADO' && (
                             <>
-                              {factura && (
+                              {factura ? (
                                 <Link
                                   href={`/facturas?ver=${factura.id}`}
                                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-background text-muted-foreground hover:bg-border transition-colors"
@@ -948,6 +959,18 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                                   <FileText size={12} />
                                   {factura.numeroCompleto}
                                 </Link>
+                              ) : (
+                                <button
+                                  onClick={() => handleReintentarFactura(r.id)}
+                                  disabled={reintentandoFactura === r.id}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-60"
+                                  title="El cobro se registró pero la factura no llegó a sellarse — reintentar"
+                                >
+                                  {reintentandoFactura === r.id
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : <RefreshCw size={12} />}
+                                  Sin factura
+                                </button>
                               )}
                               <button
                                 onClick={() => marcarDevuelto(r.id)}

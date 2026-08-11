@@ -364,6 +364,7 @@ interface StudioContextValue {
   marcarCobrado: (reciboId: string, metodo?: MetodoCobro) => Promise<ResultadoEscritura>;
   marcarDevuelto: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
+  reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
   deleteRecibo: (id: string) => Promise<ResultadoEscritura>;
   cobrarTodosPendientes: (socioId?: string) => Promise<ResultadoEscritura>;
   marcarRecibosEnviadosAlBanco: (ids: string[]) => Promise<ResultadoEscritura>;
@@ -3081,6 +3082,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
+  // Si el sellado de `marcarCobrado` falló (NIF inválido, red...), el recibo
+  // queda COBRADO sin factura y sin ningún botón para arreglarlo — el único
+  // aviso era un toast (`dbError`) que se autodescarta. `construirFacturaCobro`
+  // ya dedupea por reciboId, así que reintentar aquí es seguro: si ya existe
+  // factura no hace nada.
+  async function reintentarSelladoFactura(reciboId: string): Promise<ResultadoEscritura> {
+    const recibo = recibos.find(r => r.id === reciboId);
+    if (!recibo || recibo.estado !== 'COBRADO') return { ok: false, error: 'Ese recibo no está cobrado.' };
+    const fac = construirFacturaCobro(recibo, facturas);
+    if (!fac) return { ok: true }; // ya tenía factura
+    setFacturas(prev => [...prev, fac]);
+    return sellarFacturaYActualizar(fac);
+  }
+
   async function marcarDevuelto(reciboId: string): Promise<ResultadoEscritura> {
     const fechaDev = new Date().toISOString();
     // Mismo criterio que marcarCobrado: un recibo devuelto es dinero que sale de
@@ -4173,6 +4188,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     marcarCobrado,
     marcarDevuelto,
     reintentar,
+    reintentarSelladoFactura,
     deleteRecibo,
     cobrarTodosPendientes,
     marcarRecibosEnviadosAlBanco,
