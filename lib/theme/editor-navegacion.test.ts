@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
   irAVista, bloqueSeleccionadoEn, pantallaOperativa, tieneBloques, esVistaPreview,
+  cerrarCategoria,
   type EstadoEditor,
 } from './editor-navegacion.ts';
 
@@ -117,5 +118,25 @@ test('ninguna transición muta el estado que recibe', () => {
   elegirCategoria(base, 'colores');
   elegirItemContenido(base, 'x');
   irAVista(base, 'perfil');
+  assert.deepEqual(base, copia);
+});
+
+test('cerrarCategoria cierra el acordeón sin mover el preview', () => {
+  // Se estaba mirando Clases y se abrió una categoría del tema: al cerrarla,
+  // el preview tiene que seguir en Clases. Si esto usara `elegirPagina` para
+  // deseleccionar, el iframe saltaría a otra pantalla al plegar un
+  // desplegable.
+  const abierta = elegirCategoria(elegirPagina(ESTADO_INICIAL, 'clases'), 'tipografia');
+  const cerrada = cerrarCategoria(abierta);
+  assert.equal(cerrada.seleccion, null);
+  assert.equal(cerrada.modo, 'ajustes');
+  assert.equal(cerrada.vista, 'clases');
+  assert.equal(cerrada.pagina, 'clases');
+});
+
+test('cerrarCategoria no muta el estado que recibe', () => {
+  const base = elegirCategoria(ESTADO_INICIAL, 'tipografia');
+  const copia = structuredClone(base);
+  cerrarCategoria(base);
   assert.deepEqual(base, copia);
 });

@@ -108,6 +108,20 @@ export function elegirCategoria(estado: EstadoEditor, id: string): EstadoEditor 
   return { ...estado, modo: 'ajustes', seleccion: { tipo: 'categoria', id } };
 }
 
+/**
+ * Cerrar la categoría de ajustes abierta, sin salir de los ajustes.
+ *
+ * Hace falta desde que las categorías son un ACORDEÓN dentro de la propia
+ * columna en vez de una lista que abre un panel aparte: un acordeón se cierra
+ * volviendo a pulsar su cabecera, y sin esto no había ninguna transición que
+ * dejara `seleccion` en null sin arrastrar de paso `pagina`/`vista`
+ * (`elegirPagina` sí las toca, y usarla aquí movería el preview al cerrar un
+ * desplegable — que no es lo que nadie espera).
+ */
+export function cerrarCategoria(estado: EstadoEditor): EstadoEditor {
+  return { ...estado, modo: 'ajustes', seleccion: null };
+}
+
 /** Ir a una vista del preview sin cambiar lo que se edita (navegar, no editar). */
 export function irAVista(estado: EstadoEditor, vista: VistaPreview): EstadoEditor {
   return { ...estado, pagina: vista, vista, seleccion: null };
