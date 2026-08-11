@@ -52,8 +52,11 @@ ALTER TABLE public.plantillas_email
   ADD COLUMN IF NOT EXISTS logo_url text,
   -- Pie del correo. NULL = "Enviado por {estudio} · Powered by Tentare · {año}".
   ADD COLUMN IF NOT EXISTS pie text,
-  -- Familia tipográfica. Lista cerrada validada en la app (fuentes seguras en
-  -- correo); el CHECK de abajo la refuerza en la BD.
+  -- Familia tipográfica: lista cerrada de fuentes seguras en correo, validada
+  -- en la app y reforzada con el CHECK de más abajo.
+  -- (Ojo al escribir aquí: scripts/gen-db-types.py corta la sentencia en el
+  -- primer punto y coma que encuentra, y NO ignora los comentarios, así que
+  -- uno suelto dentro de un ALTER se come en silencio las columnas de abajo.)
   ADD COLUMN IF NOT EXISTS fuente text;
 
 -- Los colores se pintan como fondo de una banda y de un botón, y el contraste

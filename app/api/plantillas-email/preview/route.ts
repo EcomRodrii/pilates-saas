@@ -10,7 +10,7 @@ import { renderPlantillaMuestra, resolverContextoEstudio, type BorradorPlantilla
 export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-  // Mismo criterio que la RLS de plantillas_email (migr 20260811090000) y que
+  // Mismo criterio que la RLS de plantillas_email (migr 20260811005749) y que
   // la ruta /configuracion: solo la propietaria. Sin esto, una instructora
   // podía mandarse a sí misma —o simplemente renderizar— correos con la marca
   // del estudio, y con el cuerpo libre eso deja de ser inofensivo.

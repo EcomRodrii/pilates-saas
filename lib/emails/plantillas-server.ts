@@ -8,7 +8,7 @@ import type { PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 // ─────────────────────────────────────────────────────────────────────────────
 
 // `asunto`/`intro` son los dos campos de siempre. El resto es la
-// personalización total (migr 20260811090000): con `cuerpo` la propietaria
+// personalización total (migr 20260811005749): con `cuerpo` la propietaria
 // escribe el correo entero y las plantillas dejan de pintar su estructura fija.
 // Todo opcional — ausente significa "como siempre", en cada campo por separado.
 export type PlantillaOverride = { asunto?: string; intro?: string } & PersonalizacionPlantilla;

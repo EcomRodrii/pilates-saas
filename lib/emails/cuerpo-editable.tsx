@@ -4,7 +4,7 @@ import { sanearMarkdown } from '@/lib/emails/sanear-markdown';
 
 // Lo que la propietaria ha personalizado de una plantilla. Todo opcional:
 // ausente = se mantiene lo de siempre. Es el reflejo en TypeScript de las
-// columnas nullable de plantillas_email (migr 20260811090000).
+// columnas nullable de plantillas_email (migr 20260811005749).
 export interface PersonalizacionPlantilla {
   cuerpo?: string;
   botonTexto?: string;

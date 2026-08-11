@@ -298,7 +298,7 @@ export interface InstructorDependencySnapshot {
 export type TipoPlantillaEmail = 'bienvenida' | 'reserva' | 'recordatorio' | 'cancelacion' | 'promocion' | 'impago';
 
 // Fuentes seguras en correo. Lista cerrada aquí y con CHECK en la BD (migr
-// 20260811090000): una familia que el cliente de correo no tenga se ve como un
+// 20260811005749): una familia que el cliente de correo no tenga se ve como un
 // fallback cualquiera, así que no se deja escribir a mano.
 export const FUENTES_EMAIL = ['Plus Jakarta Sans', 'Arial', 'Georgia', 'Verdana', 'Times New Roman', 'Courier New'] as const;
 export type FuenteEmail = (typeof FUENTES_EMAIL)[number];

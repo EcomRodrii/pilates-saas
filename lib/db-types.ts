@@ -896,7 +896,7 @@ export interface RowPlantillasEmail {
   asunto: string | null;
   intro: string | null;
   activa: boolean;
-  // Personalización total (migr 20260811090000). NULL = hereda lo de siempre.
+  actualizado_en: string | null;
   cuerpo: string | null;
   boton_texto: string | null;
   color_cabecera: string | null;
@@ -904,7 +904,6 @@ export interface RowPlantillasEmail {
   logo_url: string | null;
   pie: string | null;
   fuente: string | null;
-  actualizado_en: string | null;
 }
 
 export interface RowInstructorDependencySnapshots {
@@ -1547,4 +1546,15 @@ export interface RowCadenaTiposClase {
   foto_url: string | null;
   creado_en: string;
   actualizado_en: string;
+}
+
+export interface RowPagosHistoricos {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  fecha: string;
+  concepto: string | null;
+  importe: number;
+  medio_pago: string | null;
+  creado_en: string;
 }
