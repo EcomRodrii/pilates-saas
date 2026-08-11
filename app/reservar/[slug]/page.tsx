@@ -21,6 +21,7 @@ import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
+import { seccionVisible } from '@/lib/reservar/secciones';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -243,7 +244,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, textosReservar,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, textosReservar, ordenReservar,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -1639,7 +1640,7 @@ export default function ReservarPage() {
           veía. Ahora es un pie de página de verdad, visible en las cuatro
           pestañas, con redes sociales (si el estudio las configuró en "Marca y
           colores") y los mismos enlaces legales de siempre. */}
-      {mereceBanda(cifras) && (
+      {seccionVisible('cifras', ordenReservar) && mereceBanda(cifras) && (
         <div style={{ borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (

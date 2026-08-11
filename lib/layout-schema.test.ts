@@ -22,6 +22,10 @@ test('resolveLayout: config válida se respeta', () => {
     orden: ['/x'], ocultos: ['/y'], menuPosition: 'superior',
     home: { orden: [], ocultos: [] },
     portalHome: { orden: [], ocultos: [] },
+    // Orden/visibilidad de las secciones de /reservar (widget incrustable).
+    // Este `deepEqual` es exhaustivo a propósito: cazó la clave nueva en cuanto
+    // se añadió, que es justo para lo que está.
+    reservar: { orden: [], ocultos: [] },
     bloques: DEFAULT_BLOQUES_SHAPE,
   });
 });

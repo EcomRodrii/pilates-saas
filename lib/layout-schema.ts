@@ -88,6 +88,12 @@ export const layoutConfigSchema = z
     // `bloques.home` está vacío, pero deja de ser la fuente de verdad en
     // cuanto el estudio guarda un borrador con el sistema de bloques.
     portalHome: z.object({ orden: z.array(z.string()), ocultos: z.array(z.string()) }),
+    // Orden/visibilidad de las secciones de /reservar — el widget que el
+    // estudio incrusta en su web. MISMA forma que `home` y `portalHome` a
+    // propósito: es el mismo problema (un conjunto fijo que se reordena y se
+    // oculta), y darle una forma propia habría sido inventar un tercer dialecto
+    // para lo mismo. Las reglas de resolución viven en lib/reservar/secciones.ts.
+    reservar: z.object({ orden: z.array(z.string()), ocultos: z.array(z.string()) }),
     bloques: bloquesPorPantallaSchema,
   })
   .strict();

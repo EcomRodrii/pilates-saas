@@ -32,6 +32,12 @@ export interface LayoutConfigShape {
   // editor de temas) — distinto de `home`, que es la home del DASHBOARD.
   // Legacy desde Fase 3: ver bloques.home/resolveBloquesPantalla.
   portalHome: OrdenVisibilidad;
+  // Orden/visibilidad de las secciones de /reservar — el widget que el estudio
+  // incrusta en su web. Misma forma que `home`/`portalHome` a propósito: es el
+  // mismo problema (un conjunto FIJO que se reordena y se oculta, no bloques
+  // que se añaden), y darle forma propia sería un tercer dialecto para lo
+  // mismo. Las reglas viven en lib/reservar/secciones.ts.
+  reservar: OrdenVisibilidad;
   // Constructor de bloques (Fase 3, generalizado a Clases/Bonos en la Fase 1
   // del Theme Builder). El de Home sustituye a `portalHome` como fuente de
   // verdad en cuanto el estudio guarda un borrador ahí — hasta entonces,
@@ -46,6 +52,7 @@ export const DEFAULT_LAYOUT: LayoutConfigShape = {
   menuPosition: 'lateral',
   home: { orden: [], ocultos: [] },
   portalHome: { orden: [], ocultos: [] },
+  reservar: { orden: [], ocultos: [] },
   bloques: DEFAULT_BLOQUES_SHAPE,
 };
 
@@ -78,6 +85,7 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
     orden, ocultos, menuPosition,
     home: resolveOrdenVis(obj.home),
     portalHome,
+    reservar: resolveOrdenVis(obj.reservar),
     bloques,
   };
 }

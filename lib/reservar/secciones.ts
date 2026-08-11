@@ -21,10 +21,16 @@ export interface SeccionReservar {
  * El orden por defecto. Es el de hoy, así que un estudio que no toque nada no
  * ve ningún cambio.
  */
+// ⚠️ «Bonos y membresías» NO está aquí, y no es un olvido: hoy no es una
+// sección de la PÁGINA — vive dentro de la pestaña «El estudio», junto a los
+// tipos de clase y las instructoras. Catalogarla habría dejado una fila en el
+// editor que se arrastra y no mueve nada, que es exactamente el fallo que este
+// repo ya ha cometido varias veces. Para que participe hay que sacarla de esa
+// pestaña primero, y eso es una decisión sobre la estructura de la página, no
+// un id más en esta lista.
 export const SECCIONES_RESERVAR: SeccionReservar[] = [
   { id: 'portada', label: 'Portada', ayuda: 'Titular, foto y botón.' },
   { id: 'horario', label: 'Horario y reservas', ayuda: 'Las clases y el calendario.' },
-  { id: 'bonos', label: 'Bonos y membresías', ayuda: 'Lo que se puede contratar.' },
   { id: 'cifras', label: 'Cifras del estudio', ayuda: 'Clases por semana, instructoras.' },
   { id: 'contacto', label: 'Contacto y pie', ayuda: 'Teléfono, email y enlaces legales.' },
 ];
