@@ -67,7 +67,9 @@ const PASOS: Paso[] = [
   },
   {
     id: 'importar', etiqueta: 'Migración', titulo: '¿Quieres que importemos tus datos?',
-    nota: (a) => a.software && a.software !== 'Ninguno'
+    // 'Otro' es un cajón genérico, no el nombre real de ninguna plataforma —
+    // interpolarlo tal cual daba "reservas de Otro." (#issue pendiente).
+    nota: (a) => a.software && a.software !== 'Ninguno' && a.software !== 'Otro'
       ? `Alumnos, bonos y reservas de ${a.software}. Lo hacemos nosotros, sin coste.`
       : 'Si tienes listas en Excel o en papel, las pasamos nosotros, sin coste.',
     opciones: ['Sí, importadlos', 'No, empiezo de cero'],
