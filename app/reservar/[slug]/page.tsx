@@ -236,6 +236,11 @@ export default function ReservarPage() {
   const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
   const estudioEmail = studio?.email ?? 'hola@tentare.es';
   const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
+  // La foto de portada. `fotoUrl` es la del estudio y `imagenBienvenidaUrl` la
+  // que ya se usa en la bienvenida del portal — se prefiere la primera y se cae
+  // a la segunda para no pedirle al estudio que suba dos veces lo mismo.
+  // Sin ninguna de las dos, el hero se queda a una columna (ver el grid).
+  const heroFoto = studio?.fotoUrl || studio?.imagenBienvenidaUrl || null;
   const params = useParams();
   const slug = String(params?.slug ?? '');
   const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, establecerPassword, logout, refrescar } = useSociaSession(slug);
@@ -937,12 +942,15 @@ export default function ReservarPage() {
     <div style={{ ...containerRoot, width: '100%', minHeight: '100vh', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden' }}>
 
       {/* ── HERO ──────────────────────────────────────────────────────────────
-          El mockup pinta una fotografía grande de estudio detrás del titular.
-          El dato no existe hoy en la carga pública (`studioPublico()` no expone
-          `fotoUrl` — solo `logoUrl`), así que en vez de inventar una imagen se
-          usa el mismo degradado de fondo que ya usa el portal privado para su
-          hero (lib/portal-modo.tsx → MODO_TOKENS.dia.hero), coherente con el
-          resto del producto en vez de un valor nuevo sin respaldo. */}
+          ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga
+          pública (`studioPublico()` no expone `fotoUrl` — solo `logoUrl`)».
+          **Eso dejó de ser verdad y el comentario lo mantuvo enterrado**:
+          `studioPublico()` expone `fotoUrl` E `imagenBienvenidaUrl` desde que
+          se arregló la lista blanca para el hero del portal. O sea que la
+          fotografía del mockup se podía pintar desde hace tiempo y nadie la
+          pintaba porque este párrafo decía que no se podía.
+          Es el mismo fallo que ya costó un hero desplegado y muerto: un dato
+          que sí viaja, y una nota que asegura que no. */}
       <div style={{ position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
         {!embedMode && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
@@ -985,19 +993,63 @@ export default function ReservarPage() {
         )}
 
         {!embedMode && (
-        <div style={{ position: 'relative', padding: `${cq(34, 5, 70)} ${cq(20, 3.8, 48)} 0`, textAlign: 'center' }}>
-          <div style={eyebrow(9)}>RESERVA TU CLASE</div>
-          <h1 style={{ fontFamily: serif, fontSize: cq(38, 6, 76), lineHeight: 1, marginTop: cq(14, 1.8, 22) }}>{estudioNombre}</h1>
-          {studio?.descripcion && (
-            <p style={{ fontFamily: serif, fontStyle: 'italic', fontSize: cq(16, 1.7, 22), color: 'var(--portal-muted)', marginTop: 16, maxWidth: 620, marginInline: 'auto' }}>
-              {studio.descripcion}
-            </p>
+        <div
+          style={{
+            position: 'relative',
+            padding: `${cq(28, 4, 56)} ${cq(20, 3.8, 48)} ${cq(24, 3, 44)}`,
+            display: 'grid',
+            // Una sola columna cuando NO hay foto. Reservar la mitad del hero
+            // para un hueco gris sería peor que el diseño de hoy: el mockup
+            // funciona porque la foto está, no porque haya dos columnas.
+            gridTemplateColumns: heroFoto ? 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' : '1fr',
+            gap: cq(24, 3.4, 44),
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ textAlign: heroFoto ? 'left' : 'center', minWidth: 0 }}>
+            <div style={eyebrow(9)}>{studio?.ciudad ? studio.ciudad.toUpperCase() : 'RESERVA TU CLASE'}</div>
+            {/* El NOMBRE del estudio deja de ser el titular y sube a la barra,
+                que es donde vive una marca. El titular pasa a decir para qué
+                sirve la página — es lo que separa una portada de un rótulo. */}
+            <h1 style={{ fontFamily: serif, fontSize: cq(34, 5.4, 68), lineHeight: 1.02, marginTop: cq(12, 1.6, 20) }}>
+              Encuentra tu<br />próxima clase
+            </h1>
+            {studio?.descripcion && (
+              <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 460, marginInline: heroFoto ? undefined : 'auto' }}>
+                {studio.descripcion}
+              </p>
+            )}
+            {/* Lleva al horario, que ya está en esta misma página: un botón de
+                portada que no promete nada que no exista. */}
+            <button
+              onClick={() => { setTab('clases'); document.getElementById('horario')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
+              style={{
+                marginTop: cq(20, 2.4, 30), height: 48, padding: `0 ${cq(22, 2.4, 30)}`, borderRadius: 24,
+                background: PRIMARY, color: PRIMARY_FG, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase',
+                boxShadow: SH.headerBtn,
+              }}
+            >
+              Ver el horario
+            </button>
+          </div>
+
+          {heroFoto && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heroFoto}
+              alt=""
+              style={{
+                width: '100%', aspectRatio: '4 / 3', objectFit: 'cover',
+                borderRadius: R.card, display: 'block',
+              }}
+            />
           )}
         </div>
         )}
 
         {/* ── TABS ─────────────────────────────────────────────────────────── */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
+        <div id="horario" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
           {tabs.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
