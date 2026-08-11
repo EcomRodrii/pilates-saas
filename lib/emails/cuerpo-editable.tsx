@@ -98,7 +98,15 @@ export function PlantillaEditableEmail({
         cuerpo={p.cuerpo}
         filas={filas}
         boton={boton && { href: boton.href, texto: p.botonTexto || boton.texto }}
-        colorBoton={p.colorBoton ?? colorPrimario}
+        // Si eligió color de banda y no tocó el del botón, el botón sigue a la
+        // banda: quien pone un color de marca espera que el correo entero vaya
+        // de ese color, no una banda marrón con un botón verde. Fijar
+        // `colorBoton` a mano sigue mandando sobre esto.
+        //
+        // El rojo de cancelación NO se cuela por aquí: ese va en el prop
+        // `headerColor` de la plantilla, no en `p.colorCabecera`, que es solo lo
+        // que la propietaria ha elegido a propósito.
+        colorBoton={p.colorBoton ?? p.colorCabecera ?? colorPrimario}
       />
     </EmailLayout>
   );
