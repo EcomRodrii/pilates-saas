@@ -303,7 +303,7 @@ export default function ReservarPage() {
   // Solo los niveles que ESTE estudio ofrece de verdad — nunca mostrar
   // "Avanzado" en el quiz si ninguna de sus clases lo es.
   const nivelesDisponibles = useMemo(
-    () => [...new Set(tiposClase.map(t => t.nivel).filter((n): n is string => !!n && n !== 'TODOS'))],
+    () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
     [tiposClase],
   );
   const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0;
