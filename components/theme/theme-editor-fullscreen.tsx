@@ -68,8 +68,9 @@ import { textoEstado, peorEstado } from '@/lib/theme/autoguardado';
 import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
 import {
   ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
-  pantallaOperativa, type EstadoEditor,
+  cerrarCategoria, pantallaOperativa, type EstadoEditor,
 } from '@/lib/theme/editor-navegacion';
+import { MenuMas, MenuGrupo } from './menu-mas';
 import { ThemePreview } from './theme-preview';
 import { contarCambios } from './theme-library';
 import { pilaADeshacer, pilaARehacer } from '@/lib/theme/editor-historial';
@@ -186,10 +187,15 @@ export function ThemeEditorFullscreen() {
   // treinta y tantos usos, pero ya no hay dos fuentes de verdad que puedan
   // separarse.
   const nodo: Nodo = nodoDeEstado(estado);
-  // ¿Hay algo que inspeccionar? Una categoría del tema o un bloque/banner
-  // seleccionado. Una PANTALLA sin selección no tiene ajustes propios: lo
-  // único que cabía escribir ahí era una frase, y una frase no vale 344 px.
-  const hayInspector = nodo.tipo === 'tema' || nodo.tipo === 'item';
+  // ¿Hay algo que inspeccionar? Un bloque o un banner seleccionado. Una
+  // PANTALLA sin selección no tiene ajustes propios: lo único que cabía
+  // escribir ahí era una frase, y una frase no vale 344 px.
+  //
+  // ⚠️ Las categorías del TEMA ya NO abren este panel: se despliegan en la
+  // propia columna izquierda (ver el acordeón del rail). Antes ocupaban las
+  // dos columnas a la vez —la lista a la izquierda y sus controles a la
+  // derecha— para editar una sola cosa, con el lienzo estrujado en medio.
+  const hayInspector = nodo.tipo === 'item';
   const pantallaActiva = pantallaOperativa(estado);
   const pantallaMirada: VistaId = estado.vista;
   const [expandidos, setExpandidos] = useState<Set<IdPantalla>>(new Set(['home']));
@@ -300,6 +306,17 @@ export function ThemeEditorFullscreen() {
         ? elegirItemContenido(e, n.itemId)
         : elegirBloque(e, n.grupo, n.itemId);
     });
+  }
+
+  /**
+   * Abrir o cerrar una categoría del tema. Es un ACORDEÓN: volver a pulsar la
+   * cabecera abierta la pliega, en vez de dejarla abierta para siempre porque
+   * no hay ningún otro sitio donde clicar para cerrarla.
+   */
+  function alternarCategoria(id: AjustesCategoriaId) {
+    const abierta = nodo.tipo === 'tema' && nodo.categoria === id;
+    setPestana('ajustes');
+    setEstado((e) => (abierta ? cerrarCategoria(e) : elegirCategoria(e, id)));
   }
 
   function alternarExpandido(id: IdPantalla) {
@@ -455,33 +472,6 @@ export function ThemeEditorFullscreen() {
               );
             })}
           </div>
-          <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5">
-            <button type="button" onClick={() => setZoom((z) => Math.max(0.75, z - 0.1))} aria-label="Alejar" className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom <= 0.75}>
-              <ZoomOut size={14} />
-            </button>
-            <span className="text-[11px] font-semibold text-muted-foreground w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
-            <button type="button" onClick={() => setZoom((z) => Math.min(1.25, z + 0.1))} aria-label="Acercar" className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom >= 1.25}>
-              <ZoomIn size={14} />
-            </button>
-          </div>
-          <div className="flex items-center gap-0.5 rounded-lg border border-border p-1 mr-1.5" role="group" aria-label="Qué hace un clic en la vista previa">
-            {([
-              { id: 'editar', etiqueta: 'Editar', Icono: MousePointerClick, ayuda: 'Clicar una sección la selecciona para editarla' },
-              { id: 'navegar', etiqueta: 'Navegar', Icono: Hand, ayuda: 'Clicar funciona como en el portal de la socia' },
-            ] as const).map(({ id, etiqueta, Icono, ayuda }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setModoPreview(id)}
-                aria-pressed={modoPreview === id}
-                title={ayuda}
-                className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[11.5px] font-medium ${modoPreview === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <Icono size={13} />
-                {etiqueta}
-              </button>
-            ))}
-          </div>
           <div className="flex items-center gap-0.5">
             <button
               type="button" onClick={deshacerLoUltimo} disabled={!aDeshacer}
@@ -498,12 +488,59 @@ export function ThemeEditorFullscreen() {
               <Redo2 size={16} />
             </button>
           </div>
-          <button
-            type="button" onClick={() => setConfirmarDescartar(true)}
-            className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            <RotateCcw size={14} /> Descartar cambios
-          </button>
+
+          {/* Lo que se usa una vez por sesión —y lo que destruye— va aquí
+              dentro. En la fila estaban los doce controles al mismo peso, y
+              «Descartar cambios», que tira el trabajo de una sección entera,
+              se leía igual que «Alejar». */}
+          <MenuMas>
+            {(cerrar) => (
+              <>
+                <MenuGrupo titulo="Zoom">
+                  <div className="flex items-center gap-1 px-1.5">
+                    <button type="button" onClick={() => setZoom((z) => Math.max(0.75, z - 0.1))} aria-label="Alejar" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom <= 0.75}>
+                      <ZoomOut size={15} />
+                    </button>
+                    <span className="text-[12px] font-semibold text-foreground w-11 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+                    <button type="button" onClick={() => setZoom((z) => Math.min(1.25, z + 0.1))} aria-label="Acercar" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40" disabled={zoom >= 1.25}>
+                      <ZoomIn size={15} />
+                    </button>
+                  </div>
+                </MenuGrupo>
+
+                <MenuGrupo titulo="Al clicar en la vista previa">
+                  <div className="space-y-0.5" role="group" aria-label="Qué hace un clic en la vista previa">
+                    {([
+                      { id: 'editar', etiqueta: 'Seleccionar para editar', Icono: MousePointerClick },
+                      { id: 'navegar', etiqueta: 'Navegar como una socia', Icono: Hand },
+                    ] as const).map(({ id, etiqueta, Icono }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setModoPreview(id)}
+                        aria-pressed={modoPreview === id}
+                        className={`w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg text-[12.5px] text-left ${modoPreview === id ? 'bg-brand/10 font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                      >
+                        <Icono size={14} className="flex-none" />
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                </MenuGrupo>
+
+                <div className="border-t border-border pt-1.5 mt-0.5 px-1">
+                  <button
+                    type="button"
+                    onClick={() => { cerrar(); setConfirmarDescartar(true); }}
+                    className="w-full flex items-center gap-2 px-1.5 py-2 rounded-lg text-left text-[12.5px] font-semibold text-destructive hover:bg-destructive/10"
+                  >
+                    <RotateCcw size={14} className="flex-none" /> Descartar cambios
+                  </button>
+                </div>
+              </>
+            )}
+          </MenuMas>
+
           {nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' && (
             <button onClick={homeHook.guardar} disabled={homeHook.guardando} className="text-[13px] font-semibold px-3 py-1.5 rounded-lg border border-border disabled:opacity-50">
               {homeHook.guardando ? 'Guardando…' : 'Guardar cambios'}
@@ -529,7 +566,11 @@ export function ThemeEditorFullscreen() {
           Comprobado en el editor de Shopify (2026-08-09, tema Horizon): son
           DOS columnas, rail y lienzo, y el inspector aparece al seleccionar.
           No reserva ancho en reposo. */}
-      <div className={`flex-1 min-h-0 grid ${hayInspector ? 'grid-cols-[272px_minmax(0,1fr)_344px]' : 'grid-cols-[272px_minmax(0,1fr)]'}`}>
+      {/* 316 px y no 272: desde que los ajustes del tema se despliegan DENTRO
+          de esta columna, tiene que caber un control de color entero
+          (etiqueta + hex + muestra). A cambio, editar el tema ya no ocupa las
+          dos columnas laterales, así que el lienzo sale ganando. */}
+      <div className={`flex-1 min-h-0 grid ${hayInspector ? 'grid-cols-[316px_minmax(0,1fr)_344px]' : 'grid-cols-[316px_minmax(0,1fr)]'}`}>
         {/* Rail izquierdo */}
         {/* ⚠️ `bg-card` EXPLÍCITO, no heredado. Los dos paneles laterales
             estaban en transparente (`rgba(0,0,0,0)`, medido en el editor real)
@@ -575,18 +616,43 @@ export function ThemeEditorFullscreen() {
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-4">
+          {/* Los ajustes del tema, en ACORDEÓN dentro de esta misma columna.
+              ────────────────────────────────────────────────────────────
+              Antes eran una lista que abría sus controles en el panel de la
+              derecha: para tocar un color hacían falta las dos columnas
+              laterales a la vez (272 + 344 px) y el lienzo se quedaba con lo
+              que sobraba. Y encima obligaba a mirar a un lado para elegir la
+              categoría y al otro para usarla.
+
+              Desplegándolos aquí, el panel derecho no se monta y el lienzo
+              gana esos 344 px enteros — que es justo lo que se está mirando
+              cuando se ajusta un color. Es también cómo lo hace Shopify. */}
           {pestana === 'ajustes' && (
-            <div className="space-y-0.5">
-              {AJUSTES_CATEGORIAS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => seleccionar({ tipo: 'tema', categoria: c.id })}
-                  className={`w-full text-left px-2.5 py-2 rounded-lg text-[13px] font-medium ${nodo.tipo === 'tema' && nodo.categoria === c.id ? 'bg-brand/10 text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                >
-                  {c.label}
-                </button>
-              ))}
+            <div className="-mx-1">
+              {AJUSTES_CATEGORIAS.map((c) => {
+                const abierta = nodo.tipo === 'tema' && nodo.categoria === c.id;
+                return (
+                  <div key={c.id} className="border-b border-border last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => alternarCategoria(c.id)}
+                      aria-expanded={abierta}
+                      className={`w-full flex items-center justify-between gap-2 text-left px-2.5 py-2.5 text-[13px] font-medium rounded-lg ${abierta ? 'text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+                    >
+                      <span>{c.label}</span>
+                      <ChevronDown
+                        size={14}
+                        className={`flex-none text-muted-foreground transition-transform ${abierta ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {abierta && (
+                      <div className="px-2.5 pb-4 pt-0.5">
+                        <AjustesCategoriaPanel hook={ajustesHook} categoriaId={c.id} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -701,9 +767,7 @@ export function ThemeEditorFullscreen() {
             que inspeccionar — ver el comentario del grid. */}
         {hayInspector && (
           <div className="border-l border-border overflow-y-auto p-4 bg-card">
-            {nodo.tipo === 'tema' ? (
-              <AjustesCategoriaPanel hook={ajustesHook} categoriaId={nodo.categoria} />
-            ) : nodo.grupo === 'contenido-portal' ? (
+            {nodo.grupo === 'contenido-portal' ? (
               <ContenidoPortalPanel hook={contenidoHook} seleccionId={nodo.itemId} />
             ) : (
               <BloquesConfigPanel

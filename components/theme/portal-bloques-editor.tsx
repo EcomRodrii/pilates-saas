@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import {
   GripVertical, Eye, EyeOff, Plus, Trash2,
   Image as ImageIcon, Type, MousePointerClick, HelpCircle,
-  GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown, Copy } from 'lucide-react';
+  GalleryHorizontal, Video, Quote, type LucideIcon, ChevronUp, ChevronDown, Copy,
+  Rows3, Hand, Square, CalendarDays, LayoutGrid, UserPlus, Megaphone,
+  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -51,10 +53,37 @@ import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 // (theme-workspace.tsx) — la selección de fila ya no abre un acordeón
 // inline, abre su `ConfigForm` en el panel derecho.
 
+// ⚠️ Mapa EXPLÍCITO, no `import * as Iconos from 'lucide-react'`: el import
+// estrella se lleva la librería entera al bundle del panel y aquí se usan
+// diecinueve iconos de más de mil.
+//
+// Cubre los nombres que declara REGISTRO_BLOQUES —los del catálogo y los de
+// los módulos de sistema—. Un nombre que falte no rompe nada: `iconoDe` cae a
+// un cuadrado neutro, que es la degradación correcta para un adorno.
 const ICONOS: Record<string, LucideIcon> = {
   Image: ImageIcon, Type, MousePointerClick, HelpCircle,
-  GalleryHorizontal, Video, Quote,
+  GalleryHorizontal, Video, Quote, Rows3,
+  Hand, Square, CalendarDays, LayoutGrid, UserPlus, Megaphone,
+  CalendarRange, Ticket, CalendarCheck, CircleDashed, Trophy,
 };
+
+/**
+ * El icono de un bloque, ya pintado.
+ *
+ * Devuelve el ELEMENTO y no el componente a propósito: un
+ * `const Icono = iconoDe(b)` dentro del cuerpo de un componente es justo lo
+ * que prohíbe `react-hooks/static-components` —con el React Compiler, un tipo
+ * de componente que cambia en cada render desmonta y vuelve a montar el
+ * subárbol—. Aquí el lookup pasa fuera de cualquier render.
+ *
+ * Es DECORATIVO: `aria-hidden` porque el nombre del bloque va justo al lado y
+ * repetirlo en el lector de pantalla solo estorba.
+ */
+function iconoDe(b: BloqueHome) {
+  const def = getDefinicionBloque(b.kind === 'sistema' ? b.sistemaId : b.kind);
+  const Icono = (def && ICONOS[def.icono]) ?? Square;
+  return <Icono size={15} aria-hidden className="flex-none text-muted-foreground" />;
+}
 
 const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
   home: 'El saludo y tu próxima clase se mantienen siempre arriba.',
@@ -143,11 +172,12 @@ function Fila({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
-      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border ${activa ? 'border-brand bg-brand/5' : 'border-border bg-card'}`}
+      className={`flex items-center gap-2 px-2.5 py-2.5 rounded-xl border ${activa ? 'border-brand bg-brand/5' : 'border-border bg-card'}`}
     >
       <button {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground" aria-label={`Reordenar ${labelDe(bloque)}`}>
         <GripVertical size={16} />
       </button>
+      {iconoDe(bloque)}
       {/* ⚠️ `aria-label` explícito con SOLO el nombre. Sin él, el nombre
           accesible del botón pasa a ser «Texto Un bloque de texto libre, con
           título opcional.» —la concatenación de las dos líneas— y cualquier
@@ -564,6 +594,7 @@ export function BloquesSeccionesList({
               onClick={() => onSeleccionar(b.id)}
               className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left ${seleccionId === b.id ? 'border-brand bg-brand/5' : 'border-border'}`}
             >
+              {iconoDe(b)}
               <span className="text-[12.5px] font-medium text-foreground flex-1">{labelDe(b)}</span>
               <span className="text-[10.5px] text-muted-foreground/70">siempre arriba</span>
             </button>

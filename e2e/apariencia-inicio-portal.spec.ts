@@ -264,6 +264,29 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByRole('button', { name: 'Neutra', exact: true })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  // Las categorías del tema son un ACORDEÓN dentro de la propia columna, no
+  // una lista que abre un panel aparte. Lo que prueba este test es lo que
+  // hace falta para que sea un acordeón de verdad y no una lista con adorno:
+  // que la cabecera abierta se pueda volver a pulsar para cerrarla. Sin eso
+  // no habría ninguna forma de plegarla, porque ya no hay otro sitio donde
+  // clicar.
+  test('una categoría del tema se despliega y se vuelve a plegar en la misma columna', async ({ page }) => {
+    await montar(page);
+    const cabecera = page.getByRole('tab', { name: 'Ajustes del tema' });
+    await cabecera.click();
+
+    const esquinas = page.getByRole('button', { name: 'Esquinas', exact: true });
+    await expect(esquinas).toHaveAttribute('aria-expanded', 'false', { timeout: 30_000 });
+
+    await esquinas.click();
+    await expect(esquinas).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: 'Recto', exact: true })).toBeVisible();
+
+    await esquinas.click();
+    await expect(esquinas).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('button', { name: 'Recto', exact: true })).toHaveCount(0);
+  });
+
   test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
     await montar(page);
     await abrirCategoriaTema(page, 'Navegación del portal');
@@ -345,17 +368,23 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
   // lo que el editor hacía antes de existir el interruptor).
   test('el interruptor Editar/Navegar arranca en Editar y cambia al pulsar', async ({ page }) => {
     await montar(page);
+    // Vive dentro del menú «…» desde que la barra se descongestionó: se usa
+    // una vez por sesión, no cada minuto.
+    await page.getByRole('button', { name: 'Más opciones' }).click();
     const grupo = page.getByRole('group', { name: 'Qué hace un clic en la vista previa' });
     await expect(grupo).toBeVisible({ timeout: 30_000 });
 
-    const editar = grupo.getByRole('button', { name: 'Editar' });
-    const navegar = grupo.getByRole('button', { name: 'Navegar' });
+    const editar = grupo.getByRole('button', { name: 'Seleccionar para editar' });
+    const navegar = grupo.getByRole('button', { name: 'Navegar como una socia' });
     await expect(editar).toHaveAttribute('aria-pressed', 'true');
     await expect(navegar).toHaveAttribute('aria-pressed', 'false');
 
     await navegar.click();
     await expect(navegar).toHaveAttribute('aria-pressed', 'true');
     await expect(editar).toHaveAttribute('aria-pressed', 'false');
+    // El menú NO se cierra al elegir: son dos ajustes que se prueban mirando
+    // el lienzo, y reabrirlo en cada clic sería un peaje por nada.
+    await expect(grupo).toBeVisible();
   });
 });
 
