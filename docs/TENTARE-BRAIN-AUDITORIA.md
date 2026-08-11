@@ -713,3 +713,87 @@ el portal. Vive junto a `TZ_ESTUDIO`, que es de donde saca la zona.
   interno) y añadirlo toca su máquina de estados. La tarjeta ya dice día y hora,
   así que la socia sabe qué buscar.
 - **Notificación push proactiva** con la sugerencia. Aquí solo se ve al abrir.
+
+---
+
+# LO ENTREGADO — Fase 5 (2026-08-11)
+
+**El problema no era de inteligencia, era de sitio.** Todo el Decision OS vivía
+en `/centro-de-control`: el Veredicto del Día, las prioridades, el seguimiento.
+Y `/dashboard` —1.300 líneas de métricas, la pantalla que se abre al entrar— no
+lo mencionaba en ningún lado. Dos "inicios" compitiendo, y ganaba el que no sabe
+nada. La regla de UX del encargo ("Tentare debe llevar el problema hasta ella")
+fallaba por esto, no por falta de motor.
+
+## `lib/decision/action-center.ts` (puro, 10 tests)
+
+`resumirAcciones()` agrupa lo que `/api/decisiones` **ya devuelve** — mismo
+endpoint y mismo hook que el Centro de Control, cero lógica nueva de negocio —
+en lo que cabe en cinco líneas arriba del dashboard:
+
+> **2 cosas necesitan tu atención** · 89 €/mes y 236 € en juego
+> 🔥 4 pagos fallidos
+> ⚠️ Laura lleva 21 días sin venir
+> Una oportunidad **+340 €**
+> ⚡ 2 las hago yo con un toque — **Ver y decidir →**
+
+Tres decisiones que importan:
+
+- **Los euros no se suman entre unidades.** 89 €/mes de una cuota y 236 € de unos
+  recibos son cosas distintas; juntarlos en una cifra sería inventar un número.
+  Se cuentan por separado y se enseñan por separado.
+- **El tope de 3 acota lo que se PINTA, no lo que se cuenta.** Los totales y los
+  recuentos salen de la lista entera.
+- **"Lo hago yo con un toque" sale del ejecutor real** (F3, `lib/inngest/decision.ts`):
+  al aprobar, todo tipo de acción dispara algo de verdad EXCEPTO
+  `MARCAR_GESTIONADO`, que es informativo. Es la diferencia entre una bandeja y
+  una lista de deberes — y era información que `accion.tipo` ya tenía y la UI
+  nunca decía.
+
+## Dónde se coloca, y por qué eso no era trivial
+
+`'accion'` entra en `HOME_SECCIONES` **y en `HOME_FIJAS_PRIMERO`**. Lo segundo no
+es cosmética: `aplicarLayout` mete los ids nuevos al FINAL del orden guardado, así
+que sin ser "fija" un estudio con la home ya personalizada se habría encontrado el
+Action Center abajo del todo — justo lo contrario de su razón de ser. Es el mismo
+motivo por el que `onboarding` ya estaba en esa lista.
+
+Se pinta **solo si hay algo pendiente**. Un bloque que dice "todo en orden" cada
+mañana entrena a no mirarlo.
+
+## Rol
+
+Gateado con `puedeVer(rolActual, '/centro-de-control')`, que es solo-PROPIETARIO
+(`BLOQUEADO_RECEPCION` lo incluye). Sin eso, recepción e instructoras verían una
+tarjeta que lleva a una pantalla que su guardia de ruta les vacía — el mismo
+patrón que el dashboard ya aplica a `/automatizaciones`. Hay un e2e por rol.
+
+## ⚠️ Un bug mío, cazado por un e2e ajeno
+
+La primera versión hacía `[...data.prioridades]` a secas. Con un `{}` por
+respuesta —lo que da un plan sin el módulo, un error servido con 200 o un
+despliegue a medias— eso lanza, y **aquí no rompe su propia tarjeta: rompe la
+pantalla principal del negocio**. Lo destapó `dashboard-ocupacion-domingo.spec.ts`,
+que mockea `/api/**` como `{}`. Arreglado con `Array.isArray` y con un test de
+regresión propio.
+
+`severidad.ts` se movió de `components/decision/` a `lib/decision/` (reexportado
+desde la ruta vieja) porque `npm test` solo corre `lib/**/*.test.ts` y la lógica
+nueva la necesita.
+
+## Verificación
+
+- `npm test`: **2164/2164** · `npx tsc --noEmit`: **0 errores**.
+- **Navegador real** (Chromium, `e2e/dashboard-action-center.spec.ts`, 5/5): se ve
+  con su importe y su orden por gravedad; dice cuántas resuelve sola; **no se
+  pinta** sin nada pendiente; **recepción no lo ve**; y una respuesta inesperada
+  de la API no tumba el dashboard.
+- Regresión: 24 tests de editor de inicio, dashboard y centro de control en verde.
+
+## Fuera de Fase 5, a propósito
+
+- **Aprobar desde el dashboard.** La tarjeta lleva al Centro de Control, donde
+  está el contexto completo (motivo, evidencia, conflictos). Un botón de "aprobar"
+  sobre un título de una línea invita a decidir sin leer.
+- **Rediseñar el Centro de Control.** Sigue igual: esto es un puente, no un
+  reemplazo.

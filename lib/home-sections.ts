@@ -16,6 +16,7 @@ export interface HomeSeccion {
 // por defecto (studio_layout.config.home vacío); un estudio que reordene la
 // home a mano sigue viendo lo que él mismo eligió.
 export const HOME_SECCIONES: HomeSeccion[] = [
+  { id: 'accion', label: 'Lo que necesita tu atención' },
   { id: 'onboarding', label: 'Primeros pasos' },
   { id: 'resumen', label: 'Hoy de un vistazo' },
   { id: 'automatizaciones', label: 'Resumen de automatizaciones' },
@@ -35,7 +36,16 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // nadie lo hubiera decidido a propósito. `ordenarSeccionesHome` fuerza estas
 // siempre a la cabeza, ignorando cualquier orden guardado, así que ese tipo
 // de desajuste ya no puede volver a pasar.
-export const HOME_FIJAS_PRIMERO: readonly string[] = ['onboarding'];
+// 'accion' (el Action Center del Decision OS) va con ellas y por delante de
+// todo: su razón de ser es que el problema llegue a la propietaria sin que
+// tenga que ir a buscarlo, y enterrado a mitad de página no lo hace. Además
+// desaparece solo cuando no hay nada pendiente, igual que el checklist.
+//
+// ⚠️ Ser FIJA es además lo único que garantiza que la vean los estudios que ya
+// tienen un `home.orden` guardado: `aplicarLayout` mete los ids nuevos al FINAL
+// del orden guardado, así que sin esto un estudio con la home personalizada se
+// lo encontraría abajo del todo.
+export const HOME_FIJAS_PRIMERO: readonly string[] = ['accion', 'onboarding'];
 
 /** Aplica el orden fijo por encima del orden elegido por el estudio. */
 export function ordenarSeccionesHome(visibles: string[]): string[] {
