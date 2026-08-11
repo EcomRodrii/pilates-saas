@@ -14,6 +14,7 @@ import {
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
+import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -63,6 +64,14 @@ function localDate(d: Date) {
 }
 function fmtTime(iso: string) {
   const d = new Date(iso); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+// Franja horaria del discovery quiz — misma hora local sin timezone fija
+// que ya usa `fmtTime` para mostrar la hora de la sesión al visitante.
+function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
+  const h = new Date(iso).getHours();
+  if (h < 12) return 'manana';
+  if (h < 17) return 'mediodia';
+  return 'tarde';
 }
 function fmtLong(d: Date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -265,6 +274,43 @@ export default function ReservarPage() {
   }, []);
 
   const [filtroTipo, setFiltroTipo] = useState('');
+  // Filtros del discovery quiz (ver components/reserva/discovery-quiz.tsx) —
+  // se aplican en el mismo useMemo de `slots` que ya filtraba por
+  // `filtroTipo`, sin fetch nuevo: son comparaciones directas sobre campos
+  // que sesionesRich ya trae (nivel de tipo, hora/día de `inicio`).
+  const [filtroNivel, setFiltroNivel] = useState('');
+  const [filtroHorario, setFiltroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
+  const [filtroDias, setFiltroDias] = useState<number[]>([]);
+  // `null` hasta que el efecto de sessionStorage decida (evita el flash de
+  // "mostrar banner → ocultarlo" en cada carga si ya se descartó antes).
+  const [bannerQuizVisible, setBannerQuizVisible] = useState<boolean | null>(null);
+  const [quizAbierto, setQuizAbierto] = useState(false);
+  const [quizCompletado, setQuizCompletado] = useState(false);
+  const [quizPaso, setQuizPaso] = useState(0);
+  // Descartar el banner ("No, gracias") lo oculta solo para esta VISITA —
+  // sessionStorage, no localStorage: no hay razón para esconder algo útil
+  // para siempre en visitas futuras.
+  const bannerQuizKey = `tentare-discovery-oculto-${slug}`;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee sessionStorage (no disponible en SSR) tras montar; el segundo render es el objetivo.
+    setBannerQuizVisible(sessionStorage.getItem(bannerQuizKey) !== '1');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function descartarQuizBanner() {
+    sessionStorage.setItem(bannerQuizKey, '1');
+    setBannerQuizVisible(false);
+  }
+  // Solo los niveles que ESTE estudio ofrece de verdad — nunca mostrar
+  // "Avanzado" en el quiz si ninguna de sus clases lo es.
+  const nivelesDisponibles = useMemo(
+    () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
+    [tiposClase],
+  );
+  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0;
+  function reiniciarFiltrosQuiz() {
+    setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
+    setQuizCompletado(false);
+  }
   const tabInicial = searchParams.get('tab');
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
@@ -527,6 +573,9 @@ export default function ReservarPage() {
     return sesionesRich
       .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
+      .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
+      .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
+      .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
       .map(s => {
         const mia = miReservaPorSesion.get(s.id) ?? null;
         return {
@@ -553,7 +602,7 @@ export default function ReservarPage() {
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1037,6 +1086,61 @@ export default function ReservarPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: cq(24, 4, 56), alignItems: 'flex-start', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <div style={{ flex: '1 1 480px', minWidth: 0 }}>
 
+              {/* Discovery quiz — ver components/reserva/discovery-quiz.tsx. Un
+                  filtro más sobre los mismos slots ya cargados (nivel/tipo/
+                  horario/día), no un motor de recomendación nuevo. */}
+              {quizAbierto ? (
+                <div style={{ marginBottom: 20 }}>
+                  <DiscoveryQuiz
+                    tiposClase={tiposClase}
+                    nivelesDisponibles={nivelesDisponibles}
+                    nivelLabel={NIVEL_LABEL}
+                    paso={quizPaso}
+                    setPaso={setQuizPaso}
+                    filtroNivel={filtroNivel}
+                    setFiltroNivel={setFiltroNivel}
+                    filtroTipo={filtroTipo}
+                    setFiltroTipo={setFiltroTipo}
+                    filtroHorario={filtroHorario}
+                    setFiltroHorario={setFiltroHorario}
+                    filtroDias={filtroDias}
+                    setFiltroDias={setFiltroDias}
+                    onCompletar={() => { setQuizAbierto(false); setQuizCompletado(true); }}
+                    onCerrar={() => setQuizAbierto(false)}
+                  />
+                </div>
+              ) : quizCompletado || hayFiltrosQuizActivos ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, fontSize: 12, color: 'var(--portal-muted-2)' }}>
+                  Filtrado según tus preferencias
+                  <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); }}
+                    style={{ color: PRIMARY_FG, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0 }}>
+                    Cambiar
+                  </button>
+                  <button type="button" onClick={reiniciarFiltrosQuiz}
+                    style={{ color: 'var(--portal-muted-2)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                    Ver todas
+                  </button>
+                </div>
+              ) : bannerQuizVisible ? (
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between',
+                  borderRadius: R.chipCard, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)',
+                  padding: '14px 18px', marginBottom: 18,
+                }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); }}
+                      style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      Sí, ayúdame
+                    </button>
+                    <button type="button" onClick={descartarQuizBanner}
+                      style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: 'transparent', color: 'var(--portal-muted-2)', border: '1px solid var(--portal-line)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      No, gracias
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
               {/* Filtros por tipo de clase (se aplican a los slots del calendario) */}
               <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
                 {['', ...tiposClase.map(t => t.id)].map(id => {
@@ -1073,7 +1177,9 @@ export default function ReservarPage() {
                   onCancelar={cancelarReserva}
                   cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
                   ventanaPorTipo={ventanaPorTipo}
-                  vacio={{ titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
+                  vacio={hayFiltrosQuizActivos
+                    ? { titulo: 'No encontramos clases con estos filtros', cuerpo: 'Prueba a ampliarlos, o usa "Ver todas" arriba.' }
+                    : { titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
                 />
               </div>
             </div>
