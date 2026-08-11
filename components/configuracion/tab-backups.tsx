@@ -35,7 +35,7 @@ async function authHeader(): Promise<Record<string, string>> {
 }
 
 export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
-  const { backups } = useStudio();
+  const { backups, resetDatosPilates } = useStudio();
   const rol = useRol();
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +65,10 @@ export function TabBackups({ showToast }: { showToast: (m: string) => void }) {
         return;
       }
       showToast('Copia de seguridad creada');
-      window.location.reload();
+      // Recarga en sitio, no window.location.reload(): un reload completo
+      // tira el estado local de la propia página de Configuración y devolvía
+      // a la propietaria a "Planes y tarifas" aunque estuviera aquí.
+      resetDatosPilates();
     } catch {
       setError('Error de conexión');
     } finally {
