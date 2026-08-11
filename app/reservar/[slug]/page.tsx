@@ -321,7 +321,7 @@ export default function ReservarPage() {
   // Lista / Semana / Día, como en el diseño. Las tres pintan LOS MISMOS slots
   // ya cargados y filtrados: no hay una carga por vista, solo una forma
   // distinta de leer lo mismo.
-  const [vistaClases, setVistaClases] = useState<'lista' | 'semana' | 'dia'>('semana');
+  const [vistaClases, setVistaClases] = useState<'lista' | 'semana' | 'dia'>('dia');
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
@@ -1225,10 +1225,12 @@ export default function ReservarPage() {
                   visual de esta pantalla (ver reserva-calendario.tsx). La reserva
                   se enruta por handleReservarCalendario, que respeta el
                   step-machine de acceso. */}
-              {/* Lista · Semana · Día. La rejilla es la vista por defecto porque
-                  responde de un vistazo a «¿qué tenéis los martes por la
-                  tarde?», que es como se elige una clase; la tira de días
-                  obligaba a ir pinchando día por día para averiguarlo. */}
+              {/* Lista · Semana · Día.
+                  ⚠️ El día sigue siendo la vista de llegada. Poner Semana por
+                  defecto cambiaba el camino de entrada de TODA visitante —y lo
+                  cazó CI, con los tests de reserva entrando por las pestañas de
+                  día—. Cambiar por dónde se reserva es una decisión de producto
+                  aparte, no un efecto colateral de añadir una vista. */}
               <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
                 {([['lista', 'Lista'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
                   <button
@@ -1253,9 +1255,14 @@ export default function ReservarPage() {
                   <RejillaSemana
                     slots={slots}
                     permiteListaEspera={studio?.permiteListaEspera}
-                    // Abre la MISMA hoja de reserva que el calendario: la
-                    // rejilla decide qué se ve, no cómo se reserva.
-                    onElegir={(slot) => handleReservarCalendario(slot, null)}
+                    // ⚠️ `openBooking`, NUNCA `handleReservarCalendario`. Esa
+                    // función, para una socia ya identificada y sin gate,
+                    // llama a `addReserva` DIRECTAMENTE: un clic en la rejilla
+                    // reservaba al instante, sin confirmar y con `spotId: null`
+                    // —o sea, sin elegir reformer—. Un clic accidental te
+                    // apuntaba a una clase. La rejilla decide qué se ve; quien
+                    // decide si se reserva es la hoja.
+                    onElegir={(slot) => openBooking(slot.id)}
                     fontFamily={sans}
                   />
                 ) : (
