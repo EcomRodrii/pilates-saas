@@ -50,7 +50,6 @@ import {
   procesarRevisionesSaludEstudio,
 } from '@/lib/inngest/revisiones-salud';
 import { expirarReservasPendientesDispatcher } from '@/lib/inngest/reservas-pendientes';
-import { listaEsperaOfertasExpirarDispatcher } from '@/lib/inngest/lista-espera-ofertas';
 import { minimoAsistentesDispatcher } from '@/lib/inngest/minimo-asistentes';
 import { checkinAutomaticoDispatcher } from '@/lib/inngest/checkin-automatico';
 import { penalizacionesDispatcher } from '@/lib/inngest/penalizaciones';
@@ -97,7 +96,6 @@ export const { GET, POST, PUT } = serve({
     revisionesSaludDispatcher,
     procesarRevisionesSaludEstudio,
     expirarReservasPendientesDispatcher,
-    listaEsperaOfertasExpirarDispatcher,
     minimoAsistentesDispatcher,
     checkinAutomaticoDispatcher,
     penalizacionesDispatcher,

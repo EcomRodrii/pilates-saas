@@ -39,10 +39,24 @@ test('conciliar-cobros sigue cada 5 min mientras sea el camino principal del din
   );
 });
 
-test('lista-espera-ofertas sigue cada 5 min: su desfase compite con la ventana de aceptación', () => {
-  assert.equal(
-    cronDe(leer('lib/inngest/lista-espera-ofertas.ts'), 'lista-espera-ofertas-expirar'), '*/5 * * * *',
-    'la tolerancia razonada es "5 sobre una ventana de 15"; a */10 sería dos tercios de la ventana, y el retraso se ENCADENA por cada persona de la cola que no acepta',
+// Piloto de arquitectura (2026-08-11): lista-espera-ofertas-expirar salió de
+// Inngest a pg_cron + pg_net (ver la migración y app/api/cron/lista-espera-
+// ofertas-expirar/route.ts) — es un barrido periódico sin estado por ítem,
+// bucket A de la auditoría de crons. La cadencia real (la tolerancia "5 sobre
+// una ventana de 15") NO cambió, solo el motor que la dispara.
+test('lista-espera-ofertas-expirar: cadencia de 5 min preservada en el piloto pg_cron', () => {
+  const migracion = leer('supabase/migrations/20260811133000_pg_cron_lista_espera_piloto.sql');
+  assert.match(
+    migracion, /\*\/5 \* \* \* \*/,
+    'la tolerancia razonada sigue siendo "5 sobre una ventana de 15"; el barrido cambió de motor, no de cadencia',
+  );
+});
+
+test('lista-espera-ofertas-expirar: no debe quedar registrada dos veces (Inngest + pg_cron)', () => {
+  assert.ok(
+    !leer('app/api/inngest/route.ts').includes('lista-espera-ofertas') &&
+    !leer('app/api/inngest/route.ts').includes('listaEspera'),
+    'si vuelve a Inngest sin quitar el piloto de pg_cron, el barrido corre por duplicado',
   );
 });
 

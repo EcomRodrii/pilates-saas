@@ -26,13 +26,16 @@ import { join } from 'node:path';
 const RAIZ = join(import.meta.dirname, '../..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
 
-// Los cinco crons cuya lectura es global de verdad (sin `.eq('studio_id', …)`).
+// Los cinco barridos cuya lectura es global de verdad (sin `.eq('studio_id', …)`).
 // `recordatorios.ts` y `confirmacion-riesgo.ts` NO están aquí a propósito: hacen
 // fan-out por estudio y sus lecturas van acotadas a un `studioId`, así que su
 // techo es el de un solo estudio, no el de la plataforma.
+// `lib/lista-espera/expirar-ofertas.ts`: salió de Inngest a pg_cron (piloto de
+// arquitectura, 2026-08-11) — el riesgo de truncado silencioso es el mismo,
+// solo cambió quién lo dispara.
 const CRONS_GLOBALES = [
   'lib/inngest/notif-automations.ts',
-  'lib/inngest/lista-espera-ofertas.ts',
+  'lib/lista-espera/expirar-ofertas.ts',
   'lib/inngest/reservas-pendientes.ts',
   'lib/inngest/minimo-asistentes.ts',
   'lib/inngest/checkin-automatico.ts',

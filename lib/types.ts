@@ -671,7 +671,7 @@ export interface Reserva {
   posicionEspera: number | null;
   // Fase 2b (migr 20260731130000): si no es null y estado='LISTA_ESPERA', hay
   // una oferta de plaza viva hasta esta hora — debe aceptarla o pierde el
-  // sitio (cron lib/inngest/lista-espera-ofertas.ts).
+  // sitio (cron lib/lista-espera/expirar-ofertas.ts).
   ofertaExpiraEn: string | null;
   checkInEn: string | null;
   creadoEn: string;
