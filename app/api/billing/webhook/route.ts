@@ -52,23 +52,41 @@ export async function POST(req: NextRequest) {
       } else if (s.mode === 'payment') {
         // Un checkout en modo `payment` NO es una suscripción al SaaS: es una
         // compra de una socia (un bono, un recibo), y su sitio es
-        // /api/stripe/webhook. Que llegue aquí significa que el reparto de
-        // destinos de eventos en Stripe está mal y hay dinero cobrado que quizá
-        // nadie está entregando.
+        // /api/stripe/webhook. Aquí no se entrega —hacerlo sería duplicar la
+        // lógica del otro webhook— pero tampoco se calla.
         //
         // Antes esto caía en el `if` sin `else` y se respondía 200 en silencio:
         // así se perdió el cobro de 1 € del 8-ago-2026, y solo se descubrió
-        // porque la socia dijo que no le había llegado el bono. Ignorarlo sigue
-        // siendo lo correcto —entregarlo desde aquí sería duplicar la lógica del
-        // otro webhook—, pero callárselo no.
+        // porque la socia dijo que no le había llegado el bono.
+        //
+        // `warning`, no `error` (2026-08-11). Cuando se escribió esto, que un
+        // evento llegara aquí SÍ significaba dinero sin entregar: el destino de
+        // Connect no lo procesaba. Desde que ese camino funciona, Stripe entrega
+        // el mismo evento a los dos destinos, cada uno con su propia reclamación
+        // (el prefijo de ámbito de `webhook-idempotencia.ts`), y el de Connect lo
+        // entrega en milisegundos — comprobado en producción: evento recibido a
+        // las 01:09:35.743 y bono entregado a las 01:09:35.793.
+        //
+        // O sea que esto ya no marca una pérdida, marca una suscripción de más en
+        // el panel de Stripe. Sigue mereciendo un registro —el día que alguien
+        // toque los destinos, aquí se ve— pero a nivel `error` sonaba en CADA
+        // compra de socia, y una alarma que suena siempre es exactamente como se
+        // acaban ignorando las que importan.
+        //
+        // ⚠️ Si esto vuelve a subir a `error`, que sea porque se ha comprobado
+        // que el destino de Connect NO está entregando — no por precaución
+        // genérica.
         Sentry.captureMessage('[billing webhook] checkout de PAGO en el webhook del SaaS', {
-          level: 'error',
+          level: 'warning',
           tags: { area: 'cobros', tipo: 'destino-equivocado' },
           extra: {
             sessionId: s.id,
             eventAccount: event.account ?? null,
             metadata: s.metadata ?? null,
-            pista: 'Suscribe este checkout a /api/stripe/webhook: es una compra de socia, no del SaaS.',
+            pista: 'Ruido esperado mientras este destino siga suscrito a checkout.session.completed: '
+              + 'lo entrega /api/stripe/webhook. Para silenciarlo del todo, quita ese tipo de evento '
+              + 'de la suscripción del destino del SaaS en Stripe. Si además el bono NO llega, entonces '
+              + 'el problema no es este aviso: mira el destino de Connect.',
           },
         });
       }
