@@ -352,6 +352,13 @@ nextjs-portal { display: none !important; }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* Burbuja flotante de WhatsApp (components/layout/whatsapp-fab.tsx) — el
+   anillo pulsante que llama la atención sobre la burbuja mientras la tarjeta
+   está cerrada. Lento (2.8s) y con hueco entre pulsos para que no resulte
+   ansioso ni compita con el resto del panel. */
+@keyframes wa-fab-ring { 0% { transform: scale(1); opacity: .55; } 70%, 100% { transform: scale(1.9); opacity: 0; } }
+.animate-wa-fab-ring { animation: wa-fab-ring 2.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
+
 /* ── Motion de marca ───────────────────────────────────────────────────────
    Tres de las diez del kit (docs/marca/animaciones/tentare-motion.css); las
    otras siete siguen ahí sin enganchar. Se activan con la prop `animacion` de

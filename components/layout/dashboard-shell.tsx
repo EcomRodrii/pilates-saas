@@ -12,6 +12,7 @@ import { PanelThemeProvider } from '@/lib/panel-theme';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { TourProvider } from '@/lib/tour-context';
 import { Spotlight } from '@/components/tour/spotlight';
+import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaBienvenida } from '@/components/onboarding/pantalla-bienvenida';
 import { estadoBilling } from '@/lib/api-client';
@@ -184,6 +185,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               {cargandoDatos ? <PanelSkeleton /> : children}
             </div>
           </main>
+          <WhatsAppFab />
         </TourProvider>
       </PanelThemeProvider>
     </PanelPrivacyProvider>
