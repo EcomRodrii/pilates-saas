@@ -55,6 +55,19 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
   const { data: studio } = await admin.from('studios').select('nombre, email').eq('id', studioId).maybeSingle();
   if (!studio?.email) return { skipped: 'sin email de contacto' };
 
+  // Compare-and-set: reclama la fila ANTES de enviar, no después. A
+  // diferencia del resto del Notification Engine, este email no pasa por
+  // `publish()` (va directo a Resend), así que no tenía ningún `dedup_key` —
+  // dos invocaciones la misma semana mandarían el email dos veces de
+  // verdad. Si el INSERT choca (23505), ya se envió: no reenviar.
+  const { error: dedupError } = await admin
+    .from('resumen_semanal_envios')
+    .insert({ studio_id: studioId, semana_lunes: lunes });
+  if (dedupError) {
+    if (dedupError.code === '23505') return { skipped: 'ya enviado esta semana' };
+    throw new Error(dedupError.message);
+  }
+
   // Prueba comparativa: solo se añade al email cuando hay algo genuinamente
   // bueno que contar — mismo criterio de honestidad que el resto del Umbral.
   const previa = semanaPrevia(lunes);
