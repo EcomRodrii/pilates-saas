@@ -4232,6 +4232,14 @@ export interface SustitucionSnapshotRow {
   creadoEn: string;
 }
 
+/** Ver BloqueoAgendaSnapshot en lib/decision/tipos.ts (mismo shape). */
+export interface BloqueoAgendaSnapshotRow {
+  instructorId: string;
+  fecha: string;
+  horaInicio: string | null;
+  horaFin: string | null;
+}
+
 export async function fetchSustitucionesRecientes(studioId: string, desdeISO: string): Promise<SustitucionSnapshotRow[]> {
   const db = getSupabaseAdmin() ?? supabase;
   const { data, error } = await db
@@ -4243,6 +4251,30 @@ export async function fetchSustitucionesRecientes(studioId: string, desdeISO: st
   return (data ?? []).map(r => ({
     id: r.id, studioId: r.studio_id, sesionId: r.sesion_id,
     instructorOriginalId: r.instructor_original_id, estado: r.estado, creadoEn: r.creado_en,
+  }));
+}
+
+// Bloqueos de agenda futuros de las instructoras (Decision OS · Agenda A5).
+// Server-only con service-role, igual que el resto del snapshot: la RLS de
+// gestión solo deja a cada instructora ver lo suyo, y aquí hace falta el
+// estudio entero para saber qué clases programadas se quedan sin quien las dé.
+//
+// Solo tipo='bloqueo': las excepciones 'extra' son lo contrario (disponibilidad
+// añadida) y no ponen ninguna clase en riesgo. Devuelve filas crudas, no un Map
+// — ver BloqueoAgendaSnapshot en lib/decision/tipos.ts.
+export async function fetchBloqueosAgendaFuturos(studioId: string, desdeDia: string, hastaDia: string): Promise<BloqueoAgendaSnapshotRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructora_disponibilidad_excepciones')
+    .select('instructor_id, fecha, hora_inicio, hora_fin')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'bloqueo')
+    .gte('fecha', desdeDia)
+    .lte('fecha', hastaDia) as { data: { instructor_id: string; fecha: string; hora_inicio: string | null; hora_fin: string | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchBloqueosAgendaFuturos]', error); return []; }
+  return (data ?? []).map(r => ({
+    instructorId: r.instructor_id, fecha: r.fecha,
+    horaInicio: r.hora_inicio, horaFin: r.hora_fin,
   }));
 }
 

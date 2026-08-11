@@ -27,6 +27,11 @@ export type TipoRecomendacion =
   | 'MOVER_HORARIO'
   | 'FUSIONAR_SESIONES'
   | 'PREPARAR_CAMPANA'
+  // Agenda prospectiva (Fase 2 del Brain): a diferencia de FUSIONAR_SESIONES /
+  // MOVER_HORARIO, que hablan de lo que YA pasó en una franja, estos dos
+  // apuntan a UNA sesión futura concreta y todavía se puede actuar sobre ella.
+  | 'LLENAR_PLAZAS'
+  | 'CUBRIR_CLASE_EN_RIESGO'
   // Captación / Conversión (embudo de leads)
   | 'CONTACTAR_LEAD'
   | 'CONVERTIR_PRUEBA'
@@ -297,6 +302,23 @@ export interface IntentoFallidoSnapshot {
   creadoEn: string;
 }
 
+// Bloqueo de agenda de una instructora en una fecha concreta — fila cruda de
+// `instructora_disponibilidad_excepciones` con tipo='bloqueo'.
+//
+// Esta tabla es la ÚNICA fuente para "no puede ese día": las vacaciones y las
+// bajas médicas de `instructora_ausencias` se materializan aquí como bloqueos
+// diarios (migr 0101), así que mirando solo esto se cubren los dos casos sin
+// cruzar dos tablas.
+//
+// Array, NO Map: SnapshotEstudio cruza la frontera de un step.run de Inngest,
+// que serializa a JSON entre steps — mismo motivo que InstructorTarifaSnapshot.
+export interface BloqueoAgendaSnapshot {
+  instructorId: string;
+  fecha: string;               // YYYY-MM-DD, en el día local del estudio
+  horaInicio: string | null;   // 'HH:MM:SS'; null = el día entero
+  horaFin: string | null;
+}
+
 // Contexto de "tamaño" del estudio — pensado para que los especialistas
 // puedan calibrar umbrales según estudio pequeño/grande/cadena en vez de un
 // umbral único para todos (feedback P2-5, cadena de 2 sedes/850 clientas
@@ -327,5 +349,9 @@ export interface SnapshotEstudio {
   // Ver InstructorTarifaSnapshot arriba (por qué array, no Map, aquí).
   instructorTarifas: InstructorTarifaSnapshot[];
   intentosFallidos: IntentoFallidoSnapshot[]; // 90d, ver IntentoFallidoSnapshot arriba
+  // Bloqueos de agenda FUTUROS (misma ventana que las sesiones: +90d). Solo
+  // hacia delante: un bloqueo de la semana pasada ya no puede poner en riesgo
+  // ninguna clase que se pueda salvar.
+  bloqueosAgenda: BloqueoAgendaSnapshot[];
   contexto: ContextoEstudio;
 }

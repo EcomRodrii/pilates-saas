@@ -4,9 +4,8 @@ Fecha: 2026-08-11 · Rama: `claude/tentare-brain-architecture-bf7180`
 Alcance: las 5 áreas del encargo (calendario/reservas, instructoras/sustituciones,
 pagos/membresías, retención/marketing, app de la alumna) + la capa central.
 
-> **Estado: Fases 0 y 1 ENTREGADAS** (2026-08-11). Ver §"Lo entregado" al final.
-> Fase 0.2 (ampliar el snapshot) se difirió a Fase 2 por no tener consumidor
-> todavía. Fases 2–5 siguen pendientes tal como se describen aquí.
+> **Estado: Fases 0, 1 y 2 ENTREGADAS** (2026-08-11). Ver §"Lo entregado" al final.
+> Fases 3–5 siguen pendientes tal como se describen aquí.
 
 ---
 
@@ -516,3 +515,116 @@ comportamiento buscado, y ya es mejor que el 99 % inventado de antes.
 
 ⚠️ Sin verificar: la card con datos de producción reales, porque hoy no hay ninguna
 baja activa y crear una manda emails de verdad a las instructoras.
+
+---
+
+# LO ENTREGADO — Fase 2 (2026-08-11)
+
+**El motor deja de ser solo forense.** Hasta aquí, las 3 reglas de Agenda (A1/A2/A3)
+hablaban de franjas que YA fueron mal: cuando el motor lo detectaba, la clase de la
+que aprendió ya se había dado medio vacía. Fase 2 añade las dos primeras reglas que
+hablan de clases que **todavía no han pasado**.
+
+## A4 · Pronóstico de llenado por sesión futura
+
+La idea: una reserva no aparece de golpe el día de la clase, llega siguiendo una
+curva bastante estable por franja. Si el martes 20:00 suele llevar 6 reservas a
+3 días vista y este martes lleva 1, no hace falta esperar al martes.
+
+`pronosticarFranja()` (`senales.ts`) compara la sesión futura contra las ocurrencias
+pasadas de su franja **en el mismo punto de la curva** (mismos días vista), y estima
+cuántas reservas suelen entrar en los días que quedan. Mediana, no media: un puente
+o una promoción puntual no debe arrastrar la referencia de toda la franja.
+
+Sale exactamente el ejemplo del encargo:
+
+> ⚠️ Tu clase del martes a las 20:00 va floja de reservas.
+> Lleva 1 de 8 plazas a 3 días vista, cuando a estas alturas suele llevar 6. Al
+> ritmo normal acabaría sobre 3, así que se quedarían 5 plazas sin vender.
+> Probabilidad de que se llene: baja (esta franja se llenó 1 de las últimas 8 veces).
+> Tengo 9 alumnas compatibles a las que ofrecérsela — la primera, Marta, suele venir
+> los martes a esta hora (7 de sus últimas 9 clases).
+
+Tope de 3 clases por pasada: sin él, un estudio con 40 clases semanales generaría
+decenas de candidatas del mismo tipo y ahogaría todo lo demás en el Centro de Control.
+
+⚠️ **Dato real que condicionó el diseño**: en producción hay reservas creadas
+*después* del inicio de su clase (altas de mostrador apuntadas a posteriori — 9 de
+159 filas). No se descartan: cuentan como llegada tardía, que es lo que fueron. Solo
+hacen el pronóstico algo más optimista, nunca disparan una alarma de más.
+
+## A5 · Clase futura sin quien la dé
+
+**El hueco que cierra**: cuando una instructora graba vacaciones o una baja, sus
+clases YA PROGRAMADAS siguen asignadas a ella y nadie se entera. Verificado con
+grep: los 6 sitios que hoy miran ausencias (`ausenciaEnFecha`) lo hacen todos al
+ASIGNAR — desplegables, filtros, diálogo de cobertura. Ninguno revisa el horario ya
+programado contra un bloqueo grabado después.
+
+⚠️ **No reabre la decisión de producto de #558** ("confirmar una ausencia no dispara
+ninguna sustitución automática sobre sus clases ya programadas"). No dispara nada:
+se lo cuenta a la propietaria para que decida ella, que es justo lo que faltaba.
+
+Cubre también el doble reparto (la misma instructora en dos clases que se pisan).
+Único caso de todo el motor con confianza ALTA por un hecho *comprobable* y no
+estadístico: o hay choque en el calendario, o no lo hay.
+
+⚠️ **Descartado a propósito**: usar "no ha declarado disponibilidad para esa franja"
+como señal. En un estudio donde el equipo no ha rellenado la rejilla —que son la
+mayoría al empezar— marcaría en riesgo TODAS las clases del horario. Ese hueco ya lo
+cuenta `avisoEquipoIncompleto` una sola vez, que es donde corresponde.
+
+## Afinidad: de "27 compatibles" a "9 que tienen sentido"
+
+`candidatasParaHueco` (booking-logic) responde a *¿quién podría venir?* y es binaria:
+asistió antes + tiene bono. `candidatasPorAfinidad` (nuevo, `senales.ts`) responde a
+*¿a quién merece la pena avisar?* — lo que más pesa es la **costumbre horaria**,
+porque es lo único que de verdad predice que a alguien le venga bien un martes a las
+20:00. Sin eso, avisar a 27 personas es spam.
+
+## El bucle se cierra: A4 es medible
+
+`LLENAR_PLAZAS` es la **primera recomendación del motor cuyo desenlace no depende de
+una persona sino de una clase**, y la primera cuyo pronóstico se puede contrastar con
+lo que acabó pasando: ¿se llenó? Se añadieron dos señales de sesión a `SenalMedicion`
+y su rama en `construirSenalMedicion`, con ventana de 16 días (A4 nunca pasa de 14
+días vista, así que la medición cae siempre por detrás de la clase).
+
+⚠️ Mide QUÉ pasó, no que la recomendación fuera la causa — y el impacto en € queda
+**NO_MEDIBLE** a propósito: multiplicar plazas por un precio medio sería una
+proyección, justo lo que el Pilar 3 pide evitar.
+
+## Snapshot: la Fase 0.2 diferida, ahora con consumidor
+
+`bloqueosAgenda` (ventana futura +90d, array JSON-safe). Una sola tabla:
+`instructora_disponibilidad_excepciones` con `tipo='bloqueo'`, porque las vacaciones
+y bajas de `instructora_ausencias` **ya se materializan ahí** como bloqueos diarios
+(migr 0101) — mirando solo eso se cubren los dos casos sin cruzar dos tablas.
+
+## Conflictos
+
+`LLENAR_PLAZAS` choca con `FUSIONAR_SESIONES`/`MOVER_HORARIO` y se anota como tal:
+"rescata la clase del martes que viene" vs "la franja del martes lleva semanas medio
+vacía, quítala". Las dos pueden ser ciertas, pero la propietaria tiene que verlas
+juntas para decidir si merece la pena llenar una franja que va a quitar.
+
+## Verificación
+
+- `npm test`: **2138/2138** en verde (24 tests nuevos entre A4, A5, afinidad y
+  medición de outcome).
+- Test de regresión del bug de UTC dentro de A5: una clase de las 00:30 del martes
+  (= lunes 22:30 UTC) y un bloqueo grabado el martes — con la fecha en UTC se habría
+  buscado el lunes y el aviso no habría salido.
+- Sin migración: toda la señal ya existía en tablas previas.
+- Sin cron nuevo: A4 y A5 corren dentro del análisis que ya hace fan-out.
+
+## Fuera de Fase 2, a propósito
+
+- **Envío masivo a las candidatas compatibles.** A4 dice a cuántas y a quiénes, y el
+  panel ya deja contactar de una en una. Avisar de golpe a 20 socias es una acción
+  con cara visible hacia fuera y no se activa sin pedirlo expresamente: por eso la
+  acción es `MARCAR_GESTIONADO` y `confianzaLlenarPlazas` **nunca llega a ALTA**
+  (techo MEDIA), que es el nivel que el piloto automático exige para ejecutar solo.
+- **UI dedicada.** Ambas reglas salen por el camino que ya existe
+  (`RecommendationCard`, Veredicto del Día). No se verificaron en navegador
+  autenticado — misma limitación de credenciales de siempre.

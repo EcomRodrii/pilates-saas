@@ -380,3 +380,49 @@ export function resolverNivelAutonomiaPorTipo(tipo: TipoRecomendacion, confianza
   const declarada = AUTONOMIA_DECLARADA_POR_TIPO[tipo] ?? 1;
   return resolverNivelAutonomia(declarada, confianza);
 }
+
+/**
+ * LLENAR_PLAZAS (Agenda A4) — pronóstico de que una clase FUTURA se quede a
+ * medias. A diferencia del resto, la evidencia no es histórica sino
+ * prospectiva, así que el techo es MEDIA: por muy clara que sea la curva de
+ * reserva, esto sigue siendo una predicción y la propietaria decide.
+ *
+ * ALTA: nunca (a propósito — no se auto-ejecuta un aviso masivo a socias).
+ * MEDIA: a+b (va por detrás de su costumbre Y hay a quién avisar).
+ * BAJA: solo a.
+ */
+export function confianzaLlenarPlazas(c: {
+  porDetrasDeLoHabitual: boolean;   // lleva menos reservas de las que suele a estos días vista
+  hayCandidatasCompatibles: boolean; // existe gente real a la que ofrecérselo
+  curvaFiable: boolean;              // suficientes ocurrencias pasadas de la franja
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.porDetrasDeLoHabitual, etiqueta: 'va por detrás de lo que esta franja suele llevar a estos días vista' },
+    { valor: c.hayCandidatasCompatibles, etiqueta: 'hay socias compatibles con plan en vigor a las que ofrecer la plaza' },
+    { valor: c.curvaFiable, etiqueta: 'la franja tiene bastantes ocurrencias pasadas con las que comparar' },
+  ];
+  const { porDetrasDeLoHabitual: a, hayCandidatasCompatibles: b, curvaFiable: cc } = c;
+  return evaluarNivel(criterios, false, a && b && cc, a);
+}
+
+/**
+ * CUBRIR_CLASE_EN_RIESGO (Agenda A5) — una clase futura cuya instructora no va
+ * a poder darla: tiene una ausencia grabada que la pisa, o está asignada a dos
+ * clases solapadas a la vez.
+ *
+ * Único caso de todo el motor donde el hecho NO es estadístico sino
+ * comprobable: o hay un choque en el calendario, o no lo hay. Por eso solo
+ * tiene un nivel, ALTA, y no hay rama de "indicio".
+ *
+ * ⚠️ Deliberadamente NO se usa "no ha declarado disponibilidad para esa franja"
+ * como señal: en un estudio donde el equipo no ha rellenado la rejilla de
+ * disponibilidad —que son la mayoría al empezar— eso marcaría en riesgo TODAS
+ * las clases del horario. Ese hueco ya lo cuenta `avisoEquipoIncompleto`
+ * (lib/sustituciones/preparacion.ts) una sola vez, que es donde corresponde.
+ */
+export function confianzaCubrirClaseEnRiesgo(c: { choqueConfirmado: boolean }): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.choqueConfirmado, etiqueta: 'la instructora tiene una ausencia grabada o otra clase a esa misma hora' },
+  ];
+  return evaluarNivel(criterios, c.choqueConfirmado, false, false);
+}

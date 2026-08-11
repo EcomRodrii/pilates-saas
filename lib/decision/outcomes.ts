@@ -20,6 +20,12 @@ export function ventanaDiasDe(tipo: TipoRecomendacion): number {
     case 'MOVER_HORARIO':
     case 'FUSIONAR_SESIONES':
       return 21;
+    // LLENAR_PLAZAS solo se puede medir cuando la clase YA se ha dado. A4 nunca
+    // apunta a más de 14 días vista (A4_DIAS_MAX), así que 16 deja siempre un
+    // par de días de margen por detrás de la clase, incluso si la propietaria
+    // aprueba la recomendación el mismo día en que se generó.
+    case 'LLENAR_PLAZAS':
+      return 16;
     default:
       return 14; // contacto / reactivación / congelación / marketing
   }
@@ -29,6 +35,14 @@ export interface SenalMedicion {
   reservaAsistidaPosterior: boolean;
   suscripcionCancelada: boolean;
   suscripcionRenovada: boolean;
+  // ── Señales de SESIÓN (LLENAR_PLAZAS) ────────────────────────────────────
+  // Todo lo demás en esta interfaz es de SOCIA. A4 es la primera recomendación
+  // del motor cuyo desenlace no depende de una persona sino de una clase, y la
+  // primera cuyo pronóstico se puede contrastar con lo que acabó pasando.
+  // `null` = la sesión ya no existe, no tiene aforo, o todavía no se ha dado.
+  plazasLibresFinales: number | null;
+  /** Plazas que se vendieron DESPUÉS de que la propietaria gestionara el aviso. */
+  plazasVendidasTrasLaAccion: number;
   recibosCobrados: number;
   recibosTotal: number;
   // € realmente cobrados en los recibos que la propia recomendación señaló
@@ -136,6 +150,21 @@ function medirOutcomeCualitativo(
     case 'PROPONER_RENOVACION_BONO':
       if (senal.suscripcionRenovada) return { outcome: 'POSITIVO', senalObservada: 'RENOVO' };
       if (senal.reservaAsistidaPosterior) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
+      return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
+
+    // LLENAR_PLAZAS: el desenlace es la clase, no una socia. Se llenó del todo
+    // → POSITIVO; entró gente pero sobraron plazas → NEUTRO; no entró nadie →
+    // NEGATIVO. Si la sesión ya no existe (se canceló, se borró) no hay nada
+    // que juzgar y se queda NEUTRO sin señal.
+    //
+    // ⚠️ Esto mide QUE PASÓ, no que la recomendación fuera la causa: si la
+    // clase se llenó sola no hay forma de distinguirlo desde aquí, y el
+    // impacto en € se deja NO_MEDIBLE a propósito (calcularImpactoReal) en vez
+    // de multiplicar plazas por un precio medio, que sería una proyección.
+    case 'LLENAR_PLAZAS':
+      if (senal.plazasLibresFinales === null) return { outcome: 'NEUTRO', senalObservada: null };
+      if (senal.plazasLibresFinales === 0) return { outcome: 'POSITIVO', senalObservada: 'RESERVO' };
+      if (senal.plazasVendidasTrasLaAccion > 0) return { outcome: 'NEUTRO', senalObservada: 'RESERVO' };
       return { outcome: 'NEGATIVO', senalObservada: 'SIN_RESPUESTA' };
 
     default:

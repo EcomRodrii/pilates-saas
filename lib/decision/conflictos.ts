@@ -21,9 +21,19 @@ function claveDelPar(a: TipoRecomendacion, b: TipoRecomendacion): string {
 // opuesto literal de FUSIONAR_SESIONES/MOVER_HORARIO (Agenda A1/A3: "esta
 // franja va vacía, quítala o muévela") — ver el comentario de agenda.ts:
 // "Cubre el punto ciego de Ingresos, que solo detecta clases que se LLENAN".
+//
+// LLENAR_PLAZAS (Agenda A4, Fase 2 del Brain) choca con los mismos dos, y por
+// el mismo motivo pero desde el otro lado del tiempo: A4 dice "esta clase del
+// martes que viene va floja, vamos a llenarla" mientras A1/A3 dicen "la franja
+// del martes lleva semanas medio vacía, fusiónala o muévela". Las dos pueden
+// ser ciertas a la vez —rescatar la clase de esta semana Y replantear la
+// franja— pero la propietaria tiene que verlas juntas para decidir si merece
+// la pena el esfuerzo de llenar una franja que va a quitar.
 const PARES_CONFLICTO: ReadonlySet<string> = new Set([
   claveDelPar('ABRIR_SESION', 'FUSIONAR_SESIONES'),
   claveDelPar('ABRIR_SESION', 'MOVER_HORARIO'),
+  claveDelPar('LLENAR_PLAZAS', 'FUSIONAR_SESIONES'),
+  claveDelPar('LLENAR_PLAZAS', 'MOVER_HORARIO'),
 ]);
 
 function comparteEntidad(a: Candidata, b: Candidata): boolean {
