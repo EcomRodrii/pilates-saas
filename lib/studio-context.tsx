@@ -269,6 +269,9 @@ interface StudioContextValue {
   portalReact: boolean;
   // Redes sociales del pie de página público (Fase 3) — ver lib/theme-schema.ts.
   redesSociales: Record<RedSocialId, string>;
+  /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
+   *  texto por defecto de la página (ver su hero). */
+  textosReservar: { titular: string; subtitulo: string; cta: string };
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -628,6 +631,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
   const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
+  const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '' });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
@@ -866,6 +870,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         instagram: typeof pub.redesSociales?.instagram === 'string' ? pub.redesSociales.instagram : '',
         facebook: typeof pub.redesSociales?.facebook === 'string' ? pub.redesSociales.facebook : '',
         whatsapp: typeof pub.redesSociales?.whatsapp === 'string' ? pub.redesSociales.whatsapp : '',
+      });
+      // `.trim()` al ENTRAR, una sola vez: un campo con solo espacios es lo que
+      // queda al borrar lo escrito, y no puede publicar un titular en blanco.
+      // Haciéndolo aquí, ningún consumidor tiene que acordarse.
+      const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+      setTextosReservar({
+        titular: texto((pub as { reservarTitular?: unknown }).reservarTitular),
+        subtitulo: texto((pub as { reservarSubtitulo?: unknown }).reservarSubtitulo),
+        cta: texto((pub as { reservarCta?: unknown }).reservarCta),
       });
       setRetoConteos(pub.retoConteos ?? {});
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
@@ -4096,6 +4109,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     themeIdPublicado,
     portalReact,
     redesSociales,
+    textosReservar,
     favoritos,
     toggleFavorito,
     retosApuntados,

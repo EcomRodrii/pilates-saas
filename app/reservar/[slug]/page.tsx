@@ -243,7 +243,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, textosReservar,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -1114,12 +1114,19 @@ export default function ReservarPage() {
             {/* El NOMBRE del estudio deja de ser el titular y sube a la barra,
                 que es donde vive una marca. El titular pasa a decir para qué
                 sirve la página — es lo que separa una portada de un rótulo. */}
+            {/* ⚠️ Estos tres textos eran CONSTANTES del código: el mismo
+                titular servido idéntico a TODOS los estudios, en la página que
+                cada uno incrusta en su propia web. Ahora los escribe cada
+                estudio; vacío deja el de siempre, así que nadie cambia salvo
+                que quiera. */}
             <h1 style={{ fontFamily: serif, fontSize: cq(34, 5.4, 68), lineHeight: 1.02, marginTop: cq(12, 1.6, 20) }}>
-              Encuentra tu<br />próxima clase
+              {textosReservar.titular || <>Encuentra tu<br />próxima clase</>}
             </h1>
-            {studio?.descripcion && (
+            {/* El subtítulo propio gana a la descripción del estudio: se ha
+                escrito para ESTA página, no para la ficha. */}
+            {(textosReservar.subtitulo || studio?.descripcion) && (
               <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 460, marginInline: heroFoto ? undefined : 'auto' }}>
-                {studio.descripcion}
+                {textosReservar.subtitulo || studio?.descripcion}
               </p>
             )}
             {/* Lleva al horario, que ya está en esta misma página: un botón de
@@ -1133,7 +1140,7 @@ export default function ReservarPage() {
                 boxShadow: SH.headerBtn,
               }}
             >
-              Ver el horario
+              {textosReservar.cta || 'Ver el horario'}
             </button>
           </div>
 
