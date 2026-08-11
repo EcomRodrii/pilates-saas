@@ -69,7 +69,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas', '/funcionalidades/bonos-y-membresias'],
+    relacionadas: ['/funcionalidades/lista-de-espera', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/app-para-alumnas'],
   },
   {
     path: '/funcionalidades/lista-de-espera',
@@ -82,7 +82,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/calendario-y-salas', '/funcionalidades/automatizaciones-y-avisos'],
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/calendario-y-salas'],
   },
   {
     path: '/funcionalidades/calendario-y-salas',
@@ -208,6 +208,33 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
     relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/funcionalidades/bonos-y-membresias'],
+  },
+
+  {
+    path: '/funcionalidades/cancelaciones-y-politicas',
+    titulo: 'Política de cancelación y no-shows para tu estudio | Tentare',
+    descripcion:
+      'Ventana de cancelación por tipo de clase, quién recupera su sesión y quién no, y penalización económica por cancelar tarde o no presentarse — con consentimiento comprobado antes de cobrar.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Cancelaciones y no-shows',
+    resumen: 'Qué pasa con la plaza, con el bono y —si quieres— con el cobro.',
+    prioridad: 0.9,
+    changeFrequency: 'monthly',
+    actualizado: PUBLICADO,
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/cobros-recurrentes'],
+  },
+  {
+    path: '/funcionalidades/app-para-alumnas',
+    titulo: 'App de marca para las alumnas de tu estudio | Tentare',
+    descripcion:
+      'Tus alumnas reservan, compran y ven su progreso desde una app con tu nombre, tu logo y tus colores, que se instala en su móvil sin pasar por ninguna tienda.',
+    grupo: 'funcionalidades',
+    etiqueta: 'App de marca',
+    resumen: 'Tu estudio en su móvil, con tu nombre y no con el nuestro.',
+    prioridad: 0.9,
+    changeFrequency: 'monthly',
+    actualizado: PUBLICADO,
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta', '/funcionalidades/bonos-y-membresias'],
   },
 ];
 

@@ -90,8 +90,9 @@ export default function ReservasPage() {
           ]}
         />
         <p>
-          Esa página es la cara pública de tu estudio y comparte marca con el resto del portal de la alumna: sus reservas,
-          sus bonos y su progreso viven en el mismo sitio, con tus colores y tu logo.
+          Esa página es la cara pública de tu estudio y forma parte de la{' '}
+          <Link href="/funcionalidades/app-para-alumnas">app de marca</Link>: sus reservas, sus bonos y su progreso viven
+          en el mismo sitio, con tus colores y tu logo.
         </p>
         <Limite titulo="Esa página no la indexamos en buscadores">
           Es una decisión deliberada: la página de reservas de tu estudio funciona con normalidad y puedes compartirla donde
@@ -100,16 +101,16 @@ export default function ReservasPage() {
         </Limite>
       </Seccion>
 
-      <Seccion id="llenas" titulo="Cuando la clase está llena">
+      <Seccion id="llenas" titulo="Cuando la clase está llena — y cuando se vacía">
         <p>
           Una clase completa no es el final del camino: es donde se decide si esa plaza se recupera cuando alguien cancela.
           Eso lo lleva la <Link href="/funcionalidades/lista-de-espera">lista de espera</Link>, que puede promocionar al
           instante o dar un plazo para aceptar.
         </p>
         <p>
-          Y si el problema es el contrario —clases que se quedan a medias—, el mínimo de asistentes puede cancelar
-          automáticamente una sesión que no llega al número que hayas fijado, devolviendo el bono a quien ya había
-          reservado. Porque esa cancelación no es decisión de la alumna.
+          Y al otro lado está qué pasa cuando alguien se cae: si recupera su sesión, si la plaza se libera igualmente y si
+          quieres cobrar por una cancelación a última hora. Eso tiene su propia página en{' '}
+          <Link href="/funcionalidades/cancelaciones-y-politicas">cancelaciones y no-shows</Link>.
         </p>
       </Seccion>
 

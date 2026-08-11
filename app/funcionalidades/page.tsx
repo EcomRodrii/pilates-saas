@@ -26,7 +26,7 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
   {
     titulo: 'Que las clases se llenen',
     lead: 'Lo que tus alumnas tocan, y las reglas con las que lo tocan.',
-    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas'],
+    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas', '/funcionalidades/cancelaciones-y-politicas'],
   },
   {
     titulo: 'Que el equipo funcione sin ti',
@@ -40,8 +40,8 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
   },
   {
     titulo: 'Que nadie se te escape',
-    lead: 'Lo que sabes de cada alumna y lo que el sistema hace con ello.',
-    paths: ['/funcionalidades/ficha-de-clienta', '/funcionalidades/automatizaciones-y-avisos'],
+    lead: 'Lo que sabes de cada alumna, lo que ella ve, y lo que el sistema hace con ambas cosas.',
+    paths: ['/funcionalidades/ficha-de-clienta', '/funcionalidades/app-para-alumnas', '/funcionalidades/automatizaciones-y-avisos'],
   },
   {
     titulo: 'Que las decisiones no sean a ojo',

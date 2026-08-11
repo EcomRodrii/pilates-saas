@@ -1,6 +1,7 @@
 # Arquitectura SEO de tentare.app — auditoría y plan
 
-Estado: **lote P0 implementado, más `informes-y-rentabilidad` (§12).** Lo que no se
+Estado: **lote P0 implementado, más `informes-y-rentabilidad`,
+`cancelaciones-y-politicas` y `app-para-alumnas` (§12, §13).** Lo que no se
 publicó está en §11.4, con el motivo.
 Fecha: 2026-08-11. Base: rama `claude/tentare-seo-architecture-ea9287` sobre `main` (7b157d95).
 
@@ -472,12 +473,11 @@ disponibilidad semanal, cuatro modelos de cobro, motor de sustituciones).
 
 ### 11.4 Páginas propuestas y NO publicadas, con el motivo
 
-(`informes-y-rentabilidad` salió de esta lista en el segundo lote — ver §12.)
+(`informes-y-rentabilidad` salió en el segundo lote — §12. `cancelaciones-y-politicas`
+y `app-para-alumnas`, en el tercero — §13.)
 
 | Página | Motivo |
 |---|---|
-| `/funcionalidades/app-para-alumnas` | Publicarla obliga a explicar bien que es una PWA y no una app nativa. Merece su propio pase de copy, no un párrafo defensivo |
-| `/funcionalidades/cancelaciones-y-politicas` | Riesgo real de solaparse con `reservas-online` y `lista-de-espera`, que ya cubren las reglas. Antes de publicarla hay que decidir si es página propia o una sección |
 | `/funcionalidades/control-de-asistencia` | El kiosko de tablet está congelado. La funcionalidad real (estados de asistencia + pase QR) es más fina de lo que promete la keyword |
 | `/funcionalidades/multi-centro` | Volumen bajo; el plan Cadena ya se explica en `/precios` |
 | `/soluciones/*` y `/sobre-tentare` | Fuera del P0 acordado |
@@ -568,3 +568,91 @@ cercanas: **25 % máximo**, solo estructurales · sin desbordamiento en
 360/375/768/1280 px.
 
 Con esto, el P0 queda cerrado en **13 URLs nuevas**.
+
+
+---
+
+## 13. Tercer lote: `cancelaciones-y-politicas` y `app-para-alumnas`
+
+Las dos estaban aplazadas por la misma clase de motivo —una por riesgo de
+solaparse, la otra por riesgo de sobreprometer— y las dos se resuelven
+delimitando de qué habla cada una.
+
+### 13.1 `/funcionalidades/cancelaciones-y-politicas`
+
+El riesgo era duplicar `reservas-online` (que ya lista las siete reglas
+heredables) y `lista-de-espera` (que ya explica el hueco que se libera). Se
+resuelve dejando aquí **solo lo que pasa DESPUÉS de que alguien se caiga**:
+qué ocurre con su bono, con la plaza y —opcionalmente— con su tarjeta.
+Ninguna de las otras dos toca eso.
+
+El bloque único es la **tabla de qué pasa con el bono**, con los seis casos que
+el código distingue de verdad:
+
+| Caso | Bono | Fuente |
+|---|---|---|
+| Cancela dentro de plazo | Se devuelve | `cancelar_reserva_plaza`, decisión en BD (migr 0129) |
+| Cancela fuera de plazo | No, salvo `cancelacion_devolver_bono_tardia` | mismo |
+| No-show | Ya consumido | — |
+| Cancela una plaza fija | No devuelve bono, genera **recuperación** | guard `res-pf-`: nunca consumió sesión |
+| Cancelas tú la clase | No se devuelve | `dbCancelarReservasPorSesiones` |
+| La clase se cae por mínimo | **Sí, siempre** | `cancelarSesionPorMinimoNoAlcanzado` |
+
+Las dos últimas filas son la distinción que hace útil la tabla: si cancelas tú,
+es tu decisión; si la clase no llega al mínimo, no es decisión de nadie y no
+puede pagarla la alumna.
+
+Segundo bloque propio: **la máquina de estados de la penalización**
+(`EstadoPenalizacion`), con las tres razones por las que el sistema decide NO
+cobrar —sin tarjeta, sin consentimiento vigente, revertida— pintadas como
+estados de primera clase y no como una nota. Y el guard de consentimiento
+explicado como lo que es: se guarda **el texto legal completo aceptado**, no un
+número de versión, así que activar la cláusula deja sin consentimiento vigente a
+toda la base existente de forma automática.
+
+También se dice explícitamente que hay cancelaciones que **no pueden penalizar
+por construcción** (corte por riesgo de plantón, cancelación de serie desde el
+panel): no pasan por el camino que detecta penalizaciones.
+
+### 13.2 `/funcionalidades/app-para-alumnas`
+
+El riesgo era prometer app nativa. Se resuelve **poniendo la limitación en el
+centro** en vez de esconderla en una nota: hay una tabla propia,
+*«Instalable desde el navegador vs. app de tienda»*, con siete filas y un «No»
+en rojo en la que importa (App Store / Play). El texto lo remata: «Si tener
+presencia en las tiendas es un requisito para ti, es honesto que lo sepas antes
+de contratar y no después», enlazando a la comparativa donde ya se admitía.
+
+Segundo límite dicho en su propio bloque: **en iPhone los avisos exigen tener la
+PWA instalada e iOS 16.4+** (condición de Apple, no nuestra). En Android
+funcionan sin instalar.
+
+El resto es real y verificado: manifest **por estudio** (nombre, color y logo del
+estudio, `scope` anclado a su slug), ocho pantallas del portal, cuatro temas base
+con paleta/tipografía/forma/bloques y comprobación de contraste, y las
+sugerencias personalizadas de `lib/portal-sugerencias.ts` — que devuelven `null`
+cuando no hay ningún hecho del historial que las sostenga, en vez de recomendar
+al azar.
+
+### 13.3 Interlinking rehecho
+
+Se reencaminaron `relacionadas` para que las nuevas reciban enlaces temáticos y
+ninguna pierda los suyos: `reservas-online` → lista-de-espera · cancelaciones ·
+app-para-alumnas; `lista-de-espera` → reservas · cancelaciones · calendario.
+El enlace a la app de marca que en el primer lote se había quitado del cuerpo de
+`reservas-online` (apuntaba a una página inexistente) queda restaurado.
+
+Hub: `cancelaciones` entra en «Que las clases se llenen» y `app-para-alumnas`
+en «Que nadie se te escape».
+
+### 13.4 Verificado
+
+`tsc` · `lint` sin avisos · **2380 tests** · auditoría sobre HTML servido
+ampliada a **20 páginas, 38 URLs de sitemap y 45 enlaces internos**, sin fallos
+· solape de `h2` en los siete pares de riesgo (incluido
+`cancelaciones` ↔ `reservas-online` y ↔ la guía de cancelaciones):
+**29 % máximo**, y solo en encabezados estructurales · sin desbordamiento en
+360/375/768/1280 px.
+
+**El P0 queda cerrado en 15 URLs nuevas.** Siguen sin publicar
+`control-de-asistencia`, `multi-centro`, `/soluciones/*` y `/sobre-tentare`.
