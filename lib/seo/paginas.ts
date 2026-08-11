@@ -95,7 +95,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/gestion-de-instructoras', '/funcionalidades/lista-de-espera'],
+    relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/control-de-asistencia', '/funcionalidades/gestion-de-instructoras'],
   },
   {
     path: '/funcionalidades/gestion-de-instructoras',
@@ -236,6 +236,33 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     actualizado: PUBLICADO,
     relacionadas: ['/funcionalidades/reservas-online', '/funcionalidades/ficha-de-clienta', '/funcionalidades/bonos-y-membresias'],
   },
+
+  {
+    path: '/funcionalidades/control-de-asistencia',
+    titulo: 'Control de asistencia y no-shows en tu estudio | Tentare',
+    descripcion:
+      'Marca quién vino con un QR en la puerta, con un código corto o sin hacer nada — y detecta a quien reserva y falla, con un riesgo de plantón que pesa lo reciente.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Control de asistencia',
+    resumen: 'Quién vino y quién falló, con o sin escanear nada.',
+    prioridad: 0.8,
+    changeFrequency: 'monthly',
+    actualizado: PUBLICADO,
+    relacionadas: ['/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/calendario-y-salas', '/funcionalidades/ficha-de-clienta'],
+  },
+  {
+    path: '/funcionalidades/multi-centro',
+    titulo: 'Software para cadenas con varios centros de Pilates | Tentare',
+    descripcion:
+      'Varias sedes bajo un mismo acceso, con datos separados, menú compartido por cadena e instructoras que trabajan en más de un centro con rol y tarifa propios en cada uno.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Varias sedes',
+    resumen: 'Dos o más centros, con datos separados y un solo acceso.',
+    prioridad: 0.8,
+    changeFrequency: 'monthly',
+    actualizado: PUBLICADO,
+    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/precios', '/seguridad'],
+  },
 ];
 
 // ─── Registro completo ───────────────────────────────────────────────────────
@@ -269,7 +296,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/funcionalidades',
     titulo: 'Funcionalidades de Tentare para estudios de Pilates | Tentare',
     descripcion:
-      'Todo lo que hace Tentare, por áreas: reservas, lista de espera, calendario y salas, instructoras, sustituciones, bonos, cobros, facturación, fichas de alumna y automatizaciones.',
+      'Todo lo que hace Tentare, área por área: reservas, lista de espera, calendario y salas, asistencia, instructoras, sustituciones, bonos, cobros, facturación, fichas, avisos e informes.',
     grupo: 'funcionalidades',
     etiqueta: 'Funcionalidades',
     resumen: 'El mapa completo del producto, área por área.',

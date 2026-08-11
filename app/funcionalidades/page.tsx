@@ -26,7 +26,7 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
   {
     titulo: 'Que las clases se llenen',
     lead: 'Lo que tus alumnas tocan, y las reglas con las que lo tocan.',
-    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas', '/funcionalidades/cancelaciones-y-politicas'],
+    paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/calendario-y-salas', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/control-de-asistencia'],
   },
   {
     titulo: 'Que el equipo funcione sin ti',
@@ -46,7 +46,7 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
   {
     titulo: 'Que las decisiones no sean a ojo',
     lead: 'Los números con los que se decide qué franja mover y qué precio tocar.',
-    paths: ['/funcionalidades/informes-y-rentabilidad'],
+    paths: ['/funcionalidades/informes-y-rentabilidad', '/funcionalidades/multi-centro'],
   },
 ];
 
@@ -70,8 +70,10 @@ export default function FuncionalidadesPage() {
           <div className="lp-mono" style={{ display: 'inline-flex', fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Funcionalidades</div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Todo lo que hace Tentare,<br />sin adjetivos.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 600, margin: 0 }}>
-            Diez áreas, explicadas por lo que resuelven en un estudio de Pilates de verdad — con sus reglas, sus umbrales y
-            también sus límites.
+            {/* El número sale del registro. Escrito a mano decía «diez» y se
+                quedó desfasado en cuanto entraron dos páginas más. */}
+            {funcionalidades().length} áreas, explicadas por lo que resuelven en un estudio de Pilates de verdad — con sus
+            reglas, sus umbrales y también sus límites.
           </p>
         </div>
       </header>

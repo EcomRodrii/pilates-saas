@@ -1,8 +1,7 @@
 # Arquitectura SEO de tentare.app — auditoría y plan
 
-Estado: **lote P0 implementado, más `informes-y-rentabilidad`,
-`cancelaciones-y-politicas` y `app-para-alumnas` (§12, §13).** Lo que no se
-publicó está en §11.4, con el motivo.
+Estado: **P0 cerrado en 17 URLs nuevas** (§11), ampliado en tres lotes
+posteriores (§12, §13, §14). Lo que sigue sin publicar está en §11.4.
 Fecha: 2026-08-11. Base: rama `claude/tentare-seo-architecture-ea9287` sobre `main` (7b157d95).
 
 Todo lo que aquí se afirma sobre el producto está verificado leyendo el repo, no
@@ -473,13 +472,13 @@ disponibilidad semanal, cuatro modelos de cobro, motor de sustituciones).
 
 ### 11.4 Páginas propuestas y NO publicadas, con el motivo
 
-(`informes-y-rentabilidad` salió en el segundo lote — §12. `cancelaciones-y-politicas`
-y `app-para-alumnas`, en el tercero — §13.)
+(`informes-y-rentabilidad` salió en el segundo lote — §12; `cancelaciones-y-politicas`
+y `app-para-alumnas` en el tercero — §13; `control-de-asistencia` y `multi-centro`
+en el cuarto — §14.)
 
 | Página | Motivo |
 |---|---|
 | `/funcionalidades/control-de-asistencia` | El kiosko de tablet está congelado. La funcionalidad real (estados de asistencia + pase QR) es más fina de lo que promete la keyword |
-| `/funcionalidades/multi-centro` | Volumen bajo; el plan Cadena ya se explica en `/precios` |
 | `/soluciones/*` y `/sobre-tentare` | Fuera del P0 acordado |
 
 ### 11.5 Límite de verificación
@@ -654,5 +653,81 @@ ampliada a **20 páginas, 38 URLs de sitemap y 45 enlaces internos**, sin fallos
 **29 % máximo**, y solo en encabezados estructurales · sin desbordamiento en
 360/375/768/1280 px.
 
-**El P0 queda cerrado en 15 URLs nuevas.** Siguen sin publicar
-`control-de-asistencia`, `multi-centro`, `/soluciones/*` y `/sobre-tentare`.
+Con el tercer lote van 15 URLs nuevas.
+
+
+---
+
+## 14. Cuarto lote: `control-de-asistencia` y `multi-centro`
+
+Las dos últimas de la lista de funcionalidades. Las dos se aplazaron por
+"parece más fina de lo que promete la keyword", y en las dos el trabajo fue
+comprobar cuánto había de verdad antes de escribir.
+
+### 14.1 `control-de-asistencia` — había bastante más de lo que decía la nota
+
+La nota original decía que la funcionalidad era «más fina de lo que la keyword
+promete» porque el kiosko está congelado. Al mirar el código, dos hallazgos
+cambian esa valoración:
+
+- **Existe `studios.requiere_checkin_qr`** (`lib/inngest/checkin-automatico.ts`):
+  con el check-in desactivado, un cron marca `ASISTIDA` **al TERMINAR la clase**.
+  Eso resuelve el caso que hunde a cualquier sistema de asistencia en un estudio
+  pequeño — que no hay nadie en recepción a las 7 de la mañana— y no estaba
+  contemplado en la valoración inicial.
+  Se marca al terminar y no al reservar a propósito: hacerlo antes rompería la
+  cancelación normal y permitiría sumar racha sin pisar la sala.
+- **El hueco de Safari ya está cerrado.** La nota de memoria decía que el lector
+  de QR usaba `BarcodeDetector` y fallaba en el iPad de recepción (#565). El
+  lector actual lleva respaldo con `jsQR`, así que funciona en cualquier
+  navegador. Ya no hay estado «sin soporte».
+
+Con eso, la página tiene cuatro vías reales de marcar asistencia —QR firmado,
+código corto, a mano y automático— y no una versión descafeinada de un kiosko.
+
+Bloque único: **el riesgo de plantón** (`lib/no-show.ts`), con las tres
+decisiones de modelado que lo hacen creíble: solo cuentan las reservas que se
+resolvieron en asistir o no asistir (cancelar a tiempo **no** es un plantón),
+pesa la fecha de la CLASE con decaimiento exponencial (vida media 45 días), y
+suaviza hacia una tasa base — **una de una no es un 100 % de riesgo**.
+
+Límites dichos en la página: no hay pantalla de kiosko en tablet, la apertura de
+puerta es de una cerradura de terceros, y la asistencia no es un control horario
+del equipo.
+
+### 14.2 `multi-centro` — publicada con su límite por delante
+
+Aquí lo que había que decidir era si se puede vender sin prometer una consola de
+cadena que no existe. Sí, si el límite va escrito:
+
+> **No hay panel agregado de toda la cadena.** Trabajas en una sede cada vez.
+
+Está en su propio bloque, en la FAQ y en el cuerpo. También que no hay traspaso
+de alumnas entre centros, ni bonos multi-sede, ni análisis de cadena en el
+Centro de Control.
+
+Lo que sí hay es sustancial y está verificado: aislamiento por sede en la base de
+datos, selector con **el rol de cada sede a la vista** (P2-14 — puedes ser
+propietaria en una y solo instructora en otra), menú y pantalla de inicio
+configurados **por cadena** (`lib/layout-data.ts`), una ficha de instructora por
+sede con rol, tarifa y disponibilidad propios (`UNIQUE (auth_user_id,
+studio_id)`), alta cross-sede que vincula a quien ya trabaja en otra sede de la
+cadena, y una sola suscripción.
+
+Detalle que sale gratis de ese modelo y que conviene contar: **las sustituciones
+no cruzan de sede**, porque el motor trabaja con la ficha de esa sede.
+
+### 14.3 Corregido de paso
+
+El hub decía «Diez áreas» escrito a mano y llevaba dos lotes desfasado. Ahora el
+número sale del registro.
+
+### 14.4 Verificado
+
+`tsc` · `lint` sin avisos · **2380 tests** · `build` de **277 páginas** ·
+auditoría sobre HTML servido ampliada a **22 páginas, 40 URLs de sitemap y 47
+enlaces internos**, sin fallos · solape de `h2` con sus vecinas más cercanas:
+**25 % máximo**, solo estructurales · sin desbordamiento en 360/375/768/1280 px.
+
+**El P0 queda cerrado en 17 URLs nuevas y las 15 funcionalidades del plan
+publicadas.** Siguen fuera, y sin fecha, `/soluciones/*` y `/sobre-tentare`.
