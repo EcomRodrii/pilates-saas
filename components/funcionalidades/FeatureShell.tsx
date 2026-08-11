@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -7,14 +8,43 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
 import { FeatureStructuredData } from './FeatureStructuredData';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
 
-// Armazón compartido de /funcionalidades/<slug>. Da lo que TIENE que ser igual
-// en todas —navegación, miga de pan, JSON-LD, relacionadas, pie— y deja libre
-// lo que no debe serlo.
+// Armazón compartido de /funcionalidades/<slug>.
 //
-// El `visual` del encabezado es un hueco a propósito: cada página mete ahí su
-// propio dibujo (el motor de sustituciones, el flujo de una factura, la rejilla
-// de reformers…). Sin eso, catorce páginas con el mismo hero se leen como una
-// plantilla rellenada — que es exactamente lo que no queremos que parezcan.
+// ⚠️ La versión anterior era el problema, no la solución: catorce páginas con el
+// MISMO encabezado —banda de degradado oliva, píldora de sección, titular, tres
+// chips y un panel con un diagrama dibujado a mano— se leen como una plantilla
+// rellenada. Y el diagrama era lo peor: un dibujo de cajas lo hace cualquiera,
+// y se nota; enseñar el producto de verdad no.
+//
+// Ahora el encabezado son DOS cosas reales, montadas una sobre otra:
+//
+//   1. Una FOTO del mundo del cliente: una sala con reformers, no una
+//      ilustración ni un degradado.
+//   2. Una CAPTURA del panel de verdad (public/producto/, generada por
+//      scripts/capturar-producto.mjs contra un build real), solapando la foto.
+//
+// Esa superposición —la herramienta encima de la sala— es lo único llamativo de
+// la página. Todo lo de abajo se mantiene callado a propósito.
+//
+// `visual` sigue existiendo para lo que NO tiene pantalla que enseñar (la cadena
+// de huellas de una factura, el reparto del margen). Cuando hay pantalla, se
+// enseña la pantalla.
+
+export interface FotoHero {
+  src: string;
+  alt: string;
+  /** `object-position`. Las fotos verticales suelen querer 'center 30%'. */
+  encuadre?: string;
+}
+
+export interface CapturaHero {
+  src: string;
+  alt: string;
+  /** Qué mirar en la captura. Va debajo, en mono. Una frase. */
+  pie: string;
+  ancho: number;
+  alto: number;
+}
 
 export function FeatureShell({
   path,
@@ -22,7 +52,8 @@ export function FeatureShell({
   h1,
   intro,
   chips,
-  gradient,
+  foto,
+  captura,
   visual,
   children,
 }: {
@@ -33,12 +64,25 @@ export function FeatureShell({
   intro: React.ReactNode;
   /** 2-4 etiquetas cortas con lo concreto que hace. Nada de adjetivos. */
   chips: string[];
-  gradient: string;
+  /**
+   * Foto del mundo del cliente. **Opcional a propósito**: hoy el repo tiene UNA
+   * sola foto de un estudio de Pilates de verdad (`disciplinas/pilates.jpg`) —
+   * las demás de esa carpeta son gimnasios de pesas, stock para la tira de
+   * disciplinas de la home. Repetir la misma foto en quince páginas se lee
+   * igual de plantillero que no tener ninguna, así que la foto se reserva para
+   * las páginas donde el momento es humano y el resto abre sobre tinta plana,
+   * dejando que la estrella sea la captura del producto.
+   */
+  foto?: FotoHero;
+  /** La pantalla real. Preferible a `visual` siempre que exista una. */
+  captura?: CapturaHero;
+  /** Solo para lo que no tiene pantalla: un flujo, una cadena, un cálculo. */
   visual?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const pagina = paginaDe(path);
   const relacionadas = relacionadasDe(path);
+  const hayMontaje = Boolean(captura || visual);
 
   return (
     <PageShell>
@@ -46,54 +90,94 @@ export function FeatureShell({
       <FeatureStructuredData path={path} />
       <SiteNav backHref="/funcionalidades" backLabel="Funcionalidades" />
 
-      <header style={{ position: 'relative', background: gradient, color: '#fff', overflow: 'hidden', padding: 'clamp(30px,4vw,44px) clamp(20px,4vw,44px) clamp(44px,6vw,68px)' }}>
-        <div style={{ position: 'absolute', top: '-26%', right: '-8%', width: 560, height: 560, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.13), transparent 62%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', maxWidth: 1120, margin: '0 auto' }}>
-          {/* Miga de pan visible, no solo en JSON-LD: es navegación real hacia
-              el hub y hacia la home, no un adorno para el rastreador. */}
-          <nav aria-label="Ruta" className="lp-mono" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5, letterSpacing: '.06em', color: 'rgba(255,255,255,.6)', marginBottom: 'clamp(24px,4vw,38px)', flexWrap: 'wrap' }}>
-            <Link href="/" style={{ color: 'rgba(255,255,255,.72)' }}>Inicio</Link>
+      <header className={foto ? 'ft-portada ft-portada-foto' : 'ft-portada'}>
+        {foto && (
+          <>
+            <Image
+              src={foto.src}
+              alt={foto.alt}
+              fill
+              priority
+              sizes="100vw"
+              style={{ objectFit: 'cover', objectPosition: foto.encuadre ?? 'center 35%' }}
+            />
+            {/* Dos velos: uno vertical que hunde la parte baja para que la
+                captura se despegue del fondo, y otro lateral para que el texto
+                se lea sin depender de que esa esquina de la foto salga oscura. */}
+            <div className="ft-velo" aria-hidden />
+            <div className="ft-velo-lado" aria-hidden />
+          </>
+        )}
+
+        <div className="ft-portada-cuerpo">
+          {/* Miga de pan visible, no solo en JSON-LD: es navegación real. */}
+          <nav aria-label="Ruta" className="lp-mono ft-miga">
+            <Link href="/">Inicio</Link>
             <span aria-hidden>/</span>
-            <Link href="/funcionalidades" style={{ color: 'rgba(255,255,255,.72)' }}>Funcionalidades</Link>
+            <Link href="/funcionalidades">Funcionalidades</Link>
             <span aria-hidden>/</span>
-            <span style={{ color: '#fff' }}>{pagina?.etiqueta ?? ''}</span>
+            <span className="ft-miga-aqui">{pagina?.etiqueta ?? ''}</span>
           </nav>
 
-          <div className="feat-hero">
-            <div>
-              <div className="lp-mono" style={{ display: 'inline-flex', fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: '#D9C29E', background: 'rgba(255,255,255,.09)', border: '1px solid rgba(255,255,255,.14)', padding: '7px 14px', borderRadius: 999, marginBottom: 22 }}>{eyebrow}</div>
-              <h1 style={{ fontWeight: 800, fontSize: 'clamp(32px,4.6vw,54px)', lineHeight: 1.03, letterSpacing: '-.035em', margin: '0 0 20px', maxWidth: '15ch' }}>{h1}</h1>
-              <p style={{ fontSize: 'clamp(16.5px,1.5vw,19.5px)', lineHeight: 1.55, color: 'rgba(255,255,255,.82)', maxWidth: 520, margin: '0 0 26px' }}>{intro}</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 30 }}>
-                {chips.map((c) => (
-                  <span key={c} className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.02em', color: 'rgba(255,255,255,.8)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.13)', padding: '7px 13px', borderRadius: 8 }}>{c}</span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Link href="/crear-estudio" className="hover:brightness-110" style={{ fontSize: 15.5, fontWeight: 700, color: ACC, background: '#D9C29E', padding: '14px 26px', borderRadius: 999, boxShadow: '0 14px 30px rgba(217,194,158,.24)' }}>
-                  Crear mi estudio
-                </Link>
-                <Link href="/precios" style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,.86)', padding: '14px 10px' }}>Ver precios →</Link>
-              </div>
-            </div>
-            {visual && <div className="feat-hero-visual">{visual}</div>}
+          <p className="lp-mono ft-seccion">{eyebrow}</p>
+          <h1 className="ft-titular">{h1}</h1>
+          <p className="ft-entrada">{intro}</p>
+
+          <div className="ft-acciones">
+            <Link href="/crear-estudio" className="ft-cta">Crear mi estudio</Link>
+            <Link href="/precios" className="ft-cta-2">Ver precios →</Link>
           </div>
         </div>
       </header>
 
-      <div style={{ padding: 'clamp(40px,6vw,68px) clamp(20px,4vw,44px) clamp(20px,3vw,32px)' }}>
+      {hayMontaje && (
+        <div className="ft-montaje">
+          <div className={captura ? 'ft-montaje-caja ft-montaje-marco' : 'ft-montaje-caja'}>
+            {captura ? (
+              <figure className="ft-captura">
+                <Image
+                  src={captura.src}
+                  alt={captura.alt}
+                  width={captura.ancho}
+                  height={captura.alto}
+                  sizes="(max-width: 1180px) 94vw, 1080px"
+                  priority
+                />
+                <figcaption className="lp-mono ft-pie">
+                  <span className="ft-pie-punto" aria-hidden />
+                  {captura.pie}
+                </figcaption>
+              </figure>
+            ) : (
+              visual
+            )}
+          </div>
+          {chips.length > 0 && (
+            <p className="lp-mono ft-chips">
+              {chips.map((c, i) => (
+                <span key={c}>
+                  {i > 0 && <span className="ft-chips-sep" aria-hidden> · </span>}
+                  {c}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="ft-cuerpo-zona">
         <article className="feat-body">{children}</article>
       </div>
 
       {relacionadas.length > 0 && (
-        <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(56px,7vw,88px)' }}>
+        <section className="ft-rel-zona">
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8A89F', margin: '0 0 16px' }}>Sigue por aquí</h2>
+            <h2 className="lp-mono ft-rel-titulo">Sigue por aquí</h2>
             <div className="feat-rel">
               {relacionadas.map((r) => (
-                <Link key={r.path} href={r.path} className="feat-rel-card" style={{ display: 'block', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '20px 22px', textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-.015em', lineHeight: 1.25, marginBottom: 7 }}>{r.etiqueta}</div>
-                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: MUTED }}>{r.resumen ?? r.descripcion}</div>
+                <Link key={r.path} href={r.path} className="feat-rel-card">
+                  <span className="feat-rel-nombre">{r.etiqueta}</span>
+                  <span className="feat-rel-resumen">{r.resumen ?? r.descripcion}</span>
                 </Link>
               ))}
             </div>
@@ -104,22 +188,108 @@ export function FeatureShell({
       <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }]} />
 
       <style>{`
-        .feat-hero { display: grid; grid-template-columns: 1.02fr .98fr; gap: clamp(28px,4vw,52px); align-items: center; }
+        /* ── Portada: foto a sangre ──────────────────────────────────────── */
+        .ft-portada { position: relative; isolation: isolate; overflow: hidden;
+          background: #1C1F14;
+          padding: clamp(28px,4vw,40px) clamp(20px,4vw,44px) clamp(150px,17vw,230px); }
+        /* Sin foto, la banda es tinta plana. Nada de degradados radiales: el
+           "blob" difuso en una esquina era parte del look que se quitó. */
+        .ft-portada-foto { background: #0E0F0B; }
+        .ft-portada > img { z-index: -2; }
+        .ft-velo { position: absolute; inset: 0; z-index: -1;
+          background: linear-gradient(180deg, rgba(14,15,11,.62) 0%, rgba(14,15,11,.5) 34%, rgba(14,15,11,.88) 100%); }
+        .ft-velo-lado { position: absolute; inset: 0; z-index: -1;
+          background: linear-gradient(96deg, rgba(14,15,11,.72) 0%, rgba(14,15,11,.34) 52%, transparent 78%); }
+        .ft-portada-cuerpo { position: relative; max-width: 1120px; margin: 0 auto; color: #fff; }
+
+        .ft-miga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+          font-size: 11.5px; letter-spacing: .06em; color: rgba(255,255,255,.55);
+          margin: 0 0 clamp(30px,5vw,52px); }
+        .ft-miga a { color: rgba(255,255,255,.72); }
+        .ft-miga a:hover { color: #fff; }
+        .ft-miga-aqui { color: #fff; }
+
+        .ft-seccion { margin: 0 0 14px; font-size: 11px; letter-spacing: .2em;
+          text-transform: uppercase; color: #D9C29E; }
+        /* Escala grande y una sola: el titular es lo único que compite con la
+           foto. Todo lo demás de la portada va deliberadamente pequeño. */
+        .ft-titular { margin: 0 0 18px; max-width: 16ch;
+          font-weight: 800; font-size: clamp(38px,6.2vw,74px); line-height: .98;
+          letter-spacing: -.042em; text-wrap: balance; }
+        .ft-entrada { margin: 0 0 30px; max-width: 46ch;
+          font-size: clamp(16.5px,1.5vw,19px); line-height: 1.55; color: rgba(255,255,255,.8); }
+
+        .ft-acciones { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .ft-cta { font-size: 15.5px; font-weight: 700; color: ${ACC}; background: #D9C29E;
+          padding: 14px 26px; border-radius: 999px; transition: filter .2s, transform .2s; }
+        .ft-cta:hover { filter: brightness(1.07); transform: translateY(-1px); }
+        .ft-cta-2 { font-size: 15px; font-weight: 600; color: rgba(255,255,255,.86); padding: 14px 10px; }
+        .ft-cta-2:hover { color: #fff; }
+
+        /* ── El montaje: la captura sube y se come el borde de la foto ───── */
+        .ft-montaje { position: relative; z-index: 2;
+          margin: clamp(-200px,-15vw,-130px) auto 0; padding: 0 clamp(16px,4vw,44px);
+          max-width: 1180px; }
+        /* La sombra la lleva SIEMPRE el montaje (es lo que lo despega de la
+           banda). El marco blanco solo cuando hay captura: un panel oscuro trae
+           su propio fondo, y forzarle blanco le borraba el texto —pasó. */
+        .ft-montaje-caja { border-radius: clamp(12px,1.6vw,20px); overflow: hidden;
+          box-shadow: 0 50px 90px -40px rgba(12,13,9,.6), 0 8px 24px -12px rgba(12,13,9,.3); }
+        .ft-montaje-marco { background: #fff; border: 1px solid rgba(255,255,255,.5); }
+        .ft-captura { margin: 0; display: block; }
+        .ft-captura img { display: block; width: 100%; height: auto; }
+        /* En móvil, la captura entera es una mancha: un panel de escritorio de
+           1440 px reducido a 350 no se lee. Se recorta a la zona útil —fuera el
+           menú lateral— y se enseña a una escala en la que las cifras y los
+           bloques de clase SÍ se distinguen. Prefiero enseñar un trozo legible
+           que la pantalla completa ilegible. */
+        @media (max-width: 720px) {
+          .ft-captura img { aspect-ratio: 4 / 3.4; object-fit: cover;
+            object-position: 26% 0; }
+        }
+        .ft-pie { display: flex; align-items: center; gap: 9px;
+          padding: 13px clamp(14px,2vw,20px); font-size: 12px; line-height: 1.45;
+          color: #5A5A52; background: #FAFAF6; border-top: 1px solid #EDEDE5; }
+        .ft-pie-punto { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #5A6142; }
+        .ft-chips { margin: 16px 0 0; text-align: center; font-size: 11.5px;
+          letter-spacing: .04em; color: #8E8E86; }
+        .ft-chips-sep { color: #C9C9C0; }
+
+        /* ── Cuerpo ───────────────────────────────────────────────────────── */
+        .ft-cuerpo-zona { padding: clamp(46px,6vw,74px) clamp(20px,4vw,44px) clamp(20px,3vw,32px); }
         .feat-body { max-width: 820px; margin: 0 auto; }
         .feat-body > section { margin-bottom: clamp(44px,6vw,72px); }
-        .feat-body h2 { font-weight: 800; font-size: clamp(25px,3.1vw,34px); line-height: 1.1; letter-spacing: -.032em; margin: 0 0 14px; scroll-margin-top: 88px; }
+        .feat-body h2 { font-weight: 800; font-size: clamp(25px,3.1vw,34px); line-height: 1.1;
+          letter-spacing: -.032em; margin: 0 0 14px; scroll-margin-top: 88px; text-wrap: balance; }
         .feat-body h3 { font-weight: 700; font-size: 18.5px; letter-spacing: -.012em; margin: 26px 0 8px; }
         .feat-body p { font-size: 17px; line-height: 1.66; color: #3A3A34; margin: 0 0 17px; }
         .feat-body p:last-child { margin-bottom: 0; }
         .feat-body strong { color: #1A1A1A; font-weight: 700; }
         .feat-body a { color: ${ACC}; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+
+        /* ── Relacionadas ─────────────────────────────────────────────────── */
+        .ft-rel-zona { padding: 0 clamp(20px,4vw,44px) clamp(56px,7vw,88px); }
+        .ft-rel-titulo { font-size: 11px; font-weight: 500; letter-spacing: .14em;
+          text-transform: uppercase; color: #A8A89F; margin: 0 0 16px; }
         .feat-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        .feat-rel-card { transition: transform .22s cubic-bezier(.2,.7,0,1), box-shadow .22s; }
+        .feat-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0;
+          border-radius: 16px; padding: 20px 22px; text-decoration: none; color: inherit;
+          transition: transform .22s cubic-bezier(.2,.7,0,1), box-shadow .22s; }
         .feat-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
+        .feat-rel-nombre { display: block; font-size: 16px; font-weight: 700;
+          letter-spacing: -.015em; line-height: 1.25; margin-bottom: 7px; }
+        .feat-rel-resumen { display: block; font-size: 13.5px; line-height: 1.5; color: ${MUTED}; }
+
         @media (max-width: 940px) {
-          .feat-hero { grid-template-columns: 1fr; }
-          .feat-hero-visual { order: -1; }
+          .ft-portada { padding-bottom: clamp(110px,26vw,170px); }
           .feat-rel { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 600px) {
+          .ft-montaje { margin-top: clamp(-120px,-24vw,-90px); }
+          .ft-velo-lado { background: linear-gradient(180deg, rgba(14,15,11,.4), transparent 60%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ft-cta, .feat-rel-card { transition: none; }
         }
       `}</style>
     </PageShell>

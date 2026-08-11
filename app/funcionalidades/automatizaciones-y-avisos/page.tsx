@@ -46,7 +46,6 @@ export default function AutomatizacionesPage() {
       h1={<>Lo que se te olvida, ya está hecho.</>}
       intro={<>Recordar la clase de mañana, avisar de un bono que se acaba, preguntar por quien lleva un mes sin venir. Siete reglas que enciendes tú, y un motor de avisos que decide por qué canal sale cada cosa.</>}
       chips={['7 reglas configurables', '37 tipos de aviso', 'App, push, email, WhatsApp y SMS']}
-      gradient="linear-gradient(140deg,#101410 0%,#22463A 60%,#3E7C68 100%)"
       visual={<CanalesPorEvento />}
     >
       <Seccion id="problema" titulo="Lo que se pierde por no escribir a tiempo">

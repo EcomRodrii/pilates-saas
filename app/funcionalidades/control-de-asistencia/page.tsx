@@ -46,7 +46,6 @@ export default function AsistenciaPage() {
       h1={<>Reservar no es venir.</>}
       intro={<>Marca la asistencia con un QR en la puerta, con un código corto o sin hacer absolutamente nada. Y entérate de quién reserva y falla antes de que se te note en el aforo.</>}
       chips={['QR firmado o código corto', 'Marcado automático al terminar', 'Riesgo de plantón graduado']}
-      gradient="linear-gradient(140deg,#0F1418 0%,#1E3038 55%,#3E6470 100%)"
       visual={<VentanaDelPase />}
     >
       <Seccion id="problema" titulo="La diferencia entre plazas vendidas y plazas ocupadas">

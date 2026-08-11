@@ -46,8 +46,7 @@ export default function CalendarioPage() {
       h1={<>Tu semana cuadrada, puesto a puesto.</>}
       intro={<>Series recurrentes, varias salas a la vez y capacidad contada por máquina — no un número de aforo que hay que corregir a mano cada vez que algo se rompe.</>}
       chips={['Series recurrentes', 'Multi-sala', 'Capacidad por reformer']}
-      gradient="linear-gradient(140deg,#16180F 0%,#2C3021 58%,#4A5138 100%)"
-      visual={<SemanaEnSalas />}
+      captura={{ src: '/producto/calendario-semana.png', alt: 'Calendario semanal de Tentare con las clases de un estudio de Pilates', pie: 'La semana real de un estudio: 29 clases, 81 % de ocupación y las 4 que no llegan al 60 %.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El aforo de un estudio de Pilates no es un número">
         <Entradilla>
@@ -98,6 +97,7 @@ export default function CalendarioPage() {
       </Seccion>
 
       <Seccion id="dia-a-dia" titulo="Lo que usas cada día">
+        <SemanaEnSalas />
         <Rejilla
           columnas={2}
           items={[

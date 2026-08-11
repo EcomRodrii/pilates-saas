@@ -46,7 +46,7 @@ export default function AppAlumnasPage() {
       h1={<>Tu estudio, en su pantalla de inicio.</>}
       intro={<>Reservar, comprar su bono, ver cuántas sesiones le quedan y su progreso — en una app con tu nombre y tu logo, instalada en su móvil sin pasar por ninguna tienda.</>}
       chips={['Icono y nombre de tu estudio', 'Avisos al móvil', 'Sin App Store']}
-      gradient="linear-gradient(140deg,#13111A 0%,#2E2740 55%,#5A4E7C 100%)"
+      foto={{ src: '/disciplinas/pilates.jpg', alt: 'Estudio de Pilates con reformers preparados', encuadre: 'center 55%' }}
       visual={<MockMovil />}
     >
       <Seccion id="problema" titulo="El WhatsApp del estudio no escala">

@@ -50,7 +50,6 @@ export default function InformesPage() {
       h1={<>¿Qué clases te dan dinero?</>}
       intro={<>Piensas en meses porque tu software te da informes mensuales. Pero tu negocio ocurre por clases — y hay franjas que llevan un año costándote dinero sin que nadie lo haya mirado.</>}
       chips={['Margen por clase concreta', 'Ocupación por tipo', 'Retención por cohorte']}
-      gradient="linear-gradient(140deg,#101614 0%,#1F3D42 55%,#4A7C86 100%)"
       visual={<OcupacionPorTipo />}
     >
       <Seccion id="problema" titulo="El mes cuadra. La clase de las 10:00 no">
