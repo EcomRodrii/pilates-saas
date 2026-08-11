@@ -19,6 +19,7 @@ import { PublicSheet } from '@/components/ui/public-sheet';
 import { RejillaSemana } from '@/components/reserva/rejilla-semana';
 import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
+import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -293,6 +294,10 @@ export default function ReservarPage() {
   // Filtrar por instructora faltaba, y es de las tres formas en que se elige
   // cuando ya conoces el estudio (con quién, qué día, a qué hora).
   const [filtroInstructor, setFiltroInstructor] = useState('');
+  // Objetivo del asistente. No está en el rail a propósito: el rail filtra por
+  // hechos de la clase (tipo, quién, nivel, hora); el objetivo es una pregunta
+  // sobre la clienta, y solo tiene sentido dentro del asistente que la hace.
+  const [filtroObjetivo, setFiltroObjetivo] = useState('');
   // `null` hasta que el efecto de sessionStorage decida (evita el flash de
   // "mostrar banner → ocultarlo" en cada carga si ya se descartó antes).
   const [bannerQuizVisible, setBannerQuizVisible] = useState<boolean | null>(null);
@@ -318,7 +323,7 @@ export default function ReservarPage() {
     () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
     [tiposClase],
   );
-  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '';
+  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroObjetivo !== '';
   function reiniciarFiltrosQuiz() {
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
     setQuizCompletado(false);
@@ -604,6 +609,7 @@ export default function ReservarPage() {
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtroObjetivo))
       .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
       .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
       .map(s => {
@@ -632,7 +638,7 @@ export default function ReservarPage() {
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1169,15 +1175,15 @@ export default function ReservarPage() {
               {quizAbierto ? (
                 <div style={{ marginBottom: 20 }}>
                   <DiscoveryQuiz
-                    tiposClase={tiposClase}
                     nivelesDisponibles={nivelesDisponibles}
                     nivelLabel={NIVEL_LABEL}
                     paso={quizPaso}
                     setPaso={setQuizPaso}
+                    filtroObjetivo={filtroObjetivo}
+                    setFiltroObjetivo={setFiltroObjetivo}
+                    nResultados={slots.length}
                     filtroNivel={filtroNivel}
                     setFiltroNivel={setFiltroNivel}
-                    filtroTipo={filtroTipo}
-                    setFiltroTipo={setFiltroTipo}
                     filtroHorario={filtroHorario}
                     setFiltroHorario={setFiltroHorario}
                     filtroDias={filtroDias}
@@ -1304,7 +1310,7 @@ export default function ReservarPage() {
                     else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
                   }}
                   onLimpiar={() => {
-                    setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel('');
+                    setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
                     setFiltroHorario(''); setFiltroDias([]);
                   }}
                   nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, dias: filtroDias })}

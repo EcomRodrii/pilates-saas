@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { InfoTip } from '@/components/ui/tooltip';
 import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
 import { useStudio } from '@/lib/studio-context';
+import { OBJETIVOS, resolverObjetivos } from '@/lib/reservar/objetivos';
 import type { TipoClase } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -22,6 +23,7 @@ type ClaseForm = {
   color: string;
   duracionMinutos: string;
   nivel: TipoClase['nivel'];
+  objetivos: string[];
   descripcion: string;
   // Vacío = hereda la ventana del estudio (comportamiento de siempre).
   ventanaCancelacionHoras: string;
@@ -48,6 +50,7 @@ const emptyClaseForm = (): ClaseForm => ({
   color: '#F7A6C4',
   duracionMinutos: '60',
   nivel: 'TODOS',
+  objetivos: [],
   descripcion: '',
   ventanaCancelacionHoras: '',
   reservaExigirPlan: 'hereda',
@@ -66,6 +69,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     color: t.color,
     duracionMinutos: String(t.duracionMinutos),
     nivel: t.nivel,
+    objetivos: resolverObjetivos(t.objetivos),
     descripcion: t.descripcion ?? '',
     ventanaCancelacionHoras: t.ventanaCancelacionHoras != null ? String(t.ventanaCancelacionHoras) : '',
     reservaExigirPlan: boolATri(t.reservaExigirPlan),
@@ -144,6 +148,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       color: form.color,
       duracionMinutos: parseInt(form.duracionMinutos, 10) || 60,
       nivel: form.nivel,
+      objetivos: form.objetivos,
       descripcion: form.descripcion.trim() || null,
       ventanaCancelacionHoras: form.ventanaCancelacionHoras.trim() === '' ? null : Math.max(0, parseInt(form.ventanaCancelacionHoras, 10) || 0),
       reservaExigirPlan: triABool(form.reservaExigirPlan),
@@ -338,6 +343,35 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </select>
               </Field>
             </div>
+            <Field
+              label="¿Para qué sirve esta clase?"
+              description="Lo usa el asistente de tu página pública para recomendarla. Si no marcas ninguno, la clase se ofrece para todos los objetivos."
+            >
+              <div className="flex flex-wrap gap-2">
+                {OBJETIVOS.map(o => {
+                  const activo = form.objetivos.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      title={o.ayuda}
+                      aria-pressed={activo}
+                      onClick={() => setForm(f => ({
+                        ...f,
+                        objetivos: activo ? f.objetivos.filter(x => x !== o.id) : [...f.objetivos, o.id],
+                      }))}
+                      className={`px-3 py-1.5 rounded-full text-[12.5px] font-medium border ${
+                        activo
+                          ? 'border-transparent bg-brand text-brand-foreground'
+                          : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
             <Field
               label="Ventana de cancelación (horas, opcional)"
               description="Antelación mínima para cancelar sin perder la sesión. Vacío = usa la ventana general del estudio."
