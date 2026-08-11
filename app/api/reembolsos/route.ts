@@ -132,9 +132,26 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    // A propósito no se toca `recibos` aquí: lo hace el webhook de
-    // `charge.refunded`, igual que con un reembolso hecho desde Stripe. Un solo
-    // camino para el mismo hecho.
+    // Sigue sin marcarse el recibo DEVUELTO aquí — eso lo hace el webhook de
+    // `charge.refunded`, igual que con un reembolso hecho desde Stripe. Lo que
+    // se anota es otra cosa: que Tentare lo PIDIÓ. Con esto puesto y el estado
+    // todavía COBRADO, la pantalla puede decir "devolviendo…" en vez de no
+    // decir nada, y si el webhook nunca llega se ve que quedó a medias en vez
+    // de parecer que no pasó (el patrón que costó el cobro perdido del 8-ago).
+    //
+    // Best-effort a propósito: el dinero YA ha salido. Si esta escritura falla,
+    // lo último que hay que hacer es responder error y que alguien lo reintente.
+    const { error: errMarca } = await admin.from('recibos').update({
+      reembolso_solicitado_en: new Date().toISOString(),
+      reembolso_stripe_id: refund.id,
+    }).eq('id', recibo.id).eq('studio_id', sesion.studioId);
+    if (errMarca) {
+      Sentry.captureMessage('[reembolsos] devolución hecha pero sin marcar como solicitada', {
+        level: 'warning', tags: { area: 'cobros', tipo: 'reembolso' },
+        extra: { reciboId: recibo.id, refundId: refund.id, error: errMarca.message },
+      });
+    }
+
     return NextResponse.json({ ok: true, refundId: refund.id, estado: refund.status });
   } catch (err) {
     const esStripe = err instanceof Stripe.errors.StripeError;

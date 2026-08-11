@@ -20,6 +20,7 @@ import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
+import { estadoReembolso } from '@/lib/billing/estado-reembolso';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
@@ -360,6 +361,19 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       return (sb?.inicio ?? '').localeCompare(sa?.inicio ?? '');
     }),
     [reservas, sesionById, id]);
+  // Devoluciones enviadas EN ESTA PANTALLA, para que la fila cambie al pulsar
+  // sin esperar a recargar. El dato de verdad vive en el recibo
+  // (`reembolsoSolicitadoEn`), así que esto solo tapa ese hueco de segundos.
+  const [enviadas, setEnviadas] = useState<Set<string>>(new Set());
+  // Un reloj que avanza: sin él, una devolución que se queda sin confirmar
+  // seguiría diciendo "Devolviendo…" para siempre, porque nada volvería a
+  // pintar la fila. Cada 30 s basta para un umbral de 5 minutos.
+  const [ahoraDev, setAhoraDev] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAhoraDev(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   // La política de devoluciones del estudio, tal cual la evalúa el servidor.
   // Se arma aquí una vez y no por fila: son tres campos del mismo estudio.
   const politicaReembolso = useMemo(() => ({
@@ -1221,9 +1235,32 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                   {formatEuro(r.importe)}
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <span className={cn('text-xs font-bold px-2.5 py-1 rounded-full', BADGE_RECIBO[r.estado])}>
-                                    {LABEL_RECIBO[r.estado]}
-                                  </span>
+                                  {(() => {
+                                    // Una devolución en vuelo manda sobre el estado del recibo:
+                                    // mientras Stripe no confirma, el recibo sigue diciendo
+                                    // "Cobrado" y eso es justo lo que confundía.
+                                    const dev = estadoReembolso({
+                                      estado: r.estado,
+                                      reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
+                                      fechaDevolucion: r.fechaDevolucion,
+                                    }, ahoraDev);
+                                    if (dev && dev.fase !== 'DEVUELTA') {
+                                      return (
+                                        <span
+                                          title={dev.detalle}
+                                          className={cn('text-xs font-bold px-2.5 py-1 rounded-full',
+                                            dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info')}
+                                        >
+                                          {dev.etiqueta}
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span title={dev?.detalle} className={cn('text-xs font-bold px-2.5 py-1 rounded-full', BADGE_RECIBO[r.estado])}>
+                                        {LABEL_RECIBO[r.estado]}
+                                      </span>
+                                    );
+                                  })()}
                                 </td>
                                 <td className="px-4 py-3 text-right">
                                   {r.estado === 'PENDIENTE' && (
@@ -1256,6 +1293,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                       }}
                                       politica={politicaReembolso}
                                       onHecho={setToast}
+                                      yaEnviada={enviadas.has(r.id) || !!r.reembolsoSolicitadoEn}
+                                      onEnviada={() => setEnviadas(prev => new Set(prev).add(r.id))}
                                     />
                                   )}
                                 </td>
@@ -1264,6 +1303,32 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           </tbody>
                         </table>
                       </div>
+                      {/* El estado de una devolución, en texto y no solo en un
+                          tooltip: el panel se usa en el iPad del mostrador, donde
+                          pasar el ratón por encima no existe. */}
+                      {misRecibos.map(r => {
+                        const dev = estadoReembolso({
+                          estado: r.estado,
+                          reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
+                          fechaDevolucion: r.fechaDevolucion,
+                        }, ahoraDev);
+                        // La nota del plazo del banco solo se enseña mientras sea
+                        // reciente: en un recibo devuelto hace meses es ruido.
+                        const reciente = dev?.fase !== 'DEVUELTA'
+                          || (r.fechaDevolucion != null
+                              && ahoraDev.getTime() - new Date(r.fechaDevolucion).getTime() < 15 * 24 * 3600 * 1000);
+                        if (!dev || !reciente) return null;
+                        return (
+                          <div
+                            key={`dev-${r.id}`}
+                            className={cn('mt-3 rounded-lg px-3 py-2 text-[12px] leading-snug',
+                              dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground')}
+                          >
+                            <strong className="font-semibold">{r.concepto} · {formatEuro(r.importe)}</strong> — {dev.detalle}
+                          </div>
+                        );
+                      })}
+
                       <div className="flex justify-end mt-3 pt-3 border-t border-muted">
                         <div className="text-right">
                           <p className="text-xs font-medium text-muted-foreground">Total cobrado</p>
