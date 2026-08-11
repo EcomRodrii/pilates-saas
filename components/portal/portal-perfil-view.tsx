@@ -152,12 +152,24 @@ export function PortalPerfilView({
   // mismo con un número grande delante, mismo lenguaje que el resto del
   // portal usa para "esto importa" (la tarjeta hero de Inicio, el contador
   // de Clases). Solo se muestran las que tienen dato real detrás.
-  const stats: { etiqueta: string; valor: string }[] = [];
+  const stats: { etiqueta: string; valor: string; nota?: string }[] = [];
   if (asistidas > 0) stats.push({ etiqueta: 'Clases asistidas', valor: String(asistidas) });
   if (bono) {
+    // ⚠️ La fracción es el saldo TOTAL, no el del bono en curso.
+    //
+    // Antes salía `restantes/total` del bono elegido, así que una socia con 24
+    // sesiones repartidas en 6 bonos leía «2/4» en su perfil: el número del
+    // bono que está gastando ahora. No era falso, pero no respondía a lo que
+    // había ido a mirar —cuántas clases le quedan— y daba la sensación de haber
+    // perdido sesiones ya pagadas. El desglose por bono vive en /bonos.
+    const nBonos = bono.bonos.length;
     stats.push({
       etiqueta: bono.esMensual ? 'Tu bono' : 'Sesiones',
-      valor: bono.esMensual ? 'Ilimitado' : `${bono.restantes ?? '–'}/${bono.total ?? '–'}`,
+      valor: bono.esMensual
+        ? 'Ilimitado'
+        : `${bono.totalRestantes ?? '–'}/${bono.totalSesiones ?? '–'}`,
+      // Con un solo bono, «en 1 bono» es ruido: la fracción ya es la suya.
+      nota: !bono.esMensual && nBonos > 1 ? `en ${nBonos} bonos` : undefined,
     });
   }
   if (plaza) stats.push({ etiqueta: 'Plaza fija', valor: plaza });
@@ -252,6 +264,14 @@ export function PortalPerfilView({
                 >
                   <div style={{ ...display(numerico ? 24 : 18), color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.valor}</div>
                   <div style={{ ...micro(8, 0.2, 600), color: t.muted, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.etiqueta}</div>
+                  {/* Tercera línea opcional («en 6 bonos»): el contexto que
+                      convierte la fracción en una respuesta y no en un dato
+                      suelto. Sin `nota` la tarjeta queda exactamente como antes. */}
+                  {s.nota && (
+                    <div style={{ fontFamily: sans, fontSize: 9.5, color: t.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.nota}
+                    </div>
+                  )}
                 </Card>
               );
             })}

@@ -144,6 +144,9 @@ export async function montarPortal(page: Page, opciones: {
   reservaRechazada?: string;
   /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
   sinBono?: boolean;
+  /** Varios bonos a la vez: el caso que hacía que el saldo del titular fuera
+   *  el del bono en curso (2/4) y no el real (12/22). */
+  variosBonos?: boolean;
   /** Sin la reserva de HOY (ses-1). El Inicio deja de estar en el caso
    *  "tienes clase" y pasa a uno de los otros cuatro — el único camino por el
    *  que se ve la clase que el portal PROPONE (lib/portal-sugerencias.ts). */
@@ -193,7 +196,7 @@ export async function montarPortal(page: Page, opciones: {
   tema?: string;
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
-          sinBono = false, sinProximaReserva = false, planMasElegidoId = null, entraTrasPeticiones,
+          sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
           retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
 
@@ -344,7 +347,15 @@ export async function montarPortal(page: Page, opciones: {
     socia: conSesion ? {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [...(sinProximaReserva ? [] : [MI_RESERVA]), ...HISTORIAL.map(h => h.res)],
-      suscripciones: sinBono ? [] : [SUSCRIPCION],
+      suscripciones: sinBono ? [] : variosBonos ? [
+        // Cuatro bonos vigentes: 8+4+0+5 = 17 sesiones de 10+5+5+5 = 25.
+        // El que caduca antes (30/09, con 8) manda en el titular; uno está
+        // agotado y otro no caduca nunca.
+        SUSCRIPCION,
+        { id: 'sus-2', studioId: STUDIO_ID, socioId: SOCIA.socioId, planId: 'plan-b5', estado: 'ACTIVA', fechaInicio: '2026-07-05', fechaFin: '2026-10-31', sesionesRestantes: 4, stripeSubscriptionId: null },
+        { id: 'sus-3', studioId: STUDIO_ID, socioId: SOCIA.socioId, planId: 'plan-b5', estado: 'ACTIVA', fechaInicio: '2026-06-01', fechaFin: '2026-11-30', sesionesRestantes: 0, stripeSubscriptionId: null },
+        { id: 'sus-4', studioId: STUDIO_ID, socioId: SOCIA.socioId, planId: 'plan-b5', estado: 'ACTIVA', fechaInicio: '2026-07-20', fechaFin: null, sesionesRestantes: 5, stripeSubscriptionId: null },
+      ] : [SUSCRIPCION],
       recibos, facturas: FACTURAS,
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],

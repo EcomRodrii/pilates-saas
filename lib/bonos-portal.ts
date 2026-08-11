@@ -50,6 +50,34 @@ export interface BonoActivo {
    * sumar a mano lo de la cola para saber que en realidad le quedaban 12.
    */
   totalRestantes: number | null;
+  /**
+   * Sesiones que COMPRÓ en total, sumando los mismos bonos que `totalRestantes`.
+   * Es el denominador honesto de la fracción que ve en Perfil y en Bonos:
+   * «12/24» = le quedan 12 de las 24 que ha pagado y siguen vigentes.
+   *
+   * ⚠️ Antes la fracción era la del bono ELEGIDO (`restantes`/`total`), así que
+   * una socia con 24 sesiones repartidas en 6 bonos leía «2/4» en su perfil.
+   * Ese número no era falso —el bono en curso sí iba por 2 de 4— pero no
+   * respondía a lo que había ido a mirar, y hacía parecer que había perdido
+   * sesiones pagadas.
+   */
+  totalSesiones: number | null;
+  /** 0..1 sobre el saldo TOTAL, para la barra del titular. */
+  progresoTotal: number | null;
+  /**
+   * Todos sus bonos vigentes, ya ordenados por orden de consumo (el primero es
+   * el del titular). Sustituye al párrafo de «tienes N más en cola», que
+   * obligaba a leer una frase larga para saber algo que es una lista.
+   */
+  bonos: {
+    nombre: string;
+    restantes: number | null;
+    total: number | null;
+    caducaEn: string | null;
+    textoCaducidad: string | null;
+    /** Ya sin sesiones: se enseña apagado, no se esconde (lo pagó). */
+    agotado: boolean;
+  }[];
 }
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -112,6 +140,22 @@ export function bonoActivo(
     ? tiposClase.find(tc => tc.id === tipos[0])?.nombre ?? null
     : null;
 
+  // Los agregados cuentan SOLO las suscripciones que llevan sesiones: un
+  // mensual ilimitado no aporta ni al numerador ni al denominador, y meterlo
+  // como 0 haría creer que se ha gastado algo que no existe.
+  //
+  // Un bono AGOTADO sí cuenta, en los dos lados de la fracción: pagó esas
+  // sesiones y ya las usó, que es justo lo que la fracción cuenta. Sacarlo del
+  // denominador haría que «12/24» se convirtiera en «12/20» al gastar un bono
+  // entero, o sea que el total comprado bajaría solo, que no tiene sentido.
+  const conSesiones = candidatas.filter(c => c.s.sesionesRestantes != null);
+  const hayConSesiones = conSesiones.length > 0;
+  const sumaRestantes = conSesiones.reduce((n, c) => n + (c.s.sesionesRestantes ?? 0), 0);
+  const sumaTotales = conSesiones.reduce((n, c) => n + (c.plan!.sesiones ?? 0), 0);
+  const progresoTotal = hayConSesiones && sumaTotales > 0
+    ? Math.max(0, Math.min(1, sumaRestantes / sumaTotales))
+    : null;
+
   const estado = calcularEstadoSuscripcion(s, plan);
   const urgente = estado.kind === 'bono' ? estado.urgente : estado.kind === 'recurrente' ? estado.urgente : false;
   const caducado = estado.kind === 'bono' && estado.caducado;
@@ -148,9 +192,28 @@ export function bonoActivo(
     otrosActivos,
     // Suma de TODOS los que cuentan sesiones. `null` si ninguno lo hace (solo
     // mensuales): ahí no hay saldo que sumar, y un 0 mentiría.
-    totalRestantes: candidatas.some(c => c.s.sesionesRestantes != null)
-      ? candidatas.reduce((n, c) => n + (c.s.sesionesRestantes ?? 0), 0)
+    totalRestantes: hayConSesiones
+      ? conSesiones.reduce((n, c) => n + (c.s.sesionesRestantes ?? 0), 0)
       : null,
+    totalSesiones: hayConSesiones
+      ? conSesiones.reduce((n, c) => n + (c.plan!.sesiones ?? 0), 0)
+      : null,
+    progresoTotal,
+    bonos: candidatas.map(({ s: b, plan: p }) => {
+      const tiposB = p!.tiposClaseIds ?? [];
+      const nombreTipoB = tiposB.length === 1
+        ? tiposClase.find(tc => tc.id === tiposB[0])?.nombre ?? null
+        : null;
+      const estadoB = calcularEstadoSuscripcion(b, p);
+      return {
+        nombre: nombreTipoB ? `${p!.nombre} · ${nombreTipoB}` : p!.nombre,
+        restantes: b.sesionesRestantes ?? null,
+        total: p!.sesiones ?? null,
+        caducaEn: b.fechaFin,
+        textoCaducidad: textoCaducidad(estadoB),
+        agotado: (b.sesionesRestantes ?? Infinity) <= 0,
+      };
+    }),
   };
 }
 

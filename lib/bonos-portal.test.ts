@@ -231,3 +231,110 @@ test('la caducidad sigue mandando entre los que tienen saldo', () => {
   );
   assert.equal(b?.suscripcionId, 's-pronto');
 });
+
+// ── El saldo TOTAL, no el del bono en curso ─────────────────────────────────
+//
+// El bug de diseño: con 6 bonos y 24 sesiones, el perfil ponía «2/4» — la
+// fracción del bono elegido. No era falso, pero no respondía a lo que la socia
+// había ido a mirar, y parecía que había perdido sesiones pagadas.
+
+test('totalSesiones/totalRestantes suman TODOS los bonos, no solo el del titular', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's1', planId: 'p4', sesionesRestantes: 2, fechaFin: '2026-09-30' }),
+      sus({ id: 's2', planId: 'p4', sesionesRestantes: 4, fechaFin: null }),
+      sus({ id: 's3', planId: 'p8', sesionesRestantes: 6, fechaFin: '2026-10-15' }),
+    ],
+    [plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 }), plan({ id: 'p8', nombre: 'Bono 8', sesiones: 8 })],
+    [], 'soc-1',
+  );
+  // El titular sigue siendo el que caduca antes: 2 de 4.
+  assert.equal(b?.restantes, 2);
+  assert.equal(b?.total, 4);
+  // Pero el saldo real es 12 de 16.
+  assert.equal(b?.totalRestantes, 12);
+  assert.equal(b?.totalSesiones, 16);
+  assert.equal(b?.progresoTotal, 12 / 16);
+});
+
+test('un bono AGOTADO sigue contando en los dos lados de la fracción', () => {
+  // Si saliera del denominador, «4/8» pasaría a «4/4» al gastar el primero:
+  // el total comprado bajaría solo, que no tiene sentido.
+  const b = bonoActivo(
+    [
+      sus({ id: 's1', planId: 'p4', sesionesRestantes: 0, fechaFin: '2026-09-01' }),
+      sus({ id: 's2', planId: 'p4', sesionesRestantes: 4, fechaFin: '2026-10-01' }),
+    ],
+    [plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.totalRestantes, 4);
+  assert.equal(b?.totalSesiones, 8);
+  // Y el agotado NUNCA es el titular (regresión de #901).
+  assert.equal(b?.restantes, 4);
+});
+
+test('un mensual ilimitado no entra en los agregados: no tiene sesiones que sumar', () => {
+  const b = bonoActivo(
+    [sus({ id: 's1', planId: 'pm', sesionesRestantes: null, fechaFin: '2026-09-30' })],
+    [plan({ id: 'pm', nombre: 'Ilimitado', sesiones: null, tipo: 'MENSUAL' })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.totalRestantes, null);
+  assert.equal(b?.totalSesiones, null);
+  assert.equal(b?.progresoTotal, null);
+});
+
+test('mensual + bono: los agregados cuentan solo el bono', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's1', planId: 'pm', sesionesRestantes: null, fechaFin: '2026-12-31' }),
+      sus({ id: 's2', planId: 'p4', sesionesRestantes: 3, fechaFin: '2026-09-30' }),
+    ],
+    [plan({ id: 'pm', nombre: 'Ilimitado', sesiones: null, tipo: 'MENSUAL' }), plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.totalRestantes, 3);
+  assert.equal(b?.totalSesiones, 4);
+});
+
+// ── La lista, que sustituye al párrafo ──────────────────────────────────────
+
+test('bonos: los devuelve todos en orden de consumo, con el titular primero', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's1', planId: 'p4', sesionesRestantes: 2, fechaFin: '2026-09-30' }),
+      sus({ id: 's2', planId: 'p8', sesionesRestantes: 6, fechaFin: '2026-10-15' }),
+    ],
+    [plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 }), plan({ id: 'p8', nombre: 'Bono 8', sesiones: 8 })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.bonos.length, 2);
+  assert.equal(b?.bonos[0]?.nombre, 'Bono 4');
+  assert.deepEqual([b?.bonos[0]?.restantes, b?.bonos[0]?.total], [2, 4]);
+  assert.equal(b?.bonos[1]?.nombre, 'Bono 8');
+  assert.equal(b?.bonos[1]?.agotado, false);
+});
+
+test('bonos: con uno solo, la lista tiene ese uno (no va vacía como otrosActivos)', () => {
+  const b = bonoActivo(
+    [sus({ id: 's1', planId: 'p4', sesionesRestantes: 3, fechaFin: '2026-09-30' })],
+    [plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.bonos.length, 1);
+  assert.deepEqual(b?.otrosActivos, []);
+});
+
+test('bonos: el agotado se marca, no se esconde — lo pagó', () => {
+  const b = bonoActivo(
+    [
+      sus({ id: 's1', planId: 'p4', sesionesRestantes: 0, fechaFin: '2026-09-01' }),
+      sus({ id: 's2', planId: 'p4', sesionesRestantes: 4, fechaFin: '2026-10-01' }),
+    ],
+    [plan({ id: 'p4', nombre: 'Bono 4', sesiones: 4 })],
+    [], 'soc-1',
+  );
+  assert.equal(b?.bonos.length, 2);
+  assert.equal(b?.bonos.filter(x => x.agotado).length, 1);
+});
