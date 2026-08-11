@@ -473,28 +473,42 @@ function EditorPlantilla({
           </div>
         </details>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-          <button
-            type="button"
-            onClick={() => setB(VACIO)}
-            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground underline underline-offset-2"
-          >
-            <Undo2 size={13} /> Dejarlo como viene de fábrica
-          </button>
-          <div className="flex items-center gap-2">
-            <button onClick={enviarPrueba} disabled={enviando} className={cn(btnSecondary, 'disabled:opacity-50')}>
-              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviarme una prueba
-            </button>
-            <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, 'disabled:opacity-50')}>
-              {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar
-            </button>
-          </div>
-        </div>
       </div>
 
-      {/* ── Columna de vista previa ── */}
+      {/* ── Vista previa ──
+          Va DESPUÉS de los campos y ANTES de las acciones, y no hace falta
+          ninguna clase `order` para conseguirlo: en móvil la rejilla es de una
+          columna y los tres hermanos se apilan en este orden —campos, correo,
+          botones—, que es como se revisa antes de guardar. En escritorio, con
+          dos columnas, la colocación automática manda los campos a (1,1), el
+          correo a (1,2) y las acciones a (2,1): siguen debajo de los campos,
+          igual que antes. */}
       <div className="lg:sticky lg:top-0 lg:h-[560px]">
         <VistaPreviaViva tipo={meta.tipo} borrador={b} />
+      </div>
+
+      {/* ── Acciones ──
+          `lg:col-span-2` no es decorativo: sin él, en escritorio los botones
+          caen en la fila 2 de la columna izquierda, y como la fila 1 mide lo
+          que mide la vista previa (560 px) queda un hueco muerto enorme entre
+          los campos y los botones. Ocupando el ancho entero se leen como una
+          barra de pie del diálogo, que es lo que son. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 lg:col-span-2">
+        <button
+          type="button"
+          onClick={() => setB(VACIO)}
+          className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground underline underline-offset-2"
+        >
+          <Undo2 size={13} /> Dejarlo como viene de fábrica
+        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={enviarPrueba} disabled={enviando} className={cn(btnSecondary, 'disabled:opacity-50')}>
+            {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviarme una prueba
+          </button>
+          <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, 'disabled:opacity-50')}>
+            {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar
+          </button>
+        </div>
       </div>
     </div>
   );
