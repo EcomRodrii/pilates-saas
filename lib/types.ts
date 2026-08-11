@@ -543,6 +543,14 @@ export interface CadenaTipoClase {
   descripcion: string | null;
   nivel: NivelClase;
   fotoUrl: string | null;
+  // Objetivos de la lista FIJA (lib/reservar/objetivos.ts) que cubre este tipo
+  // de clase, para el asistente de la página pública.
+  //
+  // ⚠️ OPCIONAL a propósito: «ausente» y «vacío» significan lo mismo —sin
+  // declarar— y `claseSirvePara` los trata igual, valen para TODOS. Hacerlo
+  // obligatorio arrastraría el campo al menú de cadena (`CadenaTipoClase`),
+  // que es otra entidad y no participa del asistente.
+  objetivos?: string[];
   creadoEn: string;
   actualizadoEn: string;
 }

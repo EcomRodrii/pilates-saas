@@ -782,6 +782,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     duracionMinutos: r.duracion_minutos,
     descripcion: r.descripcion ?? null,
     nivel: r.nivel,
+    objetivos: Array.isArray(r.objetivos) ? r.objetivos : [],
     fotoUrl: r.foto_url ?? null,
     ventanaCancelacionHoras: r.ventana_cancelacion_horas ?? null,
     reservaExigirPlan: r.reserva_exigir_plan ?? null,
