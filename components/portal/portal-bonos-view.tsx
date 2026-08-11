@@ -115,24 +115,35 @@ export function PortalBonosView({
             marginTop: 28, borderRadius: 'var(--portal-radius-card, 26px)', background: t.surface, padding: '26px 24px',
             boxShadow: '0 18px 40px -28px rgba(34,42,30,.5)',
           }}>
+            {/* ⚠️ Con VARIOS bonos el título no puede ser el nombre de uno: el
+                número de debajo ya es la suma de todos, y «Bono 10 · Reformer»
+                encima de «17 de 25» se lee como que ese bono tiene 25 sesiones.
+                Con uno solo se mantiene su nombre, que es más concreto. */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ ...display(26), color: t.ink }}>{bono.nombre}</div>
+              <div style={{ ...display(26), color: t.ink }}>
+                {bono.bonos.length > 1 ? 'Tu saldo' : bono.nombre}
+              </div>
               <div style={{ ...micro(8.5, 0.22, 600), color: t.heroAccent, whiteSpace: 'nowrap' }}>Activo</div>
             </div>
 
             {/* Un mensual ilimitado no tiene fracción que contar: enseñar «0 de 0»
                 o una barra al 100 % haría creer que se ha gastado. */}
-            {bono.total != null && bono.restantes != null ? (
+            {bono.totalSesiones != null && bono.totalRestantes != null ? (
               <>
+                {/* ⚠️ El titular es el saldo TOTAL, no el del bono en curso.
+                    Con varios bonos, «4 de 4» era el del que se está gastando
+                    ahora y obligaba a sumar la cola a mano para saber lo que de
+                    verdad le queda — que es justo lo que vino a mirar. */}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 22 }}>
-                  <span style={{ ...display(escala('numero-bono', 62), false, 0.9), color: t.ink }}>{bono.restantes}</span>
+                  <span style={{ ...display(escala('numero-bono', 62), false, 0.9), color: t.ink }}>{bono.totalRestantes}</span>
                   <span style={{ fontFamily: sans, fontSize: 12, color: t.muted }}>
-                    de {bono.total} sesiones disponibles
+                    de {bono.totalSesiones} sesiones disponibles
                   </span>
                 </div>
                 <div style={{ height: 5, borderRadius: 3, background: t.line, marginTop: 20, overflow: 'hidden' }}>
                   <div style={{
-                    width: `${(bono.progreso ?? 0) * 100}%`, height: 5, borderRadius: 3,
+                    // Sobre el saldo total, coherente con el número de arriba.
+                    width: `${(bono.progresoTotal ?? 0) * 100}%`, height: 5, borderRadius: 3,
                     background: 'var(--portal-brand)',
                     transition: `width ${dur.card}ms ${EASE}`,
                   }} />
@@ -153,12 +164,25 @@ export function PortalBonosView({
                     : t.muted,
                 }}
               >
+                {/* Con varios bonos esta fecha es la del PRIMERO que caduca,
+                    no la de todo el saldo — se dice, o parecería que las 25
+                    sesiones caducan ese día.
+                    `textoCaducidad` ya empieza por «Caduca en…», así que se le
+                    baja la inicial en vez de anteponer otro «caduca» y dejar
+                    «Lo primero caduca: Caduca en 50 días». Y solo en bonos: en
+                    un mensual la frase es «Próxima renovación en…», donde «el
+                    primero» no significa nada. */}
                 {bono.textoCaducidad
-                  ? `${bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
+                  ? `${bono.bonos.length > 1 && !bono.esMensual
+                      ? `El primero ${bono.textoCaducidad.charAt(0).toLowerCase()}${bono.textoCaducidad.slice(1)}`
+                      : bono.textoCaducidad}${bono.caducaEn ? ` · ${fechaLarga(bono.caducaEn)}` : ''}`
                   : bono.caducaEn ? `${bono.esMensual ? 'Próxima renovación' : 'Caduca'} el ${fechaLarga(bono.caducaEn)}`
                   : bono.esMensual ? 'Activo' : 'Sin fecha de caducidad'}
               </span>
-              {bono.precio != null && (
+              {/* El precio es el del bono elegido: al lado de un saldo total
+                  se leería como el valor de todo, así que con varios se calla
+                  (cada uno tiene el suyo, y el detalle vive en la lista). */}
+              {bono.precio != null && bono.bonos.length === 1 && (
                 <span style={{ fontFamily: sans, fontSize: 11, color: t.muted, whiteSpace: 'nowrap' }}>
                   {bono.precio} €{bono.esMensual ? '/mes' : ''}
                 </span>
@@ -181,40 +205,75 @@ export function PortalBonosView({
           </div>
         ) : null}
 
-        {bono && bono.otrosActivos.length > 0 && (
-          // El bono elegido es el que caduca antes (se gasta primero, a
-          // propósito); esto solo avisa de que hay más en cola, que antes
-          // quedaban invisibles del todo.
+        {bono && bono.bonos.length > 1 && (
+          // La cola, como LISTA y no como párrafo.
+          //
+          // Antes era una frase larga ("Tienes 5 bonos más en cola: Bono 4
+          // (4 sesiones), Bono 4 (2 sesiones)… Se usarán en cuanto se agote el
+          // actual. En total te quedan 12 sesiones.") que había que leer entera
+          // para sacar algo que es, literalmente, una tabla. Y el total iba al
+          // final, escondido, cuando es lo primero que se busca — por eso ahora
+          // manda en el titular de arriba.
           <div
             style={{
               marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
               background: noche ? t.surface2 : '#EEF0EA',
               border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
-              padding: '18px 24px',
+              padding: '18px 20px',
             }}
           >
-            <span style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, textWrap: 'pretty' } as React.CSSProperties}>
-              Tienes {bono.otrosActivos.length} bono{bono.otrosActivos.length === 1 ? '' : 's'} más en cola:{' '}
-              {bono.otrosActivos.map((o, i) => (
-                <span key={i} style={{ color: t.ink, fontWeight: 600 }}>
-                  {o.nombre}{o.restantes != null ? ` (${o.restantes} sesion${o.restantes === 1 ? '' : 'es'})` : ''}
-                  {i < bono.otrosActivos.length - 1 ? ', ' : ''}
-                </span>
+            <div style={{ ...micro(9, 0.24, 600), color: t.muted }}>
+              Tus bonos ({bono.bonos.length})
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', marginTop: 12 }}>
+              {bono.bonos.map((b, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10,
+                    padding: '9px 0',
+                    borderTop: i === 0 ? 'none' : `1px solid ${noche ? t.line : 'rgba(44,53,44,.10)'}`,
+                    // Un bono gastado se apaga, pero NO se esconde: lo pagó, y
+                    // verlo desaparecer de la lista se lee como que se lo han
+                    // quitado.
+                    opacity: b.agotado ? 0.45 : 1,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{
+                      fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: t.ink,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {b.nombre}
+                      {/* Solo el primero: es el que se está gastando ahora, y
+                          saberlo explica por qué caduca antes que los demás. */}
+                      {i === 0 && !b.agotado && (
+                        <span style={{ fontWeight: 400, color: t.muted }}> · en curso</span>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: sans, fontSize: 10.5, color: t.muted, marginTop: 2 }}>
+                      {b.agotado
+                        ? 'Sin sesiones'
+                        : b.textoCaducidad
+                        ? `${b.textoCaducidad}${b.caducaEn ? ` · ${fechaLarga(b.caducaEn)}` : ''}`
+                        : b.caducaEn ? `Caduca el ${fechaLarga(b.caducaEn)}`
+                        : 'Sin caducidad'}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontFamily: sans, fontSize: 12.5, fontWeight: 600, color: t.ink,
+                    whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {b.restantes ?? '–'}/{b.total ?? '–'}
+                  </span>
+                </div>
               ))}
-              . Se usarán en cuanto se agote el actual.
-              {/* La suma, dicha y no deducida: el titular enseña el saldo del
-                  bono en curso, así que con varios en cola la socia tenía que
-                  sumar a mano para saber cuántas clases le quedan de verdad —
-                  que es justo lo que vino a mirar. */}
-              {bono.totalRestantes != null && (
-                <>
-                  {' '}En total te quedan{' '}
-                  <span style={{ color: t.ink, fontWeight: 600 }}>
-                    {bono.totalRestantes} sesion{bono.totalRestantes === 1 ? '' : 'es'}
-                  </span>.
-                </>
-              )}
-            </span>
+            </div>
+
+            <div style={{ fontFamily: sans, fontSize: 10.5, color: t.muted, marginTop: 10 }}>
+              Se gastan por orden: primero el que caduca antes.
+            </div>
           </div>
         )}
 
