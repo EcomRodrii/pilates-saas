@@ -29,6 +29,7 @@ import {
 } from '@/lib/confirmacion-riesgo/email';
 import { ejecutarCancelacionReserva } from '@/lib/db/supabase-data-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
@@ -36,8 +37,8 @@ function appUrl(): string {
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const fecha = fechaLargaEstudio(d);
+  const hora = horaEstudio(d);
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
 }
 
