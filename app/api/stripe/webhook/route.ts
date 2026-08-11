@@ -6,6 +6,7 @@ import { capturar } from '@/lib/analytics';
 import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/lib/webhook-idempotencia';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
+import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
@@ -373,6 +374,16 @@ export async function POST(req: NextRequest) {
               console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia', socioId, error);
               return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
             }
+            // Y CUÁNDO caduca, para poder avisar antes de que falle el cobro
+            // (Fase 3 del Brain). Va DESPUÉS y sin `await` sobre su resultado
+            // crítico a propósito: `guardarCaducidadTarjeta` no lanza nunca, y
+            // aunque Stripe no responda, el método de pago —que es lo que
+            // importa— ya está guardado. Perder el mes de caducidad es molesto;
+            // devolver 5xx aquí haría a Stripe reintentar un evento de cobro ya
+            // confirmado.
+            await guardarCaducidadTarjeta(admin, stripe, {
+              socioId, studioId, paymentMethodId, stripeAccount: event.account,
+            });
           }
         }
       }

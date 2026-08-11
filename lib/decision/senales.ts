@@ -407,6 +407,49 @@ export function impagosManualesPorSocio(idx: IndicesSenal, now: Date, maxDias = 
   return porSocio;
 }
 
+// ── Historial de cobro de una socia (Fase 3 del Brain) ──────────────────────
+//
+// El dunning de hoy es 100 % reactivo: reintenta DESPUÉS de que un cobro haya
+// fallado. Esto es lo que permite mirar hacia delante — quién tiene pinta de
+// fallar la próxima vez, mirando lo que le ha pasado hasta ahora.
+
+export interface HistorialCobro {
+  /** Recibos suyos con desenlace conocido (cobrado, fallido o devuelto). */
+  resueltos: number;
+  /** De esos, los que acabaron entrando. */
+  cobrados: number;
+}
+
+/**
+ * Cuántos de sus recibos acabaron cobrándose. Solo cuenta los que YA tienen
+ * desenlace: un PENDIENTE todavía no es ni un sí ni un no, y contarlo como
+ * fallo penalizaría a quien sencillamente aún no ha llegado a su fecha —
+ * mismo criterio que `dbCalcularSeguimientoPorTipo` con las PENDIENTE.
+ *
+ * ⚠️ DEVUELTO cuenta como NO cobrado aunque en su día entrara: para lo que se
+ * quiere predecir —si el dinero se va a quedar en la cuenta del estudio— una
+ * devolución es exactamente igual de mala que un impago.
+ */
+export function historialCobroDeSocio(socioId: string, s: SnapshotEstudio): HistorialCobro {
+  let resueltos = 0, cobrados = 0;
+  for (const r of s.recibos) {
+    if (r.socioId !== socioId) continue;
+    if (r.estado === 'COBRADO') { resueltos++; cobrados++; }
+    else if (r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') resueltos++;
+  }
+  return { resueltos, cobrados };
+}
+
+/** Lo mismo agregado a todo el estudio: la tasa base con la que se suaviza. */
+export function historialCobroDelEstudio(s: SnapshotEstudio): HistorialCobro {
+  let resueltos = 0, cobrados = 0;
+  for (const r of s.recibos) {
+    if (r.estado === 'COBRADO') { resueltos++; cobrados++; }
+    else if (r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') resueltos++;
+  }
+  return { resueltos, cobrados };
+}
+
 /** Recibos PENDIENTE vencidos (0..maxDias días de retraso), particionados por si la socia tiene tarjeta guardada. */
 export function pagosEnRiesgo(idx: IndicesSenal, now: Date, maxDias = 30): { conTarjeta: Recibo[]; sinTarjeta: Recibo[] } {
   const vencidos = idx.recibosPendientes.filter(r => {

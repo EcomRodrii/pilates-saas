@@ -540,6 +540,10 @@ export interface RowSocios {
   consentimiento_salud_fecha: string | null;
   consentimiento_salud_registrado_por: string | null;
   consentimiento_salud_revocado_en: string | null;
+  tarjeta_exp_mes: number | null;
+  tarjeta_exp_anio: number | null;
+  tarjeta_marca: string | null;
+  tarjeta_ultimos4: string | null;
 }
 
 export interface RowSoporteSolicitudes {

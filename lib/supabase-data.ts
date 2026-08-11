@@ -406,6 +406,10 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
+    tarjetaExpMes: r.tarjeta_exp_mes ?? null,
+    tarjetaExpAnio: r.tarjeta_exp_anio ?? null,
+    tarjetaMarca: r.tarjeta_marca ?? null,
+    tarjetaUltimos4: r.tarjeta_ultimos4 ?? null,
     metodoPagoPreferido: (r.metodo_pago_preferido as Socio['metodoPagoPreferido']) ?? 'TARJETA',
     sepaMandateId: r.sepa_mandate_id ?? null,
     sepaPaymentMethodId: r.sepa_payment_method_id ?? null,
@@ -4040,7 +4044,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),

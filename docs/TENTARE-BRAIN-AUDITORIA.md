@@ -4,9 +4,9 @@ Fecha: 2026-08-11 · Rama: `claude/tentare-brain-architecture-bf7180`
 Alcance: las 5 áreas del encargo (calendario/reservas, instructoras/sustituciones,
 pagos/membresías, retención/marketing, app de la alumna) + la capa central.
 
-> **Estado: Fases 0, 1, 2, 4 y 5 ENTREGADAS** (2026-08-11). Ver §"Lo entregado"
-> al final. Queda solo la **3** (revenue predictivo), que mueve dinero real y
-> por eso se dejó para el final.
+> **Estado: las 6 fases ENTREGADAS** (2026-08-11). Ver §"Lo entregado" al final.
+> ⚠️ La Fase 3 (dinero) está construida pero **no probada con un cobro real**:
+> hoy solo 1 socia de 202 tiene tarjeta guardada.
 
 ---
 
@@ -798,3 +798,103 @@ nueva la necesita.
   sobre un título de una línea invita a decidir sin leer.
 - **Rediseñar el Centro de Control.** Sigue igual: esto es un puente, no un
   reemplazo.
+
+---
+
+# LO ENTREGADO — Fase 3 (2026-08-11)
+
+La última, y la única que toca dinero. El dunning de hoy es **100 % reactivo**:
+reintenta DESPUÉS de que un cobro haya fallado. Estas tres reglas miran hacia
+delante.
+
+## F4 · La tarjeta caduca antes del próximo cobro
+
+La causa de impago más predecible que existe, y la más barata de evitar — un
+mensaje una semana antes. Era **estructuralmente invisible**: solo se guardaba
+`stripe_payment_method_id`, y cuándo caduca esa tarjeta no estaba en ninguna
+parte.
+
+- Migración `20260811090114`: `tarjeta_exp_mes/anio/marca/ultimos4` en `socios`.
+  Solo datos que Stripe entrega **para mostrar** — nada de PAN ni CVC.
+- La marca y los últimos 4 no son decoración: *"tu Visa ···4242 caduca este mes"*
+  es accionable y *"tu tarjeta caduca"* no, porque la socia no sabe cuál de las
+  suyas tiene guardada aquí.
+- `lib/billing/caducidad-tarjeta.ts`: un solo sitio que sabe leerla de Stripe,
+  usado por los dos caminos que la escriben. **Best-effort siempre** — si Stripe
+  no responde no pasa nada; lo que no puede hacer nunca es tumbar el webhook que
+  confirma un pago.
+
+⚠️ **El error clásico, con test propio**: una tarjeta 09/2026 vale hasta el
+**último** día de septiembre, no hasta el primero. Equivocarse ahí es avisar a la
+socia un mes antes de tiempo, o peor, tarde.
+
+**Relleno de las que ya estaban guardadas**: por goteo dentro del cron de dunning
+(25 por pasada), que ya corre solo para estudios con Stripe conectado y ya tiene
+el `stripeAccount` a mano. **Sin cron nuevo** — Inngest sigue al ~84 % del límite
+free. El índice parcial hace que la consulta no cueste nada cuando ya no queda
+ninguna.
+
+## F5 · El cobro que tiene pinta de fallar
+
+Estimación con `estimarProbabilidad` (Fase 0) sobre el historial real de cobros
+de la socia, suavizado hacia la tasa del propio estudio.
+
+⚠️ **El umbral es RELATIVO al estudio, no un número absoluto.** La primera versión
+usaba 0.35 fijo y no saltaba nunca: con 7 observaciones el suavizado empuja a
+todo el mundo hacia la media del estudio. Además "cobra mal" significa cosas
+distintas donde entra el 98 % y donde entra el 70 %. Ahora se señala a quien se
+desvía de SU estudio — mismo criterio que `calibrarUmbral`.
+
+- Una **DEVOLUCIÓN cuenta como no cobrado** aunque en su día entrara: para lo que
+  se quiere predecir, es igual de mala que un impago.
+- Los **PENDIENTE no cuentan**: todavía no son ni un sí ni un no.
+- Sin muestra suficiente **no se avisa**. Acusar a alguien de que va a dejar de
+  pagar con dos datos es exactamente lo que no se hace aquí.
+
+## F3 · El bono que caduca con sesiones sin usar
+
+El punto ciego de F1, que mira el bono casi AGOTADO. El caso contrario —8
+sesiones que caducan el viernes— no lo veía nadie, y es como se pierde a una
+socia sin que se queje nunca: pagó por algo que no llegó a usar.
+
+⚠️ **La ventana de aviso no es fija, depende de su ritmo real.** Comprobado
+contra producción: con la ventana fija de 14 días que puse primero, los **dos
+únicos bonos reales** que caducan con sesiones sin usar (Carmen, 4 sesiones a 21
+días; Isabel, 8 a 35) **no se habrían avisado a tiempo ninguno de los dos**. Ahora
+se compara lo que tardaría en gastarlas a su frecuencia real contra lo que le
+queda. Sin ritmo fiable, se cae al suelo de 14 días.
+
+## La barandilla, verificada
+
+- **Ninguna regla nueva emite `COBRAR_RECIBOS`.** Todas avisan; el cargo lo
+  aprueba una persona.
+- `TIPOS_AUTONOMIA_PERMITIDOS` sigue siendo `['ENVIAR_EMAIL', 'CONTACTO_MANUAL']`.
+- F5 **nunca puede llegar a ALTA** (`evaluarNivel(..., esAlta: false, ...)`), que
+  es justo lo que el piloto automático exige para ejecutar solo. Una estimación
+  no mueve dinero.
+
+## Verificación
+
+- `npm test`: **2192/2192** · `npx tsc --noEmit`: **0 errores**.
+- 20 tests nuevos de las tres reglas + 8 de la caducidad de tarjeta.
+- Migración aplicada y comprobada en producción; `lib/db-types.ts` regenerado y
+  el diff revisado a mano (aditivo; de paso recuperó `RowPagosHistoricos`, que
+  faltaba de una migración anterior sin regenerar).
+- Las consultas de F3 se contrastaron **contra los datos reales de producción**,
+  y eso es lo que destapó que la ventana fija no servía.
+
+## ⚠️ Lo que NO se ha podido probar, y es lo más importante de esta fase
+
+**Por Stripe no ha pasado un euro real en producción.** Hoy hay **1 socia de 202
+con tarjeta guardada y 0 con SEPA**. Eso significa:
+
+- **F4 no detectará nada** hasta que las socias empiecen a guardar tarjeta. El
+  mecanismo está y es correcto, pero está esperando datos.
+- **F5 tiene 43 recibos** en total en la base (38 cobrados, 4 pendientes, 1
+  devuelto) — suficiente para que la aritmética sea real, no para calibrar nada.
+- La captura de caducidad en el webhook **no se ha visto correr con un pago de
+  verdad**, solo con tests unitarios sobre la forma del objeto de Stripe.
+
+**Recomendación**: probar el primer cobro con tarjeta en un estudio de pruebas y
+comprobar que `tarjeta_exp_mes/anio` se rellenan, antes de fiarse de F4 para
+avisar a clientas reales.

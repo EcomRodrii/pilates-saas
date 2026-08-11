@@ -426,3 +426,62 @@ export function confianzaCubrirClaseEnRiesgo(c: { choqueConfirmado: boolean }): 
   ];
   return evaluarNivel(criterios, c.choqueConfirmado, false, false);
 }
+
+/**
+ * PROPONER_RENOVACION_BONO por CADUCIDAD (Finanzas F3) — a la socia le quedan
+ * sesiones pagadas y su bono caduca pronto. Distinto de F1, que mira el bono
+ * casi AGOTADO: aquí el problema es el contrario (le sobran sesiones y se le
+ * va a pasar el plazo), y el daño no es solo el dinero — es que pagó por algo
+ * que no llegó a usar, que es como se pierde a una socia sin que se queje.
+ *
+ * ALTA: a+b (caduca ya Y le sobran bastantes) · MEDIA: solo a · BAJA: nunca —
+ * si no caduca pronto no hay nada que avisar todavía.
+ */
+export function confianzaBonoCaducaSinUsar(c: {
+  caducaPronto: boolean;
+  bastantesSesionesSinUsar: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.caducaPronto, etiqueta: 'el bono caduca en los próximos días' },
+    { valor: c.bastantesSesionesSinUsar, etiqueta: 'le quedan varias sesiones pagadas sin usar' },
+  ];
+  const { caducaPronto: a, bastantesSesionesSinUsar: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
+/**
+ * COBRAR_PENDIENTE por CADUCIDAD DE TARJETA (Finanzas F4) — la tarjeta guardada
+ * de una socia con cuota recurrente caduca antes de su próximo cobro.
+ *
+ * Es el único aviso de dinero de todo el motor que NO es una estimación: o la
+ * tarjeta caduca antes de esa fecha o no caduca. Por eso llega a ALTA con un
+ * solo criterio; el segundo solo distingue "ya ha caducado" (más urgente) de
+ * "va a caducar".
+ */
+export function confianzaTarjetaCaduca(c: { caducaAntesDelCobro: boolean }): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.caducaAntesDelCobro, etiqueta: 'la tarjeta guardada caduca antes de su próximo cobro' },
+  ];
+  return evaluarNivel(criterios, c.caducaAntesDelCobro, false, false);
+}
+
+/**
+ * RECUPERAR_PAGOS por RIESGO (Finanzas F5) — a esta socia le han fallado cobros
+ * antes y tiene otro por delante. A diferencia del resto de Finanzas, esto SÍ es
+ * una estimación, así que el techo es MEDIA: no se toca el dinero de nadie por
+ * una probabilidad.
+ *
+ * MEDIA: a+b (historial suficiente Y probabilidad de fallo alta).
+ * BAJA: solo a — hay historial pero no es alarmante.
+ */
+export function confianzaRiesgoDeCobro(c: {
+  historialSuficiente: boolean;
+  probabilidadAlta: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.historialSuficiente, etiqueta: 'suficientes cobros suyos con desenlace conocido' },
+    { valor: c.probabilidadAlta, etiqueta: 'su histórico de cobro está muy por debajo del resto del estudio' },
+  ];
+  const { historialSuficiente: a, probabilidadAlta: b } = c;
+  return evaluarNivel(criterios, false, a && b, a);
+}
