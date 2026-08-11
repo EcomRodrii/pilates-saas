@@ -809,8 +809,8 @@ que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
 (`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
-`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1, 2 y 4 entregadas (2026-08-11);
-quedan la 3 (revenue predictivo) y la 5 (Action Center).** No duplicar la capa: los especialistas nuevos se
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1, 2, 4 y 5 entregadas
+(2026-08-11); queda solo la 3 (revenue predictivo).** No duplicar la capa: los especialistas nuevos se
 añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 
 - **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
@@ -862,3 +862,15 @@ añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 - **`franjaLocalDe` vive en `lib/utils.ts`**, junto a `TZ_ESTUDIO`. La comparten
   el motor (`senales.ts` la reexporta) y el portal, que no deben importarse entre
   sí.
+- **El Action Center del dashboard NO es un motor nuevo** (`lib/decision/action-center.ts`,
+  fase 5): agrupa lo que `/api/decisiones` ya devuelve, con el mismo hook que el
+  Centro de Control. Se pinta solo si hay algo pendiente, y va gateado por
+  `puedeVer(rol, '/centro-de-control')` — es solo-propietaria.
+- ⚠️ **Una sección nueva de la home del panel tiene que ir en `HOME_FIJAS_PRIMERO`
+  si su sitio es arriba.** `aplicarLayout` mete los ids nuevos al FINAL del orden
+  guardado, así que un estudio con la home ya personalizada se la encontraría
+  abajo del todo.
+- ⚠️ **Nada en `/dashboard` puede dar por hecha la forma de una respuesta de API.**
+  Un `[...data.prioridades]` a secas con un `{}` por respuesta no rompe su
+  tarjeta: rompe la pantalla principal del negocio. Lo destapó un e2e ajeno que
+  mockea `/api/**` como `{}`.
