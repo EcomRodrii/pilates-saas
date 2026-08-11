@@ -287,6 +287,29 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByRole('button', { name: 'Recto', exact: true })).toHaveCount(0);
   });
 
+  // Lo que se ve al pegar el enlace del estudio en un chat. Antes no se podía
+  // tocar: el título y la descripción se fabricaban solos y no había imagen
+  // ninguna. Lo que este test protege es la parte delicada — que quien NO
+  // escriba nada siga viendo exactamente el texto de siempre, porque es el que
+  // ya está indexado en Google.
+  test('"Compartir y buscadores" parte del texto automático y lo deja sobrescribir', async ({ page }) => {
+    await montar(page);
+    await abrirCategoriaTema(page, 'Compartir y buscadores');
+
+    // Sin nada escrito: el texto que se generaba antes de existir esta pantalla.
+    await expect(page.getByText('Studio Carmen — Reserva tu clase de Pilates')).toBeVisible({ timeout: 30_000 });
+    // Y se dice que sin imagen el enlace sale pelado, en vez de dejar un hueco.
+    await expect(page.getByText(/Sin imagen/)).toBeVisible();
+
+    await page.getByLabel('Título').fill('Pilates reformer en el centro');
+    // La previsualización es el MISMO cálculo que hace el servidor: si esto se
+    // moviera por su cuenta, mentiría sobre lo que se va a publicar.
+    await expect(page.getByText('Pilates reformer en el centro')).toBeVisible();
+    // Escribir el título no arrastra la descripción a vacío: cada campo hereda
+    // por su cuenta.
+    await expect(page.getByText(/Reserva online tu clase de Pilates reformer/)).toBeVisible();
+  });
+
   test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
     await montar(page);
     await abrirCategoriaTema(page, 'Navegación del portal');

@@ -16,11 +16,14 @@ import {
   eliminarFaviconEstudio,
   subirImagenBienvenida,
   eliminarImagenBienvenida,
+  subirImagenPortal,
 } from '@/lib/portal-storage';
 import {
   DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
   type ThemeConfig, type RedSocialId, POSICION_FOTO,
+  SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
 } from '@/lib/theme-schema';
+import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
 import { crearHistorial, registrar, deshacer as deshacerHist, rehacer as rehacerHist } from '@/lib/theme/editor-historial';
@@ -68,6 +71,11 @@ export const AJUSTES_CATEGORIAS = [
   // encontrarla. Nombrar la categoría por lo que la propietaria viene a hacer
   // —poner sus fotos— y no por los dos ficheros técnicos que también lleva.
   { id: 'logo-favicon', label: 'Imágenes de tu marca' },
+  // Lo que se ve al pegar tu enlace en un grupo de WhatsApp o en Instagram, y
+  // en el resultado de Google. Va al final porque no es aspecto, pero está
+  // aquí y no en Configuración a propósito: se decide mirando la misma página
+  // que se está editando, y se publica con ella.
+  { id: 'compartir', label: 'Compartir y buscadores' },
 ] as const;
 export type AjustesCategoriaId = (typeof AJUSTES_CATEGORIAS)[number]['id'];
 
@@ -157,7 +165,7 @@ export function useThemeEditor() {
   const [guardando, setGuardando] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [aviso, setAviso] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | 'bienvenida' | null>(null);
+  const [subiendo, setSubiendo] = useState<'logo' | 'favicon' | 'bienvenida' | 'compartir' | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -357,6 +365,30 @@ export function useThemeEditor() {
     if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
   }
 
+  // Imagen para compartir (Open Graph). Es campo del TEMA —como el favicon, y
+  // no como el logo— porque se publica junto al resto: hasta que no pulsas
+  // Publicar, lo que ve WhatsApp sigue siendo lo de antes.
+  //
+  // Reutiliza `subirImagenPortal`, que ya redimensiona y sanea la clave del
+  // fichero; no hace falta un subidor propio para esto.
+  async function handleImagenCompartir(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !studio) return;
+    setSubiendo('compartir');
+    const r = await subirImagenPortal(studio.id, 'compartir', file);
+    setSubiendo(null);
+    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
+    setCampo('seoImagenUrl', r.url);
+  }
+
+  // Sin borrar del bucket: la imagen ANTERIOR sigue siendo la publicada hasta
+  // que se pulse Publicar. Borrarla aquí dejaría el enlace real enseñando un
+  // hueco roto por haber tocado un borrador.
+  function handleQuitarImagenCompartir() {
+    setCampo('seoImagenUrl', null);
+  }
+
   function restaurar() {
     rebasar(DEFAULT_THEME);
     setAviso(null);
@@ -379,7 +411,8 @@ export function useThemeEditor() {
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
     handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon,
-    handleImagenBienvenida, handleQuitarImagenBienvenida, restaurar, recargar,
+    handleImagenBienvenida, handleQuitarImagenBienvenida,
+    handleImagenCompartir, handleQuitarImagenCompartir, restaurar, recargar,
     // Deshacer/rehacer de los AJUSTES. `instanteUltimo` es lo que permite a la
     // barra superior decidir qué pila deshacer cuando hay dos (bloques y
     // ajustes): la del paso más reciente, que es lo que la propietaria
@@ -435,6 +468,11 @@ export function AjustesCategoriaPanel({
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
   const bienvenidaRef = useRef<HTMLInputElement>(null);
+  const compartirRef = useRef<HTMLInputElement>(null);
+
+  if (categoriaId === 'compartir') {
+    return <PanelCompartir hook={hook} fileRef={compartirRef} />;
+  }
 
   if (categoriaId === 'paleta') {
     return (
@@ -830,6 +868,131 @@ export function AjustesCategoriaPanel({
         )}
         <input ref={faviconRef} type="file" accept="image/*" hidden onChange={hook.handleFavicon} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Cómo se ve el enlace del estudio al compartirlo.
+ *
+ * La previsualización va DENTRO del panel, y no en el lienzo, porque lo que
+ * se está editando no se ve en ninguna página: son etiquetas `<meta>`. Sin
+ * esto, la propietaria escribiría a ciegas y solo descubriría el resultado
+ * pegando su enlace en un chat de verdad — que además queda cacheado por
+ * WhatsApp durante días, así que el error tarda en poder corregirse.
+ */
+function PanelCompartir({ hook, fileRef }: {
+  hook: ReturnType<typeof useThemeEditor>;
+  fileRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const { draft, setCampo, studio, subiendo } = hook;
+  // ⚠️ `?? ''` y no `draft.seoTitulo` a secas, aunque el tipo diga que es un
+  // string. `fetchThemeBorrador` hace `res.json() as Promise<ThemeConfig>`:
+  // un CAST, no una validación. Hoy el servidor resuelve el tema antes de
+  // devolverlo, así que en producción viene completo — pero el tipo está
+  // afirmando algo que la red no garantiza, y aquí se llama a `.length`, que
+  // sobre `undefined` no degrada: tumba la pantalla entera con «Algo se ha
+  // roto». Encontrado así, mirándolo, no leyéndolo.
+  const titulo = draft.seoTitulo ?? '';
+  const descripcion = draft.seoDescripcion ?? '';
+  // El MISMO cálculo que hace el servidor al pintar las etiquetas: si aquí se
+  // reprodujera la herencia a mano, la previsualización podría mentir sobre
+  // lo que se va a publicar. Ver lib/theme/seo-publico.ts.
+  const vista = metadatosPublicos(
+    { nombre: studio?.nombre ?? 'Tu estudio', ciudad: studio?.ciudad ?? '' },
+    draft,
+  );
+  const dominio = typeof window === 'undefined' ? '' : window.location.host;
+  // `39/60` y no `21`: un número suelto al lado de una etiqueta no dice si
+  // es lo escrito, lo que queda o el mínimo. Con la barra se lee sin pensar.
+  const cercaDelLimite = (usado: number, max: number) => max - usado <= max * 0.12;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[12px] text-muted-foreground leading-snug">
+        Lo que se ve al pegar el enlace de tu estudio en WhatsApp o Instagram, y en Google.
+        Se publica junto al resto del tema.
+      </p>
+
+      {/* La tarjeta, tal cual la pinta un chat. */}
+      <div className="rounded-xl border border-border overflow-hidden bg-card">
+        {vista.imagen ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={vista.imagen} alt="" className="w-full aspect-[1.91/1] object-cover" />
+        ) : (
+          <div className="w-full aspect-[1.91/1] bg-muted flex items-center justify-center px-4 text-center">
+            <p className="text-[11px] text-muted-foreground">Sin imagen, el enlace sale como un recuadro de texto.</p>
+          </div>
+        )}
+        <div className="p-2.5 space-y-0.5">
+          {dominio && <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{dominio}</p>}
+          <p className="text-[12.5px] font-semibold text-foreground leading-snug">{vista.titulo}</p>
+          <p className="text-[11.5px] text-muted-foreground leading-snug">{vista.descripcion}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={subiendo === 'compartir'}
+            className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border"
+          >
+            <Upload size={14} /> {draft.seoImagenUrl ? 'Cambiar imagen' : 'Subir imagen'}
+          </button>
+          {draft.seoImagenUrl && (
+            <button onClick={hook.handleQuitarImagenCompartir} className="text-muted-foreground hover:text-destructive" aria-label="Quitar imagen para compartir">
+              <Trash2 size={16} />
+            </button>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={hook.handleImagenCompartir} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">Apaisada, 1200 × 630 va perfecta.</p>
+      </div>
+
+      {/* ⚠️ Los `maxLength` no son decoración: el schema rechaza por encima de
+          esos límites, así que sin ellos se podría escribir un título que
+          luego impide publicar sin decir por qué. El contador explica el
+          límite antes de chocar con él. */}
+      <label className="block space-y-1">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-[13px] font-medium text-foreground">Título</span>
+          <span className={`text-[11px] tabular-nums ${cercaDelLimite(titulo.length, SEO_TITULO_MAX) ? 'text-amber-700' : 'text-muted-foreground'}`}>
+            {titulo.length}/{SEO_TITULO_MAX}
+          </span>
+        </span>
+        <input
+          type="text"
+          value={titulo}
+          maxLength={SEO_TITULO_MAX}
+          onChange={(e) => setCampo('seoTitulo', e.target.value)}
+          placeholder={tituloAutomatico({ nombre: studio?.nombre ?? 'Tu estudio', ciudad: studio?.ciudad ?? '' })}
+          className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+        />
+      </label>
+
+      <label className="block space-y-1">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-[13px] font-medium text-foreground">Descripción</span>
+          <span className={`text-[11px] tabular-nums ${cercaDelLimite(descripcion.length, SEO_DESCRIPCION_MAX) ? 'text-amber-700' : 'text-muted-foreground'}`}>
+            {descripcion.length}/{SEO_DESCRIPCION_MAX}
+          </span>
+        </span>
+        <textarea
+          rows={3}
+          value={descripcion}
+          maxLength={SEO_DESCRIPCION_MAX}
+          onChange={(e) => setCampo('seoDescripcion', e.target.value)}
+          placeholder={descripcionAutomatica({ nombre: studio?.nombre ?? 'Tu estudio', ciudad: studio?.ciudad ?? '' })}
+          className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+        />
+      </label>
+
+      {/* Dejarlos en blanco no es un descuido que haya que avisar: es la
+          opción por defecto y funciona bien. Se dice, y ya. */}
+      <p className="text-[11px] text-muted-foreground leading-snug">
+        Si los dejas vacíos se escriben solos con el nombre y la ciudad de tu estudio.
+      </p>
     </div>
   );
 }
