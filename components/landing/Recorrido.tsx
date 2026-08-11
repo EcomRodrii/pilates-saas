@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { ACC, ACC_SOFT, BG, DARK, MUTED } from './theme';
 import { Avatar, Chip, Eyebrow, LiftCard, Reveal } from './Reveal';
 import { IconCalendar, IconCheck, IconInvoice, IconMessage } from './icons';
@@ -26,6 +27,15 @@ export function Recorrido() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {item.chips.map((c) => <Chip key={c}>{c}</Chip>)}
                   </div>
+                  {/* Enlace a la página de la funcionalidad. No alarga la
+                      landing —una línea por módulo— y es lo que reparte
+                      autoridad hacia las diez páginas nuevas. */}
+                  {item.href && (
+                    <Link href={item.href} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 18, fontSize: 15, fontWeight: 700, color: ACC }}>
+                      {item.eyebrow} en detalle
+                      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                    </Link>
+                  )}
                 </Reveal>
                 <Reveal delay={120} from={alt ? 'left' : 'right'} style={{ order: alt ? 1 : 2 }}>
                   <RecorridoVisual index={i} />
@@ -33,6 +43,17 @@ export function Recorrido() {
               </div>
             );
           })}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 'clamp(48px,6vw,76px)' }}>
+          <Link
+            href="/funcionalidades"
+            className="hover:brightness-110"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 15.5, fontWeight: 700, color: '#fff', background: ACC, padding: '15px 28px', borderRadius: 999, boxShadow: '0 14px 30px rgba(52,56,37,.2)' }}
+          >
+            Ver todas las funcionalidades
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </Link>
         </div>
       </div>
     </section>

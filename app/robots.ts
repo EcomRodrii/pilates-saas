@@ -1,25 +1,23 @@
 import type { MetadataRoute } from 'next';
+import { BASE_URL, PREFIJOS_NO_INDEXABLES } from '@/lib/seo/paginas';
 
-const BASE_URL = 'https://tentare.app';
-
+// La lista de `disallow` sale del registro (PREFIJOS_NO_INDEXABLES), no de una
+// copia a mano.
+//
+// A-18 ya había arreglado el fallo grande —las páginas del panel viven en la
+// RAÍZ del route-group `(dashboard)`, así que su URL es `/socios`, `/cobros`…,
+// no `/dashboard/socios`— pero la lista se escribió a mano y se quedó corta:
+// `/cierre`, `/contenido`, `/explorar-funciones`, `/libreta`, `/mi-perfil`,
+// `/migracion`, `/primeros-pasos` y `/sustituciones` seguían rastreables, igual
+// que las páginas de enlace firmado (`/valorar/<token>`, `/no-puedo/<token>`…).
+// Ahora la lista es la misma que usa el test de cobertura, así que un segmento
+// nuevo del panel no puede quedarse fuera sin que `npm test` lo cante.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      // A-18: zonas privadas que NO deben indexarse. Antes solo listaba
-      // /dashboard, pero las páginas de gestión viven en la raíz del route-group
-      // (dashboard) — /socios, /pagos, /configuracion… quedaban rastreables
-      // (y sin middleware, el servidor devuelve su HTML 200 antes del redirect
-      // de cliente). Se listan todos los segmentos del panel + el portal/kiosk.
-      disallow: [
-        '/api', '/login', '/crear-estudio', '/suscripcion',
-        '/portal', '/kiosk', '/reservar', '/invitacion', '/clave-nueva', '/interno',
-        '/dashboard', '/centro-de-control', '/calendario', '/citas', '/socios', '/clientas',
-        '/cobros', '/pagos', '/transacciones', '/facturas', '/informes', '/equipo',
-        '/marketing', '/mensajeria', '/automatizaciones', '/notificaciones',
-        '/comunidad', '/chat', '/pos', '/productos', '/ondemand', '/configuracion',
-      ],
+      disallow: [...PREFIJOS_NO_INDEXABLES],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,
     host: BASE_URL,

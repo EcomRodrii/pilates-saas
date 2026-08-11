@@ -1,17 +1,29 @@
 import { ACC_SOFT } from './theme';
 import { IconAlert, IconCalendar, IconInvoice, IconUsers } from './icons';
 
+// Menú principal. También alimenta el `SiteNavigationElement` de
+// components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
+// las candidatas a sitelinks de Google — no es solo la barra de arriba.
+//
+// «Producto» y «Precio» apuntaban a anclas de la propia home (#recorrido,
+// #precio). Ahora van a páginas reales: una ancla no es una URL para Google, y
+// las dos consultas que traían («funcionalidades», «precio») merecen destino
+// propio. `#faq` se queda como ancla porque su contenido sigue viviendo aquí.
 export const NAV_LINKS = [
-  { href: '#recorrido', label: 'Producto' },
-  { href: '#sustituciones', label: 'Sustituciones' },
-  { href: '#precio', label: 'Precio' },
+  { href: '/funcionalidades', label: 'Funcionalidades' },
+  { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
+  { href: '/precios', label: 'Precios' },
   { href: '#faq', label: 'FAQ' },
   { href: '/recursos', label: 'Recursos' },
 ];
 
+// `href` enlaza cada módulo con su página de funcionalidad, cuando existe.
+// Opcional a propósito: los módulos que todavía no tienen página (informes)
+// se quedan sin enlace en vez de apuntar a un 404 o forzar una página vacía.
 export const RECORRIDO_ITEMS = [
   {
     n: '01',
+    href: '/funcionalidades/reservas-online',
     eyebrow: 'Reservas de alumnas',
     title: 'Reservan solas, 24/7.',
     body: 'Tus alumnas reservan y cancelan desde su móvil. Cuando alguien deja hueco, la lista de espera lo llena automáticamente — sin que muevas un dedo.',
@@ -19,6 +31,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '02',
+    href: '/funcionalidades/ficha-de-clienta',
     eyebrow: 'Alumnas y comunicación',
     title: 'Cada alumna, en su ficha.',
     body: 'Historial, bonos y asistencia de cada persona en un solo lugar. Y los avisos salen solos: recordatorios, cambios de clase, felicitaciones — por su canal.',
@@ -26,6 +39,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '03',
+    href: '/funcionalidades/calendario-y-salas',
     eyebrow: 'Calendario de clases y salas',
     title: 'Tu semana, cuadrada.',
     body: 'Clases, salas y capacidad por reformer — no solo aforo. Ves los huecos de un vistazo y evitas que dos clases pisen la misma sala.',
@@ -33,6 +47,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '04',
+    href: '/funcionalidades/cobros-recurrentes',
     eyebrow: 'Cobros, bonos y facturación',
     title: 'Cobra sin perseguir a nadie.',
     body: 'Bonos, cuotas y membresías con cobro recurrente. Reintenta los pagos fallidos y emite facturas legales desde el primer euro. Sin comisión extra de Tentare.',
@@ -40,6 +55,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '05',
+    href: '/funcionalidades/gestion-de-instructoras',
     eyebrow: 'Instructoras y horas',
     title: 'Tu equipo, bajo control.',
     body: 'Disponibilidad, calendario y horas de cada instructora. El sistema sabe quién puede dar qué — y por eso puede cubrir las bajas solo (ya llegamos a eso).',
@@ -54,6 +70,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '07',
+    href: '/funcionalidades/automatizaciones-y-avisos',
     eyebrow: 'Radar de ocupación',
     title: 'Detecta el hueco. Avisa. Se llena.',
     body: 'Tentare vigila las próximas 48h y te enseña qué clases están por debajo del 70% de aforo. Un toque y avisamos por WhatsApp solo a las socias con bono activo que ya han hecho esa clase antes — nada de spam a cualquiera.',

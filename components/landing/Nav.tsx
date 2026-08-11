@@ -6,6 +6,17 @@ import Link from 'next/link';
 import { ACC, MUTED } from './theme';
 import { NAV_LINKS } from './data';
 
+// NAV_LINKS mezcla anclas de esta misma página (#faq) con rutas reales
+// (/funcionalidades, /precios). Un `<a href="/precios">` funciona, pero recarga
+// la página entera; `<Link>` no sirve para un ancla. Se elige según el href en
+// vez de convertir todo a uno de los dos.
+function EnlaceNav({ href, style, onClick, children }: { href: string; style?: React.CSSProperties; onClick?: () => void; children: React.ReactNode }) {
+  if (href.startsWith('#')) {
+    return <a href={href} style={style} onClick={onClick}>{children}</a>;
+  }
+  return <Link href={href} style={style} onClick={onClick}>{children}</Link>;
+}
+
 export function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -42,9 +53,9 @@ export function Nav() {
           <a href="#top" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <LogoTentare formato="horizontal" alto={22} />
           </a>
-          <div className="tnt-navlinks lp-mono" style={{ display: 'flex', gap: 28, alignItems: 'center', fontSize: 12.5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+          <div className="tnt-navlinks lp-mono" style={{ display: 'flex', gap: 26, alignItems: 'center', fontSize: 12.5, letterSpacing: '.04em', textTransform: 'uppercase' }}>
             {NAV_LINKS.map((l) => (
-              <a key={l.href} href={l.href} style={{ color: MUTED }}>{l.label}</a>
+              <EnlaceNav key={l.href} href={l.href} style={{ color: MUTED }}>{l.label}</EnlaceNav>
             ))}
           </div>
           <div className="tnt-navcta" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
@@ -87,7 +98,7 @@ export function Nav() {
 
           <nav style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
             {NAV_LINKS.map((l, i) => (
-              <a
+              <EnlaceNav
                 key={l.href}
                 href={l.href}
                 onClick={() => setMenuOpen(false)}
@@ -100,7 +111,7 @@ export function Nav() {
               >
                 <span className="lp-mono" style={{ fontSize: 11, color: '#D9C29E', letterSpacing: '.08em' }}>{String(i + 1).padStart(2, '0')}</span>
                 {l.label}
-              </a>
+              </EnlaceNav>
             ))}
           </nav>
 

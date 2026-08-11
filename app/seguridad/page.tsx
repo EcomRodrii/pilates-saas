@@ -99,7 +99,7 @@ export default function SeguridadPage() {
             {PILLARS.map((p, i) => (
               <Reveal key={p.title} delay={(i % 3) * 70} style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 20, padding: 26 }}>
                 <Icon bg={p.bg} fg={p.fg}>{p.icon}</Icon>
-                <h3 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px' }}>{p.title}</h3>
+                <h2 style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px' }}>{p.title}</h2>
                 <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{p.body}</p>
               </Reveal>
             ))}
@@ -108,12 +108,12 @@ export default function SeguridadPage() {
           <div className="sec-two" style={{ marginTop: 22 }}>
             <Reveal style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
               <Icon bg="rgba(255,255,255,.08)" fg="#A8B080"><svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect width={18} height={11} x={3} y={11} rx={2} /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></Icon>
-              <h3 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Acceso protegido</h3>
+              <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Acceso protegido</h2>
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Inicio de sesión seguro con tu cuenta o con Google, permisos por rol para tu equipo, límites anti-abuso en las peticiones y monitorización continua de errores. Cada instructora ve solo lo que le corresponde.</p>
             </Reveal>
             <Reveal delay={90} style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
               <Icon bg="rgba(255,255,255,.08)" fg="#7BD3A8"><svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1={12} x2={12} y1={15} y2={3} /></svg></Icon>
-              <h3 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Tus datos son tuyos</h3>
+              <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Tus datos son tuyos</h2>
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te vas con todo.</p>
             </Reveal>
           </div>
