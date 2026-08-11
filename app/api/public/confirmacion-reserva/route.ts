@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // Endpoint PÚBLICO (sin login): la socia confirma desde el deep link que viene
 // a su clase, sin más. El token ES la autorización (scope 'confirmar_reserva',
@@ -10,8 +11,8 @@ import { verificarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const fecha = fechaLargaEstudio(d);
+  const hora = horaEstudio(d);
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
 }
 

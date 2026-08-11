@@ -1,13 +1,14 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
 import { ConfirmarReservaForm } from './confirmar-reserva-form';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const fecha = fechaLargaEstudio(d);
+  const hora = horaEstudio(d);
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
 }
 

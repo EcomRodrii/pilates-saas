@@ -13,6 +13,7 @@ import {
   puedeRecalcular, filtrarYaRechazadas, estadoTrasRecalcular, resumenRecalculo,
 } from '@/lib/sustituciones/recalculo';
 import { puedeGestionarEquipo } from '@/lib/permisos-reglas';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 
@@ -279,11 +280,7 @@ export async function PATCH(req: NextRequest) {
     if (!ses) return NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 });
 
     // El horario ORIGINAL, formateado ANTES de moverla (va en el email).
-    const cuandoAntes = new Date(ses.inicio).toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid',
-    }) + ' · ' + new Date(ses.inicio).toLocaleTimeString('es-ES', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid',
-    });
+    const cuandoAntes = `${fechaLargaEstudio(ses.inicio)} · ${horaEstudio(ses.inicio)}`;
 
     // Misma duración, nuevo hueco. Las exclusion constraints (0048 instructora,
     // 0074 sala) re-validan el hueco de forma atómica: si choca, 23P01.

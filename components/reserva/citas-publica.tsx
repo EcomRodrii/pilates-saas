@@ -6,6 +6,7 @@ import { Clock, ChevronLeft, ChevronRight, X, CheckCircle2, Calendar, User } fro
 import type { ServicioCita, DisponibilidadCita, Instructor } from '@/lib/types';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { serif, cq, radius, shadow } from '@/lib/reservar-publico-tokens';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reserva pública de citas 1:1 (widget /reservar). Flujo: servicio → instructora
@@ -43,10 +44,10 @@ function pad2(n: number) { return String(n).padStart(2, '0'); }
 function localDate(d: Date) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function fmtHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  return horaEstudio(iso);
 }
 function fmtDiaLargo(iso: string) {
-  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+  return fechaLargaEstudio(iso);
 }
 const DOW_CORTO = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
