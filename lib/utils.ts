@@ -107,6 +107,42 @@ export function finDeSemana(fecha: Date | string): Date {
 // dos horas distintas. Un único sitio, y que no vuelva a pasar.
 export const TZ_ESTUDIO = 'Europe/Madrid';
 
+// ── Franja horaria local (día de la semana + hora del estudio) ──────────────
+//
+// Vive aquí, con TZ_ESTUDIO, porque la usan dos lados que no deberían
+// importarse entre sí: el motor de decisiones (agrupar franjas recurrentes,
+// lib/decision/senales.ts) y el portal de la socia (deducir su costumbre,
+// lib/portal-sugerencias.ts).
+//
+// Por qué no vale el día/hora en UTC: España cambia de offset dos veces al año,
+// así que la MISMA clase semanal cae en 18:00 UTC en verano y 19:00 en invierno
+// —la costumbre se parte en dos al cruzar el cambio de hora— y una clase de las
+// 00:30 del martes cuenta como lunes.
+const DOW_POR_ETIQUETA: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+// `hourCycle: 'h23'` y no `hour12: false`: este último devuelve "24" a
+// medianoche en algunas versiones de ICU.
+const FORMATO_FRANJA_LOCAL = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ_ESTUDIO, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+export interface FranjaLocal {
+  dow: number;    // 0=domingo..6=sábado, en hora del estudio
+  hora: number;
+  minuto: number;
+}
+
+/** Día de la semana + hora de un instante, en la zona horaria del estudio. */
+export function franjaLocalDe(inicioISO: string): FranjaLocal {
+  let dow = 0, hora = 0, minuto = 0;
+  for (const p of FORMATO_FRANJA_LOCAL.formatToParts(new Date(inicioISO))) {
+    if (p.type === 'weekday') dow = DOW_POR_ETIQUETA[p.value] ?? 0;
+    else if (p.type === 'hour') hora = Number(p.value) % 24;
+    else if (p.type === 'minute') minuto = Number(p.value);
+  }
+  return { dow, hora, minuto };
+}
+
 /** "sábado, 25 de julio" en hora del estudio. */
 export function fechaLargaEstudio(fecha: Date | string): string {
   return new Date(fecha).toLocaleDateString('es-ES', {

@@ -40,6 +40,7 @@ import type { PortalSession } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { getHomeCardContext, calcularTiraSemana, calcularProgresoSemanal, META_PROGRESO_SEMANAL, accesosRapidosDe, rotuloAccesos, saludoPorHora } from '@/lib/portal-home-logic';
+import { sugerirClase, cuandoSugerencia } from '@/lib/portal-sugerencias';
 import { CalendarDays, Sparkles, Bell, User, type LucideIcon } from 'lucide-react';
 import { RETOS_PORTAL } from '@/lib/retos-portal';
 import { useNotificacionesSinLeer } from '@/lib/notifications/use-unread';
@@ -291,6 +292,27 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
+  // La clase CONCRETA que le proponemos (lib/portal-sugerencias.ts). Los cuatro
+  // estados que no son "tienes clase" mandaban a la lista entera con un texto
+  // genérico ("Hay clases con hueco esta semana"); esto los convierte en una
+  // propuesta con nombre, día y hora. `null` cuando no hay nada honesto que
+  // proponer —sin hueco, sin plan que lo cubra, sin nada futuro— y entonces la
+  // tarjeta se queda exactamente como estaba.
+  //
+  // ⚠️ El id se saca FUERA del useMemo. Leyendo `session.socioId` dentro, el
+  // React Compiler infiere que la dependencia real es `session` entero —menos
+  // específico que el `session?.socioId` declarado— y se niega a conservar la
+  // memoización (`react-hooks/preserve-manual-memoization`). Con el primitivo
+  // extraído, lo inferido y lo declarado coinciden.
+  const sugerenciaSocioId = session?.socioId ?? null;
+  const sugerencia = useMemo(() => {
+    if (!sugerenciaSocioId || homeCard.caso === 'PROXIMA_CLASE') return null;
+    return sugerirClase({
+      now, socioId: sugerenciaSocioId, misReservas, reservas, sesiones, tiposClase,
+      suscripciones, planesTarifa,
+    });
+  }, [now, sugerenciaSocioId, homeCard.caso, misReservas, reservas, sesiones, tiposClase, suscripciones, planesTarifa]);
+
   // Los avisos salen del motor de notificaciones, la MISMA fuente que la
   // pantalla a la que enlaza la campana — si el número y la lista se calculan
   // por separado, dejan de coincidir (ver lib/notifications/use-unread.ts).
@@ -336,6 +358,25 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
     ? new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).format(ahora).toUpperCase()
     : '';
 
+  // Las líneas de la tarjeta cuando SÍ hay una clase concreta que proponer.
+  // Sustituyen al texto genérico del estudio, no a la volanta ni al titular:
+  // el tono ("Tu sitio te espera") lo escribe la propietaria y se respeta; lo
+  // que cambia es que debajo aparece una clase de verdad y su porqué.
+  //
+  // Sin sugerencia se devuelve el texto genérico de siempre — la tarjeta no
+  // pierde nada por que hoy no haya nada que ofrecer.
+  function metaConSugerencia(previas: string[], generico: string): string[] {
+    if (!sugerencia) return [...previas, generico].filter(Boolean);
+    const cuando = cuandoSugerencia(sugerencia.sesion.inicio, now);
+    return [
+      ...previas,
+      `${sugerencia.tipo?.nombre ?? 'Clase'} · ${cuando}`,
+      // El motivo va SIEMPRE con la propuesta: sin él es una sugerencia
+      // aleatoria, que es justo lo que no queremos.
+      sugerencia.motivo,
+    ];
+  }
+
   // ── La tarjeta grande ──────────────────────────────────────────────────────
   //
   // Un solo componente para los cinco estados. El diseño solo dibuja el
@@ -372,21 +413,21 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
         return {
           volanta: `Racha de ${homeCard.semanas} semanas`, contador: null,
           titulo: txt('proximaClase', 'rachaTitulo', 'No la pierdas ahora'),
-          meta: [`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`, txt('proximaClase', 'rachaTexto', 'Reserva esta semana')],
+          meta: metaConSugerencia([`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`], txt('proximaClase', 'rachaTexto', 'Reserva esta semana')),
           cta: txt('proximaClase', 'rachaBoton', 'Buscar mi clase'), href: `/portal/${slug}/clases`,
         };
       case 'INACTIVA':
         return {
           volanta: `${homeCard.diasSinVenir} días sin venir`, contador: null,
           titulo: txt('proximaClase', 'inactivaTitulo', 'Tu sitio te espera'),
-          meta: [txt('proximaClase', 'inactivaTexto', 'Hay clases con hueco esta semana')],
+          meta: metaConSugerencia([], txt('proximaClase', 'inactivaTexto', 'Hay clases con hueco esta semana')),
           cta: txt('proximaClase', 'inactivaBoton', 'Volver a reservar'), href: `/portal/${slug}/clases`,
         };
       default:
         return {
           volanta: txt('proximaClase', 'vaciaVolanta', 'Sin clases reservadas'), contador: null,
           titulo: txt('proximaClase', 'vaciaTitulo', 'Empieza por aquí'),
-          meta: [txt('proximaClase', 'vaciaTexto', 'Elige el día que mejor te venga')],
+          meta: metaConSugerencia([], txt('proximaClase', 'vaciaTexto', 'Elige el día que mejor te venga')),
           cta: txt('proximaClase', 'vaciaBoton', 'Ver la agenda'), href: `/portal/${slug}/clases`,
         };
     }

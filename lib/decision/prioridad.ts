@@ -37,6 +37,13 @@ const COOLDOWN_DIAS: Record<TipoRecomendacion, number> = {
   IMPULSAR_ONBOARDING: 7,
   RIESGO_RESERVA_FALLIDA: 7,
   PROPONER_SUSCRIPCION_MENSUAL: 30,
+  // Los dos de agenda prospectiva apuntan a UNA sesión concreta y su dedupeKey
+  // lleva el id de la sesión, así que el cooldown nunca puede silenciar la
+  // clase de la semana siguiente por haber gestionado la de esta. 0 = sin
+  // cooldown: si la propietaria despacha el aviso de una clase y otra distinta
+  // se queda floja mañana, tiene que enterarse mañana.
+  LLENAR_PLAZAS: 0,
+  CUBRIR_CLASE_EN_RIESGO: 0,
 };
 
 const MS_DIA = 86400000;

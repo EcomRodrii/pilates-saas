@@ -144,6 +144,10 @@ export async function montarPortal(page: Page, opciones: {
   reservaRechazada?: string;
   /** Sin bono activo: la pantalla de Bonos tiene que decir qué hacer. */
   sinBono?: boolean;
+  /** Sin la reserva de HOY (ses-1). El Inicio deja de estar en el caso
+   *  "tienes clase" y pasa a uno de los otros cuatro — el único camino por el
+   *  que se ve la clase que el portal PROPONE (lib/portal-sugerencias.ts). */
+  sinProximaReserva?: boolean;
   /** El pase arranca pendiente y pasa a «dentro» tras N peticiones (simula el
    *  escaneo de recepción SIN recargar la página). 0 = ya dentro desde el
    *  principio; undefined = nunca. */
@@ -189,7 +193,7 @@ export async function montarPortal(page: Page, opciones: {
   tema?: string;
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
-          sinBono = false, planMasElegidoId = null, entraTrasPeticiones,
+          sinBono = false, sinProximaReserva = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
           retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
 
@@ -307,7 +311,7 @@ export async function montarPortal(page: Page, opciones: {
   // los 5 segundos y estos tests lo verán.
   await page.route('**/api/public/aforo**', route => json(route, {
     sesionIds: SESIONES.map(s => s.id),
-    aforoReservas: conSesion
+    aforoReservas: conSesion && !sinProximaReserva
       ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]
       : [],
   }));
@@ -334,12 +338,12 @@ export async function montarPortal(page: Page, opciones: {
     // (`aforo.map(r => miasById.get(r.id) ?? r)`). Una reserva que solo esté en
     // `socia.reservas` NO llega a la pantalla. Ya me pasó con la primera.
     aforoReservas: conSesion
-      ? [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null },
+      ? [...(sinProximaReserva ? [] : [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]),
          ...HISTORIAL.map(h => ({ id: h.res.id, sesion_id: h.ses.id, estado: 'ASISTIDA', spot_id: null }))]
       : [],
     socia: conSesion ? {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
-      reservas: [MI_RESERVA, ...HISTORIAL.map(h => h.res)],
+      reservas: [...(sinProximaReserva ? [] : [MI_RESERVA]), ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : [SUSCRIPCION],
       recibos, facturas: FACTURAS,
       plazasFijas: [PLAZA_FIJA],

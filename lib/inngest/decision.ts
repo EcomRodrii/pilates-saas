@@ -492,6 +492,7 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     return {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
       recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
+      plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
     };
   }
 
@@ -510,6 +511,41 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     return {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
       recibosCobrados: cobradosFilas.length, recibosTotal: total, importeCobradoEur, precioMensualPlanEur: null,
+      plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
+    };
+  }
+
+  // LLENAR_PLAZAS (Agenda A4): el desenlace es de la CLASE, no de una socia —
+  // ¿acabó llenándose? Va antes del early-return de `!r.socioId` porque estas
+  // recomendaciones nunca llevan socioId y, si no, caerían en el saco de "sin
+  // señal" y su outcome sería NEUTRO siempre (el bucle de aprendizaje del
+  // pronóstico nunca se cerraría).
+  if (r.tipo === 'LLENAR_PLAZAS' && r.sesionId) {
+    const admin = requireSupabaseAdmin();
+    const [{ data: sesion }, { data: reservas }] = await Promise.all([
+      admin.from('sesiones').select('aforo_maximo, inicio, cancelada').eq('id', r.sesionId).maybeSingle(),
+      admin.from('reservas').select('estado, creado_en').eq('sesion_id', r.sesionId),
+    ]);
+    const vacio = {
+      reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
+      recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur: null,
+      plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
+    };
+    const aforo = Number(sesion?.aforo_maximo ?? 0);
+    // Sesión borrada, cancelada, sin aforo, o que todavía no se ha dado: no hay
+    // desenlace que juzgar (`plazasLibresFinales: null` → NEUTRO sin señal).
+    if (!sesion || sesion.cancelada || aforo <= 0) return vacio;
+    if (new Date(sesion.inicio as string).getTime() > Date.now()) return vacio;
+
+    // Mismos estados que ESTADOS_OCUPAN_PLAZA (lib/decision/senales.ts): la
+    // lista de espera y las pendientes de aprobación no ocupan asiento.
+    const ocupan = (reservas ?? []).filter((x: { estado: string }) =>
+      x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA' || x.estado === 'NO_ASISTIO');
+    const desde = new Date(r.resueltoEn ?? 0).getTime();
+    return {
+      ...vacio,
+      plazasLibresFinales: Math.max(0, aforo - ocupan.length),
+      plazasVendidasTrasLaAccion: ocupan.filter((x: { creado_en: string }) => new Date(x.creado_en).getTime() > desde).length,
     };
   }
 
@@ -517,6 +553,7 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
     return {
       reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
       recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur: null,
+      plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
     };
   }
 
@@ -545,6 +582,7 @@ async function construirSenalMedicion(r: Recomendacion): Promise<SenalMedicion> 
   return {
     reservaAsistidaPosterior, suscripcionCancelada, suscripcionRenovada: !!renovada,
     recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur,
+    plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
   };
 }
 

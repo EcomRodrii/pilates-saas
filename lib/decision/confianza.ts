@@ -380,3 +380,108 @@ export function resolverNivelAutonomiaPorTipo(tipo: TipoRecomendacion, confianza
   const declarada = AUTONOMIA_DECLARADA_POR_TIPO[tipo] ?? 1;
   return resolverNivelAutonomia(declarada, confianza);
 }
+
+/**
+ * LLENAR_PLAZAS (Agenda A4) — pronóstico de que una clase FUTURA se quede a
+ * medias. A diferencia del resto, la evidencia no es histórica sino
+ * prospectiva, así que el techo es MEDIA: por muy clara que sea la curva de
+ * reserva, esto sigue siendo una predicción y la propietaria decide.
+ *
+ * ALTA: nunca (a propósito — no se auto-ejecuta un aviso masivo a socias).
+ * MEDIA: a+b (va por detrás de su costumbre Y hay a quién avisar).
+ * BAJA: solo a.
+ */
+export function confianzaLlenarPlazas(c: {
+  porDetrasDeLoHabitual: boolean;   // lleva menos reservas de las que suele a estos días vista
+  hayCandidatasCompatibles: boolean; // existe gente real a la que ofrecérselo
+  curvaFiable: boolean;              // suficientes ocurrencias pasadas de la franja
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.porDetrasDeLoHabitual, etiqueta: 'va por detrás de lo que esta franja suele llevar a estos días vista' },
+    { valor: c.hayCandidatasCompatibles, etiqueta: 'hay socias compatibles con plan en vigor a las que ofrecer la plaza' },
+    { valor: c.curvaFiable, etiqueta: 'la franja tiene bastantes ocurrencias pasadas con las que comparar' },
+  ];
+  const { porDetrasDeLoHabitual: a, hayCandidatasCompatibles: b, curvaFiable: cc } = c;
+  return evaluarNivel(criterios, false, a && b && cc, a);
+}
+
+/**
+ * CUBRIR_CLASE_EN_RIESGO (Agenda A5) — una clase futura cuya instructora no va
+ * a poder darla: tiene una ausencia grabada que la pisa, o está asignada a dos
+ * clases solapadas a la vez.
+ *
+ * Único caso de todo el motor donde el hecho NO es estadístico sino
+ * comprobable: o hay un choque en el calendario, o no lo hay. Por eso solo
+ * tiene un nivel, ALTA, y no hay rama de "indicio".
+ *
+ * ⚠️ Deliberadamente NO se usa "no ha declarado disponibilidad para esa franja"
+ * como señal: en un estudio donde el equipo no ha rellenado la rejilla de
+ * disponibilidad —que son la mayoría al empezar— eso marcaría en riesgo TODAS
+ * las clases del horario. Ese hueco ya lo cuenta `avisoEquipoIncompleto`
+ * (lib/sustituciones/preparacion.ts) una sola vez, que es donde corresponde.
+ */
+export function confianzaCubrirClaseEnRiesgo(c: { choqueConfirmado: boolean }): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.choqueConfirmado, etiqueta: 'la instructora tiene una ausencia grabada o otra clase a esa misma hora' },
+  ];
+  return evaluarNivel(criterios, c.choqueConfirmado, false, false);
+}
+
+/**
+ * PROPONER_RENOVACION_BONO por CADUCIDAD (Finanzas F3) — a la socia le quedan
+ * sesiones pagadas y su bono caduca pronto. Distinto de F1, que mira el bono
+ * casi AGOTADO: aquí el problema es el contrario (le sobran sesiones y se le
+ * va a pasar el plazo), y el daño no es solo el dinero — es que pagó por algo
+ * que no llegó a usar, que es como se pierde a una socia sin que se queje.
+ *
+ * ALTA: a+b (caduca ya Y le sobran bastantes) · MEDIA: solo a · BAJA: nunca —
+ * si no caduca pronto no hay nada que avisar todavía.
+ */
+export function confianzaBonoCaducaSinUsar(c: {
+  caducaPronto: boolean;
+  bastantesSesionesSinUsar: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.caducaPronto, etiqueta: 'el bono caduca en los próximos días' },
+    { valor: c.bastantesSesionesSinUsar, etiqueta: 'le quedan varias sesiones pagadas sin usar' },
+  ];
+  const { caducaPronto: a, bastantesSesionesSinUsar: b } = c;
+  return evaluarNivel(criterios, a && b, a, false);
+}
+
+/**
+ * COBRAR_PENDIENTE por CADUCIDAD DE TARJETA (Finanzas F4) — la tarjeta guardada
+ * de una socia con cuota recurrente caduca antes de su próximo cobro.
+ *
+ * Es el único aviso de dinero de todo el motor que NO es una estimación: o la
+ * tarjeta caduca antes de esa fecha o no caduca. Por eso llega a ALTA con un
+ * solo criterio; el segundo solo distingue "ya ha caducado" (más urgente) de
+ * "va a caducar".
+ */
+export function confianzaTarjetaCaduca(c: { caducaAntesDelCobro: boolean }): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.caducaAntesDelCobro, etiqueta: 'la tarjeta guardada caduca antes de su próximo cobro' },
+  ];
+  return evaluarNivel(criterios, c.caducaAntesDelCobro, false, false);
+}
+
+/**
+ * RECUPERAR_PAGOS por RIESGO (Finanzas F5) — a esta socia le han fallado cobros
+ * antes y tiene otro por delante. A diferencia del resto de Finanzas, esto SÍ es
+ * una estimación, así que el techo es MEDIA: no se toca el dinero de nadie por
+ * una probabilidad.
+ *
+ * MEDIA: a+b (historial suficiente Y probabilidad de fallo alta).
+ * BAJA: solo a — hay historial pero no es alarmante.
+ */
+export function confianzaRiesgoDeCobro(c: {
+  historialSuficiente: boolean;
+  probabilidadAlta: boolean;
+}): Confianza | null {
+  const criterios: Criterio[] = [
+    { valor: c.historialSuficiente, etiqueta: 'suficientes cobros suyos con desenlace conocido' },
+    { valor: c.probabilidadAlta, etiqueta: 'su histórico de cobro está muy por debajo del resto del estudio' },
+  ];
+  const { historialSuficiente: a, probabilidadAlta: b } = c;
+  return evaluarNivel(criterios, false, a && b, a);
+}

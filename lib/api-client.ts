@@ -366,9 +366,17 @@ export interface SustitucionCandidata {
   instructor_id: string;
   nombre: string;
   score: number;
-  compatibilidad: number; // 0-100, para la barra de la card
+  compatibilidad: number; // 0-100, para la barra de encaje de la card
   veces: number;          // clases impartidas de este tipo
   motivos: string[];
+  // Probabilidad de que ACEPTE, estimada con su historial real de respuestas
+  // (rankear_candidatas, migr 20260810231458). `null` = no hay historial
+  // suficiente para afirmar nada — NO es probabilidad cero, y no debe pintarse
+  // ningún porcentaje en ese caso. Las filas de rankings guardados antes de esa
+  // migración tampoco lo traen, de ahí el opcional.
+  prob_aceptacion?: number | null; // 0..1
+  prob_aceptadas?: number;         // veces que dijo que sí
+  prob_ofertas?: number;           // veces que se le pidió (observaciones)
 }
 export interface SustitucionPanel {
   id: string;

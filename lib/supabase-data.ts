@@ -414,6 +414,10 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
+    tarjetaExpMes: r.tarjeta_exp_mes ?? null,
+    tarjetaExpAnio: r.tarjeta_exp_anio ?? null,
+    tarjetaMarca: r.tarjeta_marca ?? null,
+    tarjetaUltimos4: r.tarjeta_ultimos4 ?? null,
     metodoPagoPreferido: (r.metodo_pago_preferido as Socio['metodoPagoPreferido']) ?? 'TARJETA',
     sepaMandateId: r.sepa_mandate_id ?? null,
     sepaPaymentMethodId: r.sepa_payment_method_id ?? null,
@@ -4060,7 +4064,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
@@ -4252,6 +4256,14 @@ export interface SustitucionSnapshotRow {
   creadoEn: string;
 }
 
+/** Ver BloqueoAgendaSnapshot en lib/decision/tipos.ts (mismo shape). */
+export interface BloqueoAgendaSnapshotRow {
+  instructorId: string;
+  fecha: string;
+  horaInicio: string | null;
+  horaFin: string | null;
+}
+
 export async function fetchSustitucionesRecientes(studioId: string, desdeISO: string): Promise<SustitucionSnapshotRow[]> {
   const db = getSupabaseAdmin() ?? supabase;
   const { data, error } = await db
@@ -4263,6 +4275,30 @@ export async function fetchSustitucionesRecientes(studioId: string, desdeISO: st
   return (data ?? []).map(r => ({
     id: r.id, studioId: r.studio_id, sesionId: r.sesion_id,
     instructorOriginalId: r.instructor_original_id, estado: r.estado, creadoEn: r.creado_en,
+  }));
+}
+
+// Bloqueos de agenda futuros de las instructoras (Decision OS · Agenda A5).
+// Server-only con service-role, igual que el resto del snapshot: la RLS de
+// gestión solo deja a cada instructora ver lo suyo, y aquí hace falta el
+// estudio entero para saber qué clases programadas se quedan sin quien las dé.
+//
+// Solo tipo='bloqueo': las excepciones 'extra' son lo contrario (disponibilidad
+// añadida) y no ponen ninguna clase en riesgo. Devuelve filas crudas, no un Map
+// — ver BloqueoAgendaSnapshot en lib/decision/tipos.ts.
+export async function fetchBloqueosAgendaFuturos(studioId: string, desdeDia: string, hastaDia: string): Promise<BloqueoAgendaSnapshotRow[]> {
+  const db = getSupabaseAdmin() ?? supabase;
+  const { data, error } = await db
+    .from('instructora_disponibilidad_excepciones')
+    .select('instructor_id, fecha, hora_inicio, hora_fin')
+    .eq('studio_id', studioId)
+    .eq('tipo', 'bloqueo')
+    .gte('fecha', desdeDia)
+    .lte('fecha', hastaDia) as { data: { instructor_id: string; fecha: string; hora_inicio: string | null; hora_fin: string | null }[] | null; error: { message: string } | null };
+  if (error) { reportDbError('[fetchBloqueosAgendaFuturos]', error); return []; }
+  return (data ?? []).map(r => ({
+    instructorId: r.instructor_id, fecha: r.fecha,
+    horaInicio: r.hora_inicio, horaFin: r.hora_fin,
   }));
 }
 

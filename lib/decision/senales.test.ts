@@ -6,7 +6,7 @@ import {
   construirIndices, frecuenciaHabitual, frecuenciaHabitualPorTipoClase, diasSinVenir, umbralAnomalo, ausenciaAnomala,
   renovacionProxima, valorMensual, diasDesdeUltimoContacto, emailsSinRespuesta, riesgoNoShowDeSocio,
   pagosEnRiesgo, agruparFranjasRecurrentes, demandaInsatisfecha, intentosFallidosRecientes,
-  variacionOcupacionFranja, type FranjaRecurrente,
+  variacionOcupacionFranja, claveFranjaDe, franjaLocalDe, type FranjaRecurrente,
 } from './senales.ts';
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
@@ -37,7 +37,7 @@ function log(p: Partial<AutomationLog> & Pick<AutomationLog, 'socioId' | 'result
 function snapshot(over: Partial<SnapshotEstudio>): SnapshotEstudio {
   return {
     studioId: 'e1', socios: [], reservas: [], sesiones: [], salas: [], recibos: [],
-    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
+    suscripciones: [], planesTarifa: [], tiposClase: [], instructores: [], automationLogs: [], campanas: [], sustituciones: [], instructorTarifas: [], intentosFallidos: [], bloqueosAgenda: [], contexto: { nSociasActivas: 0, antiguedadDatosDias: 999, cadenaId: null, nSedesCadena: 1 },
     ...over,
   };
 }
@@ -266,6 +266,40 @@ test('agruparFranjasRecurrentes: agrupa por dia/hora/tipo y calcula ocupacion', 
   const franja = [...grupos.values()][0];
   assert.equal(franja.sesionesOrdenadas.length, 3);
   assert.ok(franja.ocupaciones.every(o => o === 1));
+});
+
+// ── Franja en hora local del estudio (regresión del bug UTC) ────────────────
+
+test('franjaLocalDe: devuelve el dia y la hora del estudio, no los de UTC', () => {
+  // Martes 7 de julio de 2026, 00:30 en Madrid (CEST) = lunes 22:30 UTC.
+  // En UTC esto se contaba como LUNES a las 22:30 — otro día de la semana.
+  assert.deepEqual(franjaLocalDe('2026-07-06T22:30:00.000Z'), { dow: 2, hora: 0, minuto: 30 });
+  // Clase de las 20:00 de Madrid en verano: 18:00 UTC.
+  assert.deepEqual(franjaLocalDe('2026-07-07T18:00:00.000Z'), { dow: 2, hora: 20, minuto: 0 });
+});
+
+test('claveFranjaDe: la misma clase semanal conserva su franja al cambiar la hora', () => {
+  // Martes 20:00 de Madrid a ambos lados del cambio de hora (29 de marzo de
+  // 2026): 19:00 UTC en invierno, 18:00 UTC en verano. Con la clave en UTC eran
+  // dos franjas distintas, así que la recurrente se partía en dos justo al
+  // cruzar marzo/octubre y no volvía a alcanzar las ocurrencias mínimas.
+  const invierno = sesion({ id: 'ses-inv', inicio: '2026-03-24T19:00:00.000Z' });
+  const verano = sesion({ id: 'ses-ver', inicio: '2026-03-31T18:00:00.000Z' });
+  assert.equal(claveFranjaDe(invierno), claveFranjaDe(verano));
+  assert.equal(claveFranjaDe(verano), '2-20:00-tc1');
+});
+
+test('agruparFranjasRecurrentes: una clase semanal a caballo del cambio de hora es UNA sola franja', () => {
+  const now = new Date('2026-04-07T12:00:00.000Z');
+  const sesiones = [
+    sesion({ id: 'a', inicio: '2026-03-17T19:00:00.000Z' }), // martes 20:00 Madrid (CET)
+    sesion({ id: 'b', inicio: '2026-03-24T19:00:00.000Z' }), // martes 20:00 Madrid (CET)
+    sesion({ id: 'c', inicio: '2026-03-31T18:00:00.000Z' }), // martes 20:00 Madrid (CEST)
+  ];
+  const snap = snapshot({ sesiones });
+  const grupos = agruparFranjasRecurrentes(construirIndices(snap), snap, now, 3);
+  assert.equal(grupos.size, 1);
+  assert.equal([...grupos.values()][0].sesionesOrdenadas.length, 3);
 });
 
 test('demandaInsatisfecha: media de socias en lista de espera en las ultimas N ocurrencias', () => {

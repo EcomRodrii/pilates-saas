@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout, authHeader } from '@/lib/api-client';
 import { dbStatsClientas } from '@/lib/supabase-data';
@@ -797,6 +798,22 @@ export default function Dashboard() {
             ) : null
           }
         />
+
+        {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
+        {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que
+            se abre al entrar— no lo mencionaba. Aquí se trae el resumen, con
+            enlace al detalle.
+
+            Mismo guardia que el resto de la home: /centro-de-control es solo de
+            la propietaria (BLOQUEADO_RECEPCION lo incluye), así que sin esto
+            recepción e instructoras verían una tarjeta que lleva a una pantalla
+            que el guardia de ruta les vacía.
+
+            El componente se pinta solo si hay algo pendiente: sin nada que
+            contar no ocupa ni un píxel. */}
+        {puedeVer(rolActual, '/centro-de-control') && (
+        <div {...wrap('accion')}><ActionCenter /></div>
+        )}
 
         {/* ── Hoy de un vistazo (10 segundos) ─────────────────────────────────── */}
         <div {...wrap('resumen')}>

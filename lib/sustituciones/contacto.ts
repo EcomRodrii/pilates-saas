@@ -34,6 +34,11 @@ export type RankingItem = {
   compatibilidad?: number;
   veces?: number;
   motivos?: string[];
+  // Ver SustitucionCandidata (lib/api-client.ts): `null`/ausente = sin historial
+  // suficiente, nunca "probabilidad cero".
+  prob_aceptacion?: number | null;
+  prob_aceptadas?: number;
+  prob_ofertas?: number;
 };
 
 export function appUrl(): string {

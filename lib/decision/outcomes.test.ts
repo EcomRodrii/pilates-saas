@@ -8,6 +8,7 @@ function senal(p: Partial<SenalMedicion> = {}): SenalMedicion {
   return {
     reservaAsistidaPosterior: false, suscripcionCancelada: false, suscripcionRenovada: false,
     recibosCobrados: 0, recibosTotal: 0, importeCobradoEur: 0, precioMensualPlanEur: null,
+    plazasLibresFinales: null, plazasVendidasTrasLaAccion: 0,
     ...p,
   };
 }
@@ -104,4 +105,40 @@ test('medirOutcome CONTACTAR_LEAD / CONVERTIR_PRUEBA cierran el bucle (antes sie
   const negativo = medirOutcome('CONTACTAR_LEAD', senal());
   assert.equal(negativo.outcome, 'NEGATIVO');
   assert.equal(negativo.confianzaMedicion, 'NO_MEDIBLE');
+});
+
+// ── LLENAR_PLAZAS (A4): el desenlace es la CLASE, no una socia ──────────────
+
+test('LLENAR_PLAZAS: la clase se llenó del todo → POSITIVO', () => {
+  const r = medirOutcome('LLENAR_PLAZAS', senal({ plazasLibresFinales: 0, plazasVendidasTrasLaAccion: 4 }));
+  assert.equal(r.outcome, 'POSITIVO');
+  assert.equal(r.senalObservada, 'RESERVO');
+});
+
+test('LLENAR_PLAZAS: entró gente pero sobraron plazas → NEUTRO', () => {
+  const r = medirOutcome('LLENAR_PLAZAS', senal({ plazasLibresFinales: 2, plazasVendidasTrasLaAccion: 3 }));
+  assert.equal(r.outcome, 'NEUTRO');
+  assert.equal(r.senalObservada, 'RESERVO');
+});
+
+test('LLENAR_PLAZAS: no entró nadie tras avisar → NEGATIVO', () => {
+  const r = medirOutcome('LLENAR_PLAZAS', senal({ plazasLibresFinales: 5, plazasVendidasTrasLaAccion: 0 }));
+  assert.equal(r.outcome, 'NEGATIVO');
+  assert.equal(r.senalObservada, 'SIN_RESPUESTA');
+});
+
+test('LLENAR_PLAZAS: sesión borrada o aún sin dar → NEUTRO sin señal, no NEGATIVO', () => {
+  const r = medirOutcome('LLENAR_PLAZAS', senal({ plazasLibresFinales: null }));
+  assert.equal(r.outcome, 'NEUTRO');
+  assert.equal(r.senalObservada, null);
+});
+
+test('LLENAR_PLAZAS: el impacto en € queda NO_MEDIBLE (multiplicar plazas por precio medio sería una proyección)', () => {
+  const r = medirOutcome('LLENAR_PLAZAS', senal({ plazasLibresFinales: 0, plazasVendidasTrasLaAccion: 4 }));
+  assert.equal(r.impactoReal, null);
+  assert.equal(r.confianzaMedicion, 'NO_MEDIBLE');
+});
+
+test('LLENAR_PLAZAS: la ventana de medición cae DESPUÉS de la clase (A4 nunca pasa de 14 días vista)', () => {
+  assert.ok(ventanaDiasDe('LLENAR_PLAZAS') > 14);
 });

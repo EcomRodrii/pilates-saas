@@ -13,6 +13,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
+import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 
 // Dispatcher: a las 08:30 UTC (evita las 07:00 de automatizaciones y las
 // 06:30/14:30 del Decision OS, para no competir por la concurrencia del plan free).
@@ -157,6 +158,55 @@ export const procesarDunningEstudio = inngest.createFunction(
       if (res.tipo === 'sigue_en_curso') sepaSiguenEnCurso++; else sepaReconciliados++;
     }
 
-    return { studioId, candidatos: recibos.length, cobrados, enCurso, reprogramados, fallidos, omitidos, sepaReconciliados, sepaSiguenEnCurso };
+    // Relleno por goteo de la caducidad de las tarjetas (Fase 3 del Brain).
+    //
+    // Va AQUÍ y no en un cron propio por dos motivos: Inngest está al ~84% del
+    // límite del plan free y no admite otro fan-out por estudio; y este worker
+    // ya corre solo para los estudios con Stripe conectado y ya tiene el
+    // `stripeAccount` a mano, que es justo lo que hace falta.
+    //
+    // Las tarjetas nuevas traen su caducidad desde el webhook; esto es solo
+    // para las que se guardaron antes de que existieran esas columnas. Tope de
+    // 25 por pasada: converge en unos días sin castigar la cuota de API de
+    // Stripe, y cuando ya no queda ninguna el índice parcial hace que la
+    // consulta no cueste nada.
+    let caducidadesRellenadas = 0;
+    const sinCaducidad = await step.run('tarjetas-sin-caducidad', async () => {
+      const key = process.env.STRIPE_SECRET_KEY;
+      if (!key || key.startsWith('sk_test_XXXX')) return [];
+      const admin = getSupabaseAdmin();
+      if (!admin) throw new Error('Service role no configurada');
+      const { data: studio } = await admin.from('studios').select('stripe_account_id').eq('id', studioId).maybeSingle();
+      const stripeAccountId = (studio as { stripe_account_id: string | null } | null)?.stripe_account_id;
+      if (!stripeAccountId) return [];
+      const { data, error } = await admin
+        .from('socios')
+        .select('id, stripe_payment_method_id')
+        .eq('studio_id', studioId)
+        .not('stripe_payment_method_id', 'is', null)
+        .is('tarjeta_exp_anio', null)
+        .is('borrado_en', null)
+        .limit(25);
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(r => ({ socioId: r.id as string, pmId: r.stripe_payment_method_id as string, stripeAccountId }));
+    });
+
+    for (const s of sinCaducidad) {
+      // Un step por socia: idempotente y reanudable. `guardarCaducidadTarjeta`
+      // no lanza nunca, así que una tarjeta que Stripe ya no reconoce (borrada,
+      // cuenta desconectada) no puede tumbar el barrido de cobros de arriba.
+      const ok = await step.run(`caducidad-${s.socioId}`, async () => {
+        const admin = getSupabaseAdmin();
+        if (!admin) throw new Error('Service role no configurada');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-06-24.dahlia' });
+        const r = await guardarCaducidadTarjeta(admin, stripe, {
+          socioId: s.socioId, studioId, paymentMethodId: s.pmId, stripeAccount: s.stripeAccountId,
+        });
+        return r !== null;
+      });
+      if (ok) caducidadesRellenadas++;
+    }
+
+    return { studioId, candidatos: recibos.length, cobrados, enCurso, reprogramados, fallidos, omitidos, sepaReconciliados, sepaSiguenEnCurso, caducidadesRellenadas };
   },
 );

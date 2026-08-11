@@ -5,6 +5,8 @@
 import type { Reserva, Suscripcion, PlanTarifa, AutomationLog, Recibo, Socio, Sesion, TipoClase } from '@/lib/types';
 import type { SnapshotEstudio, IntentoFallidoSnapshot } from './tipos.ts';
 import { riesgoNoShow, type RiesgoNoShow, type ReservaHistorica } from '../no-show.ts';
+import { franjaLocalDe } from '../utils.ts';
+import { tieneEntitlementActivo } from '../bono-logic.ts';
 
 export interface IndicesSenal {
   socioPorId: Map<string, Socio>;
@@ -24,6 +26,12 @@ export interface IndicesSenal {
   logsPorSocio: Map<string, AutomationLog[]>;
   // Plazas ocupadas (estado != CANCELADA) por sesión.
   ocupadasPorSesion: Map<string, number>;
+  // Todas las reservas de cada sesión, sin filtrar. La necesita el pronóstico
+  // de llenado (A4), que no cuenta cabezas sino CUÁNDO se reservó cada plaza —
+  // `ocupadasPorSesion` ya perdió esa información, y además incluye
+  // LISTA_ESPERA/PENDIENTE_APROBACION, que no ocupan asiento (ver
+  // reservasQueOcupanPlaza).
+  reservasPorSesion: Map<string, Reserva[]>;
   // Tarifa/hora por instructora (null = sin fijar). Construido aquí, no en
   // SnapshotEstudio (array JSON-safe) — ver InstructorTarifaSnapshot en tipos.ts.
   tarifaHoraPorInstructor: Map<string, number | null>;
@@ -48,7 +56,35 @@ function ordenarDesc(reservas: Reserva[]): Reserva[] {
   return [...reservas].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 }
 
+// Los índices de un snapshot dado, calculados UNA vez.
+//
+// Cada especialista llamaba a construirIndices() por su cuenta y motor.ts una
+// novena vez, así que el mismo trabajo se repetía 9 veces por análisis: medido
+// sobre un snapshot de tamaño realista (cadena de 2 sedes, 850 socias, 30.000
+// reservas de 180 días) son ~690 ms tirados por estudio y por pasada.
+//
+// Se resuelve aquí y no cambiando la firma de Especialista.detectar() porque
+// el snapshot es de solo lectura de punta a punta del pipeline (lo construye
+// `construirSnapshot` y nadie lo muta), así que cachear por identidad de objeto
+// es correcto por construcción y no obliga a tocar los 8 especialistas ni sus
+// tests. WeakMap y no Map: cuando el análisis del estudio termina y el snapshot
+// deja de estar referenciado, su entrada se recoge sola — sin fugas entre los
+// estudios de un mismo fan-out.
+//
+// ⚠️ La condición que lo sostiene: NADIE muta un SnapshotEstudio después de
+// construirlo. Si algún día hiciera falta, hay que clonar el snapshot, no
+// modificarlo en sitio — si no, los índices quedarían viejos en silencio.
+const INDICES_POR_SNAPSHOT = new WeakMap<SnapshotEstudio, IndicesSenal>();
+
 export function construirIndices(s: SnapshotEstudio): IndicesSenal {
+  const cacheado = INDICES_POR_SNAPSHOT.get(s);
+  if (cacheado) return cacheado;
+  const indices = calcularIndices(s);
+  INDICES_POR_SNAPSHOT.set(s, indices);
+  return indices;
+}
+
+function calcularIndices(s: SnapshotEstudio): IndicesSenal {
   const asistidasPorSocioRaw = agrupar(s.reservas.filter(r => r.estado === 'ASISTIDA'), r => r.socioId);
   const todasPorSocioRaw = agrupar(s.reservas, r => r.socioId);
 
@@ -81,6 +117,8 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
   }
 
+  const reservasPorSesion = agrupar(s.reservas, r => r.sesionId);
+
   const tarifaHoraPorInstructor = new Map<string, number | null>(
     s.instructorTarifas.map(t => [t.instructorId, t.tarifaHora])
   );
@@ -102,6 +140,7 @@ export function construirIndices(s: SnapshotEstudio): IndicesSenal {
     recibosPendientes: s.recibos.filter(r => r.estado === 'PENDIENTE'),
     logsPorSocio: agrupar(s.automationLogs, l => l.socioId),
     ocupadasPorSesion,
+    reservasPorSesion,
     tarifaHoraPorInstructor,
     referidosPorSocio,
     intentosFallidosPorSocio,
@@ -368,6 +407,49 @@ export function impagosManualesPorSocio(idx: IndicesSenal, now: Date, maxDias = 
   return porSocio;
 }
 
+// ── Historial de cobro de una socia (Fase 3 del Brain) ──────────────────────
+//
+// El dunning de hoy es 100 % reactivo: reintenta DESPUÉS de que un cobro haya
+// fallado. Esto es lo que permite mirar hacia delante — quién tiene pinta de
+// fallar la próxima vez, mirando lo que le ha pasado hasta ahora.
+
+export interface HistorialCobro {
+  /** Recibos suyos con desenlace conocido (cobrado, fallido o devuelto). */
+  resueltos: number;
+  /** De esos, los que acabaron entrando. */
+  cobrados: number;
+}
+
+/**
+ * Cuántos de sus recibos acabaron cobrándose. Solo cuenta los que YA tienen
+ * desenlace: un PENDIENTE todavía no es ni un sí ni un no, y contarlo como
+ * fallo penalizaría a quien sencillamente aún no ha llegado a su fecha —
+ * mismo criterio que `dbCalcularSeguimientoPorTipo` con las PENDIENTE.
+ *
+ * ⚠️ DEVUELTO cuenta como NO cobrado aunque en su día entrara: para lo que se
+ * quiere predecir —si el dinero se va a quedar en la cuenta del estudio— una
+ * devolución es exactamente igual de mala que un impago.
+ */
+export function historialCobroDeSocio(socioId: string, s: SnapshotEstudio): HistorialCobro {
+  let resueltos = 0, cobrados = 0;
+  for (const r of s.recibos) {
+    if (r.socioId !== socioId) continue;
+    if (r.estado === 'COBRADO') { resueltos++; cobrados++; }
+    else if (r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') resueltos++;
+  }
+  return { resueltos, cobrados };
+}
+
+/** Lo mismo agregado a todo el estudio: la tasa base con la que se suaviza. */
+export function historialCobroDelEstudio(s: SnapshotEstudio): HistorialCobro {
+  let resueltos = 0, cobrados = 0;
+  for (const r of s.recibos) {
+    if (r.estado === 'COBRADO') { resueltos++; cobrados++; }
+    else if (r.estado === 'FALLIDO' || r.estado === 'DEVUELTO') resueltos++;
+  }
+  return { resueltos, cobrados };
+}
+
 /** Recibos PENDIENTE vencidos (0..maxDias días de retraso), particionados por si la socia tiene tarjeta guardada. */
 export function pagosEnRiesgo(idx: IndicesSenal, now: Date, maxDias = 30): { conTarjeta: Recibo[]; sinTarjeta: Recibo[] } {
   const vencidos = idx.recibosPendientes.filter(r => {
@@ -390,6 +472,20 @@ export interface FranjaRecurrente {
   ocupaciones: number[]; // ratio ocupadas/aforo, alineado con sesionesOrdenadas
 }
 
+// ── Franja horaria LOCAL del estudio ────────────────────────────────────────
+// Las sesiones son `timestamptz` absolutos. Agrupar "el martes a las 20:00" por
+// UTC parece equivalente y no lo es: España cambia de offset dos veces al año,
+// así que la MISMA clase semanal cae en 18:00 UTC en verano y 19:00 UTC en
+// invierno — la franja recurrente se parte en dos al cruzar el cambio de hora,
+// y una clase de 00:30 del martes se agrupa como lunes 22:30. Peor todavía, la
+// etiqueta que lee la propietaria decía la hora UTC ("tu clase de las 18:00"
+// para una clase de las 20:00). Mismo criterio que ya aplicó motor.ts al saludo
+// del Director: la hora local del estudio, nunca UTC.
+// `franjaLocalDe` vive en lib/utils.ts (junto a TZ_ESTUDIO) porque la comparten
+// dos lados que no deberían importarse entre sí: este motor y el portal de la
+// socia. Se reexporta aquí para no cambiar los imports de los especialistas.
+export { franjaLocalDe, type FranjaLocal } from '../utils.ts';
+
 /**
  * Agrupa sesiones YA celebradas por franja recurrente (mismo día de la semana +
  * hora + tipo de clase), acotado a una ventana reciente — mismo patrón P0-19
@@ -403,8 +499,7 @@ export function agruparFranjasRecurrentes(idx: IndicesSenal, s: SnapshotEstudio,
     if (se.cancelada) continue;
     const t = new Date(se.inicio).getTime();
     if (t > now.getTime() || t < desde) continue;
-    const inicio = new Date(se.inicio);
-    const clave = `${inicio.getUTCDay()}-${inicio.getUTCHours()}:${String(inicio.getUTCMinutes()).padStart(2, '0')}-${se.tipoClaseId}`;
+    const clave = claveFranjaDe(se);
     const grupo = grupos.get(clave) ?? [];
     grupo.push(se);
     grupos.set(clave, grupo);
@@ -446,10 +541,15 @@ export function variacionOcupacionFranja(franja: FranjaRecurrente, n: number): V
   return { pctVariacion: (mediaReciente - mediaAnterior) / mediaAnterior, mediaReciente, mediaAnterior };
 }
 
-/** Clave de franja recurrente de una sesión (mismo formato que agruparFranjasRecurrentes). */
+/**
+ * Clave de franja recurrente de una sesión — la ÚNICA fuente del formato, que
+ * usa también agruparFranjasRecurrentes. En hora local del estudio (ver
+ * franjaLocalDe): con UTC, la misma clase semanal cambiaba de clave al cruzar
+ * el cambio de hora y la franja no llegaba nunca a las ocurrencias mínimas.
+ */
 export function claveFranjaDe(se: Sesion): string {
-  const inicio = new Date(se.inicio);
-  return `${inicio.getUTCDay()}-${inicio.getUTCHours()}:${String(inicio.getUTCMinutes()).padStart(2, '0')}-${se.tipoClaseId}`;
+  const { dow, hora, minuto } = franjaLocalDe(se.inicio);
+  return `${dow}-${hora}:${String(minuto).padStart(2, '0')}-${se.tipoClaseId}`;
 }
 
 /** ¿La franja sigue viva? — hay al menos una sesión FUTURA no cancelada en ella. */
@@ -458,6 +558,204 @@ export function hayProximaSesionEnFranja(clave: string, s: SnapshotEstudio, now:
     !se.cancelada && new Date(se.inicio).getTime() > now.getTime() && claveFranjaDe(se) === clave
   );
 }
+
+// ── Pronóstico de llenado (A4) ──────────────────────────────────────────────
+//
+// Todo lo de arriba mira hacia atrás: "esta franja ha ido vacía". Esto mira
+// hacia delante: "esta clase concreta del martes que viene va a ir vacía".
+//
+// La idea es que una reserva no aparece de golpe el día de la clase, sino que
+// llega siguiendo una curva bastante estable por franja. Si el martes 18:00
+// suele llevar 8 reservas a 5 días vista y este martes lleva 3, no hace falta
+// esperar al martes para saber que algo va mal.
+
+/** Estados que ocupan asiento de verdad. LISTA_ESPERA y PENDIENTE_APROBACION
+ *  no lo ocupan (mismo criterio que la RPC reservar_plaza), y CANCELADA
+ *  tampoco. NO_ASISTIO sí: la plaza estuvo cogida hasta el final. */
+const ESTADOS_OCUPAN_PLAZA = new Set(['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO']);
+
+export function reservasQueOcupanPlaza(sesionId: string, idx: IndicesSenal): Reserva[] {
+  return (idx.reservasPorSesion.get(sesionId) ?? []).filter(r => ESTADOS_OCUPAN_PLAZA.has(r.estado));
+}
+
+/** Mediana, no media: una ocurrencia rara (un puente, una promoción) no debe
+ *  arrastrar la referencia de toda la franja. */
+function mediana(valores: number[]): number {
+  if (valores.length === 0) return 0;
+  const orden = [...valores].sort((a, b) => a - b);
+  const medio = Math.floor(orden.length / 2);
+  return orden.length % 2 === 0 ? (orden[medio - 1] + orden[medio]) / 2 : orden[medio];
+}
+
+export interface PronosticoFranja {
+  /** Plazas ya cogidas ahora mismo en la sesión futura. */
+  reservasAhora: number;
+  /** Lo que esta franja suele llevar a los mismos días vista (mediana). */
+  referenciaHabitual: number;
+  /** Reservas que suelen entrar en los días que quedan (mediana). */
+  llegadasEsperadas: number;
+  /** reservasAhora + llegadasEsperadas, topado al aforo. */
+  ocupacionPrevista: number;
+  aforo: number;
+  diasVista: number;
+  /** Ocurrencias pasadas sobre las que se calculó. */
+  nOcurrencias: number;
+  /** Cuántas de ellas acabaron prácticamente llenas. */
+  nSeLlenaron: number;
+}
+
+/** A partir de qué ocupación se considera que una clase "se llenó". */
+export const UMBRAL_LLENA = 0.9;
+
+/** Cuántas ocurrencias pasadas se miran como mucho — más allá, el horario del
+ *  estudio ya ha cambiado lo suficiente como para que no comparen bien. */
+const MAX_OCURRENCIAS_CURVA = 8;
+
+/**
+ * Pronóstico de una sesión FUTURA a partir de la curva de reserva de su franja.
+ *
+ * `null` si no hay ocurrencias pasadas con las que comparar, si la sesión no
+ * tiene aforo, o si ya empezó: sin referencia no se pronostica nada — mismo
+ * principio que el resto del motor (antes ningún número que inventarlo).
+ */
+export function pronosticarFranja(
+  futura: Sesion,
+  franja: FranjaRecurrente,
+  idx: IndicesSenal,
+  now: Date,
+): PronosticoFranja | null {
+  const aforo = futura.aforoMaximo;
+  if (!aforo || aforo <= 0) return null;
+  const inicioFutura = new Date(futura.inicio).getTime();
+  const diasVista = (inicioFutura - now.getTime()) / MS_DIA;
+  if (diasVista <= 0) return null;
+
+  const pasadas = franja.sesionesOrdenadas.slice(0, MAX_OCURRENCIAS_CURVA);
+  if (pasadas.length === 0) return null;
+
+  const enMismoPunto: number[] = [];
+  const llegadasTardias: number[] = [];
+  let nSeLlenaron = 0;
+
+  for (const p of pasadas) {
+    if (!p.aforoMaximo || p.aforoMaximo <= 0) continue;
+    const reservas = reservasQueOcupanPlaza(p.id, idx);
+    // Corte equivalente: el mismo número de días ANTES de que empezara aquella.
+    const corte = new Date(p.inicio).getTime() - diasVista * MS_DIA;
+    // ⚠️ En datos reales hay reservas creadas DESPUÉS del inicio de la clase
+    // (altas de mostrador apuntadas a posteriori). No se descartan: cuentan
+    // como llegada tardía, que es lo que fueron. Solo hace el pronóstico un
+    // poco más optimista, nunca dispara una alarma de más.
+    const yaTenia = reservas.filter(r => new Date(r.creadoEn).getTime() <= corte).length;
+    enMismoPunto.push(yaTenia);
+    llegadasTardias.push(reservas.length - yaTenia);
+    if (reservas.length / p.aforoMaximo >= UMBRAL_LLENA) nSeLlenaron++;
+  }
+  if (enMismoPunto.length === 0) return null;
+
+  const reservasAhora = reservasQueOcupanPlaza(futura.id, idx).length;
+  const llegadasEsperadas = mediana(llegadasTardias);
+
+  return {
+    reservasAhora,
+    referenciaHabitual: mediana(enMismoPunto),
+    llegadasEsperadas,
+    ocupacionPrevista: Math.min(aforo, reservasAhora + llegadasEsperadas),
+    aforo,
+    diasVista,
+    nOcurrencias: enMismoPunto.length,
+    nSeLlenaron,
+  };
+}
+
+// ── Afinidad con una clase concreta (A4 · a quién avisar) ───────────────────
+//
+// `candidatasParaHueco` (lib/booking-logic.ts) ya responde a "¿quién PODRÍA
+// venir?": activa, con bono que cubra ese tipo de clase, y que haya asistido
+// antes a esa disciplina. Es binaria — 27 socias compatibles, todas igual de
+// compatibles — y sirve para la tarjeta manual del dashboard.
+//
+// Aquí se responde a otra pregunta: "¿a quién MERECE LA PENA avisar?". Lo que
+// más pesa es la costumbre horaria, porque es lo único que de verdad predice
+// que a alguien le venga bien un martes a las 18:00: quien ya viene los martes
+// por la tarde. Sin esto, avisar a 27 personas es spam; con esto son 9 avisos
+// que tienen sentido.
+
+export interface CandidataAfinidad {
+  socioId: string;
+  nombre: string;
+  /** 0..1 — para ordenar, no para enseñar como porcentaje. */
+  afinidad: number;
+  /** Por qué está en la lista, en lenguaje humano. */
+  motivo: string;
+}
+
+const MIN_AFINIDAD = 0.25;      // por debajo de esto no compensa molestar
+const VENTANA_COSTUMBRE_DIAS = 90;
+
+/**
+ * Socias a las que tendría sentido ofrecer una plaza de esta sesión, ordenadas
+ * por afinidad. Excluye a quien ya tiene sitio en ella (en cualquier estado
+ * vivo) y a quien no tiene plan que cubra ese tipo de clase — avisar a quien no
+ * puede reservar es la peor forma de gastar la confianza de una socia.
+ */
+export function candidatasPorAfinidad(
+  sesion: Sesion,
+  s: SnapshotEstudio,
+  idx: IndicesSenal,
+  now: Date,
+  limite = 25,
+): CandidataAfinidad[] {
+  const yaTienenSitio = new Set(
+    (idx.reservasPorSesion.get(sesion.id) ?? [])
+      .filter(r => r.estado !== 'CANCELADA')
+      .map(r => r.socioId),
+  );
+  const objetivo = franjaLocalDe(sesion.inicio);
+  const hoyISO = now.toISOString().slice(0, 10);
+  const desde = now.getTime() - VENTANA_COSTUMBRE_DIAS * MS_DIA;
+
+  const resultado: CandidataAfinidad[] = [];
+  for (const socio of s.socios) {
+    if (!socio.activo || yaTienenSitio.has(socio.id)) continue;
+    if (!tieneEntitlementActivo(socio.id, s.suscripciones, s.planesTarifa, hoyISO, sesion.tipoClaseId)) continue;
+
+    const asistidas = (idx.asistidasPorSocio.get(socio.id) ?? []).filter(r => {
+      const se = idx.sesionPorId.get(r.sesionId);
+      return !!se && new Date(se.inicio).getTime() >= desde;
+    });
+    if (asistidas.length === 0) continue;
+
+    let mismoDiaYFranja = 0, mismaDisciplina = 0;
+    for (const r of asistidas) {
+      const se = idx.sesionPorId.get(r.sesionId)!;
+      if (se.tipoClaseId === sesion.tipoClaseId) mismaDisciplina++;
+      const f = franjaLocalDe(se.inicio);
+      // "Misma costumbre" = mismo día de la semana y ±2 h. Dos horas es el
+      // margen entre clases consecutivas de un estudio: quien viene los martes
+      // a las 18:00 también encaja en el de las 19:00, no en el de las 08:00.
+      if (f.dow === objetivo.dow && Math.abs(f.hora - objetivo.hora) <= 2) mismoDiaYFranja++;
+    }
+    if (mismaDisciplina === 0) continue; // nunca ha hecho esta disciplina
+
+    const costumbre = mismoDiaYFranja / asistidas.length;
+    const disciplina = mismaDisciplina / asistidas.length;
+    // La costumbre horaria pesa el doble que la disciplina: quien ya viene ese
+    // día a esa hora es quien de verdad puede coger la plaza.
+    const afinidad = Math.min(1, (2 * costumbre + disciplina) / 3);
+    if (afinidad < MIN_AFINIDAD) continue;
+
+    const motivo = mismoDiaYFranja > 0
+      ? `suele venir ${DIAS_SEMANA[objetivo.dow]} a esta hora (${mismoDiaYFranja} de sus últimas ${asistidas.length} clases)`
+      : `hace ${mismaDisciplina} clases de esta disciplina`;
+
+    resultado.push({ socioId: socio.id, nombre: socio.nombre, afinidad, motivo });
+  }
+
+  return resultado.sort((a, b) => b.afinidad - a.afinidad).slice(0, limite);
+}
+
+const DIAS_SEMANA = ['los domingos', 'los lunes', 'los martes', 'los miércoles', 'los jueves', 'los viernes', 'los sábados'];
 
 /** Media de socias en LISTA_ESPERA en las últimas N ocurrencias de una franja. */
 export function demandaInsatisfecha(franja: FranjaRecurrente, s: SnapshotEstudio, n: number): number {

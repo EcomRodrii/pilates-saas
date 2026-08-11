@@ -804,3 +804,96 @@ Lo que sí se tomó de la idea de ECC: agentes especializados con propósito muy
 reglas siempre cargadas, y un loop de calidad disciplinado — construido nativamente con lo
 que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 <!-- END:tentare-development-os -->
+
+## Tentare Brain = Decision OS (no construir uno nuevo)
+
+El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
+(`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Las 6 fases entregadas (2026-08-11).** No duplicar la capa: los especialistas nuevos se
+añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
+
+- **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
+  cuánto se fía el motor de su diagnóstico; `Prediccion` es la probabilidad de
+  que el hecho ocurra. Con menos de `MUESTRA_MINIMA` (5) observaciones devuelve
+  **`null`, nunca un número** — y `null` NO es probabilidad cero. Quien lo pinte
+  enseña siempre `base` (las cifras que lo sostienen) junto al porcentaje.
+- ⚠️ **Nadie muta un `SnapshotEstudio` después de construirlo.** `construirIndices`
+  cachea por identidad de objeto en un `WeakMap` (medido: 389 ms → 35 ms por
+  análisis en un estudio de 850 socias). Si alguna vez hace falta cambiar un
+  snapshot, se clona; modificarlo en sitio deja los índices viejos en silencio.
+- **Las franjas recurrentes van en hora LOCAL del estudio**, no UTC
+  (`franjaLocalDe`/`claveFranjaDe` en `senales.ts`). Con UTC, una clase de 00:30
+  caía en el día anterior y una clase semanal se partía en dos franjas al cruzar
+  el cambio de hora. `claveFranjaDe` es la única fuente del formato.
+- **Nunca un porcentaje sin respaldo en pantalla.** La card de sustituciones
+  enseñaba "Compatibilidad 87 %" que era `LEAST(99, GREATEST(55, score))` sobre
+  una heurística fija — dos candidatas opuestas salían las dos al 99 %. Separado
+  en *encaje* (barra, sin cifra) y *probabilidad* real
+  (`lib/sustituciones/encaje.ts`), que solo aparece si hay historial.
+- **Historial de sustituciones**: una oferta es un par (candidata, sustitución),
+  no una fila de `sustitucion_contactos` (a una candidata se le avisa por email y
+  luego por WhatsApp). Y el silencio cuenta como "no aceptó": **nadie escribe
+  nunca el estado `'expirado'`**, así que contar solo aceptado+rechazado daría
+  100 % a quien contesta 1 de cada 10 veces.
+
+- **Agenda ya mira hacia delante** (A4/A5, fase 2). A1/A2/A3 son forenses
+  (franjas que ya fueron mal); A4 pronostica una sesión FUTURA comparándola con
+  la curva de reserva de su franja en el mismo punto (mismos días vista), y A5
+  detecta la clase que se queda sin quien la dé. Tope de 3 avisos de A4 por
+  pasada — sin él, 40 clases semanales ahogan el Centro de Control.
+- ⚠️ **A5 no reabre la decisión de #558.** Confirmar una ausencia sigue sin
+  disparar ninguna sustitución automática sobre las clases ya programadas: A5
+  solo se lo CUENTA a la propietaria. El hueco que cierra es real — los 6 sitios
+  que miran ausencias hoy (`ausenciaEnFecha`) lo hacen todos al ASIGNAR, ninguno
+  revisa el horario ya hecho contra un bloqueo grabado después.
+- **Un bloqueo de agenda se busca en `instructora_disponibilidad_excepciones`**
+  (`tipo='bloqueo'`), no en `instructora_ausencias`: las vacaciones y bajas ya se
+  materializan ahí como bloqueos diarios (migr 0101). Una tabla, no dos.
+- **La afinidad con una clase pesa la costumbre horaria por encima de todo**
+  (`candidatasPorAfinidad`). `candidatasParaHueco` (booking-logic) es binaria y
+  responde a otra pregunta: quién PODRÍA venir, no a quién merece la pena avisar.
+- **El portal PROPONE, no solo describe** (`lib/portal-sugerencias.ts`, fase 4).
+  `getHomeCardContext` sigue decidiendo en qué momento está la socia; la
+  sugerencia se le añade debajo sin tocar el tono que escribe la propietaria.
+  Devuelve `null` si no hay hueco o su plan no cubre nada: **proponerle una clase
+  que no puede reservar es peor que no proponerle ninguna**. Y el motivo va
+  SIEMPRE con la propuesta — sin él es una sugerencia aleatoria.
+- **`franjaLocalDe` vive en `lib/utils.ts`**, junto a `TZ_ESTUDIO`. La comparten
+  el motor (`senales.ts` la reexporta) y el portal, que no deben importarse entre
+  sí.
+- **El Action Center del dashboard NO es un motor nuevo** (`lib/decision/action-center.ts`,
+  fase 5): agrupa lo que `/api/decisiones` ya devuelve, con el mismo hook que el
+  Centro de Control. Se pinta solo si hay algo pendiente, y va gateado por
+  `puedeVer(rol, '/centro-de-control')` — es solo-propietaria.
+- ⚠️ **Una sección nueva de la home del panel tiene que ir en `HOME_FIJAS_PRIMERO`
+  si su sitio es arriba.** `aplicarLayout` mete los ids nuevos al FINAL del orden
+  guardado, así que un estudio con la home ya personalizada se la encontraría
+  abajo del todo.
+- ⚠️ **Nada en `/dashboard` puede dar por hecha la forma de una respuesta de API.**
+  Un `[...data.prioridades]` a secas con un `{}` por respuesta no rompe su
+  tarjeta: rompe la pantalla principal del negocio. Lo destapó un e2e ajeno que
+  mockea `/api/**` como `{}`.
+
+### Fase 3 (dinero) — construida, NO probada con un cobro real
+
+- ⚠️ **`socios.tarjeta_exp_*` (migr `20260811090114`) es el único sitio donde vive
+  la caducidad de la tarjeta.** Se rellena por dos caminos y `lib/billing/
+  caducidad-tarjeta.ts` es el único que sabe leerla de Stripe: el webhook al
+  guardar una tarjeta nueva, y un relleno por goteo (25/pasada) DENTRO del cron
+  de dunning — que ya corre para estos estudios y ya tiene el `stripeAccount`.
+  **Nunca un cron nuevo**: Inngest sigue al ~84 % del plan free.
+- ⚠️ **Una tarjeta 09/2026 vale hasta el ÚLTIMO día de septiembre.** `caducaAntesDe`
+  lo resuelve; equivocarse ahí avisa a la socia un mes antes de tiempo, o tarde.
+- **Las reglas de dinero avisan, nunca cobran.** Ninguna emite `COBRAR_RECIBOS`,
+  y `confianzaRiesgoDeCobro` no puede llegar a ALTA — que es justo lo que el
+  piloto automático exige para ejecutar solo. Una estimación no mueve dinero.
+- **Un umbral de riesgo de cobro tiene que ser RELATIVO al estudio.** Con un 0.35
+  absoluto no saltaba nunca: el suavizado hacia la media del estudio empuja a
+  todos hacia ella. Y "cobra mal" no significa lo mismo donde entra el 98 % que
+  donde entra el 70 %.
+- **Una ventana de aviso fija miente.** F3 (bono que caduca sin usar) con 14 días
+  fijos no habría avisado a tiempo de NINGUNO de los dos bonos reales que hay en
+  producción. Va atada a la frecuencia real de cada socia.
+- ⚠️ **Por Stripe no ha pasado un euro real**: 1 socia de 202 con tarjeta guardada,
+  0 con SEPA. F4 no detectará nada hasta que las haya. Probar el primer cobro en
+  un estudio de pruebas antes de fiarse de esto con clientas reales.

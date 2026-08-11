@@ -10,6 +10,7 @@ import {
 } from '@/lib/api-client';
 import { construirTraza, resumenTraza, type ContactoFila } from '@/lib/sustituciones/traza';
 import { avisoEquipoIncompleto, motivoSinCandidatas, type DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
+import { encajeDe } from '@/lib/sustituciones/encaje';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -753,16 +754,29 @@ function SustitucionCard({
               </div>
             </div>
 
-            {/* Compatibilidad */}
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[12px] font-semibold text-foreground">Compatibilidad</span>
-                <span className="text-[14px] font-extrabold text-[#35785A] tabular-nums">{hero.compatibilidad}%</span>
-              </div>
-              <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden">
-                <div className="h-full rounded-full bg-success transition-all duration-500" style={{ width: `${hero.compatibilidad}%` }} />
-              </div>
-            </div>
+            {/* Encaje (cualitativo) y, si hay historial, probabilidad REAL de
+                que acepte. Antes esto era un único "Compatibilidad 87 %" con un
+                número que no medía nada — ver lib/sustituciones/encaje.ts. */}
+            {(() => {
+              const e = encajeDe(hero);
+              return (
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[12px] font-semibold text-foreground">Encaje con esta clase</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-black/[0.06] overflow-hidden">
+                    <div className="h-full rounded-full bg-success transition-all duration-500" style={{ width: `${e.barra}%` }} />
+                  </div>
+                  {e.probabilidad && (
+                    <div className="mt-2.5 flex items-baseline gap-2 flex-wrap">
+                      <span className="text-[12px] font-semibold text-foreground">{e.etiqueta}</span>
+                      <span className="text-[14px] font-extrabold text-[#35785A] tabular-nums">{e.probabilidad}</span>
+                      {e.respaldo && <span className="text-[11px] text-muted-foreground">· {e.respaldo}</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Stats */}
             <div className="mt-4 grid grid-cols-2 rounded-xl border border-border bg-card overflow-hidden">
@@ -842,7 +856,13 @@ function SustitucionCard({
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-foreground flex items-center gap-1.5 flex-wrap">
                         {c.nombre}
-                        <span className="text-[11px] font-bold text-[#35785A] tabular-nums">{c.compatibilidad}%</span>
+                        {/* Solo si hay historial detrás. Sin él no va ninguna
+                            cifra — el orden de la lista ya expresa el encaje. */}
+                        {encajeDe(c).probabilidad && (
+                          <span className="text-[11px] font-bold text-[#35785A] tabular-nums" title={encajeDe(c).respaldo ?? undefined}>
+                            {encajeDe(c).etiqueta} · {encajeDe(c).probabilidad}
+                          </span>
+                        )}
                         <Estrellas val={valoraciones[c.instructor_id]} />
                       </p>
                       <p className="text-[11px] text-muted-foreground truncate">{(c.motivos ?? []).join(' · ')}</p>

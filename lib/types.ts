@@ -267,6 +267,13 @@ export interface Socio {
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;
+  // Caducidad de la tarjeta guardada (migr 20260811090114). `null` = todavía no
+  // se ha consultado a Stripe — NO significa "no caduca". Ver
+  // lib/billing/caducidad-tarjeta.ts.
+  tarjetaExpMes?: number | null;
+  tarjetaExpAnio?: number | null;
+  tarjetaMarca?: string | null;
+  tarjetaUltimos4?: string | null;
   // Pagos España (0036): método recurrente preferido + mandato SEPA domiciliado.
   metodoPagoPreferido?: MetodoPagoPreferido;
   sepaMandateId?: string | null;
