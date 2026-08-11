@@ -513,6 +513,12 @@ export async function fetchPublicStudioData(
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       portalHome: layout?.portalHome ?? null,
+      // Orden/visibilidad de las secciones de /reservar. Mismo canal que
+      // `portalHome`: el layout ya se carga aquí, así que no hay consulta nueva.
+      // Las reglas de resolución NO viven aquí — las aplica `ordenarSecciones`
+      // en el cliente, para que la página y el editor usen exactamente las
+      // mismas y no puedan divergir.
+      reservar: layout?.reservar ?? null,
       // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
       // borrador — solo lo publicado llega al portal en vivo.
       homeBloques: layout?.bloques.home.publicado ?? [],

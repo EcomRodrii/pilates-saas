@@ -272,6 +272,10 @@ interface StudioContextValue {
   /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
    *  texto por defecto de la página (ver su hero). */
   textosReservar: { titular: string; subtitulo: string; cta: string };
+  /** Orden/visibilidad CRUDOS de las secciones de /reservar. Se guardan tal
+   *  cual y las reglas las aplica `ordenarSecciones` en quien pinta — así la
+   *  página y el editor no pueden divergir. */
+  ordenReservar: { orden: string[]; ocultos: string[] };
   instructores: Instructor[];
   spots: Spot[];
   bloqueosMaquina: BloqueoMaquina[];
@@ -632,6 +636,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '' });
+  const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
   const [retoConteos, setRetoConteos] = useState<Record<string, number>>({});
@@ -880,6 +885,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         subtitulo: texto((pub as { reservarSubtitulo?: unknown }).reservarSubtitulo),
         cta: texto((pub as { reservarCta?: unknown }).reservarCta),
       });
+      const listaStr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+      const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;
+      setOrdenReservar({ orden: listaStr(ordRes?.orden), ocultos: listaStr(ordRes?.ocultos) });
       setRetoConteos(pub.retoConteos ?? {});
       const aforo = (pub.aforoReservas ?? []).map((r: { id: string; sesion_id: string; estado: string; spot_id: string | null }) => ({
         id: r.id, studioId: studioIdOverride ?? '', sesionId: r.sesion_id, socioId: '',
@@ -4124,6 +4132,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     portalReact,
     redesSociales,
     textosReservar,
+    ordenReservar,
     favoritos,
     toggleFavorito,
     retosApuntados,

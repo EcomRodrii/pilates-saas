@@ -19,11 +19,11 @@ test('sin nada guardado, el orden es el de siempre', () => {
 });
 
 test('lo guardado manda para las secciones movibles', () => {
-  const r = ids(ordenarSecciones({ orden: ['contacto', 'bonos', 'cifras', 'portada'] }));
+  const r = ids(ordenarSecciones({ orden: ['contacto', 'cifras', 'portada'] }));
   // El horario es fijo y se queda en SU posición del catálogo (la segunda).
   assert.equal(r[1], 'horario');
   // Las movibles salen en el orden elegido, salteando el hueco de la fija.
-  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'bonos', 'cifras', 'portada']);
+  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'cifras', 'portada']);
 });
 
 test('⚠️ el horario no se puede mover ni sacar del orden', () => {
@@ -38,20 +38,20 @@ test('⚠️ el horario no se puede ocultar, aunque esté en `ocultos`', () => {
   assert.equal(seccionVisible('horario', { ocultos: ['horario'] }), true);
   assert.equal(esFija('horario'), true);
   // Las demás sí.
-  assert.equal(seccionVisible('bonos', { ocultos: ['bonos'] }), false);
-  assert.equal(seccionVisible('bonos', { ocultos: [] }), true);
-  assert.equal(seccionVisible('bonos', null), true);
+  assert.equal(seccionVisible('cifras', { ocultos: ['cifras'] }), false);
+  assert.equal(seccionVisible('cifras', { ocultos: [] }), true);
+  assert.equal(seccionVisible('cifras', null), true);
 });
 
 test('una sección NUEVA entra al final del orden ya guardado', () => {
   // El gotcha que ya documenta la home del panel: quien personalizó su página
   // antes de que existiera «cifras» no puede encontrársela en medio.
-  const r = ids(ordenarSecciones({ orden: ['contacto', 'bonos', 'portada'] }));
-  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'bonos', 'portada', 'cifras']);
+  const r = ids(ordenarSecciones({ orden: ['contacto', 'portada'] }));
+  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'portada', 'cifras']);
 });
 
 test('una sección RETIRADA del producto no deja hueco', () => {
-  const r = ids(ordenarSecciones({ orden: ['bonos', 'ya-no-existe', 'portada'] }));
+  const r = ids(ordenarSecciones({ orden: ['cifras', 'ya-no-existe', 'portada'] }));
   assert.ok(!r.includes('ya-no-existe'));
   // Y las que faltaban siguen entrando al final.
   assert.equal(r.length, POR_DEFECTO.length);
@@ -60,8 +60,8 @@ test('una sección RETIRADA del producto no deja hueco', () => {
 test('un orden guardado con duplicados no duplica la sección', () => {
   // Lo deja un arrastre mal guardado, y duplicar el bloque de bonos en la
   // página sería visible al instante para la clienta.
-  const r = ids(ordenarSecciones({ orden: ['bonos', 'bonos', 'portada'] }));
-  assert.equal(r.filter((x) => x === 'bonos').length, 1);
+  const r = ids(ordenarSecciones({ orden: ['cifras', 'cifras', 'portada'] }));
+  assert.equal(r.filter((x) => x === 'cifras').length, 1);
   assert.equal(r.length, POR_DEFECTO.length);
 });
 
