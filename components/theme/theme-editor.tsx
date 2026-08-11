@@ -22,6 +22,7 @@ import {
   DEFAULT_THEME, FUENTES, RADIOS, ESTILOS_BOTON, ESTILOS_TARJETA, REDES_SOCIALES_IDS,
   type ThemeConfig, type RedSocialId, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
+  RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
 import { PanelVisibilidad } from './panel-visibilidad';
@@ -77,6 +78,10 @@ export const AJUSTES_CATEGORIAS = [
   // aquí y no en Configuración a propósito: se decide mirando la misma página
   // que se está editando, y se publica con ella.
   { id: 'compartir', label: 'Compartir y buscadores' },
+  // La portada del WIDGET que el estudio incrusta en su web. Sus textos eran
+  // constantes del código —el mismo titular servido a todos— hasta que se
+  // hicieron editables; esta categoría es donde se escriben.
+  { id: 'reservar-portada', label: 'Portada de tu página de reservas' },
   // El único ajuste de esta columna que NO pasa por Publicar — tiene efecto al
   // momento, y el panel lo dice. Está aquí y no en Configuración porque es
   // donde se busca: junto a lo demás de la cara pública del estudio.
@@ -477,6 +482,59 @@ export function AjustesCategoriaPanel({
 
   if (categoriaId === 'compartir') {
     return <PanelCompartir hook={hook} fileRef={compartirRef} />;
+  }
+
+  if (categoriaId === 'reservar-portada') {
+    return (
+      <div className="space-y-4">
+        <p className="text-[12px] text-muted-foreground leading-snug">
+          La portada de <strong className="font-semibold text-foreground">tu página de reservas</strong> — la que incrustas en tu web.
+          Si los dejas vacíos se usan los textos por defecto.
+        </p>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Titular</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarTitular ?? '').length}/{RESERVAR_TITULAR_MAX}</span>
+          </span>
+          <textarea
+            rows={2}
+            value={draft.reservarTitular ?? ''}
+            maxLength={RESERVAR_TITULAR_MAX}
+            onChange={(e) => setCampo('reservarTitular', e.target.value)}
+            placeholder="Encuentra tu próxima clase"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Debajo del titular</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarSubtitulo ?? '').length}/{RESERVAR_SUBTITULO_MAX}</span>
+          </span>
+          <textarea
+            rows={3}
+            value={draft.reservarSubtitulo ?? ''}
+            maxLength={RESERVAR_SUBTITULO_MAX}
+            onChange={(e) => setCampo('reservarSubtitulo', e.target.value)}
+            placeholder="Si lo dejas vacío, se usa la descripción de tu estudio."
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Texto del botón</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarCta ?? '').length}/{RESERVAR_CTA_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarCta ?? ''}
+            maxLength={RESERVAR_CTA_MAX}
+            onChange={(e) => setCampo('reservarCta', e.target.value)}
+            placeholder="Ver el horario"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+          />
+        </label>
+      </div>
+    );
   }
 
   if (categoriaId === 'visibilidad') return <PanelVisibilidad />;

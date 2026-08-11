@@ -524,6 +524,14 @@ export async function fetchPublicStudioData(
       tabBarStyle: temaPublicado?.tabBarStyle ?? null,
       navPortal: temaPublicado?.navPortal ?? null,
       redesSociales: temaPublicado?.redesSociales ?? null,
+      // Textos de la portada de /reservar — el widget que el estudio incrusta
+      // en su web. Viajan como VALOR JS y no como CSS por el mismo motivo que
+      // los de arriba, pero al revés: una variable CSS puede llevar un color,
+      // no una frase. Sin esto, el titular seguiría siendo una constante del
+      // código servida idéntica a todos los estudios.
+      reservarTitular: temaPublicado?.reservarTitular ?? null,
+      reservarSubtitulo: temaPublicado?.reservarSubtitulo ?? null,
+      reservarCta: temaPublicado?.reservarCta ?? null,
       // Barra clásica (Oliva/Noir, ver harmonic-discovering-kettle.md): igual
       // que tabBarStyle/navPortal, es una decisión de LAYOUT que portal-shell.tsx
       // toma con JS (position flotante o no), no algo que una CSS var pueda
