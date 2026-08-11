@@ -765,8 +765,6 @@ export default function ReservarPage() {
     setSelectedSpot(null);
     setMostrarPasswordLogin(false);
     setLoginPassword('');
-    setNuevaPassword('');
-    setNuevaPasswordConfirmar('');
     if (!autenticado) {
       setLoginStep('login');
     } else if (socia) {
@@ -792,7 +790,7 @@ export default function ReservarPage() {
 
   function closeBooking() {
     setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
-    setMostrarPasswordLogin(false); setLoginPassword(''); setNuevaPassword(''); setNuevaPasswordConfirmar('');
+    setMostrarPasswordLogin(false); setLoginPassword('');
   }
 
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
