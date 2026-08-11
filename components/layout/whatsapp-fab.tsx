@@ -12,7 +12,7 @@ import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 // atajo directo: un clic abre WhatsApp con el mensaje ya escrito, sin pasar
 // por ningún backend propio. No sustituye al HelpWidget, es un segundo punto
 // de entrada más rápido para una duda puntual.
-const SOPORTE_WHATSAPP = '+34640525871';
+const SOPORTE_WHATSAPP = '+34640515871';
 
 export function WhatsAppFab() {
   const { studio } = useCore();
@@ -72,7 +72,7 @@ export function WhatsAppFab() {
             Escribir por WhatsApp
           </a>
           <p className="mt-3 text-[11px] text-muted-foreground text-center">
-            Respuesta rápida · Atención personalizada
+            Te responde una persona, no una IA · Respuesta rápida
           </p>
         </div>
       )}

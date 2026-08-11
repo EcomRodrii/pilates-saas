@@ -14,7 +14,7 @@ import { enviarMensajeTwilio } from '@/lib/twilio';
 // `skipped:true` si TWILIO_* no está configurado (ver lib/twilio.ts), sin
 // romper el flujo si falla. Best-effort: el email sigue siendo el registro
 // de verdad, esto solo añade un canal más rápido de enterarse.
-const SOPORTE_WHATSAPP = '+34640525871';
+const SOPORTE_WHATSAPP = '+34640515871';
 
 const TIPOS: Record<string, string> = { DUDA: 'Duda', MEJORA: 'Mejora', BUG: 'Problema' };
 
