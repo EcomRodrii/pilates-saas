@@ -74,8 +74,8 @@ const ROL_DESC: Record<Rol, string> = {
 // `tempId` es el id que usará la ficha si es de alta: se genera al abrir el
 // modal (no al guardar) para poder subir la foto ANTES de que la instructora
 // exista en BD — el storage necesita una clave estable desde el primer upload.
-type Form = { tempId: string; nombre: string; email: string; telefono: string; color: string; avatar: string | null; fotoUrl: string | null; activo: boolean; rol: Rol };
-const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR' });
+type Form = { tempId: string; nombre: string; email: string; telefono: string; color: string; avatar: string | null; fotoUrl: string | null; activo: boolean; rol: Rol; bio: string };
+const emptyForm = (): Form => ({ tempId: `ins-${generarId()}`, nombre: '', email: '', telefono: '', color: '#F7A6C4', avatar: null, fotoUrl: null, activo: true, rol: 'INSTRUCTOR', bio: '' });
 
 const ORDEN_LABEL: Record<Orden, string> = {
   'nombre-az': 'Nombre A-Z', 'nombre-za': 'Nombre Z-A', 'mas-clases': 'Más clases',
@@ -318,7 +318,7 @@ export default function EquipoPage() {
   function openEditar(m: MiembroCompleto) {
     const i = instructorDe(m);
     if (!i) return;
-    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol });
+    setForm({ tempId: i.id, nombre: i.nombre, email: i.email ?? '', telefono: i.telefono ?? '', color: i.color, avatar: i.avatar ?? null, fotoUrl: i.fotoUrl ?? null, activo: i.activo, rol: i.rol, bio: i.bio ?? '' });
     setEditId(i.id);
     const tarifaActual = tarifas[i.id];
     setTarifaHoraInput(tarifaActual == null ? '' : String(tarifaActual));
@@ -336,6 +336,7 @@ export default function EquipoPage() {
       fotoUrl: form.fotoUrl,
       activo: form.activo,
       rol: form.rol,
+      bio: form.bio.trim() || null,
     };
     if (modal === 'nuevo') {
       setGuardando(true);
@@ -597,6 +598,19 @@ export default function EquipoPage() {
                 <label htmlFor={`${uid}-3`} className={labelCls}>Teléfono</label>
                 <input id={`${uid}-3`} className={inputCls} value={form.telefono} placeholder="+34 600 000 000" onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
+            </div>
+            <div>
+              <label htmlFor={`${uid}-bio`} className={labelCls}>Sobre mí (opcional)</label>
+              <textarea
+                id={`${uid}-bio`}
+                className={`${inputCls} resize-none`}
+                rows={3}
+                maxLength={400}
+                value={form.bio}
+                placeholder="Cuéntales a tus clientas quién eres — aparece en tu web pública."
+                onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">{form.bio.length}/400</p>
             </div>
             <div>
               <span id={`${uid}-rol`} className={labelCls}>Rol y acceso al panel</span>

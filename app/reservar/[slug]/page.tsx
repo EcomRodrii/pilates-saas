@@ -325,6 +325,23 @@ export default function ReservarPage() {
     () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
     [tiposClase],
   );
+  // Especialidades de cada instructora (P1 auditoría Momence-vs-Tentare) —
+  // NO es un campo nuevo, se deriva de qué tipos de clase imparte de verdad
+  // con los datos que esta página ya carga (sesiones/tiposClase), igual que
+  // ya se hizo con nivelesDisponibles arriba: nunca inventar una categoría.
+  const especialidadesPorInstructor = useMemo(() => {
+    const tiposById = new Map(tiposClase.map(t => [t.id, t.nombre]));
+    const porInstructor = new Map<string, Set<string>>();
+    for (const s of sesiones) {
+      if (!s.instructorId) continue;
+      const nombreTipo = tiposById.get(s.tipoClaseId);
+      if (!nombreTipo) continue;
+      const set = porInstructor.get(s.instructorId) ?? new Set<string>();
+      set.add(nombreTipo);
+      porInstructor.set(s.instructorId, set);
+    }
+    return porInstructor;
+  }, [sesiones, tiposClase]);
   const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroObjetivo !== '';
   function reiniciarFiltrosQuiz() {
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
@@ -1590,21 +1607,37 @@ export default function ReservarPage() {
               {/* Instructors */}
               <div style={{ ...eyebrow(9), marginTop: 38 }}>INSTRUCTORAS</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
-                {queImparten(instructores).map(i => (
-                  <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: SH.miniCard }}>
-                    {i.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={i.fotoUrl} alt={i.nombre} style={{ width: 44, height: 44, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 44, height: 44, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff', flexShrink: 0, background: i.color ?? PRIMARY }}>
-                        {i.nombre.split(' ').map(n => n[0]).join('')}
+                {queImparten(instructores).map(i => {
+                  const especialidades = [...(especialidadesPorInstructor.get(i.id) ?? [])];
+                  return (
+                    <div key={i.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-surface)', padding: '18px 20px', display: 'flex', alignItems: 'flex-start', gap: 14, boxShadow: SH.miniCard }}>
+                      {i.fotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={i.fotoUrl} alt={i.nombre} style={{ width: 44, height: 44, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: 44, height: 44, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#fff', flexShrink: 0, background: i.color ?? PRIMARY }}>
+                          {i.nombre.split(' ').map(n => n[0]).join('')}
+                        </div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: serif, fontSize: 21, lineHeight: 1 }}>{i.nombre}</div>
+                        {especialidades.length > 0 && (
+                          <div style={{ fontSize: 10.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>
+                            {especialidades.join(' · ')}
+                          </div>
+                        )}
+                        {i.bio && (
+                          <p style={{
+                            fontSize: 11.5, color: 'var(--portal-muted-2)', lineHeight: 1.5, marginTop: 8,
+                            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                          }}>
+                            {i.bio}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    <div>
-                      <div style={{ fontFamily: serif, fontSize: 21, lineHeight: 1 }}>{i.nombre}</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
