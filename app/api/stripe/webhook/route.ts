@@ -296,6 +296,9 @@ export async function POST(req: NextRequest) {
           // abrir el checkout y llegar este webhook el estudio puede haber
           // cambiado el precio del plan.
           importeCobradoCentimos: typeof session.amount_total === 'number' ? session.amount_total : null,
+          // El cargo real, para poder devolverlo después desde el panel sin
+          // buscarlo a mano en Stripe.
+          paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {

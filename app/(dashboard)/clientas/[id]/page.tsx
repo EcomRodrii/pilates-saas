@@ -19,6 +19,7 @@ import { FichaRecuperaciones } from '@/components/socios/ficha-recuperaciones';
 import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
+import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
 import { ERROR_GENERICO } from '@/lib/errores';
@@ -210,6 +211,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const { user } = useAuth();
 
   const {
+    studio,
     socios, suscripciones, planesTarifa, recibos, reservas, sesiones,
     tiposClase, salas, instructores, notasInternas,
     updateSocio, deleteSocio, assignPlan, marcarCobrado, addRecibo, cobrarTodosPendientes,
@@ -358,6 +360,14 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
       return (sb?.inicio ?? '').localeCompare(sa?.inicio ?? '');
     }),
     [reservas, sesionById, id]);
+  // La política de devoluciones del estudio, tal cual la evalúa el servidor.
+  // Se arma aquí una vez y no por fila: son tres campos del mismo estudio.
+  const politicaReembolso = useMemo(() => ({
+    activos: studio?.reembolsosActivos ?? false,
+    plazoDias: studio?.reembolsoPlazoDias ?? 14,
+    soloSinUsar: studio?.reembolsoSoloSinUsar ?? true,
+  }), [studio?.reembolsosActivos, studio?.reembolsoPlazoDias, studio?.reembolsoSoloSinUsar]);
+
   const misRecibos = useMemo(() =>
     recibos.filter(r => r.socioId === id).sort((a, b) => b.fechaVencimiento.localeCompare(a.fechaVencimiento)),
     [recibos, id]);
@@ -1228,6 +1238,25 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                     >
                                       Cobrar
                                     </button>
+                                  )}
+                                  {/* Devolver: mismo gate de rol que cobrar (`puedeMoverDinero`).
+                                      El componente se calla solo si la política del estudio está
+                                      apagada o el recibo no es de los que se devuelven. */}
+                                  {puedeCobrar && (
+                                    <BotonDevolverRecibo
+                                      recibo={{
+                                        id: r.id,
+                                        estado: r.estado,
+                                        importe: r.importe,
+                                        fechaCobro: r.fechaCobro,
+                                        sesionesAlEntregar: r.entregaSesionesDespues ?? null,
+                                        sesionesRestantesHoy: r.suscripcionId
+                                          ? (suscripciones.find(s => s.id === r.suscripcionId)?.sesionesRestantes ?? null)
+                                          : null,
+                                      }}
+                                      politica={politicaReembolso}
+                                      onHecho={setToast}
+                                    />
                                   )}
                                 </td>
                               </tr>

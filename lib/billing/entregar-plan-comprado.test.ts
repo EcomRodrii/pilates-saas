@@ -50,6 +50,7 @@ const COMPRA: CompraPlan = {
   // Lo que Stripe cobró de verdad. Igual al precio del plan salvo en el test
   // que comprueba precisamente que mandan los céntimos cobrados.
   importeCobradoCentimos: 13000,
+  paymentIntentId: 'pi_test_abc123',
 };
 
 test('el recibo registra lo COBRADO, no el precio del plan releído ahora', async () => {
@@ -64,6 +65,31 @@ test('el recibo registra lo COBRADO, no el precio del plan releído ahora', asyn
 
   assert.equal(r.ok, true);
   assert.equal(insertado.recibos[0].importe, 20, 'debe registrar los 20 € cobrados');
+});
+
+test('el recibo guarda el cargo de Stripe, para poder devolverlo después', async () => {
+  // Sin esto, un recibo nacido de una compra web no tenía NINGUNA forma de
+  // volver a su cobro en Stripe, y devolverlo desde el panel era imposible: la
+  // columna `stripe_payment_intent_id` existía desde 0000_base y solo la
+  // rellenaba la rama SEPA de `cobrarReciboOffSession`. Y la metadata del PI no
+  // vale de atajo aquí: el recibo se crea DESPUÉS de pagar, así que su id no
+  // existía cuando nació el PaymentIntent.
+  const { admin, insertado } = fakeAdmin();
+  await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
+
+  assert.equal(insertado.recibos[0].stripe_payment_intent_id, 'pi_test_abc123');
+});
+
+test('una sesión sin cargo asociado se entrega igual, sin el id', async () => {
+  // El dinero ya está cobrado: quedarse sin entregar por no saber el id del
+  // cargo sería el peor de los dos males.
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, {
+    ...COMPRA, socioId: 'soc-existente', paymentIntentId: null,
+  });
+
+  assert.equal(r.ok, true);
+  assert.equal(insertado.recibos[0].stripe_payment_intent_id, null);
 });
 
 test('sin importe cobrado se cae al precio del plan (comportamiento de siempre)', async () => {

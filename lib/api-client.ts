@@ -727,6 +727,25 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<Cobro
   return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
+// Devuelve el dinero de un recibo a la tarjeta de la socia.
+//
+// Solo PIDE el reembolso: marcar el recibo DEVUELTO, la fila en `devoluciones` y
+// la oferta de quitar el bono las hace el webhook de `charge.refunded`, igual
+// que si se hubiera devuelto desde Stripe. Así que después de esto la pantalla
+// NO tiene el recibo ya devuelto — llega por el camino de siempre, en segundos.
+export async function reembolsarRecibo(reciboId: string): Promise<{ ok: true } | { error: string }> {
+  const res = await fetch('/api/reembolsos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify({ reciboId }),
+  });
+  const data = await res.json().catch(() => ({}));
+  // El 409 de política (fuera de plazo, bono empezado…) trae un mensaje escrito
+  // para leerse tal cual, así que se respeta en vez de taparlo con el genérico.
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  return { ok: true };
+}
+
 // Resuelve una devolución: deshace lo que entregó el cobro, o lo descarta.
 //
 // `huella` es lo que se le enseñó a la propietaria. El servidor recalcula y, si
