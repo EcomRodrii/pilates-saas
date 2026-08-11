@@ -21,11 +21,15 @@ import { formatEuro } from '@/lib/utils';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function BotonDevolverRecibo({
-  recibo, politica, onHecho,
+  recibo, politica, onHecho, onEnviada, yaEnviada,
 }: {
   recibo: ReciboParaReembolso & { id: string };
   politica: PoliticaReembolso;
   onHecho: (mensaje: string) => void;
+  /** Se llama al enviarla, para que la fila cambie sin esperar a recargar. */
+  onEnviada?: () => void;
+  /** Ya hay una devolución en vuelo para este recibo: no se ofrece otra. */
+  yaEnviada?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -36,6 +40,10 @@ export function BotonDevolverRecibo({
   if (!politica.activos) return null;
   // Tampoco tiene sentido ofrecerlo sobre lo que nunca se cobró.
   if (recibo.estado !== 'COBRADO' && recibo.estado !== 'DEVUELTO') return null;
+  // Una devolución ya enviada y sin confirmar: el botón desaparece. Volver a
+  // pulsarlo no devolvería dos veces (la clave de idempotencia lo impide) pero
+  // sí invita a intentarlo, que es justo lo que no queremos con dinero.
+  if (yaEnviada) return null;
 
   const veredicto = evaluarReembolso(politica, recibo, new Date());
 
@@ -57,12 +65,19 @@ export function BotonDevolverRecibo({
     const res = await reembolsarRecibo(recibo.id);
     setEnviando(false);
     setAbierto(false);
-    onHecho('ok' in res
+    if ('ok' in res) {
+      // Marca local para que la fila cambie YA, sin esperar a recargar. El dato
+      // de verdad queda guardado en el recibo (`reembolso_solicitado_en`), así
+      // que al recargar la pantalla se sigue viendo — esto solo cubre el hueco
+      // entre pulsar y volver a leer.
+      onEnviada?.();
       // No se dice "devuelto" en pasado: el recibo lo marca el webhook de
       // Stripe un momento después. Prometer aquí que ya está hecho es la misma
       // escritura optimista que ya ha costado bugs en este repo.
-      ? 'Devolución enviada a Stripe. El recibo se marcará como devuelto en unos segundos.'
-      : res.error);
+      onHecho('Devolución enviada. En unos segundos el recibo quedará como devuelto; el dinero tarda entre 5 y 10 días en llegar a su banco.');
+    } else {
+      onHecho(res.error);
+    }
   }
 
   return (

@@ -415,6 +415,8 @@ export interface RowRecibos {
   disputa_estado: string | null;
   disputa_stripe_id: string | null;
   stripe_payment_intent_id: string | null;
+  reembolso_solicitado_en: string | null;
+  reembolso_stripe_id: string | null;
   entrega_tipo: string | null;
   entrega_aplicada: boolean | null;
   entrega_aplicada_en: string | null;

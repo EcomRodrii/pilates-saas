@@ -709,6 +709,14 @@ export interface Recibo {
   entregaEstadoAntes?: string | null;
   /** Acumulado devuelto, en euros. Incluye reembolsos parciales. */
   importeDevuelto?: number | null;
+  // Cuándo Tentare PIDIÓ la devolución a Stripe (migr 20260811100957). Es un
+  // hecho distinto de `fechaDevolucion`, que la escribe el webhook cuando
+  // Stripe confirma: con esta puesta y `estado` todavía COBRADO, la devolución
+  // está en vuelo. Sin esto, entre pulsar y confirmar no se veía nada, y una
+  // que se quedara a medias parecía que no había pasado.
+  reembolsoSolicitadoEn?: string | null;
+  /** Id del refund de Stripe (`re_…`), para seguir una que se atasque. */
+  reembolsoStripeId?: string | null;
 }
 
 // Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de
