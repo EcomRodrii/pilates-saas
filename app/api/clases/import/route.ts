@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
-import { uid } from '@/lib/utils';
+import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaClase } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
@@ -32,7 +32,7 @@ const MAX_FILAS = 2000;
 const MAX_SESIONES = 5000;   // techo duro de sesiones generadas
 const MAX_SEMANAS = 12;
 const LOTE = 500;
-const TZ = 'Europe/Madrid';
+const TZ = TZ_ESTUDIO;
 
 // Paleta para los tipos de clase creados al vuelo (el estudio los puede recolorear).
 const COLORES = ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#14B8A6', '#A855F7'];
