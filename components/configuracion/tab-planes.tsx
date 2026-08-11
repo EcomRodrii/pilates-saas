@@ -59,7 +59,7 @@ function CoberturaPlan({ plan, tiposClase }: { plan: PlanTarifa; tiposClase: Tip
 }
 
 export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
-  const { planesTarifa, tiposClase, addPlan, updatePlan, deletePlan } = useStudio();
+  const { planesTarifa, tiposClase, suscripciones, addPlan, updatePlan, deletePlan } = useStudio();
 
   const [modal, setModal] = useState<'nuevo' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -98,10 +98,15 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
     [updatePlan, showToast]
   );
 
+  const susContratadasDelPlan = useCallback(
+    (planId: string) => suscripciones.filter(s => s.planId === planId && s.estado === 'ACTIVA').length,
+    [suscripciones]
+  );
+
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     const res = await deletePlan(confirmDel);
-    showToast(res.ok ? 'Plan eliminado' : res.error);
+    showToast(res.ok ? (res.archivado ? 'Plan archivado — sigue cobrándose a quien ya lo tenía' : 'Plan eliminado') : res.error);
   }, [confirmDel, deletePlan, showToast]);
 
   const sesionesRequeridas = form.tipo === 'BONO' || form.tipo === 'PUNTUAL';
@@ -426,7 +431,9 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
         title="¿Eliminar plan?"
-        description="Esta acción no se puede deshacer. Los socios con este plan no se verán afectados."
+        description={confirmDel && susContratadasDelPlan(confirmDel) > 0
+          ? `Lo tienen contratado ${susContratadasDelPlan(confirmDel)} clienta${susContratadasDelPlan(confirmDel) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
+          : 'Esta acción no se puede deshacer. No lo tiene contratado nadie.'}
         onConfirm={handleDelete}
       />
     </div>
