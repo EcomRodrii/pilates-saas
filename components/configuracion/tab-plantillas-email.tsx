@@ -266,9 +266,18 @@ function PlantillaCard({
                   value={b.colorCabecera || '#343825'}
                   onChange={e => set('colorCabecera', e.target.value)} />
               </Field>
-              <Field label="Color del botón" description="Solo si el correo lleva botón.">
+              <Field
+                label="Color del botón"
+                description={b.colorBoton
+                  ? 'Solo si el correo lleva botón.'
+                  : 'Sigue al color de la banda. Cámbialo aquí solo si lo quieres distinto.'}
+              >
+                {/* El valor que se enseña es el que va a salir de verdad: si no
+                    lo ha fijado, hereda de la banda. Enseñar aquí el oliva del
+                    estudio mientras el correo pinta el botón marrón sería
+                    mentirle al control. */}
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
-                  value={b.colorBoton || '#343825'}
+                  value={b.colorBoton || b.colorCabecera || '#343825'}
                   onChange={e => set('colorBoton', e.target.value)} />
               </Field>
             </div>

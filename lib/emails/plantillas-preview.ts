@@ -5,7 +5,7 @@ import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { ImpagoEmail } from '@/lib/emails/impago-template';
-import { interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type MarcaEstudio, type TipoPlantillaEditable } from '@/lib/emails/plantillas-server';
+import { appUrl, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type MarcaEstudio, type TipoPlantillaEditable } from '@/lib/emails/plantillas-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 
 // Nombre del estudio + marca (logo/color) en una sola llamada: lo usan las dos
@@ -31,6 +31,13 @@ export async function resolverContextoEstudio(studioId: string): Promise<{ nombr
 const SOCIA_MUESTRA = 'Ana García';
 const CLASE_MUESTRA = 'Reformer Iniciación';
 const DATOS_CLASE_MUESTRA = { fecha: 'Lunes 4 de agosto', hora: '09:00', sala: 'Sala 1', instructor: 'Marta' };
+
+// Enlace de pega para la bienvenida. En el envío real es un magic link de
+// Supabase que se genera al vuelo; en la muestra no hay ninguno, y sin él el
+// email salía SIN BOTÓN. Con el cuerpo libre eso se notó de verdad: la
+// propietaria escribe el texto de su botón, le da a la vista previa y no ve
+// ningún botón por ninguna parte, sin nada que le explique por qué.
+const URL_MUESTRA = `${appUrl()}/portal/ejemplo`;
 
 // El BORRADOR tal cual está en el formulario del panel, sin guardar. Mismos
 // campos que `plantillas_email`, todos opcionales y admitiendo null porque el
@@ -76,7 +83,7 @@ export async function renderPlantillaMuestra(
 
   switch (tipo) {
     case 'bienvenida':
-      return { html: await render(BienvenidaEmail({ ...base, planNombre: 'Mensual Ilimitado' })), subject: asuntoOverride ?? `¡Bienvenida a ${estudioNombre}!` };
+      return { html: await render(BienvenidaEmail({ ...base, planNombre: 'Mensual Ilimitado', url: URL_MUESTRA })), subject: asuntoOverride ?? `¡Bienvenida a ${estudioNombre}!` };
     case 'reserva':
       return { html: await render(ReservaEmail(conClase)), subject: asuntoOverride ?? `Reserva confirmada — ${CLASE_MUESTRA}` };
     case 'recordatorio':
