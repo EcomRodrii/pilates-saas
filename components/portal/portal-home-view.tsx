@@ -298,13 +298,20 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   // propuesta con nombre, día y hora. `null` cuando no hay nada honesto que
   // proponer —sin hueco, sin plan que lo cubra, sin nada futuro— y entonces la
   // tarjeta se queda exactamente como estaba.
+  //
+  // ⚠️ El id se saca FUERA del useMemo. Leyendo `session.socioId` dentro, el
+  // React Compiler infiere que la dependencia real es `session` entero —menos
+  // específico que el `session?.socioId` declarado— y se niega a conservar la
+  // memoización (`react-hooks/preserve-manual-memoization`). Con el primitivo
+  // extraído, lo inferido y lo declarado coinciden.
+  const sugerenciaSocioId = session?.socioId ?? null;
   const sugerencia = useMemo(() => {
-    if (!session?.socioId || homeCard.caso === 'PROXIMA_CLASE') return null;
+    if (!sugerenciaSocioId || homeCard.caso === 'PROXIMA_CLASE') return null;
     return sugerirClase({
-      now, socioId: session.socioId, misReservas, reservas, sesiones, tiposClase,
+      now, socioId: sugerenciaSocioId, misReservas, reservas, sesiones, tiposClase,
       suscripciones, planesTarifa,
     });
-  }, [now, session?.socioId, homeCard.caso, misReservas, reservas, sesiones, tiposClase, suscripciones, planesTarifa]);
+  }, [now, sugerenciaSocioId, homeCard.caso, misReservas, reservas, sesiones, tiposClase, suscripciones, planesTarifa]);
 
   // Los avisos salen del motor de notificaciones, la MISMA fuente que la
   // pantalla a la que enlaza la campana — si el número y la lista se calculan
