@@ -483,7 +483,7 @@ function EditorPlantilla({
           </button>
           <div className="flex items-center gap-2">
             <button onClick={enviarPrueba} disabled={enviando} className={cn(btnSecondary, 'disabled:opacity-50')}>
-              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviármelo de prueba
+              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviarme una prueba
             </button>
             <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, 'disabled:opacity-50')}>
               {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar
