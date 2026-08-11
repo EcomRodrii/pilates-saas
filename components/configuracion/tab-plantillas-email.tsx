@@ -1,385 +1,569 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Check, Eye, Send, Loader2, X, ChevronDown } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Bold, Italic, Link2, List, Heading, Loader2, Send, Check, Undo2, Pencil,
+} from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { cn } from '@/lib/utils';
 import { FUENTES_EMAIL, type FuenteEmail, type PlantillaEmail, type TipoPlantillaEmail } from '@/lib/types';
-import { inputCls, btnPrimary, btnSecondary, cardCls, Field, Toggle } from '@/app/(dashboard)/configuracion/page';
+import { inputCls, btnPrimary, btnSecondary, cardCls, Field } from '@/app/(dashboard)/configuracion/page';
 import { previsualizarPlantilla, enviarPruebaPlantilla } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // ─── Plantillas de email transaccional ───────────────────────────────────────
 //
-// Dos niveles a propósito. Arriba, lo que casi siempre se quiere cambiar:
-// el asunto y la frase de apertura, con el diseño del producto intacto. Debajo,
-// plegado, el modo en el que la propietaria escribe el correo entero y le pone
-// su marca. Enseñar las dos cosas a la vez convertiría un cambio de una frase
-// en un formulario de doce campos.
+// Rehecha tras el feedback de una propietaria: "no me entero mucho de cómo
+// personalizar". No era un problema de etiquetas. Eran cuatro cosas:
+//
+//   1. No veía el correo mientras lo editaba. Rellenaba campos a ciegas y la
+//      vista previa era un modal que había que acordarse de abrir y cerrar.
+//   2. La puerta al modo libre era un enlace gris de doce píxeles que parecía
+//      una nota al pie.
+//   3. Se le pedía escribir Markdown. Nadie que lleve un estudio de Pilates
+//      tiene por qué saber qué hacen dos asteriscos.
+//   4. Seis tarjetas abiertas a la vez, sin jerarquía ni sensación de avance.
+//
+// Ahora la lista es un índice —qué correo es, qué tiene tocado— y personalizar
+// es una pantalla enfocada con el correo REAL a la derecha, actualizándose
+// mientras escribe. El formato se pone con botones; los asteriscos los mete la
+// aplicación.
 
 const PLANTILLAS_META: {
-  tipo: TipoPlantillaEmail; label: string; descripcion: string;
-  asuntoDefault: string; introDefault: string; variables: string[];
-  // Qué pinta {datos} en esta plantilla y si tiene botón — así el token no es
-  // una incógnita antes de darle a la vista previa.
-  queSonLosDatos: string; tieneBoton?: string;
+  tipo: TipoPlantillaEmail; label: string; cuando: string;
+  asuntoDefault: string; introDefault: string;
+  variables: { token: string; que: string }[];
+  // Cómo se llama, en cristiano, lo que pinta {datos} en ESTA plantilla.
+  datosLabel: string;
+  // Presente solo si la plantilla tiene adónde enlazar.
+  botonLabel?: string;
 }[] = [
   {
-    tipo: 'bienvenida', label: 'Bienvenida', descripcion: 'Al dar de alta a una clienta.',
+    tipo: 'bienvenida', label: 'Bienvenida', cuando: 'Se envía al dar de alta a una clienta.',
     asuntoDefault: '¡Bienvenida a {estudio}!',
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
-    variables: ['{nombre}', '{estudio}'],
-    queSonLosDatos: 'su plan contratado',
-    tieneBoton: 'el acceso directo a su portal',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
+    datosLabel: 'Su plan contratado',
+    botonLabel: 'Botón de acceso a su portal',
   },
   {
-    tipo: 'reserva', label: 'Reserva confirmada', descripcion: 'Cuando una clienta reserva una clase.',
+    tipo: 'reserva', label: 'Reserva confirmada', cuando: 'Se envía cuando una clienta reserva una clase.',
     asuntoDefault: 'Reserva confirmada — {clase}',
     introDefault: 'Hola {nombre}, tu plaza está reservada.',
-    variables: ['{nombre}', '{clase}'],
-    queSonLosDatos: 'fecha, hora, sala e instructora',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    datosLabel: 'Fecha, hora, sala e instructora',
   },
   {
-    tipo: 'recordatorio', label: 'Recordatorio de clase', descripcion: 'Aviso antes de la clase.',
+    tipo: 'recordatorio', label: 'Recordatorio de clase', cuando: 'Se envía antes de la clase.',
     asuntoDefault: 'Recordatorio — {clase}',
     introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
-    variables: ['{nombre}', '{clase}'],
-    queSonLosDatos: 'fecha, hora, sala e instructora',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    datosLabel: 'Fecha, hora, sala e instructora',
   },
   {
-    tipo: 'cancelacion', label: 'Clase cancelada', descripcion: 'Cuando el estudio cancela una clase.',
+    tipo: 'cancelacion', label: 'Clase cancelada', cuando: 'Se envía cuando el estudio cancela una clase.',
     asuntoDefault: 'Clase cancelada — {clase}',
     introDefault: 'Hola {nombre}, lamentamos avisarte de que esta clase ha sido cancelada. No hace falta que te presentes.',
-    variables: ['{nombre}', '{clase}'],
-    queSonLosDatos: 'fecha, hora, sala e instructora',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    datosLabel: 'Fecha, hora, sala e instructora',
   },
   {
-    tipo: 'promocion', label: 'Plaza liberada (lista de espera)', descripcion: 'Al ascender a una clienta de la lista de espera.',
+    tipo: 'promocion', label: 'Plaza liberada', cuando: 'Se envía al ascender a una clienta desde la lista de espera.',
     asuntoDefault: 'Se ha liberado tu plaza — {clase}',
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
-    variables: ['{nombre}', '{clase}'],
-    queSonLosDatos: 'fecha, hora, sala e instructora',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    datosLabel: 'Fecha, hora, sala e instructora',
   },
   {
-    tipo: 'impago', label: 'Pago fallido', descripcion: 'Cuando un cobro automático no se completa. De las que más importan: la lee alguien a quien le acaban de fallar un cobro.',
+    tipo: 'impago', label: 'Pago fallido', cuando: 'Se envía cuando un cobro automático no se completa.',
     asuntoDefault: 'Problema con tu pago — {estudio}',
     introDefault: 'Hola {nombre}, hemos intentado cobrar tu cuota y el pago no se ha completado.',
-    variables: ['{nombre}', '{estudio}'],
-    queSonLosDatos: 'el concepto y el importe',
+    variables: [{ token: '{nombre}', que: 'el nombre de la clienta' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
+    datosLabel: 'El concepto y el importe',
   },
 ];
 
-// Punto de partida del modo "escribir el correo entero": la estructura que ya
-// tenía el email, pero escrita. Empezar con un cuadro en blanco delante hace
-// que casi nadie lo use; empezar con esto se edita en veinte segundos.
-function cuerpoDePartida(meta: (typeof PLANTILLAS_META)[number], intro: string): string {
-  const apertura = intro.trim() || meta.introDefault;
-  const partes = [`# ${meta.label}`, '', apertura, '', '{datos}'];
-  if (meta.tieneBoton) partes.push('', '{boton}');
-  return partes.join('\n');
-}
+type Meta = (typeof PLANTILLAS_META)[number];
 
 type Borrador = {
   asunto: string; intro: string; cuerpo: string; botonTexto: string;
-  colorCabecera: string; colorBoton: string; logoUrl: string; pie: string; fuente: string;
+  colorCabecera: string; colorBoton: string; logoUrl: string; fuente: string; pie: string;
+};
+
+const VACIO: Borrador = {
+  asunto: '', intro: '', cuerpo: '', botonTexto: '',
+  colorCabecera: '', colorBoton: '', logoUrl: '', fuente: '', pie: '',
 };
 
 function borradorDe(p: PlantillaEmail | undefined): Borrador {
+  if (!p) return VACIO;
   return {
-    asunto: p?.asunto ?? '', intro: p?.intro ?? '', cuerpo: p?.cuerpo ?? '',
-    botonTexto: p?.botonTexto ?? '', colorCabecera: p?.colorCabecera ?? '',
-    colorBoton: p?.colorBoton ?? '', logoUrl: p?.logoUrl ?? '',
-    pie: p?.pie ?? '', fuente: p?.fuente ?? '',
+    asunto: p.asunto ?? '', intro: p.intro ?? '', cuerpo: p.cuerpo ?? '',
+    botonTexto: p.botonTexto ?? '', colorCabecera: p.colorCabecera ?? '',
+    colorBoton: p.colorBoton ?? '', logoUrl: p.logoUrl ?? '',
+    fuente: p.fuente ?? '', pie: p.pie ?? '',
   };
 }
 
-function PlantillaCard({
-  meta, plantilla, onSave, showToast,
+// Qué se le enseña en la lista sin tener que abrir nada. "Como viene de
+// fábrica" tiene que ser reconocible de un vistazo: es el estado del que
+// quiere salir.
+//
+// `activa: false` cuenta como de fábrica porque es lo que de verdad recibe la
+// clienta: resolverPlantilla descarta la fila entera si está desactivada. Ese
+// interruptor ya no se enseña —"Personalizado / Por defecto" sin más
+// explicación no decía qué apagaba— pero sigue habiendo filas viejas con él a
+// false, y enseñarlas como personalizadas sería mentir sobre lo que se envía.
+function resumen(b: Borrador, activa: boolean): { texto: string; tocado: boolean } {
+  if (!activa) return { texto: 'Como viene de fábrica', tocado: false };
+  if (b.cuerpo.trim()) return { texto: 'Correo escrito por ti', tocado: true };
+  const partes = [b.asunto.trim() && 'asunto', b.intro.trim() && 'apertura'].filter(Boolean);
+  const marca = [b.colorCabecera, b.colorBoton, b.logoUrl, b.fuente, b.pie].some(v => v.trim());
+  if (marca) partes.push('marca');
+  if (partes.length === 0) return { texto: 'Como viene de fábrica', tocado: false };
+  return { texto: `Con tu ${partes.join(', ')}`, tocado: true };
+}
+
+// Punto de partida del modo libre: la estructura que ya tenía el correo, pero
+// escrita. Un cuadro en blanco delante hace que casi nadie lo use.
+function cuerpoDePartida(meta: Meta, intro: string): string {
+  const partes = [`# ${meta.label}`, '', intro.trim() || meta.introDefault, '', '{datos}'];
+  if (meta.botonLabel) partes.push('', '{boton}');
+  return partes.join('\n');
+}
+
+// ─── Barra de formato ────────────────────────────────────────────────────────
+// Los asteriscos los pone la aplicación. Envuelve lo seleccionado, y si no hay
+// nada seleccionado deja el cursor donde se escribe.
+
+type Formato = { icono: typeof Bold; titulo: string; antes: string; despues: string; ejemplo: string };
+
+const FORMATOS: Formato[] = [
+  { icono: Bold, titulo: 'Negrita', antes: '**', despues: '**', ejemplo: 'texto en negrita' },
+  { icono: Italic, titulo: 'Cursiva', antes: '_', despues: '_', ejemplo: 'texto en cursiva' },
+  { icono: Heading, titulo: 'Título', antes: '## ', despues: '', ejemplo: 'Un título' },
+  { icono: List, titulo: 'Lista', antes: '- ', despues: '', ejemplo: 'Un punto de la lista' },
+  { icono: Link2, titulo: 'Enlace', antes: '[', despues: '](https://)', ejemplo: 'texto del enlace' },
+];
+
+function BarraFormato({ onAplicar }: { onAplicar: (f: Formato) => void }) {
+  return (
+    <div className="flex items-center gap-1">
+      {FORMATOS.map(f => (
+        <button
+          key={f.titulo} type="button" title={f.titulo} aria-label={f.titulo}
+          onClick={() => onAplicar(f)}
+          className="rounded-lg border border-border p-1.5 hover:border-foreground hover:bg-muted"
+        >
+          <f.icono size={14} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Vista previa en vivo ────────────────────────────────────────────────────
+// Es la pieza que faltaba. Antes había que acordarse de abrir un modal; ahora
+// el correo está siempre delante y se rehace solo al dejar de teclear.
+
+function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrador: Borrador }) {
+  const [preview, setPreview] = useState<{ html: string; subject: string } | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // JSON del borrador como dependencia: el objeto se recrea en cada tecla, así
+  // que comparar por referencia dispararía una llamada por pulsación.
+  const clave = JSON.stringify(borrador);
+
+  useEffect(() => {
+    let vigente = true;
+    // Medio segundo tras la última tecla. Menos y se llama por cada letra;
+    // más y parece que la pantalla se ha quedado colgada. El indicador se
+    // enciende DENTRO del temporizador, no fuera: encenderlo en el cuerpo del
+    // efecto es un setState en render que React 19 marca como error, y además
+    // así el giro coincide con la petición de verdad y no con cada tecla.
+    const t = setTimeout(async () => {
+      if (!vigente) return;
+      setCargando(true);
+      const b = JSON.parse(clave) as Borrador;
+      const oNulo = (v: string) => (v.trim() ? v.trim() : null);
+      const r = await previsualizarPlantilla({
+        tipo,
+        asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
+        botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+        colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+        pie: oNulo(b.pie), fuente: oNulo(b.fuente),
+      });
+      if (!vigente) return;
+      setCargando(false);
+      if ('error' in r) { setError(r.error); return; }
+      setError(null);
+      setPreview(r);
+    }, 500);
+    return () => { vigente = false; clearTimeout(t); };
+  }, [tipo, clave]);
+
+  return (
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Así lo recibe tu clienta
+        </p>
+        {cargando && <Loader2 size={13} className="animate-spin text-muted-foreground" />}
+      </div>
+
+      {/* La línea de bandeja: el asunto es lo único que se ve antes de abrir. */}
+      <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">En su bandeja</p>
+        <p className="truncate text-[13px] font-semibold text-foreground">
+          {preview?.subject ?? '…'}
+        </p>
+      </div>
+
+      <div className="relative flex-1 overflow-hidden rounded-xl border border-border bg-white">
+        {error
+          ? <p className="p-4 text-[12px] text-muted-foreground">{error}</p>
+          : (
+            <iframe
+              title="Vista previa del correo"
+              srcDoc={preview?.html ?? ''}
+              /* sandbox="" a propósito: el cuerpo lo escribe la propietaria y,
+                 aunque se sanea al renderizar, esta caja nunca ejecuta nada. */
+              sandbox=""
+              className={cn('h-full w-full transition-opacity', cargando && 'opacity-50')}
+            />
+          )}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Con una clienta de ejemplo (Ana García) y una clase de ejemplo.
+      </p>
+    </div>
+  );
+}
+
+// ─── Editor de una plantilla ─────────────────────────────────────────────────
+
+function EditorPlantilla({
+  meta, plantilla, onGuardar, showToast, onCerrar,
 }: {
-  meta: (typeof PLANTILLAS_META)[number];
+  meta: Meta;
   plantilla: PlantillaEmail | undefined;
-  onSave: (changes: Partial<PlantillaEmail>) => void;
+  onGuardar: (cambios: Partial<PlantillaEmail>) => Promise<void>;
   showToast: (m: string) => void;
+  onCerrar: () => void;
 }) {
   const [b, setB] = useState<Borrador>(() => borradorDe(plantilla));
-  const activa = plantilla?.activa ?? true;
   const set = <K extends keyof Borrador>(k: K, v: Borrador[K]) => setB(prev => ({ ...prev, [k]: v }));
-
-  // Re-sincroniza si cambian los datos cargados (p. ej. tras la carga diferida).
-  //
-  // Ajuste en render, no efecto: con efecto el formulario se pintaba una vez
-  // con los valores viejos (o vacíos) y se corregía en un segundo render, que
-  // es exactamente el parpadeo que se veía al entrar en Plantillas antes de que
-  // terminara la carga diferida.
-  const claveCargada = JSON.stringify(borradorDe(plantilla));
-  const [clavePrevia, setClavePrevia] = useState(claveCargada);
-  if (claveCargada !== clavePrevia) {
-    setClavePrevia(claveCargada);
-    setB(borradorDe(plantilla));
-  }
-
-  const cuerpoLibre = b.cuerpo.trim() !== '';
-  const [marcaAbierta, setMarcaAbierta] = useState(false);
   const areaCuerpo = useRef<HTMLTextAreaElement>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
-  const [preview, setPreview] = useState<{ html: string; subject: string } | null>(null);
-  const [cargandoPreview, setCargandoPreview] = useState(false);
-  const [enviandoPrueba, setEnviandoPrueba] = useState(false);
+  const modoLibre = b.cuerpo.trim() !== '';
 
-  // Lo que se manda a previsualizar/probar/guardar: cadena vacía → null, que es
-  // como se dice "esta casilla no la toco, usa lo de siempre".
-  const oNulo = (v: string) => (v.trim() ? v.trim() : null);
-  // El <select> devuelve string; la columna solo admite la lista cerrada (hay
-  // un CHECK en la BD). Se valida aquí en vez de castear: si algún día se
-  // quita una fuente de la lista, un valor viejo cae a null en vez de que el
-  // guardado reviente contra el CHECK.
   const fuenteValida = (v: string): FuenteEmail | null =>
     (FUENTES_EMAIL as readonly string[]).includes(v.trim()) ? (v.trim() as FuenteEmail) : null;
-  const comoBorrador = () => ({
-    tipo: meta.tipo,
-    asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
-    botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
-    colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
-    pie: oNulo(b.pie), fuente: fuenteValida(b.fuente),
-  });
 
-  // Inserta un token donde esté el cursor, no al final: si no, colocar {datos}
-  // en medio del texto obliga a cortar y pegar a mano.
-  function insertarToken(token: string) {
+  // Dónde dejar el cursor DESPUÉS de que React repinte. No se puede hacer en el
+  // mismo click: el textarea es controlado, así que al cambiar su `value` React
+  // lo repinta y la selección se va al final. Un requestAnimationFrame tampoco
+  // basta — puede correr antes del commit. Se guarda aquí y se aplica en un
+  // efecto, que sí corre después.
+  //
+  // Importa de verdad: sin esto, pulsar "Cursiva" sin nada seleccionado le
+  // dejaba un "_texto en cursiva_" literal en el correo para borrarlo a mano.
+  const [seleccionPendiente, setSeleccionPendiente] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (!seleccionPendiente || !areaCuerpo.current) return;
+    areaCuerpo.current.focus();
+    areaCuerpo.current.setSelectionRange(seleccionPendiente[0], seleccionPendiente[1]);
+    setSeleccionPendiente(null);
+  }, [seleccionPendiente]);
+
+  // Escribe en el cuerpo respetando dónde está el cursor y qué hay seleccionado.
+  // Sin esto, poner una negrita en mitad de un párrafo obliga a cortar y pegar.
+  const escribirEnCuerpo = useCallback((antes: string, despues: string, ejemplo: string) => {
     const area = areaCuerpo.current;
-    if (!area) { set('cuerpo', `${b.cuerpo}\n\n${token}`); return; }
-    const { selectionStart: ini, selectionEnd: fin } = area;
-    const nuevo = `${b.cuerpo.slice(0, ini)}${token}${b.cuerpo.slice(fin)}`;
-    set('cuerpo', nuevo);
-    requestAnimationFrame(() => {
-      area.focus();
-      area.setSelectionRange(ini + token.length, ini + token.length);
-    });
-  }
+    if (!area) return;
+    const ini = area.selectionStart;
+    const fin = area.selectionEnd;
+    const seleccion = b.cuerpo.slice(ini, fin) || ejemplo;
+    setB(prev => ({
+      ...prev,
+      cuerpo: `${prev.cuerpo.slice(0, ini)}${antes}${seleccion}${despues}${prev.cuerpo.slice(fin)}`,
+    }));
+    // Deja seleccionado lo insertado: si es el texto de ejemplo, se sobrescribe
+    // tecleando encima; si era suyo, se ve qué se ha marcado.
+    setSeleccionPendiente([ini + antes.length, ini + antes.length + seleccion.length]);
+  }, [b.cuerpo]);
 
-  async function abrirPreview() {
-    setCargandoPreview(true);
-    const r = await previsualizarPlantilla(comoBorrador());
-    setCargandoPreview(false);
-    if ('error' in r) { showToast(r.error); return; }
-    setPreview(r);
+  async function guardar() {
+    setGuardando(true);
+    const oNulo = (v: string) => (v.trim() ? v.trim() : null);
+    await onGuardar({
+      // Editar y guardar es querer que se aplique. Si la fila venía con
+      // activa=false (del interruptor que ya no se enseña), guardar sin esto
+      // dejaría el correo saliendo por defecto y parecería que no se guardó.
+      activa: true,
+      asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
+      botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+      colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+      pie: oNulo(b.pie), fuente: fuenteValida(b.fuente),
+    });
+    setGuardando(false);
+    onCerrar();
   }
 
   async function enviarPrueba() {
-    setEnviandoPrueba(true);
-    const r = await enviarPruebaPlantilla(comoBorrador());
-    setEnviandoPrueba(false);
+    setEnviando(true);
+    const oNulo = (v: string) => (v.trim() ? v.trim() : null);
+    const r = await enviarPruebaPlantilla({
+      tipo: meta.tipo,
+      asunto: oNulo(b.asunto), intro: oNulo(b.intro), cuerpo: oNulo(b.cuerpo),
+      botonTexto: oNulo(b.botonTexto), colorCabecera: oNulo(b.colorCabecera),
+      colorBoton: oNulo(b.colorBoton), logoUrl: oNulo(b.logoUrl),
+      pie: oNulo(b.pie), fuente: oNulo(b.fuente),
+    });
+    setEnviando(false);
     showToast('error' in r ? r.error : `Prueba enviada a ${r.enviadoA}`);
   }
 
   return (
-    <div className={cn(cardCls, 'p-6')}>
-      <div className="flex items-start justify-between gap-4 mb-4">
-        <div>
-          <h3 className="text-[14px] font-semibold text-foreground">{meta.label}</h3>
-          <p className="text-[12px] text-muted-foreground">{meta.descripcion}</p>
-        </div>
-        <label className="flex items-center gap-2 cursor-pointer shrink-0" title="Personalización activa">
-          <span className="text-[11px] text-muted-foreground">{activa ? 'Personalizado' : 'Por defecto'}</span>
-          <Toggle on={activa} onChange={v => onSave({ activa: v })} />
-        </label>
-      </div>
-
-      <div className="space-y-4">
-        <Field label="Asunto" description="Lo primero que ve la clienta en su bandeja. Directo y sin mayúsculas sostenidas.">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+      {/* ── Columna de edición ── */}
+      <div className="space-y-5">
+        <Field label="Asunto" description="Es lo único que ve en la bandeja antes de abrirlo.">
           <input className={inputCls} placeholder={meta.asuntoDefault}
             value={b.asunto} onChange={e => set('asunto', e.target.value)} />
         </Field>
 
-        {!cuerpoLibre ? (
-          <>
-            <Field label="Texto de introducción" description="Abre el email, antes de los datos concretos. Los detalles se añaden solos debajo.">
-              <textarea className={cn(inputCls, 'resize-none')} rows={3} placeholder={meta.introDefault}
-                value={b.intro} onChange={e => set('intro', e.target.value)} />
-            </Field>
-            <button
-              type="button"
-              onClick={() => set('cuerpo', cuerpoDePartida(meta, b.intro))}
-              className="text-[12px] font-medium text-foreground underline underline-offset-2"
-            >
-              Escribir el correo entero →
-            </button>
-          </>
+        {/* Elección de modo explícita. Antes era un enlace gris que parecía una
+            nota al pie y nadie pulsaba. */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => set('cuerpo', '')}
+            aria-pressed={!modoLibre}
+            className={cn(
+              'rounded-xl border p-3 text-left transition-colors',
+              !modoLibre ? 'border-foreground bg-muted' : 'border-border hover:border-foreground',
+            )}
+          >
+            <span className="block text-[13px] font-semibold text-foreground">Cambiar solo el saludo</span>
+            <span className="block text-[11px] text-muted-foreground">El diseño de Tentare, con tus palabras.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (!modoLibre) set('cuerpo', cuerpoDePartida(meta, b.intro)); }}
+            aria-pressed={modoLibre}
+            className={cn(
+              'rounded-xl border p-3 text-left transition-colors',
+              modoLibre ? 'border-foreground bg-muted' : 'border-border hover:border-foreground',
+            )}
+          >
+            <span className="block text-[13px] font-semibold text-foreground">Escribir el correo entero</span>
+            <span className="block text-[11px] text-muted-foreground">Tú decides qué va y en qué orden.</span>
+          </button>
+        </div>
+
+        {!modoLibre ? (
+          <Field label="Saludo" description="La frase con la que abre. Debajo van los datos, que se rellenan solos.">
+            <textarea className={cn(inputCls, 'resize-none')} rows={3} placeholder={meta.introDefault}
+              value={b.intro} onChange={e => set('intro', e.target.value)} />
+          </Field>
         ) : (
-          <>
-            <Field
-              label="Cuerpo del correo"
-              description="Escribes tú el correo completo. Admite **negrita**, _cursiva_, listas con guiones, ## títulos y [enlaces](https://…)."
-            >
-              <textarea
-                ref={areaCuerpo}
-                className={cn(inputCls, 'font-mono text-[12px] leading-relaxed')}
-                rows={12}
-                value={b.cuerpo}
-                onChange={e => set('cuerpo', e.target.value)}
-              />
-            </Field>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">Insertar:</span>
-              <button type="button" onClick={() => insertarToken('{datos}')}
-                className="text-[11px] rounded-full border border-border px-2.5 py-1 hover:border-foreground">
-                {'{datos}'} — {meta.queSonLosDatos}
-              </button>
-              {meta.tieneBoton && (
-                <button type="button" onClick={() => insertarToken('{boton}')}
-                  className="text-[11px] rounded-full border border-border px-2.5 py-1 hover:border-foreground">
-                  {'{boton}'} — {meta.tieneBoton}
-                </button>
-              )}
-              {meta.variables.map(v => (
-                <button key={v} type="button" onClick={() => insertarToken(v)}
-                  className="text-[11px] rounded-full border border-border px-2.5 py-1 hover:border-foreground">
-                  {v}
-                </button>
-              ))}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[13px] font-medium text-foreground">Contenido</span>
+              <BarraFormato onAplicar={f => escribirEnCuerpo(f.antes, f.despues, f.ejemplo)} />
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Si quitas <code className="bg-muted rounded px-1">{'{datos}'}</code>, el correo sale sin {meta.queSonLosDatos}.
-              Borra todo el cuerpo para volver al diseño de siempre.
-            </p>
-          </>
+            <textarea
+              ref={areaCuerpo}
+              className={cn(inputCls, 'font-mono text-[12px] leading-relaxed')}
+              rows={14}
+              value={b.cuerpo}
+              onChange={e => set('cuerpo', e.target.value)}
+            />
+
+            <div className="rounded-xl border border-border p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Añadir al correo
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => escribirEnCuerpo('\n{datos}\n', '', '')}
+                  className="rounded-full border border-border px-3 py-1.5 text-[12px] hover:border-foreground">
+                  {meta.datosLabel}
+                </button>
+                {meta.botonLabel && (
+                  <button type="button" onClick={() => escribirEnCuerpo('\n{boton}\n', '', '')}
+                    className="rounded-full border border-border px-3 py-1.5 text-[12px] hover:border-foreground">
+                    {meta.botonLabel}
+                  </button>
+                )}
+                {meta.variables.map(v => (
+                  <button key={v.token} type="button" title={`Se sustituye por ${v.que}`}
+                    onClick={() => escribirEnCuerpo(v.token, '', '')}
+                    className="rounded-full border border-border px-3 py-1.5 text-[12px] hover:border-foreground">
+                    {v.que}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Se colocan donde tengas el cursor. Puedes quitarlos: si borras
+                «{meta.datosLabel.toLowerCase()}», el correo sale sin esos datos.
+              </p>
+            </div>
+          </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setMarcaAbierta(v => !v)}
-          className="flex items-center gap-1.5 text-[12px] font-medium text-foreground"
-        >
-          <ChevronDown size={14} className={cn('transition-transform', marcaAbierta && 'rotate-180')} />
-          Marca de este correo
-        </button>
-
-        {marcaAbierta && (
-          <div className="space-y-4 rounded-xl border border-border p-4">
+        {/* ── Marca ── */}
+        <details className="rounded-xl border border-border">
+          <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-medium text-foreground">
+            Colores, logo y pie
+            <span className="ml-2 text-[11px] font-normal text-muted-foreground">opcional</span>
+          </summary>
+          <div className="space-y-4 border-t border-border p-4">
             <p className="text-[11px] text-muted-foreground">
-              Vacío = se usa la marca del estudio. El color del texto del botón se calcula solo
-              para que se lea sobre el fondo que elijas.
+              Si no tocas nada se usan los de tu estudio. El color del texto del botón se
+              calcula solo para que se lea sobre el fondo que elijas.
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Color de la banda" description="La franja de arriba del correo.">
+              <Field label="Color de la franja" description="La banda de arriba del correo.">
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
                   value={b.colorCabecera || '#343825'}
                   onChange={e => set('colorCabecera', e.target.value)} />
               </Field>
               <Field
                 label="Color del botón"
-                description={b.colorBoton
-                  ? 'Solo si el correo lleva botón.'
-                  : 'Sigue al color de la banda. Cámbialo aquí solo si lo quieres distinto.'}
+                description={b.colorBoton ? 'Distinto al de la franja.' : 'Va con el de la franja.'}
               >
-                {/* El valor que se enseña es el que va a salir de verdad: si no
-                    lo ha fijado, hereda de la banda. Enseñar aquí el oliva del
-                    estudio mientras el correo pinta el botón marrón sería
-                    mentirle al control. */}
+                {/* Enseña lo que va a salir de verdad: si no lo ha fijado,
+                    hereda de la franja. Enseñar aquí otro color sería mentir. */}
                 <input type="color" className={cn(inputCls, 'h-10 p-1')}
                   value={b.colorBoton || b.colorCabecera || '#343825'}
                   onChange={e => set('colorBoton', e.target.value)} />
               </Field>
             </div>
-            <div className="flex gap-2">
+            {(b.colorCabecera || b.colorBoton) && (
               <button type="button" onClick={() => { set('colorCabecera', ''); set('colorBoton', ''); }}
                 className="text-[11px] text-muted-foreground underline underline-offset-2">
-                Volver a los colores del estudio
+                Volver a los colores de mi estudio
               </button>
-            </div>
-            <Field label="Texto del botón" description="Solo si el correo lleva botón.">
-              <input className={inputCls} placeholder="El de siempre"
-                value={b.botonTexto} onChange={e => set('botonTexto', e.target.value)} />
-            </Field>
-            <Field label="Logo para este correo" description="URL de una imagen PNG o JPG. Vacío = el logo del estudio.">
+            )}
+            {meta.botonLabel && (
+              <Field label="Texto del botón" description="Lo que pone dentro del botón.">
+                <input className={inputCls} placeholder="El de siempre"
+                  value={b.botonTexto} onChange={e => set('botonTexto', e.target.value)} />
+              </Field>
+            )}
+            <Field label="Logo solo para este correo" description="Dirección de una imagen PNG o JPG. Vacío = el logo de tu estudio.">
               <input className={inputCls} placeholder="https://…"
                 value={b.logoUrl} onChange={e => set('logoUrl', e.target.value)} />
             </Field>
-            <Field label="Tipografía" description="Solo fuentes que los clientes de correo saben pintar.">
+            <Field label="Tipografía" description="Solo las que saben pintar todos los programas de correo.">
               <select className={inputCls} value={b.fuente} onChange={e => set('fuente', e.target.value)}>
-                <option value="">Plus Jakarta Sans (la del estudio)</option>
+                <option value="">La de tu estudio</option>
                 {FUENTES_EMAIL.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </Field>
-            <Field label="Pie del correo" description="Vacío = «Enviado por tu estudio · Powered by Tentare · año».">
+            <Field label="Pie del correo" description="La línea pequeña del final.">
               <input className={inputCls} placeholder="Enviado por {estudio} · Powered by Tentare"
                 value={b.pie} onChange={e => set('pie', e.target.value)} />
             </Field>
           </div>
-        )}
+        </details>
 
-        <p className="text-[11px] text-muted-foreground">
-          Variables: {meta.variables.map(v => <code key={v} className="bg-muted rounded px-1 py-0.5 mx-0.5">{v}</code>)}
-          . Deja un campo vacío para usar el texto por defecto.
-        </p>
-
-        <div className="flex items-center justify-end gap-2">
-          <button onClick={abrirPreview} disabled={cargandoPreview} className={cn(btnSecondary, 'disabled:opacity-50')}>
-            {cargandoPreview ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Vista previa
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => setB(VACIO)}
+            className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground underline underline-offset-2"
+          >
+            <Undo2 size={13} /> Dejarlo como viene de fábrica
           </button>
-          <button onClick={enviarPrueba} disabled={enviandoPrueba} className={cn(btnSecondary, 'disabled:opacity-50')}>
-            {enviandoPrueba ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviarme una prueba
-          </button>
-          <button onClick={() => { const { tipo: _t, ...campos } = comoBorrador(); onSave(campos); }} className={btnPrimary}>
-            <Check size={14} /> Guardar
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={enviarPrueba} disabled={enviando} className={cn(btnSecondary, 'disabled:opacity-50')}>
+              {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Enviármelo de prueba
+            </button>
+            <button onClick={guardar} disabled={guardando} className={cn(btnPrimary, 'disabled:opacity-50')}>
+              {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Guardar
+            </button>
+          </div>
         </div>
       </div>
 
-      <Dialog open={!!preview} onOpenChange={open => { if (!open) setPreview(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Vista previa — {meta.label}</DialogTitle>
-          </DialogHeader>
-          {preview && (
-            <div className="space-y-3">
-              <p className="text-[12px] text-muted-foreground">
-                Asunto: <span className="font-medium text-foreground">{preview.subject}</span>
-              </p>
-              <div className="rounded-xl border border-border overflow-hidden bg-white">
-                {/* sandbox="" a propósito: el cuerpo lo escribe la propietaria y
-                    aunque se sanea al renderizar, esta caja nunca ejecuta nada. */}
-                <iframe
-                  title={`Vista previa de ${meta.label}`}
-                  srcDoc={preview.html}
-                  sandbox=""
-                  className="w-full h-[420px]"
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Con datos de muestra (Ana García, Reformer Iniciación) — así se ve sin esperar a una clienta real.
-              </p>
-              <button onClick={() => setPreview(null)} className={cn(btnSecondary, 'w-full justify-center')}>
-                <X size={14} /> Cerrar
-              </button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* ── Columna de vista previa ── */}
+      <div className="lg:sticky lg:top-0 lg:h-[560px]">
+        <VistaPreviaViva tipo={meta.tipo} borrador={b} />
+      </div>
     </div>
   );
 }
 
+// ─── Lista ───────────────────────────────────────────────────────────────────
+
 export function TabPlantillasEmail({ showToast }: { showToast: (m: string) => void }) {
   const { plantillasEmail, upsertPlantillaEmail } = useStudio();
+  const [abierta, setAbierta] = useState<TipoPlantillaEmail | null>(null);
+  const metaAbierta = PLANTILLAS_META.find(m => m.tipo === abierta);
+
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="max-w-2xl space-y-4">
       <p className="text-[12px] text-muted-foreground">
-        Personaliza los emails automáticos a tus clientas: el asunto y la apertura, o el correo entero
-        con tu propia marca. Los emails de recibo/factura no se editan por su contenido fiscal.
+        Estos son los correos que Tentare envía sola a tus clientas. Puedes cambiarles el
+        saludo o escribirlos enteros, y los vas viendo mientras los editas. Los de recibo y
+        factura no se tocan por su contenido fiscal.
       </p>
-      {PLANTILLAS_META.map(meta => (
-        <PlantillaCard
-          key={meta.tipo}
-          meta={meta}
-          plantilla={plantillasEmail.find(p => p.tipo === meta.tipo)}
-          onSave={async changes => {
-            const res = await upsertPlantillaEmail(meta.tipo, changes);
-            showToast(res.ok ? 'Plantilla guardada' : res.error);
-          }}
-          showToast={showToast}
-        />
-      ))}
+
+      <div className={cn(cardCls, 'divide-y divide-border')}>
+        {PLANTILLAS_META.map(meta => {
+          const p = plantillasEmail.find(x => x.tipo === meta.tipo);
+          const r = resumen(borradorDe(p), p?.activa ?? true);
+          return (
+            <button
+              key={meta.tipo}
+              type="button"
+              onClick={() => setAbierta(meta.tipo)}
+              className="flex w-full items-center gap-4 p-4 text-left hover:bg-muted/50"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-foreground">{meta.label}</p>
+                <p className="truncate text-[12px] text-muted-foreground">{meta.cuando}</p>
+              </div>
+              <span className={cn(
+                'shrink-0 rounded-full px-2.5 py-1 text-[11px]',
+                r.tocado ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground',
+              )}>
+                {r.texto}
+              </span>
+              <Pencil size={14} className="shrink-0 text-muted-foreground" />
+            </button>
+          );
+        })}
+      </div>
+
+      <Dialog open={!!metaAbierta} onOpenChange={open => { if (!open) setAbierta(null); }}>
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
+          {metaAbierta && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{metaAbierta.label}</DialogTitle>
+                <p className="text-[12px] text-muted-foreground">{metaAbierta.cuando}</p>
+              </DialogHeader>
+              <EditorPlantilla
+                meta={metaAbierta}
+                plantilla={plantillasEmail.find(x => x.tipo === metaAbierta.tipo)}
+                showToast={showToast}
+                onCerrar={() => setAbierta(null)}
+                onGuardar={async cambios => {
+                  const res = await upsertPlantillaEmail(metaAbierta.tipo, cambios);
+                  showToast(res.ok ? 'Guardado' : res.error);
+                }}
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
