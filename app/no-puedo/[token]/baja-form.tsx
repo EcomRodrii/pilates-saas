@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // "No puedo dar esta clase" desde el móvil de la instructora, sin login.
 //
@@ -206,13 +207,7 @@ export function BajaForm({ token }: { token: string }) {
 // los `inicio` son timestamptz (instantes), no horas de pared.
 function cuando(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid',
-  });
-  const hora = d.toLocaleTimeString('es-ES', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid',
-  });
-  return `${fecha} · ${hora}`;
+  return `${fechaLargaEstudio(d)} · ${horaEstudio(d)}`;
 }
 
 function Pantalla({ children }: { children: React.ReactNode }) {
