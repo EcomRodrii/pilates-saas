@@ -560,7 +560,7 @@ export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, dom
 
 // Suma de ingresos cobrados en [desde, hasta] (YYYY-MM-DD, ambos inclusive)
 // para UN estudio. Base de la "prueba comparativa" del resumen semanal
-// (lib/inngest/resumen-semanal.ts): comparar la semana silenciosa contra la
+// (lib/decision/resumen-semanal-cron.ts): comparar la semana silenciosa contra la
 // anterior. No reutiliza la RPC informe_ingresos (0096) porque esa RPC es
 // SECURITY INVOKER y depende de la RLS de `recibos` (studio_id =
 // current_studio_id(), atada a auth.uid()) — este cron corre server-side con

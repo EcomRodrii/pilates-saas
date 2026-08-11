@@ -30,15 +30,15 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
 // `recordatorios.ts` y `confirmacion-riesgo.ts` NO están aquí a propósito: hacen
 // fan-out por estudio y sus lecturas van acotadas a un `studioId`, así que su
 // techo es el de un solo estudio, no el de la plataforma.
-// `lib/lista-espera/expirar-ofertas.ts`: salió de Inngest a pg_cron (piloto de
-// arquitectura, 2026-08-11) — el riesgo de truncado silencioso es el mismo,
-// solo cambió quién lo dispara.
+// Los cinco salieron de Inngest a pg_cron (piloto de arquitectura, 2026-08-11)
+// — el riesgo de truncado silencioso es el mismo, solo cambió quién dispara
+// cada barrido.
 const CRONS_GLOBALES = [
-  'lib/inngest/notif-automations.ts',
+  'lib/notificaciones/recordatorios-clase-cron.ts',
   'lib/lista-espera/expirar-ofertas.ts',
-  'lib/inngest/reservas-pendientes.ts',
-  'lib/inngest/minimo-asistentes.ts',
-  'lib/inngest/checkin-automatico.ts',
+  'lib/reservas-pendientes/expirar.ts',
+  'lib/minimo-asistentes/cancelar-por-minimo.ts',
+  'lib/checkin/marcar-asistidas-automatico.ts',
 ];
 
 // Tablas que crecen con el uso: una lectura suya sin paginar es la que rompe.
@@ -72,17 +72,18 @@ for (const rel of CRONS_GLOBALES) {
   });
 }
 
-// C-3: la lista de estudios que alimenta CADA fan-out. Si se trunca, un estudio
-// entero deja de existir para el sistema —sin backups, sin recordatorios, sin
-// renovaciones— y no hay error que lo señale. Umbral exacto: 1.000 estudios.
+// C-3: la lista de estudios que alimenta CADA fan-out (o bucle, tras el
+// piloto pg_cron). Si se trunca, un estudio entero deja de existir para el
+// sistema —sin backups, sin recordatorios, sin renovaciones— y no hay error
+// que lo señale. Umbral exacto: 1.000 estudios.
 const DISPATCHERS = [
-  'lib/inngest/backups.ts',
+  'lib/backups/ejecutar-copia-diaria.ts',
   'lib/inngest/recordatorios.ts',
   'lib/inngest/renovaciones.ts',
-  'lib/inngest/revisiones-salud.ts',
+  'lib/salud/generar-revisiones-todas.ts',
   'lib/inngest/valoraciones.ts',
-  'lib/inngest/resumen-semanal.ts',
-  'lib/inngest/notif-automations.ts',
+  'lib/decision/resumen-semanal-cron.ts',
+  'lib/notificaciones/bonos-inactivas-cron.ts',
   'lib/inngest/decision.ts',
   'lib/inngest/automatizaciones.ts',
   'lib/inngest/confirmacion-riesgo.ts',
