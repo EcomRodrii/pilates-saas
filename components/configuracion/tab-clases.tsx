@@ -5,6 +5,7 @@ import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, btnPrimary, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InfoTip } from '@/components/ui/tooltip';
 import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
+import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import type { TipoClase } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -43,9 +44,9 @@ type ClaseForm = {
   penalizacionImporteEur: string;
 };
 
-const emptyClaseForm = (): ClaseForm => ({
+const emptyClaseForm = (color: string): ClaseForm => ({
   nombre: '',
-  color: '#F7A6C4',
+  color,
   duracionMinutos: '60',
   nivel: 'TODOS',
   descripcion: '',
@@ -91,7 +92,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<ClaseForm>(emptyClaseForm());
+  const [form, setForm] = useState<ClaseForm>(() => emptyClaseForm(colorSalaPorDefecto(0)));
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
@@ -124,11 +125,11 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   }
 
   const openNueva = useCallback(() => {
-    setForm(emptyClaseForm());
+    setForm(emptyClaseForm(colorSalaPorDefecto(tiposClase.length)));
     setEditId(null);
     setErrorGuardar(null);
     setModal('nueva');
-  }, []);
+  }, [tiposClase.length]);
 
   const openEditar = useCallback((t: TipoClase) => {
     setForm(claseToForm(t));
