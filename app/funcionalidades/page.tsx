@@ -43,6 +43,11 @@ const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
     lead: 'Lo que sabes de cada alumna y lo que el sistema hace con ello.',
     paths: ['/funcionalidades/ficha-de-clienta', '/funcionalidades/automatizaciones-y-avisos'],
   },
+  {
+    titulo: 'Que las decisiones no sean a ojo',
+    lead: 'Los números con los que se decide qué franja mover y qué precio tocar.',
+    paths: ['/funcionalidades/informes-y-rentabilidad'],
+  },
 ];
 
 // Salvaguarda de coherencia: si algún día una funcionalidad del registro no

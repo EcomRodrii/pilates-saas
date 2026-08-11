@@ -108,7 +108,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 0.9,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/sustituciones', '/funcionalidades/calendario-y-salas', '/funcionalidades/automatizaciones-y-avisos'],
+    relacionadas: ['/funcionalidades/sustituciones', '/funcionalidades/calendario-y-salas', '/funcionalidades/informes-y-rentabilidad'],
   },
   {
     path: '/funcionalidades/sustituciones',
@@ -195,6 +195,19 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
     relacionadas: ['/funcionalidades/ficha-de-clienta', '/funcionalidades/lista-de-espera', '/funcionalidades/cobros-recurrentes'],
+  },
+  {
+    path: '/funcionalidades/informes-y-rentabilidad',
+    titulo: 'Informes de rentabilidad y ocupación de clases | Tentare',
+    descripcion:
+      'Ingresos, ocupación por tipo de clase, retención por cohorte y el margen de cada clase concreta, cruzando lo que pagó cada asistente con la tarifa real de la instructora.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Informes y rentabilidad',
+    resumen: 'Qué clases dan dinero de verdad, clase por clase.',
+    prioridad: 0.9,
+    changeFrequency: 'monthly',
+    actualizado: PUBLICADO,
+    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/funcionalidades/bonos-y-membresias'],
   },
 ];
 

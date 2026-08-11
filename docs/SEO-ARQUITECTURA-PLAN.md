@@ -1,6 +1,7 @@
 # Arquitectura SEO de tentare.app — auditoría y plan
 
-Estado: **lote P0 implementado.** Lo que no se publicó está en §11, con el motivo.
+Estado: **lote P0 implementado, más `informes-y-rentabilidad` (§12).** Lo que no se
+publicó está en §11.4, con el motivo.
 Fecha: 2026-08-11. Base: rama `claude/tentare-seo-architecture-ea9287` sobre `main` (7b157d95).
 
 Todo lo que aquí se afirma sobre el producto está verificado leyendo el repo, no
@@ -471,9 +472,10 @@ disponibilidad semanal, cuatro modelos de cobro, motor de sustituciones).
 
 ### 11.4 Páginas propuestas y NO publicadas, con el motivo
 
+(`informes-y-rentabilidad` salió de esta lista en el segundo lote — ver §12.)
+
 | Página | Motivo |
 |---|---|
-| `/funcionalidades/informes-y-rentabilidad` | El material es real (margen por clase con tarifa de instructora), pero entra en el siguiente lote junto con su diagrama de cálculo. No se publica una página de informes sin ese bloque, que es lo único que la diferencia de una lista de KPIs genérica |
 | `/funcionalidades/app-para-alumnas` | Publicarla obliga a explicar bien que es una PWA y no una app nativa. Merece su propio pase de copy, no un párrafo defensivo |
 | `/funcionalidades/cancelaciones-y-politicas` | Riesgo real de solaparse con `reservas-online` y `lista-de-espera`, que ya cubren las reglas. Antes de publicarla hay que decidir si es página propia o una sección |
 | `/funcionalidades/control-de-asistencia` | El kiosko de tablet está congelado. La funcionalidad real (estados de asistencia + pase QR) es más fina de lo que promete la keyword |
@@ -501,3 +503,68 @@ cero duplicados de title/description, sitemap sin fragmentos ni duplicados,
 robots correcto en ambos sentidos · solape máximo de `h2` entre pares
 potencialmente canibalizables: **29 %**, y solo en encabezados estructurales
 · sin desbordamiento horizontal en 360, 375, 768 y 1280 px.
+
+
+---
+
+## 12. Segundo lote: `/funcionalidades/informes-y-rentabilidad`
+
+Se publicó en cuanto tuvo el bloque que le faltaba: **el cálculo real del margen
+por clase**, que es lo único que la separa de una lista de KPIs genérica.
+
+### 12.1 De dónde sale cada cifra
+
+Todo lo que pinta la página está en `lib/decision/margen-clase.ts`:
+
+| Concepto | Fórmula real |
+|---|---|
+| Ingreso de una asistente con **bono** | precio del bono ÷ sesiones |
+| Ingreso de una asistente con **cuota mensual** | precio ÷ (frecuencia real semanal × 4,33) |
+| Ingreso de una asistente con **clase suelta** | precio del plan |
+| Sin plan que cubra esa clase | `sesion.precioPuntual`, si lo tiene |
+| Coste | tarifa/hora de la instructora × duración real de la sesión |
+| Margen | ingreso imputado − coste de instructora |
+| Punto de equilibrio | `ceil(coste ÷ precio medio por sesión del estudio)` |
+
+El reparto de la cuota mensual **por frecuencia real** es la parte que hace útil
+el número: dos alumnas con la misma mensualidad aportan importes distintos a la
+misma clase según cuántas veces vengan al mes. Es exactamente lo que un ingreso
+mensual agregado esconde.
+
+### 12.2 Los cuatro límites, dichos en la propia página
+
+Están en el código y ahora también en la web, en un bloque propio:
+
+1. **No hay coste de sala** en el esquema — por eso la cifra se llama siempre
+   «margen sobre coste de instructora», nunca «margen total» ni «beneficio».
+2. **Instructora sin tarifa fijada → «—», no cero.** Un cero falsearía el margen
+   al alza y haría parecer rentable una clase sin medir.
+3. **Una clase suelta cobrada en mostrador no suma ingreso** a esa sesión: el
+   recibo no queda ligado a la clase y casarlo por fecha sería una heurística
+   frágil.
+4. **Un no-show no cuenta como ingreso** — el informe lo trata como señal de
+   retención, que es otra pregunta.
+
+⚠️ En el ejemplo de la página, el **punto de equilibrio no se puede cuadrar con
+los seis asistentes de la tabla**: se calcula sobre el precio medio por sesión
+del ESTUDIO, no sobre la mezcla de planes de esa clase concreta. La etiqueta lo
+dice para que nadie intente reconciliarlo.
+
+### 12.3 Interlinking
+
+- `gestion-de-instructoras` pasa a enlazarla (la tarifa es la mitad del cálculo).
+- El módulo 06 de la landing (*Panel de control y métricas*) era el único de los
+  siete sin `href`; ahora lo tiene.
+- Nuevo bloque en el hub: «Que las decisiones no sean a ojo».
+- Enlaza a `/recursos/ocupacion-clases-valle` (la guía táctica) y a
+  `/funcionalidades/facturacion` (cierre de año).
+
+### 12.4 Verificado
+
+`tsc` · `lint` sin avisos · **2380 tests** · `build` de **269 páginas** · la
+auditoría sobre HTML servido pasa a **18 páginas, 36 URLs de sitemap y 43
+enlaces internos**, sin fallos · solape de `h2` con sus cuatro vecinas más
+cercanas: **25 % máximo**, solo estructurales · sin desbordamiento en
+360/375/768/1280 px.
+
+Con esto, el P0 queda cerrado en **13 URLs nuevas**.

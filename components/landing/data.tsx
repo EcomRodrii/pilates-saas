@@ -18,8 +18,8 @@ export const NAV_LINKS = [
 ];
 
 // `href` enlaza cada módulo con su página de funcionalidad, cuando existe.
-// Opcional a propósito: los módulos que todavía no tienen página (informes)
-// se quedan sin enlace en vez de apuntar a un 404 o forzar una página vacía.
+// Sigue siendo opcional a propósito: un módulo sin página se queda sin enlace
+// en vez de apuntar a un 404 o de forzar una página escrita a medias.
 export const RECORRIDO_ITEMS = [
   {
     n: '01',
@@ -63,6 +63,7 @@ export const RECORRIDO_ITEMS = [
   },
   {
     n: '06',
+    href: '/funcionalidades/informes-y-rentabilidad',
     eyebrow: 'Panel de control y métricas',
     title: 'Tu estudio, de un vistazo.',
     body: 'Ingresos, ocupación, reservas y renovaciones al día. El panel que ves en el móvil y en el ordenador — el mismo que abre tu estudio cada mañana.',
