@@ -1587,7 +1587,7 @@ export async function aceptarOfertaListaEspera(params: {
 // Fase 2b: cancela (pierde el sitio) la reserva cuya oferta caducó sin
 // aceptar y reutiliza promocionar_siguiente_espera (dentro de la RPC) para
 // ofrecerla a la siguiente en la cola. Llamado solo por el cron
-// (lib/inngest/lista-espera-ofertas.ts), sin sesión de usuario detrás — mismo
+// (lib/lista-espera/expirar-ofertas.ts, disparado por pg_cron), sin sesión de usuario detrás — mismo
 // criterio que expirarReservaPendiente.
 export async function expirarOfertaListaEspera(params: {
   studioId: string; reservaId: string; sesionId: string; socioId: string;
