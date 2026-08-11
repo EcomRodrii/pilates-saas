@@ -12,6 +12,18 @@ export interface StudioSeo {
   colorPrimario: string;
   logoUrl: string | null;
   slug: string;
+  /**
+   * Página pública oculta mientras el estudio la prepara.
+   *
+   * Viaja AQUÍ y no en una consulta aparte porque esta ya está cacheada por
+   * request y la comparten `generateMetadata` y el layout: el gate necesita el
+   * dato en los dos sitios (uno para el `noindex`, otro para no pintar la
+   * página), y una segunda consulta sería la misma fila leída dos veces.
+   */
+  paginaOculta: boolean;
+  /** Solo si hay clave configurada. **El hash NUNCA sale de aquí**: se queda
+   *  en el servidor, y lo que viaja es este booleano. */
+  paginaTieneClave: boolean;
 }
 
 export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null> => {
@@ -22,15 +34,52 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
   // el estudio de prueba en el servidor. NUNCA se activa en producción (la env no
   // existe allí); coincide con el fixture de e2e/booking.spec.ts.
   if (process.env.E2E_TEST === '1') {
-    return { id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1', colorPrimario: '#1A1A1A', logoUrl: null, slug };
+    return {
+      id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
+      colorPrimario: '#1A1A1A', logoUrl: null, slug,
+      // Configurable para que el gate de página oculta se pueda ejercitar
+      // alguna vez desde la suite: se decide en el SERVIDOR, así que
+      // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
+      // es alcanzable por ningún test. Ausente = visible, como siempre.
+      paginaOculta: process.env.E2E_PAGINA_OCULTA === '1' || process.env.E2E_PAGINA_OCULTA === 'con-clave',
+      paginaTieneClave: process.env.E2E_PAGINA_OCULTA === 'con-clave',
+    };
   }
   const admin = getSupabaseAdmin();
   if (!admin) return null;
-  const { data } = await admin
-    .from('studios')
-    .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug')
-    .eq('slug', slug)
-    .maybeSingle();
+
+  // ⚠️ **Las columnas nuevas se piden aparte, y su fallo no tumba la página.**
+  //
+  // PostgREST no devuelve `undefined` para una columna que no existe: rechaza
+  // la CONSULTA ENTERA con un 400. Metidas en el `select` de siempre, un
+  // despliegue que llegara antes que la migración dejaría a `data` en null y la
+  // página pública de TODOS los estudios diría «no encontrado». Es la peor
+  // avería posible de esta función y depende solo del orden de dos pasos.
+  //
+  // Con dos consultas, el peor caso es que la visibilidad se lea como «no
+  // oculta» durante los minutos que separen el despliegue de la migración —el
+  // comportamiento de hoy— en vez de una caída. Después de aplicarla, la
+  // segunda consulta acierta siempre y esto deja de importar.
+  const [base, visibilidad] = await Promise.all([
+    admin
+      .from('studios')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug')
+      .eq('slug', slug)
+      .maybeSingle(),
+    // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
+    // `PromiseLike`, no una Promise entera, y no expone `.catch`.
+    Promise.resolve(
+      admin
+        .from('studios')
+        .select('pagina_publica_oculta, pagina_publica_clave_hash')
+        .eq('slug', slug)
+        .maybeSingle(),
+    ).then(
+      (r) => r.data as { pagina_publica_oculta?: boolean; pagina_publica_clave_hash?: string | null } | null,
+      () => null,
+    ),
+  ]);
+  const data = base.data;
   if (!data) return null;
   return {
     id: data.id,
@@ -40,5 +89,12 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     colorPrimario: data.color_primario ?? '#1A1A1A',
     logoUrl: data.logo_url ?? null,
     slug: data.slug ?? slug,
+    // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
+    // que significar «no oculta» y no esconder la página de todo el mundo.
+    paginaOculta: visibilidad?.pagina_publica_oculta === true,
+    // ⚠️ El HASH no sale de aquí. Lo que viaja es si HAY clave, porque es lo
+    // único que la página necesita saber para decidir si enseña el formulario.
+    paginaTieneClave: typeof visibilidad?.pagina_publica_clave_hash === 'string'
+      && visibilidad.pagina_publica_clave_hash.length > 0,
   };
 });
