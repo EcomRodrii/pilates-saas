@@ -683,6 +683,10 @@ export interface RowTiposClase {
   descripcion: string | null;
   nivel: string | null;
   foto_url: string | null;
+  // migr 20260811134019. `text[] not null default '{}'` — pero se declara
+  // nullable aquí porque una fila leída con un `select` que no la pida llega
+  // sin ella, y el mapper ya lo tolera.
+  objetivos: string[] | null;
   ventana_cancelacion_horas: number | null;
   reserva_exigir_plan: boolean | null;
   reserva_ventana_minima_minutos: number | null;

@@ -556,6 +556,14 @@ export interface TipoClase {
   descripcion: string | null;
   nivel: NivelClase;
   fotoUrl: string | null;
+  // Objetivos de la lista FIJA (lib/reservar/objetivos.ts) que cubre este tipo
+  // de clase, para el asistente de la página pública.
+  //
+  // ⚠️ OPCIONAL a propósito: «ausente» y «vacío» significan lo mismo —sin
+  // declarar— y `claseSirvePara` los trata igual: valen para TODOS. Siendo
+  // opcional tampoco obliga a rellenarlo a `CadenaTipoClase`, que es otra
+  // entidad (el menú de cadena) y no participa del asistente.
+  objetivos?: string[];
   // Horas de antelación para cancelar sin perder la sesión, propias de este
   // tipo de clase. null = hereda la del estudio (Studio.cancelacionVentanaHoras).
   ventanaCancelacionHoras: number | null;
