@@ -3,7 +3,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { errorInterno } from '@/lib/errores-servidor';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
-import { uid } from '@/lib/utils';
+import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaReserva } from '@/lib/csv';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
@@ -35,7 +35,7 @@ export const maxDuration = 60;
 
 const MAX_FILAS = 5000;
 const LOTE = 500;
-const TZ = 'Europe/Madrid';
+const TZ = TZ_ESTUDIO;
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(RE_DIACRITICOS, '').trim();

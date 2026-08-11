@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { horaParedAInstante } from '@/lib/citas/slots';
-import { uid } from '@/lib/utils';
+import { uid, TZ_ESTUDIO } from '@/lib/utils';
 import type { FilaCita } from '@/lib/csv';
 import { errorInterno } from '@/lib/errores-servidor';
 import { registrarIdsBatch, RE_BATCH_ID } from '@/lib/migracion/batches';
@@ -34,7 +34,7 @@ export const maxDuration = 60;
 
 const MAX_FILAS = 5000;
 const LOTE = 500;
-const TZ = 'Europe/Madrid';
+const TZ = TZ_ESTUDIO;
 const DURACION_POR_DEFECTO = 60;
 
 const RE_DIACRITICOS = /[̀-ͯ]/g;
