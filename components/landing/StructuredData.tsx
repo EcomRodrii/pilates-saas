@@ -1,6 +1,5 @@
 import { FAQ_ITEMS, PLANS } from './data';
-
-const BASE_URL = 'https://tentare.app';
+import { BASE_URL } from '@/lib/seo/paginas';
 
 function planPriceToNumber(price: string): number {
   return Number(price.replace('€', ''));

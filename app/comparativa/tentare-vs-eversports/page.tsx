@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs Eversports: comparativa para estudios de Pilates en España',
   description: 'Precio, permanencia, facturación Veri*factu, comisión por captar clientas y sustitución de instructoras — Tentare frente a Eversports, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-eversports' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-eversports') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Eversports',
     description: 'Precio, permanencia, Veri*factu y comisión por captar clientas — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-eversports',
+    url: urlDe('/comparativa/tentare-vs-eversports'),
   },
 };
 

@@ -9,6 +9,7 @@
 // Fase 1: INAPP (la fila ya materializada) + PUSH (stub que se completa en PR2).
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { LEGAL } from '../legal-info.ts';
 import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } from './types.ts';
 import { remitentePorMarca } from '../emails/remitente.ts';
 
@@ -107,7 +108,7 @@ const email: Canal = {
     const color = (st?.color_primario as string | null) || '#343825';
     const estudio = (st?.nombre as string | null) || 'Tentare';
     const logo = st?.logo_url as string | null;
-    const base = process.env.NEXT_PUBLIC_APP_URL || 'https://tentare.app';
+    const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
     const cta = notificacion.deepLink
       ? `<a href="${base}${notificacion.deepLink}" style="display:inline-block;margin-top:20px;padding:11px 20px;background:${color};color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Ver detalles</a>`
       : '';

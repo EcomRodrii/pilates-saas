@@ -4,16 +4,17 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { BeforeAfterCols, Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Cómo subir la ocupación de tus clases valle — Tentare',
   description: 'Las 10:00 de un martes vacías cuestan dinero igual. Qué hace ClassPass con el precio dinámico, y qué puedes copiar sin depender de ninguna plataforma externa.',
-  alternates: { canonical: 'https://tentare.app/recursos/ocupacion-clases-valle' },
+  alternates: { canonical: urlDe('/recursos/ocupacion-clases-valle') },
   openGraph: {
     type: 'article',
     title: 'Cómo subir la ocupación de tus clases valle',
     description: 'Tácticas reales — con lo que hace ClassPass de fondo — para llenar las horas flojas sin regalar el precio.',
-    url: 'https://tentare.app/recursos/ocupacion-clases-valle',
+    url: urlDe('/recursos/ocupacion-clases-valle'),
   },
 };
 

@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Tentare vs TIMP: comparativa para estudios de Pilates en España',
   description: 'Precio, permanencia, Veri*factu y TicketBAI, comisión por captar clientas y sustitución de instructoras — Tentare frente a TIMP, punto por punto.',
-  alternates: { canonical: 'https://tentare.app/comparativa/tentare-vs-timp' },
+  alternates: { canonical: urlDe('/comparativa/tentare-vs-timp') },
   openGraph: {
     type: 'website',
     title: 'Tentare vs TIMP',
     description: 'Precio, permanencia, Veri*factu/TicketBAI y sustitución de instructoras — comparados punto por punto.',
-    url: 'https://tentare.app/comparativa/tentare-vs-timp',
+    url: urlDe('/comparativa/tentare-vs-timp'),
   },
 };
 

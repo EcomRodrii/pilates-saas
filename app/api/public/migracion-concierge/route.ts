@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LEGAL } from '@/lib/legal-info';
 import { Resend } from 'resend';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
           `<p>Una propietaria quiere que le hagamos la migración:</p>` +
           `<p><strong>${esc(email)}</strong>${software ? ` — software actual: <strong>${esc(software)}</strong>` : ''}</p>` +
           `<p>Siguiente paso: responderle pidiendo los exports (o acceso) y montarle el estudio con /migracion en menos de 48h.</p>` +
-          `<p>Está en el panel, en <a href="https://tentare.app/interno/crecimiento">Crecimiento</a>.</p>`,
+          `<p>Está en el panel, en <a href="${LEGAL.url}/interno/crecimiento">Crecimiento</a>.</p>`,
       });
       if (error) console.error('[public:migracion-concierge]', error);
     } catch (err) {

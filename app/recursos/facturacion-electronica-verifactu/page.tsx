@@ -7,16 +7,17 @@ import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { IconCheck } from '@/components/landing/icons';
 import { ACC } from '@/components/landing/theme';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu',
   description: 'Qué es Veri*factu, cuándo es obligatorio (2027) y qué debe tener cada factura de tu estudio de Pilates. Checklist de cumplimiento, sin letra pequeña.',
-  alternates: { canonical: 'https://tentare.app/recursos/facturacion-electronica-verifactu' },
+  alternates: { canonical: urlDe('/recursos/facturacion-electronica-verifactu') },
   openGraph: {
     type: 'article',
     title: 'Facturación electrónica para estudios de Pilates: qué cambia con Veri*factu',
     description: 'Qué es Veri*factu, cuándo es obligatorio y qué debe tener cada factura de tu estudio.',
-    url: 'https://tentare.app/recursos/facturacion-electronica-verifactu',
+    url: urlDe('/recursos/facturacion-electronica-verifactu'),
   },
 };
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BASE_URL } from '@/lib/seo/paginas';
 import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
@@ -61,7 +62,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://tentare.app'),
+  metadataBase: new URL(BASE_URL),
   title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
   description:
     'El software completo para tu estudio de Pilates en España: reservas, cobros, calendario, alumnas e instructoras — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
@@ -73,7 +74,7 @@ export const metadata: Metadata = {
     title: 'Tentare — Software para estudios de Pilates',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
-    url: 'https://tentare.app',
+    url: BASE_URL,
   },
   twitter: {
     card: 'summary_large_image',

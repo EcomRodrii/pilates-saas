@@ -4,16 +4,17 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { urlDe } from '@/lib/seo/paginas';
 
 export const metadata: Metadata = {
   title: 'Checklist: cómo elegir el software de tu estudio — Tentare',
   description: 'Qué dicen de verdad miles de reseñas en Capterra y G2 sobre Mindbody, Glofox o WellnessLiving, y las preguntas exactas que hay que hacer en una demo antes de firmar.',
-  alternates: { canonical: 'https://tentare.app/recursos/checklist-elegir-software-estudio' },
+  alternates: { canonical: urlDe('/recursos/checklist-elegir-software-estudio') },
   openGraph: {
     type: 'article',
     title: 'Checklist: cómo elegir el software de tu estudio',
     description: 'Las señales de alarma que las reseñas públicas ya han encontrado por ti, antes de que firmes un contrato de un año.',
-    url: 'https://tentare.app/recursos/checklist-elegir-software-estudio',
+    url: urlDe('/recursos/checklist-elegir-software-estudio'),
   },
 };
 
