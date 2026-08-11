@@ -651,6 +651,9 @@ export interface RowStudios {
   gestoria_ultimo_envio_periodo: string | null;
   requiere_checkin_qr: boolean | null;
   imagen_bienvenida_url: string | null;
+  reembolsos_activos: boolean | null;
+  reembolso_plazo_dias: number | null;
+  reembolso_solo_sin_usar: boolean | null;
 }
 
 export interface RowSuscripciones {

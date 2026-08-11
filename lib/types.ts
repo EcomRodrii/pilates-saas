@@ -140,6 +140,18 @@ export interface Studio {
   // "¿hay alguien en la puerta dispuesto a escanear?", no algo que varíe
   // clase a clase.
   requiereCheckinQr: boolean;
+  // Devoluciones desde el panel (migr 20260811091725). Apagadas por defecto: un
+  // botón que mueve dinero real no aparece solo, lo enciende la propietaria —
+  // mismo criterio que `penalizacionImporteEur`. Sin override por tipo de clase
+  // a propósito: se devuelve un RECIBO (un bono, un mensual, una cita), no una
+  // clase, así que no hay nada de lo que heredar.
+  // La regla vive en `lib/billing/politica-reembolso.ts`, compartida por el
+  // servidor (que decide) y la pantalla (que enseña el botón).
+  reembolsosActivos: boolean;
+  /** Días desde el cobro en los que se admite devolver. 0 = sin límite. */
+  reembolsoPlazoDias: number;
+  /** No devolver un bono con sesiones ya gastadas. */
+  reembolsoSoloSinUsar: boolean;
   // Stripe Terminal (datáfono físico) emparejado con el estudio.
   stripeTerminalReaderId: string | null;
   stripeTerminalLocationId: string | null;

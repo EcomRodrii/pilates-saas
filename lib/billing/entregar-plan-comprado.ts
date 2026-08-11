@@ -40,6 +40,19 @@ export interface CompraPlan {
    * `plan.precio`, que es el comportamiento anterior.
    */
   importeCobradoCentimos: number | null;
+  /**
+   * `session.payment_intent`: el cargo real en Stripe.
+   *
+   * Sin esto, un recibo nacido de una compra web no tenía ninguna forma de
+   * volver a su cobro, y devolverlo desde el panel era imposible: había que
+   * buscarlo a mano en Stripe. La metadata del PI tampoco servía de atajo —
+   * el recibo se CREA aquí, después de pagar, así que su id no existía cuando
+   * se creó el PaymentIntent y no puede estar en su metadata.
+   *
+   * Null = no se sabe (una sesión sin cargo asociado). No es motivo para no
+   * entregar: el dinero ya está cobrado.
+   */
+  paymentIntentId: string | null;
 }
 
 export type ResultadoEntrega =
@@ -173,6 +186,7 @@ export async function entregarPlanComprado(
     fecha_devolucion: null,
     intentos_reintento: 0,
     metodo_cobro: 'TARJETA',
+    stripe_payment_intent_id: compra.paymentIntentId,
   });
   if (errRec && errRec.code !== YA_EXISTIA) {
     return { ok: false, motivo: 'error', detalle: errRec.message };

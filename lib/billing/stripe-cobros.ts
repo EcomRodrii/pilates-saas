@@ -165,6 +165,12 @@ export async function cobrarReciboOffSession(params: {
       const { error: updErr } = await admin
         .from('recibos').update({
           estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodo.metodo,
+          // El hilo de vuelta a Stripe. Antes solo se guardaba en la rama SEPA
+          // `processing`, así que un cobro con tarjeta que salía BIEN no dejaba
+          // ninguna forma de llegar a su cargo — y sin eso no se puede devolver
+          // desde el panel (`app/api/reembolsos`). Cuesta una columna que ya
+          // existía desde 0000_base y que nadie rellenaba en este camino.
+          stripe_payment_intent_id: paymentIntent.id,
           ...(esSepa ? { sepa_estado: 'succeeded' } : {}),
         }).eq('id', params.reciboId).eq('studio_id', params.studioId);
       if (updErr) {

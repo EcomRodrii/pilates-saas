@@ -349,10 +349,18 @@ export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancel
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
 // devoluciones, y meterlas aquí engordaría el payload de arranque de TODAS las
 // pantallas para nada (ver la fase B de "columnas, no consultas").
+//
+// ⚠️ Con UNA excepción, y a sabiendas: `entrega_sesiones_despues` sí viaja. Es
+// un entero nullable —no la fila de 2,7 KB que motivó aquella limpieza— y sin
+// él el botón de devolver de la ficha no puede evaluar la regla "solo bonos sin
+// empezar", que es justo la que el servidor SÍ evalúa. La alternativa era
+// ofrecer devolver un bono ya usado y que el endpoint lo rechazara después de
+// confirmar. Si algún día hay que quitarlo, hay que quitar también esa regla de
+// la pantalla, no dejarla decidiendo con datos que no tiene.
 export type FilaReciboPanel = Omit<RowRecibos,
   | 'proximo_reintento'
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
-  | 'entrega_sesiones_antes' | 'entrega_sesiones_despues'
+  | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
   | 'entrega_estado_antes' | 'importe_devuelto'>;
 
@@ -877,6 +885,12 @@ export function mapRecibo(r: FilaReciboPanel): Recibo {
     intentosReintento: r.intentos_reintento,
     metodoCobro: (r.metodo_cobro as Recibo['metodoCobro']) ?? null,
     sepaEstado: r.sepa_estado ?? null,
+    // Cuántas sesiones tenía el bono justo al entregarlo. Lo necesita el botón
+    // de devolver de la ficha (`soloSinUsar`) para decidir lo MISMO que decide
+    // el servidor: sin este dato la pantalla no puede evaluar esa regla y
+    // ofrecería devolver un bono empezado para que el endpoint lo rechace
+    // después de confirmar.
+    entregaSesionesDespues: r.entrega_sesiones_despues ?? null,
   } as Recibo;
 }
 
@@ -3585,6 +3599,9 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
+  if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
+  if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
   if ('requiereCheckinQr' in changes) db.requiere_checkin_qr = changes.requiereCheckinQr;
   // Desconectar Stripe: antes NO se mapeaba, así que `updateStudio({ stripeAccountId: null })`
   // solo limpiaba el estado local y la cuenta reaparecía al recargar. El dueño
@@ -3860,6 +3877,9 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    reembolsosActivos: r.reembolsos_activos ?? false,
+    reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
+    reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
     requiereCheckinQr: r.requiere_checkin_qr ?? true,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,
@@ -4049,7 +4069,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('instructores').select('*').eq('studio_id', sid),
     fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv').eq('studio_id', sid).range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a

@@ -284,6 +284,7 @@ async function entregar(
     // Lo cobrado de VERDAD, no el precio de catálogo de ahora: entre la compra
     // y este barrido el estudio puede haber cambiado el precio del plan.
     importeCobradoCentimos: typeof sesion?.amount_total === 'number' ? sesion.amount_total : null,
+    paymentIntentId: typeof sesion?.payment_intent === 'string' ? sesion.payment_intent : null,
   });
 
   if (!entrega.ok) {
