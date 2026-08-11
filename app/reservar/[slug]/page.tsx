@@ -20,6 +20,7 @@ import { RejillaSemana } from '@/components/reserva/rejilla-semana';
 import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
+import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -524,6 +525,28 @@ export default function ReservarPage() {
       instructorNombre: s.instructor?.nombre ?? null,
       horario: horarioDeSesion(s.inicio),
     })), [sesionesRich, nowMs]);
+
+  // La banda de cifras. Solo se cuentan datos que YA viajan en la carga
+  // pública — nada se escribe a mano, y lo que no se puede contar no se pinta
+  // (ver lib/reservar/cifras.ts).
+  //
+  // ⚠️ Faltan «alumnas» y «sedes» del diseño, y no es un olvido: `socios` no
+  // viaja para una visitante anónima —ni debe—, y las sedes de una cadena
+  // tampoco están en este payload. Enseñar cualquiera de las dos exige una
+  // decisión de qué se publica, no una línea más aquí.
+  const cifras = useMemo(() => {
+    const semana = nowMs + 7 * 24 * 60 * 60 * 1000;
+    const futuras = sesionesRich.filter(s => {
+      const t = new Date(s.inicio).getTime();
+      return t > nowMs && t <= semana && !s.cancelada;
+    });
+    return cifrasVisibles({
+      clasesSemana: futuras.length,
+      // Instructoras que DAN CLASE, no las dadas de alta: es la cifra que la
+      // clienta puede comprobar mirando el horario.
+      instructoras: new Set(futuras.map(s => s.instructor?.id).filter(Boolean)).size,
+    });
+  }, [sesionesRich, nowMs]);
 
   // ── Vista-modelo para el calendario compartido ──────────────────────────────
   // Se proyectan los datos crudos a ReservaSlot[] EXACTAMENTE como en el portal
@@ -1613,6 +1636,19 @@ export default function ReservarPage() {
           veía. Ahora es un pie de página de verdad, visible en las cuatro
           pestañas, con redes sociales (si el estudio las configuró en "Marca y
           colores") y los mismos enlaces legales de siempre. */}
+      {mereceBanda(cifras) && (
+        <div style={{ borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
+          <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
+            {cifras.map(c => (
+              <div key={c.id} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: serif, fontSize: cq(26, 3, 38), lineHeight: 1 }}>{c.valor}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 6 }}>{c.etiqueta}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <footer style={{ borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
