@@ -253,26 +253,53 @@ en JS — que es lo que ya hace `checkin-automatico`.
 
 **Prioridad.** Media. No corrompe nada; solo consume.
 
-## I-1 · Los 3 crons de Vercel son barridos globales con techo de 300 s y sin punto de retomada
+## I-1 · Los 3 barridos de Vercel con techo de 300 s — RESUELTO
 
 **Dónde.** `vercel.json` → `/api/cron/no-shows` (diario), `/api/cron/dependency-risk`
 (semanal), `/api/cron/materializar-plazas` (diario). Los tres con
 `maxDuration = 300` y el comentario explícito "todos los estudios en una sola
 invocación".
 
-**Por qué.** Es la misma clase de fallo que C-2 pero **truncando por tiempo en vez
-de por filas**. Son idempotentes (bien), pero al agotar los 300 s Vercel los mata
-a media pasada y **no queda constancia de por dónde iban**. La siguiente ejecución
-empieza otra vez desde el principio: si el barrido nunca cabe en 300 s, los
-estudios del final de la lista **no se procesan jamás**.
+**Por qué.** Misma clase que C-2 pero **truncando por tiempo en vez de por
+filas**. Son idempotentes (bien), pero al agotar los 300 s Vercel los mata a
+media pasada y **no queda constancia de por dónde iban**: la siguiente ejecución
+empieza otra vez por el principio, así que si el barrido no cabe en 300 s los
+estudios del final de la lista **no se procesan jamás**. No se vería como una
+caída, se vería como "a unos estudios les funciona y a otros no".
 
-**Impacto.** Hoy nulo (10 estudios). Con 100 estudios, `no-shows` empieza a rozar
-el techo. Con 1.000 no termina nunca y los no-shows de la cola de la lista no se
-marcan — lo que además falsea el scoring de riesgo y las penalizaciones.
+> **Corrección sobre el diagnóstico inicial.** Este informe proponía "procesar por
+> lotes con cursor persistido". Al abrirlos, el problema dominante **no era la
+> falta de cursor sino los `await` secuenciales por elemento**, y los tres tenían
+> formas distintas. Un cursor no habría arreglado el precipicio de
+> `dependency-risk`, que es el peor de los tres. Tampoco hizo falta ninguna
+> migración.
 
-**Solución.** Procesar por lotes con cursor persistido, o pasar a fan-out por
-estudio vía Inngest (que ya tiene reintentos y concurrencia). Mientras tanto,
-medir la duración real y alertar al superar el 60 % del techo.
+**Lo que resultó ser cada uno:**
+
+| cron | problema real | arreglo |
+|---|---|---|
+| `dependency-risk` | **el precipicio de verdad**: `for` secuencial sobre TODOS los estudios con varias consultas cada uno, y **un segundo** `for` secuencial publicando avisos + retención por estudio | `mapLimit(…, 8)` en ambos; lista de estudios paginada |
+| `no-shows` | no era cliffs sino **trabajo redundante**: escaneaba las sesiones de 30 días *cada noche*, re-barriendo lo ya barrido | pedir las **reservas** que siguen `CONFIRMADA`, no el universo de sesiones |
+| `materializar-plazas` | la RPC hace el grueso en SQL (bien), pero luego **un `await` por hueco** para avisar a cada socia | `mapLimit(…, 8)` |
+
+**Medido en producción antes de tocar `no-shows`**: escaneaba **35 sesiones para
+1 con trabajo real**. En régimen estacionario la redundancia es del orden de la
+ventana (cada noche vuelve a incluir los 29 días anteriores). Se verificó en vivo
+que ambas formulaciones devuelven **el mismo conjunto** (1 = 1) antes de cambiar
+nada, y la nueva consulta se validó contra el PostgREST real (HTTP 200).
+
+Al reformular se conservan explícitamente los dos filtros que importaban —la
+clase tiene que haber **terminado** y **no estar cancelada** (a nadie se le marca
+falta en una clase que se canceló)— y la guardia de carrera del `UPDATE`
+(`estado = CONFIRMADA`), para no pisar una cancelación hecha desde el panel entre
+la lectura y la escritura. Los cuatro van blindados con test.
+
+**De paso**, dos cosas que estaban al lado:
+- `calcularDependenciaTodosLosEstudios` leía `studios` **sin paginar** — una
+  instancia de C-3 que no salió en el barrido inicial porque vive en
+  `lib/instructor-dependency.ts`, fuera de `lib/inngest/` y `app/api/cron/`.
+- Un estudio cuyo cálculo fallaba se perdía en un `console.error`. Ahora va a
+  Sentry con su `studioId`.
 
 ## I-2 · No existía ningún health check — RESUELTO
 
@@ -488,7 +515,7 @@ Siguiendo tu regla final (estabilidad antes que funcionalidad):
 5. ✅ **I-0** — N+1 de `minimo-asistentes` sustituido por una lectura agregada.
    *Hecho.*
 6. ✅ **I-2** — `/api/health` y `/api/health/flujos`. *Hecho.*
-7. **I-1** — cursor en los 3 barridos de Vercel.
+7. ✅ **I-1** — los 3 barridos de Vercel. *Hecho.*
 8. **I-3** — barrido de detección a 72 h.
 9. **O-1** — bajar `conciliar-cobros`, `lista-espera-ofertas` y
    `reservas-pendientes` a */10 (−31 % de ticks).
