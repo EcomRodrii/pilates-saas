@@ -1718,6 +1718,13 @@ function mapPlantillaEmail(r: RowPlantillasEmail): PlantillaEmail {
     asunto: r.asunto ?? null,
     intro: r.intro ?? null,
     activa: r.activa ?? true,
+    cuerpo: r.cuerpo ?? null,
+    botonTexto: r.boton_texto ?? null,
+    colorCabecera: r.color_cabecera ?? null,
+    colorBoton: r.color_boton ?? null,
+    logoUrl: r.logo_url ?? null,
+    pie: r.pie ?? null,
+    fuente: (r.fuente as PlantillaEmail['fuente']) ?? null,
   };
 }
 
@@ -1736,6 +1743,13 @@ export async function dbUpsertPlantillaEmail(p: PlantillaEmail): Promise<Resulta
     asunto: p.asunto,
     intro: p.intro,
     activa: p.activa,
+    cuerpo: p.cuerpo,
+    boton_texto: p.botonTexto,
+    color_cabecera: p.colorCabecera,
+    color_boton: p.colorBoton,
+    logo_url: p.logoUrl,
+    pie: p.pie,
+    fuente: p.fuente,
     actualizado_en: new Date().toISOString(),
   }, { onConflict: 'studio_id,tipo' });
   return error ? falloEscritura('[dbUpsertPlantillaEmail]', error) : ESCRITURA_OK;

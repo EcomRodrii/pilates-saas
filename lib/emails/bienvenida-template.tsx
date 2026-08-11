@@ -1,5 +1,6 @@
 import { Text, Section, Hr } from '@react-email/components';
 import { EmailLayout, EmailButton } from '@/lib/emails/layout';
+import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
 interface Props {
   socioNombre: string;
@@ -12,6 +13,8 @@ interface Props {
   // app/api/emails/send). Sin él (Resend/Supabase Admin no disponibles), el
   // email se manda igual, solo sin el botón — ver generarEnlaceAccesoSocia.
   url?: string;
+  // Personalización total del estudio (plantillas_email).
+  personalizacion?: PersonalizacionPlantilla;
 }
 
 export function BienvenidaEmail({
@@ -22,7 +25,20 @@ export function BienvenidaEmail({
   colorPrimario,
   intro,
   url,
+  personalizacion,
 }: Props) {
+  if (personalizacion?.cuerpo) {
+    return (
+      <PlantillaEditableEmail
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
+        preview={`Ya eres parte de ${estudioNombre}`}
+        filas={planNombre ? [{ label: 'Tu plan', value: planNombre }] : []}
+        boton={url ? { href: url, texto: 'Activar mi acceso' } : undefined}
+      />
+    );
+  }
+
   return (
     <EmailLayout studioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario} titulo="¡Bienvenida! 🎉" preview={`Ya eres parte de ${estudioNombre}`}>
       <Text style={{ color: '#374151', fontSize: 15, lineHeight: 1.6, margin: '0 0 20px' }}>

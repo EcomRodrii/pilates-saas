@@ -76,6 +76,7 @@ import type {
   Socio,
   CampoPersonalizado,
   PlantillaEmail,
+  CambiosPlantillaEmail,
   InstructorDependencySnapshot,
   AceptacionContrato,
   Suscripcion,
@@ -499,7 +500,7 @@ interface StudioContextValue {
 
   // Plantillas de email transaccional
   plantillasEmail: PlantillaEmail[];
-  upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }) => Promise<ResultadoEscritura>;
+  upsertPlantillaEmail: (tipo: PlantillaEmail['tipo'], changes: CambiosPlantillaEmail) => Promise<ResultadoEscritura>;
 
   // Riesgo de concentración por instructor
   dependencySnapshots: InstructorDependencySnapshot[];
@@ -1475,11 +1476,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Plantillas de email ─────────────────────────────────────────────────────
 
-  async function upsertPlantillaEmail(tipo: PlantillaEmail['tipo'], changes: { asunto?: string | null; intro?: string | null; activa?: boolean }): Promise<ResultadoEscritura> {
+  async function upsertPlantillaEmail(tipo: PlantillaEmail['tipo'], changes: CambiosPlantillaEmail): Promise<ResultadoEscritura> {
     const existente = plantillasEmail.find(p => p.tipo === tipo);
     const merged: PlantillaEmail = existente
       ? { ...existente, ...changes }
-      : { id: `pl-${uid()}`, studioId: getCurrentStudioId(), tipo, asunto: null, intro: null, activa: true, ...changes };
+      : {
+          id: `pl-${uid()}`, studioId: getCurrentStudioId(), tipo,
+          asunto: null, intro: null, activa: true,
+          cuerpo: null, botonTexto: null, colorCabecera: null, colorBoton: null,
+          logoUrl: null, pie: null, fuente: null,
+          ...changes,
+        };
     const res = await dbUpsertPlantillaEmail(merged);
     if (!res.ok) return res;
     setPlantillasEmail(prev => {

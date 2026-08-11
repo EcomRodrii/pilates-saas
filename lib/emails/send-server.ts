@@ -4,7 +4,7 @@ import { PromocionEsperaEmail } from '@/lib/emails/promocion-espera-template';
 import { CancelacionClaseEmail } from '@/lib/emails/cancelacion-clase-template';
 import { RecordatorioEmail } from '@/lib/emails/recordatorio-template';
 import { ReservaEmail } from '@/lib/emails/reserva-template';
-import { resolverPlantilla, interpolar, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
+import { resolverPlantilla, interpolar, interpolarPersonalizacion, resolverMarcaEstudio, type PlantillaOverride, type MarcaEstudio } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from './remitente.ts';
 
@@ -46,7 +46,8 @@ async function renderPorTipo(
   const vars = { nombre: toName, estudio: d.estudioNombre, clase: d.claseNombre };
   const intro = plantilla.intro ? interpolar(plantilla.intro, vars) : undefined;
   const asunto = plantilla.asunto ? interpolar(plantilla.asunto, vars) : undefined;
-  const base = { socioNombre: toName, intro, ...marca, ...d };
+  const personalizacion = interpolarPersonalizacion(plantilla, vars);
+  const base = { socioNombre: toName, intro, personalizacion, ...marca, ...d };
   switch (tipo) {
     case 'promocion':
       return { html: await render(PromocionEsperaEmail(base)), subject: asunto ?? `Se ha liberado tu plaza — ${d.claseNombre}` };

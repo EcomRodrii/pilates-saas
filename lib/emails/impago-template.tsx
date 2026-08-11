@@ -1,5 +1,6 @@
 import { Text, Section, Hr } from '@react-email/components';
 import { EmailLayout } from '@/lib/emails/layout';
+import { PlantillaEditableEmail, type PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
 
 interface Props {
   socioNombre: string;
@@ -12,6 +13,8 @@ interface Props {
   // false = primer fallo (informativo, aún se reintentará solo).
   definitivo: boolean;
   intro?: string; // texto de introducción personalizado por el estudio
+  // Personalización total del estudio (plantillas_email).
+  personalizacion?: PersonalizacionPlantilla;
 }
 
 // Email a la SOCIA cuando un cobro de su recibo falla. Solo se envía en el primer
@@ -26,7 +29,22 @@ export function ImpagoEmail({
   colorPrimario,
   definitivo,
   intro,
+  personalizacion,
 }: Props) {
+  if (personalizacion?.cuerpo) {
+    return (
+      <PlantillaEditableEmail
+        estudioNombre={estudioNombre} logoUrl={logoUrl} colorPrimario={colorPrimario}
+        personalizacion={{ ...personalizacion, cuerpo: personalizacion.cuerpo }}
+        preview={`Problema con el cobro de ${concepto}`}
+        filas={[
+          { label: 'Concepto', value: concepto },
+          { label: 'Importe', value: `${importe.toFixed(2)} EUR` },
+        ]}
+      />
+    );
+  }
+
   const acento = definitivo ? '#B91C1C' : '#8F6215';
   const titulo = definitivo ? 'No hemos podido cobrar tu cuota' : 'Problema con tu pago';
   const cuerpo = definitivo

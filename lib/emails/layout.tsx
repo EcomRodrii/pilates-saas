@@ -35,6 +35,12 @@ interface EmailLayoutProps {
   titulo: string;
   // Texto corto que Gmail/Apple Mail muestran junto al asunto en la bandeja.
   preview?: string;
+  // Personalización por plantilla (plantillas_email). Ausente = como siempre.
+  // La familia sale de una lista cerrada de fuentes seguras en correo, validada
+  // en la app y con CHECK en la BD: aquí solo se pinta.
+  fuente?: string | null;
+  // Pie propio del estudio. Ausente = "Enviado por X · Powered by Tentare · año".
+  pie?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -45,18 +51,21 @@ export function EmailLayout({
   headerColor,
   titulo,
   preview,
+  fuente,
+  pie,
   children,
 }: EmailLayoutProps) {
   const primario = colorPrimario || COLOR_PRIMARIO_DEFECTO;
   const fondoHeader = headerColor || primario;
+  const familia = fuente || 'Plus Jakarta Sans';
 
   return (
     <Html lang="es">
       <Head>
-        <Font fontFamily="Plus Jakarta Sans" fallbackFontFamily="Arial" />
+        <Font fontFamily={familia} fallbackFontFamily="Arial" />
       </Head>
       {preview && <Preview>{preview}</Preview>}
-      <Body style={{ backgroundColor: '#EEEEE8', fontFamily: "'Plus Jakarta Sans', system-ui, 'Segoe UI', Arial, sans-serif", margin: 0, padding: '40px 0' }}>
+      <Body style={{ backgroundColor: '#EEEEE8', fontFamily: `'${familia}', system-ui, 'Segoe UI', Arial, sans-serif`, margin: 0, padding: '40px 0' }}>
         <Container style={{ maxWidth: 560, margin: '0 auto', backgroundColor: '#ffffff', borderRadius: 18, overflow: 'hidden', border: '1px solid #E5E1DA' }}>
           {/* El color del estudio va en una banda de membrete, no en una franja
               sólida con texto encima. Dos motivos: un colorPrimario pastel
@@ -76,9 +85,14 @@ export function EmailLayout({
                 {studioNombre}
               </Text>
             )}
-            <Heading as="h1" style={{ color: '#1A1A1A', fontSize: 26, fontWeight: 700, margin: 0, lineHeight: 1.22, letterSpacing: '-0.025em' }}>
-              {titulo}
-            </Heading>
+            {/* Vacío a propósito cuando la propietaria escribe el cuerpo entero:
+                ahí el titular es suyo y lo pone con un `# Título` en el
+                Markdown. Dejar además este H1 fijo daría dos títulos. */}
+            {titulo !== '' && (
+              <Heading as="h1" style={{ color: '#1A1A1A', fontSize: 26, fontWeight: 700, margin: 0, lineHeight: 1.22, letterSpacing: '-0.025em' }}>
+                {titulo}
+              </Heading>
+            )}
           </Section>
 
           <Section style={{ padding: '18px 34px 30px' }}>
@@ -88,7 +102,7 @@ export function EmailLayout({
           <Section style={{ borderTop: '1px solid #E5E1DA', padding: '18px 34px', backgroundColor: '#FAFAF7' }}>
             {/* Antes iba en gris claro: 2,76:1 sobre este fondo, no llegaba a AA. */}
             <Text style={{ color: '#63635D', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-              Enviado por {studioNombre} · Powered by Tentare · {new Date().getFullYear()}
+              {pie ?? <>Enviado por {studioNombre} · Powered by Tentare · {new Date().getFullYear()}</>}
             </Text>
           </Section>
         </Container>
