@@ -809,8 +809,8 @@ que Claude Code ya soporta en este proyecto, sin dependencias externas nuevas.
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
 (`lib/inngest/decision.ts`). Auditoría completa y plan de 6 fases en
-`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0 y 1 entregadas (2026-08-11);
-Fases 2–5 pendientes.** No duplicar la capa: los especialistas nuevos se
+`docs/TENTARE-BRAIN-AUDITORIA.md`. **Fases 0, 1 y 2 entregadas (2026-08-11);
+Fases 3–5 pendientes.** No duplicar la capa: los especialistas nuevos se
 añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
 
 - **`Prediccion` ≠ `Confianza`** (`lib/decision/prediccion.ts`). `Confianza` es
@@ -836,3 +836,20 @@ añaden a `especialistas/contrato.ts`, no en pantallas sueltas.
   luego por WhatsApp). Y el silencio cuenta como "no aceptó": **nadie escribe
   nunca el estado `'expirado'`**, así que contar solo aceptado+rechazado daría
   100 % a quien contesta 1 de cada 10 veces.
+
+- **Agenda ya mira hacia delante** (A4/A5, fase 2). A1/A2/A3 son forenses
+  (franjas que ya fueron mal); A4 pronostica una sesión FUTURA comparándola con
+  la curva de reserva de su franja en el mismo punto (mismos días vista), y A5
+  detecta la clase que se queda sin quien la dé. Tope de 3 avisos de A4 por
+  pasada — sin él, 40 clases semanales ahogan el Centro de Control.
+- ⚠️ **A5 no reabre la decisión de #558.** Confirmar una ausencia sigue sin
+  disparar ninguna sustitución automática sobre las clases ya programadas: A5
+  solo se lo CUENTA a la propietaria. El hueco que cierra es real — los 6 sitios
+  que miran ausencias hoy (`ausenciaEnFecha`) lo hacen todos al ASIGNAR, ninguno
+  revisa el horario ya hecho contra un bloqueo grabado después.
+- **Un bloqueo de agenda se busca en `instructora_disponibilidad_excepciones`**
+  (`tipo='bloqueo'`), no en `instructora_ausencias`: las vacaciones y bajas ya se
+  materializan ahí como bloqueos diarios (migr 0101). Una tabla, no dos.
+- **La afinidad con una clase pesa la costumbre horaria por encima de todo**
+  (`candidatasPorAfinidad`). `candidatasParaHueco` (booking-logic) es binaria y
+  responde a otra pregunta: quién PODRÍA venir, no a quién merece la pena avisar.
