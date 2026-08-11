@@ -644,6 +644,10 @@ export interface Instructor {
   fotoUrl?: string | null;
   rol: Rol;
   authUserId: string | null;
+  // Bio pública (P1 auditoría Momence-vs-Tentare) — null = sin bio, no se
+  // muestra nada. Pasa a mapInstructorPublico() sin filtrar: es un dato
+  // pensado para mostrarse a visitantes anónimos.
+  bio?: string | null;
 }
 
 export interface Sesion {

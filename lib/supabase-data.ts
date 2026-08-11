@@ -3945,6 +3945,7 @@ export function mapInstructor(r: RowInstructores): Instructor {
     fotoUrl: r.foto_url ?? null,
     rol: r.rol ?? 'INSTRUCTOR',
     authUserId: r.auth_user_id ?? null,
+    bio: r.bio ?? null,
   } as Instructor;
 }
 

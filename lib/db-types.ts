@@ -263,6 +263,7 @@ export interface RowInstructores {
   auth_user_id: string | null;
   avatar: string | null;
   foto_url: string | null;
+  bio: string | null;
 }
 
 export interface RowIntegracionCredenciales {
@@ -415,8 +416,6 @@ export interface RowRecibos {
   disputa_estado: string | null;
   disputa_stripe_id: string | null;
   stripe_payment_intent_id: string | null;
-  reembolso_solicitado_en: string | null;
-  reembolso_stripe_id: string | null;
   entrega_tipo: string | null;
   entrega_aplicada: boolean | null;
   entrega_aplicada_en: string | null;
@@ -426,6 +425,8 @@ export interface RowRecibos {
   entrega_fecha_fin_despues: string | null;
   entrega_estado_antes: string | null;
   importe_devuelto: number | null;
+  reembolso_solicitado_en: string | null;
+  reembolso_stripe_id: string | null;
 }
 
 export interface RowRewardActions {
@@ -660,6 +661,8 @@ export interface RowStudios {
   reembolsos_activos: boolean | null;
   reembolso_plazo_dias: number | null;
   reembolso_solo_sin_usar: boolean | null;
+  pagina_publica_oculta: boolean | null;
+  pagina_publica_clave_hash: string | null;
 }
 
 export interface RowSuscripciones {
@@ -683,10 +686,6 @@ export interface RowTiposClase {
   descripcion: string | null;
   nivel: string | null;
   foto_url: string | null;
-  // migr 20260811134019. `text[] not null default '{}'` — pero se declara
-  // nullable aquí porque una fila leída con un `select` que no la pida llega
-  // sin ella, y el mapper ya lo tolera.
-  objetivos: string[] | null;
   ventana_cancelacion_horas: number | null;
   reserva_exigir_plan: boolean | null;
   reserva_ventana_minima_minutos: number | null;
@@ -696,6 +695,10 @@ export interface RowTiposClase {
   penalizacion_importe_eur: number | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
+  // migr 20260811134019. `text[] not null default '{}'` — pero se declara
+  // nullable aquí porque una fila leída con un `select` que no la pida llega
+  // sin ella, y el mapper ya lo tolera.
+  objetivos: string[] | null;
 }
 
 export interface RowUsuarios {
@@ -1570,4 +1573,10 @@ export interface RowPagosHistoricos {
   importe: number;
   medio_pago: string | null;
   creado_en: string;
+}
+
+export interface RowResumenSemanalEnvios {
+  studio_id: string;
+  semana_lunes: string;
+  enviado_en: string;
 }
