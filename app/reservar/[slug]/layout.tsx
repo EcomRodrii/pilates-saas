@@ -9,9 +9,24 @@ import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
 
-// SEO server-rendered (I-9): título/descripción/Open Graph con el nombre y la
-// ciudad del estudio, para que "pilates <ciudad> reservar" indexe contenido real
-// en vez de una página en blanco de cliente.
+// Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
+// la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
+// para los previsualizadores de enlaces — NO para buscadores (ver abajo).
+//
+// ⚠️ Estas páginas NO se indexan, por decisión de producto (2026-08-11): la
+// prioridad de tentare.app es SEO B2B (propietarias buscando software), y abrir
+// `/reservar/<slug>` generaría miles de URLs B2C locales, una por estudio, que
+// compiten por consultas que no convierten en cliente de Tentare.
+//
+// Antes esto se contradecía consigo mismo: aquí se declaraba `index: true` y
+// `app/robots.ts` prohibía `/reservar`. Google no puede rastrear para leer una
+// etiqueta que le hemos prohibido ir a buscar, así que la etiqueta no hacía
+// nada y la intención real quedaba sin escribir en ningún sitio.
+//
+// Ahora las dos puertas dicen lo mismo. El `noindex` es la segunda línea: si
+// algún día se levanta el `disallow` de robots.txt —o un rastreador lo ignora—
+// la página sigue diciendo que no se indexe. Para volver a abrirlas hay que
+// tocar los DOS sitios a la vez, que es exactamente lo que se quiere.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const studio = await getStudioSeo(slug);
@@ -34,11 +49,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: descripcion,
     openGraph: { title: titulo, description: descripcion, type: 'website', locale: 'es_ES', ...imagenes },
     twitter: { card: tarjeta, title: titulo, description: descripcion, ...imagenes },
-    // ⚠️ Una página oculta NO se indexa, pase lo que pase con la cookie. El
-    // `noindex` va aquí y no en la rama que decide qué pintar porque Google
-    // llega sin cookie: si dependiera del pase, un rastreo hecho justo antes
-    // de ocultarla dejaría el contenido en el índice durante semanas.
-    robots: studio.paginaOculta ? { index: false, follow: false } : { index: true, follow: true },
+    // Nunca indexable, esté la página oculta o no (ver cabecera). `follow: false`
+    // porque los únicos enlaces que salen de aquí van al portal de la socia, que
+    // también está fuera del índice.
+    robots: { index: false, follow: false },
     ...(theme.faviconUrl ? { icons: { icon: theme.faviconUrl } } : {}),
   };
 }

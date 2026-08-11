@@ -1,71 +1,24 @@
 import type { MetadataRoute } from 'next';
+import { PAGINAS, urlDe } from '@/lib/seo/paginas';
 
-const BASE_URL = 'https://tentare.app';
-
-// Anclas de app/page.tsx con intención de búsqueda propia (precio, FAQ...).
-// No son URLs distintas de verdad —la landing es una sola página—, pero
-// listarlas ayuda a Google a entender la estructura interna y a elegir
-// jump-links (sitelinks) para la home. Si algún día se separan en rutas
-// reales, esta lista se sustituye por esas.
-const ANCLAS_LANDING = ['#precio', '#faq', '#sustituciones', '#migracion'];
-
-// Guías reales de /recursos/<slug> (páginas indexables de verdad, a
-// diferencia de las anclas de arriba). Añadir aquí cada vez que se publique
-// una guía nueva bajo app/recursos/.
-const GUIAS_RECURSOS = [
-  'cubrir-baja-instructora',
-  'facturacion-electronica-verifactu',
-  'precios-reformer-mat',
-  'estudios-pilates-de-exito',
-  'ocupacion-clases-valle',
-  'reducir-cancelaciones-ultima-hora',
-  'checklist-elegir-software-estudio',
-];
-
+// El sitemap se DERIVA del registro (lib/seo/paginas.ts); aquí no se mantiene
+// ninguna lista.
+//
+// Antes había tres listas a mano y las tres se desincronizaron:
+//  · las 7 páginas de /comparativa/tentare-vs-* nunca llegaron a entrar,
+//  · se listaban anclas de la home (`/#precio`, `/#faq`…) que Google normaliza
+//    quitando el fragmento — cuatro entradas duplicadas de `/`, no cuatro URLs
+//    (los sitelinks ya los sugiere el SiteNavigationElement de
+//    components/OrganizationStructuredData.tsx, que es donde corresponde),
+//  · y no había `lastModified` en ninguna entrada.
+// `lib/seo/paginas.test.ts` falla si aparece una página pública sin registrar.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const legales = ['/legal', '/privacidad', '/terminos', '/cookies'].map((p) => ({
-    url: `${BASE_URL}${p}`,
-    changeFrequency: 'yearly' as const,
-    priority: 0.3,
+  return PAGINAS.map((p) => ({
+    url: urlDe(p.path),
+    changeFrequency: p.changeFrequency,
+    priority: p.prioridad,
+    // Solo cuando la fecha es real. Ver el comentario de `actualizado` en el
+    // registro: inventarla es peor que omitirla.
+    ...(p.actualizado ? { lastModified: new Date(p.actualizado) } : {}),
   }));
-  const anclas = ANCLAS_LANDING.map((hash) => ({
-    url: `${BASE_URL}/${hash}`,
-    changeFrequency: 'weekly' as const,
-    priority: 0.6,
-  }));
-  const guias = GUIAS_RECURSOS.map((slug) => ({
-    url: `${BASE_URL}/recursos/${slug}`,
-    changeFrequency: 'monthly' as const,
-    priority: 0.7,
-  }));
-  return [
-    {
-      url: BASE_URL,
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-    {
-      url: `${BASE_URL}/recursos`,
-      changeFrequency: 'weekly',
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/comparativa`,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/seguridad`,
-      changeFrequency: 'monthly',
-      priority: 0.6,
-    },
-    {
-      url: `${BASE_URL}/glosario`,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    ...guias,
-    ...anclas,
-    ...legales,
-  ];
 }

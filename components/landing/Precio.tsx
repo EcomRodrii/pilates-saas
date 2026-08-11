@@ -47,7 +47,17 @@ export function Precio() {
             </Reveal>
           ))}
         </div>
-        <p className="lp-mono" style={{ textAlign: 'center', fontSize: 11, color: '#A8A89F', marginTop: 26 }}>Sin permanencia · Migración incluida · Pagos vía Stripe, sin comisión extra de Tentare</p>
+        <div style={{ textAlign: 'center', marginTop: 26 }}>
+          {/* El bloque de precios se queda en la landing porque convierte; el
+              detalle (comparativa plan a plan, límites, qué se paga aparte y
+              FAQ de precio) vive en /precios, que es la URL que puede
+              posicionar por esa consulta. */}
+          <Link href="/precios" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 15, fontWeight: 700, color: ACC }}>
+            Comparar los planes en detalle
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </Link>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', marginTop: 18 }}>Sin permanencia · Migración incluida · Pagos vía Stripe, sin comisión extra de Tentare</p>
+        </div>
       </div>
     </section>
   );

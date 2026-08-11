@@ -1,6 +1,12 @@
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import Link from 'next/link';
 import { DARK, MUTED_DARK } from './theme';
+import { funcionalidades } from '@/lib/seo/paginas';
+
+// Las seis funcionalidades del footer salen del registro, en su orden. Una
+// página nueva entra aquí sola; una que se retire deja de enlazarse sola. Seis
+// y no diez porque el footer tiene que caber: el resto cuelga del hub.
+const ENLACES_PLATAFORMA = funcionalidades().slice(0, 6);
 
 export function Footer() {
   return (
@@ -23,29 +29,33 @@ export function Footer() {
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#E8E8E4', marginBottom: 14 }}>Producto</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontSize: 14 }}>
-              <a href="#recorrido" style={{ color: '#8E8E86' }}>Todo lo que hace</a>
-              <a href="#sustituciones" style={{ color: '#8E8E86' }}>Sustituciones</a>
-              <a href="#precio" style={{ color: '#8E8E86' }}>Precio</a>
-              <a href="#faq" style={{ color: '#8E8E86' }}>FAQ</a>
-              <Link href="/recursos" style={{ color: '#8E8E86' }}>Recursos</Link>
-              <Link href="/glosario" style={{ color: '#8E8E86' }}>Glosario</Link>
+              <Link href="/funcionalidades" style={{ color: '#8E8E86' }}>Funcionalidades</Link>
+              <Link href="/precios" style={{ color: '#8E8E86' }}>Precios</Link>
               <Link href="/comparativa" style={{ color: '#8E8E86' }}>Comparativa</Link>
               <Link href="/seguridad" style={{ color: '#8E8E86' }}>Seguridad</Link>
+              <Link href="/recursos" style={{ color: '#8E8E86' }}>Recursos</Link>
+              <Link href="/glosario" style={{ color: '#8E8E86' }}>Glosario</Link>
+              <a href="#faq" style={{ color: '#8E8E86' }}>FAQ</a>
             </div>
           </div>
+          {/* Antes esta columna tenía tres etiquetas distintas ("Reservas y
+              calendario", "Cobros y bonos", "Instructoras") apuntando LAS TRES
+              al mismo ancla `#recorrido`. Ahora cada una va a su página. */}
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#E8E8E4', marginBottom: 14 }}>Plataforma</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontSize: 14 }}>
-              <a href="#recorrido" style={{ color: '#8E8E86' }}>Reservas y calendario</a>
-              <a href="#recorrido" style={{ color: '#8E8E86' }}>Cobros y bonos</a>
-              <a href="#recorrido" style={{ color: '#8E8E86' }}>Instructoras</a>
-              <a href="#centro-de-control" style={{ color: '#8E8E86' }}>App de marca</a>
+              {ENLACES_PLATAFORMA.map((p) => (
+                <Link key={p.path} href={p.path} style={{ color: '#8E8E86' }}>{p.etiqueta}</Link>
+              ))}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#E8E8E4', marginBottom: 14 }}>Empresa</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontSize: 14 }}>
-              <a href="#top" style={{ color: '#8E8E86' }}>Sobre Tentare</a>
+              {/* "Sobre Tentare" apuntaba a `#top`, o sea a ningún sitio.
+                  Hasta que exista una página propia, el destino honesto es la
+                  comparativa, que es donde se cuenta qué es y qué no es. */}
+              <Link href="/comparativa" style={{ color: '#8E8E86' }}>Qué es Tentare</Link>
               <a href="https://instagram.com/tentare.app" target="_blank" rel="noopener noreferrer" style={{ color: '#8E8E86' }}>@tentare.app</a>
               <a href="mailto:hola@tentare.app" style={{ color: '#8E8E86' }}>Contacto</a>
             </div>
