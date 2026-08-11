@@ -94,3 +94,29 @@ export function avisarAlSalir(estado: EstadoGuardado): boolean {
   return estado.tipo === 'pendiente' || estado.tipo === 'guardando'
     || estado.tipo === 'error' || estado.tipo === 'sesion';
 }
+
+/**
+ * El estado que se enseña cuando hay DOS autoguardados a la vez (los bloques y
+ * los ajustes del tema) y un solo hueco en la barra para contarlo.
+ *
+ * ⚠️ Gana el que tenga peores noticias, nunca el más reciente. Un «Guardado»
+ * del tema tapando un error de los bloques le diría a la propietaria que su
+ * trabajo está a salvo cuando la mitad no lo está — y ese aviso es lo ÚNICO
+ * que la haría parar y volver a entrar.
+ *
+ * El orden no es alfabético ni casual: `sesion` va por delante de `error`
+ * porque pide algo distinto (volver a entrar, no esperar), y `guardado` cede
+ * ante cualquier cosa en curso porque decir «Guardado» mientras algo vuela es
+ * exactamente la mentira que hace cerrar la pestaña.
+ */
+const URGENCIA: Record<EstadoGuardado['tipo'], number> = {
+  sesion: 5, error: 4, guardando: 3, pendiente: 2, guardado: 1, limpio: 0,
+};
+
+export function peorEstado(a: EstadoGuardado, b: EstadoGuardado): EstadoGuardado {
+  if (URGENCIA[b.tipo] > URGENCIA[a.tipo]) return b;
+  // Empate entre dos `guardado`: se queda el MÁS ANTIGUO. «Guardado hace 3
+  // minutos» es verdad para las dos mitades; «hace 2 segundos» solo para una.
+  if (a.tipo === 'guardado' && b.tipo === 'guardado') return a.en <= b.en ? a : b;
+  return a;
+}

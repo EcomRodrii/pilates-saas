@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  pantallasCambiadas, esperaReintento, textoEstado, avisarAlSalir,
+  pantallasCambiadas, esperaReintento, textoEstado, avisarAlSalir, peorEstado,
   type PorPantalla, type EstadoGuardado,
 } from './autoguardado.ts';
 import type { BloqueHome } from '../portal-home-bloques.ts';
@@ -110,4 +110,39 @@ test('con la sesión caducada TAMBIÉN se avisa antes de cerrar la pestaña', ()
   // Es justo cuando más hay que perder: nada de lo editado ha llegado al
   // servidor. Olvidar este caso sería tirar el trabajo sin preguntar.
   assert.equal(avisarAlSalir({ tipo: 'sesion' }), true);
+});
+
+// ── peorEstado ──────────────────────────────────────────────────────────────
+// Dos autoguardados (bloques y tema) y un solo hueco para contarlo.
+
+test('peorEstado: cualquier cosa gana a limpio', () => {
+  assert.deepEqual(peorEstado({ tipo: 'limpio' }, { tipo: 'pendiente' }), { tipo: 'pendiente' });
+  assert.deepEqual(peorEstado({ tipo: 'guardando' }, { tipo: 'limpio' }), { tipo: 'guardando' });
+});
+
+test('peorEstado: un error NO puede quedar tapado por un guardado', () => {
+  const err = { tipo: 'error', intentos: 2 } as const;
+  assert.deepEqual(peorEstado({ tipo: 'guardado', en: 999 }, err), err);
+  assert.deepEqual(peorEstado(err, { tipo: 'guardado', en: 999 }), err);
+});
+
+test('peorEstado: la sesión caducada gana incluso a un error', () => {
+  // Piden cosas distintas: uno se arregla esperando, el otro volviendo a entrar.
+  assert.deepEqual(peorEstado({ tipo: 'error', intentos: 1 }, { tipo: 'sesion' }), { tipo: 'sesion' });
+  assert.deepEqual(peorEstado({ tipo: 'sesion' }, { tipo: 'error', intentos: 1 }), { tipo: 'sesion' });
+});
+
+test('peorEstado: "guardando" gana a "guardado" — no se dice que está hecho mientras algo vuela', () => {
+  assert.deepEqual(peorEstado({ tipo: 'guardado', en: 5 }, { tipo: 'guardando' }), { tipo: 'guardando' });
+});
+
+test('peorEstado: entre dos guardados se queda el MÁS ANTIGUO', () => {
+  // «Guardado hace 3 min» es cierto para las dos mitades; «hace 2 s» solo
+  // para una, y es la que invita a cerrar la pestaña.
+  assert.deepEqual(peorEstado({ tipo: 'guardado', en: 100 }, { tipo: 'guardado', en: 900 }), { tipo: 'guardado', en: 100 });
+  assert.deepEqual(peorEstado({ tipo: 'guardado', en: 900 }, { tipo: 'guardado', en: 100 }), { tipo: 'guardado', en: 100 });
+});
+
+test('peorEstado: dos limpios siguen limpios', () => {
+  assert.deepEqual(peorEstado({ tipo: 'limpio' }, { tipo: 'limpio' }), { tipo: 'limpio' });
 });

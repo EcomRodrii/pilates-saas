@@ -63,8 +63,8 @@ const AJUSTES_EN_EL_PORTAL = new Set<AjustesCategoriaId>([
 import { HomePreview, PANTALLAS_SOLO_NAVEGABLES, type VistaId } from './home-preview';
 import { SelectorPagina, type OpcionPagina } from './selector-pagina';
 import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
-import { useAutoguardado } from './use-autoguardado';
-import { textoEstado } from '@/lib/theme/autoguardado';
+import { useAutoguardado, useAutoguardadoTema } from './use-autoguardado';
+import { textoEstado, peorEstado } from '@/lib/theme/autoguardado';
 import type { ModoPreview } from '@/components/portal/portal-preview-bridge';
 import {
   ESTADO_INICIAL, elegirPagina, elegirBloque, elegirItemContenido, elegirCategoria,
@@ -248,11 +248,27 @@ export function ThemeEditorFullscreen() {
   //
   // El tercer argumento es la guarda que impide guardar antes de que llegue
   // el borrador del servidor — sin ella se subirían los bloques de fábrica.
-  const { estado: estadoGuardado } = useAutoguardado(
+  const { estado: estadoBloques } = useAutoguardado(
     bloquesHook.bloquesPorPantalla,
     guardarBloquesBorradorApi,
     bloquesHook.estado === 'listo',
   );
+
+  // ⚠️ Los AJUSTES DEL TEMA no se autoguardaban. Medido usando el editor real:
+  // cambiar «Accesos rápidos → Rejilla» se veía al momento en el preview y al
+  // recargar volvía a Círculos. El único camino para persistirlos era
+  // Publicar —que además los manda a las socias— y el indicador de estado se
+  // quedaba VACÍO, así que nadie avisaba de que se estaba perdiendo el trabajo.
+  const { estado: estadoTema } = useAutoguardadoTema(
+    ajustesHook.draft,
+    guardarThemeBorrador,
+    ajustesHook.estado === 'listo',
+  );
+
+  // Un solo indicador para los dos. Gana el que tenga algo que contar: un
+  // «Guardado» del tema no puede tapar un error de los bloques ni al revés —
+  // sería decirle que su trabajo está a salvo cuando la mitad no lo está.
+  const estadoGuardado = peorEstado(estadoBloques, estadoTema);
 
   // ⚠️ Solo se niega el acceso cuando el rol se CONOCE.
   //

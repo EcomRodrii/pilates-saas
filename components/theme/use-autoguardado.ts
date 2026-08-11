@@ -147,3 +147,105 @@ export function useAutoguardado(
 
   return { estado, guardarYa: intentar };
 }
+
+/**
+ * Lo mismo, para los AJUSTES DEL TEMA.
+ *
+ * ⚠️ Esto faltaba, y era una pérdida de trabajo silenciosa. Medido usando el
+ * editor real: se cambiaba «Accesos rápidos → Rejilla», el preview lo enseñaba
+ * al momento… y al recargar volvía a Círculos. El tema NO se autoguardaba —
+ * `useAutoguardado` solo recibe los bloques— y el único camino para
+ * persistirlo era **Publicar**, que además lo manda a las socias. El indicador
+ * de estado se quedaba vacío, así que tampoco avisaba de nada: media hora
+ * ajustando colores se iba al recargar sin que nadie dijera una palabra.
+ *
+ * Va aparte y no dentro del hook de bloques a propósito: aquel serializa POR
+ * PANTALLA y su tipo es un `Record<PantallaId, …>`; meter el tema ahí obligaba
+ * a retorcer ese tipo y a tocar el guardado ya probado de los bloques. Lo que
+ * sí se comparte es lo que de verdad importa —las cinco reglas aprendidas—:
+ *
+ * 1. La línea base se fija cuando TERMINA la carga, nunca al montar: con la
+ *    base equivocada, lo primero que haría el autoguardado es subir el tema de
+ *    FÁBRICA encima del que el estudio tenía guardado.
+ * 2. Nunca se revierte el estado local: lo que hay en pantalla es suyo.
+ * 3. Una petición cada vez, sin solapar: una respuesta lenta no puede pisar a
+ *    una más nueva.
+ * 4. Con la sesión caducada no se reintenta ni se reprograma.
+ * 5. Se fotografía lo enviado: si entra otra edición mientras vuela, se
+ *    confirma solo lo que el servidor llegó a ver.
+ */
+export function useAutoguardadoTema<T>(
+  draft: T,
+  guardar: (draft: T) => Promise<unknown>,
+  activo: boolean,
+) {
+  const [estado, setEstado] = useState<EstadoGuardado>({ tipo: 'limpio' });
+  const confirmado = useRef<T | null>(null);
+  const ultimo = useRef<T>(draft);
+  const enVuelo = useRef(false);
+  const fallos = useRef(0);
+  const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reintentar = useRef<() => void>(() => {});
+
+  useEffect(() => { ultimo.current = draft; }, [draft]);
+
+  useEffect(() => {
+    if (!activo || confirmado.current !== null) return;
+    confirmado.current = draft;
+  }, [activo, draft]);
+
+  const intentar = useCallback(async () => {
+    if (enVuelo.current) return;
+    if (confirmado.current === null) return;
+    enVuelo.current = true;
+    let seMandoAlgo = false;
+    try {
+      for (;;) {
+        // Comparación por CONTENIDO y no por identidad: el borrador se
+        // reconstruye en cada tecleo, así que `!==` mandaría en cada render
+        // aunque no haya cambiado nada.
+        if (JSON.stringify(confirmado.current) === JSON.stringify(ultimo.current)) break;
+        setEstado({ tipo: 'guardando' });
+        const enviado = ultimo.current;
+        await guardar(enviado);
+        confirmado.current = enviado;
+        seMandoAlgo = true;
+      }
+      enVuelo.current = false;
+      fallos.current = 0;
+      setEstado(seMandoAlgo ? { tipo: 'guardado', en: Date.now() } : { tipo: 'limpio' });
+    } catch (e) {
+      enVuelo.current = false;
+      if (esSesionCaducada(e)) {
+        if (temporizador.current) clearTimeout(temporizador.current);
+        setEstado({ tipo: 'sesion' });
+        return;
+      }
+      const intentos = fallos.current;
+      fallos.current = intentos + 1;
+      if (temporizador.current) clearTimeout(temporizador.current);
+      temporizador.current = setTimeout(() => reintentar.current(), esperaReintento(intentos));
+      setEstado({ tipo: 'error', intentos });
+    }
+  }, [guardar]);
+
+  useEffect(() => { reintentar.current = () => void intentar(); }, [intentar]);
+
+  useEffect(() => {
+    if (!activo || confirmado.current === null) return;
+    if (JSON.stringify(confirmado.current) === JSON.stringify(draft)) return;
+    setEstado((prev) => (prev.tipo === 'error' || prev.tipo === 'sesion' ? prev : { tipo: 'pendiente' }));
+    if (temporizador.current) clearTimeout(temporizador.current);
+    temporizador.current = setTimeout(() => void intentar(), ESPERA_MS);
+    return () => { if (temporizador.current) clearTimeout(temporizador.current); };
+  }, [draft, activo, intentar]);
+
+  useEffect(() => {
+    if (!avisarAlSalir(estado)) return;
+    const alSalir = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', alSalir);
+    return () => window.removeEventListener('beforeunload', alSalir);
+  }, [estado]);
+
+  return { estado, guardarYa: intentar };
+}
