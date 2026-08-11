@@ -46,7 +46,6 @@ export default function FacturacionPage() {
       h1={<>Facturas que cumplen, sin que tengas que saber cómo.</>}
       intro={<>Cada cobro genera su factura con número correlativo, huella encadenada y QR de verificación. Firmada y transmitida a la AEAT sin que abras nada.</>}
       chips={['Veri*Factu nativo', 'Numeración a prueba de carreras', 'Cierre anual para la gestoría']}
-      gradient="linear-gradient(140deg,#141812 0%,#22251A 58%,#3A4030 100%)"
       visual={<LoQueLlevaLaFactura />}
     >
       <Seccion id="contexto" titulo="Qué cambió en España, en una página">

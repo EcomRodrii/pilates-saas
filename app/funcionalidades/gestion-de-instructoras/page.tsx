@@ -46,7 +46,6 @@ export default function InstructorasPage() {
       h1={<>Quién puede dar qué, y cuándo.</>}
       intro={<>Disponibilidad, vacaciones, horas y tarifas de cada instructora en un sitio. Los mismos datos con los que cuadras el horario son los que cubren una baja sola.</>}
       chips={['Disponibilidad y bloqueos', 'Tarifa por hora y liquidación', 'Aviso de dependencia']}
-      gradient="linear-gradient(140deg,#0F1310 0%,#22463A 58%,#3B6E5B 100%)"
       visual={<DisponibilidadSemanal />}
     >
       <Seccion id="problema" titulo="El dato que suele vivir en la cabeza de alguien">

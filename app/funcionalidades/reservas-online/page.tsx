@@ -46,8 +46,7 @@ export default function ReservasPage() {
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
-      gradient="linear-gradient(140deg,#131611 0%,#2A3122 58%,#46503A 100%)"
-      visual={<CicloDeReserva />}
+      captura={{ src: '/producto/calendario-dia.png', alt: 'Vista de día del calendario de Tentare, con las salas en columnas', pie: 'Un día por salas. Cada bloque lleva su aforo y quien la da.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El coste real de reservar por WhatsApp">
         <Entradilla>
@@ -102,6 +101,7 @@ export default function ReservasPage() {
       </Seccion>
 
       <Seccion id="llenas" titulo="Cuando la clase está llena — y cuando se vacía">
+        <CicloDeReserva />
         <p>
           Una clase completa no es el final del camino: es donde se decide si esa plaza se recupera cuando alguien cancela.
           Eso lo lleva la <Link href="/funcionalidades/lista-de-espera">lista de espera</Link>, que puede promocionar al

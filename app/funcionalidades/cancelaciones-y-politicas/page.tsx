@@ -50,7 +50,6 @@ export default function CancelacionesPage() {
       h1={<>La plaza vacía de las 19:00.</>}
       intro={<>Alguien cancela veinte minutos antes y esa plaza ya no la ocupa nadie. Aquí decides qué pasa con su sesión, con el hueco y —si quieres— con su tarjeta.</>}
       chips={['Ventana por tipo de clase', 'Devolución de bono configurable', 'Penalización opcional']}
-      gradient="linear-gradient(140deg,#1A1210 0%,#3E2620 55%,#7A4133 100%)"
       visual={<LaVentana />}
     >
       <Seccion id="problema" titulo="Cancelar tarde no es lo mismo que cancelar">

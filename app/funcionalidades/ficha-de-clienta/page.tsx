@@ -46,7 +46,7 @@ export default function FichaPage() {
       h1={<>Saber quién es antes de que entre por la puerta.</>}
       intro={<>Historial, bonos, asistencia y notas de progreso de cada alumna. Y sus limitaciones físicas donde tienen que estar: delante de quien le va a dar la clase.</>}
       chips={['Historial completo', 'Ficha de salud operativa', 'Consentimiento trazable']}
-      gradient="linear-gradient(140deg,#191113 0%,#3A2528 56%,#6B4038 100%)"
+      foto={{ src: '/disciplinas/pilates.jpg', alt: 'Alumna en una clase de Pilates reformer', encuadre: 'center 30%' }}
       visual={<Semaforo />}
     >
       <Seccion id="problema" titulo="La información existe. Está repartida en cinco sitios">

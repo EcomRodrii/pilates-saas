@@ -52,7 +52,7 @@ export default function SustitucionesPage() {
       h1={<>La baja se cubre sola.</>}
       intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y está escribiéndoles por orden.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}
-      gradient="linear-gradient(140deg,#191C11 0%,#343825 62%,#3E4430 100%)"
+      foto={{ src: '/disciplinas/pilates.jpg', alt: 'Sala de reformers de un estudio de Pilates', encuadre: 'center 42%' }}
       visual={<ResumenSustitucion />}
     >
       <Seccion id="problema" titulo="El problema no es la baja. Es todo lo que cuelga de ella">

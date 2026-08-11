@@ -5,10 +5,18 @@ import { MUTED } from '@/components/landing/theme';
 // encabezado oscuro, panel claro para el cuerpo) para que cada página dibuje
 // lo suyo dentro sin repetir estilos de contenedor.
 
-/** Panel translúcido: va sobre el degradado oscuro del encabezado. */
+/**
+ * Panel oscuro para el montaje del encabezado.
+ *
+ * ⚠️ Fondo OPACO, no translúcido. Antes era `rgba(255,255,255,.055)` sobre el
+ * degradado del hero, y funcionaba mientras el panel viviera dentro de la
+ * banda. Con el montaje actual el panel SOBRESALE de la banda hacia el cuerpo
+ * crema: la mitad de abajo quedaba con texto blanco sobre crema, ilegible.
+ * Lo que se monta encima de un borde tiene que traer su propio fondo.
+ */
 export function PanelOscuro({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,.055)', border: '1px solid rgba(255,255,255,.13)', borderRadius: 20, padding: 'clamp(18px,2.2vw,24px)', backdropFilter: 'blur(8px)' }}>
+    <div style={{ background: '#1A1D14', border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: 'clamp(18px,2.2vw,24px)' }}>
       <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,.5)', marginBottom: 16 }}>{titulo}</div>
       {children}
     </div>

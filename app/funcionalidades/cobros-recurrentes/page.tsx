@@ -46,7 +46,6 @@ export default function CobrosPage() {
       h1={<>Cobra sin perseguir a nadie.</>}
       intro={<>La cuota se cobra sola el día que toca. Y cuando una tarjeta falla —que fallará—, el sistema lo reintenta con cabeza en vez de dejarte una lista de impagos a fin de mes.</>}
       chips={['Cobro con tarjeta guardada', 'Tres reintentos escalonados', 'Remesa SEPA 19.14']}
-      gradient="linear-gradient(140deg,#12181A 0%,#1F3D42 62%,#3E7C86 100%)"
       visual={<ViasDeCobro />}
     >
       <Seccion id="problema" titulo="El dinero no se pierde de golpe, se pierde a goteo">

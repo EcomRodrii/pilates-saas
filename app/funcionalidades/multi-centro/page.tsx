@@ -46,7 +46,6 @@ export default function MultiCentroPage() {
       h1={<>Varias sedes, un solo acceso.</>}
       intro={<>Cada centro con sus alumnas, su horario y su facturación separados — y tu equipo entrando una sola vez, con el rol que le toca en cada sitio.</>}
       chips={['Datos aislados por sede', 'Rol distinto en cada centro', 'Una sola suscripción']}
-      gradient="linear-gradient(140deg,#0F1213 0%,#242C2E 55%,#4B5C60 100%)"
       visual={<SelectorDeSede />}
     >
       <Seccion id="problema" titulo="Dos centros no son dos negocios, ni son uno solo">
