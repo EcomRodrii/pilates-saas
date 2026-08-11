@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
@@ -26,6 +27,15 @@ export async function POST(req: NextRequest) {
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado. Añade STRIPE_SECRET_KEY en .env.local' }, { status: 503 });
   }
+  // La otra puerta por la que entra dinero (la socia paga desde el portal o un
+  // enlace). Mismo guardia que el cobro automático: con el `.env.local` de
+  // producción copiado a una máquina, esta ruta abriría un checkout que cobra
+  // de verdad. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) {
+    return NextResponse.json({ error: modo.motivo }, { status: 503 });
+  }
+
   const admin = getSupabaseAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
