@@ -54,7 +54,10 @@ export const EVENTS = {
   // estudio cada uno: pedir confirmación (víspera) y liberar si no responde
   // a tiempo (corte).
   CONFIRMACION_RIESGO_ASK_ESTUDIO: 'confirmacion-riesgo/studio.ask',
-  CONFIRMACION_RIESGO_CORTE_ESTUDIO: 'confirmacion-riesgo/studio.corte',
+  // CONFIRMACION_RIESGO_CORTE_ESTUDIO eliminado (2026-08-11): el corte dejó de
+  // hacer fan-out por estudio — era `*/30` × nº de estudios, ~31.000 pasos/mes
+  // y más del 60 % del plan free de Inngest. Ahora es una query global en el
+  // propio cron, mismo arreglo que ya se aplicó a los recordatorios `*/15`.
   // Aquí vivían NOTIFICATION_EMIT y NOTIFICATION_DELIVER. El Notification
   // Engine YA NO pasa por la cola: `publish()` escribe la in-app de forma
   // síncrona y entrega los canales externos con un salto HTTP a
