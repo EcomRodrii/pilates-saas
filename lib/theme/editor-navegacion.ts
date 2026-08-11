@@ -24,7 +24,11 @@ export const VISTAS_PREVIEW = [...PANTALLA_IDS, 'bienvenida', 'reservas', 'perfi
 export type VistaPreview = (typeof VISTAS_PREVIEW)[number];
 
 /** Todo lo que puede estar seleccionado en el rail. */
-export type PaginaEditor = VistaPreview | 'dashboard-inicio' | 'contenido-portal';
+// `reservar-pagina` está en el mismo saco que las otras dos: se selecciona en
+// el rail y NO es una vista del iframe. Es `/reservar/<slug>`, una página
+// pública distinta del portal — no confundir con la vista `reservas`, que es
+// la pantalla de reservas DENTRO del portal de la socia.
+export type PaginaEditor = VistaPreview | 'dashboard-inicio' | 'contenido-portal' | 'reservar-pagina';
 
 /**
  * Qué panel se está usando. `ajustes` es el tema global (colores, tipografía,
