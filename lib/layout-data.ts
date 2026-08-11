@@ -122,6 +122,7 @@ export async function guardarLayout(studioId: string, parche: LayoutDraft): Prom
     ...validado,
     home: { ...actual.home, ...(validado.home ?? {}) },
     portalHome: { ...actual.portalHome, ...(validado.portalHome ?? {}) },
+    reservar: { ...actual.reservar, ...(validado.reservar ?? {}) },
   });
 
   await escribirConfig(admin, alcance, final);
