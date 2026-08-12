@@ -20,6 +20,7 @@ import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionRecursos } from '@/components/landing/SeccionRecursos';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
+import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { IntroLogo } from '@/components/landing/IntroLogo';
 import { StructuredData } from '@/components/landing/StructuredData';
@@ -92,6 +93,7 @@ export default function LandingPage() {
       <SeccionFaq />
       <SeccionRecursos />
       <SeccionCtaFinal />
+      <WhatsAppFab />
       <GlobalStyles />
     </div>
   );
