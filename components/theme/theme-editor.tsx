@@ -1166,16 +1166,15 @@ function PanelCompartir({ hook, fileRef }: {
         Se publica junto al resto del tema.
       </p>
 
-      {/* La tarjeta, tal cual la pinta un chat. */}
+      {/* La tarjeta, tal cual la pinta un chat.
+          Antes había aquí un cartel de «Sin imagen» para el caso de no tener
+          ninguna: el enlace salía como un recuadro de texto. Ya no puede
+          pasar —`vista.imagen` nunca viene vacía— así que la previsualización
+          enseña lo que se va a publicar de verdad, que es de lo que va esta
+          pantalla. */}
       <div className="rounded-xl border border-border overflow-hidden bg-card">
-        {vista.imagen ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={vista.imagen} alt="" className="w-full aspect-[1.91/1] object-cover" />
-        ) : (
-          <div className="w-full aspect-[1.91/1] bg-muted flex items-center justify-center px-4 text-center">
-            <p className="text-[11px] text-muted-foreground">Sin imagen, el enlace sale como un recuadro de texto.</p>
-          </div>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={vista.imagen} alt="" className="w-full aspect-[1.91/1] object-cover" />
         <div className="p-2.5 space-y-0.5">
           {dominio && <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{dominio}</p>}
           <p className="text-[12.5px] font-semibold text-foreground leading-snug">{vista.titulo}</p>
