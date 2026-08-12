@@ -19,6 +19,45 @@ import { NAV_V5 } from './enlaces';
 // El logo va con <LogoTentare>, nunca con un <img>: es la regla de marca del
 // repo (docs/marca/), y el SVG en línea del kit ya resuelve modo oscuro y
 // tinta sin depender de que una fuente esté instalada.
+
+// El tilt 3D del mockup: existía en el Hero anterior (`useHeroTilt`) y se
+// perdió al portar el diseño v5, que traía el panel como imagen estática. Se
+// recupera aquí con el mismo criterio — desactivado en touch (`pointer:
+// coarse`) y con `prefers-reduced-motion`, escritura directa en el DOM en vez
+// de estado de React para que seguir al ratón vaya a 60fps sin re-renderizar
+// el árbol entero en cada movimiento.
+function useMockupTilt() {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const tiltRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const tilt = tiltRef.current;
+    if (!stage || !tilt) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    if (reduce || coarse) return;
+
+    function onMove(e: MouseEvent) {
+      const r = stage!.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - 0.5;
+      const py = (e.clientY - r.top) / r.height - 0.5;
+      tilt!.style.transform = `rotateX(${py * -6}deg) rotateY(${px * 8}deg)`;
+    }
+    function onLeave() {
+      tilt!.style.transform = 'rotateX(0deg) rotateY(0deg)';
+    }
+    stage.addEventListener('mousemove', onMove);
+    stage.addEventListener('mouseleave', onLeave);
+    return () => {
+      stage.removeEventListener('mousemove', onMove);
+      stage.removeEventListener('mouseleave', onLeave);
+    };
+  }, []);
+
+  return { stageRef, tiltRef };
+}
+
 function HeroVideo() {
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +90,8 @@ function HeroVideo() {
 }
 
 export function SeccionHero() {
+  const { stageRef, tiltRef } = useMockupTilt();
+
   return (
     <>
       <nav className="v5-nav" aria-label="Principal">
@@ -89,19 +130,21 @@ export function SeccionHero() {
           </div>
           <p className="v5-hero-nota">Sin permanencia · Migración incluida · Sin comisión sobre tus cobros · Hecho en España</p>
 
-          <div className="v5-hero-mockup">
-            <div className="v5-hero-mockup-barra">
-              <span className="v5-hero-dot v5-hero-dot-on" />
-              <span className="v5-hero-dot" />
-              <span className="v5-hero-dot" />
-              <span className="v5-hero-mockup-url">tentare.app · el producto real</span>
-            </div>
-            <div className="v5-hero-mockup-cuerpo">
-              <Image src="/hero-panel.png" alt="Panel real de Tentare" width={2862} height={1360} sizes="(max-width: 1120px) 96vw, 1080px" priority style={{ width: '100%', height: 'auto', display: 'block' }} />
-              <div className="v5-hero-mockup-fade" aria-hidden />
-              <div className="v5-hero-badge">
-                <span className="v5-hero-badge-tit">✓ Baja de las 18:00 cubierta</span>
-                <span className="v5-hero-badge-sub">sin una llamada tuya</span>
+          <div className="v5-hero-mockup-stage" ref={stageRef}>
+            <div className="v5-hero-mockup" ref={tiltRef}>
+              <div className="v5-hero-mockup-barra">
+                <span className="v5-hero-dot v5-hero-dot-on" />
+                <span className="v5-hero-dot" />
+                <span className="v5-hero-dot" />
+                <span className="v5-hero-mockup-url">tentare.app · el producto real</span>
+              </div>
+              <div className="v5-hero-mockup-cuerpo">
+                <Image src="/hero-panel.png" alt="Panel real de Tentare" width={2862} height={1360} sizes="(max-width: 1120px) 96vw, 1080px" priority style={{ width: '100%', height: 'auto', display: 'block' }} />
+                <div className="v5-hero-mockup-fade" aria-hidden />
+                <div className="v5-hero-badge">
+                  <span className="v5-hero-badge-tit">✓ Baja de las 18:00 cubierta</span>
+                  <span className="v5-hero-badge-sub">sin una llamada tuya</span>
+                </div>
               </div>
             </div>
           </div>
@@ -144,7 +187,9 @@ export function SeccionHero() {
         .v5-hero-cta-2 { font-weight: 700; font-size: 16px; color: #FCFBF6; padding: 17px 10px; border-bottom: 2px solid rgba(252,251,246,.6); }
         .v5-hero-nota { font-size: 12.5px; font-weight: 600; color: rgba(234,232,222,.75); margin: 22px 0 0; }
 
-        .v5-hero-mockup { position: relative; max-width: 1080px; margin: 56px auto 0; border-radius: 18px; overflow: hidden;
+        .v5-hero-mockup-stage { max-width: 1080px; margin: 56px auto 0; perspective: 1900px; }
+        .v5-hero-mockup { position: relative; border-radius: 18px; overflow: hidden; transform-style: preserve-3d;
+          transition: transform .3s ease-out; will-change: transform;
           background: #0F0F0F; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 60px 140px rgba(0,0,0,.55); }
         .v5-hero-mockup-barra { display: flex; align-items: center; gap: 8px; padding: 13px 18px; }
         .v5-hero-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.16); }
