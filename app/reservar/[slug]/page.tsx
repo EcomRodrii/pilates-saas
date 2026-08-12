@@ -297,6 +297,20 @@ export default function ReservarPage() {
     () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsPaletaModo('noche') : null),
     [embedMode, apariencia],
   );
+  // ⚠️ El calendario NO se pinta por variables CSS: recibe los tokens por prop
+  // (`t=`) y los reparte a mano por todos sus subcomponentes. Es un tercer canal
+  // de color además de las variables y de `RT`, y por eso se le escapaba al
+  // modo: con `RESERVAR_TOKENS` fijo, la tira de días, las tarjetas de clase, la
+  // hoja de reserva y el estado vacío se quedaban claros sobre una web oscura
+  // aunque el resto de la página ya hubiera cambiado. Medido en producción, no
+  // supuesto: un icono de 44 px seguía en `#E7E4DB` (el `surface2` del día).
+  //
+  // Fuera del modo incrustado es el MISMO objeto de siempre, así que ningún
+  // estudio ve un cambio.
+  const tokensCalendario = useMemo(
+    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? MODO_TOKENS.noche : RESERVAR_TOKENS),
+    [embedMode, apariencia],
+  );
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
 
@@ -1473,7 +1487,7 @@ export default function ReservarPage() {
                   />
                 ) : (
                 <ReservaCalendario
-                  t={RESERVAR_TOKENS}
+                  t={tokensCalendario}
                   slots={slots}
                   variant={vistaClases === 'lista' ? 'lista' : 'calendario'}
                   irADia={comandoDia ?? undefined}
