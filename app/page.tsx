@@ -15,8 +15,10 @@ import { SeccionApp } from '@/components/landing/SeccionApp';
 import { SeccionWidget } from '@/components/landing/SeccionWidget';
 import { SeccionClientas } from '@/components/landing/SeccionClientas';
 import { SeccionCambiarse } from '@/components/landing/SeccionCambiarse';
+import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalidades';
 import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
 import { SeccionFaq } from '@/components/landing/SeccionFaq';
+import { SeccionRecursos } from '@/components/landing/SeccionRecursos';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { IntroLogo } from '@/components/landing/IntroLogo';
@@ -85,8 +87,10 @@ export default function LandingPage() {
       <SeccionWidget />
       <SeccionClientas />
       <SeccionCambiarse />
+      <SeccionFuncionalidades />
       <SeccionPrecio />
       <SeccionFaq />
+      <SeccionRecursos />
       <SeccionCtaFinal />
       <GlobalStyles />
     </div>

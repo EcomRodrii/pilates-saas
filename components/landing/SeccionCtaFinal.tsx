@@ -26,7 +26,6 @@ export function SeccionCtaFinal() {
           <p className="v5-cta-lead">En marcha en días. Y si no te convence, te vas con todos tus datos, gratis.</p>
           <div className="v5-cta-acciones">
             <Link href="/crear-estudio" className="v5-cta-boton">Probar Tentare</Link>
-            <a href="mailto:hola@tentare.app?subject=Quiero una demo de Tentare" className="v5-cta-boton-2">Pide una demo de 20 min</a>
           </div>
         </div>
       </section>
@@ -47,7 +46,13 @@ export function SeccionCtaFinal() {
           </div>
           <div className="v5-pie-legal">
             <span>© 2026 Tentare · Software para estudios de Pilates · Hecho en España 🇪🇸</span>
-            <span>RGPD · Tus datos son tuyos</span>
+            <div className="v5-pie-legal-der">
+              <span>RGPD · Tus datos son tuyos</span>
+              <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" className="v5-pie-badge">
+                {/* eslint-disable-next-line @next/next/no-img-element -- badge externo, no un asset propio */}
+                <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
@@ -77,8 +82,12 @@ export function SeccionCtaFinal() {
         .v5-pie-col a { color: #A6A69E; }
         .v5-pie-col a:hover { color: #fff; }
         .v5-pie-tit { font-size: 10.5px; font-weight: 800; letter-spacing: .14em; color: #6E7259; margin-bottom: 2px; }
-        .v5-pie-legal { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        .v5-pie-legal { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
           padding-top: 18px; font-size: 12px; font-weight: 600; color: #5A5A52; }
+        .v5-pie-legal-der { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .v5-pie-badge { display: inline-flex; align-items: center; opacity: .85; transition: opacity .2s; }
+        .v5-pie-badge:hover { opacity: 1; }
+        .v5-pie-badge img { height: 32px; width: auto; display: block; }
       `}</style>
     </>
   );
