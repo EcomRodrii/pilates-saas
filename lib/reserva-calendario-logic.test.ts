@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 import {
   localDayKey,
   addDays,
-  inicioSemanaLunes,
   diasSemana,
   contarSlotsPorDia,
   slotsDelDia,
   agruparPorDia,
   etiquetaDia,
 } from './reserva-calendario-logic.ts';
+import { inicioDeSemana } from './utils.ts';
 
 // Construye un ISO cuyo día LOCAL es (año, mes0, dia) a las HH:MM — el
 // round-trip por localDayKey(new Date(iso)) devuelve la misma clave en cualquier huso.
@@ -32,13 +32,13 @@ test('addDays no muta y cruza fin de mes', () => {
   assert.equal(localDayKey(base), '2026-07-30'); // sin mutar
 });
 
-test('inicioSemanaLunes devuelve el lunes de la semana', () => {
+test('inicioDeSemana devuelve el lunes de la semana', () => {
   // 2026-07-15 es miércoles → lunes = 2026-07-13
-  assert.equal(localDayKey(inicioSemanaLunes(new Date(2026, 6, 15))), '2026-07-13');
+  assert.equal(localDayKey(inicioDeSemana(new Date(2026, 6, 15))), '2026-07-13');
   // un lunes se devuelve a sí mismo
-  assert.equal(localDayKey(inicioSemanaLunes(new Date(2026, 6, 13))), '2026-07-13');
+  assert.equal(localDayKey(inicioDeSemana(new Date(2026, 6, 13))), '2026-07-13');
   // un domingo pertenece a la semana que empezó el lunes anterior
-  assert.equal(localDayKey(inicioSemanaLunes(new Date(2026, 6, 19))), '2026-07-13');
+  assert.equal(localDayKey(inicioDeSemana(new Date(2026, 6, 19))), '2026-07-13');
 });
 
 test('diasSemana devuelve 7 días consecutivos de lunes a domingo', () => {
