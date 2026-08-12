@@ -18,7 +18,7 @@ export function SeccionMartes() {
           <h2 id="v5-mar-h" className="v5-mar-h2">Deja de dirigir tu estudio desde WhatsApp.</h2>
           <p className="v5-mar-lead">
             Cada aviso son diez minutos: buscar, escribir, esperar, cuadrar. Diez minutos que salen de tus clases y de
-            tus tardes. Mira la columna de la derecha — y luego mira lo que Tentare hace con cada uno.
+            tus tardes. Estos son los de un martes cualquiera — y luego mira lo que Tentare hace con cada uno.
           </p>
         </div>
         <div className="v5-mar-lista">
