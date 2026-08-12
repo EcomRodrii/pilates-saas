@@ -63,7 +63,12 @@ export function SeccionHero() {
           ))}
           <Link href="/recursos">Recursos</Link>
         </div>
-        <Link href="/crear-estudio" className="v5-nav-cta">Probar Tentare</Link>
+        <div className="v5-nav-acciones">
+          {/* El diseño original no traía este enlace — sin él, una socia ya
+              dada de alta no tiene forma de entrar desde la home. */}
+          <Link href="/login" className="v5-nav-entrar">Entrar</Link>
+          <Link href="/crear-estudio" className="v5-nav-cta">Probar Tentare</Link>
+        </div>
       </nav>
 
       <header id="top" className="v5-hero">
@@ -112,10 +117,13 @@ export function SeccionHero() {
         .v5-nav-links { display: flex; gap: clamp(10px,1.6vw,20px); }
         .v5-nav-links a { font-size: 14px; font-weight: 600; color: #3B3B34; }
         .v5-nav-links a:hover { color: #1A1A1A; }
+        .v5-nav-acciones { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .v5-nav-entrar { font-size: 14px; font-weight: 600; color: #1A1A1A; padding: 9px 8px; }
         .v5-nav-cta { flex-shrink: 0; background: #343825; color: #D9C29E; padding: 9px 18px; border-radius: 999px;
           font-weight: 700; font-size: 14px; transition: background .2s; }
         .v5-nav-cta:hover { background: #22251A; }
         @media (max-width: 760px) { .v5-nav-links { display: none; } }
+        @media (max-width: 420px) { .v5-nav-entrar { display: none; } }
 
         .v5-hero { position: relative; isolation: isolate; overflow: hidden;
           padding: clamp(60px,10vh,100px) clamp(20px,4vw,48px) clamp(60px,8vw,100px); }
