@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enviarEmailAvisoAlumna } from './email';
 import type { AvisoAlumna } from '@/lib/emails/sustitucion-template';
+import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 // Avisa a las alumnas apuntadas a una clase — SOLO si el estudio lo tiene
 // activado (studios.avisar_alumnas). Regla del producto: la propietaria SIEMPRE
@@ -10,9 +11,7 @@ import type { AvisoAlumna } from '@/lib/emails/sustitucion-template';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  return `${fecha} · ${hora}`;
+  return `${fechaLargaEstudio(d)} · ${horaEstudio(d)}`;
 }
 
 export async function avisarAlumnas(
