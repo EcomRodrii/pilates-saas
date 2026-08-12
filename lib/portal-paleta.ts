@@ -16,6 +16,21 @@ export interface ModoTokens {
   micro: string;
   accentInk: string; tabbar: string; bar: string;
   hero: string; heroLine: string; heroText: string; heroSub: string; heroAccent: string;
+  /**
+   * «Velos»: paneles y tarjetas translúcidos que se apoyan sobre el fondo del
+   * hero. Tres intensidades, de más tenue a más sólida.
+   *
+   * ⚠️ Existen porque estaban escritos a mano como `rgba(255,255,255,.55)` en
+   * doce sitios, y al aclarar el texto del widget incrustado (#979) esos
+   * paneles se quedaban BLANCOS con letra clara encima — ilegibles sobre una
+   * web oscura. El color de un panel depende del modo, así que su sitio es la
+   * paleta y no el JSX.
+   *
+   * En DÍA valen exactamente lo que valían, para no cambiarle el aspecto a
+   * nadie. En NOCHE son un realce tenue del propio color de tinta sobre el
+   * fondo oscuro: un blanco al 55 % ahí sería un foco.
+   */
+  velo: string; veloFuerte: string; veloSuave: string;
 }
 
 // ── Contraste ────────────────────────────────────────────────────────────────
@@ -44,6 +59,7 @@ export const MODO_TOKENS: Record<Modo, ModoTokens> = {
     accentInk: '#F6F4EF', tabbar: 'rgba(246,244,239,0.72)', bar: '#E7E4DB',
     hero: 'linear-gradient(175deg,#F2F0EA 0%,#ECE9E2 58%,#E4E1D8 100%)',
     heroLine: 'rgba(34,38,31,0.10)', heroText: '#22261F', heroSub: '#6E7065', heroAccent: '#66745F',
+    velo: 'rgba(255,255,255,.55)', veloFuerte: 'rgba(255,255,255,.7)', veloSuave: 'rgba(255,255,255,.5)',
   },
   // Derivada: el mismo verde, girado. El fondo no es negro sino oliva muy
   // oscuro, y la tinta no es blanca sino el propio crema del diseño — blanco
@@ -55,6 +71,7 @@ export const MODO_TOKENS: Record<Modo, ModoTokens> = {
     accentInk: '#12140E', tabbar: 'rgba(18,20,14,0.72)', bar: '#2A2E24',
     hero: 'linear-gradient(175deg,#1F2419 0%,#181C13 58%,#12140E 100%)',
     heroLine: 'rgba(243,241,233,0.09)', heroText: '#F3F1E9', heroSub: '#A8AA9C', heroAccent: '#A9BBA0',
+    velo: 'rgba(243,241,233,.05)', veloFuerte: 'rgba(243,241,233,.09)', veloSuave: 'rgba(243,241,233,.03)',
   },
 };
 
@@ -101,5 +118,6 @@ export function varsPaletaModo(modo: Modo): Record<string, string> {
     '--portal-line': t.line, '--portal-ink': t.ink,
     '--portal-muted': t.muted, '--portal-muted-2': t.muted2, '--portal-micro': t.micro,
     '--portal-accent': t.heroAccent,
+    '--portal-velo': t.velo, '--portal-velo-fuerte': t.veloFuerte, '--portal-velo-suave': t.veloSuave,
   };
 }

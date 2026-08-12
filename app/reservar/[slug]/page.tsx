@@ -160,7 +160,7 @@ function LevelBadge({ nivel }: { nivel?: string }) {
       Todos los niveles
     </span>
   );
-  const c = NIVEL_COLOR[nivel] ?? { bg: RT.surface2, text: RT.muted2 };
+  const c = NIVEL_COLOR[nivel] ?? { bg: 'var(--portal-surface-2)', text: 'var(--portal-muted-2)' };
   // Punto de color en vez de emoji (🟢🟡🔴): coherente con el lenguaje visual
   // del resto del producto, que no usa emojis.
   return (
@@ -199,10 +199,10 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
               title={taken ? 'Ocupado' : spot.nombre}
               className="aspect-[3/4] rounded-xl border text-[10px] font-bold flex items-center justify-center transition-all disabled:cursor-not-allowed"
               style={taken
-                ? { backgroundColor: RT.surface2, borderColor: RT.line, color: RT.micro }
+                ? { backgroundColor: 'var(--portal-surface-2)', borderColor: 'var(--portal-line)', color: 'var(--portal-micro)' }
                 : isSel
-                ? { backgroundColor: primary, borderColor: primary, color: RT.surface }
-                : { backgroundColor: RT.surface, borderColor: 'var(--portal-line)', color: RT.ink }}>
+                ? { backgroundColor: primary, borderColor: primary, color: 'var(--portal-surface)' }
+                : { backgroundColor: 'var(--portal-surface)', borderColor: 'var(--portal-line)', color: 'var(--portal-ink)' }}>
               {spot.nombre}
             </button>
           );
@@ -234,6 +234,13 @@ const RESERVA_ACTIVA: Reserva['estado'][] = ['CONFIRMADA', 'LISTA_ESPERA'];
 // del portal (MODO_TOKENS.dia), que ya casa con el lenguaje visual de /reservar
 // (fondo hueso, tarjetas blancas, marca --portal-brand). Fuera del componente
 // para no recrearlo en cada render.
+//
+// ⚠️ **Solo queda `RT.hero` aquí, y a propósito.** El resto de tokens de esta
+// página se leen por variable CSS (`var(--portal-…)`) y no por este objeto: al
+// incrustar el widget sobre una web oscura, la raíz recibe la paleta de NOCHE en
+// línea, y un token de JS fijado a `dia` a nivel de módulo NO se entera — las
+// tarjetas se quedaban blancas con letra clara encima. El degradado del hero es
+// la excepción legítima: solo se pinta fuera del modo incrustado.
 const RESERVAR_TOKENS = MODO_TOKENS.dia;
 const RT = RESERVAR_TOKENS;
 
@@ -1382,7 +1389,7 @@ export default function ReservarPage() {
               ) : bannerQuizVisible ? (
                 <div style={{
                   display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between',
-                  borderRadius: R.chipCard, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)',
+                  borderRadius: R.chipCard, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)',
                   padding: '14px 18px', marginBottom: 18,
                 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.</span>
@@ -1416,7 +1423,7 @@ export default function ReservarPage() {
                   cazó CI, con los tests de reserva entrando por las pestañas de
                   día—. Cambiar por dónde se reserva es una decisión de producto
                   aparte, no un efecto colateral de añadir una vista. */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
+              <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
                 {([['lista', 'Lista'], ['mes', 'Mes'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
                   <button
                     key={id}
@@ -1489,7 +1496,7 @@ export default function ReservarPage() {
                   esta columna tiene que ser lo que se USA, no lo que se lee una
                   vez. Se pinta solo si algún filtro tiene de verdad más de una
                   opción (ver RailFiltros). */}
-              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
+              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
                 <RailFiltros
                   clases={slotsParaFiltros}
                   estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario }}
@@ -1512,7 +1519,7 @@ export default function ReservarPage() {
                 />
               </div>
 
-              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 <div style={eyebrow(9)}>CÓMO FUNCIONA</div>
                 {/* ⚠️ Estas frases salen de `lib/reservar/promesas.ts`, no de
                     `studio.cancelacionVentanaHoras` a secas. Aquí se leía el
@@ -1606,13 +1613,13 @@ export default function ReservarPage() {
                   const fechaLarga = new Date(s.inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
                   const estadoBg = r.estado === 'ASISTIDA' ? '#D1FAE5'
                     : r.estado === 'LISTA_ESPERA' ? '#FEF3C7'
-                    : isPast ? RT.surface2 : 'rgba(255,255,255,.7)';
+                    : isPast ? 'var(--portal-surface-2)' : 'var(--portal-velo-fuerte)';
                   const estadoColor = r.estado === 'ASISTIDA' ? '#065F46'
                     : r.estado === 'LISTA_ESPERA' ? '#92400E'
-                    : isPast ? RT.muted : PRIMARY;
+                    : isPast ? 'var(--portal-muted)' : PRIMARY;
                   return (
                     <div key={r.id} style={{
-                      borderRadius: R.card, background: isPast ? 'rgba(255,255,255,.5)' : 'var(--portal-surface)',
+                      borderRadius: R.card, background: isPast ? 'var(--portal-velo-suave)' : 'var(--portal-surface)',
                       padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`, display: 'flex', alignItems: 'center', flexWrap: 'wrap',
                       gap: cq(12, 1.8, 24), boxShadow: isPast ? undefined : SH.card, opacity: isPast ? 0.75 : 1,
                     }}>
@@ -1694,7 +1701,7 @@ export default function ReservarPage() {
               <div style={{ ...eyebrow(9), marginTop: 38 }}>TIPOS DE CLASE</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
                 {tiposClase.map(t => (
-                  <div key={t.id} style={{ borderRadius: R.chipCard, background: 'rgba(255,255,255,.7)', border: `1px solid ${t.color}20`, padding: 22 }}>
+                  <div key={t.id} style={{ borderRadius: R.chipCard, background: 'var(--portal-velo-fuerte)', border: `1px solid ${t.color}20`, padding: 22 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <span style={{ width: 6, height: 6, borderRadius: 999, background: t.color, flexShrink: 0 }} />
                       <span style={{ fontFamily: serif, fontSize: 21 }}>{t.nombre}</span>
@@ -1755,7 +1762,7 @@ export default function ReservarPage() {
             </div>
 
             <div style={{ flex: '0 1 320px' }}>
-              <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 {estudioLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={estudioLogo} alt={estudioNombre} style={{ width: 44, height: 44, borderRadius: 14, objectFit: 'contain', background: '#fff' }} />
@@ -1766,7 +1773,7 @@ export default function ReservarPage() {
                 <p style={{ fontSize: 11.5, color: 'var(--portal-muted-2)', marginTop: 10 }}>{estudioDireccion}</p>
               </div>
               {franjasHorario.length > 0 && (
-                <div style={{ marginTop: 14, borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+                <div style={{ marginTop: 14, borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                   <div style={eyebrow(9)}>HORARIO</div>
                   {franjasHorario.map((f, i) => (
                     <div key={f.dias} style={{ display: 'flex', justifyContent: 'space-between', marginTop: i === 0 ? 16 : 10, fontSize: 12, color: f.horas === 'Cerrado' ? 'var(--portal-muted)' : 'var(--portal-accent)' }}>
@@ -2110,7 +2117,7 @@ export default function ReservarPage() {
                       onKeyDown={e => e.key === 'Enter' && (mostrarPasswordLogin ? handleLoginConPassword() : handleEnviarEnlace())}
                       autoFocus
                       className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                      style={{ backgroundColor: RT.surface2 }} />
+                      style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     {mostrarPasswordLogin && (
                       <input type="password"
                         placeholder="Tu contraseña"
@@ -2119,7 +2126,7 @@ export default function ReservarPage() {
                         onKeyDown={e => e.key === 'Enter' && handleLoginConPassword()}
                         autoComplete="current-password"
                         className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                        style={{ backgroundColor: RT.surface2 }} />
+                        style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     )}
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
@@ -2173,14 +2180,14 @@ export default function ReservarPage() {
                   onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
                   autoFocus
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                  style={{ backgroundColor: RT.surface2 }} />
+                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 <input type="tel"
                   placeholder="Tu teléfono (+34 600 000 000)"
                   value={loginForm.telefono}
                   onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
                   onKeyDown={e => e.key === 'Enter' && handleRegistroNombre()}
                   className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
-                  style={{ backgroundColor: RT.surface2 }} />
+                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                 {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                 <p className="text-[11px] text-[var(--portal-muted)] mb-5">El teléfono solo lo usa {estudioNombre} para avisos de tus clases.</p>
                 <button onClick={handleRegistroNombre} disabled={!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)}
