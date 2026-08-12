@@ -1,6 +1,6 @@
 // Captura las pantallas REALES del panel para las páginas de /funcionalidades.
 //
-//   npm run build && npx next start -p 3100 &
+//   npm run build && E2E_TEST=1 npx next start -p 3100 &
 //   node scripts/capturar-producto.mjs
 //
 // Por qué existe: las páginas de funcionalidades enseñaban diagramas dibujados
@@ -17,6 +17,11 @@
 // Los datos son de un estudio INVENTADO —Estudio Aura, nombres que no existen—
 // pero la FORMA es la de un estudio real: mañana cargada de reformer, valle a
 // media mañana, tarde llena. Nada aquí sale de un estudio de un cliente.
+//
+// ⚠️ El servidor se levanta con E2E_TEST=1 porque la captura del portal usa la
+// página pública /reservar/<slug>, y su estudio se resuelve en el SERVIDOR
+// (lib/studio-seo.ts) — sin esa variable devuelve "estudio no encontrado" y la
+// captura sale con un cartel de error en vez de con el horario.
 //
 // Si la UI del panel cambia, se vuelve a correr esto. Si no, las páginas de
 // marketing enseñan una versión del producto que ya no existe.
@@ -234,6 +239,22 @@ async function montarPanel(page) {
   await page.route('**/api/equipo**', (r) => json(r, { instructores: INSTRUCTORAS.map(insApi), tarifas: [
     { instructorId: 'i1', tarifaHora: 38 }, { instructorId: 'i2', tarifaHora: 34 }, { instructorId: 'i3', tarifaHora: 32 },
   ] }));
+  // La página pública NO usa las tablas: pide todo a /api/public/studio-data,
+  // que el catch-all de arriba dejaba en {} — de ahí el "sin clases este día".
+  await page.route('**/api/public/studio-data**', (r) => json(r, {
+    studio: {
+      id: STUDIO_ID, nombre: 'Estudio Aura', slug: 'aura', ciudad: 'Barcelona',
+      direccion: 'Carrer de Verdi 12', telefono: '+34 931 000 000', moneda: 'EUR',
+      colorPrimario: '#343825', logoUrl: null, horaApertura: '07:00:00', horaCierre: '21:00:00',
+    },
+    sesiones: sesiones.map(sesionApi),
+    tiposClase: TIPOS.map((t) => ({ id: t.id, studioId: t.studio_id, nombre: t.nombre, duracionMin: t.duracion_min, color: t.color, descripcion: null, nivel: null })),
+    salas: SALAS.map(salaApi),
+    instructores: INSTRUCTORAS.map(insApi),
+    spots: [], planesTarifa: PLANES.map((x) => ({ id: x.id, studioId: x.studio_id, nombre: x.nombre, tipo: x.tipo, precio: x.precio, sesiones: x.sesiones, activo: true, tiposClaseIds: null })),
+    ocupacion: reservas.reduce((acc, r) => { acc[r.sesion_id] = (acc[r.sesion_id] ?? 0) + 1; return acc; }, {}),
+    citasServicios: [], citasDisponibilidad: [], sustituciones: [],
+  }));
   await page.route('**/api/calendario**', (r) => json(r, {
     sesiones: sesiones.map(sesionApi),
     reservas: reservas.map((x) => ({ id: x.id, studioId: x.studio_id, sesionId: x.sesion_id, socioId: x.socio_id, estado: x.estado })),
@@ -302,6 +323,21 @@ const CAPTURAS = [
       await page.waitForTimeout(2200);
     },
   })),
+  {
+    // Lo que ve la ALUMNA, no la propietaria: la página pública del estudio,
+    // con su marca. En móvil, que es como se usa de verdad.
+    nombre: 'portal-alumna',
+    ancho: 460,
+    alto: 1000,
+    async abrir(page) {
+      await page.goto(`${BASE}/reservar/aura`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(2200);
+      // El cartel de bienvenida del quiz tapa el horario, que es lo que
+      // interesa enseñar.
+      await page.getByRole('button', { name: /No, gracias/i }).click().catch(() => {});
+      await page.waitForTimeout(900);
+    },
+  },
 ];
 
 async function main() {
@@ -311,7 +347,7 @@ async function main() {
 
   for (const cap of CAPTURAS) {
     const ctx = await navegador.newContext({
-      viewport: { width: 1440, height: cap.alto },
+      viewport: { width: cap.ancho ?? 1440, height: cap.alto },
       deviceScaleFactor: 2,
       locale: 'es-ES',
       timezoneId: 'Europe/Madrid',
