@@ -176,11 +176,36 @@ export const procesarConfirmacionAskEstudio = inngest.createFunction(
 
 // ═══ RECORDATORIO + CORTE — mismo worker de cadencia rápida (cada 30 min) ═══
 
+// ⚠️ SIN fan-out por estudio, y esto es lo que más cuesta de todo el módulo.
+//
+// Antes esto eran DOS funciones: un dispatcher `*/30` que abría un evento por
+// estudio, y un worker que corría una vez por estudio y tic. Con 10 estudios
+// activos son 48 × 10 = 480 ejecuciones al día, y cada una gastaba 2 pasos fijos
+// (`para-recordar` y `pendientes`) aunque no hubiera absolutamente nada que
+// hacer: ~31.000 pasos al mes, más del 60 % del plan free de Inngest, para un
+// barrido que casi siempre no encuentra ni una reserva.
+//
+// Es EXACTAMENTE el mismo fallo que ya se corrigió en notif-automations.ts
+// (recordatorios `*/15` con fan-out, que se comió el 84 % de la cuota en
+// agosto de 2026) y en reservas-pendientes/lista-espera. Este se quedó atrás
+// porque su frecuencia parecía inofensiva mirada sola: lo caro no es el `*/30`,
+// es el `*/30` MULTIPLICADO por el número de estudios.
+//
+// Ahora es una sola ejecución por tic con dos consultas globales: 4 pasos por
+// tic en vez de 2 + 2×(nº de estudios). A 10 estudios, de ~1.056 pasos/día a
+// ~192. Y deja de crecer con los clientes, que era lo peor del patrón anterior.
+//
+// Lo que NO cambia: las ventanas, los predicados puros que deciden de verdad
+// (`tocaRecordar`/`pasoElCorte`), el compare-and-set antes de enviar, y la
+// separación en dos pasos de cancelar/avisar (ver la nota de I-2 más abajo).
+// El `studioId` ya no viene del evento: viaja en cada fila.
 export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
   { id: 'confirmacion-riesgo-corte-dispatcher', triggers: [{ cron: '*/30 * * * *' }] },
   async ({ step }) => {
     const nowISO = await step.run('now', async () => new Date().toISOString());
-    const studios = await step.run('list-studios', async () => {
+    const now = new Date(nowISO);
+
+    const studioIds = await step.run('studios', async () => {
       // `suspendido_en`: un estudio suspendido no debe seguir cortando
       // reservas de riesgo (esa gestión ya no le corresponde).
       // Paginado: PostgREST corta a 1.000 filas en silencio.
@@ -190,18 +215,9 @@ export const confirmacionRiesgoCorteDispatcher = inngest.createFunction(
           .eq('pedir_confirmacion_riesgo', true).is('suspendido_en', null).range(from, to),
       );
       if (error) throw new Error(error.message);
-      return data;
+      return data.map(s => s.id);
     });
-    await enviarFanOutEnLotes(step, 'fan-out-confirmacion-corte', EVENTS.CONFIRMACION_RIESGO_CORTE_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
-    return { estudios: studios.length, ejecutadoEn: nowISO };
-  },
-);
-
-export const procesarConfirmacionCorteEstudio = inngest.createFunction(
-  { id: 'confirmacion-riesgo-corte-estudio', triggers: [{ event: EVENTS.CONFIRMACION_RIESGO_CORTE_ESTUDIO }], concurrency: { limit: 3 }, retries: 3 },
-  async ({ event, step }) => {
-    const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
-    const now = new Date(nowISO);
+    if (studioIds.length === 0) return { estudios: 0, ejecutadoEn: nowISO };
 
     // Reservas a las que se les pidió confirmar, no han respondido, no se les
     // ha recordado aún, y su clase está a mitad de camino (10-14h). Mismo
@@ -211,28 +227,35 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
       const admin = requireSupabaseAdmin();
       const desde = new Date(now.getTime() + (VENTANA_RECORDATORIO_HORAS_MIN - 1) * 3600_000).toISOString();
       const hasta = new Date(now.getTime() + (VENTANA_RECORDATORIO_HORAS_MAX + 1) * 3600_000).toISOString();
-      const { data: sesiones, error: errSes } = await admin
-        .from('sesiones').select('id, inicio')
-        .eq('studio_id', studioId).eq('cancelada', false)
-        .gte('inicio', desde).lte('inicio', hasta);
+      // Paginadas: al pasar de "un estudio" a "todos", estas lecturas quedan
+      // expuestas al corte silencioso de 1.000 filas de PostgREST — la misma
+      // trampa que trajo el arreglo anterior de este patrón.
+      const { data: sesiones, error: errSes } = await fetchAllRows<{ id: string; inicio: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin.from('sesiones').select('id, inicio')
+          .in('studio_id', studioIds).eq('cancelada', false)
+          .gte('inicio', desde).lte('inicio', hasta).range(from, to),
+      );
       if (errSes) throw new Error(errSes.message);
-      const sesionPorId = new Map((sesiones ?? []).map(s => [s.id as string, s.inicio as string]));
+      const sesionPorId = new Map(sesiones.map(s => [s.id, s.inicio]));
       if (sesionPorId.size === 0) return [];
 
-      const { data: reservas, error: errRes } = await admin
-        .from('reservas').select('id, socio_id, sesion_id')
-        .eq('studio_id', studioId).eq('estado', 'CONFIRMADA')
-        .not('confirmacion_pedida_en', 'is', null)
-        .is('confirmado_en', null)
-        .is('recordatorio_confirmacion_en', null)
-        .in('sesion_id', Array.from(sesionPorId.keys()));
+      const { data: reservas, error: errRes } = await fetchAllRows<{ id: string; studio_id: string; socio_id: string | null; sesion_id: string }>(
+        '(global)', 'reservas',
+        (from, to) => admin.from('reservas').select('id, studio_id, socio_id, sesion_id')
+          .eq('estado', 'CONFIRMADA')
+          .not('confirmacion_pedida_en', 'is', null)
+          .is('confirmado_en', null)
+          .is('recordatorio_confirmacion_en', null)
+          .in('sesion_id', Array.from(sesionPorId.keys())).range(from, to),
+      );
       if (errRes) throw new Error(errRes.message);
 
-      return (reservas ?? [])
-        .filter(r => r.socio_id && sesionPorId.has(r.sesion_id as string))
-        .map(r => ({ ...r, sesionInicio: sesionPorId.get(r.sesion_id as string)! }))
+      return reservas
+        .filter(r => r.socio_id && sesionPorId.has(r.sesion_id))
+        .map(r => ({ ...r, sesionInicio: sesionPorId.get(r.sesion_id)! }))
         .filter(r => tocaRecordar(horasHasta(r.sesionInicio, now))) as
-        { id: string; socio_id: string; sesion_id: string; sesionInicio: string }[];
+        { id: string; studio_id: string; socio_id: string; sesion_id: string; sesionInicio: string }[];
     });
 
     let recordadas = 0, emailsRecordatorio = 0;
@@ -245,10 +268,13 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
           .eq('id', c.id).is('recordatorio_confirmacion_en', null).select('id');
         if (!marcada || marcada.length === 0) return { recordada: false, emailEnviado: false };
 
-        const datos = await datosParaEmail(admin, studioId, c.socio_id, c.sesion_id);
+        // El estudio sale de la FILA, no de un evento: sin fan-out ya no hay un
+        // `studioId` de ámbito, y usar uno equivocado aquí firmaría el token de
+        // confirmación contra otro tenant.
+        const datos = await datosParaEmail(admin, c.studio_id, c.socio_id, c.sesion_id);
         if (!datos) return { recordada: true, emailEnviado: false };
 
-        const token = firmarTokenConfirmacion(studioId, c.socio_id, c.id);
+        const token = firmarTokenConfirmacion(c.studio_id, c.socio_id, c.id);
         const url = `${appUrl()}/confirmar-reserva/${token}`;
         const envio = await enviarEmailRecordatorioConfirmacion({
           to: datos.socioEmail, toName: datos.socioNombre, estudioNombre: datos.estudioNombre,
@@ -269,27 +295,31 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
     const pendientes = await step.run('pendientes', async () => {
       const admin = requireSupabaseAdmin();
       const hastaCorte = new Date(now.getTime() + (CUTOFF_HORAS_ANTES + 1) * 3600_000).toISOString();
-      const { data: sesiones, error: errSes } = await admin
-        .from('sesiones').select('id, inicio')
-        .eq('studio_id', studioId).eq('cancelada', false)
-        .gt('inicio', nowISO).lte('inicio', hastaCorte);
+      const { data: sesiones, error: errSes } = await fetchAllRows<{ id: string; inicio: string }>(
+        '(global)', 'sesiones',
+        (from, to) => admin.from('sesiones').select('id, inicio')
+          .in('studio_id', studioIds).eq('cancelada', false)
+          .gt('inicio', nowISO).lte('inicio', hastaCorte).range(from, to),
+      );
       if (errSes) throw new Error(errSes.message);
-      const sesionPorId = new Map((sesiones ?? []).map(s => [s.id as string, s.inicio as string]));
+      const sesionPorId = new Map(sesiones.map(s => [s.id, s.inicio]));
       if (sesionPorId.size === 0) return [];
 
-      const { data: reservas, error: errRes } = await admin
-        .from('reservas').select('id, socio_id, sesion_id')
-        .eq('studio_id', studioId).eq('estado', 'CONFIRMADA')
-        .not('confirmacion_pedida_en', 'is', null)
-        .is('confirmado_en', null)
-        .in('sesion_id', Array.from(sesionPorId.keys()));
+      const { data: reservas, error: errRes } = await fetchAllRows<{ id: string; studio_id: string; socio_id: string | null; sesion_id: string }>(
+        '(global)', 'reservas',
+        (from, to) => admin.from('reservas').select('id, studio_id, socio_id, sesion_id')
+          .eq('estado', 'CONFIRMADA')
+          .not('confirmacion_pedida_en', 'is', null)
+          .is('confirmado_en', null)
+          .in('sesion_id', Array.from(sesionPorId.keys())).range(from, to),
+      );
       if (errRes) throw new Error(errRes.message);
 
-      return (reservas ?? [])
-        .filter(r => r.socio_id && sesionPorId.has(r.sesion_id as string))
-        .map(r => ({ ...r, sesionInicio: sesionPorId.get(r.sesion_id as string)! }))
+      return reservas
+        .filter(r => r.socio_id && sesionPorId.has(r.sesion_id))
+        .map(r => ({ ...r, sesionInicio: sesionPorId.get(r.sesion_id)! }))
         .filter(r => pasoElCorte(horasHasta(r.sesionInicio, now))) as
-        { id: string; socio_id: string; sesion_id: string; sesionInicio: string }[];
+        { id: string; studio_id: string; socio_id: string; sesion_id: string; sesionInicio: string }[];
     });
 
     let liberadas = 0;
@@ -309,10 +339,13 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
         // reserva cambió entre el listado y aquí, cancelar_reserva_plaza ya no
         // la toca (solo actúa sobre estados "en juego"); no hace falta repetir
         // el filtro, pero SÍ evitar mandar el email si no llegó a liberarse.
-        const datos = await datosParaEmail(admin, studioId, p.socio_id, p.sesion_id);
+        // Igual que arriba: el estudio viene de la FILA. Aquí importa todavía
+        // más, porque `ejecutarCancelacionReserva` acota por tenant — un
+        // studioId de ámbito equivocado cancelaría contra el estudio que no es.
+        const datos = await datosParaEmail(admin, p.studio_id, p.socio_id, p.sesion_id);
         // Fase 3: este corte es automático — nadie pulsó "cancelar", así que
         // no debe generar penalización aunque caiga dentro de la ventana.
-        const res = await ejecutarCancelacionReserva(admin, { studioId, reservaId: p.id, socioId: null, omitirPenalizacion: true });
+        const res = await ejecutarCancelacionReserva(admin, { studioId: p.studio_id, reservaId: p.id, socioId: null, omitirPenalizacion: true });
         if ('error' in res) return { liberada: false, datos: null };
         return { liberada: true, datos };
       });
@@ -333,7 +366,7 @@ export const procesarConfirmacionCorteEstudio = inngest.createFunction(
       }
     }
     return {
-      studioId,
+      estudios: studioIds.length,
       paraRecordar: paraRecordar.length, recordadas, emailsRecordatorio,
       revisadas: pendientes.length, liberadas,
     };

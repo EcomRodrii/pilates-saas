@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(import.meta.dirname, '../..');
@@ -129,4 +129,58 @@ test('la vigilancia está registrada en el serve de Inngest', () => {
   // ni error, ni test, ni log. Solo silencio.
   const route = leer('app/api/inngest/route.ts');
   assert.ok(route.includes('conciliarCobrosVigilancia'), 'sin registrar, el cron simplemente no existe');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ La regla que faltaba: FRECUENCIA ALTA × FAN-OUT es la combinación cara.
+//
+// Un cron `*/30` parece inofensivo mirado solo: 48 tics al día. Pero si además
+// abre un evento por estudio, son 48 × (nº de estudios) ejecuciones, y cada una
+// gasta sus pasos fijos aunque no encuentre nada que hacer. `confirmacion-riesgo-corte`
+// eran ~31.000 pasos/mes —más del 60 % del plan free de Inngest— para un barrido
+// que casi siempre no encuentra ni una reserva.
+//
+// Ha pasado DOS veces con el mismo patrón: recordatorios `*/15` (agosto 2026, se
+// comió el 84 % de la cuota) y este. En ambos casos el dato estaba a la vista y
+// nadie multiplicó las dos cifras. Por eso deja de ser criterio humano.
+//
+// La regla: por debajo de una hora, nada de fan-out. Si un barrido frecuente
+// necesita mirar todos los estudios, va con UNA consulta global — como ya hacen
+// recordatorios, reservas-pendientes, lista-espera y ahora el corte.
+// ─────────────────────────────────────────────────────────────────────────────
+test('ningún cron de frecuencia sub-horaria puede hacer fan-out por estudio', () => {
+  const dir = join(RAIZ, 'lib/inngest');
+  const infractores: string[] = [];
+
+  // Quita comentarios: si no, la propia nota de arriba que MENCIONA el patrón
+  // haría saltar la comprobación. (Ya pasó con `console.error` en el test de los
+  // barridos de Vercel.)
+  const soloCodigo = (s: string) => s.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  for (const f of readdirSync(dir).filter(n => n.endsWith('.ts') && !n.includes('.test.'))) {
+    const fuente = soloCodigo(readFileSync(join(dir, f), 'utf8'));
+
+    // ⚠️ Por FUNCIÓN, no por fichero: `notif-automations.ts` tiene un cron `*/15`
+    // (global, correcto) y además dos dispatchers diarios que sí hacen fan-out.
+    // Mirando el fichero entero daría un falso positivo y el test acabaría
+    // desactivado, que es peor que no tenerlo.
+    for (const bloque of fuente.split('inngest.createFunction').slice(1)) {
+      const cuerpo = bloque.split('\n);')[0];
+      if (!cuerpo.includes('enviarFanOutEnLotes')) continue;
+      const m = cuerpo.match(/cron:\s*'([^']+)'/);
+      if (!m) continue;
+      const minutos = m[1].split(' ')[0];
+      if (minutos.startsWith('*/') || minutos === '*') {
+        const id = cuerpo.match(/id:\s*'([^']+)'/)?.[1] ?? '(sin id)';
+        infractores.push(`${f} → '${id}' con cron '${m[1]}' + enviarFanOutEnLotes`);
+      }
+    }
+  }
+
+  assert.deepEqual(
+    infractores, [],
+    'Cron sub-horario + fan-out por estudio: el coste se multiplica por el número de '
+    + 'clientes y revienta la cuota de Inngest. Usa una consulta global dentro del propio '
+    + `cron (patrón de recordatoriosGlobal).\n  ${infractores.join('\n  ')}`,
+  );
 });

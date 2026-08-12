@@ -29,7 +29,6 @@ import {
   confirmacionRiesgoAskDispatcher,
   procesarConfirmacionAskEstudio,
   confirmacionRiesgoCorteDispatcher,
-  procesarConfirmacionCorteEstudio,
 } from '@/lib/inngest/confirmacion-riesgo';
 import {
   recordatoriosDispatcher,
@@ -63,7 +62,6 @@ export const { GET, POST, PUT } = serve({
     confirmacionRiesgoAskDispatcher,
     procesarConfirmacionAskEstudio,
     confirmacionRiesgoCorteDispatcher,
-    procesarConfirmacionCorteEstudio,
     recordatoriosDispatcher,
     procesarRecordatoriosEstudio,
     penalizacionesDispatcher,
