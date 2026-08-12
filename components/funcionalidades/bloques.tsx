@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -124,5 +125,30 @@ export function CierreCta({ titulo, body }: { titulo: string; body: string }) {
         </div>
       </div>
     </section>
+  );
+}
+
+
+/**
+ * Captura vertical (de móvil) dentro del cuerpo.
+ *
+ * Aparte de la del encabezado a propósito: aquella vive en un marco ancho
+ * pensado para una pantalla de escritorio, y una captura de móvil ahí queda
+ * como una tira estrecha con dos vacíos a los lados.
+ */
+export function CapturaMovil({ src, alt, pie }: { src: string; alt: string; pie: string }) {
+  return (
+    <figure style={{ margin: '28px 0', display: 'grid', gap: 14, gridTemplateColumns: 'minmax(0,260px) 1fr', alignItems: 'center' }} className="cap-movil">
+      <Image
+        src={src}
+        alt={alt}
+        width={920}
+        height={2000}
+        sizes="(max-width: 620px) 92vw, 260px"
+        style={{ width: '100%', height: 'auto', borderRadius: 18, border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -40px rgba(26,26,26,.4)' }}
+      />
+      <figcaption className="lp-mono" style={{ fontSize: 12.5, lineHeight: 1.55, color: '#5A5A52' }}>{pie}</figcaption>
+      <style>{`@media (max-width: 620px) { .cap-movil { grid-template-columns: 1fr !important; } }`}</style>
+    </figure>
   );
 }

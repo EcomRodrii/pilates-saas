@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
-import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
+import { CapturaMovil, CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
 import { InstalableVsNativa, MockMovil, PantallasDelPortal } from '@/components/funcionalidades/visuales/app-alumnas';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
@@ -63,6 +63,11 @@ export default function AppAlumnasPage() {
 
       <Seccion id="pantallas" titulo="Qué tiene dentro">
         <PantallasDelPortal />
+        <CapturaMovil
+          src="/producto/portal-alumna.png"
+          alt="Página pública de reservas de un estudio de Pilates, vista en un móvil"
+          pie="La página de un estudio, en el móvil de su alumna: su nombre, su ciudad, su horario y quién da cada clase. La tipografía y el color son del estudio, no de Tentare."
+        />
         <p>
           Además de consultar, puede actuar: cancelar dentro de plazo, apuntarse a la lista de espera de una clase llena,
           comprar un bono cuando se le acaba y aceptar una plaza que se libera. Las reglas que se aplican en cada caso son
