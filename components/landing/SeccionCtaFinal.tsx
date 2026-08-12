@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { esExterno, PIE_V5 } from './enlaces';
 
 // Sección 13 ("CTA final") + pie de página de la landing v5.
@@ -10,12 +11,19 @@ import { esExterno, PIE_V5 } from './enlaces';
 // Pilates que ya tiene el repo (ver el comentario en FeatureShell.tsx), en
 // vez de enlazar una imagen externa sin licencia verificada.
 
+// Mismo número que WhatsAppFab.tsx y app/api/soporte/route.ts
+// (SOPORTE_WHATSAPP) — el WhatsApp real del fundador.
+const SOPORTE_WHATSAPP = '+34640515871';
+const SOPORTE_EMAIL = 'soporte@tentare.app';
+
 function EnlacePie({ href, children }: { href: string; children: React.ReactNode }) {
   if (esExterno(href)) return <a href={href}>{children}</a>;
   return <Link href={href}>{children}</Link>;
 }
 
 export function SeccionCtaFinal() {
+  const enlaceWa = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:') ?? '#';
+
   return (
     <>
       <section className="v5-cta" aria-labelledby="v5-cta-h">
@@ -36,6 +44,10 @@ export function SeccionCtaFinal() {
             <div className="v5-pie-marca">
               <LogoTentare formato="horizontal" tinta="blanco" alto={25} decorativo />
               <p className="v5-pie-desc">El software completo para tu estudio de pilates. Y el que cubre las bajas de instructoras solo.</p>
+              <p className="v5-pie-contacto">
+                Contáctanos por correo en <a href={`mailto:${SOPORTE_EMAIL}`}>{SOPORTE_EMAIL}</a> o por{' '}
+                <a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a> — respuestas humanas.
+              </p>
             </div>
             {PIE_V5.map((col) => (
               <div key={col.titulo} className="v5-pie-col">
@@ -78,6 +90,9 @@ export function SeccionCtaFinal() {
           gap: clamp(24px,4vw,48px); padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.09); }
         .v5-pie-marca { display: flex; flex-direction: column; gap: 14px; }
         .v5-pie-desc { font-size: 13.5px; line-height: 1.65; color: #A6A69E; max-width: 32ch; margin: 0; }
+        .v5-pie-contacto { font-size: 13px; line-height: 1.6; color: #8E8E86; max-width: 34ch; margin: 0; }
+        .v5-pie-contacto a { color: #D9C29E; }
+        .v5-pie-contacto a:hover { text-decoration: underline; text-underline-offset: 3px; }
         .v5-pie-col { display: flex; flex-direction: column; gap: 11px; font-size: 13.5px; color: #A6A69E; }
         .v5-pie-col a { color: #A6A69E; }
         .v5-pie-col a:hover { color: #fff; }
