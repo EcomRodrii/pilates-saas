@@ -9,6 +9,7 @@ import {
   instalarTema,
   CAMPOS_DEL_TEMA,
   CAMPOS_DEL_ESTUDIO,
+  RESERVAR_VACIO_TITULO_MAX,
   type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 
 test('themeConfigSchema acepta un tema completo válido', () => {
@@ -359,4 +360,50 @@ test('POSICION_FOTO cubre los tres encuadres y son background-position válidos'
     centro: 'center center',
     abajo: 'center bottom',
   });
+});
+
+test('⚠️ los textos de VOZ son del ESTUDIO, no del tema', () => {
+  // Estar clasificado no basta: el test de cobertura de arriba pasa igual si un
+  // campo cae en el grupo equivocado. Y el grupo equivocado aquí NO es un
+  // detalle — `CAMPOS_DEL_TEMA` se sobrescribe al instalar otro tema (decisión
+  // explícita: instalar es un reset, no un merge), así que probar un tema nuevo
+  // le borraría a la propietaria lo que escribió para sus clientas.
+  const voz = [
+    'reservarAvisoQuiz', 'reservarVacioTitulo', 'reservarVacioTexto',
+    'reservarConfirmacion', 'reservarListaEspera', 'reservarAyuda', 'reservarComoFunciona',
+  ];
+  for (const campo of voz) {
+    assert.ok(
+      (CAMPOS_DEL_ESTUDIO as readonly string[]).includes(campo),
+      `${campo} debe sobrevivir a instalar otro tema`,
+    );
+  }
+});
+
+test('un texto de voz demasiado largo no se guarda a medias', () => {
+  // El editor corta con `maxLength`, pero el esquema es la cerradura real: el
+  // valor también llega por la API al publicar.
+  //
+  // ⚠️ Con la base completa a propósito. La primera versión de este test
+  // pasaba un objeto con SOLO este campo y daba verde — pero por el motivo
+  // equivocado: `themeConfigSchema` exige los campos base, así que fallaba
+  // igual con un texto corto y no probaba nada sobre la longitud.
+  const base = {
+    primary: '#4F46E5', secondary: '#22D3EE', accent: '#FDE68A',
+    background: '#FFFFFF', text: '#111111', fontId: 'inter', radius: 'pill',
+    faviconUrl: null,
+  };
+  const largo = 'x'.repeat(RESERVAR_VACIO_TITULO_MAX + 1);
+  assert.equal(themeConfigSchema.safeParse({ ...base, reservarVacioTitulo: largo }).success, false);
+  assert.equal(themeConfigSchema.safeParse({ ...base, reservarVacioTitulo: 'Hoy descansamos' }).success, true);
+});
+
+test('resolveTheme deja vacíos los textos de voz cuando no hay nada guardado', () => {
+  // Vacío es la señal de «usa el de fábrica». Si `resolveTheme` inventara aquí
+  // un texto por defecto, la página no podría distinguir «no ha escrito nada»
+  // de «ha escrito justo eso», y el día que cambie el texto de fábrica no se
+  // actualizaría para nadie.
+  const r = resolveTheme({});
+  assert.equal(r.reservarAvisoQuiz, '');
+  assert.equal(r.reservarListaEspera, '');
 });

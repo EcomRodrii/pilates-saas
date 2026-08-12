@@ -192,6 +192,31 @@ export const RESERVAR_CTA_MAX = 28;
 export const RESERVAR_SOBRE_TITULO_MAX = 60;
 export const RESERVAR_SOBRE_TEXTO_MAX = 600;
 
+// Los siete textos que le HABLAN a la clienta en un momento de decisión, no los
+// que describen la interfaz.
+//
+// La auditoría de Momence pedía «i18n por atributo», que en su producto es
+// traducción a otro idioma. Aquí no: al medirlo salieron ~132 cadenas visibles
+// en el widget, de las que solo una minoría lleva voz — el resto es mecánica
+// («Cerrar», «Descargar .ics», «Google Calendar») que ningún estudio rebrandea,
+// y traducirla entera exigía un diccionario y un selector de idioma que hoy no
+// tienen demanda: no hay una sola dependencia de i18n en el repo y la app es
+// monolingüe por construcción. Se abre la VOZ, no el idioma; si algún día un
+// estudio pide inglés de verdad, eso es otra pieza y se diseña aparte.
+//
+// ⚠️ Vacío cae SIEMPRE en el texto de fábrica, al revés que «Sobre nosotros»
+// (ver el bloque de arriba). Aquí sí hay que decir algo: si un estudio borra el
+// aviso de lista de espera, la clienta se queda sin saber qué pasa después de
+// apuntarse. Un hueco en blanco en estos siete sitios no es sobriedad, es una
+// pregunta sin responder.
+export const RESERVAR_AVISO_QUIZ_MAX = 90;
+export const RESERVAR_VACIO_TITULO_MAX = 40;
+export const RESERVAR_VACIO_TEXTO_MAX = 80;
+export const RESERVAR_CONFIRMACION_MAX = 60;
+export const RESERVAR_LISTA_ESPERA_MAX = 120;
+export const RESERVAR_AYUDA_MAX = 80;
+export const RESERVAR_COMO_FUNCIONA_MAX = 30;
+
 export const SEO_TITULO_MAX = 60;
 export const SEO_DESCRIPCION_MAX = 160;
 const seoTituloSchema = z.string().max(SEO_TITULO_MAX);
@@ -202,6 +227,13 @@ const reservarSubtituloSchema = z.string().max(RESERVAR_SUBTITULO_MAX);
 const reservarCtaSchema = z.string().max(RESERVAR_CTA_MAX);
 const reservarSobreTituloSchema = z.string().max(RESERVAR_SOBRE_TITULO_MAX);
 const reservarSobreTextoSchema = z.string().max(RESERVAR_SOBRE_TEXTO_MAX);
+const reservarAvisoQuizSchema = z.string().max(RESERVAR_AVISO_QUIZ_MAX);
+const reservarVacioTituloSchema = z.string().max(RESERVAR_VACIO_TITULO_MAX);
+const reservarVacioTextoSchema = z.string().max(RESERVAR_VACIO_TEXTO_MAX);
+const reservarConfirmacionSchema = z.string().max(RESERVAR_CONFIRMACION_MAX);
+const reservarListaEsperaSchema = z.string().max(RESERVAR_LISTA_ESPERA_MAX);
+const reservarAyudaSchema = z.string().max(RESERVAR_AYUDA_MAX);
+const reservarComoFuncionaSchema = z.string().max(RESERVAR_COMO_FUNCIONA_MAX);
 // Apariencia del widget INCRUSTADO. Ver lib/reservar/apariencia-widget.ts: son
 // ajustes de otra superficie (la web del estudio), no del portal de la socia.
 const widgetFondoSchema = z.union([z.literal('transparente'), z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)]).nullable();
@@ -345,6 +377,13 @@ export const themeConfigSchema = z
     // «Sobre nosotros» — ver arriba. Vacío = la sección no se pinta.
     reservarSobreTitulo: reservarSobreTituloSchema.default(''),
     reservarSobreTexto: reservarSobreTextoSchema.default(''),
+    reservarAvisoQuiz: reservarAvisoQuizSchema.default(''),
+    reservarVacioTitulo: reservarVacioTituloSchema.default(''),
+    reservarVacioTexto: reservarVacioTextoSchema.default(''),
+    reservarConfirmacion: reservarConfirmacionSchema.default(''),
+    reservarListaEspera: reservarListaEsperaSchema.default(''),
+    reservarAyuda: reservarAyudaSchema.default(''),
+    reservarComoFunciona: reservarComoFuncionaSchema.default(''),
     widgetFondo: widgetFondoSchema.default(null),
     widgetFuente: widgetFuenteSchema.default(null),
     widgetOcultarPie: z.boolean().default(false),
@@ -428,6 +467,13 @@ export const DEFAULT_THEME: ThemeConfig = {
   reservarCta: '',
   reservarSobreTitulo: '',
   reservarSobreTexto: '',
+  reservarAvisoQuiz: '',
+  reservarVacioTitulo: '',
+  reservarVacioTexto: '',
+  reservarConfirmacion: '',
+  reservarListaEspera: '',
+  reservarAyuda: '',
+  reservarComoFunciona: '',
   widgetFondo: null,
   widgetFuente: null,
   widgetOcultarPie: false,
@@ -478,6 +524,8 @@ export const CAMPOS_DEL_ESTUDIO = [
   // Y con más motivo lo que el estudio cuenta de SÍ MISMO: instalar otro tema
   // no puede borrar el texto en el que ha contado quién es.
   'reservarSobreTitulo', 'reservarSobreTexto',
+  'reservarAvisoQuiz', 'reservarVacioTitulo', 'reservarVacioTexto', 'reservarConfirmacion',
+  'reservarListaEspera', 'reservarAyuda', 'reservarComoFunciona',
   // Y la apariencia del widget: describe cómo encaja en la web del ESTUDIO, no
   // cómo se ve el portal. Instalar otro tema no puede descuadrarle su web.
   'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana', 'widgetTexto',
@@ -555,6 +603,13 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     reservarCta: pick('reservarCta', reservarCtaSchema),
     reservarSobreTitulo: pick('reservarSobreTitulo', reservarSobreTituloSchema),
     reservarSobreTexto: pick('reservarSobreTexto', reservarSobreTextoSchema),
+    reservarAvisoQuiz: pick('reservarAvisoQuiz', reservarAvisoQuizSchema),
+    reservarVacioTitulo: pick('reservarVacioTitulo', reservarVacioTituloSchema),
+    reservarVacioTexto: pick('reservarVacioTexto', reservarVacioTextoSchema),
+    reservarConfirmacion: pick('reservarConfirmacion', reservarConfirmacionSchema),
+    reservarListaEspera: pick('reservarListaEspera', reservarListaEsperaSchema),
+    reservarAyuda: pick('reservarAyuda', reservarAyudaSchema),
+    reservarComoFunciona: pick('reservarComoFunciona', reservarComoFuncionaSchema),
     widgetFondo: pick('widgetFondo', widgetFondoSchema),
     widgetFuente: pick('widgetFuente', widgetFuenteSchema),
     widgetOcultarPie: pick('widgetOcultarPie', z.boolean()),

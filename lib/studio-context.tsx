@@ -272,7 +272,9 @@ interface StudioContextValue {
   redesSociales: Record<RedSocialId, string>;
   /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
    *  texto por defecto de la página (ver su hero). */
-  textosReservar: { titular: string; subtitulo: string; cta: string; sobreTitulo: string; sobreTexto: string };
+  // Los siete últimos son los textos de VOZ (ver `theme-schema.ts`): vacío
+  // significa «usa el de fábrica», nunca «no muestres nada».
+  textosReservar: { titular: string; subtitulo: string; cta: string; sobreTitulo: string; sobreTexto: string; avisoQuiz: string; vacioTitulo: string; vacioTexto: string; confirmacion: string; listaEspera: string; ayuda: string; comoFunciona: string };
   /** Apariencia GUARDADA del widget incrustado. Los `?params=` la pisan. */
   aparienciaWidget: { fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' };
   /** Orden/visibilidad CRUDOS de las secciones de /reservar. Se guardan tal
@@ -652,7 +654,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
   const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
-  const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '' });
+  const [textosReservar, setTextosReservar] = useState({
+    titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
+    avisoQuiz: '', vacioTitulo: '', vacioTexto: '', confirmacion: '', listaEspera: '', ayuda: '', comoFunciona: '',
+  });
   const [aparienciaWidget, setAparienciaWidget] = useState<{ fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' }>(
     { fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto' });
   const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
@@ -916,6 +921,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         titular: texto((pub as { reservarTitular?: unknown }).reservarTitular),
         subtitulo: texto((pub as { reservarSubtitulo?: unknown }).reservarSubtitulo),
         cta: texto((pub as { reservarCta?: unknown }).reservarCta),
+        avisoQuiz: texto((pub as { reservarAvisoQuiz?: unknown }).reservarAvisoQuiz),
+        vacioTitulo: texto((pub as { reservarVacioTitulo?: unknown }).reservarVacioTitulo),
+        vacioTexto: texto((pub as { reservarVacioTexto?: unknown }).reservarVacioTexto),
+        confirmacion: texto((pub as { reservarConfirmacion?: unknown }).reservarConfirmacion),
+        listaEspera: texto((pub as { reservarListaEspera?: unknown }).reservarListaEspera),
+        ayuda: texto((pub as { reservarAyuda?: unknown }).reservarAyuda),
+        comoFunciona: texto((pub as { reservarComoFunciona?: unknown }).reservarComoFunciona),
       });
       const listaStr = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
       const ordRes = (pub as { reservar?: { orden?: unknown; ocultos?: unknown } | null }).reservar;

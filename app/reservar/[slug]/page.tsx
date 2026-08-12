@@ -1425,7 +1425,7 @@ export default function ReservarPage() {
                   borderRadius: R.chipCard, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)',
                   padding: '14px 18px', marginBottom: 18,
                 }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>{textosReservar.avisoQuiz || '¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.'}</span>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); }}
                       style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -1516,7 +1516,10 @@ export default function ReservarPage() {
                   ventanaPorTipo={ventanaPorTipo}
                   vacio={hayFiltrosQuizActivos
                     ? { titulo: 'No encontramos clases con estos filtros', cuerpo: 'Prueba a ampliarlos, o usa "Ver todas" arriba.' }
-                    : { titulo: 'Sin clases disponibles', cuerpo: 'Prueba con otra semana o cambia el filtro' }}
+                    : {
+                        titulo: textosReservar.vacioTitulo || 'Sin clases disponibles',
+                        cuerpo: textosReservar.vacioTexto || 'Prueba con otra semana o cambia el filtro',
+                      }}
                 />
                 )}
               </div>
@@ -1553,7 +1556,7 @@ export default function ReservarPage() {
               </div>
 
               <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
-                <div style={eyebrow(9)}>CÓMO FUNCIONA</div>
+                <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
                 {/* ⚠️ Estas frases salen de `lib/reservar/promesas.ts`, no de
                     `studio.cancelacionVentanaHoras` a secas. Aquí se leía el
                     valor del ESTUDIO mientras la hoja de reserva ya resolvía el
@@ -1957,7 +1960,7 @@ export default function ReservarPage() {
               redes sociales, que ya se resuelven más abajo. */}
           {(studio?.telefono || studio?.email) && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 16, fontSize: 12.5 }}>
-              <span style={{ color: 'var(--portal-muted)' }}>¿Dudas? Estamos aquí para ayudarte:</span>
+              <span style={{ color: 'var(--portal-muted)' }}>{textosReservar.ayuda || '¿Dudas? Estamos aquí para ayudarte:'}</span>
               {studio?.telefono && (
                 <a href={`tel:${studio.telefono.replace(/\s+/g, '')}`} style={{ color: 'var(--portal-ink)', fontWeight: 600, textDecoration: 'none' }}>
                   {studio.telefono}
@@ -2026,7 +2029,7 @@ export default function ReservarPage() {
         onClose={closeBooking}
         closeOnBackdropClick={false}
         label={
-          loginStep === 'done' ? '¡Reserva confirmada!'
+          loginStep === 'done' ? (textosReservar.confirmacion || '¡Reserva confirmada!')
           : loginStep === 'espera' ? '¡En lista de espera!'
           : loginStep === 'pendiente' ? 'Pendiente de aprobación'
           : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
@@ -2051,7 +2054,7 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
                 <div>
-                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">¡Reserva confirmada!</p>
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">{textosReservar.confirmacion || '¡Reserva confirmada!'}</p>
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">
                     {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
                   </p>
@@ -2108,7 +2111,7 @@ export default function ReservarPage() {
                   {esperaPos && (
                     <p className="text-[var(--portal-muted-2)] text-sm mt-1">Eres la <span className="font-bold text-[var(--portal-ink)]">nº {esperaPos}</span> en la lista.</p>
                   )}
-                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">Si se libera una plaza, te avisaremos por email.</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm mt-1">{textosReservar.listaEspera || 'Si se libera una plaza, te avisaremos por email.'}</p>
                 </div>
                 <button onClick={closeBooking}
                   className="w-full py-3 rounded-2xl text-sm font-bold text-[var(--portal-ink)] bg-[var(--portal-surface-2)] border border-[var(--portal-line)] hover:bg-[var(--portal-surface-2)] transition-all">
