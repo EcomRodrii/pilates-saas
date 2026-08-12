@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Guarda / elimina la suscripción Web Push del usuario (propietaria/instructora/
 // socia; identidad del JWT). Único por endpoint. La usa el canal PUSH del motor.
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     failure_count: 0,
     last_used_at: new Date().toISOString(),
   }, { onConflict: 'endpoint' });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('notifications/subscribe:post', error, 'No se ha podido guardar la suscripción. Inténtalo de nuevo.');
   return NextResponse.json({ ok: true });
 }
 
