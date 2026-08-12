@@ -636,6 +636,36 @@ export function AjustesCategoriaPanel({
           </p>
         </div>
 
+        <div className="space-y-1.5">
+          <span className="text-[13px] font-medium text-foreground">Color del texto</span>
+          <div className="flex gap-1.5">
+            {([
+              { id: 'auto' as const, label: 'Automático' },
+              { id: 'oscuro' as const, label: 'Oscuro' },
+              { id: 'claro' as const, label: 'Claro' },
+            ]).map((o) => (
+              <button
+                key={o.id} type="button"
+                onClick={() => setCampo('widgetTexto', o.id)}
+                aria-pressed={(draft.widgetTexto ?? 'auto') === o.id}
+                className={`flex-1 text-[12px] px-2 py-2 rounded-lg border ${(draft.widgetTexto ?? 'auto') === o.id ? 'border-brand bg-brand/10 text-foreground font-semibold' : 'border-border text-muted-foreground'}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {/* ⚠️ Aquí es donde «automático» deja de poder ayudar, y se dice. Con
+              el fondo transparente no hay nada de lo que deducirlo: el widget
+              vive en un marco aparte y no ve el fondo de la web que lo contiene.
+              Sin este aviso, quien tenga la web oscura publicaba texto oscuro
+              sobre oscuro — que es justo lo que destapó la vista previa. */}
+          <p className="text-[11px] text-muted-foreground">
+            {draft.widgetFondo === 'transparente'
+              ? 'Con el fondo transparente, «automático» no puede adivinarlo: no vemos el fondo de tu web. Si es oscura, elige «Claro».'
+              : 'Automático lo saca del fondo que elijas aquí.'}
+          </p>
+        </div>
+
         <label className="block space-y-1">
           <span className="text-[13px] font-medium text-foreground">Tipografía</span>
           <input

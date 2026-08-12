@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolverApariencia, fondoCss, familiaCss, urlFuente, fuenteValida,
+  modoTextoDe, luminancia,
   APARIENCIA_POR_DEFECTO, type AparienciaWidget,
 } from './apariencia-widget.ts';
 
@@ -82,4 +83,51 @@ test('⚠️ la URL de Google Fonts usa `+`, no `%2B`', () => {
 
 test('sin fuente elegida no se carga ninguna', () => {
   assert.equal(urlFuente(APARIENCIA_POR_DEFECTO), null);
+});
+
+// ── Color del texto ─────────────────────────────────────────────────────────
+
+test('por defecto el texto se queda como estaba', () => {
+  assert.equal(APARIENCIA_POR_DEFECTO.texto, 'auto');
+  assert.equal(modoTextoDe(APARIENCIA_POR_DEFECTO), 'dia');
+});
+
+test('elegir «claro» pone la paleta de noche, que es la de letra clara', () => {
+  // ⚠️ El nombre que ve la propietaria («texto claro») y el modo interno
+  // («noche») son opuestos, y es fácil invertirlos sin darse cuenta.
+  assert.equal(modoTextoDe(resolverApariencia({ texto: 'claro' })), 'noche');
+  assert.equal(modoTextoDe(resolverApariencia({ texto: 'oscuro' })), 'dia');
+});
+
+test('en «auto», un fondo propio OSCURO aclara el texto solo', () => {
+  assert.equal(modoTextoDe(resolverApariencia({ fondo: '#12131A', texto: 'auto' })), 'noche');
+  assert.equal(modoTextoDe(resolverApariencia({ fondo: '#FFFFFF', texto: 'auto' })), 'dia');
+});
+
+test('⚠️ con fondo TRANSPARENTE, «auto» no adivina: se queda en oscuro', () => {
+  // Un iframe no ve el documento que lo contiene, así que no hay dato con el
+  // que decidir. Adivinar «probablemente su web es clara» dejaría ilegible a
+  // quien la tenga oscura, sin avisar.
+  assert.equal(modoTextoDe(resolverApariencia({ fondo: 'transparente', texto: 'auto' })), 'dia');
+  // Y elegirlo a mano sí funciona, que es la salida que ofrece el panel.
+  assert.equal(modoTextoDe(resolverApariencia({ fondo: 'transparente', texto: 'claro' })), 'noche');
+});
+
+test('⚠️ la luminancia pesa el verde, no hace la media de los canales', () => {
+  // Un azul intenso pasaría por «claro» con una media y dejaría la letra
+  // oscura ilegible encima.
+  const azul = luminancia('#0000FF')!;
+  const verde = luminancia('#00FF00')!;
+  assert.ok(verde > azul * 5, `verde ${verde} vs azul ${azul}`);
+  assert.equal(modoTextoDe(resolverApariencia({ fondo: '#0000FF', texto: 'auto' })), 'noche');
+});
+
+test('la luminancia entiende el hex de 3 dígitos y rechaza lo que no lo es', () => {
+  assert.equal(luminancia('#fff'), luminancia('#ffffff'));
+  assert.equal(luminancia('rojo'), null);
+});
+
+test('el parámetro `texto` de la URL pisa lo guardado, y la basura no', () => {
+  assert.equal(resolverApariencia({ texto: 'oscuro' }, params('texto=claro')).texto, 'claro');
+  assert.equal(resolverApariencia({ texto: 'oscuro' }, params('texto=azul')).texto, 'oscuro');
 });

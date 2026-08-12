@@ -550,6 +550,7 @@ export async function fetchPublicStudioData(
       widgetFuente: temaPublicado?.widgetFuente ?? null,
       widgetOcultarPie: temaPublicado?.widgetOcultarPie ?? false,
       widgetSoloPestana: temaPublicado?.widgetSoloPestana ?? false,
+      widgetTexto: temaPublicado?.widgetTexto ?? 'auto',
       reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
       reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
       reservarTitular: temaPublicado?.reservarTitular ?? null,

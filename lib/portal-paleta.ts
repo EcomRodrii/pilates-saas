@@ -77,12 +77,29 @@ export const TEXTO_CON_INFORMACION = ['ink', 'muted', 'muted2', 'heroAccent'] as
  * Solo el modo DÍA: `/reservar` es previo al login y no tiene interruptor.
  */
 export function paletaPortalCssText(selector = ':root'): string {
-  const t = MODO_TOKENS.dia;
-  const vars: [string, string][] = [
-    ['--portal-bg', t.bg], ['--portal-surface', t.surface], ['--portal-surface-2', t.surface2],
-    ['--portal-line', t.line], ['--portal-ink', t.ink],
-    ['--portal-muted', t.muted], ['--portal-muted-2', t.muted2], ['--portal-micro', t.micro],
-    ['--portal-accent', t.heroAccent],
-  ];
-  return `${selector} { ${vars.map(([k, v]) => `${k}: ${v};`).join(' ')} }`;
+  const vars = varsPaletaModo('dia');
+  return `${selector} { ${Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ')} }`;
+}
+
+/**
+ * La paleta de un modo como objeto de custom properties.
+ *
+ * Existe para que el widget incrustado pueda pedir la paleta de NOCHE sin
+ * duplicar los valores: cuando el estudio lo pone sobre una web oscura, el
+ * texto tiene que aclararse, y aclararlo a mano habría añadido una sexta fuente
+ * de verdad para el color a un repo que ya arrastraba cuatro.
+ *
+ * ⚠️ Se aplica EN LÍNEA sobre la raíz del widget, no desde `ThemeStyle`: un
+ * layout de Next no recibe `searchParams`, así que el servidor no puede saber
+ * qué pidió el iframe. Las custom properties en un `style` cascadean igual a
+ * todo el subárbol.
+ */
+export function varsPaletaModo(modo: Modo): Record<string, string> {
+  const t = MODO_TOKENS[modo];
+  return {
+    '--portal-bg': t.bg, '--portal-surface': t.surface, '--portal-surface-2': t.surface2,
+    '--portal-line': t.line, '--portal-ink': t.ink,
+    '--portal-muted': t.muted, '--portal-muted-2': t.muted2, '--portal-micro': t.micro,
+    '--portal-accent': t.heroAccent,
+  };
 }

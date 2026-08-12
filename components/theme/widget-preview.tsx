@@ -76,18 +76,6 @@ export function WidgetPreview({
         Es el widget de verdad, con lo que estás tocando. Prueba los dos fondos: si eliges
         «transparente», aquí verás el de tu web.
       </p>
-      {/* ⚠️ Este aviso lo destapó la propia vista previa el primer día que
-          existió: con el fondo transparente el TEXTO del widget sigue siendo
-          oscuro, así que sobre una web oscura no se lee. Falta un control de
-          color de texto; hasta que exista, se dice en vez de dejar que lo
-          descubra publicando. */}
-      {fondo === 'transparente' && (
-        <p className="text-[11px] text-amber-700 dark:text-amber-500 leading-snug">
-          Si tu web tiene el fondo oscuro, míralo en «Oscuro» antes de publicar: el texto del
-          widget es oscuro y ahí todavía no se lee. Estamos con ello — mientras tanto, para una
-          web oscura elige «Un color» claro.
-        </p>
-      )}
     </div>
   );
 }
