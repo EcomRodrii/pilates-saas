@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { esExterno, PIE_V5 } from './enlaces';
 
 // Sección 13 ("CTA final") + pie de página de la landing v5.
@@ -10,12 +11,19 @@ import { esExterno, PIE_V5 } from './enlaces';
 // Pilates que ya tiene el repo (ver el comentario en FeatureShell.tsx), en
 // vez de enlazar una imagen externa sin licencia verificada.
 
+// Mismo número que WhatsAppFab.tsx y app/api/soporte/route.ts
+// (SOPORTE_WHATSAPP) — el WhatsApp real del fundador.
+const SOPORTE_WHATSAPP = '+34640515871';
+const SOPORTE_EMAIL = 'soporte@tentare.app';
+
 function EnlacePie({ href, children }: { href: string; children: React.ReactNode }) {
   if (esExterno(href)) return <a href={href}>{children}</a>;
   return <Link href={href}>{children}</Link>;
 }
 
 export function SeccionCtaFinal() {
+  const enlaceWa = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:') ?? '#';
+
   return (
     <>
       <section className="v5-cta" aria-labelledby="v5-cta-h">
@@ -26,7 +34,6 @@ export function SeccionCtaFinal() {
           <p className="v5-cta-lead">En marcha en días. Y si no te convence, te vas con todos tus datos, gratis.</p>
           <div className="v5-cta-acciones">
             <Link href="/crear-estudio" className="v5-cta-boton">Probar Tentare</Link>
-            <a href="mailto:hola@tentare.app?subject=Quiero una demo de Tentare" className="v5-cta-boton-2">Pide una demo de 20 min</a>
           </div>
         </div>
       </section>
@@ -37,6 +44,10 @@ export function SeccionCtaFinal() {
             <div className="v5-pie-marca">
               <LogoTentare formato="horizontal" tinta="blanco" alto={25} decorativo />
               <p className="v5-pie-desc">El software completo para tu estudio de pilates. Y el que cubre las bajas de instructoras solo.</p>
+              <p className="v5-pie-contacto">
+                Contáctanos por correo en <a href={`mailto:${SOPORTE_EMAIL}`}>{SOPORTE_EMAIL}</a> o por{' '}
+                <a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a> — respuestas humanas.
+              </p>
             </div>
             {PIE_V5.map((col) => (
               <div key={col.titulo} className="v5-pie-col">
@@ -47,7 +58,13 @@ export function SeccionCtaFinal() {
           </div>
           <div className="v5-pie-legal">
             <span>© 2026 Tentare · Software para estudios de Pilates · Hecho en España 🇪🇸</span>
-            <span>RGPD · Tus datos son tuyos</span>
+            <div className="v5-pie-legal-der">
+              <span>RGPD · Tus datos son tuyos</span>
+              <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" className="v5-pie-badge">
+                {/* eslint-disable-next-line @next/next/no-img-element -- badge externo, no un asset propio */}
+                <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} />
+              </a>
+            </div>
           </div>
         </div>
       </footer>
@@ -73,12 +90,19 @@ export function SeccionCtaFinal() {
           gap: clamp(24px,4vw,48px); padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.09); }
         .v5-pie-marca { display: flex; flex-direction: column; gap: 14px; }
         .v5-pie-desc { font-size: 13.5px; line-height: 1.65; color: #A6A69E; max-width: 32ch; margin: 0; }
+        .v5-pie-contacto { font-size: 13px; line-height: 1.6; color: #8E8E86; max-width: 34ch; margin: 0; }
+        .v5-pie-contacto a { color: #D9C29E; }
+        .v5-pie-contacto a:hover { text-decoration: underline; text-underline-offset: 3px; }
         .v5-pie-col { display: flex; flex-direction: column; gap: 11px; font-size: 13.5px; color: #A6A69E; }
         .v5-pie-col a { color: #A6A69E; }
         .v5-pie-col a:hover { color: #fff; }
         .v5-pie-tit { font-size: 10.5px; font-weight: 800; letter-spacing: .14em; color: #6E7259; margin-bottom: 2px; }
-        .v5-pie-legal { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+        .v5-pie-legal { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
           padding-top: 18px; font-size: 12px; font-weight: 600; color: #5A5A52; }
+        .v5-pie-legal-der { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .v5-pie-badge { display: inline-flex; align-items: center; opacity: .85; transition: opacity .2s; }
+        .v5-pie-badge:hover { opacity: 1; }
+        .v5-pie-badge img { height: 32px; width: auto; display: block; }
       `}</style>
     </>
   );

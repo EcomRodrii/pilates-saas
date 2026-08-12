@@ -72,7 +72,7 @@ export function SeccionCalendarioReservas() {
   const SP = SPOTS_FASES[iSpot];
 
   return (
-    <section id="funcionalidades" ref={refPlaza as React.Ref<HTMLElement>} className="v5-cal" aria-labelledby="v5-cal-h">
+    <section id="calendario" ref={refPlaza as React.Ref<HTMLElement>} className="v5-cal" aria-labelledby="v5-cal-h">
       <div className="v5-cal-wrap">
         <header className="v5-cal-head">
           <p className="v5-cal-eyebrow">Calendario y reservas</p>

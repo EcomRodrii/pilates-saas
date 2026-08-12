@@ -2,35 +2,29 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { IBM_Plex_Mono } from 'next/font/google';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { BG } from '@/components/landing/theme';
-import { Nav } from '@/components/landing/Nav';
-import { Hero } from '@/components/landing/Hero';
-import { Problema } from '@/components/landing/Problema';
-import { AntesDespues } from '@/components/landing/AntesDespues';
-import { Recorrido } from '@/components/landing/Recorrido';
-import { Sustituciones } from '@/components/landing/Sustituciones';
-import { Autonomia } from '@/components/landing/Autonomia';
-import { CentroDeControl } from '@/components/landing/CentroDeControl';
-import { UnDia } from '@/components/landing/UnDia';
-import { Disciplinas } from '@/components/landing/Disciplinas';
-import { Integraciones } from '@/components/landing/Integraciones';
-import { SinFormacion } from '@/components/landing/SinFormacion';
-import { Migracion } from '@/components/landing/Migracion';
-import { Precio } from '@/components/landing/Precio';
-import { Faq } from '@/components/landing/Faq';
-import { CtaFinal } from '@/components/landing/CtaFinal';
-import { Footer } from '@/components/landing/Footer';
+import { SeccionHero } from '@/components/landing/SeccionHero';
+import { SeccionMartes } from '@/components/landing/SeccionMartes';
+import { SeccionSustituciones } from '@/components/landing/SeccionSustituciones';
+import { SeccionCalendarioReservas } from '@/components/landing/SeccionCalendarioReservas';
+import { SeccionApp } from '@/components/landing/SeccionApp';
+import { SeccionWidget } from '@/components/landing/SeccionWidget';
+import { SeccionClientas } from '@/components/landing/SeccionClientas';
+import { SeccionCambiarse } from '@/components/landing/SeccionCambiarse';
+import { SeccionFuncionalidades } from '@/components/landing/SeccionFuncionalidades';
+import { SeccionPrecio } from '@/components/landing/SeccionPrecio';
+import { SeccionFaq } from '@/components/landing/SeccionFaq';
+import { SeccionRecursos } from '@/components/landing/SeccionRecursos';
+import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
+import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { IntroLogo } from '@/components/landing/IntroLogo';
 import { StructuredData } from '@/components/landing/StructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-
-const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-plex-mono' });
 
 export default function LandingPage() {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
@@ -48,7 +42,7 @@ export default function LandingPage() {
   }, [session, studio, rol, router]);
 
   // El scroll nativo del navegador a #ancla (p. ej. /#precio) pierde la
-  // carrera en esta página: con ~20 secciones, fuentes e imágenes aún
+  // carrera en esta página: con más de diez secciones, fuentes e imágenes aún
   // asentando el layout tras la hidratación, el navegador a veces intenta el
   // salto antes de que el elemento exista en su posición final y se queda
   // arriba del todo (detectado auditando: cargar /#precio en frío se quedaba
@@ -78,7 +72,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className={plexMono.variable} style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
+    <div style={{ background: BG, color: '#1A1A1A', overflowX: 'clip', position: 'relative' }}>
       <StructuredData />
       <OrganizationStructuredData />
       {/* Va ARRIBA del todo pero se pinta solo en cliente: el HTML del servidor
@@ -86,23 +80,20 @@ export default function LandingPage() {
           cortina delante. `autenticado` lo apaga para quien está a punto de
           ser redirigido a su panel. */}
       <IntroLogo autenticado={!!session} />
-      <Nav />
-      <Hero />
-      <Problema />
-      <AntesDespues />
-      <Recorrido />
-      <Sustituciones />
-      <Autonomia />
-      <CentroDeControl />
-      <UnDia />
-      <Disciplinas />
-      <Integraciones />
-      <SinFormacion />
-      <Migracion />
-      <Precio />
-      <Faq />
-      <CtaFinal />
-      <Footer />
+      <SeccionHero />
+      <SeccionMartes />
+      <SeccionSustituciones />
+      <SeccionCalendarioReservas />
+      <SeccionApp />
+      <SeccionWidget />
+      <SeccionClientas />
+      <SeccionCambiarse />
+      <SeccionFuncionalidades />
+      <SeccionPrecio />
+      <SeccionFaq />
+      <SeccionRecursos />
+      <SeccionCtaFinal />
+      <WhatsAppFab />
       <GlobalStyles />
     </div>
   );

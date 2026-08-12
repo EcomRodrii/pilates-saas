@@ -82,6 +82,16 @@ export const metadata: Metadata = {
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',
   },
+  // El código lo da Search Console al añadir la propiedad (Ajustes →
+  // Verificación de la propiedad → etiqueta HTML) — no es algo que se pueda
+  // generar aquí. Sin GOOGLE_SITE_VERIFICATION en el entorno, esta clave se
+  // omite entera: un `content="undefined"` sería peor que no tener la
+  // etiqueta. La verificación no es requisito para que Google indexe el
+  // sitio (ya lo rastrea sin ella), pero sin ella nadie puede ver el estado
+  // de indexación real ni pedir un re-rastreo manual de una URL concreta.
+  ...(process.env.GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
