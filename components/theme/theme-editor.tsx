@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Upload, Trash2, Check, AlertTriangle, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { WidgetPreview } from './widget-preview';
 import { usePermisos } from '@/lib/permisos';
 import {
   fetchThemeBorrador,
@@ -88,6 +89,11 @@ export const AJUSTES_CATEGORIAS = [
   // existe hasta que se escribe. Mezclarlas escondería que escribir aquí hace
   // aparecer algo nuevo en la página.
   { id: 'reservar-sobre', label: 'Sobre nosotros' },
+  // ⚠️ Categoría aparte del resto del tema, y es lo que la hace existir: todo
+  // lo demás de esta columna describe el PORTAL de la socia. Esto describe cómo
+  // encaja el widget en la web del ESTUDIO, que es otra superficie con otro
+  // dueño. Mezclarlos obligaba a estropear una para arreglar la otra.
+  { id: 'reservar-widget', label: 'Widget en tu web' },
   // El único ajuste de esta columna que NO pasa por Publicar — tiene efecto al
   // momento, y el panel lo dice. Está aquí y no en Configuración porque es
   // donde se busca: junto a lo demás de la cara pública del estudio.
@@ -580,6 +586,102 @@ export function AjustesCategoriaPanel({
           />
           <span className="block text-[11px] text-muted-foreground">Los saltos de línea se respetan tal cual.</span>
         </label>
+      </div>
+    );
+  }
+
+  if (categoriaId === 'reservar-widget') {
+    const fondo = draft.widgetFondo ?? null;
+    return (
+      <div className="space-y-4">
+        <p className="text-[12px] text-muted-foreground leading-snug">
+          Cómo se ve el widget <strong className="font-semibold text-foreground">dentro de tu web</strong>, cuando lo
+          incrustas. No toca el portal de tus clientas.
+        </p>
+
+        <div className="space-y-1.5">
+          <span className="text-[13px] font-medium text-foreground">Fondo</span>
+          <div className="flex gap-1.5">
+            {([
+              { id: null, label: 'El de Tentare' },
+              { id: 'transparente', label: 'Transparente' },
+              { id: 'color', label: 'Un color' },
+            ] as const).map((o) => {
+              const activo = o.id === 'color'
+                ? typeof fondo === 'string' && fondo !== 'transparente'
+                : fondo === o.id;
+              return (
+                <button
+                  key={String(o.id)} type="button"
+                  onClick={() => setCampo('widgetFondo', o.id === 'color' ? '#FFFFFF' : o.id)}
+                  aria-pressed={activo}
+                  className={`flex-1 text-[12px] px-2 py-2 rounded-lg border ${activo ? 'border-brand bg-brand/10 text-foreground font-semibold' : 'border-border text-muted-foreground'}`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          {typeof fondo === 'string' && fondo !== 'transparente' && (
+            <input
+              type="color" value={fondo}
+              onChange={(e) => setCampo('widgetFondo', e.target.value)}
+              className="w-full h-9 rounded-lg border border-border bg-background"
+              aria-label="Color de fondo del widget"
+            />
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            <strong className="font-semibold text-foreground">Transparente</strong> es lo que suele encajar: deja ver
+            el fondo de tu web, sea claro u oscuro.
+          </p>
+        </div>
+
+        <label className="block space-y-1">
+          <span className="text-[13px] font-medium text-foreground">Tipografía</span>
+          <input
+            type="text"
+            value={draft.widgetFuente ?? ''}
+            maxLength={40}
+            onChange={(e) => setCampo('widgetFuente', e.target.value.trim() === '' ? null : e.target.value)}
+            placeholder="Space Grotesk"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+          />
+          {/* ⚠️ Se dice la verdad en vez de prometer una herencia que no existe:
+              un iframe es otro documento y NO puede heredar la fuente de la web
+              que lo contiene. Escribir el nombre es lo que sí funciona. */}
+          <span className="block text-[11px] text-muted-foreground">
+            Escribe el nombre de la fuente de tu web, tal cual (la buscamos en Google Fonts).
+            No podemos heredarla sola: el widget vive en un marco aparte.
+          </span>
+        </label>
+
+        <div className="space-y-1.5">
+          <span className="text-[13px] font-medium text-foreground">Al incrustarlo</span>
+          {([
+            { k: 'widgetOcultarPie' as const, label: 'Ocultar el pie', ayuda: 'Tu web ya tiene el suyo, con la misma dirección.' },
+            { k: 'widgetSoloPestana' as const, label: 'Enseñar solo la pestaña que elijas', ayuda: 'Si no, quien mira puede irse a «El estudio» dentro de tu página.' },
+          ]).map((o) => (
+            <label key={o.k} className="flex items-start gap-2.5 text-[12.5px] text-foreground">
+              <input
+                type="checkbox" checked={draft[o.k] === true}
+                onChange={(e) => setCampo(o.k, e.target.checked)}
+                className="mt-0.5"
+              />
+              <span>
+                {o.label}
+                <span className="block text-[11px] text-muted-foreground">{o.ayuda}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <WidgetPreview
+          slug={studio?.slug}
+          fondo={typeof draft.widgetFondo === 'string' ? draft.widgetFondo : null}
+          fuente={draft.widgetFuente ?? null}
+          ocultarPie={draft.widgetOcultarPie === true}
+          soloPestana={draft.widgetSoloPestana === true}
+        />
       </div>
     );
   }

@@ -202,6 +202,10 @@ const reservarSubtituloSchema = z.string().max(RESERVAR_SUBTITULO_MAX);
 const reservarCtaSchema = z.string().max(RESERVAR_CTA_MAX);
 const reservarSobreTituloSchema = z.string().max(RESERVAR_SOBRE_TITULO_MAX);
 const reservarSobreTextoSchema = z.string().max(RESERVAR_SOBRE_TEXTO_MAX);
+// Apariencia del widget INCRUSTADO. Ver lib/reservar/apariencia-widget.ts: son
+// ajustes de otra superficie (la web del estudio), no del portal de la socia.
+const widgetFondoSchema = z.union([z.literal('transparente'), z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)]).nullable();
+const widgetFuenteSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/).nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
@@ -340,6 +344,10 @@ export const themeConfigSchema = z
     // «Sobre nosotros» — ver arriba. Vacío = la sección no se pinta.
     reservarSobreTitulo: reservarSobreTituloSchema.default(''),
     reservarSobreTexto: reservarSobreTextoSchema.default(''),
+    widgetFondo: widgetFondoSchema.default(null),
+    widgetFuente: widgetFuenteSchema.default(null),
+    widgetOcultarPie: z.boolean().default(false),
+    widgetSoloPestana: z.boolean().default(false),
     // Opcionales con default: un tema guardado ANTES de esta fase no trae
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
@@ -418,6 +426,10 @@ export const DEFAULT_THEME: ThemeConfig = {
   reservarCta: '',
   reservarSobreTitulo: '',
   reservarSobreTexto: '',
+  widgetFondo: null,
+  widgetFuente: null,
+  widgetOcultarPie: false,
+  widgetSoloPestana: false,
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
@@ -463,6 +475,9 @@ export const CAMPOS_DEL_ESTUDIO = [
   // Y con más motivo lo que el estudio cuenta de SÍ MISMO: instalar otro tema
   // no puede borrar el texto en el que ha contado quién es.
   'reservarSobreTitulo', 'reservarSobreTexto',
+  // Y la apariencia del widget: describe cómo encaja en la web del ESTUDIO, no
+  // cómo se ve el portal. Instalar otro tema no puede descuadrarle su web.
+  'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana',
 ] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
@@ -537,6 +552,10 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     reservarCta: pick('reservarCta', reservarCtaSchema),
     reservarSobreTitulo: pick('reservarSobreTitulo', reservarSobreTituloSchema),
     reservarSobreTexto: pick('reservarSobreTexto', reservarSobreTextoSchema),
+    widgetFondo: pick('widgetFondo', widgetFondoSchema),
+    widgetFuente: pick('widgetFuente', widgetFuenteSchema),
+    widgetOcultarPie: pick('widgetOcultarPie', z.boolean()),
+    widgetSoloPestana: pick('widgetSoloPestana', z.boolean()),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),
