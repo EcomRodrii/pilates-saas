@@ -23,6 +23,7 @@ import {
   type ThemeConfig, type RedSocialId, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
+  RESERVAR_SOBRE_TITULO_MAX, RESERVAR_SOBRE_TEXTO_MAX,
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
 import { PanelVisibilidad } from './panel-visibilidad';
@@ -82,6 +83,11 @@ export const AJUSTES_CATEGORIAS = [
   // constantes del código —el mismo titular servido a todos— hasta que se
   // hicieron editables; esta categoría es donde se escriben.
   { id: 'reservar-portada', label: 'Portada de tu página de reservas' },
+  // Categoría aparte y no un campo más en la de arriba: la portada son los
+  // textos que ADORNAN una página que ya existe, y esto es una SECCIÓN que no
+  // existe hasta que se escribe. Mezclarlas escondería que escribir aquí hace
+  // aparecer algo nuevo en la página.
+  { id: 'reservar-sobre', label: 'Sobre nosotros' },
   // El único ajuste de esta columna que NO pasa por Publicar — tiene efecto al
   // momento, y el panel lo dice. Está aquí y no en Configuración porque es
   // donde se busca: junto a lo demás de la cara pública del estudio.
@@ -532,6 +538,47 @@ export function AjustesCategoriaPanel({
             placeholder="Ver el horario"
             className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
           />
+        </label>
+      </div>
+    );
+  }
+
+  if (categoriaId === 'reservar-sobre') {
+    return (
+      <div className="space-y-4">
+        <p className="text-[12px] text-muted-foreground leading-snug">
+          Lo que cuentas de tu estudio en <strong className="font-semibold text-foreground">tu página de reservas</strong>.
+          Es la única sección que escribes entera tú — <strong className="font-semibold text-foreground">si dejas el texto vacío, no se ve</strong>.
+          No hay un texto por defecto a propósito: preferimos que no haya sección a que haya una que no habla de ti.
+        </p>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Título</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarSobreTitulo ?? '').length}/{RESERVAR_SOBRE_TITULO_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarSobreTitulo ?? ''}
+            maxLength={RESERVAR_SOBRE_TITULO_MAX}
+            onChange={(e) => setCampo('reservarSobreTitulo', e.target.value)}
+            placeholder="Un estudio pequeño, de verdad"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Texto</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarSobreTexto ?? '').length}/{RESERVAR_SOBRE_TEXTO_MAX}</span>
+          </span>
+          <textarea
+            rows={8}
+            value={draft.reservarSobreTexto ?? ''}
+            maxLength={RESERVAR_SOBRE_TEXTO_MAX}
+            onChange={(e) => setCampo('reservarSobreTexto', e.target.value)}
+            placeholder="Cuenta quién sois, cómo trabajáis, qué se va a encontrar quien venga por primera vez."
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+          <span className="block text-[11px] text-muted-foreground">Los saltos de línea se respetan tal cual.</span>
         </label>
       </div>
     );

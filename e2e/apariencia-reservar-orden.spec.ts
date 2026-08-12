@@ -149,13 +149,34 @@ test.describe('Página pública de reservas — orden de secciones', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
     // Solo viajan las MOVIBLES: ni el horario ni la portada, que van ancladas.
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras']);
+    // «Sobre nosotros» sigue la primera — no se ha tocado.
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['sobre', 'contacto', 'cifras']);
   });
 
   test('un orden ya guardado se lee y se vuelve a guardar igual', async ({ page }) => {
+    // Lo guardado solo conoce dos de las tres movibles; «sobre» se añadió al
+    // catálogo después. Se relee con ella al final —la regla de siempre— y se
+    // vuelve a guardar así, ya completa: leer no puede perder una sección.
     const { puts } = await montar(page, { orden: ['contacto', 'cifras'], ocultos: [] });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras']);
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras', 'sobre']);
   });
+});
+
+// ── «Sobre nosotros»: el panel donde se escribe ─────────────────────────────
+// Categoría propia en «Ajustes del tema», y no un campo más en la de la
+// portada: la portada son textos que adornan una página que ya existe, y esto
+// es una SECCIÓN que no existe hasta que se escribe. Se comprueba aquí porque
+// la regla de producto («vacío = no se ve») solo se entiende si el panel lo
+// dice, y un panel que no lo dijera pasaría todos los tests de la página.
+test('la categoría «Sobre nosotros» existe y avisa de que sin texto no se ve', async ({ page }) => {
+  await montar(page);
+  await page.getByRole('tab', { name: 'Ajustes del tema' }).click();
+  await page.getByRole('button', { name: 'Sobre nosotros', exact: true }).click();
+  await expect(page.getByText(/si dejas el texto vacío, no se ve/i)).toBeVisible();
+  await page.getByPlaceholder(/Cuenta quién sois/).fill('Somos tres instructoras.');
+  // El contador de caracteres es lo que confirma que el campo está enganchado
+  // al borrador y no es un textarea suelto.
+  await expect(page.getByText('24/600')).toBeVisible();
 });

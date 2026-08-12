@@ -1715,6 +1715,38 @@ export default function ReservarPage() {
           veía. Ahora es un pie de página de verdad, visible en las cuatro
           pestañas, con redes sociales (si el estudio las configuró en "Marca y
           colores") y los mismos enlaces legales de siempre. */}
+      {/* ── SOBRE NOSOTROS ────────────────────────────────────────────────────
+          La única sección cuyo contenido entero escribe el estudio. Las demás
+          pintan datos que ya existen (clases, cifras, teléfono); esta no existe
+          hasta que hay algo que contar.
+
+          ⚠️ Sin texto NO se pinta, y no hay texto por defecto. Es lo contrario
+          del titular de la portada, donde vacío sí cae en uno de fábrica: un
+          titular genérico se lee como una página sin terminar, pero un «Sobre
+          nosotros» genérico se lee como una mentira sobre el estudio. Mismo
+          criterio que la bio de instructora (#946).
+
+          El título solo no basta: un encabezado sobre nada es peor que nada. */}
+      {seccionVisible('sobre', ordenReservar) && textosReservar.sobreTexto && (
+        <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
+          <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
+            {textosReservar.sobreTitulo && (
+              <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, marginBottom: 14 }}>
+                {textosReservar.sobreTitulo}
+              </h2>
+            )}
+            {/* `whiteSpace: 'pre-line'` y no un parseo de Markdown: así los
+                saltos de línea que escribe la propietaria en el textarea se
+                respetan tal cual, sin abrir la puerta a inyectar HTML — el
+                mismo cuidado que ya se documentó con `<Markdown>` en los
+                correos, que NO sanea. */}
+            <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.6, color: 'var(--portal-muted)', whiteSpace: 'pre-line' }}>
+              {textosReservar.sobreTexto}
+            </p>
+          </div>
+        </div>
+      )}
+
       {seccionVisible('cifras', ordenReservar) && mereceBanda(cifras) && (
         <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>

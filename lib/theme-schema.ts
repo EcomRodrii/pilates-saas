@@ -179,6 +179,19 @@ export const RESERVAR_TITULAR_MAX = 70;
 export const RESERVAR_SUBTITULO_MAX = 160;
 export const RESERVAR_CTA_MAX = 28;
 
+// «Sobre nosotros» — la única SECCIÓN de la página de reservas cuyo contenido
+// entero lo escribe el estudio. Las demás pintan datos (clases, cifras,
+// teléfono); esta no existe hasta que hay algo que contar.
+//
+// ⚠️ Vacío = la sección NO se pinta, y no hay texto por defecto ninguno. Es a
+// propósito y es lo contrario del titular de la portada, donde vacío sí cae en
+// un texto de fábrica: un titular genérico se lee como una página sin
+// personalizar, pero un «Sobre nosotros» genérico se lee como una MENTIRA
+// sobre el estudio. Mismo criterio que la bio de instructora (#946): sin bio no
+// se muestra nada, sin marcador de posición inventado.
+export const RESERVAR_SOBRE_TITULO_MAX = 60;
+export const RESERVAR_SOBRE_TEXTO_MAX = 600;
+
 export const SEO_TITULO_MAX = 60;
 export const SEO_DESCRIPCION_MAX = 160;
 const seoTituloSchema = z.string().max(SEO_TITULO_MAX);
@@ -187,6 +200,8 @@ const seoImagenSchema = z.string().url().nullable();
 const reservarTitularSchema = z.string().max(RESERVAR_TITULAR_MAX);
 const reservarSubtituloSchema = z.string().max(RESERVAR_SUBTITULO_MAX);
 const reservarCtaSchema = z.string().max(RESERVAR_CTA_MAX);
+const reservarSobreTituloSchema = z.string().max(RESERVAR_SOBRE_TITULO_MAX);
+const reservarSobreTextoSchema = z.string().max(RESERVAR_SOBRE_TEXTO_MAX);
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
@@ -322,6 +337,9 @@ export const themeConfigSchema = z
     reservarTitular: reservarTitularSchema.default(''),
     reservarSubtitulo: reservarSubtituloSchema.default(''),
     reservarCta: reservarCtaSchema.default(''),
+    // «Sobre nosotros» — ver arriba. Vacío = la sección no se pinta.
+    reservarSobreTitulo: reservarSobreTituloSchema.default(''),
+    reservarSobreTexto: reservarSobreTextoSchema.default(''),
     // Opcionales con default: un tema guardado ANTES de esta fase no trae
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
@@ -398,6 +416,8 @@ export const DEFAULT_THEME: ThemeConfig = {
   reservarTitular: '',
   reservarSubtitulo: '',
   reservarCta: '',
+  reservarSobreTitulo: '',
+  reservarSobreTexto: '',
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
@@ -440,6 +460,9 @@ export const CAMPOS_DEL_ESTUDIO = [
   // Mismo motivo: el titular que el estudio escribe para SU web no es aspecto,
   // y cambiar de tema no puede borrárselo.
   'reservarTitular', 'reservarSubtitulo', 'reservarCta',
+  // Y con más motivo lo que el estudio cuenta de SÍ MISMO: instalar otro tema
+  // no puede borrar el texto en el que ha contado quién es.
+  'reservarSobreTitulo', 'reservarSobreTexto',
 ] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
@@ -512,6 +535,8 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     reservarTitular: pick('reservarTitular', reservarTitularSchema),
     reservarSubtitulo: pick('reservarSubtitulo', reservarSubtituloSchema),
     reservarCta: pick('reservarCta', reservarCtaSchema),
+    reservarSobreTitulo: pick('reservarSobreTitulo', reservarSobreTituloSchema),
+    reservarSobreTexto: pick('reservarSobreTexto', reservarSobreTextoSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),

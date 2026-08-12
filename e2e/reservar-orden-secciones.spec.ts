@@ -36,10 +36,10 @@ function fixture(extra: Record<string, unknown> = {}) {
   };
 }
 
-async function montar(page: Page, reservar: unknown = null) {
+async function montar(page: Page, reservar: unknown = null, extra: Record<string, unknown> = {}) {
   await page.route('**/rest/v1/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: S }) }));
   await page.route('**/api/theme**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
-  await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture({ reservar })) }));
+  await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture({ reservar, ...extra })) }));
   await page.route('**/api/public/session', r => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no' }) }));
   await page.goto(`/reservar/${SLUG}`);
 }
@@ -116,4 +116,45 @@ test('⚠️ el horario se pinta aunque alguien lo haya metido en `ocultos`', as
   // editor — que es UI y nunca es el límite.
   await montar(page, { orden: [], ocultos: ['horario', 'portada', 'contacto', 'cifras'] });
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+});
+
+// ── «Sobre nosotros» ────────────────────────────────────────────────────────
+// La única sección cuyo contenido escribe el estudio entero. La regla que la
+// define no es de orden sino de existencia: sin texto no hay sección, y no hay
+// texto por defecto. Un «Sobre nosotros» de fábrica sería una mentira sobre el
+// estudio, a diferencia de un titular genérico, que solo se lee como una
+// página sin terminar.
+
+test('sin texto escrito, «Sobre nosotros» no existe en la página', async ({ page }) => {
+  await montar(page);
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Quiénes somos' })).toHaveCount(0);
+});
+
+test('el título solo NO basta para que la sección aparezca', async ({ page }) => {
+  // Un encabezado sobre nada es peor que nada, así que manda el texto.
+  await montar(page, null, { reservarSobreTitulo: 'Quiénes somos' });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Quiénes somos' })).toHaveCount(0);
+});
+
+test('con texto se ve, respetando los saltos de línea', async ({ page }) => {
+  await montar(page, null, {
+    reservarSobreTitulo: 'Quiénes somos',
+    reservarSobreTexto: 'Somos tres.\nY llevamos ocho años.',
+  });
+  await expect(page.getByRole('heading', { name: 'Quiénes somos' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Somos tres.')).toBeVisible();
+  // `pre-line`: los saltos que escribe la propietaria se respetan tal cual, sin
+  // parsear Markdown ni abrir la puerta a inyectar HTML.
+  const ws = await page.getByText('Somos tres.').evaluate((el) => getComputedStyle(el).whiteSpace);
+  expect(ws).toBe('pre-line');
+});
+
+test('se puede ocultar aunque esté escrito', async ({ page }) => {
+  await montar(page, { orden: [], ocultos: ['sobre'] }, {
+    reservarSobreTitulo: 'Quiénes somos', reservarSobreTexto: 'Somos tres.',
+  });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Quiénes somos' })).toHaveCount(0);
 });

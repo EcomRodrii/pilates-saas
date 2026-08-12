@@ -19,11 +19,11 @@ test('sin nada guardado, el orden es el de siempre', () => {
 });
 
 test('lo guardado manda para las secciones movibles', () => {
-  const r = ids(ordenarSecciones({ orden: ['contacto', 'cifras'] }));
+  const r = ids(ordenarSecciones({ orden: ['contacto', 'cifras', 'sobre'] }));
   // Portada y horario están ANCLADAS: se quedan en su posición del catálogo.
   assert.deepEqual(r.slice(0, 2), ['portada', 'horario']);
   // Las movibles salen en el orden elegido, detrás de las ancladas.
-  assert.deepEqual(r.slice(2), ['contacto', 'cifras']);
+  assert.deepEqual(r.slice(2), ['contacto', 'cifras', 'sobre']);
 });
 
 test('⚠️ ni el horario ni la portada se mueven, ni pidiéndolo explícitamente', () => {
@@ -53,9 +53,14 @@ test('⚠️ anclada NO es lo mismo que obligatoria: la portada se oculta', () =
 
 test('una sección NUEVA entra al final del orden ya guardado', () => {
   // El gotcha que ya documenta la home del panel: quien personalizó su página
-  // antes de que existiera «cifras» no puede encontrársela en medio.
+  // antes de que existiera «Sobre nosotros» no puede encontrársela en medio.
+  //
+  // Este caso dejó de ser hipotético: «sobre» se añadió al catálogo DESPUÉS de
+  // que los primeros estudios pudieran guardar su orden. Aquí el guardado solo
+  // conoce «contacto», y las dos que faltan entran detrás, en el orden del
+  // catálogo — nunca delante de lo que el estudio ya había colocado.
   const r = ids(ordenarSecciones({ orden: ['contacto'] }));
-  assert.deepEqual(r.slice(2), ['contacto', 'cifras']);
+  assert.deepEqual(r.slice(2), ['contacto', 'sobre', 'cifras']);
 });
 
 test('una sección RETIRADA del producto no deja hueco', () => {
