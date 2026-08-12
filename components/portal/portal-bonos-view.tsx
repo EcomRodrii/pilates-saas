@@ -9,25 +9,56 @@
 // que el wrapper de preview pasa un no-op en vez de sacar al iframe hacia el
 // portal real.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
-import { bonoActivo, plazaFijaTexto, fechaLarga } from '@/lib/bonos-portal';
+import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
 import { display, micro, sans, texto, radio, transicion, dur, EASE, escala } from '@/lib/portal-design';
 import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { semantic } from '@/lib/portal-tokens';
 import { BandaFoto } from '@/components/portal/banda-foto';
+import { BottomSheet, Toast, Button, type AvisoToast } from '@/components/portal/ui';
 import type { PortalSession } from '@/lib/portal-auth';
 
 export function PortalBonosView({
   session, navegar, bloquesOverride,
 }: { session: PortalSession | null; navegar: (ruta: string) => void; bloquesOverride?: BloqueHome[] }) {
   const { slug } = useParams<{ slug: string }>();
-  const { suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas, bloquesBonos: bloquesBonosPublicado } = useStudio();
+  const {
+    suscripciones, planesTarifa, tiposClase, salas, plazasFijas, reservas, bloquesBonos: bloquesBonosPublicado,
+    pausarPlazaFijaPropia, reanudarPlazaFijaPropia, darDeBajaPlazaFijaPropia,
+  } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+  // Feature #2 (ficha Lorari-vs-Tentare): autoservicio — pausar/reanudar/dar
+  // de baja SU plaza fija, aquí mismo donde ya la ve. ACTIVA o PAUSADA (para
+  // poder reanudarla); una en BAJA ya no cuenta como "tiene plaza fija".
+  const miPlazaFija = useMemo(
+    () => plazasFijas.find(p => p.socioId === socioId && (p.estado === 'ACTIVA' || p.estado === 'PAUSADA')) ?? null,
+    [plazasFijas, socioId],
+  );
+  const [aviso, setAviso] = useState<AvisoToast | null>(null);
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+
+  async function pausarOReanudar() {
+    if (!miPlazaFija || procesando) return;
+    setProcesando(true);
+    const r = miPlazaFija.estado === 'ACTIVA'
+      ? await pausarPlazaFijaPropia(miPlazaFija.id)
+      : await reanudarPlazaFijaPropia(miPlazaFija.id);
+    setProcesando(false);
+    if (!r.ok) setAviso({ texto: r.error, error: true });
+  }
+
+  async function confirmarBaja() {
+    setConfirmandoBaja(false);
+    if (!miPlazaFija) return;
+    const r = await darDeBajaPlazaFijaPropia(miPlazaFija.id);
+    setAviso(r.ok ? { texto: 'Plaza fija dada de baja.', error: false } : { texto: r.error, error: true });
+  }
 
   // Constructor de bloques (Fase 1 del Theme Builder, generaliza Fase 3): el
   // saldo/plan es el único bloque `sistema` de esta pantalla — se ordena por
@@ -65,10 +96,18 @@ export function PortalBonosView({
     () => bonoActivo(suscripciones, planesTarifa, tiposClase, socioId),
     [suscripciones, planesTarifa, tiposClase, socioId],
   );
-  const plaza = useMemo(
-    () => plazaFijaTexto(plazasFijas, socioId, salas, tiposClase),
-    [plazasFijas, socioId, salas, tiposClase],
-  );
+  // `plazaFijaTexto` excluye a propósito PAUSADA/BAJA (test:
+  // "solo cuenta ACTIVA"); para el autoservicio de arriba (Feature #2) hace
+  // falta pintar también la PAUSADA con un "Reanudar", así que el texto de la
+  // tarjeta se deriva de `miPlazaFija` en vez de reusar esa función.
+  const plaza = useMemo(() => {
+    if (!miPlazaFija) return null;
+    const hora = miPlazaFija.horaInicio.slice(0, 5);
+    const sala = salas.find(s => s.id === miPlazaFija.salaId)?.nombre ?? null;
+    const tipo = miPlazaFija.tipoClaseId ? tiposClase.find(t => t.id === miPlazaFija.tipoClaseId)?.nombre ?? null : null;
+    const partes = [tipo, sala].filter(Boolean) as string[];
+    return { cuando: `${DIAS[miPlazaFija.diaSemana] ?? ''} · ${hora}`.trim(), donde: partes.join(' · ') };
+  }, [miPlazaFija, salas, tiposClase]);
   const clasesHechas = useMemo(
     () => reservas.filter(r => r.socioId === socioId && r.estado === 'ASISTIDA').length,
     [reservas, socioId],
@@ -301,21 +340,54 @@ export function PortalBonosView({
           </div>
         )}
 
-        {plaza && (
+        {plaza && miPlazaFija && (
           <div style={{
             marginTop: 14, borderRadius: 'var(--portal-radius-card, 26px)',
             background: noche ? t.surface2 : '#EEF0EA',
             border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.14)'}`,
             padding: 24,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.ink }} />
-              <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>Plaza fija</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: t.ink }} />
+                <span style={{ ...micro(8.5, 0.24, 600), color: t.ink }}>Plaza fija</span>
+              </div>
+              {miPlazaFija.estado === 'PAUSADA' && (
+                <span style={{ ...micro(8, 0.2, 700), color: t.muted }}>En pausa</span>
+              )}
             </div>
-            <div style={{ ...display(27, true, 1.05), color: t.ink, marginTop: 10 }}>{plaza.cuando}</div>
+            <div style={{ ...display(27, true, 1.05), color: t.ink, marginTop: 10, opacity: miPlazaFija.estado === 'PAUSADA' ? 0.55 : 1 }}>{plaza.cuando}</div>
             {plaza.donde && (
               <div style={{ fontFamily: sans, fontSize: 11.5, color: t.muted, marginTop: 8 }}>{plaza.donde}</div>
             )}
+            {/* Feature #2: autoservicio — antes esto solo lo tocaba staff desde
+                la ficha de la socia. */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => void pausarOReanudar()}
+                disabled={procesando}
+                style={{
+                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
+                  background: 'none', color: t.ink, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  cursor: procesando ? 'default' : 'pointer', opacity: procesando ? 0.6 : 1,
+                }}
+              >
+                {miPlazaFija.estado === 'ACTIVA' ? 'Pausar' : 'Reanudar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmandoBaja(true)}
+                disabled={procesando}
+                style={{
+                  flex: 1, height: 38, borderRadius: 12, border: `1px solid ${noche ? t.line : 'rgba(44,53,44,.2)'}`,
+                  background: 'none', color: semantic.danger.text, fontFamily: sans, fontSize: 11.5, fontWeight: 700,
+                  cursor: procesando ? 'default' : 'pointer', opacity: procesando ? 0.6 : 1,
+                }}
+              >
+                Dar de baja
+              </button>
+            </div>
           </div>
         )}
 
@@ -339,6 +411,19 @@ export function PortalBonosView({
         </div>
       ))}
       </div>
+
+      <BottomSheet open={confirmandoBaja} onClose={() => setConfirmandoBaja(false)}>
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: t.ink }}>¿Dar de baja tu plaza fija?</h2>
+        <p style={{ fontSize: 13, color: t.muted }}>
+          Dejará de reservarte el hueco cada semana. Las clases ya reservadas no se tocan.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="secondary" onClick={() => setConfirmandoBaja(false)} style={{ flex: 1 }}>Volver</Button>
+          <Button variant="danger" onClick={() => void confirmarBaja()} style={{ flex: 1 }}>Sí, dar de baja</Button>
+        </div>
+      </BottomSheet>
+
+      <Toast aviso={aviso} onDismiss={() => setAviso(null)} />
     </div>
   );
 }

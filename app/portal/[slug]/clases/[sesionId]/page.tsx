@@ -9,6 +9,8 @@ import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
+import { formatFechaLarga } from '@/lib/utils';
+import { esSlotRecurrente, yaTienePlazaFijaEnSlot } from '@/lib/plaza-fija-portal';
 
 // Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
 // plaza numerada, mientras que reservar desde la Agenda (HojaReserva) sí —
@@ -25,7 +27,7 @@ export default function ClaseDetallePage() {
   const router = useRouter();
   const { slug, sesionId } = useParams<{ slug: string; sesionId: string }>();
   const { session } = usePortalAuth();
-  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, addReserva, cancelarReserva, favoritos, toggleFavorito, refrescarAforo } = useStudio();
+  const { sesiones, reservas, tiposClase, salas, instructores, spots, planesTarifa, suscripciones, plazasFijas, addReserva, cancelarReserva, crearPlazaFijaPropia, favoritos, toggleFavorito, refrescarAforo } = useStudio();
   const { t } = useModo();
 
   // Mismo parche de Fase 1/3 que PortalClasesView (ver REFRESCO_ACTIVO_MS en
@@ -80,6 +82,41 @@ export default function ClaseDetallePage() {
     if (!ses || !socioId) return null;
     return reservas.find(r => r.sesionId === ses.id && r.socioId === socioId && (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA')) ?? null;
   }, [ses, reservas, socioId]);
+
+  // Feature #2 (ficha Lorari-vs-Tentare): "Hacer mi plaza fija" — solo se
+  // ofrece cuando esta clase de verdad se repite cada semana a la misma hora
+  // y sala. Lógica pura en lib/plaza-fija-portal.ts (testeada aparte).
+  // Estable durante la vida de la página (mismo patrón que portal-clases-view.tsx):
+  // con Date.now() a secas dentro del useMemo, el compilador de React lo marca
+  // como función impura en un cuerpo que debe ser puro.
+  const ahora = useMemo(() => new Date(), []);
+  const esRecurrente = useMemo(() => (ses ? esSlotRecurrente(ses, sesiones, ahora) : false), [ses, sesiones, ahora]);
+  const yaTienePlazaFijaAqui = useMemo(
+    () => (ses && socioId ? yaTienePlazaFijaEnSlot(ses, socioId, plazasFijas) : false),
+    [ses, socioId, plazasFijas],
+  );
+  const [creandoPlazaFija, setCreandoPlazaFija] = useState(false);
+
+  async function hacerPlazaFija() {
+    if (!ses || creandoPlazaFija) return;
+    // Capturado ANTES de llamar: si ya tenía reserva en esta sesión,
+    // `reservaEstaSemana` vuelve null porque no hacía falta tocar nada — no
+    // porque el intento de esta semana fallara. Sin distinguir los dos casos,
+    // un aforo lleno justo al crear la plaza fija se anunciaba con el mismo
+    // "reservamos tu sitio" que si de verdad se hubiera reservado.
+    const yaLaTeniaReservada = !!miReserva;
+    setCreandoPlazaFija(true);
+    const r = await crearPlazaFijaPropia(ses.id);
+    setCreandoPlazaFija(false);
+    if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+    const semanaFallida = !yaLaTeniaReservada && !r.reservaEstaSemana;
+    setAviso({
+      texto: semanaFallida
+        ? 'Plaza fija creada, pero esta clase de hoy no se pudo reservar (sin hueco). A partir de la semana que viene, ya es automático.'
+        : 'Plaza fija creada. Reservamos tu sitio cada semana a esta hora.',
+      error: false,
+    });
+  }
 
   const spotsDeLaSala = useMemo(
     () => (ses ? spots.filter(sp => sp.activo && sp.salaId === ses.salaId) : []),
@@ -276,6 +313,18 @@ export default function ClaseDetallePage() {
                 : 'Unirme a la lista de espera'}
             </Button>
           )}
+          {/* Feature #2: solo si de verdad se repite cada semana a esta hora
+              y sala, y todavía no la tiene como plaza fija. */}
+          {socioId && esRecurrente && !yaTienePlazaFijaAqui && (
+            <button
+              type="button"
+              onClick={() => void hacerPlazaFija()}
+              disabled={creandoPlazaFija}
+              style={{ marginTop: 12, width: '100%', height: 44, borderRadius: 16, border: `1px solid ${t.line}`, background: 'none', color: t.ink, fontSize: 13, fontWeight: 800, cursor: creandoPlazaFija ? 'default' : 'pointer', opacity: creandoPlazaFija ? 0.6 : 1 }}
+            >
+              {creandoPlazaFija ? 'Creando…' : 'Hacer mi plaza fija'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -291,7 +340,21 @@ export default function ClaseDetallePage() {
             onClick={() => {
               setConfirmandoCancelar(false);
               if (!miReserva) return;
-              void cancelarReserva(miReserva.id).then(r => setAviso(r.ok ? { texto: 'Reserva cancelada.', error: false } : { texto: r.error, error: true }));
+              void cancelarReserva(miReserva.id).then(r => {
+                if (!r.ok) { setAviso({ texto: r.error, error: true }); return; }
+                // Cancelar una ocurrencia de plaza fija genera un crédito de
+                // recuperación (crear_recuperacion) — antes esto se perdía en
+                // silencio en pantalla, aunque el crédito sí quedaba concedido.
+                if (r.recuperacionCreada) {
+                  const caduca = r.recuperacionCaducaEl ? ` Recupérala antes del ${formatFechaLarga(r.recuperacionCaducaEl)}.` : '';
+                  setAviso({
+                    texto: `Reserva cancelada.${caduca}`, error: false,
+                    accion: { texto: 'Reagendar', onClick: () => router.push(`/portal/${slug}/clases`) },
+                  });
+                  return;
+                }
+                setAviso({ texto: 'Reserva cancelada.', error: false });
+              });
             }}
             style={{ flex: 1 }}
           >

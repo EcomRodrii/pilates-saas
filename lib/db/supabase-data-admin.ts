@@ -9,7 +9,7 @@ import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
-import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
@@ -83,6 +83,7 @@ import {
   mapMemberCredits,
   mapPlazaFija,
   mapRecibo,
+  mapRecuperacion,
   mapRewardAction,
   mapRewardCatalogItem,
   mapRewardHistory,
@@ -615,7 +616,7 @@ export async function fetchPublicStudioData(
   if (!socioRow || !emailOk) return { ...base, socia: null };
 
   const sid = member.socioId;
-  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes] =
+  const [susRes, resRes, recRes, credRes, histRes, redRes, achProgRes, chalProgRes, txRes, citasRes, plazasRes, favRes, retoRes, recupRes] =
     await Promise.all([
       admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reservas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
@@ -633,6 +634,11 @@ export async function fetchPublicStudioData(
       admin.from('plazas_fijas').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('favoritos_clase').select('*').eq('studio_id', studioId).eq('socio_id', sid),
       admin.from('reto_participaciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
+      // Feature #1 (ficha Lorari-vs-Tentare): sus créditos de recuperación.
+      // `crear_recuperacion` ya los genera al cancelar una ocurrencia de plaza
+      // fija (cancelarReservaPublica), pero antes de esto solo se cargaban en
+      // el snapshot de staff — la socia nunca los veía en su propio portal.
+      admin.from('recuperaciones').select('*').eq('studio_id', studioId).eq('socio_id', sid),
     ]);
 
   const misRecibos = (recRes.data ?? []).map(mapRecibo);
@@ -670,6 +676,7 @@ export async function fetchPublicStudioData(
       plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
       favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
       retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones).retoKey),
+      recuperaciones: (recupRes.data ?? []).map(mapRecuperacion),
     },
   };
 }
@@ -1901,18 +1908,132 @@ export async function cancelarReservaPublica(params: {
   // a cancelar la misma plaza fija minaba una recuperación nueva cada vez (hasta el
   // tope de 4) → clases gratis self-service. La RPC además dedup por origen (0103).
   let recuperacionCreada = false;
+  let recuperacionCaducaEl: string | null = null;
   if (params.reservaId.startsWith('res-pf-') && r.eraConfirmada) {
+    const recupId = `recup-${uid()}`;
     const { data } = await admin.rpc('crear_recuperacion', {
-      p_id: `recup-${uid()}`,
+      p_id: recupId,
       p_studio_id: params.studioId,
       p_socio_id: params.socioId,
       p_origen_reserva_id: params.reservaId,
       p_motivo: 'Plaza fija — no puede esta semana',
     });
     recuperacionCreada = data === 'CREADA';
+    // Para que el portal pueda decir "recupérala antes del [fecha]" sin que la
+    // socia tenga que ir a buscarlo — la RPC solo devuelve 'CREADA'/'TOPE'/etc,
+    // no la fila. Una lectura más, solo cuando de verdad se creó una.
+    if (recuperacionCreada) {
+      const { data: fila } = await admin.from('recuperaciones').select('caduca_el').eq('id', recupId).maybeSingle();
+      recuperacionCaducaEl = (fila?.caduca_el as string | undefined) ?? null;
+    }
   }
-  return { ...r, recuperacionCreada };
+  return { ...r, recuperacionCreada, recuperacionCaducaEl };
 }
+
+// ─── Feature #2 (ficha Lorari-vs-Tentare) — plaza fija autoservicio ──────────
+// Mismo patrón que el resto de escrituras públicas: service-role + validación
+// de que la socia (id+email) pertenece al estudio, identidad SIEMPRE del JWT.
+// Sin RLS por fila nueva (no existe `current_socio_id()` en este repo — a
+// diferencia del autoservicio de instructora, el portal de socias nunca ha
+// escrito vía RLS directa) — mismo criterio que reservas/citas públicas.
+
+// Crea la plaza fija a partir de una sesión CONCRETA que la socia está viendo
+// (nunca de campos sueltos que ella escriba a mano): día/hora/sala/tipo se
+// DERIVAN de esa sesión con franjaLocalDe, la misma función que ya usa el
+// motor de decisiones para agrupar franjas recurrentes — así el slot que se
+// guarda es siempre uno que la socia ha visto reservable de verdad.
+export async function crearPlazaFijaPublica(params: {
+  studioId: string; sesionId: string; socioId: string; email: string;
+}): Promise<
+  | { ok: true; id: string; reservaEstaSemana: { estado: string; reservaId: string } | null }
+  | { error: string }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  const { data: ses } = await admin
+    .from('sesiones').select('id, sala_id, tipo_clase_id, inicio, cancelada')
+    .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+  if (!ses) return { error: 'Sesión no encontrada' as const };
+  if (ses.cancelada) return { error: 'Esta clase está cancelada' as const };
+
+  const { dow, hora, minuto } = franjaLocalDe(ses.inicio as string);
+  const horaInicio = `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}:00`;
+  const salaId = ses.sala_id as string;
+  const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
+
+  // Dedup: ya tiene una plaza fija ACTIVA o PAUSADA en ese mismo slot semanal
+  // — no tiene sentido duplicarla (y `materializar_plazas_fijas` la contaría
+  // dos veces como candidatas del mismo hueco). PAUSADA cuenta también: sin
+  // esto, pausar y volver a la misma clase dejaba crear una segunda fila para
+  // el mismo slot, con la primera huérfana e invisible para la propia socia.
+  const { data: existente } = await admin.from('plazas_fijas').select('id')
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).in('estado', ['ACTIVA', 'PAUSADA'])
+    .eq('dia_semana', dow).eq('hora_inicio', horaInicio).eq('sala_id', salaId).maybeSingle();
+  if (existente) return { error: 'Ya tienes una plaza fija en ese horario' as const };
+
+  const id = `pf-${uid()}`;
+  const { error } = await admin.from('plazas_fijas').insert({
+    id, studio_id: params.studioId, socio_id: params.socioId,
+    dia_semana: dow, hora_inicio: horaInicio, sala_id: salaId,
+    tipo_clase_id: tipoClaseId, spot_id: null,
+    vigencia_desde: new Date().toISOString().slice(0, 10), vigencia_hasta: null, estado: 'ACTIVA',
+  });
+  if (error) return { error: 'No se pudo crear la plaza fija' as const };
+
+  // Materializa YA la ocurrencia de esta semana (la sesión que estaba viendo):
+  // sin esto tendría que esperar al cron nocturno y se quedaría sin la clase
+  // de esta misma semana. Reutiliza crearReservaPublica entero (mismos gates
+  // de plan/ventana/aforo que "Reservar" ya aplica) — nunca se reimplementa
+  // aquí ese cálculo.
+  let reservaEstaSemana: { estado: string; reservaId: string } | null = null;
+  const { data: yaReservada } = await admin.from('reservas').select('id')
+    .eq('sesion_id', params.sesionId).eq('socio_id', params.socioId)
+    .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'ASISTIDA']).maybeSingle();
+  if (!yaReservada) {
+    const r = await crearReservaPublica({
+      studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, email: params.email,
+    });
+    if (!('error' in r)) reservaEstaSemana = { estado: r.estado, reservaId: r.reservaId };
+  }
+  return { ok: true as const, id, reservaEstaSemana };
+}
+
+async function cambiarEstadoPlazaFijaPublica(params: {
+  studioId: string; socioId: string; email: string; plazaId: string; estado: 'ACTIVA' | 'PAUSADA' | 'BAJA';
+}): Promise<{ ok: true } | { error: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
+  if (!socia) return { error: 'No autorizado' as const };
+
+  // `.eq('socio_id', ...)` en el UPDATE, no solo en un SELECT previo: así
+  // ninguna socia puede pausar/dar de baja la plaza fija de otra aunque
+  // adivine su id — el filtro de propiedad vive en la propia escritura.
+  const { data, error } = await admin.from('plazas_fijas')
+    .update({ estado: params.estado })
+    .eq('id', params.plazaId).eq('studio_id', params.studioId).eq('socio_id', params.socioId)
+    .select('id').maybeSingle();
+  if (error) {
+    // Reanudar una plaza con spot propio puede chocar si ese sitio se le dio
+    // a otra socia mientras estaba en pausa (plazas_fijas_spot_sin_solape).
+    if (error.message.includes('plazas_fijas_spot_sin_solape')) {
+      return { error: 'Ese sitio ya no está libre en ese horario — contacta con el estudio' as const };
+    }
+    return { error: 'No se pudo actualizar la plaza fija' as const };
+  }
+  if (!data) return { error: 'Plaza fija no encontrada' as const };
+  return { ok: true as const };
+}
+
+export const pausarPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'PAUSADA' });
+export const reanudarPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'ACTIVA' });
+export const darDeBajaPlazaFijaPublica = (params: { studioId: string; socioId: string; email: string; plazaId: string }) =>
+  cambiarEstadoPlazaFijaPublica({ ...params, estado: 'BAJA' });
 
 // ─── Citas 1:1 auto-reservables (0046) — escrituras/lecturas públicas ─────────
 // Mismo patrón de seguridad que las reservas: service-role + validación de que la
