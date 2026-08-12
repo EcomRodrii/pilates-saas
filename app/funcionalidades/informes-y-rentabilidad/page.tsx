@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion, Tabla } from '@/components/funcionalidades/bloques';
-import { ComoSeCalculaElMargen, LoQueNoEntraEnElMargen, OcupacionPorTipo } from '@/components/funcionalidades/visuales/informes';
+import { ComoSeCalculaElMargen, LoQueNoEntraEnElMargen } from '@/components/funcionalidades/visuales/informes';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
 const PATH = '/funcionalidades/informes-y-rentabilidad';
@@ -50,7 +50,7 @@ export default function InformesPage() {
       h1={<>¿Qué clases te dan dinero?</>}
       intro={<>Piensas en meses porque tu software te da informes mensuales. Pero tu negocio ocurre por clases — y hay franjas que llevan un año costándote dinero sin que nadie lo haya mirado.</>}
       chips={['Margen por clase concreta', 'Ocupación por tipo', 'Retención por cohorte']}
-      visual={<OcupacionPorTipo />}
+      captura={{ src: '/producto/informes.png', alt: 'Pantalla de informes de Tentare con ingresos, evolución y ventas por tipo', pie: 'Ingresos del periodo, evolución diaria y ventas por tipo — el panel real, no una maqueta.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El mes cuadra. La clase de las 10:00 no">
         <Entradilla>
