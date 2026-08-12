@@ -46,7 +46,7 @@ export default function CobrosPage() {
       h1={<>Cobra sin perseguir a nadie.</>}
       intro={<>La cuota se cobra sola el día que toca. Y cuando una tarjeta falla —que fallará—, el sistema lo reintenta con cabeza en vez de dejarte una lista de impagos a fin de mes.</>}
       chips={['Cobro con tarjeta guardada', 'Tres reintentos escalonados', 'Remesa SEPA 19.14']}
-      visual={<ViasDeCobro />}
+      captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado, lo pendiente y quién debe', pie: 'Lo cobrado este mes, lo que falta y quién lo debe — en la misma pantalla.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El dinero no se pierde de golpe, se pierde a goteo">
         <Entradilla>
@@ -92,6 +92,7 @@ export default function CobrosPage() {
       </Seccion>
 
       <Seccion id="sepa" titulo="SEPA 19.14: la remesa para el banco de siempre">
+        <ViasDeCobro />
         <p>
           Muchos estudios españoles llevan años cobrando por domiciliación bancaria y no quieren cambiar. Tentare genera el
           fichero de adeudos en formato <strong>pain.008.001.02</strong> —lo que tu banco llama cuaderno 19.14— con los

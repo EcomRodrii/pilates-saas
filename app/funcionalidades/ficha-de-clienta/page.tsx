@@ -47,7 +47,7 @@ export default function FichaPage() {
       intro={<>Historial, bonos, asistencia y notas de progreso de cada alumna. Y sus limitaciones físicas donde tienen que estar: delante de quien le va a dar la clase.</>}
       chips={['Historial completo', 'Ficha de salud operativa', 'Consentimiento trazable']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Alumna en una clase de Pilates reformer', encuadre: 'center 30%' }}
-      visual={<Semaforo />}
+      captura={{ src: '/producto/clientas.png', alt: 'Listado de clientas en Tentare con su plan, sesiones restantes y última asistencia', pie: 'Cada fila dice lo que necesitas antes de saludarla: su plan, cuántas sesiones le quedan y si el bono caduca.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="La información existe. Está repartida en cinco sitios">
         <Entradilla>
@@ -63,6 +63,7 @@ export default function FichaPage() {
       </Seccion>
 
       <Seccion id="salud" titulo="La parte delicada: lo que no puede hacer">
+        <Semaforo />
         <p>
           En Pilates esto no es un extra. Media sala tiene algo: una lumbar delicada, un hombro operado, un embarazo, una
           prótesis de cadera. Y esa información normalmente vive en la cabeza de la instructora que la atendió el primer día.

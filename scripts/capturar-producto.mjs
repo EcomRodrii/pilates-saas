@@ -80,6 +80,66 @@ const SEMANA = [
   [5, '10:00', '10:50', 't1', 's1', 'i2', 8], [5, '11:00', '11:55', 't2', 's2', 'i3', 9],
 ];
 
+// ── Clientas, cobros y planes ────────────────────────────────────────────────
+// Nombres inventados. La MEZCLA sí es la de un estudio real: mayoría con bono,
+// unas cuantas con mensualidad, y siempre alguna que lleva semanas sin venir.
+const NOMBRES = [
+  ['Nora Aguirre', 'BONO'], ['Marta Belmonte', 'MENSUAL'], ['Elena Sanjuán', 'BONO'],
+  ['Lucía Prat', 'MENSUAL'], ['Ana Villar', 'BONO'], ['Sara Ferrán', 'BONO'],
+  ['Irene Cabal', 'MENSUAL'], ['Paula Ortiz', 'BONO'], ['Clara Mendoza', 'BONO'],
+  ['Rocío Serna', 'MENSUAL'], ['Alba Tirado', 'BONO'], ['Neus Ferrer', 'BONO'],
+];
+
+const PLANES = [
+  { id: 'p1', studio_id: STUDIO_ID, nombre: 'Bono 10 sesiones', tipo: 'BONO', precio: 120, sesiones: 10, activo: true },
+  { id: 'p2', studio_id: STUDIO_ID, nombre: 'Bono 20 sesiones', tipo: 'BONO', precio: 200, sesiones: 20, activo: true },
+  { id: 'p3', studio_id: STUDIO_ID, nombre: 'Mensual ilimitado', tipo: 'MENSUAL', precio: 79, sesiones: null, activo: true },
+  { id: 'p4', studio_id: STUDIO_ID, nombre: 'Clase suelta', tipo: 'PUNTUAL', precio: 22, sesiones: 1, activo: true },
+];
+
+// ⚠️ Las filas llevan TODAS las columnas del `select` del arranque del panel,
+// no las cuatro obvias. Con filas a medias la pantalla no se queda coja: monta
+// el error boundary entero ("Algo se ha roto") sin dejar ni un error en
+// consola, porque React se lo traga. Costó una bisección averiguarlo.
+const socios = NOMBRES.map(([nombre, tipo], i) => ({
+  id: `soc-${i}`, studio_id: STUDIO_ID,
+  nombre: nombre.split(' ')[0], apellidos: nombre.split(' ').slice(1).join(' '),
+  email: `${nombre.split(' ')[0].toLowerCase()}@ejemplo.es`,
+  telefono: `6${String(10000000 + i * 137).slice(0, 8)}`,
+  nif: null, fecha_alta: `2026-0${(i % 8) + 1}-1${i % 9}`, activo: true,
+  lead_stage: 'ACTIVA', tags: [], avatar: null,
+  stripe_customer_id: null, stripe_payment_method_id: null,
+  tarjeta_exp_mes: null, tarjeta_exp_anio: null, tarjeta_marca: null, tarjeta_ultimos4: null,
+  metodo_pago_preferido: null, sepa_mandate_id: null, sepa_payment_method_id: null,
+  fecha_nacimiento: null, direccion: null, foto_url: null, referido_por: null,
+  campos_extra: {}, aceptacion_fecha: '2026-03-01', aceptacion_firma: '',
+  aceptacion_origen: 'MOSTRADOR', aceptacion_por: null,
+  consentimiento_salud_fecha: null, consentimiento_salud_registrado_por: null,
+  consentimiento_salud_revocado_en: null,
+  tipo_plan: tipo,
+}));
+
+const suscripciones = socios.map((s, i) => ({
+  id: `sus-${i}`, studio_id: STUDIO_ID, socio_id: s.id,
+  plan_id: s.tipo_plan === 'MENSUAL' ? 'p3' : (i % 3 === 0 ? 'p2' : 'p1'),
+  estado: 'ACTIVA', fecha_inicio: '2026-09-01', fecha_fin: '2026-10-01',
+  sesiones_restantes: s.tipo_plan === 'MENSUAL' ? null : (i % 7) + 1,
+  stripe_subscription_id: null,
+}));
+
+// La mayoría cobrados, dos pendientes y uno fallido: lo que hace útil la
+// pantalla de cobros es justo lo que NO está en verde.
+const recibos = socios.slice(0, 9).map((s, i) => ({
+  id: `rec-${i}`, studio_id: STUDIO_ID, socio_id: s.id, suscripcion_id: `sus-${i}`,
+  concepto: i % 3 === 0 ? 'Mensual ilimitado' : 'Bono 10 sesiones',
+  importe: i % 3 === 0 ? 79 : 120,
+  estado: i === 2 ? 'FALLIDO' : (i < 2 ? 'PENDIENTE' : 'COBRADO'),
+  fecha_vencimiento: '2026-09-01', fecha_cobro: i > 1 ? '2026-09-01' : null,
+  fecha_devolucion: null, intentos_reintento: i === 2 ? 2 : 0,
+  metodo_cobro: 'TARJETA', sepa_estado: null, disputa_estado: null,
+  proximo_reintento: i === 2 ? '2026-09-19' : null,
+}));
+
 function fecha(offset) {
   const d = new Date(`${LUNES}T00:00:00+02:00`);
   d.setDate(d.getDate() + offset);
@@ -93,10 +153,16 @@ const sesiones = SEMANA.map(([off, hi, hf, tc, sa], n) => ({
   aforo_maximo: sa === 's1' ? 8 : 14, cancelada: false, notas: null,
 }));
 
-const reservas = SEMANA.flatMap(([, , , , , , ocup], n) =>
+// Las clases de lunes y martes ya pasaron respecto a HOY (miércoles), así que
+// sus reservas van ASISTIDA: sin eso la columna "última asistencia" de Clientas
+// sale vacía en todas las filas y la captura enseña una pantalla a medias.
+const reservas = SEMANA.flatMap(([off, , , , , , ocup], n) =>
   Array.from({ length: ocup }, (_, k) => ({
     id: `r-${n}-${k}`, studio_id: STUDIO_ID, sesion_id: `ses-${n}`,
-    socio_id: `soc-${k}`, estado: 'CONFIRMADA',
+    socio_id: `soc-${k}`, estado: off < 2 ? 'ASISTIDA' : 'CONFIRMADA',
+    spot_id: null, posicion_espera: null, oferta_expira_en: null,
+    check_in_en: off < 2 ? `${fecha(off)}T07:05:00+02:00` : null,
+    creado_en: '2026-09-10T10:00:00Z',
   })));
 
 const sesionApi = (r) => ({
@@ -147,6 +213,27 @@ async function montarPanel(page) {
   await page.route('**/rest/v1/salas**', (r) => json(r, SALAS));
   await page.route('**/rest/v1/sesiones**', (r) => json(r, sesiones));
   await page.route('**/rest/v1/reservas**', (r) => json(r, reservas));
+  await page.route('**/rest/v1/socios**', (r) => json(r, socios));
+  await page.route('**/rest/v1/suscripciones**', (r) => json(r, suscripciones));
+  await page.route('**/rest/v1/planes_tarifa**', (r) => json(r, PLANES));
+  await page.route('**/rest/v1/recibos**', (r) => json(r, recibos));
+  await page.route('**/rest/v1/rpc/stats_clientas', (r) => json(r, [{ total: 128, activas: 96, con_bono: 74, inactivas_30d: 12 }]));
+  await page.route('**/rest/v1/rpc/informe_ingresos', (r) => json(r, [{ total_ingresos: 7480, n_cobrados: 63, n_socias_unicas: 51 }]));
+  await page.route('**/rest/v1/rpc/ingresos_por_dia', (r) => json(r,
+    Array.from({ length: 30 }, (_, i) => ({ dia: `2026-09-${String(i + 1).padStart(2, '0')}`, total: [120, 200, 79, 340, 0, 22, 160][i % 7] * (1 + (i % 3) * 0.4) }))));
+  await page.route('**/rest/v1/rpc/ocupacion_por_tipo', (r) => json(r, [
+    { tipo_clase_id: 't1', n_sesiones: 19, aforo: 152, ocupadas: 138 },
+    { tipo_clase_id: 't2', n_sesiones: 7, aforo: 98, ocupadas: 61 },
+    { tipo_clase_id: 't3', n_sesiones: 3, aforo: 24, ocupadas: 11 },
+  ]));
+  await page.route('**/rest/v1/rpc/ventas_por_tipo', (r) => json(r, [
+    { tipo: 'BONO', n_ventas: 34, total: 4080 },
+    { tipo: 'MENSUAL', n_ventas: 21, total: 1659 },
+    { tipo: 'PUNTUAL', n_ventas: 8, total: 176 },
+  ]));
+  await page.route('**/api/equipo**', (r) => json(r, { instructores: INSTRUCTORAS.map(insApi), tarifas: [
+    { instructorId: 'i1', tarifaHora: 38 }, { instructorId: 'i2', tarifaHora: 34 }, { instructorId: 'i3', tarifaHora: 32 },
+  ] }));
   await page.route('**/api/calendario**', (r) => json(r, {
     sesiones: sesiones.map(sesionApi),
     reservas: reservas.map((x) => ({ id: x.id, studioId: x.studio_id, sesionId: x.sesion_id, socioId: x.socio_id, estado: x.estado })),
@@ -191,6 +278,30 @@ const CAPTURAS = [
       await page.waitForTimeout(400);
     },
   },
+  // Pantallas de lista/panel: no hay que tocar nada, solo esperar a que monten.
+  // ⚠️ `/informes` NO está aquí, y no por olvido. Con este juego de mocks monta
+  // el error boundary ("Algo se ha roto"). No se pudo aislar: probado por
+  // separado —solo las RPC, +socios, +suscripciones, +planes, +recibos,
+  // +sesiones/reservas, con y sin reloj fijo— renderiza bien SIEMPRE; solo
+  // falla dentro de la ejecución completa, y React se traga el error sin dejar
+  // `pageerror` ni traza. Antes que publicar una captura rota o quemar más
+  // tiempo, se deja fuera. La página /funcionalidades/informes-y-rentabilidad
+  // sigue con su desglose del margen, que es su bloque propio y no depende de
+  // esto.
+  ...[
+    ['clientas', '/clientas'],
+    ['cobros', '/cobros'],
+    ['equipo', '/equipo'],
+    ['sustituciones', '/sustituciones'],
+  ].map(([nombre, ruta]) => ({
+    nombre,
+    alto: 1000,
+    recorte: { x: 0, y: 0, width: 1440, height: 812 },
+    async abrir(page) {
+      await page.goto(`${BASE}${ruta}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(2200);
+    },
+  })),
 ];
 
 async function main() {
@@ -207,6 +318,9 @@ async function main() {
       reducedMotion: 'reduce',
     });
     const page = await ctx.newPage();
+    if (process.env.CAPTURA_DEBUG) {
+      page.on('pageerror', (e) => console.log('  ⚠️', cap.nombre, String(e).split('\n')[0].slice(0, 140)));
+    }
     await montarPanel(page);
     await cap.abrir(page);
     await page.addStyleTag({ content: OCULTAR });

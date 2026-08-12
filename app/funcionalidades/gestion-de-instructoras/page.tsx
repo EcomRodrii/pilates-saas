@@ -46,7 +46,7 @@ export default function InstructorasPage() {
       h1={<>Quién puede dar qué, y cuándo.</>}
       intro={<>Disponibilidad, vacaciones, horas y tarifas de cada instructora en un sitio. Los mismos datos con los que cuadras el horario son los que cubren una baja sola.</>}
       chips={['Disponibilidad y bloqueos', 'Tarifa por hora y liquidación', 'Aviso de dependencia']}
-      visual={<DisponibilidadSemanal />}
+      captura={{ src: '/producto/equipo.png', alt: 'Pantalla de equipo de Tentare con las instructoras del estudio', pie: 'Tu equipo, con el rol de cada una y lo que cobra por hora.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El dato que suele vivir en la cabeza de alguien">
         <Entradilla>
@@ -63,6 +63,7 @@ export default function InstructorasPage() {
       </Seccion>
 
       <Seccion id="disponibilidad" titulo="Disponibilidad: la ventana semanal y sus excepciones">
+        <DisponibilidadSemanal />
         <p>
           Cada instructora tiene una ventana semanal —los tramos en los que puede trabajar— y encima de ella dos tipos de
           excepción para lo que no se repite:
