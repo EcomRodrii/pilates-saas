@@ -107,8 +107,15 @@ test.describe('La intro del logo', () => {
     expect(html, 'sin esto, la cortina llega tarde y se ve la web antes').toContain('logo-piezas');
     // Y la landing sigue entera en ese mismo HTML: la cortina va delante, no
     // en lugar de.
+    //
+    // Se comprueba que hay un <h1> con texto, NO un titular concreto. Esta
+    // aserción llevaba clavado el titular del hero y se ha roto dos veces
+    // seguidas al reescribirlo — y las dos veces por un cambio de copy
+    // perfectamente sano, no por el fallo que este test vigila. Lo que
+    // importa aquí es que el HTML del servidor trae la landing y no solo la
+    // cortina; el titular exacto es asunto de quien escriba el copy.
     expect(html.toLowerCase()).toContain('pilates');
-    expect(html).toContain('Todo lo que necesitas para dirigir tu estudio');
+    expect(html).toMatch(/<h1[^>]*>[^<]*\S/);
   });
 
   test('se retira aunque no haya JavaScript', async ({ browser }) => {
