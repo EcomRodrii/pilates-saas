@@ -12,7 +12,7 @@
 // que un formateo que ignorase la zona fallaría en al menos uno de los dos.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones } from './utils.ts';
+import { cuandoEstudio, fechaLargaEstudio, horaEstudio, TZ_ESTUDIO, formatEuro, inicioDeSemana, finDeSemana, compararVersiones, copiarAlPortapapeles } from './utils.ts';
 
 test('compararVersiones: doble cifra no se ordena como texto', () => {
   assert.ok(compararVersiones('0.10', '0.9') > 0, '0.10 es mayor que 0.9 numéricamente');
@@ -164,5 +164,45 @@ test('la semana contiene siempre a la fecha de partida', () => {
     const hoy = new Date(`${dia}T12:00:00`);
     assert.ok(inicioDeSemana(hoy) <= hoy, `${dia}: el inicio de semana quedó en el futuro`);
     assert.ok(finDeSemana(hoy) >= hoy, `${dia}: el fin de semana quedó en el pasado`);
+  }
+});
+
+test('copiarAlPortapapeles devuelve false en vez de lanzar cuando no hay portapapeles', async () => {
+  // El caso real que arregla: en Safari `writeText` RECHAZA si la llamada no
+  // cuelga de un gesto del usuario, y fuera de contexto seguro `navigator.
+  // clipboard` ni existe. Antes, cinco pantallas lo llamaban sin `await` ni
+  // `catch` y anunciaban «Copiado» acto seguido — el aviso decía que sí y el
+  // portapapeles se quedaba vacío.
+  //
+  // Node no trae `navigator.clipboard`, así que este entorno ES el caso «no hay
+  // portapapeles» sin necesidad de simular nada.
+  assert.equal(await copiarAlPortapapeles('hola'), false);
+});
+
+test('copiarAlPortapapeles devuelve true cuando el navegador sí copia', async () => {
+  const previo = (globalThis as { navigator?: unknown }).navigator;
+  let recibido: string | null = null;
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { clipboard: { writeText: async (t: string) => { recibido = t; } } },
+    configurable: true, writable: true,
+  });
+  try {
+    assert.equal(await copiarAlPortapapeles('el texto'), true);
+    assert.equal(recibido, 'el texto');
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', { value: previo, configurable: true, writable: true });
+  }
+});
+
+test('⚠️ un rechazo del navegador NO se propaga: se devuelve false', async () => {
+  const previo = (globalThis as { navigator?: unknown }).navigator;
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { clipboard: { writeText: async () => { throw new DOMException('NotAllowedError'); } } },
+    configurable: true, writable: true,
+  });
+  try {
+    assert.equal(await copiarAlPortapapeles('x'), false);
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', { value: previo, configurable: true, writable: true });
   }
 });

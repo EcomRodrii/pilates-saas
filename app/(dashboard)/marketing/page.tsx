@@ -15,6 +15,7 @@ import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header';
 import { utilizacionCodigos } from '@/lib/codigos-descuento'
+import { copiarAlPortapapeles } from '@/lib/utils'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -146,11 +147,12 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
-  function handleCopy() {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+  async function handleCopy() {
+    // Antes era `.then()` sin `.catch()`: al fallar no mentía, pero se quedaba
+    // mudo y con una promesa rechazada sin capturar.
+    if (!(await copiarAlPortapapeles(text))) return
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (

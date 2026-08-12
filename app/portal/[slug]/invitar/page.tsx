@@ -6,6 +6,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { UserPlus, Copy, Check, Share2, Users } from 'lucide-react';
+import { copiarAlPortapapeles } from '@/lib/utils';
 
 export default function InvitarPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -27,9 +28,12 @@ export default function InvitarPage() {
     ? `${window.location.origin}/reservar/${slug}?ref=${socioId}`
     : '';
 
-  function copiarLink() {
+  async function copiarLink() {
     if (!link) return;
-    navigator.clipboard.writeText(link);
+    // Solo se dice «copiado» si de verdad se copió: en Safari esto rechaza si
+    // la llamada no cuelga de un gesto o falta el permiso. Si falla, el enlace
+    // sigue en pantalla para copiarlo a mano — que es la salida que ya había.
+    if (!(await copiarAlPortapapeles(link))) return;
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   }

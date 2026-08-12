@@ -7,6 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { copiarAlPortapapeles } from '@/lib/utils';
 
 // Los widgets embebibles (antes aquí) viven ahora en su propio tab de
 // primer nivel — ver components/configuracion/tab-api.tsx.
@@ -64,9 +65,12 @@ export function TabEstudioEnlaces({ showToast }: { showToast: (m: string) => voi
 function EnlacePortalSocias({ slug, showToast }: { slug: string; showToast: (m: string) => void }) {
   const [copiado, setCopiado] = useState(false);
 
-  function copiar() {
+  async function copiar() {
     const link = `${window.location.origin}/portal/${slug}`;
-    navigator.clipboard.writeText(link);
+    if (!(await copiarAlPortapapeles(link))) {
+      showToast('No se pudo copiar. Selecciona el enlace y cópialo a mano.');
+      return;
+    }
     setCopiado(true);
     showToast('Enlace copiado');
     setTimeout(() => setCopiado(false), 2000);
