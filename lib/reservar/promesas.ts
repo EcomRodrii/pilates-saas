@@ -1,5 +1,16 @@
-// Lo que la página de reservas PROMETE antes de reservar: plazo de cancelación
-// y antelación mínima.
+// Lo que la página de reservas PROMETE antes de reservar: plazo de cancelación,
+// antelación mínima y desde cuándo se abre el horario.
+//
+// ⚠️ **La regla que se anuncia es SIEMPRE la que garantiza que nadie se quede
+// fuera.** Cuál de los dos extremos sea depende de la FORMA de la regla, no de
+// un criterio distinto por campo:
+//
+//   · «hace falta AL MENOS x» (cancelación, antelación mínima) → el x MAYOR.
+//   · «solo hasta N días»     (antelación máxima)              → el N MENOR.
+//
+// Es una sola idea: quien lea la frase y la cumpla puede reservar y cancelar en
+// CUALQUIER clase del estudio, sin excepciones. El número exacto de la suya lo
+// ve al abrirla, donde ya se resolvía bien.
 //
 // ⚠️ Existe porque la caja «Cómo funciona» decía «Cancela gratis hasta 12 h
 // antes» leyendo `studios.cancelacion_ventana_horas` a secas, mientras la hoja
@@ -17,12 +28,19 @@
 export interface ReglasTipo {
   ventanaCancelacionHoras: number | null;
   reservaVentanaMinimaMinutos: number | null;
+  // ⚠️ Aquí `null` es ambiguo a propósito y hay que resolverlo en dos pasos:
+  // en el TIPO significa «hereda del estudio», y en el ESTUDIO significa «sin
+  // límite». Es el único de los tres campos con esa doble lectura — los otros
+  // dos tienen un número siempre en el estudio.
+  reservaAntelacionMaximaDias: number | null;
 }
 
 /** Y del estudio: sus valores por defecto, que un tipo con `null` hereda. */
 export interface ReglasEstudio {
   cancelacionVentanaHoras: number;
   reservaVentanaMinimaMinutos: number;
+  /** `null` = sin límite: se puede reservar por adelantado que sea. */
+  reservaAntelacionMaximaDias: number | null;
 }
 
 /**
@@ -103,4 +121,38 @@ export function enHorasOMinutos(minutos: number): string {
   const h = Math.floor(minutos / 60);
   const m = minutos % 60;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+/**
+ * Cuántos días antes se abre el horario, o `null` si no hay tope.
+ *
+ * ⚠️ Se anuncia el tope MÁS CORTO — al revés que los otros dos, porque la
+ * regla tiene la forma contraria («solo hasta N días» en vez de «al menos x»).
+ * Sigue siendo el número que garantiza no quedarse fuera: quien lo cumpla
+ * puede reservar cualquier clase.
+ *
+ * Una clase SIN tope no anula el aviso: que una se pueda reservar con un año
+ * de antelación no ayuda a quien intenta apuntarse a la que abre a 14 días.
+ * Sí cuenta como variación, así que la frase lo dice.
+ */
+export function fraseAntelacionMaxima(
+  estudio: ReglasEstudio,
+  tipos: readonly ReglasTipo[],
+): string | null {
+  const efectivos: (number | null)[] = tipos.length === 0
+    ? [estudio.reservaAntelacionMaximaDias]
+    // Doble `??` a propósito: el primero resuelve la herencia del tipo, el
+    // segundo NO existe — si el estudio tampoco tiene tope, el valor efectivo
+    // es `null` («sin límite») y se filtra abajo.
+    : tipos.map((t) => t.reservaAntelacionMaximaDias ?? estudio.reservaAntelacionMaximaDias);
+
+  const topes = efectivos.filter((d): d is number => d != null && d > 0);
+  if (topes.length === 0) return null;
+
+  const min = Math.min(...topes);
+  const varia = new Set(efectivos.map((d) => String(d))).size > 1;
+  const cuanto = min === 1 ? '1 día' : `${min} días`;
+  return varia
+    ? `El horario se abre ${cuanto} antes, según la clase.`
+    : `El horario se abre ${cuanto} antes.`;
 }

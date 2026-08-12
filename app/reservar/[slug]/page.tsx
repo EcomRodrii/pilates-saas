@@ -22,7 +22,7 @@ import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
-import { frasePlazoCancelacion, fraseAntelacionMinima } from '@/lib/reservar/promesas';
+import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -1092,9 +1092,11 @@ export default function ReservarPage() {
   const reglasEstudio = {
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
     reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
+    reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
   };
   const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposClase);
   const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
+  const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
 
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
@@ -1464,6 +1466,15 @@ export default function ReservarPage() {
                     <span style={{ fontSize: 12, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>{paso}</span>
                   </div>
                 ))}
+                {/* Fuera de la lista numerada a propósito: «el horario se abre
+                    30 días antes» no es un paso que se dé, es la condición bajo
+                    la que el paso 1 tiene sentido. Meterlo como «4» obligaría a
+                    leerlo como algo que hacer. */}
+                {antelacionMaxima && (
+                  <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--portal-line)' }}>
+                    {antelacionMaxima}
+                  </p>
+                )}
               </div>
             </div>
           </div>

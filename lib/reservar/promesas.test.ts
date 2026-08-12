@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  frasePlazoCancelacion, fraseAntelacionMinima, enHorasOMinutos,
+  frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima, enHorasOMinutos,
   type ReglasEstudio, type ReglasTipo,
 } from './promesas.ts';
 
-const ESTUDIO: ReglasEstudio = { cancelacionVentanaHoras: 12, reservaVentanaMinimaMinutos: 0 };
-const tipo = (c: number | null, m: number | null = null): ReglasTipo =>
-  ({ ventanaCancelacionHoras: c, reservaVentanaMinimaMinutos: m });
+const ESTUDIO: ReglasEstudio = {
+  cancelacionVentanaHoras: 12, reservaVentanaMinimaMinutos: 0, reservaAntelacionMaximaDias: null,
+};
+const tipo = (c: number | null, m: number | null = null, d: number | null = null): ReglasTipo =>
+  ({ ventanaCancelacionHoras: c, reservaVentanaMinimaMinutos: m, reservaAntelacionMaximaDias: d });
 
 // ── Plazo de cancelación ────────────────────────────────────────────────────
 
@@ -94,4 +96,53 @@ test('minutos por debajo de la hora, horas por encima', () => {
   assert.equal(enHorasOMinutos(60), '1 h');
   assert.equal(enHorasOMinutos(120), '2 h');
   assert.equal(enHorasOMinutos(150), '2 h 30 min');
+});
+
+// ── Antelación máxima (desde cuándo se abre el horario) ─────────────────────
+
+test('sin tope no se dice nada', () => {
+  // `null` en el ESTUDIO significa «sin límite», no «hereda»: es el único de
+  // los tres campos con esa doble lectura de `null`.
+  assert.equal(fraseAntelacionMaxima(ESTUDIO, []), null);
+  assert.equal(fraseAntelacionMaxima(ESTUDIO, [tipo(null, null, null)]), null);
+});
+
+test('con tope del estudio, se anuncia antes de que nadie lo intente', () => {
+  // Hoy esto solo salía como error DESPUÉS de pulsar: «Todavía no se puede
+  // reservar esta clase», sin decir cuándo sí.
+  const e: ReglasEstudio = { ...ESTUDIO, reservaAntelacionMaximaDias: 30 };
+  assert.equal(fraseAntelacionMaxima(e, []), 'El horario se abre 30 días antes.');
+});
+
+test('⚠️ si varía se anuncia el tope MÁS CORTO, al revés que los otros dos', () => {
+  // La forma de la regla es la contraria («solo hasta N» en vez de «al menos
+  // x»), así que el número seguro es el pequeño: quien reserve a 14 días llega
+  // a las dos clases; quien se fíe de los 30 se queda fuera de una.
+  const e: ReglasEstudio = { ...ESTUDIO, reservaAntelacionMaximaDias: 30 };
+  assert.equal(
+    fraseAntelacionMaxima(e, [tipo(null, null, null), tipo(null, null, 14)]),
+    'El horario se abre 14 días antes, según la clase.',
+  );
+});
+
+test('⚠️ una clase SIN tope no anula el aviso de las que sí lo tienen', () => {
+  // Que el Reformer se pueda reservar con un año de antelación no ayuda a quien
+  // intenta apuntarse al Mat, que abre a 14 días. Y sí cuenta como variación.
+  assert.equal(
+    fraseAntelacionMaxima(ESTUDIO, [tipo(null, null, null), tipo(null, null, 14)]),
+    'El horario se abre 14 días antes, según la clase.',
+  );
+});
+
+test('un tope de 1 día se dice en singular', () => {
+  const e: ReglasEstudio = { ...ESTUDIO, reservaAntelacionMaximaDias: 1 };
+  assert.equal(fraseAntelacionMaxima(e, []), 'El horario se abre 1 día antes.');
+});
+
+test('un override igual al del estudio no cuenta como variación', () => {
+  const e: ReglasEstudio = { ...ESTUDIO, reservaAntelacionMaximaDias: 30 };
+  assert.equal(
+    fraseAntelacionMaxima(e, [tipo(null, null, 30), tipo(null, null, null)]),
+    'El horario se abre 30 días antes.',
+  );
 });
