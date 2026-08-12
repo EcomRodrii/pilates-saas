@@ -14,6 +14,7 @@ import { FlowBuilder, ACCIONES } from '@/components/marketing/flow-builder'
 import { leerPublicacionesContenido } from '@/lib/contenido/read-publicaciones'
 import type { PublicacionAsociada } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header';
+import { utilizacionCodigos } from '@/lib/codigos-descuento'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -582,11 +583,11 @@ export default function MarketingPage() {
   // Códigos stats
   const codigosActivos = codigos.filter(c => c.activo).length
   const totalUsos = codigos.reduce((acc, c) => acc + (c.usos ?? 0), 0)
-  // Utilización media (% de usos sobre el límite, solo códigos con límite).
-  const codigosConLimite = codigos.filter(c => c.usosMax && c.usosMax > 0)
-  const utilizacionMedia = codigosConLimite.length > 0
-    ? Math.round(codigosConLimite.reduce((acc, c) => acc + Math.min(100, ((c.usos ?? 0) / (c.usosMax as number)) * 100), 0) / codigosConLimite.length)
-    : 0
+  // Cuánto se ha gastado de lo que se puso a disposición. PONDERADO, no la
+  // media de los porcentajes de cada código — ver `utilizacionCodigos`, que
+  // existe justamente porque aquí se hacía la media sin ponderar y un 1/1 con
+  // un 5/1000 daba «50 %».
+  const utilizacion = utilizacionCodigos(codigos)
   const codigoTop = [...codigos].sort((a, b) => (b.usos ?? 0) - (a.usos ?? 0))[0]
 
   // Ingresos generados en los últimos 30 días (recibos cobrados).
@@ -1184,7 +1185,19 @@ export default function MarketingPage() {
                 { label: 'Total códigos', value: String(codigos.length), sub: '' },
                 { label: 'Activos', value: String(codigosActivos), sub: '' },
                 { label: 'Conversiones (usos)', value: String(totalUsos), sub: 'canjes totales' },
-                { label: 'Utilización media', value: `${utilizacionMedia}%`, sub: `${codigosConLimite.length} con límite` },
+                // `pct === null` NO es 0: sin códigos con límite no hay nada
+                // que medir, y un «0 %» se leería como «los emitiste y no los
+                // usó nadie». Misma regla que la probabilidad de aceptación de
+                // una instructora sin historial.
+                {
+                  label: 'Utilización',
+                  value: utilizacion.pct === null ? '—' : `${utilizacion.pct}%`,
+                  // El respaldo va SIEMPRE con la cifra: sin él, un 60 % no
+                  // distingue 6 de 10 canjes de 600 de 1000.
+                  sub: utilizacion.pct === null
+                    ? 'ningún código con límite'
+                    : `${utilizacion.usos} de ${utilizacion.limite} en ${utilizacion.codigos} código${utilizacion.codigos === 1 ? '' : 's'}`,
+                },
                 { label: 'Código top', value: codigoTop ? codigoTop.codigo : '—', sub: codigoTop ? `${codigoTop.usos ?? 0} usos` : '' },
               ].map(s => (
                 <div key={s.label} className="bg-card border border-border rounded-xl px-5 py-3 min-w-[120px]">
