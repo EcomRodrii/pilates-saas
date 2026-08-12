@@ -312,6 +312,22 @@ export function intentosFallidosRecientes(socioId: string, idx: IndicesSenal, no
 }
 
 /**
+ * true si, dentro de la ventana, TODOS los intentos fallidos son SIN_PLAN
+ * (nunca le asignaron un plan/bono) — nunca mezclado con fricción real
+ * (aforo lleno, fuera de ventana...). El conteo de `intentosFallidosRecientes`
+ * sigue tratando todos los motivos por igual a propósito (ver su comentario);
+ * esto es solo para decidir qué REDACCIÓN usar, no si la alerta salta ni con
+ * qué confianza — "no consigue reservar" suena a fallo del sistema cuando en
+ * realidad es un pendiente comercial (falta asignarle el plan).
+ */
+export function esSoloFaltaDePlan(socioId: string, idx: IndicesSenal, now: Date, ventanaDias: number): boolean {
+  const desde = now.getTime() - ventanaDias * MS_DIA;
+  const intentos = (idx.intentosFallidosPorSocio.get(socioId) ?? [])
+    .filter(i => new Date(i.creadoEn).getTime() >= desde);
+  return intentos.length > 0 && intentos.every(i => i.motivo === 'SIN_PLAN');
+}
+
+/**
  * Emails ejecutados en los últimos 60 días sin reserva posterior en los 7 días
  * siguientes a cada uno (Núcleo §1) — cuenta los que "no obtuvieron respuesta".
  */
