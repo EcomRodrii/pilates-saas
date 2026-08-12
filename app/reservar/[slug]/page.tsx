@@ -22,6 +22,7 @@ import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
+import { frasePlazoCancelacion, fraseAntelacionMinima } from '@/lib/reservar/promesas';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -1084,6 +1085,17 @@ export default function ReservarPage() {
   // pintar las tarjetas y para decidir si la sección existe siquiera.
   const planesContratables = planesTarifa.filter(p => p.activo && p.precio > 0);
 
+  // Lo que la página promete antes de reservar. Puro y probado aparte: el paso
+  // de «hasta 12 h» a «hasta 24 h, según la clase» depende de una tabla de
+  // casos (heredan / no heredan / coinciden / ninguna tiene plazo) que no se
+  // puede comprobar a ojo mirando una sola pantalla.
+  const reglasEstudio = {
+    cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
+    reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
+  };
+  const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposClase);
+  const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
+
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
@@ -1434,12 +1446,18 @@ export default function ReservarPage() {
 
               <div style={{ borderRadius: R.hero, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 <div style={eyebrow(9)}>CÓMO FUNCIONA</div>
+                {/* ⚠️ Estas frases salen de `lib/reservar/promesas.ts`, no de
+                    `studio.cancelacionVentanaHoras` a secas. Aquí se leía el
+                    valor del ESTUDIO mientras la hoja de reserva ya resolvía el
+                    plazo por TIPO DE CLASE: en un estudio con el Reformer a
+                    24 h, esta caja prometía 12 y alguien cancelaba tarde
+                    creyendo que llegaba. Y la antelación mínima solo aparecía
+                    como error DESPUÉS de intentar reservar — decirlo entonces
+                    no es informar, es corregir. */}
                 {[
                   'Elige el día y la clase.',
-                  'Reserva tu plaza en la sala.',
-                  studio?.cancelacionVentanaHoras
-                    ? `Cancela gratis hasta ${studio.cancelacionVentanaHoras}h antes.`
-                    : 'Cancela gratis cuando quieras.',
+                  ...(antelacionMinima ? [antelacionMinima] : ['Reserva tu plaza en la sala.']),
+                  plazoCancelacion,
                 ].map((paso, i) => (
                   <div key={i} style={{ display: 'flex', gap: 14, marginTop: i === 0 ? 18 : 12 }}>
                     <span style={{ fontFamily: serif, fontSize: 18, color: 'var(--portal-accent)', lineHeight: 1.2 }}>{i + 1}</span>
