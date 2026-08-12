@@ -741,6 +741,30 @@ export async function aprobarPenalizacion(penalizacionId: string): Promise<Cobro
 // la oferta de quitar el bono las hace el webhook de `charge.refunded`, igual
 // que si se hubiera devuelto desde Stripe. Así que después de esto la pantalla
 // NO tiene el recibo ya devuelto — llega por el camino de siempre, en segundos.
+export interface RectificarFacturaParams {
+  facturaOriginalId: string;
+  tipoFactura: 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
+  tipoRectificativa: 'S' | 'I';
+  baseImponible: number;
+  cuotaIVA: number;
+  total: number;
+  importeRectificacion: number;
+}
+
+// Fase A del issue #769 (rectificativas): la transmisión a Fiskaly/AEAT no
+// está activada todavía — `aviso` en la respuesta lo explica, mostrarlo tal
+// cual en vez de solo un "ok".
+export async function rectificarFactura(params: RectificarFacturaParams): Promise<{ ok: true; aviso?: string | null } | { error: string }> {
+  const res = await fetch('/api/facturas/rectificar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  return { ok: true, aviso: data.aviso ?? null };
+}
+
 export async function reembolsarRecibo(reciboId: string): Promise<{ ok: true } | { error: string }> {
   const res = await fetch('/api/reembolsos', {
     method: 'POST',

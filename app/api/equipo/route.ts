@@ -17,6 +17,8 @@ const MENSAJE_EMAIL_DUPLICADO =
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarEquipo, rolesQuePuedeAsignar } from '@/lib/permisos-reglas';
 import { leerSnapshotParaBaja, registrarBajaCartera } from '@/lib/instructor-dependency';
+import { obtenerOFirmarEnlace, marcarEnlaceEnviadoPorEmail } from '@/lib/sustituciones/enlaces';
+import { enviarEmailSolicitudDisponibilidad } from '@/lib/emails/solicitud-disponibilidad-server';
 import * as Sentry from '@sentry/nextjs';
 
 // A-2: gestión del equipo (alta/edición/baja de instructoras y su ROL) con
@@ -120,10 +122,14 @@ export async function POST(req: NextRequest) {
   // cuenta, no hace falta self-claim). La búsqueda se acota SIEMPRE a
   // `cadena_id` — nunca abierta a toda la tabla `instructores`, sería una
   // vía de enumeración de emails entre estudios sin relación.
+  type EstudioAlta = { cadena_id: string | null; nombre: string | null; color_primario: string | null; logo_url: string | null };
   let authUserIdVinculado: string | null = null;
+  let estudio: EstudioAlta | null = null;
   if (email) {
-    const { data: estudio } = await admin.from('studios').select('cadena_id').eq('id', sesion.studioId).maybeSingle();
-    const cadenaId = (estudio as { cadena_id: string | null } | null)?.cadena_id ?? null;
+    const { data } = await admin.from('studios')
+      .select('cadena_id, nombre, color_primario, logo_url').eq('id', sesion.studioId).maybeSingle();
+    estudio = data as EstudioAlta | null;
+    const cadenaId = estudio?.cadena_id ?? null;
     if (cadenaId) {
       const { data: existente } = await admin
         .from('instructores')
@@ -169,6 +175,32 @@ export async function POST(req: NextRequest) {
   // en tu sistema y avisarle son dos decisiones distintas, y la segunda es suya:
   // ahora se pide explícitamente por POST /api/equipo/invitar.
   //
+  // La solicitud de DISPONIBILIDAD es otra decisión distinta a la invitación de
+  // arriba: no da acceso a nada, es un email informativo uno-a-uno (nunca un
+  // fan-out de importación masiva), y el sistema ya trata la ausencia de este
+  // dato como un defecto operativo (rankear_candidatas excluye del ranking a
+  // quien no la tiene cargada). Sin este envío, nadie se lo pedía nunca a la
+  // instructora salvo que la propietaria recordara ir al panel de
+  // sustituciones y pulsarlo a mano. Best-effort: si falla, no bloquea el alta.
+  if (email && rol === 'INSTRUCTOR') {
+    try {
+      const token = await obtenerOFirmarEnlace(admin, sesion.studioId, id, 'disponibilidad');
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
+      const r = await enviarEmailSolicitudDisponibilidad({
+        to: email,
+        nombre,
+        propietariaNombre: sesion.nombre,
+        estudioNombre: estudio?.nombre ?? 'tu estudio',
+        colorPrimario: estudio?.color_primario,
+        logoUrl: estudio?.logo_url,
+        url: `${appUrl}/disponibilidad/${token}`,
+      });
+      if (r.ok) await marcarEnlaceEnviadoPorEmail(admin, id, 'disponibilidad');
+    } catch (e) {
+      Sentry.captureException(e);
+    }
+  }
+
   // `vinculada`: true si ya tenía ficha activa en otra sede de la cadena y se
   // conectó directo (sin self-claim) — la UI puede omitir la invitación.
   return NextResponse.json({ ok: true, vinculada: authUserIdVinculado !== null });

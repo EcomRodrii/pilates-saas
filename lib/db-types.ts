@@ -249,6 +249,11 @@ export interface RowFacturas {
   verifactu_qr_imagen: string | null;
   verifactu_estado: string | null;
   verifactu_csv: string | null;
+  serie: string | null;
+  tipo: string | null;
+  rectifica_a: string | null;
+  tipo_rectificativa: string | null;
+  importe_rectificacion: number | null;
 }
 
 export interface RowInstructores {
@@ -696,9 +701,6 @@ export interface RowTiposClase {
   penalizacion_importe_eur: number | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
-  // migr 20260811134019. `text[] not null default '{}'` — pero se declara
-  // nullable aquí porque una fila leída con un `select` que no la pida llega
-  // sin ella, y el mapper ya lo tolera.
   objetivos: string[] | null;
 }
 

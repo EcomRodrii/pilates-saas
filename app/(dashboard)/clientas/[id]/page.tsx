@@ -20,6 +20,7 @@ import { FichaExcepciones } from '@/components/socios/ficha-excepciones';
 import { FichaMandatoSepa } from '@/components/socios/ficha-mandato-sepa';
 import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperacion';
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
+import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
 import { CamposExtraFields } from '@/components/socios/campos-extra-fields';
 import { semaforo, SEMAFORO_META } from '@/lib/ficha-clinica';
@@ -220,6 +221,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
     addNota, deleteNota,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
+    facturas,
   } = useStudio();
 
   // Ficha de instructora del usuario logueado — la nota de progreso debe
@@ -1297,6 +1299,17 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                       onEnviada={() => setEnviadas(prev => new Set(prev).add(r.id))}
                                     />
                                   )}
+                                  {/* Rectificativa (#769, Fase A): solo sobre un recibo ya
+                                      DEVUELTO con factura sellada — no tiene sentido antes. */}
+                                  {puedeCobrar && r.estado === 'DEVUELTO' && (() => {
+                                    const facturaDelRecibo = facturas.find(f => f.reciboId === r.id);
+                                    if (!facturaDelRecibo) return null;
+                                    return (
+                                      <div className="mt-1.5">
+                                        <BotonRectificarFactura factura={facturaDelRecibo} facturas={facturas} onHecho={setToast} />
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             ))}

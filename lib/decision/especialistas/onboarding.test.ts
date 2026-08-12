@@ -96,6 +96,22 @@ test('O2: socia nueva (día 5) con 2 intentos de reserva fallidos → RIESGO_RES
   assert.equal(c.length, 1);
   assert.equal(c[0].tipo, 'RIESGO_RESERVA_FALLIDA');
   assert.equal(c[0].datosUsados.intentosFallidos, 2);
+  // Motivos mezclados (no todos SIN_PLAN) → mensaje genérico de fricción real.
+  assert.equal(c[0].datosUsados.soloFaltaPlan, false);
+  assert.match(c[0].tituloMotor, /no consigue reservar/);
+});
+
+test('O2: todos los intentos son SIN_PLAN → mensaje distinto, "aún no tiene plan asignado" en vez de "no consigue reservar"', () => {
+  const s1 = socio({ id: 's1', fechaAlta: diasAntes(5) });
+  const intentos: IntentoFallidoSnapshot[] = [
+    { id: 'if-1', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(1) },
+    { id: 'if-2', socioId: 's1', sesionId: null, tipoClaseId: null, motivo: 'SIN_PLAN', creadoEn: diasAntes(2) },
+  ];
+  const c = detectar(snap([s1], [], intentos));
+  assert.equal(c.length, 1);
+  assert.equal(c[0].datosUsados.soloFaltaPlan, true);
+  assert.match(c[0].tituloMotor, /aún no tiene plan asignado/);
+  assert.doesNotMatch(c[0].tituloMotor, /no consigue reservar/);
 });
 
 test('O2: pasados los 30 días, los intentos fallidos ya no son cosa de onboarding (los cubre RETENCION)', () => {

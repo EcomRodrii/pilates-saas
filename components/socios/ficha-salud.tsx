@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import {
-  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck,
+  Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck, Bot, Loader2, X,
 } from 'lucide-react';
 import type {
   CondicionSalud, CategoriaCondicion, ZonaCorporal, SeveridadCondicion,
@@ -22,6 +22,7 @@ import {
   RESTRICCIONES, restriccionesLegibles, revisionVencida, diasDesde,
 } from '@/lib/ficha-clinica';
 import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
+import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -334,6 +335,19 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
   const [consentimientoDialogOpen, setConsentimientoDialogOpen] = useState(false);
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false);
   const [errorConsentimiento, setErrorConsentimiento] = useState<string | null>(null);
+  const [adaptacionIA, setAdaptacionIA] = useState<AdaptacionSocioIA | null>(null);
+  const [adaptacionIALoading, setAdaptacionIALoading] = useState(false);
+  const [adaptacionIAError, setAdaptacionIAError] = useState(false);
+  // Se descarta al cambiar de socia — es una sugerencia efímera, no se
+  // persiste (mismo criterio que "Preparar clase con IA" en Calendario).
+  // Ajuste de estado durante el render (no en un efecto): evita el
+  // cascading-render que bloquea el linter de React Compiler.
+  const [socioIdPrevio, setSocioIdPrevio] = useState(socioId);
+  if (socioId !== socioIdPrevio) {
+    setSocioIdPrevio(socioId);
+    setAdaptacionIA(null);
+    setAdaptacionIAError(false);
+  }
 
   const condiciones = useMemo(
     () => condicionesSalud.filter(c => c.socioId === socioId).sort((a, b) => b.inicio.localeCompare(a.inicio)),
@@ -360,6 +374,20 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
     setDialogOpen(true);
   }
   function abrirEditar(c: CondicionSalud) { setEditando(c); setDialogOpen(true); }
+
+  async function adaptarConIA() {
+    setAdaptacionIALoading(true);
+    setAdaptacionIA(null);
+    setAdaptacionIAError(false);
+    try {
+      const r = await sugerirAdaptacionesSocio(activas);
+      setAdaptacionIA(r);
+    } catch {
+      setAdaptacionIAError(true);
+    } finally {
+      setAdaptacionIALoading(false);
+    }
+  }
 
   async function confirmarConsentimiento(registradoPor: string) {
     setGuardandoConsentimiento(true);
@@ -426,6 +454,44 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
           <p className="text-[10px] text-muted-foreground mt-1.5">Ayuda de atención, no un diagnóstico médico.</p>
         </div>
       </div>
+
+      {/* Adaptar con IA (§9, individual) — solo si hay algo activo que adaptar */}
+      {activas.length > 0 && (
+        <div className="mb-5">
+          {!adaptacionIA && (
+            <button
+              onClick={adaptarConIA}
+              disabled={adaptacionIALoading}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
+            >
+              {adaptacionIALoading ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+              {adaptacionIALoading ? 'Adaptando…' : 'Adaptar ejercicios con IA'}
+            </button>
+          )}
+          {adaptacionIAError && <p className="text-[11px] text-destructive mt-1.5">No se pudo generar la adaptación. Inténtalo de nuevo.</p>}
+          {adaptacionIA && (
+            <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs text-foreground leading-snug">{adaptacionIA.resumen}</p>
+                <button onClick={() => setAdaptacionIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={13} /></button>
+              </div>
+              {adaptacionIA.evitar.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Evitar</p>
+                  <ul className="space-y-0.5">{adaptacionIA.evitar.map((e, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {e}</li>)}</ul>
+                </div>
+              )}
+              {adaptacionIA.variantes.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1">Variantes sugeridas</p>
+                  <ul className="space-y-0.5">{adaptacionIA.variantes.map((v, i) => <li key={i} className="text-[11px] text-foreground leading-snug">· {v}</li>)}</ul>
+                </div>
+              )}
+              <p className="text-[9px] text-muted-foreground italic">Sugerencia generada por IA — revísala antes de aplicarla. No es consejo médico.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Evolución post-clase (§8) */}
       {respuestas.length > 0 && (

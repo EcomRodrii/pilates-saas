@@ -7,7 +7,7 @@
 // embudo pre-conversión (LEAD/INTERESADA/PRUEBA) — una socia recién dada de
 // alta ya convirtió y no encaja en ninguno de los dos.
 import type { Candidata, Especialista, MemoriaEstudio, SnapshotEstudio } from '../tipos.ts';
-import { construirIndices, diasDesdeAlta, visitasEnOnboarding, conocidasEnOnboarding, intentosFallidosRecientes, type IndicesSenal } from '../senales.ts';
+import { construirIndices, diasDesdeAlta, visitasEnOnboarding, conocidasEnOnboarding, intentosFallidosRecientes, esSoloFaltaDePlan, type IndicesSenal } from '../senales.ts';
 import { confianzaImpulsarOnboarding, confianzaRiesgoReservaFallida } from '../confianza.ts';
 
 const OBJETIVO_VISITAS = 4;
@@ -80,15 +80,25 @@ function reglaO2(socio: SnapshotEstudio['socios'][number], idx: IndicesSenal, no
   const confianza = confianzaRiesgoReservaFallida({ nIntentos });
   if (!confianza) return null;
 
-  const motivoMotor = `${socio.nombre} lleva solo ${dias} días desde el alta y ya ha intentado reservar ${nIntentos} veces sin conseguirlo. Es la peor señal en esta fase — quería empezar y no la dejaron.`;
+  // Cuando TODOS los intentos son SIN_PLAN, no es un fallo del sistema de
+  // reservas: es que nadie le ha asignado plan/bono todavía. Misma alerta,
+  // misma confianza — solo cambia la redacción para no sonar a "la dejaron
+  // tirada" cuando lo que hace falta es un pendiente comercial de mostrador.
+  const soloFaltaPlan = esSoloFaltaDePlan(socio.id, idx, now, VENTANA_DIAS_INTENTOS_FALLIDOS);
+  const tituloMotor = soloFaltaPlan
+    ? `${socio.nombre} quiere reservar pero aún no tiene plan asignado`
+    : `${socio.nombre} no consigue reservar desde que se dio de alta`;
+  const motivoMotor = soloFaltaPlan
+    ? `${socio.nombre} lleva solo ${dias} días desde el alta y ya ha intentado reservar ${nIntentos} veces, pero todavía no tiene un plan o bono asignado. No es un fallo del sistema — asígnale un plan para que pueda entrar a clase.`
+    : `${socio.nombre} lleva solo ${dias} días desde el alta y ya ha intentado reservar ${nIntentos} veces sin conseguirlo. Es la peor señal en esta fase — quería empezar y no la dejaron.`;
 
   return {
     especialista: 'ONBOARDING',
     tipo: 'RIESGO_RESERVA_FALLIDA',
     dedupeKey: `ONBOARDING:RIESGO_RESERVA_FALLIDA:${socio.id}`,
-    tituloMotor: `${socio.nombre} no consigue reservar desde que se dio de alta`,
+    tituloMotor,
     motivoMotor,
-    datosUsados: { nombre: socio.nombre, diasDesdeAlta: dias, intentosFallidos: nIntentos, ventanaDias: VENTANA_DIAS_INTENTOS_FALLIDOS },
+    datosUsados: { nombre: socio.nombre, diasDesdeAlta: dias, intentosFallidos: nIntentos, ventanaDias: VENTANA_DIAS_INTENTOS_FALLIDOS, soloFaltaPlan },
     riesgo: 'PERDIDA',
     confianza,
     accion: { tipo: 'CONTACTO_MANUAL', canal: 'WHATSAPP', textoSugerido: motivoMotor },

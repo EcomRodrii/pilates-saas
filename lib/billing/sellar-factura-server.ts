@@ -357,3 +357,202 @@ export function mapSalida(row: { verifactu_hash: string | null; verifactu_prev_h
     verifactuSeq: row.verifactu_seq,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Facturas rectificativas (issue #769, Fase A) — DISPARO MANUAL.
+//
+// Una rectificativa se registra ante la AEAT como un registro de ALTA con
+// TipoFactura=R1-R5 (docs/VERIFACTU-INVESTIGACION-TECNICA.md §8), NO como una
+// anulación — por eso reutiliza calcularHuellaAlta, igual que
+// sellarFacturaDeRecibo, y no calcularHuellaAnulacion (esa es para "esta
+// factura nunca debió existir", un caso distinto).
+//
+// ⚠️ Lo que el llamador DEBE decidir, no esta función: qué tipo R1-R5 y qué
+// método (S sustitución / I por diferencia) aplica, y los importes exactos
+// de la rectificativa (base/cuota/total — con el signo o la sustitución que
+// corresponda). No hay una fórmula fiscal fiable para derivarlo en código
+// sin criterio humano/gestoría de por medio — se recibe todo ya calculado.
+//
+// ⚠️ Fiskaly: DELIBERADAMENTE no se llama en esta Fase A. Su payload exacto
+// para rectificativas (¿`type: 'CORRECTIVE'`? ¿SIMPLIFIED/COMPLETE normal con
+// TipoFactura=R1 en el content?) no está verificado contra su documentación
+// autenticada ni contra su sandbox real — mandar algo adivinado sería firmar
+// (mal) ante la AEAT. La huella propia SÍ se calcula y persiste siempre (es
+// la parte verificada y con tests, lib/verifactu.ts): la rectificativa queda
+// registrada y encadenada en Tentare desde el primer día; falta solo activar
+// la transmisión externa una vez validado el payload de Fiskaly.
+export interface ParamsRectificativa {
+  studioId: string;
+  facturaOriginalId: string;
+  facturaRectificativaId: string; // id nuevo, lo genera el llamador (randomUUID)
+  tipoFactura: 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
+  tipoRectificativa: 'S' | 'I';
+  baseImponible: number;
+  cuotaIVA: number;
+  total: number;
+  importeRectificacion: number;
+}
+
+interface FilaRectificativaReservada extends FilaFacturaReservada {
+  rectifica_a: string | null;
+  tipo_rectificativa: string | null;
+}
+
+const COLS_RECTIFICATIVA = `${COLS_SELLO}, rectifica_a, tipo_rectificativa`;
+
+export async function sellarRectificativaDeFactura(
+  admin: SupabaseClient,
+  params: ParamsRectificativa,
+): Promise<ResultadoSellado> {
+  const { studioId, facturaOriginalId, facturaRectificativaId, tipoFactura, tipoRectificativa, baseImponible, cuotaIVA, total, importeRectificacion } = params;
+
+  const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
+  if (!ID_VALIDO.test(facturaOriginalId) || !ID_VALIDO.test(facturaRectificativaId)) {
+    return { ok: false, error: 'Identificadores inválidos' };
+  }
+
+  // Idempotencia: si esta rectificativa (mismo id) ya está sellada, no se
+  // repite. Igual criterio que sellarFacturaDeRecibo.
+  const { data: existenteRaw } = await admin
+    .from('facturas').select(COLS_RECTIFICATIVA)
+    .eq('id', facturaRectificativaId).eq('studio_id', studioId)
+    .limit(1).maybeSingle();
+  const existente = existenteRaw as FilaRectificativaReservada | null;
+  if (existente?.verifactu_hash) {
+    return { ok: true, yaExistia: true, factura: mapSalida(existente) };
+  }
+
+  const { data: original } = await admin
+    .from('facturas').select('id, verifactu_hash, receptor_nombre, receptor_nif, fecha_emision')
+    .eq('id', facturaOriginalId).eq('studio_id', studioId).maybeSingle();
+  if (!original) {
+    return { ok: false, error: 'Factura original no encontrada' };
+  }
+  if (!original.verifactu_hash) {
+    return { ok: false, error: 'La factura original no está sellada — no se puede rectificar algo que nunca se emitió de verdad.' };
+  }
+
+  // Ya existe una rectificativa DISTINTA para esta original: no bloquea (una
+  // devolución parcial seguida de otra podría necesitar dos), pero se avisa.
+  const { count: rectificativasPrevias } = await admin
+    .from('facturas').select('id', { count: 'exact', head: true })
+    .eq('rectifica_a', facturaOriginalId).eq('studio_id', studioId)
+    .not('verifactu_hash', 'is', null);
+
+  const { data: studio } = await admin
+    .from('studios')
+    .select('nif, iva_por_defecto, razon_social, nombre, direccion, ciudad, codigo_postal, email, fiskaly_signer_id, fiskaly_client_id')
+    .eq('id', studioId)
+    .maybeSingle();
+  const nifEmisor = studio?.nif?.trim() || '';
+  if (!nifEmisorValido(nifEmisor)) {
+    return { ok: false, error: 'Configura un NIF fiscal válido en Configuración → Mi estudio antes de emitir facturas.' };
+  }
+
+  let numeroCompleto: string;
+  let fechaEmision: string;
+  let huellaAnterior: string;
+  let seq: number;
+
+  if (existente) {
+    // Reserva incompleta retomada (crash entre reservar_numero_factura y el
+    // UPDATE final con la huella) — mismos datos ya reservados, sin pedir
+    // número nuevo.
+    numeroCompleto = existente.numero_completo;
+    fechaEmision = existente.fecha_emision;
+    huellaAnterior = existente.verifactu_prev_hash ?? '';
+    seq = Number(existente.verifactu_seq);
+  } else {
+    const fechaEmisionCalc = fechaHoraHusoMadrid(new Date()).slice(0, 10);
+    const { data: reserva, error: errorReserva } = await admin
+      .rpc('reservar_numero_factura', {
+        p_factura_id: facturaRectificativaId,
+        p_studio_id: studioId,
+        p_recibo_id: null,
+        p_fecha_emision: fechaEmisionCalc,
+        p_receptor_nombre: original.receptor_nombre,
+        p_receptor_nif: original.receptor_nif,
+        p_base_imponible: baseImponible,
+        p_tipo_iva: Number(studio?.iva_por_defecto ?? 21),
+        p_cuota_iva: cuotaIVA,
+        p_total: total,
+        p_serie: 'R',
+        p_tipo: tipoFactura,
+        p_rectifica_a: facturaOriginalId,
+        p_tipo_rectificativa: tipoRectificativa,
+        p_importe_rectificacion: importeRectificacion,
+      })
+      .single<{ numero_completo: string; verifactu_seq: number; verifactu_prev_hash: string }>();
+
+    if (errorReserva) {
+      console.error('[sellarRectificativaDeFactura] reservar_numero_factura:', errorReserva.message);
+      return { ok: false, error: 'No se ha podido reservar el número de la rectificativa.' };
+    }
+    numeroCompleto = reserva.numero_completo;
+    seq = Number(reserva.verifactu_seq);
+    huellaAnterior = reserva.verifactu_prev_hash ?? '';
+    fechaEmision = fechaEmisionCalc;
+  }
+
+  const ts = fechaHoraHusoMadrid(new Date());
+  const registro: RegistroAltaVerifactu = {
+    idEmisorFactura: nifEmisor,
+    numSerieFactura: numeroCompleto,
+    fechaExpedicionFactura: fechaExpedicionDesdeISO(fechaEmision),
+    tipoFactura,
+    cuotaTotal: cuotaIVA,
+    importeTotal: total,
+    fechaHoraHusoGenRegistro: ts,
+  };
+  const huella = calcularHuellaAlta(registro, huellaAnterior);
+  const produccion = process.env.VERIFACTU_ENTORNO === 'produccion';
+  const qrUrl = urlQrVerifactu(
+    { nif: nifEmisor, numSerie: numeroCompleto, fecha: registro.fechaExpedicionFactura, importeTotal: total },
+    { produccion },
+  );
+
+  // Fiskaly NO se llama aquí a propósito — ver el aviso de cabecera. El
+  // fiskalyConfigurado() de sellarFacturaDeRecibo NO se reutiliza sin más:
+  // haría falta el payload correcto, que todavía no está verificado.
+  const camposFinales = {
+    verifactu_hash: huella,
+    verifactu_prev_hash: huellaAnterior,
+    verifactu_ts: ts,
+    verifactu_seq: seq,
+  };
+
+  const { data: actualizada, error: errorUpdate } = await admin
+    .from('facturas')
+    .update(camposFinales)
+    .eq('id', facturaRectificativaId)
+    .eq('studio_id', studioId)
+    .is('verifactu_hash', null)
+    .select(COLS_RECTIFICATIVA)
+    .maybeSingle();
+
+  if (errorUpdate) {
+    console.error('[sellarRectificativaDeFactura]', errorUpdate.message);
+    return { ok: false, error: 'No se ha podido guardar la rectificativa sellada.' };
+  }
+  if (!actualizada) {
+    const { data: final } = await admin
+      .from('facturas').select(COLS_RECTIFICATIVA)
+      .eq('id', facturaRectificativaId).eq('studio_id', studioId).maybeSingle();
+    if ((final as FilaRectificativaReservada | null)?.verifactu_hash) {
+      return { ok: true, yaExistia: true, factura: mapSalida(final as FilaRectificativaReservada) };
+    }
+    return { ok: false, error: 'No se ha podido confirmar el sellado de la rectificativa.' };
+  }
+
+  return {
+    ok: true,
+    sellada: true,
+    aviso: 'Rectificativa sellada con huella propia. Transmisión a Fiskaly/AEAT NO enviada todavía — su payload para rectificativas no está verificado contra el sandbox real. Contacta con soporte de Fiskaly antes de activar el envío.'
+      + ((rectificativasPrevias ?? 0) > 0 ? ` Aviso: esta factura ya tenía ${rectificativasPrevias} rectificativa(s) previa(s).` : ''),
+    factura: {
+      verifactuHash: huella, verifactuPrevHash: huellaAnterior, verifactuTs: ts, verifactuSeq: seq,
+      qrUrl, entorno: produccion ? 'produccion' : 'pruebas',
+      numeroCompleto, fechaEmision, tipoFactura, tipoRectificativa, rectificaA: facturaOriginalId,
+    },
+  };
+}
