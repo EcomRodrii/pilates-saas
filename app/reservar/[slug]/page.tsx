@@ -745,7 +745,11 @@ export default function ReservarPage() {
           : false;
         return tieneAlguno
           ? 'Tu bono no incluye este tipo de clase. Puedes reservarla pagando la clase suelta.'
-          : 'Necesitas un plan o bono activo para reservar. Contrata uno en la pestaña "El estudio".';
+          // ⚠️ Antes decía «en la pestaña "El estudio"». Los bonos ya no viven
+          // ahí, y un aviso que manda a un sitio donde no está lo que promete
+          // es peor que uno genérico — es el mismo tipo de error que un enlace
+          // roto, pero sin que nadie lo note.
+          : 'Necesitas un plan o bono activo para reservar. Los tienes más abajo, en «Bonos y membresías».';
       }
     }
     if (studio.reservaMaxSimultaneas != null && socioId) {
@@ -1059,6 +1063,14 @@ export default function ReservarPage() {
   // contraste (garantiza legibilidad también con marcas claras).
   const PRIMARY = 'var(--portal-brand)';
   const PRIMARY_FG = 'var(--portal-brand-foreground)';
+
+  // F0 · POR-1: no ofrecer planes a 0 € como contratables en público
+  // (cualquiera obtendría clases gratis). El precio > 0 es requisito del
+  // checkout de Stripe igualmente.
+  //
+  // Sale del JSX a una constante porque ahora se pregunta DOS veces: para
+  // pintar las tarjetas y para decidir si la sección existe siquiera.
+  const planesContratables = planesTarifa.filter(p => p.activo && p.precio > 0);
 
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
@@ -1565,66 +1577,13 @@ export default function ReservarPage() {
                 <span style={{ fontSize: 12, color: 'var(--portal-ink)' }}>{estudioTelefono}</span>
               </div>
 
-              {/* Plans + Stripe */}
-              <div style={{ ...eyebrow(9), marginTop: 38 }}>NUESTROS PLANES</div>
-              {stripeError && (
-                <div className="text-destructive bg-destructive/10 border border-destructive/30" style={{ marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13 }}>
-                  {stripeError}
-                </div>
-              )}
-              {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
-                  y apilados obligaban a recordar el precio anterior al bajar. */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
-                {/* F0 · POR-1: no ofrecer planes a 0€ como contratables en público
-                    (cualquiera obtendría clases gratis). El precio > 0 es requisito
-                    para el checkout de Stripe igualmente. */}
-                {planesTarifa.filter(p => p.activo && p.precio > 0).map(p => {
-                  const destacado = p.id === planDestacadoId;
-                  const porClase = precioPorClase(p);
-                  // Solo sale si significa algo: sin precio de clase suelta con
-                  // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
-                  const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
-                  return (
-                    <div key={p.id} style={{
-                      borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
-                      padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
-                      boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
-                    }}>
-                      <div style={{ flex: '1 1 auto' }}>
-                        {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
-                        <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
-                        <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
-                          {p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
-                        </div>
-                        {ahorro !== null && (
-                          <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
-                            Ahorras un {ahorro} % frente a clases sueltas
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
-                        {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>}
-                      </div>
-                      <button onClick={() => handleContratarPlan(p)}
-                        disabled={stripeLoading === p.id}
-                        style={{
-                          height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
-                          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
-                          border: destacado ? 'none' : '1px solid var(--portal-line)',
-                          background: destacado ? 'var(--portal-surface)' : 'transparent',
-                          color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
-                        }}>
-                        {stripeLoading === p.id
-                          ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
-                          : <><CreditCard size={13} />Contratar</>}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14 }}>Pago seguro con Stripe · IVA incluido</p>
 
-              {/* Class types */}
+              {/* Class types.
+                  ⚠️ El rótulo solo sale si hay algo debajo. Ya era así de
+                  frágil antes, pero los planes tapaban el hueco; al sacarlos,
+                  un estudio recién dado de alta se encontraba dos encabezados
+                  seguidos sobre nada. */}
+              {tiposClase.length > 0 && (<>
               <div style={{ ...eyebrow(9), marginTop: 38 }}>TIPOS DE CLASE</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
                 {tiposClase.map(t => (
@@ -1645,8 +1604,12 @@ export default function ReservarPage() {
                   </div>
                 ))}
               </div>
+              </>)}
 
-              {/* Instructors */}
+              {/* Instructors — mismo criterio que arriba. `queImparten` ya filtra
+                  a las que de verdad dan clase, así que se pregunta por ESA lista
+                  y no por `instructores` entera. */}
+              {queImparten(instructores).length > 0 && (<>
               <div style={{ ...eyebrow(9), marginTop: 38 }}>INSTRUCTORAS</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
                 {queImparten(instructores).map(i => {
@@ -1681,6 +1644,7 @@ export default function ReservarPage() {
                   );
                 })}
               </div>
+              </>)}
             </div>
 
             <div style={{ flex: '0 1 320px' }}>
@@ -1715,6 +1679,79 @@ export default function ReservarPage() {
           veía. Ahora es un pie de página de verdad, visible en las cuatro
           pestañas, con redes sociales (si el estudio las configuró en "Marca y
           colores") y los mismos enlaces legales de siempre. */}
+      {/* ── BONOS Y MEMBRESÍAS ─────────────────────────────────────────────
+          Vivía DENTRO de la pestaña «El estudio», entre los tipos de clase y
+          las instructoras — o sea, escondida detrás de un clic, en la pestaña
+          que menos se abre, y por debajo de la descripción del local. Lo que
+          más cuesta vender era lo que peor se veía.
+
+          Ahora es una sección de la página: se ve al bajar, sin clicar nada, y
+          el estudio puede subirla, bajarla o quitarla como cualquier otra.
+
+          ⚠️ No se pinta si no hay ningún plan CONTRATABLE. El filtro es el
+          mismo de siempre (activo y precio > 0, que además es requisito del
+          checkout de Stripe): una banda «Bonos y membresías» vacía en la
+          página pública es peor que no tenerla. */}
+      {seccionVisible('bonos', ordenReservar) && planesContratables.length > 0 && (
+        <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
+          <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
+            <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
+            {stripeError && (
+              <div className="text-destructive bg-destructive/10 border border-destructive/30" style={{ marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13 }}>
+                {stripeError}
+              </div>
+            )}
+            {/* Rejilla de tres, no una pila a lo ancho: los planes se COMPARAN,
+                y apilados obligaban a recordar el precio anterior al bajar. */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 16, alignItems: 'stretch' }}>
+              {planesContratables.map(p => {
+                const destacado = p.id === planDestacadoId;
+                const porClase = precioPorClase(p);
+                // Solo sale si significa algo: sin precio de clase suelta con
+                // el que comparar, no hay ahorro que enseñar (ver ahorro-plan.ts).
+                const ahorro = ahorroPorcentaje(p, precioClaseSuelta);
+                return (
+                  <div key={p.id} style={{
+                    borderRadius: R.cardSmall, background: destacado ? PRIMARY : 'var(--portal-surface)',
+                    padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 12,
+                    boxShadow: destacado ? SH.ctaOscuroFuerte : SH.planClaro,
+                  }}>
+                    <div style={{ flex: '1 1 auto' }}>
+                      {destacado && <div style={{ ...eyebrow(8.5), color: `color-mix(in srgb, ${PRIMARY_FG} 65%, transparent)` }}>EL MÁS ELEGIDO</div>}
+                      <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), lineHeight: 1, marginTop: destacado ? 9 : 0, color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>{p.nombre}</div>
+                      <div style={{ fontSize: 11, marginTop: 7, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 60%, transparent)` : 'var(--portal-muted-2)' }}>
+                        {p.tipo === 'MENSUAL' ? 'Mensual · sin compromiso' : (porClase ?? p.descripcion ?? `Bono ${p.sesiones ?? ''} clases`)}
+                      </div>
+                      {ahorro !== null && (
+                        <div style={{ fontSize: 11, fontWeight: 600, marginTop: 6, color: destacado ? `color-mix(in srgb, ${PRIMARY_FG} 80%, transparent)` : 'var(--portal-accent)' }}>
+                          Ahorras un {ahorro} % frente a clases sueltas
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: serif, fontSize: cq(20, 2, 25), whiteSpace: 'nowrap', color: destacado ? PRIMARY_FG : 'var(--portal-ink)' }}>
+                      {p.precio} €{p.tipo === 'MENSUAL' && <span style={{ fontFamily: sans, fontSize: 12 }}>/mes</span>}
+                    </div>
+                    <button onClick={() => handleContratarPlan(p)}
+                      disabled={stripeLoading === p.id}
+                      style={{
+                        height: 46, padding: '0 24px', borderRadius: R.pillBtnXs, whiteSpace: 'nowrap', fontSize: 12.5, fontWeight: 500,
+                        display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', opacity: stripeLoading === p.id ? 0.6 : 1,
+                        border: destacado ? 'none' : '1px solid var(--portal-line)',
+                        background: destacado ? 'var(--portal-surface)' : 'transparent',
+                        color: destacado ? 'var(--portal-ink)' : 'var(--portal-ink)',
+                      }}>
+                      {stripeLoading === p.id
+                        ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,.2)', borderTopColor: 'currentColor', borderRadius: 999, display: 'inline-block' }} className="animate-spin" />
+                        : <><CreditCard size={13} />Contratar</>}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: 10.5, color: 'var(--portal-muted)', marginTop: 14, textAlign: 'center' }}>Pago seguro con Stripe · IVA incluido</p>
+          </div>
+        </div>
+      )}
       {/* ── SOBRE NOSOTROS ────────────────────────────────────────────────────
           La única sección cuyo contenido entero escribe el estudio. Las demás
           pintan datos que ya existen (clases, cifras, teléfono); esta no existe

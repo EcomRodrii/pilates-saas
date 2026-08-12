@@ -149,18 +149,19 @@ test.describe('Página pública de reservas — orden de secciones', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
     // Solo viajan las MOVIBLES: ni el horario ni la portada, que van ancladas.
-    // «Sobre nosotros» sigue la primera — no se ha tocado.
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['sobre', 'contacto', 'cifras']);
+    // Las que no se han tocado conservan su sitio relativo.
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['bonos', 'sobre', 'contacto', 'cifras']);
   });
 
   test('un orden ya guardado se lee y se vuelve a guardar igual', async ({ page }) => {
-    // Lo guardado solo conoce dos de las tres movibles; «sobre» se añadió al
-    // catálogo después. Se relee con ella al final —la regla de siempre— y se
-    // vuelve a guardar así, ya completa: leer no puede perder una sección.
+    // Lo guardado solo conoce dos de las cuatro movibles; «sobre» y «bonos» se
+    // añadieron al catálogo después. Se releen al final —la regla de siempre— y
+    // se vuelve a guardar así, ya completo: leer no puede perder una sección, y
+    // tampoco colar una nueva por delante de lo que el estudio ya colocó.
     const { puts } = await montar(page, { orden: ['contacto', 'cifras'], ocultos: [] });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras', 'sobre']);
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras', 'bonos', 'sobre']);
   });
 });
 
