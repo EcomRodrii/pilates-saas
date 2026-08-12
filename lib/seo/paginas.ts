@@ -469,6 +469,10 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno',
   // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
   '/demo',
+  // Vista previa de la landing v5 mientras se porta por secciones. Existe para
+  // poder MIRARLA sin tocar la home en producción; en cuanto la v5 sustituya a
+  // la landing, esta ruta y este prefijo se borran juntos.
+  '/landing-v5',
   // Cara pública operativa de cada estudio (decisión: B2B primero, sin miles de URLs por estudio)
   '/portal', '/kiosk', '/reservar',
   // Enlaces firmados de un solo uso
