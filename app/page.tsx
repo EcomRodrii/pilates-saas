@@ -8,6 +8,8 @@ import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { BG } from '@/components/landing/theme';
 import { SeccionHero } from '@/components/landing/SeccionHero';
+import { VideoProducto } from '@/components/landing/VideoProducto';
+import { SeccionParteNoche } from '@/components/landing/SeccionParteNoche';
 import { SeccionMartes } from '@/components/landing/SeccionMartes';
 import { SeccionSustituciones } from '@/components/landing/SeccionSustituciones';
 import { SeccionCalendarioReservas } from '@/components/landing/SeccionCalendarioReservas';
@@ -88,11 +90,18 @@ export default function LandingPage() {
           se veía a través del propio nav). El pie va FUERA a propósito. */}
       <div style={{ position: 'relative' }}>
         <SeccionHero />
+        {/* El producto, inmediatamente después de la promesa: es la prueba de
+            lo que acaba de prometer el titular, no un adorno. */}
+        <VideoProducto />
         <SeccionMartes />
         <SeccionSustituciones />
         <SeccionCalendarioReservas />
         <SeccionApp />
         <SeccionWidget />
+        {/* "Anoche, mientras tú cerrabas" vivía en el hero, donde llegaba
+            antes de que se supiera qué es Tentare. Aquí ya se ha visto el
+            producto entero funcionando, y "esto lo hizo solo" se entiende. */}
+        <SeccionParteNoche />
         <SeccionClientas />
         <SeccionCambiarse />
         <SeccionFuncionalidades />
