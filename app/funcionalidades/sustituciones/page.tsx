@@ -53,7 +53,7 @@ export default function SustitucionesPage() {
       intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y está escribiéndoles por orden.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Sala de reformers de un estudio de Pilates', encuadre: 'center 42%' }}
-      visual={<ResumenSustitucion />}
+      captura={{ src: '/producto/sustituciones.png', alt: 'Pantalla de sustituciones de Tentare', pie: 'Las bajas abiertas y en qué punto está cada una.', ancho: 2880, alto: 1624 }}
     >
       <Seccion id="problema" titulo="El problema no es la baja. Es todo lo que cuelga de ella">
         <Entradilla>
@@ -90,6 +90,7 @@ export default function SustitucionesPage() {
       </Seccion>
 
       <Seccion id="escalado" titulo="Qué pasa cuando nadie contesta">
+        <ResumenSustitucion />
         <p>
           Aquí es donde un sistema de sustituciones se gana el sueldo o no sirve de nada. Mandar un email y esperar no es
           automatizar: si la primera candidata está dando clase, o dormida, ese email no se lee a tiempo y la clase se cae
