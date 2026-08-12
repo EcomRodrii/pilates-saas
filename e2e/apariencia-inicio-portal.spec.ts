@@ -660,6 +660,12 @@ test.describe('Fotos por bloque', () => {
     await page.getByRole('button', { name: /^Banner/ }).click();
     await page.getByRole('button', { name: 'o pegar un enlace' }).click();
     await page.getByLabel(/Enlace de/).fill('https://ejemplo.test/sala.jpg');
+    // El enlace se confirma con el botón, no al teclear. Antes cada carácter
+    // era un cambio del borrador; el control es ahora el mismo que usan la foto
+    // del portal y la de una clase, que NO son borrador —cada tecla habría sido
+    // una escritura en la base de datos— y además así se puede ver la imagen
+    // antes de guardarla.
+    await page.getByRole('button', { name: 'Usar este enlace' }).click();
 
     await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
     expect(putsPorPantalla.home.at(-1)).toEqual(expect.arrayContaining([
