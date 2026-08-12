@@ -47,6 +47,7 @@ import type { PortalSession } from '@/lib/portal-auth';
 import type { DatosPase } from '@/components/portal/hoja-pase';
 import type { Reserva, Spot } from '@/lib/types';
 import { BandaFoto } from '@/components/portal/banda-foto';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 
 type Vista = 'todas' | 'mias';
 
@@ -366,9 +367,9 @@ export function PortalClasesView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink, paddingTop: 62 }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoClases')}>
-      {/* La foto de ESTA pantalla, si la propietaria le puso una. Sin ella no
-          se pinta nada y la cabecera queda exactamente como estaba. */}
-      {txt('listadoClases', 'fotoUrl', '') && <BandaFoto url={txt('listadoClases', 'fotoUrl', '')} />}
+      {/* La foto de ESTA pantalla, o la banda por defecto. Es la única
+          superficie del portal que se ve sin velo ni degradado encima. */}
+      <BandaFoto url={imagenDeEstudio('banda', txt('listadoClases', 'fotoUrl', ''))} />
       <div style={{ padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
           <div style={{ minWidth: 0 }}>

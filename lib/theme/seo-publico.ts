@@ -24,10 +24,24 @@ export interface SeoDelTema {
 export interface MetadatosPublicos {
   titulo: string;
   descripcion: string;
-  imagen: string | null;
+  imagen: string;
   /** Las tarjetas grandes solo se piden cuando hay imagen que enseñar. */
   tarjeta: 'summary' | 'summary_large_image';
 }
+
+/**
+ * La foto que se ve al pegar el enlace del estudio en un grupo de WhatsApp
+ * cuando nadie ha subido una.
+ *
+ * Se declara aquí y no se importa de `lib/imagenes-por-defecto.ts` a propósito:
+ * este módulo vive sin React NI alias `@/` para poder probarse con
+ * `node --test` sin arrancar Next, igual que el resto de su cabecera explica.
+ * La ruta se comprueba contra la fuente real en el test.
+ *
+ * Es relativa: `metadataBase` (app/layout.tsx) la convierte en absoluta, que es
+ * lo que exige Open Graph.
+ */
+export const IMAGEN_COMPARTIR_POR_DEFECTO = '/por-defecto/estudio-hero.webp';
 
 /** El título que se genera solo cuando el estudio no ha escrito el suyo. */
 export function tituloAutomatico(estudio: EstudioParaSeo): string {
@@ -57,13 +71,15 @@ export function metadatosPublicos(
   const propio = (v: string | undefined) => (v ?? '').trim();
   const titulo = propio(tema?.seoTitulo) || tituloAutomatico(estudio);
   const descripcion = propio(tema?.seoDescripcion) || descripcionAutomatica(estudio);
-  // Una URL vacía no es una imagen. `?? null` la normaliza para que el
-  // llamador solo tenga que preguntar por `null`.
-  const imagen = propio(tema?.seoImagenUrl ?? undefined) || null;
+  // Una URL vacía no es una imagen: sin la suya va la de por defecto. Antes
+  // aquí salía `null` y la página no emitía NINGÚN `og:image` — el enlace del
+  // estudio se pegaba en WhatsApp sin miniatura, que es lo que le pasaba a
+  // cualquiera que no hubiera entrado a los ajustes de compartir.
+  const imagen = propio(tema?.seoImagenUrl ?? undefined) || IMAGEN_COMPARTIR_POR_DEFECTO;
   return {
     titulo,
     descripcion,
     imagen,
-    tarjeta: imagen ? 'summary_large_image' : 'summary',
+    tarjeta: 'summary_large_image',
   };
 }

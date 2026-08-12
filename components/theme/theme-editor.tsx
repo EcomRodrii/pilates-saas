@@ -43,6 +43,7 @@ import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavCo
 import { PortalNav } from '@/components/portal/portal-nav';
 import { altura } from '@/lib/portal-design';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 
 // "Ajustes" del workspace de Apariencia (theme-workspace.tsx) — color de
 // marca, tipografía, radios, navegación del portal, redes sociales, logo/
@@ -1021,13 +1022,19 @@ export function AjustesCategoriaPanel({
       <div className="space-y-2 border-t border-border pt-4">
         <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Foto del portal</p>
         <div className="flex items-center gap-3">
+          {/* La miniatura enseña la foto POR DEFECTO cuando no hay ninguna
+              subida, no un cartel de «Sin imagen»: es lo que están viendo sus
+              alumnas ahora mismo, y esconderlo aquí haría que la propietaria
+              creyera que su portal está vacío cuando no lo está. El botón sigue
+              diciendo «Subir imagen» — la foto no es suya y no se guarda en su
+              ficha. */}
           <div className="w-16 h-10 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-            {studio?.imagenBienvenidaUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={studio.imagenBienvenidaUrl} alt="Imagen de bienvenida" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-[9px] text-muted-foreground text-center px-1">Sin imagen</span>
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imagenDeEstudio('vertical', studio?.imagenBienvenidaUrl)}
+              alt={studio?.imagenBienvenidaUrl ? 'Imagen de bienvenida' : 'Foto por defecto del portal'}
+              className="w-full h-full object-cover"
+            />
           </div>
           <button onClick={() => bienvenidaRef.current?.click()} disabled={subiendo === 'bienvenida'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
             <Upload size={14} /> {studio?.imagenBienvenidaUrl ? 'Cambiar imagen' : 'Subir imagen'}
@@ -1046,7 +1053,8 @@ export function AjustesCategoriaPanel({
         <p className="text-[11px] text-muted-foreground">
           Es la foto de tu estudio, no tu foto de perfil. Con una sola se visten tres sitios:
           la <strong>pantalla de acceso</strong>, la <strong>bienvenida</strong> y el fondo de la
-          <strong> tarjeta grande del Inicio</strong>. Sin ella, esos tres usan un fondo liso del color de tu marca.
+          <strong> tarjeta grande del Inicio</strong>. Mientras no subas la tuya, esos tres usan
+          una foto de Tentare — la que ves aquí al lado. Lo ideal es 1200 × 1600 px, vertical.
         </p>
       </div>
 

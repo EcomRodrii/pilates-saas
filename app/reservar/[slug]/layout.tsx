@@ -40,10 +40,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // escriba lo suyo, es carácter por carácter el mismo que se indexaba antes
   // de que estos campos existieran.
   const { titulo, descripcion, imagen, tarjeta } = metadatosPublicos(studio, theme);
-  // ⚠️ `images` solo se pone cuando hay imagen. Un `images: [undefined]`
-  // renderiza una etiqueta `og:image` vacía, que a algunos scrapers les gusta
-  // menos que no tener ninguna.
-  const imagenes = imagen ? { images: [imagen] } : {};
+  // `imagen` ya nunca viene vacía: sin la del estudio entra la de por defecto,
+  // relativa, que `metadataBase` (app/layout.tsx) convierte en absoluta. Antes
+  // esto era condicional porque un `images: [undefined]` renderiza una etiqueta
+  // `og:image` vacía, que a algunos scrapers les gusta menos que ninguna.
+  const imagenes = { images: [imagen] };
   return {
     title: titulo,
     description: descripcion,
