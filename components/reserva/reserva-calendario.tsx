@@ -425,7 +425,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
       style={{
         display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
         alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
-        background: lleno ? 'rgba(255,255,255,.5)' : (slot.miEstado === 'CONFIRMADA' ? 'var(--portal-surface-2)' : t.surface),
+        background: lleno ? 'var(--portal-velo-suave)' : (slot.miEstado === 'CONFIRMADA' ? 'var(--portal-surface-2)' : t.surface),
         borderRadius: radius.card, padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
         boxShadow: lleno ? undefined : shadow.card,
       }}

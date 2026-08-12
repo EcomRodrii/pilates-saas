@@ -28,7 +28,7 @@ const DIAS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
  * poder leer lo mismo. El color acompaña, no informa por su cuenta.
  */
 const COLOR: Record<EstadoPlazas, { fondo: string; borde: string; texto: string }> = {
-  disponible: { fondo: 'rgba(255,255,255,.75)', borde: 'var(--portal-line)', texto: 'var(--portal-ink)' },
+  disponible: { fondo: 'var(--portal-velo-fuerte)', borde: 'var(--portal-line)', texto: 'var(--portal-ink)' },
   ultimas: { fondo: 'rgba(180,120,20,.10)', borde: 'rgba(180,120,20,.45)', texto: 'var(--portal-ink)' },
   'lista-espera': { fondo: 'rgba(60,90,140,.09)', borde: 'rgba(60,90,140,.40)', texto: 'var(--portal-ink)' },
   completa: { fondo: 'rgba(150,50,50,.08)', borde: 'rgba(150,50,50,.35)', texto: 'var(--portal-muted)' },

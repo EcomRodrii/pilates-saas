@@ -30,7 +30,7 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
         display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, fontWeight: 500, cursor: 'pointer',
         whiteSpace: 'nowrap', transition: 'background .3s ease, color .3s ease',
         border: active ? '1px solid transparent' : '1px solid var(--portal-line)',
-        background: active ? PRIMARY : 'rgba(255,255,255,.7)',
+        background: active ? PRIMARY : 'var(--portal-velo-fuerte)',
         color: active ? PRIMARY_FG : 'var(--portal-muted-2)',
       }}>
       {label}
@@ -78,7 +78,7 @@ export function DiscoveryQuiz(props: DiscoveryQuizProps) {
   }
 
   return (
-    <div style={{ borderRadius: R.card, background: 'rgba(255,255,255,.7)', border: '1px solid var(--portal-line)', padding: cq(22, 3, 30) }}>
+    <div style={{ borderRadius: R.card, background: 'var(--portal-velo-fuerte)', border: '1px solid var(--portal-line)', padding: cq(22, 3, 30) }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={eyebrow(9)}>{NOMBRES[paso]} · {paso + 1}/{TOTAL_PASOS}</div>
         <button type="button" onClick={onCerrar} style={{ fontSize: 11, color: 'var(--portal-muted-2)', background: 'none', border: 'none', cursor: 'pointer' }}>
