@@ -244,7 +244,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, textosReservar, ordenReservar,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, ordenReservar,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -521,14 +521,20 @@ export default function ReservarPage() {
       if (r.estado === 'CANCELADA') continue;
       ocupadasPorSesion.set(r.sesionId, (ocupadasPorSesion.get(r.sesionId) ?? 0) + 1);
     }
+    // P1 auditoría Momence: qué instructora daba originalmente cada sesión,
+    // solo para las que tienen una sustitución YA confirmada.
+    const originalPorSesion = new Map(
+      sustitucionesConfirmadas.map(s => [s.sesionId, s.instructorOriginalId]),
+    );
     return sesiones.map(s => ({
       ...s,
       tipo: tiposById.get(s.tipoClaseId),
       sala: salasById.get(s.salaId),
       instructor: instrById.get(s.instructorId),
+      instructorOriginalNombre: instrById.get(originalPorSesion.get(s.id) ?? '')?.nombre ?? null,
       ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
     }));
-  }, [sesiones, tiposClase, salas, instructores, reservas]);
+  }, [sesiones, tiposClase, salas, instructores, reservas, sustitucionesConfirmadas]);
 
   // ⚠️ Las opciones del rail salen de las clases SIN filtrar. Contándolas sobre
   // las ya filtradas, elegir «Laura» dejaría su desplegable con una sola opción
@@ -668,6 +674,7 @@ export default function ReservarPage() {
           instructorColor: s.instructor?.color ?? null,
           instructorRol: s.instructor?.rol ?? null,
           instructorFotoUrl: s.instructor?.fotoUrl ?? null,
+          instructorOriginalNombre: s.instructorOriginalNombre,
           salaNombre: s.sala?.nombre ?? null,
           aforoMaximo: s.aforoMaximo,
           ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
