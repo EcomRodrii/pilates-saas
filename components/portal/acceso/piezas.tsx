@@ -18,6 +18,7 @@
 import { useId } from 'react';
 import { EASE, dur, transicion, display, micro, texto, radio, altura, sombra } from '@/lib/portal-design';
 import { useModo } from '@/lib/portal-modo';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
 /** El color de marca y su contraste, siempre a través del tema publicado. */
 export const MARCA = 'var(--portal-brand, #343825)';
@@ -38,13 +39,17 @@ export function entrada(orden: number): React.CSSProperties {
 }
 
 /**
- * La foto del estudio teñida de marca, o el color plano si no hay foto.
+ * La foto del estudio teñida de marca. Sin foto propia, la de por defecto —
+ * antes aquí quedaba el color plano, que es lo que veía toda propietaria que
+ * acababa de darse de alta.
  *
  * El tinte (`multiply` al 72 % sobre el color de marca) es lo que hace que la
  * portada sea del ESTUDIO y no de la foto: cualquier imagen —una sala con luz
  * fría, un retrato, una captura del móvil— acaba en la misma familia de color
  * que el resto del portal. Es también lo que garantiza el contraste del texto
- * blanco encima sin depender de qué suba la propietaria.
+ * blanco encima sin depender de qué suba la propietaria. Y es lo que hace que
+ * la foto por defecto no se note como foto de archivo: sale en la marca de
+ * cada estudio, no en la suya.
  *
  * `alto` cambia entre los dos pasos (300 → 212): la portada se retira para
  * dejar sitio, y esa retirada es la que cuenta que se ha avanzado.
@@ -60,6 +65,7 @@ export function PortadaAcceso({
   progreso: number;
   tamNombre: number;
 }) {
+  const foto = imagenDeEstudio('portada', fotoUrl);
   return (
     <div
       style={{
@@ -68,11 +74,12 @@ export function PortadaAcceso({
         transition: transicion(['height'], dur.portada),
       }}
     >
-      {fotoUrl && (
+      {
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={fotoUrl}
+          src={foto}
           alt=""
+          onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover',
@@ -98,7 +105,7 @@ export function PortadaAcceso({
             opacity: 0.72, mixBlendMode: 'multiply',
           }}
         />
-      )}
+      }
       {/* Degradado hacia el color de marca: ancla el bloque de texto de abajo
           sin necesitar una caja ni una sombra debajo de cada letra. */}
       <div

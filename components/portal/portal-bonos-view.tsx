@@ -19,6 +19,7 @@ import { bloquesVisibles, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
 import { semantic } from '@/lib/portal-tokens';
 import { BandaFoto } from '@/components/portal/banda-foto';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import { BottomSheet, Toast, Button, type AvisoToast } from '@/components/portal/ui';
 import type { PortalSession } from '@/lib/portal-auth';
 
@@ -137,15 +138,13 @@ export function PortalBonosView({
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div {...wrap('listadoBonos')}>
-      {/* La foto de ESTA pantalla. El padding de arriba se lo queda la banda
-          cuando hay foto: si no, la imagen aparecería flotando 62 px por
+      {/* La foto de ESTA pantalla, o la banda por defecto. El padding de arriba
+          se lo queda la banda: si no, la imagen aparecería flotando 62 px por
           debajo del borde, con un hueco vacío encima que no pinta nada. */}
-      {txt('listadoBonos', 'fotoUrl', '') && (
-        <div style={{ paddingTop: 62 }}>
-          <BandaFoto url={txt('listadoBonos', 'fotoUrl', '')} />
-        </div>
-      )}
-      <div style={{ padding: txt('listadoBonos', 'fotoUrl', '') ? '0 24px 24px' : '62px 24px 24px' }}>
+      <div style={{ paddingTop: 62 }}>
+        <BandaFoto url={imagenDeEstudio('banda', txt('listadoBonos', 'fotoUrl', ''))} />
+      </div>
+      <div style={{ padding: '0 24px 24px' }}>
         <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
         <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
 

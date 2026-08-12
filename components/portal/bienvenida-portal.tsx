@@ -21,6 +21,7 @@
 
 import { useModo } from '@/lib/portal-modo';
 import { display, texto, altura, radio, sombra, transicion, dur, escala } from '@/lib/portal-design';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
 export function BienvenidaPortal({
   nombreEstudio, fotoUrl, onSiguiente, variante = 'foto',
@@ -87,11 +88,19 @@ export function BienvenidaPortal({
 
   return (
     <div style={{ height: '100%', position: 'relative', overflow: 'hidden', background: t.bg, color: t.ink }}>
-      <div style={{ position: 'absolute', inset: 0, background: fotoUrl ? t.surface2 : t.hero }}>
-        {fotoUrl && (
+      {/* Sin foto propia entra la de por defecto (vertical, pensada justo para
+          esta pantalla a sangre). El `t.hero` de antes era el vacío que veía
+          toda propietaria recién dada de alta. */}
+      <div style={{ position: 'absolute', inset: 0, background: t.surface2 }}>
+        {
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={fotoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
-        )}
+          <img
+            src={imagenDeEstudio('vertical', fotoUrl)}
+            alt=""
+            onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }}
+          />
+        }
       </div>
       <div
         aria-hidden

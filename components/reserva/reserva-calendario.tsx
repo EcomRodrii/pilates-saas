@@ -430,6 +430,23 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         boxShadow: lleno ? undefined : shadow.card,
       }}
     >
+      {/* La foto del tipo de clase, si la propietaria subió una.
+          ⚠️ Aquí NO entra la foto por defecto, y es deliberado: en un listado
+          la misma imagen repetida en ocho filas se lee como un error, mientras
+          que en la cabecera del detalle —donde se pinta grande y sola— sí
+          ayuda. Este `claseFotoUrl` llevaba tiempo viajando hasta aquí sin que
+          nadie lo pintara, y el panel prometía que salía en esta página. */}
+      {slot.claseFotoUrl && (
+        <div style={{ flex: '0 0 auto', width: 52, height: 52, borderRadius: 14, overflow: 'hidden' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={slot.claseFotoUrl}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: lleno ? 0.6 : 1 }}
+          />
+        </div>
+      )}
+
       {/* Hora + duración */}
       <div style={{ flex: '0 0 auto' }}>
         <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: lleno ? t.muted : t.ink }}>

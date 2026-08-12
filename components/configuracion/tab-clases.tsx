@@ -11,6 +11,7 @@ import { OBJETIVOS, resolverObjetivos } from '@/lib/reservar/objetivos';
 import type { TipoClase } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { imagenDeClase } from '@/lib/imagenes-por-defecto';
 
 // "Hereda" = usa el ajuste general del estudio (Configuración → Estudio →
 // Reservas y cancelaciones). Un checkbox no puede representar tres estados
@@ -285,16 +286,20 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
             {editId && (
             <Field
               label="Foto de la clase"
-              description="Aparece en la página pública de reservas. Si no pones ninguna, se usa el color de abajo."
+              description="Se usa en todas partes donde aparece esta clase: portal de tus alumnas y sesión guiada. La suben una vez y vale para todas sus sesiones. Mientras no pongas la tuya se usa una foto de Tentare, elegida por el nombre de la clase. Lo ideal es 1600 × 900 px."
             >
                 <div className="flex items-center gap-3">
+                  {/* La miniatura enseña la foto POR DEFECTO cuando no hay
+                      ninguna subida — es lo que ven sus alumnas. El
+                      `ColorSwatch` de antes daba a entender que la clase salía
+                      solo con su color, y ya no es así. */}
                   <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                    {editando?.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={editando.fotoUrl} alt={form.nombre} className="w-full h-full object-cover" />
-                    ) : (
-                      <ColorSwatch color={form.color} size="md" />
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagenDeClase({ fotoUrl: editando?.fotoUrl, nombre: form.nombre })}
+                      alt={form.nombre}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div className="flex flex-col gap-1">
                     <button

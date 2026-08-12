@@ -11,6 +11,7 @@ import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/c
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { formatFechaLarga } from '@/lib/utils';
 import { esSlotRecurrente, yaTienePlazaFijaEnSlot } from '@/lib/plaza-fija-portal';
+import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 
 // Reservar desde aquí (llegando por el carrusel de Inicio) no dejaba elegir
 // plaza numerada, mientras que reservar desde la Agenda (HojaReserva) sí —
@@ -178,14 +179,20 @@ export default function ClaseDetallePage() {
   return (
     <div style={{ minHeight: '100%', background: t.bg }}>
       {/* Header */}
-      <div style={{ padding: '24px 20px 40px', position: 'relative', overflow: 'hidden', background: tipo?.fotoUrl ? undefined : `linear-gradient(135deg, ${color}ee, ${color}99)` }}>
-        {tipo?.fotoUrl && (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={tipo.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div aria-hidden style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${color}ee, ${color}66)` }} />
-          </>
-        )}
+      {/* La foto es del TIPO de clase, no de esta sesión: todas las sesiones de
+          «Reformer» la comparten. Sin foto propia entra la de su familia
+          (reformer/mat/máquina/yoga/hiit, adivinada por el nombre), así que el
+          degradado a secas ya no se ve nunca — pero el velo de color sigue
+          encima y es lo que hace que la foto sea de ESTA clase. */}
+      <div style={{ padding: '24px 20px 40px', position: 'relative', overflow: 'hidden' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imagenDeClase(tipo)}
+          alt=""
+          onError={alFallarImagen(IMAGENES_CLASE.generica)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        <div aria-hidden style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg, ${color}ee, ${color}66)` }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <button
             onClick={() => router.back()}

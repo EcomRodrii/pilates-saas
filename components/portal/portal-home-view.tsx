@@ -53,6 +53,7 @@ import {
 import type { BannerPortal } from '@/lib/types';
 import { bloquesVisibles, type BloqueSistemaId, type BloqueHome } from '@/lib/portal-home-bloques';
 import { BloqueHomeRender } from '@/components/portal/bloque-home-render';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 
 // Iconos de los accesos rápidos en sus variantes rejilla/círculos (la de filas
 // no lleva icono). Mismo criterio que portal-nav.tsx: el dato es un NOMBRE, el
@@ -435,11 +436,10 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
   const filas = accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
-  // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, y si
-  // no la del portal — que es lo que hacía siempre. La herencia va en este
-  // orden a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
-  const fotoTarjeta = txt('proximaClase', 'fotoUrl', '') || studio?.imagenBienvenidaUrl || '';
-  const conFoto = !!fotoTarjeta;
+  // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, si no
+  // la del portal, y si tampoco la de por defecto. La herencia va en este orden
+  // a propósito: quien nunca toque el campo nuevo no nota ningún cambio.
+  const fotoTarjeta = imagenDeEstudio('vertical', [txt('proximaClase', 'fotoUrl', ''), studio?.imagenBienvenidaUrl]);
   const cristalClaro = noche ? 'rgba(28,31,23,.72)' : 'rgba(246,244,239,.72)';
   const bordeCristal = noche ? 'rgba(243,241,233,.10)' : 'rgba(255,255,255,.80)';
   const lineaSuave = noche ? 'rgba(243,241,233,.20)' : 'rgba(34,38,31,.20)';
@@ -618,12 +618,13 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </Link>
         ) : (
         <>
-        {/* Tarjeta grande.
-            Con foto del estudio, es exactamente el diseño: 476 px de imagen con
-            la tarjeta de cristal flotando abajo. SIN foto —el caso de casi
-            todos los estudios el primer día— esos 476 px eran un vacío de color
-            crema con una tarjeta pegada al fondo. Así que sin foto la tarjeta
-            se queda a su altura natural: la misma pieza, sin el hueco. */}
+        {/* Tarjeta grande: 476 px de imagen con la tarjeta de cristal flotando
+            abajo, que es exactamente el diseño.
+            Hubo una rama alternativa —tarjeta encogida a su altura natural—
+            porque SIN foto esos 476 px eran un vacío de color crema, el caso de
+            casi todos los estudios el primer día. Con la foto por defecto ese
+            vacío ya no existe, así que la rama se fue: `fotoTarjeta` nunca
+            viene vacía. */}
         <div
           // Ancla estable para las pruebas de geometría: la tarjeta no tiene rol
           // ni texto propio con el que localizarla (el titular cambia según el
@@ -637,28 +638,28 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           data-bloque-id={idFijo('proximaClase')}
           style={{
             position: 'relative',
-            height: conFoto ? altura.heroCard : undefined,
-            padding: conFoto ? 0 : 14,
+            height: altura.heroCard,
             // var() con el valor de hoy como fallback: sin `radioTema.card` el
             // tema no declara esta var (varsRadioTema, lib/theme-runtime.ts) y
             // la tarjeta se ve exactamente igual que antes.
             borderRadius: `var(--portal-radius-card, ${radio.heroCard}px)`, overflow: 'hidden',
-            background: conFoto ? t.surface2 : t.hero,
+            background: t.surface2,
             boxShadow: sombra.heroCard,
           }}
         >
-          {conFoto && (
-            <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={fotoTarjeta} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }} />
-            </div>
-          )}
+          <div ref={fotoRef} style={{ position: 'absolute', left: 0, right: 0, top: -34, bottom: -34, willChange: 'transform' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={fotoTarjeta}
+              alt=""
+              onError={alFallarImagen(IMAGENES_POR_DEFECTO.vertical[0])}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)', display: 'block' }}
+            />
+          </div>
 
           <div style={{
-            position: conFoto ? 'absolute' : 'relative',
-            top: conFoto ? 18 : undefined, left: conFoto ? 18 : undefined, right: conFoto ? 18 : undefined,
+            position: 'absolute', top: 18, left: 18, right: 18,
             display: 'flex', justifyContent: 'space-between', gap: 10, pointerEvents: 'none',
-            padding: conFoto ? 0 : '4px 6px 14px',
           }}>
             <span style={{
               padding: '10px 16px', borderRadius: radio.pill, background: noche ? 'rgba(28,31,23,.62)' : 'rgba(255,255,255,.62)',
@@ -676,8 +677,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </div>
 
           <div style={{
-            position: conFoto ? 'absolute' : 'relative',
-            left: conFoto ? 14 : undefined, right: conFoto ? 14 : undefined, bottom: conFoto ? 14 : undefined,
+            position: 'absolute', left: 14, right: 14, bottom: 14,
             borderRadius: radio.card,
             background: cristalClaro, ...cristal(desenfoque.cardHero, 170),
             border: `1px solid ${bordeCristal}`, boxShadow: sombra.cardInterna, padding: '22px 20px 20px',
@@ -872,12 +872,17 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 transition: transicion(['transform'], dur.card),
               }}
             >
-              {studio?.imagenBienvenidaUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={studio.imagenBienvenidaUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }} />
-              ) : (
-                <div style={{ position: 'absolute', inset: 0, background: t.hero }} />
-              )}
+              {/* La foto del estudio, o la de por defecto del banner — que
+                  viene compuesta con el motivo a la DERECHA, justo por el
+                  degradado de aquí abajo, que tapa el 42 % izquierdo para el
+                  texto. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagenDeEstudio('banner', studio?.imagenBienvenidaUrl)}
+                alt=""
+                onError={alFallarImagen(IMAGENES_POR_DEFECTO.banner[0])}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'var(--portal-foto-pos, center center)' }}
+              />
               <div aria-hidden style={{
                 position: 'absolute', inset: 0, pointerEvents: 'none',
                 background: noche

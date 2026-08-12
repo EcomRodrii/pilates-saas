@@ -17,6 +17,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { ChevronLeft, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
 import { EJERCICIOS_SESION_GUIADA, esUltimoEjercicio, saltarEjercicio, progresoEjercicio } from '@/lib/sesion-guiada';
+import { imagenDeClase, alFallarImagen, IMAGENES_CLASE } from '@/lib/imagenes-por-defecto';
 
 export default function SesionGuiadaPage() {
   const router = useRouter();
@@ -51,10 +52,15 @@ export default function SesionGuiadaPage() {
   return (
     <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', background: t.bg }}>
       <div style={{ position: 'relative', height: 260, flexShrink: 0, overflow: 'hidden', background: t.surface2 }}>
-        {tipo?.fotoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={tipo.fotoUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
+        {/* Misma foto que la cabecera del detalle: la del tipo de clase, o la
+            de su familia si la propietaria no ha subido ninguna. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imagenDeClase(tipo)}
+          alt=""
+          onError={alFallarImagen(IMAGENES_CLASE.generica)}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
         <div aria-hidden style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.15) 40%, rgba(0,0,0,.55))' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 0' }}>
           <button

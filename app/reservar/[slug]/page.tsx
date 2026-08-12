@@ -32,6 +32,7 @@ import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
+import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
@@ -267,8 +268,9 @@ export default function ReservarPage() {
   // La foto de portada. `fotoUrl` es la del estudio y `imagenBienvenidaUrl` la
   // que ya se usa en la bienvenida del portal — se prefiere la primera y se cae
   // a la segunda para no pedirle al estudio que suba dos veces lo mismo.
-  // Sin ninguna de las dos, el hero se queda a una columna (ver el grid).
-  const heroFoto = studio?.fotoUrl || studio?.imagenBienvenidaUrl || null;
+  // Sin ninguna de las dos entra la de por defecto: antes el hero se quedaba a
+  // una columna, que es como se veía esta página el primer día de todo estudio.
+  const heroFoto = imagenDeEstudio('portada', [studio?.fotoUrl, studio?.imagenBienvenidaUrl]);
   const params = useParams();
   const slug = String(params?.slug ?? '');
   const { socia, usuarioEmail, autenticado, enviarEnlace, loginConPassword, logout, refrescar } = useSociaSession(slug);
@@ -1272,15 +1274,16 @@ export default function ReservarPage() {
             position: 'relative',
             padding: `${cq(28, 4, 56)} ${cq(20, 3.8, 48)} ${cq(24, 3, 44)}`,
             display: 'grid',
-            // Una sola columna cuando NO hay foto. Reservar la mitad del hero
-            // para un hueco gris sería peor que el diseño de hoy: el mockup
-            // funciona porque la foto está, no porque haya dos columnas.
-            gridTemplateColumns: heroFoto ? 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))' : '1fr',
+            // Dos columnas siempre: `heroFoto` ya nunca viene vacío. La rama de
+            // una sola columna existía porque reservar la mitad del hero para un
+            // hueco gris era peor que el diseño de hoy — con foto por defecto
+            // ese hueco no llega a existir.
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
             gap: cq(24, 3.4, 44),
             alignItems: 'center',
           }}
         >
-          <div style={{ textAlign: heroFoto ? 'left' : 'center', minWidth: 0 }}>
+          <div style={{ textAlign: 'left', minWidth: 0 }}>
             <div style={eyebrow(9)}>{studio?.ciudad ? studio.ciudad.toUpperCase() : 'RESERVA TU CLASE'}</div>
             {/* El NOMBRE del estudio deja de ser el titular y sube a la barra,
                 que es donde vive una marca. El titular pasa a decir para qué
@@ -1296,7 +1299,7 @@ export default function ReservarPage() {
             {/* El subtítulo propio gana a la descripción del estudio: se ha
                 escrito para ESTA página, no para la ficha. */}
             {(textosReservar.subtitulo || studio?.descripcion) && (
-              <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 460, marginInline: heroFoto ? undefined : 'auto' }}>
+              <p style={{ fontSize: cq(14, 1.4, 17), lineHeight: 1.5, color: 'var(--portal-muted)', marginTop: 14, maxWidth: 460 }}>
                 {textosReservar.subtitulo || studio?.descripcion}
               </p>
             )}
@@ -1315,17 +1318,18 @@ export default function ReservarPage() {
             </button>
           </div>
 
-          {heroFoto && (
+          {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={heroFoto}
               alt=""
+              onError={alFallarImagen(IMAGENES_POR_DEFECTO.portada[0])}
               style={{
                 width: '100%', aspectRatio: '4 / 3', objectFit: 'cover',
                 borderRadius: R.card, display: 'block',
               }}
             />
-          )}
+          }
         </div>
         )}
 

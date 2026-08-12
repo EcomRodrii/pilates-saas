@@ -124,14 +124,18 @@ test.describe('Portal de la clienta — 02 Inicio', () => {
   });
 
   // Casi ningún estudio sube foto el primer día, y el diseño da la imagen por
-  // hecha. Sin ella, reservar los 476 px dejaba medio metro de crema vacío con
-  // una tarjeta pegada abajo. La pieza es la misma; lo que desaparece es el
-  // hueco.
-  test('sin foto del estudio la tarjeta no reserva el hueco de la imagen', async ({ page }) => {
+  // hecha. Antes eso obligaba a encoger la tarjeta —reservar los 476 px dejaba
+  // medio metro de crema vacío— y esta prueba defendía justo ese encogimiento.
+  // Con la foto por defecto el hueco no llega a existir, así que la tarjeta se
+  // queda a la altura del diseño y lo que hay que defender es lo contrario.
+  test('sin foto del estudio la tarjeta usa la de por defecto, a su altura completa', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/home`);
     await expect(page.getByRole('heading', { name: /Hola, Marta\./ })).toBeVisible({ timeout: 30_000 });
     const caja = await tarjetaGrande(page).boundingBox();
-    expect(caja!.height).toBeLessThan(300);
+    expect(caja!.height).toBeGreaterThan(400);
+    // Y que la foto sea la de por defecto, no un hueco con fondo de color.
+    await expect(tarjetaGrande(page).locator('img').first())
+      .toHaveAttribute('src', /\/por-defecto\/estudio-vertical/);
   });
 });
 

@@ -298,8 +298,10 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
 
     // Sin nada escrito: el texto que se generaba antes de existir esta pantalla.
     await expect(page.getByText('Studio Carmen — Reserva tu clase de Pilates')).toBeVisible({ timeout: 30_000 });
-    // Y se dice que sin imagen el enlace sale pelado, en vez de dejar un hueco.
-    await expect(page.getByText(/Sin imagen/)).toBeVisible();
+    // Y la previsualización enseña una imagen: sin la suya entra la de por
+    // defecto, así que el enlace ya nunca se pega pelado. Antes aquí había un
+    // cartel de «Sin imagen».
+    await expect(page.locator('img[src*="/por-defecto/estudio-hero"]').first()).toBeVisible();
 
     await page.getByLabel('Título').fill('Pilates reformer en el centro');
     // La previsualización es el MISMO cálculo que hace el servidor: si esto se
