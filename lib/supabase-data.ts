@@ -1588,7 +1588,18 @@ function postComunidadToDb(p: PostComunidad) {
 
 export async function dbInsertSocio(socio: Socio): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('socios').insert(socioToDb(socio));
-  return error ? falloEscritura('[dbInsertSocio]', error) : ESCRITURA_OK;
+  if (!error) return ESCRITURA_OK;
+  // Email duplicado al dar de alta: el choque más común con diferencia, y ya
+  // tiene su propio mensaje accionable en mensajeDeFalloAlGuardar ("reactiva
+  // su ficha en vez de crear otra"). No es un fallo de sistema — mandarlo a
+  // Sentry (auditoría M-5) es ruido de un caso 100% esperado. No se toca el
+  // filtro genérico de reportDbError: otros 23505 en otras tablas sí pueden
+  // ser un bug real.
+  if (error.code === '23505' && /uq_socios_studio_email/i.test(error.message)) {
+    console.error('[dbInsertSocio]', error);
+    return { ok: false, error: mensajeDeFalloAlGuardar(error) };
+  }
+  return falloEscritura('[dbInsertSocio]', error);
 }
 
 export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promise<ResultadoEscritura> {
