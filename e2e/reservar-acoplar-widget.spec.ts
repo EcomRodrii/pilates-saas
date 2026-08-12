@@ -170,3 +170,31 @@ test('⚠️ con `texto=claro` NINGUNA superficie se queda clara', async ({ page
 
   expect(claras, `superficies claras sobre web oscura:\n${claras.join('\n')}`).toEqual([]);
 });
+
+test('⚠️ «transparente» llega hasta el `body`, no solo hasta el div raíz', async ({ page }) => {
+  // El fallo que esto fija se veía en producción y NINGÚN test lo cazaba: el
+  // div raíz quedaba en `transparent` —y así lo medían los tests— mientras el
+  // `<body>` del iframe seguía pintando su `bg-background` opaco un nivel más
+  // abajo. La web anfitriona nunca se veía. Por eso aquí se mira el BODY, que
+  // es lo que de verdad tapa.
+  await mocks(page);
+  await page.goto(`/reservar/${SLUG}?embed=1&fondo=transparente`);
+  await page.locator('#horario').waitFor();
+  const fondos = await page.evaluate(() => ({
+    body: getComputedStyle(document.body).backgroundColor,
+    html: getComputedStyle(document.documentElement).backgroundColor,
+  }));
+  expect(fondos.body).toBe('rgba(0, 0, 0, 0)');
+  expect(fondos.html).toBe('rgba(0, 0, 0, 0)');
+});
+
+test('la página SUELTA conserva su fondo aunque se pase `fondo=transparente`', async ({ page }) => {
+  // El complemento del anterior: el `<style>` que apaga el fondo del body solo
+  // debe existir en modo incrustado. Si se colara en la página normal, la
+  // dejaría sin fondo para todo el mundo.
+  await mocks(page);
+  await page.goto(`/reservar/${SLUG}?fondo=transparente`);
+  await page.locator('#horario').waitFor();
+  const body = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(body).not.toBe('rgba(0, 0, 0, 0)');
+});

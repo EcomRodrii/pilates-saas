@@ -1168,6 +1168,25 @@ export default function ReservarPage() {
   const orden = (id: string) => posicionSeccion.get(id) ?? 0;
 
   return (
+    <>
+    {/* ⚠️ **Sin esto, «transparente» NO es transparente.** El `background` del
+        div de abajo se queda en transparente, sí — y debajo el `<body>` del
+        iframe sigue pintando su `bg-background` opaco (`#F6F7F9` medido en
+        producción). O sea, exactamente la losa casi blanca sobre la web oscura
+        que este ajuste existe para quitar: el div deja pasar la luz y el body
+        la corta un nivel más abajo.
+        `!important` porque `bg-background` es un selector de clase y gana a
+        `html,body` por especificidad.
+
+        Va aquí y no en el layout porque un layout de Next NO recibe
+        `searchParams`: el servidor no puede saber qué pidió el iframe.
+
+        El valor es seguro aunque venga de la URL de una página pública:
+        `fondoCss` solo devuelve `transparent`, `null`, o un color que ya pasó
+        el `COLOR_VALIDO` de `resolverApariencia` — nunca la cadena cruda. */}
+    {embedMode && (
+      <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
+    )}
     <div style={{
       ...containerRoot, width: '100%', minHeight: '100vh',
       // `transparent` deja ver el fondo de la web anfitriona. Era el problema
@@ -2399,5 +2418,6 @@ export default function ReservarPage() {
         )}
       </PublicSheet>
     </div>
+    </>
   );
 }
