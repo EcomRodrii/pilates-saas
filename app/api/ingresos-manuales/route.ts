@@ -6,6 +6,7 @@ import { uid } from '@/lib/utils';
 import { mapIngresoManual, desglosarIvaDesdeTotal } from '@/lib/fiscal/cierre-engine';
 import type { RowIngresosManuales } from '@/lib/db-types';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
+import { fetchAllRows } from '@/lib/supabase-data';
 
 // CRUD de ingresos cobrados FUERA de Tentare que el estudio añade al cierre de
 // año (efectivo, transferencia, otra plataforma…). Solo staff autenticado; el
@@ -45,13 +46,18 @@ export async function GET(req: NextRequest) {
   }
 
   const anio = Number(new URL(req.url).searchParams.get('anio'));
-  let q = admin.from('ingresos_manuales').select('*').eq('studio_id', sesion.studioId);
-  if (Number.isInteger(anio) && anio > 2000) {
-    q = q.gte('fecha', `${anio}-01-01`).lte('fecha', `${anio}-12-31`);
-  }
-  const { data, error } = await q.order('fecha', { ascending: true });
+  const filtroAnio = Number.isInteger(anio) && anio > 2000;
+  // Mismo paginado que generarYEnviarCierreGestoria (lib/fiscal/cierre-envio-server.ts):
+  // un select('*') simple lo trunca PostgREST a 1000 filas en silencio, y sin
+  // `anio` esta ruta ni siquiera acotaba por fecha — un estudio con más de un
+  // año de ingresos manuales entraba al cierre fiscal con datos incompletos.
+  const { data, error } = await fetchAllRows<RowIngresosManuales>(sesion.studioId, 'ingresos_manuales', (from, to) => {
+    let q = admin.from('ingresos_manuales').select('*').eq('studio_id', sesion.studioId).range(from, to);
+    if (filtroAnio) q = q.gte('fecha', `${anio}-01-01`).lte('fecha', `${anio}-12-31`);
+    return q.order('fecha', { ascending: true });
+  });
   if (error) return errorInterno('ingresos-manuales:listar', error, 'No se han podido cargar los ingresos manuales.');
-  return NextResponse.json({ ingresos: (data ?? []).map((r) => mapIngresoManual(r as RowIngresosManuales)) });
+  return NextResponse.json({ ingresos: data.map((r) => mapIngresoManual(r as RowIngresosManuales)) });
 }
 
 // ── Crear ────────────────────────────────────────────────────────────────────
