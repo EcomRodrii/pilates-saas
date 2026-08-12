@@ -69,3 +69,40 @@ test('mensajeParaSocia: ENVIAR_REACTIVACION sin descuento no lo menciona', () =>
   assert.ok(m);
   assert.doesNotMatch(m!.cuerpo, /descuento|%/);
 });
+
+// ── PROPONER_RENOVACION_BONO: dos reglas, un `tipo`, dos mensajes ───────────
+// F1 y F3 comparten tipo y dedupeKey a propósito, pero cuentan lo contrario.
+// Antes las dos mandaban el texto de F1, así que a una socia con 4 clases sin
+// tocar se le decía que se le estaba acabando el bono y se le pedía dinero.
+
+test('bono que CADUCA con sesiones sin usar (F3): habla del tiempo, no de renovar', () => {
+  const m = mensajeParaSocia('PROPONER_RENOVACION_BONO',
+    { nombre: 'Carmen', sesionesRestantes: 4, diasParaCaducar: 20 }, 'Pilates Boutique');
+  assert.ok(m);
+  assert.match(m!.cuerpo, /4 clases/);
+  assert.match(m!.cuerpo, /en 20 días/);
+  // Lo que NO puede decir: que se le acaban las clases, ni pedirle otro bono.
+  assert.doesNotMatch(m!.cuerpo, /se te está acabando|te preparo uno nuevo/i);
+  assert.doesNotMatch(m!.asunto, /renovamos/i);
+});
+
+test('bono AGOTADO (F1): sigue proponiendo renovar', () => {
+  const m = mensajeParaSocia('PROPONER_RENOVACION_BONO',
+    { nombre: 'Isabel', sesionesRestantes: 1 }, 'X');
+  assert.match(m!.asunto, /Renovamos/i);
+  assert.match(m!.cuerpo, /se te está acabando/i);
+});
+
+test('F1 manda aunque llegue diasParaCaducar: con 1 sesión lo urgente es que se acaba', () => {
+  const m = mensajeParaSocia('PROPONER_RENOVACION_BONO',
+    { nombre: 'Ana', sesionesRestantes: 1, diasParaCaducar: 5 }, 'X');
+  assert.match(m!.cuerpo, /se te está acabando/i);
+});
+
+test('caduca hoy o mañana: se dice así, no "en 0 días"', () => {
+  const hoy = mensajeParaSocia('PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 3, diasParaCaducar: 0 }, 'X');
+  assert.match(hoy!.cuerpo, /caduca hoy/);
+  const manana = mensajeParaSocia('PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 3, diasParaCaducar: 1 }, 'X');
+  assert.match(manana!.cuerpo, /caduca mañana/);
+  assert.doesNotMatch(`${hoy!.cuerpo}${manana!.cuerpo}`, /en 0 días|en 1 días/);
+});

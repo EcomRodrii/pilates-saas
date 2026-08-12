@@ -38,11 +38,33 @@ export function mensajeParaSocia(tipo: string, datos: Datos, estudioNombre: stri
         asunto: `¿Seguimos, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! ¿Qué tal te está resultando la prueba en ${estudio}? Si te apetece seguir, te preparo un plan a tu medida para que no pierdas el ritmo. Cuéntame y lo vemos.`,
       };
-    case 'PROPONER_RENOVACION_BONO':
+    // Este tipo lo emiten DOS reglas distintas con historias opuestas, y comparten
+    // `tipo` a propósito (misma dedupeKey: a la socia no se le escribe dos veces
+    // por su bono). Pero lo que hay que decirle NO es lo mismo:
+    //
+    //   · F1 — se le acaban las SESIONES → proponerle renovar.
+    //   · F3 — se le acaba el TIEMPO, con sesiones pagadas sin usar → decirle que
+    //     venga a gastarlas. Pedirle que renueve un bono con 4 clases enteras
+    //     dentro es a la vez falso y ofensivo: le pides dinero en vez de decirle
+    //     lo único que le sirve.
+    //
+    // `diasParaCaducar` solo lo pone F3 (ver especialistas/finanzas.ts), así que
+    // es la señal que distingue una de otra sin necesidad de un `tipo` nuevo.
+    case 'PROPONER_RENOVACION_BONO': {
+      const dias = typeof datos.diasParaCaducar === 'number' ? datos.diasParaCaducar : null;
+      const restantes = typeof datos.sesionesRestantes === 'number' ? datos.sesionesRestantes : null;
+      if (dias !== null && restantes !== null && restantes >= 2) {
+        const cuando = dias <= 0 ? 'hoy' : dias === 1 ? 'mañana' : `en ${dias} días`;
+        return {
+          asunto: `Te quedan ${restantes} clases por usar, ${nombre}`,
+          cuerpo: `¡Hola ${nombre}! Te quedan ${restantes} clases de tu bono en ${estudio} y caduca ${cuando}. No quiero que las pierdas habiéndolas pagado — dime qué días te vienen bien y te guardo sitio.`,
+        };
+      }
       return {
         asunto: `¿Renovamos tu bono, ${nombre}?`,
         cuerpo: `¡Hola ${nombre}! Se te está acabando el bono en ${estudio}. ¿Te preparo uno nuevo para que no pierdas el ritmo? Dime y lo dejamos listo.`,
       };
+    }
     // ENVIAR_REACTIVACION es el tipo con MÁS autonomía declarada (2) y acción
     // ENVIAR_EMAIL: es el primero que el piloto automático manda solo. Sin este
     // caso, mensajeParaSocia devolvía null y el ejecutor acababa enviándole a la
