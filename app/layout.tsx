@@ -63,9 +63,9 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
+  title: 'Software de Gestión para Estudios de Pilates | Tentare',
   description:
-    'El software completo para tu estudio de Pilates en España: reservas, cobros, calendario, alumnas e instructoras — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
+    'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',

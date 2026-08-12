@@ -80,18 +80,26 @@ export default function LandingPage() {
           cortina delante. `autenticado` lo apaga para quien está a punto de
           ser redirigido a su panel. */}
       <IntroLogo autenticado={!!session} />
-      <SeccionHero />
-      <SeccionMartes />
-      <SeccionSustituciones />
-      <SeccionCalendarioReservas />
-      <SeccionApp />
-      <SeccionWidget />
-      <SeccionClientas />
-      <SeccionCambiarse />
-      <SeccionFuncionalidades />
-      <SeccionPrecio />
-      <SeccionFaq />
-      <SeccionRecursos />
+      {/* El nav (`position: sticky`, dentro de SeccionHero) queda "pegado" solo
+          mientras este contenedor sigue en pantalla — es su límite de
+          contención. Sin este envoltorio, el nav se queda pegado hasta el
+          final literal de la página y se superpone al pie, tapando su texto
+          (detectado verificando en móvil real: "Contáctanos por correo..."
+          se veía a través del propio nav). El pie va FUERA a propósito. */}
+      <div style={{ position: 'relative' }}>
+        <SeccionHero />
+        <SeccionMartes />
+        <SeccionSustituciones />
+        <SeccionCalendarioReservas />
+        <SeccionApp />
+        <SeccionWidget />
+        <SeccionClientas />
+        <SeccionCambiarse />
+        <SeccionFuncionalidades />
+        <SeccionPrecio />
+        <SeccionFaq />
+        <SeccionRecursos />
+      </div>
       <SeccionCtaFinal />
       <WhatsAppFab />
       <GlobalStyles />
