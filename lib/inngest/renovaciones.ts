@@ -49,21 +49,58 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
     const hoy = nowISO.slice(0, 10);
 
-    // Adopción de recibos huérfanos: los de renovación generados por el
-    // NAVEGADOR (efecto del studio-context, sin proximo_reintento) — incluidos
-    // los que ya existen en prod de antes de este cron — no entraban nunca al
-    // dunning. Se les programa el reintento para que el barrido los cobre.
-    const adoptados = await step.run('adoptar-recibos-cliente', async () => {
+    // Feature #5 (ficha Lorari-vs-Tentare): una socia sin tarjeta/SEPA guardados
+    // (paga en efectivo/Bizum/transferencia a mano) nunca puede cobrarse
+    // off-session — `elegirMetodoCobro` siempre devolvería SIN_METODO. Antes
+    // esto SÍ entraba al dunning (proximo_reintento = ahora), y como el barrido
+    // de dunning.ts nunca reprograma un "omitido" (solo avanza el ciclo en un
+    // rechazo REAL), el mismo recibo se reintentaba cada día para siempre —
+    // puro gasto de invocaciones en un plan de Inngest ya al ~84% de su límite
+    // (ver inngest-limite-recordatorios-fan-out.md). El recibo se sigue
+    // creando/adoptando igual (PENDIENTE, visible en /cobros para marcarlo a
+    // mano), solo se le deja `proximo_reintento` en null para que el dunning
+    // no lo vuelva a mirar.
+    const idsConMetodoCobro = await step.run('socios-con-metodo-cobro', async () => {
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
       const { data, error } = await admin
+        .from('socios')
+        .select('id')
+        .eq('studio_id', studioId)
+        .or('stripe_payment_method_id.not.is.null,sepa_payment_method_id.not.is.null');
+      if (error) throw new Error(error.message);
+      return (data ?? []).map(s => s.id as string);
+    });
+    // Set fuera del step: mismo motivo que ya documenta lib/inngest/decision.ts
+    // para los Map — un tipo no plano devuelto por step.run se serializa a
+    // `{}` en el replay de Inngest, así que se reconstruye siempre fuera.
+    const conMetodoCobro = new Set(idsConMetodoCobro);
+
+    // Adopción de recibos huérfanos: los de renovación generados por el
+    // NAVEGADOR (efecto del studio-context, sin proximo_reintento) — incluidos
+    // los que ya existen en prod de antes de este cron — no entraban nunca al
+    // dunning. Se les programa el reintento para que el barrido los cobre —
+    // salvo que la socia no tenga método off-session, ver guard de arriba.
+    const adoptados = await step.run('adoptar-recibos-cliente', async () => {
+      const admin = getSupabaseAdmin();
+      if (!admin) throw new Error('Service role no configurada');
+      const { data: candidatos, error: candErr } = await admin
         .from('recibos')
-        .update({ proximo_reintento: nowISO })
+        .select('id, socio_id')
         .eq('studio_id', studioId)
         .eq('estado', 'PENDIENTE')
         .is('proximo_reintento', null)
         .not('suscripcion_id', 'is', null)
-        .like('concepto', 'Renovación%')
+        .like('concepto', 'Renovación%');
+      if (candErr) throw new Error(candErr.message);
+      const idsAAdoptar = (candidatos ?? [])
+        .filter(r => conMetodoCobro.has(r.socio_id as string))
+        .map(r => r.id as string);
+      if (idsAAdoptar.length === 0) return 0;
+      const { data, error } = await admin
+        .from('recibos')
+        .update({ proximo_reintento: nowISO })
+        .in('id', idsAAdoptar)
         .select('id');
       if (error) throw new Error(error.message);
       return (data ?? []).length;
@@ -111,11 +148,14 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
         // Id determinista por (suscripción, mes): un reintento del step o dos
         // ejecuciones el mismo día no duplican el recibo (choca por PK).
         const id = `rec-renov-${sus.id}-${hoy.slice(0, 7)}`;
+        // Sin tarjeta/SEPA guardados no hay a quién cobrarle off-session — se
+        // crea el recibo igual (para /cobros), pero sin entrar al dunning.
+        const proximoReintento = conMetodoCobro.has(sus.socio_id as string) ? nowISO : null;
         const { error: insErr } = await admin.from('recibos').insert({
           id, studio_id: studioId, socio_id: sus.socio_id, suscripcion_id: sus.id,
           concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
           fecha_vencimiento: sus.fecha_fin, fecha_cobro: null, fecha_devolucion: null,
-          intentos_reintento: 0, proximo_reintento: nowISO,
+          intentos_reintento: 0, proximo_reintento: proximoReintento,
         });
         if (insErr) {
           // 23505 = ya existía (reintento del step): no es un fallo.
