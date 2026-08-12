@@ -2600,84 +2600,96 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
 
     // Cancelación + promoción de espera ATÓMICAS en la BD (una transacción con
-    // bloqueo de fila).
-    dbCancelarReservaPlaza(getCurrentStudioId(), reservaId).then(res => {
-      if (!res || 'error' in res) return;
-      const { eraConfirmada, promovidaSocioId, devolverBono, ofertaSocioId, ofertaExpiraEn } = res;
-
-      // Devolver bono a quien canceló solo si su reserva ocupaba plaza Y la
-      // política de cancelación lo permite. Las DOS cosas las decide ahora la
-      // BD (migr 0129): `devolverBono` ya resuelve la ventana del TIPO de clase
-      // y cae a la del estudio si no la tiene.
-      //
-      // Antes esto se recalculaba aquí, y era el sitio donde se colaba el error:
-      // el panel usaba siempre la ventana global mientras el portal sí miraba la
-      // del tipo, así que la misma cancelación salía tardía o a tiempo según por
-      // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
-      // se llega a eso; ahora hay una sola respuesta y esto la obedece.
-      if (eraConfirmada && cancelada && devolverBono) {
-        void devolverSesionBono(cancelada.socioId, sesionId);
+    // bloqueo de fila). AWAIT, no fire-and-forget: antes esto era
+    // `.then(...)` sin `await` ni `.catch`, y la función devolvía `{ok:true}`
+    // síncrono sin esperar la respuesta — un fallo de la RPC (red, permiso,
+    // constraint) dejaba la reserva CANCELADA en pantalla mientras la BD la
+    // mantenía CONFIRMADA, sin revertir el optimista y afirmando éxito al
+    // llamante. Mismo patrón que ya se corrigió en addReserva.
+    const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
+    if (!res || 'error' in res) {
+      // Revierte el optimista: la BD rechazó la cancelación, así que la
+      // reserva sigue en el estado que tenía antes. Igual que addReserva: se
+      // devuelve el error al llamante (todas las superficies que llaman a
+      // cancelarReserva ya lo muestran con su propio aviso), sin duplicar con
+      // el banner global de setDbError.
+      if (cancelada) {
+        setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
       }
+      return { ok: false, error: res && 'error' in res ? res.error : 'No se pudo cancelar la reserva' };
+    }
+    const { eraConfirmada, promovidaSocioId, devolverBono, ofertaSocioId, ofertaExpiraEn } = res;
 
-      // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
-      // confirma sola. Refleja en el estado local la oferta que la BD acaba de
-      // abrir (sigue en LISTA_ESPERA, sin consumir bono todavía; eso pasa al
-      // aceptar, desde el portal). El aviso a la socia lo manda el server
-      // (emitirOfertaListaEspera, disparado por el camino admin/público) — este
-      // camino cliente-directo no pasa por ahí, así que solo se informa al
-      // panel de que hay una oferta viva.
-      if (ofertaSocioId && sesionId) {
-        setReservas(prev => prev.map(r =>
-          (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
-            ? { ...r, ofertaExpiraEn: ofertaExpiraEn ?? null } : r));
-        return;
-      }
+    // Devolver bono a quien canceló solo si su reserva ocupaba plaza Y la
+    // política de cancelación lo permite. Las DOS cosas las decide ahora la
+    // BD (migr 0129): `devolverBono` ya resuelve la ventana del TIPO de clase
+    // y cae a la del estudio si no la tiene.
+    //
+    // Antes esto se recalculaba aquí, y era el sitio donde se colaba el error:
+    // el panel usaba siempre la ventana global mientras el portal sí miraba la
+    // del tipo, así que la misma cancelación salía tardía o a tiempo según por
+    // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
+    // se llega a eso; ahora hay una sola respuesta y esto la obedece.
+    if (eraConfirmada && cancelada && devolverBono) {
+      void devolverSesionBono(cancelada.socioId, sesionId);
+    }
 
-      if (!promovidaSocioId || !sesionId) return;
-
-      // Refleja en el estado local la promoción REAL decidida por la BD.
+    // Fase 2b: el estudio/tipo de clase exige plazo de aceptación — NO se
+    // confirma sola. Refleja en el estado local la oferta que la BD acaba de
+    // abrir (sigue en LISTA_ESPERA, sin consumir bono todavía; eso pasa al
+    // aceptar, desde el portal). El aviso a la socia lo manda el server
+    // (emitirOfertaListaEspera, disparado por el camino admin/público) — este
+    // camino cliente-directo no pasa por ahí, así que solo se informa al
+    // panel de que hay una oferta viva.
+    if (ofertaSocioId && sesionId) {
       setReservas(prev => prev.map(r =>
-        (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
-          ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-      // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-      consumirSesionBono(promovidaSocioId, sesionId);
+        (r.sesionId === sesionId && r.socioId === ofertaSocioId && r.estado === 'LISTA_ESPERA')
+          ? { ...r, ofertaExpiraEn: ofertaExpiraEn ?? null } : r));
+      return { ok: true };
+    }
 
-      const socio = socios.find(s => s.id === promovidaSocioId);
-      const sesion = sesiones.find(s => s.id === sesionId);
-      const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
-      const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-      const clase = tipo?.nombre ?? 'la clase';
-      // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
-      // es cierto también por la vía admin. Best-effort (Resend puede no estar).
-      if (socio?.email && sesion) {
-        const sala = salas.find(x => x.id === sesion.salaId);
-        const instructor = instructores.find(i => i.id === sesion.instructorId);
-        const inicioSesion = new Date(sesion.inicio);
-        enviarEmailPromocion({
-          to: socio.email,
-          toName: socio.nombre,
-          claseNombre: clase,
-          fecha: fechaLargaEstudio(inicioSesion),
-          hora: horaEstudio(inicioSesion),
-          sala: sala?.nombre ?? '',
-          instructor: instructor?.nombre ?? '',
-          bonoConsumido: true,
-        });
-      }
-      setNotificaciones(prev => [{
-        id: `notif-promo-${uid()}`,
-        studioId: getCurrentStudioId(),
-        tipo: 'EXITO' as const,
-        titulo: 'Lista de espera promovida',
-        texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
-        leida: false,
-        creadaEn: new Date().toISOString(),
-        enlace: `/socios/${promovidaSocioId}`,
-      }, ...prev]);
-      addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
-    });
-    // Vía panel: la corrección de estado la hace el `.then` de arriba sobre el
-    // resultado autoritativo de la BD, así que aquí no hay nada que negar.
+    if (!promovidaSocioId || !sesionId) return { ok: true };
+
+    // Refleja en el estado local la promoción REAL decidida por la BD.
+    setReservas(prev => prev.map(r =>
+      (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
+        ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
+    // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
+    consumirSesionBono(promovidaSocioId, sesionId);
+
+    const socio = socios.find(s => s.id === promovidaSocioId);
+    const sesion = sesiones.find(s => s.id === sesionId);
+    const tipo = sesion ? tiposClase.find(t => t.id === sesion.tipoClaseId) : null;
+    const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
+    const clase = tipo?.nombre ?? 'la clase';
+    // Email a la socia ascendida: ahora "te avisaremos si se libera una plaza"
+    // es cierto también por la vía admin. Best-effort (Resend puede no estar).
+    if (socio?.email && sesion) {
+      const sala = salas.find(x => x.id === sesion.salaId);
+      const instructor = instructores.find(i => i.id === sesion.instructorId);
+      const inicioSesion = new Date(sesion.inicio);
+      enviarEmailPromocion({
+        to: socio.email,
+        toName: socio.nombre,
+        claseNombre: clase,
+        fecha: fechaLargaEstudio(inicioSesion),
+        hora: horaEstudio(inicioSesion),
+        sala: sala?.nombre ?? '',
+        instructor: instructor?.nombre ?? '',
+        bonoConsumido: true,
+      });
+    }
+    setNotificaciones(prev => [{
+      id: `notif-promo-${uid()}`,
+      studioId: getCurrentStudioId(),
+      tipo: 'EXITO' as const,
+      titulo: 'Lista de espera promovida',
+      texto: `${nombre} ha pasado de lista de espera a confirmada en ${clase}.`,
+      leida: false,
+      creadaEn: new Date().toISOString(),
+      enlace: `/socios/${promovidaSocioId}`,
+    }, ...prev]);
+    addActividadReciente('NUEVA_RESERVA', `${nombre} promovida de lista de espera → ${clase}`, promovidaSocioId, `/socios/${promovidaSocioId}`);
     return { ok: true };
   }
 
