@@ -544,6 +544,12 @@ export async function fetchPublicStudioData(
       // «Sobre nosotros»: vacío significa que la sección NO existe, así que
       // aquí NO se sustituye por nada — quien lo pinta distingue vacío de
       // ausente sin ayuda.
+      // Apariencia del widget incrustado. Viaja como VALOR JS, no como CSS: el
+      // fondo `transparente` y un nombre de fuente no son colores.
+      widgetFondo: temaPublicado?.widgetFondo ?? null,
+      widgetFuente: temaPublicado?.widgetFuente ?? null,
+      widgetOcultarPie: temaPublicado?.widgetOcultarPie ?? false,
+      widgetSoloPestana: temaPublicado?.widgetSoloPestana ?? false,
       reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
       reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
       reservarTitular: temaPublicado?.reservarTitular ?? null,

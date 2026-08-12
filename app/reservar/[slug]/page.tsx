@@ -248,6 +248,7 @@ export default function ReservarPage() {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
     addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, ordenReservar,
+    aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
   const estudioNombre = studio?.nombre ?? 'Tentare';
@@ -274,13 +275,12 @@ export default function ReservarPage() {
   // Cómo se ve DENTRO de la web del estudio. Solo en modo incrustado: la página
   // suelta `/reservar/<slug>` es de Tentare y sigue con su decorado.
   //
-  // ⚠️ Hoy solo llegan los parámetros de la URL; los ajustes guardados (que la
-  // propietaria elegirá en Apariencia) entran por el primer argumento en cuanto
-  // existan. `resolverApariencia` ya está escrito para los dos, así que ese
-  // cambio no toca esta línea ni la página.
+  // Los ajustes que la propietaria guardó en Apariencia, con los `?params=` del
+  // iframe pisándolos. Fuera del modo incrustado no se aplica ninguno de los
+  // dos: `/reservar/<slug>` es la página de Tentare.
   const apariencia = useMemo(
-    () => resolverApariencia(null, embedMode ? searchParams : null),
-    [embedMode, searchParams],
+    () => resolverApariencia(embedMode ? aparienciaWidget : null, embedMode ? searchParams : null),
+    [embedMode, aparienciaWidget, searchParams],
   );
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
