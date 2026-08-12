@@ -210,3 +210,37 @@ test('se pueden ocultar desde el editor', async ({ page }) => {
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toHaveCount(0);
 });
+
+// ── Los siete textos de VOZ ─────────────────────────────────────────────────
+// El P1 de «i18n por atributo» de la auditoría de Momence, resuelto como VOZ y
+// no como idioma: ver la nota de `lib/theme-schema.ts`.
+//
+// ⚠️ Lo que se comprueba aquí es que el texto llega HASTA LA PANTALLA. Los
+// campos ya existían a medias en este repo (el esquema y el editor tenían
+// `reservarTitular` mucho antes de que la página lo pintara), así que un test
+// sobre el esquema habría dado verde con la página ignorándolo. Es el mismo
+// fallo del rail que arrastraba sin que la página se moviera.
+
+test('los textos propios del estudio sustituyen a los de fábrica', async ({ page }) => {
+  await montar(page, null, {
+    reservarAvisoQuiz: '¿Vienes por primera vez? Te acompañamos.',
+    reservarComoFunciona: 'ASÍ FUNCIONA',
+    reservarAyuda: '¿Te ayudamos? Escríbenos:',
+  });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('¿Vienes por primera vez? Te acompañamos.')).toBeVisible();
+  await expect(page.getByText('ASÍ FUNCIONA')).toBeVisible();
+  await expect(page.getByText('¿Te ayudamos? Escríbenos:')).toBeVisible();
+  // Y el de fábrica ya no está: si conviviesen, se vería dos veces.
+  await expect(page.getByText('¿Primera vez en el estudio?', { exact: false })).toHaveCount(0);
+});
+
+test('⚠️ sin escribir nada se sigue viendo el texto de fábrica', async ({ page }) => {
+  // El caso que de verdad protege a los estudios que ya existen: vacío NO puede
+  // dejar un hueco en blanco. Es lo contrario de «Sobre nosotros», donde vacío
+  // sí significa «no pintes la sección».
+  await montar(page);
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('¿Primera vez en el estudio?', { exact: false })).toBeVisible();
+  await expect(page.getByText('CÓMO FUNCIONA', { exact: true })).toBeVisible();
+});

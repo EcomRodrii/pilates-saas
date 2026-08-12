@@ -24,6 +24,9 @@ import {
   type ThemeConfig, type RedSocialId, POSICION_FOTO,
   SEO_TITULO_MAX, SEO_DESCRIPCION_MAX,
   RESERVAR_TITULAR_MAX, RESERVAR_SUBTITULO_MAX, RESERVAR_CTA_MAX,
+  RESERVAR_AVISO_QUIZ_MAX, RESERVAR_VACIO_TITULO_MAX, RESERVAR_VACIO_TEXTO_MAX,
+  RESERVAR_CONFIRMACION_MAX, RESERVAR_LISTA_ESPERA_MAX, RESERVAR_AYUDA_MAX,
+  RESERVAR_COMO_FUNCIONA_MAX,
   RESERVAR_SOBRE_TITULO_MAX, RESERVAR_SOBRE_TEXTO_MAX,
 } from '@/lib/theme-schema';
 import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
@@ -89,6 +92,12 @@ export const AJUSTES_CATEGORIAS = [
   // existe hasta que se escribe. Mezclarlas escondería que escribir aquí hace
   // aparecer algo nuevo en la página.
   { id: 'reservar-sobre', label: 'Sobre nosotros' },
+  // Los textos que le HABLAN a la clienta, separados de la portada porque no
+  // adornan: aparecen en momentos concretos (no hay clases, te apuntas a la
+  // lista de espera, se confirma tu reserva) y ahí la voz del estudio cambia
+  // algo. Ver la nota de `theme-schema.ts` sobre por qué son SIETE y no los
+  // ~132 literales del widget.
+  { id: 'reservar-voz', label: 'Cómo le hablas a tu clienta' },
   // ⚠️ Categoría aparte del resto del tema, y es lo que la hace existir: todo
   // lo demás de esta columna describe el PORTAL de la socia. Esto describe cómo
   // encaja el widget en la web del ESTUDIO, que es otra superficie con otro
@@ -543,6 +552,118 @@ export function AjustesCategoriaPanel({
             onChange={(e) => setCampo('reservarCta', e.target.value)}
             placeholder="Ver el horario"
             className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+          />
+        </label>
+      </div>
+    );
+  }
+
+  if (categoriaId === 'reservar-voz') {
+    return (
+      <div className="space-y-4">
+        <p className="text-[12px] text-muted-foreground leading-snug">
+          Lo que tu página le dice a la clienta en los momentos que deciden si reserva o se va.
+          Vacío = se usa el texto de siempre, nunca se queda en blanco.
+        </p>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Primera visita</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarAvisoQuiz ?? '').length}/{RESERVAR_AVISO_QUIZ_MAX}</span>
+          </span>
+          <textarea
+            rows={2}
+            value={draft.reservarAvisoQuiz ?? ''}
+            maxLength={RESERVAR_AVISO_QUIZ_MAX}
+            onChange={(e) => setCampo('reservarAvisoQuiz', e.target.value)}
+            placeholder="¿Primera vez en el estudio? Te ayudamos a encontrar tu clase."
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+          <span className="block text-[11px] text-muted-foreground">Encima del horario, para quien no te conoce.</span>
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">No hay clases — título</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarVacioTitulo ?? '').length}/{RESERVAR_VACIO_TITULO_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarVacioTitulo ?? ''}
+            maxLength={RESERVAR_VACIO_TITULO_MAX}
+            onChange={(e) => setCampo('reservarVacioTitulo', e.target.value)}
+            placeholder="Sin clases disponibles"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background "
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">No hay clases — debajo</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarVacioTexto ?? '').length}/{RESERVAR_VACIO_TEXTO_MAX}</span>
+          </span>
+          <textarea
+            rows={2}
+            value={draft.reservarVacioTexto ?? ''}
+            maxLength={RESERVAR_VACIO_TEXTO_MAX}
+            onChange={(e) => setCampo('reservarVacioTexto', e.target.value)}
+            placeholder="Prueba con otra semana o cambia el filtro"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+          <span className="block text-[11px] text-muted-foreground">El momento en que una clienta se va sin reservar.</span>
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Lista de espera</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarListaEspera ?? '').length}/{RESERVAR_LISTA_ESPERA_MAX}</span>
+          </span>
+          <textarea
+            rows={2}
+            value={draft.reservarListaEspera ?? ''}
+            maxLength={RESERVAR_LISTA_ESPERA_MAX}
+            onChange={(e) => setCampo('reservarListaEspera', e.target.value)}
+            placeholder="Si se libera una plaza, te avisaremos por email."
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background resize-none"
+          />
+          <span className="block text-[11px] text-muted-foreground">Lo que pasa después de apuntarse. Si no lo dices, se queda sin saberlo.</span>
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Reserva confirmada</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarConfirmacion ?? '').length}/{RESERVAR_CONFIRMACION_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarConfirmacion ?? ''}
+            maxLength={RESERVAR_CONFIRMACION_MAX}
+            onChange={(e) => setCampo('reservarConfirmacion', e.target.value)}
+            placeholder="¡Reserva confirmada!"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background "
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Rótulo «cómo funciona»</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarComoFunciona ?? '').length}/{RESERVAR_COMO_FUNCIONA_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarComoFunciona ?? ''}
+            maxLength={RESERVAR_COMO_FUNCIONA_MAX}
+            onChange={(e) => setCampo('reservarComoFunciona', e.target.value)}
+            placeholder="CÓMO FUNCIONA"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background "
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-[13px] font-medium text-foreground">Ayuda del pie</span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{(draft.reservarAyuda ?? '').length}/{RESERVAR_AYUDA_MAX}</span>
+          </span>
+          <input
+            type="text"
+            value={draft.reservarAyuda ?? ''}
+            maxLength={RESERVAR_AYUDA_MAX}
+            onChange={(e) => setCampo('reservarAyuda', e.target.value)}
+            placeholder="¿Dudas? Estamos aquí para ayudarte:"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background "
           />
         </label>
       </div>
