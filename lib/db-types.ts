@@ -908,6 +908,28 @@ export interface RowCamposPersonalizados {
   creado_en: string | null;
 }
 
+export interface RowPlantillasCuestionarioSalud {
+  id: string;
+  studio_id: string;
+  pregunta: string;
+  tipo_respuesta: string;
+  opciones: string[] | null;
+  orden: number;
+  activo: boolean;
+  creado_en: string | null;
+}
+
+export interface RowRespuestasCuestionarioSalud {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  pregunta_id: string;
+  respuesta: string | null;
+  creado_por: string | null;
+  creado_en: string | null;
+  actualizado_en: string | null;
+}
+
 export interface RowPlantillasEmail {
   id: string;
   studio_id: string;

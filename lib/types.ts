@@ -402,6 +402,38 @@ export interface CondicionSalud {
   actualizadoEn: string;
 }
 
+// ─── Cuestionario de salud configurable (Fase 1, ficha Lorari-vs-Tentare) ────
+// Solo STAFF (PROPIETARIO/INSTRUCTOR) lo rellena en la ficha de la clienta —
+// sin canal público ni de portal nuevo. Misma RLS que condiciones_salud
+// (rol + tiene_consentimiento_salud en el INSERT de la respuesta).
+
+export type TipoRespuestaCuestionarioSalud = 'texto' | 'booleano' | 'seleccion_unica' | 'seleccion_multiple';
+
+// La DEFINICIÓN de cada pregunta, por estudio. Gestionarla (crear/editar/
+// borrar) es solo PROPIETARIO; leerla también INSTRUCTOR, que es quien la
+// rellena.
+export interface PlantillaCuestionarioSalud {
+  id: string;
+  studioId: string;
+  pregunta: string;
+  tipoRespuesta: TipoRespuestaCuestionarioSalud;
+  opciones: string[]; // valores posibles cuando tipoRespuesta es seleccion_*
+  orden: number;
+  activo: boolean;
+}
+
+// Las respuestas, por socia — una fila por (socioId, preguntaId).
+export interface RespuestaCuestionarioSalud {
+  id: string;
+  studioId: string;
+  socioId: string;
+  preguntaId: string;
+  respuesta: string | null;
+  creadoPor: string | null; // instructor_id, mismo criterio que CondicionSalud.creadoPor
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
 export interface RespuestaSesionRow {
   id: string;
   studioId: string;
