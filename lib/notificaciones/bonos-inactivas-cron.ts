@@ -11,9 +11,10 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from '@/lib/inngest/estudios.ts';
 import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
+import { fechaCortaEstudio } from '@/lib/utils';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const fecha = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
+const fecha = (d: string) => fechaCortaEstudio(new Date(d + 'T12:00:00Z'));
 
 async function estudiosIds(admin: SupabaseClient): Promise<string[]> {
   return (await idsEstudios(admin)).map((s) => s.id);

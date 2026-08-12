@@ -12,12 +12,13 @@ import { publish } from '@/lib/notifications/engine';
 import { EVENTOS } from '@/lib/notifications/catalog';
 import type { TipoExcepcion } from '@/lib/excepciones';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { horaEstudio } from '@/lib/utils';
 
 // Tipado, no un literal suelto: una errata aquí apagaría la exención en
 // silencio y nadie se enteraría hasta que una socia exenta recibiera el push.
 const EXENCION_RECORDATORIO: TipoExcepcion = 'SIN_RECORDATORIO';
 
-const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+const hora = (iso: string) => horaEstudio(iso);
 
 export async function recordatoriosClaseGlobal(): Promise<{ publicados: number } | { skipped: string }> {
   const admin = getSupabaseAdmin();
