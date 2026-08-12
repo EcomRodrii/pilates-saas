@@ -131,3 +131,42 @@ test('⚠️ `auto` sobre transparente NO adivina: se queda oscuro', async ({ pa
   const auto = await medir(page, '&fondo=transparente&texto=auto');
   expect(auto.tinta).toBe(base.tinta);
 });
+
+test('⚠️ con `texto=claro` NINGUNA superficie se queda clara', async ({ page }) => {
+  // El complemento del test de arriba, y el que de verdad hacía falta: aclarar
+  // la TINTA no basta si el panel de debajo sigue blanco — sale letra clara
+  // sobre fondo claro, que es peor que no haber tocado nada.
+  //
+  // Se comprueba barriendo el DOM en vez de mirando un elemento concreto,
+  // porque el color entraba por tres canales distintos y cada arreglo puntual
+  // dejaba vivo el siguiente: blancos translúcidos escritos a mano, `RT` fijado
+  // a `MODO_TOKENS.dia` a nivel de módulo, y el calendario, que no lee
+  // variables CSS sino que recibe los tokens por prop (`t=`). Antes del
+  // arreglo este barrido devolvía 4; un cuarto canal futuro lo devolvería a
+  // subir sin que ningún test por elemento se enterase.
+  await page.setViewportSize({ width: 1000, height: 620 });
+  await mocks(page);
+  await page.goto(`/reservar/${SLUG}?embed=1&fondo=transparente&texto=claro`);
+  await page.locator('#horario').waitFor();
+
+  const claras = await page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll('body *'))) {
+      const s = getComputedStyle(el);
+      if (s.display === 'none' || Number(s.opacity) === 0) continue;
+      const caja = el.getBoundingClientRect();
+      // Se ignora lo diminuto: un punto de 6 px no es una superficie, y un
+      // borde claro sobre fondo oscuro es legítimo.
+      if (caja.width < 40 || caja.height < 20) continue;
+      const m = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/.exec(s.backgroundColor);
+      if (!m) continue;
+      const alfa = m[4] === undefined ? 1 : Number(m[4]);
+      if (alfa > 0.3 && Number(m[1]) > 200 && Number(m[2]) > 200 && Number(m[3]) > 200) {
+        out.push(`${s.backgroundColor} :: ${(el.getAttribute('style') ?? '').slice(0, 80)}`);
+      }
+    }
+    return out;
+  });
+
+  expect(claras, `superficies claras sobre web oscura:\n${claras.join('\n')}`).toEqual([]);
+});
