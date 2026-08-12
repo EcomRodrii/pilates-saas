@@ -2013,7 +2013,7 @@ export default function Calendario() {
       const res = await fetch('/api/ai/ficha-clinica-clase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-        body: JSON.stringify({ tipoClase: sesionActual.tipoClase.nombre, resumen }),
+        body: JSON.stringify(resumen),
       });
       if (!res.ok) { setPrepIAError(true); return; }
       const data = await res.json();
