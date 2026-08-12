@@ -99,6 +99,42 @@ const ESCENAS = [
     async preparar(page) { await page.waitForTimeout(2500); },
     async actuar(page) { await paneo(page, 160); },
   },
+  {
+    // El plano protagonista: una instructora falla y el sistema ya trae a la
+    // sustituta, con el porqué ("ya ha dado esta clase 3 veces — las alumnas
+    // la conocen") y un botón de confirmar. Cierra el bucle porque es lo que
+    // no hace ningún competidor.
+    //
+    // Para que esto se pudiera grabar hubo que cargar la disponibilidad de
+    // las instructoras del estudio de demo —usando el flujo real del
+    // producto, "Pedirle disponibilidad" → rejilla → guardar—: sin ese dato
+    // el motor no puede proponer a nadie y la pantalla enseñaba el caso de
+    // fallo, con un botón rojo de cancelar la clase.
+    nombre: '05-sustituciones',
+    ruta: '/sustituciones',
+    async preparar(page) {
+      await page.waitForFunction(() => document.body.innerText.includes('Sustituta ideal encontrada'), null, { timeout: 45_000 });
+      await page.waitForTimeout(1500);
+      // Encuadre: la tarjeta de la sustituta llena el plano. El aviso ámbar
+      // de más arriba habla de una TERCERA instructora sin disponibilidad
+      // cargada, que no es lo que cuenta esta escena.
+      await page.evaluate(() => {
+        const nodo = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && /Sustituta ideal encontrada/.test(e.textContent || ''));
+        if (!nodo) return;
+        // Centrada. Se probó subirla más para dejar fuera el aviso ámbar de
+        // arriba, pero entonces entra por abajo la SEGUNDA sustitución, que
+        // sigue sin candidata (la tercera instructora no tiene disponibilidad
+        // cargada y no hay forma de cargársela desde el panel: el enlace lo
+        // pide ella). Entre enseñar un aviso ámbar explicando por qué no
+        // puede proponer a alguien y enseñar un bloque rojo de "ninguna
+        // candidata", gana el primero — y en los dos casos la tarjeta que
+        // manda en el plano es la de la sustituta encontrada.
+        nodo.scrollIntoView({ block: 'center', behavior: 'instant' });
+      });
+      await page.waitForTimeout(1200);
+    },
+    async actuar(page) { await page.waitForTimeout(400); },
+  },
 ];
 
 async function main() {
