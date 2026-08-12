@@ -24,6 +24,7 @@ import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente } from '@/lib/reservar/apariencia-widget';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -269,6 +270,20 @@ export default function ReservarPage() {
   // cabecera y el hero grandes — ya viven en la web anfitriona — y deja
   // solo pestañas + contenido. Nunca cambia lógica de negocio, solo layout.
   const embedMode = searchParams.get('embed') === '1';
+
+  // Cómo se ve DENTRO de la web del estudio. Solo en modo incrustado: la página
+  // suelta `/reservar/<slug>` es de Tentare y sigue con su decorado.
+  //
+  // ⚠️ Hoy solo llegan los parámetros de la URL; los ajustes guardados (que la
+  // propietaria elegirá en Apariencia) entran por el primer argumento en cuanto
+  // existan. `resolverApariencia` ya está escrito para los dos, así que ese
+  // cambio no toca esta línea ni la página.
+  const apariencia = useMemo(
+    () => resolverApariencia(null, embedMode ? searchParams : null),
+    [embedMode, searchParams],
+  );
+  const fuenteWidget = familiaCss(apariencia);
+  const cssFuente = urlFuente(apariencia);
 
   const [mounted, setMounted] = useState(false);
   // `now` en estado, con reloj de un minuto. Antes era
@@ -1124,7 +1139,20 @@ export default function ReservarPage() {
   const orden = (id: string) => posicionSeccion.get(id) ?? 0;
 
   return (
-    <div style={{ ...containerRoot, width: '100%', minHeight: '100vh', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      ...containerRoot, width: '100%', minHeight: '100vh',
+      // `transparent` deja ver el fondo de la web anfitriona. Era el problema
+      // gordo: un `#F6F7F9` opaco es una losa casi blanca sobre una web oscura.
+      background: fondoCss(apariencia) ?? 'var(--portal-bg)',
+      color: 'var(--portal-ink)',
+      fontFamily: fuenteWidget ?? sans,
+      overflow: 'hidden', display: 'flex', flexDirection: 'column',
+    }}>
+      {/* React 19 sube un `<link rel="stylesheet">` al `<head>` desde donde se
+          declare, así que la fuente se pide sin tocar el layout ni meter un
+          efecto. El nombre ya viene filtrado a letras, números y espacios —
+          ver `urlFuente`, que lo vuelve a comprobar antes de construir la URL. */}
+      {cssFuente && <link rel="stylesheet" href={cssFuente} />}
 
       {/* ── HERO ──────────────────────────────────────────────────────────────
           ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga
@@ -1250,9 +1278,16 @@ export default function ReservarPage() {
         </div>
         )}
 
-        {/* ── TABS ─────────────────────────────────────────────────────────── */}
+        {/* ── TABS ───────────────────────────────────────────────────────────
+            ⚠️ El `div#horario` se pinta SIEMPRE, con pestañas o sin ellas: es el
+            ancla a la que salta el botón de la portada y el que usan los tests.
+            Lo que desaparece con `soloPestana` son los botones de dentro. */}
         <div id="horario" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
-          {tabs.map(([t, label]) => (
+          {/* Con `solo-pestana=1` se enseña únicamente la que pidió `?tab=`, sin
+              barra: quien incrusta «Horario y reserva de clases» no espera que
+              su visitante se vaya a «El estudio» dentro de un recuadro de su
+              propia web. */}
+          {(apariencia.soloPestana ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
@@ -1858,7 +1893,10 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {seccionVisible('contacto', ordenReservar) && (
+      {/* `ocultarPie` solo puede venir en modo incrustado (ver `apariencia`),
+          así que la página suelta conserva su pie con los legales pase lo que
+          pase. Ahí es el único sitio donde vive esa información. */}
+      {!apariencia.ocultarPie && seccionVisible('contacto', ordenReservar) && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
