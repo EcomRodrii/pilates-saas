@@ -42,6 +42,20 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
 - **Seguridad**: la RLS es la cerradura real, la UI nunca es el límite de seguridad — regla
   explícita y repetida en `lib/permisos-reglas.ts`. Cualquier permiso nuevo se implementa en
   ambos sitios o no está terminado.
+  ⚠️ **`REVOKE EXECUTE ... FROM PUBLIC` NO basta para una función "solo service_role".**
+  `pg_default_acl` en `dwqvdycjcffqwfkzapvi` da `EXECUTE` en toda función `SECURITY DEFINER`
+  nueva DIRECTO a `anon`/`authenticated`/`service_role`, no solo a `PUBLIC` — revocar
+  `PUBLIC` no les quita nada porque el privilegio no viene heredado de ahí. Pasó de verdad en
+  `reservar_numero_factura` (10 args): llevaba `revoke ... from public` y un comentario que
+  decía "nadie del cliente debe poder llamarla", y `authenticated` tenía `EXECUTE` igual
+  (PR #769, corregido). Cualquier función pensada para cron/webhook/admin exclusivamente
+  necesita los tres pasos explícitos: `REVOKE ... FROM anon`, `REVOKE ... FROM
+  authenticated`, `GRANT ... TO service_role` — y verificar con `has_function_privilege`
+  para los tres roles después, nunca fiarse del comentario SQL. Auditoría completa del
+  catálogo `public` hecha el 2026-08-12: solo ese caso era real, el resto de funciones que
+  `get_advisors` marca como ejecutables por `anon`/`authenticated` son intencionales
+  (RPCs llamadas por el cliente, helpers de RLS en `CREATE POLICY`, guards internos de
+  defensa en profundidad) — no las "corrijas" sin cruzar antes contra `.rpc('` en `lib/`.
 - **Dinero**: cero escritura optimista sin comprobar el resultado real (`await` la
   confirmación, maneja el camino de fallo, sé idempotente ante webhooks repetidos). Es el
   patrón de bug más repetido en los flujos de Stripe/cobros de este repo.
