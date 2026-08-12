@@ -90,6 +90,20 @@ export interface ReservaCalendarioProps {
   onCancelar: (reservaId: string) => void | Promise<ResultadoEscritura | void>;
   /** 'calendario' (tira de semana) o 'lista' (agrupada por día, para Mis reservas). */
   variant?: 'calendario' | 'lista';
+  /**
+   * Salta a un día concreto desde fuera (hoy: al elegirlo en la vista Mes).
+   *
+   * ⚠️ Lleva `nonce` y no solo la fecha porque el mismo día puede elegirse dos
+   * veces seguidas —se mira agosto, se pincha el 14, se vuelve a Mes y se
+   * pincha el 14 otra vez— y con solo la fecha el efecto no se volvería a
+   * disparar. Mismo patrón que el `irA` del editor de Apariencia.
+   *
+   * El día lo sigue mandando el estado INTERNO: esto es una orden puntual, no
+   * un control externo. Convertirlo en controlado obligaría a subir también la
+   * semana, la hoja abierta y el spot elegido, que no le importan a nadie
+   * fuera.
+   */
+  irADia?: { fecha: string; nonce: number };
   /** Horas de antelación para cancelar sin penalización; muestra un aviso en la hoja.
    *  Es el valor por defecto del ESTUDIO — `ventanaPorTipo` lo pisa por tipo de clase. */
   cancelacionVentanaHoras?: number;
@@ -138,12 +152,33 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
+  irADia,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
 
   const [weekAnchor, setWeekAnchor] = useState<Date>(hoy);
   const [selectedDayKey, setSelectedDayKey] = useState<string>(hoyKey);
+  // Salto a un día pedido desde fuera. Se mueve TAMBIÉN el ancla de semana: si
+  // solo se cambiara el día seleccionado, la tira seguiría enseñando otra
+  // semana y el día elegido no se vería marcado en ningún sitio.
+  //
+  // ⚠️ Se ajusta DURANTE EL RENDER, no en un `useEffect`. Con efecto, React
+  // pinta primero el día viejo y corrige después —un parpadeo real al volver
+  // del Mes— y además el linter de React Compiler lo rechaza
+  // (`set-state-in-effect`). Este es el patrón que la documentación llama
+  // «ajustar estado al cambiar una prop»: comparar contra lo último visto y
+  // corregir antes de pintar.
+  //
+  // `T12:00:00` y no `T00:00:00`: a medianoche, un cambio de hora deja la
+  // fecha en el día anterior en algunos husos y la tira saldría corrida.
+  const [nonceVisto, setNonceVisto] = useState<number | null>(null);
+  if (irADia && irADia.nonce !== nonceVisto) {
+    setNonceVisto(irADia.nonce);
+    setSelectedDayKey(irADia.fecha);
+    setWeekAnchor(new Date(`${irADia.fecha}T12:00:00`));
+  }
+
   const [openSlotId, setOpenSlotId] = useState<string | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   // Feedback tras una acción, para confirmar visualmente sin cerrar la hoja.

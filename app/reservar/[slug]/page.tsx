@@ -17,6 +17,7 @@ import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { RejillaSemana } from '@/components/reserva/rejilla-semana';
+import { RejillaMes } from '@/components/reserva/rejilla-mes';
 import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
@@ -352,7 +353,11 @@ export default function ReservarPage() {
   // Lista / Semana / Día, como en el diseño. Las tres pintan LOS MISMOS slots
   // ya cargados y filtrados: no hay una carga por vista, solo una forma
   // distinta de leer lo mismo.
-  const [vistaClases, setVistaClases] = useState<'lista' | 'semana' | 'dia'>('dia');
+  const [vistaClases, setVistaClases] = useState<'lista' | 'semana' | 'mes' | 'dia'>('dia');
+  // Orden puntual al calendario para que salte al día elegido en la vista Mes.
+  // Lleva `nonce` porque el mismo día puede elegirse dos veces seguidas — ver
+  // la prop `irADia` de ReservaCalendario.
+  const [comandoDia, setComandoDia] = useState<{ fecha: string; nonce: number } | null>(null);
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
@@ -1366,7 +1371,7 @@ export default function ReservarPage() {
                   día—. Cambiar por dónde se reserva es una decisión de producto
                   aparte, no un efecto colateral de añadir una vista. */}
               <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'rgba(255,255,255,.55)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
-                {([['lista', 'Lista'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
+                {([['lista', 'Lista'], ['mes', 'Mes'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
                   <button
                     key={id}
                     type="button"
@@ -1385,7 +1390,21 @@ export default function ReservarPage() {
               </div>
 
               <div style={{ marginTop: 24 }}>
-                {vistaClases === 'semana' ? (
+                {vistaClases === 'mes' ? (
+                  <RejillaMes
+                    slots={slots}
+                    // Elegir un día NO reserva: lleva a la vista Día, que es
+                    // donde están los horarios. Un calendario de mes no tiene
+                    // sitio para decidir una clase concreta, y fingir que sí
+                    // acabaría en un clic que reserva algo sin querer — el
+                    // mismo fallo que ya se corrigió en la rejilla semanal.
+                    onElegirDia={(fecha) => {
+                      setComandoDia({ fecha, nonce: (comandoDia?.nonce ?? 0) + 1 });
+                      setVistaClases('dia');
+                    }}
+                    fontFamily={sans}
+                  />
+                ) : vistaClases === 'semana' ? (
                   <RejillaSemana
                     slots={slots}
                     permiteListaEspera={studio?.permiteListaEspera}
@@ -1404,6 +1423,7 @@ export default function ReservarPage() {
                   t={RESERVAR_TOKENS}
                   slots={slots}
                   variant={vistaClases === 'lista' ? 'lista' : 'calendario'}
+                  irADia={comandoDia ?? undefined}
                   onReservar={handleReservarCalendario}
                   onCancelar={cancelarReserva}
                   cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
