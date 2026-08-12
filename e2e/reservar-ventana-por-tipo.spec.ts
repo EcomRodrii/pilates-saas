@@ -17,11 +17,12 @@ function studioDataFixture() {
     studio: {
       id: 'studio-test', nombre: 'Tentare', slug: SLUG, ciudad: 'Málaga', direccion: 'Calle Test 1',
       email: 'hola@tentare.app', telefono: '+34 000 000 000', cancelacionVentanaHoras: 12,
+      reservaAntelacionMaximaDias: 30,
     },
     // Reformer con ventana PROPIA de 24h; Mat sin override, hereda las 12h del estudio.
     tiposClase: [
       { id: 'tc-reformer', studioId: 'studio-test', nombre: 'Reformer', color: '#F7A6C4', nivel: 'TODOS', ventanaCancelacionHoras: 24 },
-      { id: 'tc-mat', studioId: 'studio-test', nombre: 'Mat', color: '#6D28D9', nivel: 'TODOS', ventanaCancelacionHoras: null },
+      { id: 'tc-mat', studioId: 'studio-test', nombre: 'Mat', color: '#6D28D9', nivel: 'TODOS', ventanaCancelacionHoras: null, reservaAntelacionMaximaDias: 14 },
     ],
     salas: [{ id: 'sala-1', studioId: 'studio-test', nombre: 'Sala 1', capacidad: 10 }],
     instructores: [{ id: 'ins-1', studioId: 'studio-test', nombre: 'Ana Test', rol: 'INSTRUCTOR' }],
@@ -110,5 +111,18 @@ test.describe('La ventana de cancelación que se enseña es la de la clase, no s
     await expect(page.getByText('CÓMO FUNCIONA')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Cancela gratis hasta 24 h antes, según la clase.')).toBeVisible();
     await expect(page.getByText(/Cancela gratis hasta 12/)).toHaveCount(0);
+  });
+
+  // ⚠️ Misma familia de fallo que la de arriba, en la otra dirección. El tope
+  // de antelación solo aparecía como error DESPUÉS de pulsar («Todavía no se
+  // puede reservar esta clase»), sin decir cuándo sí. Y aquí el número seguro
+  // es el MÁS CORTO —14, no los 30 del estudio— porque la regla tiene la forma
+  // contraria: quien reserve a 14 días llega a las dos clases.
+  test('⚠️ el tope de antelación se anuncia, y con el número más CORTO', async ({ page }) => {
+    await mockBackend(page);
+    await page.goto(`/reservar/${SLUG}`);
+    await expect(page.getByText('CÓMO FUNCIONA')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('El horario se abre 14 días antes, según la clase.')).toBeVisible();
+    await expect(page.getByText(/se abre 30 días/)).toHaveCount(0);
   });
 });
