@@ -24,7 +24,8 @@ import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
+import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -281,6 +282,13 @@ export default function ReservarPage() {
   const apariencia = useMemo(
     () => resolverApariencia(embedMode ? aparienciaWidget : null, embedMode ? searchParams : null),
     [embedMode, aparienciaWidget, searchParams],
+  );
+  // ⚠️ Solo se pisan las variables cuando hace falta. Emitirlas SIEMPRE dejaría
+  // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
+  // ahí un cambio del tema del portal ya no llegaría aquí.
+  const varsTexto = useMemo(
+    () => (embedMode && modoTextoDe(apariencia) === 'noche' ? varsPaletaModo('noche') : null),
+    [embedMode, apariencia],
   );
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
@@ -1147,7 +1155,10 @@ export default function ReservarPage() {
       color: 'var(--portal-ink)',
       fontFamily: fuenteWidget ?? sans,
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
-    }}>
+      // Custom properties en línea: cascadean a todo el subárbol, así que con
+      // esto el widget entero pasa a letra clara sin tocar un solo componente.
+      ...(varsTexto ?? {}),
+    } as React.CSSProperties}>
       {/* React 19 sube un `<link rel="stylesheet">` al `<head>` desde donde se
           declare, así que la fuente se pide sin tocar el layout ni meter un
           efecto. El nombre ya viene filtrado a letras, números y espacios —

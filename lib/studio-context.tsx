@@ -274,7 +274,7 @@ interface StudioContextValue {
    *  texto por defecto de la página (ver su hero). */
   textosReservar: { titular: string; subtitulo: string; cta: string; sobreTitulo: string; sobreTexto: string };
   /** Apariencia GUARDADA del widget incrustado. Los `?params=` la pisan. */
-  aparienciaWidget: { fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean };
+  aparienciaWidget: { fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' };
   /** Orden/visibilidad CRUDOS de las secciones de /reservar. Se guardan tal
    *  cual y las reglas las aplica `ordenarSecciones` en quien pinta — así la
    *  página y el editor no pueden divergir. */
@@ -641,8 +641,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
   const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '' });
-  const [aparienciaWidget, setAparienciaWidget] = useState<{ fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean }>(
-    { fondo: null, fuente: null, ocultarPie: false, soloPestana: false });
+  const [aparienciaWidget, setAparienciaWidget] = useState<{ fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' }>(
+    { fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto' });
   const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -890,12 +890,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // queda al borrar lo escrito, y no puede publicar un titular en blanco.
       // Haciéndolo aquí, ningún consumidor tiene que acordarse.
       const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-      const p2 = pub as { widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown };
+      const p2 = pub as { widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown; widgetTexto?: unknown };
       setAparienciaWidget({
         fondo: typeof p2.widgetFondo === 'string' ? p2.widgetFondo : null,
         fuente: typeof p2.widgetFuente === 'string' ? p2.widgetFuente : null,
         ocultarPie: p2.widgetOcultarPie === true,
         soloPestana: p2.widgetSoloPestana === true,
+        texto: p2.widgetTexto === 'claro' || p2.widgetTexto === 'oscuro' ? p2.widgetTexto : 'auto',
       });
       setTextosReservar({
         sobreTitulo: texto((pub as { reservarSobreTitulo?: unknown }).reservarSobreTitulo),

@@ -206,6 +206,7 @@ const reservarSobreTextoSchema = z.string().max(RESERVAR_SOBRE_TEXTO_MAX);
 // ajustes de otra superficie (la web del estudio), no del portal de la socia.
 const widgetFondoSchema = z.union([z.literal('transparente'), z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)]).nullable();
 const widgetFuenteSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/).nullable();
+const widgetTextoSchema = z.enum(['auto', 'claro', 'oscuro']);
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
@@ -348,6 +349,7 @@ export const themeConfigSchema = z
     widgetFuente: widgetFuenteSchema.default(null),
     widgetOcultarPie: z.boolean().default(false),
     widgetSoloPestana: z.boolean().default(false),
+    widgetTexto: widgetTextoSchema.default('auto'),
     // Opcionales con default: un tema guardado ANTES de esta fase no trae
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
@@ -430,6 +432,7 @@ export const DEFAULT_THEME: ThemeConfig = {
   widgetFuente: null,
   widgetOcultarPie: false,
   widgetSoloPestana: false,
+  widgetTexto: 'auto',
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
@@ -477,7 +480,7 @@ export const CAMPOS_DEL_ESTUDIO = [
   'reservarSobreTitulo', 'reservarSobreTexto',
   // Y la apariencia del widget: describe cómo encaja en la web del ESTUDIO, no
   // cómo se ve el portal. Instalar otro tema no puede descuadrarle su web.
-  'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana',
+  'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana', 'widgetTexto',
 ] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
@@ -556,6 +559,7 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     widgetFuente: pick('widgetFuente', widgetFuenteSchema),
     widgetOcultarPie: pick('widgetOcultarPie', z.boolean()),
     widgetSoloPestana: pick('widgetSoloPestana', z.boolean()),
+    widgetTexto: pick('widgetTexto', widgetTextoSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),

@@ -28,10 +28,19 @@ export interface AparienciaWidget {
   ocultarPie: boolean;
   /** Enseñar SOLO la pestaña que pide `?tab=`, sin la barra de las otras. */
   soloPestana: boolean;
+  /**
+   * El color del TEXTO. `claro` = letra clara, para una web oscura.
+   *
+   * ⚠️ `auto` NO adivina el fondo de la web anfitriona — no se puede: un iframe
+   * no ve el documento que lo contiene. Solo deduce del fondo que el estudio
+   * haya elegido AQUÍ. Con «transparente» no hay nada que deducir y se queda en
+   * oscuro, que es como se veía siempre.
+   */
+  texto: 'auto' | 'claro' | 'oscuro';
 }
 
 export const APARIENCIA_POR_DEFECTO: AparienciaWidget = {
-  fondo: null, fuente: null, radio: null, ocultarPie: false, soloPestana: false,
+  fondo: null, fuente: null, radio: null, ocultarPie: false, soloPestana: false, texto: 'auto',
 };
 
 /**
@@ -94,6 +103,9 @@ export function resolverApariencia(
   const fuenteCruda = params.get('fuente');
   const fuente = fuenteCruda != null && fuenteValida(fuenteCruda) ? fuenteCruda.trim() : undefined;
   const radio = leerRadio(params.get('radio'));
+  const textoCrudo = params.get('texto');
+  const texto = textoCrudo === 'claro' || textoCrudo === 'oscuro' || textoCrudo === 'auto'
+    ? textoCrudo : undefined;
   const pie = leerBooleano(params.get('pie'));
   const soloPestana = leerBooleano(params.get('solo-pestana'));
 
@@ -105,7 +117,43 @@ export function resolverApariencia(
     // «ocultar». El parámetro se llama por lo que se ve, no por la variable.
     ocultarPie: pie === undefined ? base.ocultarPie : !pie,
     soloPestana: soloPestana ?? base.soloPestana,
+    texto: texto ?? base.texto,
   };
+}
+
+/**
+ * Luminancia relativa de un `#rrggbb` (0 = negro, 1 = blanco).
+ *
+ * Fórmula estándar de sRGB, no la media de los canales: el verde pesa siete
+ * veces más que el azul para el ojo, y una media haría pasar por «claro» un
+ * azul intenso sobre el que la letra oscura no se lee.
+ */
+export function luminancia(hex: string): number | null {
+  const m = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+/**
+ * Qué paleta del portal usa el widget: `noche` pinta la letra clara.
+ *
+ * ⚠️ Con el fondo TRANSPARENTE, `auto` se queda en `dia` (letra oscura). No es
+ * una elección estética: es que no hay ningún dato con el que decidir, y
+ * adivinar «probablemente su web es clara» dejaría ilegible a quien la tenga
+ * oscura sin avisar. El panel empuja a elegir explícitamente en ese caso.
+ */
+export function modoTextoDe(a: AparienciaWidget): 'dia' | 'noche' {
+  if (a.texto === 'claro') return 'noche';
+  if (a.texto === 'oscuro') return 'dia';
+  // auto: solo se deduce de un fondo que conozcamos.
+  if (typeof a.fondo === 'string' && a.fondo !== 'transparente') {
+    const l = luminancia(a.fondo);
+    if (l != null) return l < 0.45 ? 'noche' : 'dia';
+  }
+  return 'dia';
 }
 
 /** El valor de `background` para la raíz del widget, o `null` si no se toca. */

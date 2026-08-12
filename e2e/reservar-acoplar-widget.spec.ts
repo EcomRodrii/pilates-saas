@@ -44,6 +44,7 @@ async function medir(page: Page, q: string) {
     const cs = getComputedStyle(raiz);
     return {
       fondo: cs.backgroundColor,
+      tinta: cs.color,
       fuente: cs.fontFamily,
       linkFuente: !!document.querySelector('link[href*="fonts.googleapis"]'),
       pestanas: document.querySelectorAll('#horario button').length,
@@ -102,4 +103,31 @@ test('⚠️ la página SUELTA no cambia, aunque le pases los parámetros', asyn
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await expect(page.locator('footer')).toBeVisible();
   await expect(page.locator('#horario button')).toHaveCount(4);
+});
+
+// ── Color del texto ─────────────────────────────────────────────────────────
+// ⚠️ Este bloque existe por un hallazgo de la VISTA PREVIA, no de un diseño
+// previo: con el fondo transparente sobre una web oscura, el texto del widget
+// seguía siendo oscuro y no se leía. La previa lo enseñó el primer día.
+
+test('⚠️ con `texto=claro` la letra se aclara de verdad', async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  const oscuro = await medir(page, '');
+  const claro = await medir(page, '&fondo=transparente&texto=claro');
+  // No se compara contra un hex concreto: lo que importa es que CAMBIE y que
+  // acabe siendo claro. Fijar el valor ataría el test a la paleta de noche.
+  expect(claro.tinta).not.toBe(oscuro.tinta);
+  const [r, g, b] = claro.tinta.match(/\d+/g)!.map(Number);
+  expect((r + g + b) / 3).toBeGreaterThan(150);
+});
+
+test('⚠️ `auto` sobre transparente NO adivina: se queda oscuro', async ({ page }) => {
+  // Un iframe no ve el documento que lo contiene. Adivinar dejaría ilegible a
+  // quien tenga la web oscura, sin avisar — el panel empuja a elegir.
+  await page.setViewportSize({ width: 1100, height: 760 });
+  await mocks(page);
+  const base = await medir(page, '');
+  const auto = await medir(page, '&fondo=transparente&texto=auto');
+  expect(auto.tinta).toBe(base.tinta);
 });
