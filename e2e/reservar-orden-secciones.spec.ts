@@ -21,6 +21,14 @@ import { test, expect, type Page } from '@playwright/test';
 const SLUG = 'tentare';
 const S = 'studio-test';
 
+// Dos contratables y uno a 0 €, que NO debe ofrecerse en público (F0 · POR-1:
+// cualquiera obtendría clases gratis).
+const PLANES = [
+  { id: 'p1', nombre: 'Bono 5 clases', tipo: 'BONO', precio: 75, sesiones: 5, activo: true, descripcion: null },
+  { id: 'p2', nombre: 'Mensual ilimitado', tipo: 'MENSUAL', precio: 89, sesiones: null, activo: true, descripcion: null },
+  { id: 'p0', nombre: 'Plan interno gratis', tipo: 'BONO', precio: 0, sesiones: 3, activo: true, descripcion: null },
+];
+
 function fixture(extra: Record<string, unknown> = {}) {
   return {
     studio: {
@@ -28,7 +36,7 @@ function fixture(extra: Record<string, unknown> = {}) {
       email: 'hola@alma.es', telefono: '+34 600 111 222', cancelacionVentanaHoras: 12,
       descripcion: 'Estudio pequeño.', anioFundacion: 2016, colorPrimario: '#2C352C',
     },
-    tiposClase: [], salas: [], instructores: [], spots: [], planesTarifa: [], sesiones: [],
+    tiposClase: [], salas: [], instructores: [], spots: [], planesTarifa: PLANES, sesiones: [],
     videosOnDemand: [], rewardRules: [], rewardCatalog: [], levelDefinitions: [],
     achievementDefinitions: [], challengeDefinitions: [], citasServicios: [], citasDisponibilidad: [],
     aforoReservas: [], socia: null,
@@ -157,4 +165,48 @@ test('se puede ocultar aunque esté escrito', async ({ page }) => {
   });
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Quiénes somos' })).toHaveCount(0);
+});
+
+// ── Bonos y membresías ──────────────────────────────────────────────────────
+// Vivían DENTRO de la pestaña «El estudio», entre los tipos de clase y las
+// instructoras. Lo que más cuesta vender era lo que peor se veía: escondido
+// tras un clic, en la pestaña que menos se abre.
+
+test('los bonos se ven en la página, sin abrir ninguna pestaña', async ({ page }) => {
+  await montar(page);
+  await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Bono 5 clases')).toBeVisible();
+  await expect(page.getByText('Mensual ilimitado')).toBeVisible();
+});
+
+test('⚠️ un plan a 0 € sigue sin ofrecerse en público', async ({ page }) => {
+  // La regla no se movió con el bloque: sacarla de sitio es justo cuando se
+  // pierden estas cosas, y aquí regalaría clases a cualquiera.
+  await montar(page);
+  await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Plan interno gratis')).toHaveCount(0);
+});
+
+test('la pestaña «El estudio» ya no los lleva: no se duplican', async ({ page }) => {
+  await montar(page);
+  await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'El estudio' }).click();
+  // Uno, y solo uno, esté la pestaña que esté: si el bloque se hubiera copiado
+  // en vez de movido, aquí saldrían dos «Contratar» por plan.
+  await expect(page.getByRole('button', { name: 'Contratar' })).toHaveCount(2);
+  await expect(page.getByText('NUESTROS PLANES')).toHaveCount(0);
+});
+
+test('sin ningún plan contratable, la sección no existe', async ({ page }) => {
+  // Una banda «Bonos y membresías» vacía en la página pública es peor que no
+  // tenerla — mismo criterio que «Sobre nosotros».
+  await montar(page, null, { planesTarifa: [] });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toHaveCount(0);
+});
+
+test('se pueden ocultar desde el editor', async ({ page }) => {
+  await montar(page, { orden: [], ocultos: ['bonos'] });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: 'Bonos y membresías' })).toHaveCount(0);
 });

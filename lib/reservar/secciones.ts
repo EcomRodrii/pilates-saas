@@ -21,16 +21,17 @@ export interface SeccionReservar {
  * El orden por defecto. Es el de hoy, así que un estudio que no toque nada no
  * ve ningún cambio.
  */
-// ⚠️ «Bonos y membresías» NO está aquí, y no es un olvido: hoy no es una
-// sección de la PÁGINA — vive dentro de la pestaña «El estudio», junto a los
-// tipos de clase y las instructoras. Catalogarla habría dejado una fila en el
-// editor que se arrastra y no mueve nada, que es exactamente el fallo que este
-// repo ya ha cometido varias veces. Para que participe hay que sacarla de esa
-// pestaña primero, y eso es una decisión sobre la estructura de la página, no
-// un id más en esta lista.
+// ⚠️ «Bonos y membresías» estuvo fuera de esta lista a propósito durante tres
+// tandas, con una nota que decía por qué: no era una sección de la PÁGINA,
+// vivía dentro de la pestaña «El estudio». Catalogarla sin sacarla de ahí
+// habría dejado una fila en el editor que se arrastra y no mueve nada.
+// Ya se sacó, así que ya está aquí — el orden correcto de las dos cosas.
 export const SECCIONES_RESERVAR: SeccionReservar[] = [
   { id: 'portada', label: 'Portada', ayuda: 'Titular, foto y botón.' },
   { id: 'horario', label: 'Horario y reservas', ayuda: 'Las clases y el calendario.' },
+  // Detrás del horario a propósito: se mira el precio DESPUÉS de ver que hay
+  // clases a las que se puede ir. Sin planes contratables no se pinta.
+  { id: 'bonos', label: 'Bonos y membresías', ayuda: 'Tus planes, con el botón de contratar.' },
   // La única cuyo contenido entero escribe el estudio. Si no ha escrito nada,
   // no se pinta — y por eso su ayuda dice qué hay que hacer para verla.
   { id: 'sobre', label: 'Sobre nosotros', ayuda: 'Lo que cuentas de tu estudio. Sin texto, no se ve.' },
