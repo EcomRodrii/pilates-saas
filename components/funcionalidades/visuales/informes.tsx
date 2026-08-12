@@ -1,5 +1,5 @@
 import { MUTED } from '@/components/landing/theme';
-import { PanelClaro, PanelOscuro } from './comunes';
+import { PanelClaro } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/informes-y-rentabilidad ──────────────
 // Fuente: lib/decision/margen-clase.ts. El cálculo es exactamente el que se
@@ -93,36 +93,5 @@ export function LoQueNoEntraEnElMargen() {
         ))}
       </div>
     </PanelClaro>
-  );
-}
-
-const OCUPACION = [
-  { t: 'Reformer tarde', pct: 94 },
-  { t: 'Reformer mañana', pct: 78 },
-  { t: 'Mat tarde', pct: 61 },
-  { t: 'Mat mañana', pct: 34 },
-];
-
-export function OcupacionPorTipo() {
-  return (
-    <PanelOscuro titulo="Ocupación por tipo de clase">
-      <div style={{ display: 'grid', gap: 13 }}>
-        {OCUPACION.map((o) => (
-          <div key={o.t}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{o.t}</span>
-              <span className="lp-mono" style={{ fontSize: 12, color: o.pct < 50 ? '#E0785F' : 'rgba(255,255,255,.6)' }}>{o.pct} %</span>
-            </div>
-            <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
-              <div style={{ width: `${o.pct}%`, height: '100%', borderRadius: 3, background: o.pct < 50 ? 'linear-gradient(90deg,#C2503A,#E0785F)' : 'linear-gradient(90deg,#A8B080,#D9C29E)' }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <p style={{ margin: '16px 0 0', fontSize: 12, lineHeight: 1.5, color: 'rgba(255,255,255,.5)' }}>
-        Plazas ocupadas sobre aforo, agregado en el servidor. La pregunta útil no es cuántas clases das, sino cuáles
-        salen medio vacías todas las semanas.
-      </p>
-    </PanelOscuro>
   );
 }

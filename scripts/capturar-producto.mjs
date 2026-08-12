@@ -300,20 +300,25 @@ const CAPTURAS = [
     },
   },
   // Pantallas de lista/panel: no hay que tocar nada, solo esperar a que monten.
-  // ⚠️ `/informes` NO está aquí, y no por olvido. Con este juego de mocks monta
-  // el error boundary ("Algo se ha roto"). No se pudo aislar: probado por
-  // separado —solo las RPC, +socios, +suscripciones, +planes, +recibos,
-  // +sesiones/reservas, con y sin reloj fijo— renderiza bien SIEMPRE; solo
-  // falla dentro de la ejecución completa, y React se traga el error sin dejar
-  // `pageerror` ni traza. Antes que publicar una captura rota o quemar más
-  // tiempo, se deja fuera. La página /funcionalidades/informes-y-rentabilidad
-  // sigue con su desglose del margen, que es su bloque propio y no depende de
-  // esto.
+  // `/informes` ESTUVO fuera de esta lista varias sesiones: con este mismo
+  // juego de mocks montaba el error boundary ("Algo se ha roto") sin dejar
+  // `pageerror` ni traza, y no se pudo aislar aunque cada pieza por separado
+  // (RPC, socios, suscripciones, planes, recibos, sesiones/reservas)
+  // renderizaba bien. Se depuró añadiendo un `console.error` temporal dentro
+  // de `app/global-error.tsx` (revertido después) para leer el error real que
+  // Sentry sí recibía pero la consola del navegador no mostraba — con eso, la
+  // página monta limpia con el juego de mocks de RPC que ya se había ido
+  // completando para otras capturas (`informe_ingresos`, `ingresos_por_dia`,
+  // `ocupacion_por_tipo`, `ventas_por_tipo`, `stats_clientas`): el fallo real
+  // ya no era reproducible, probablemente cerrado por esos mocks al ir
+  // creciendo con el tiempo. Verificado tanto en `next dev` como en el build
+  // de producción real (`next build && E2E_TEST=1 next start`).
   ...[
     ['clientas', '/clientas'],
     ['cobros', '/cobros'],
     ['equipo', '/equipo'],
     ['sustituciones', '/sustituciones'],
+    ['informes', '/informes'],
   ].map(([nombre, ruta]) => ({
     nombre,
     alto: 1000,
