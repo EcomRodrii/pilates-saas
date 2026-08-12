@@ -108,7 +108,7 @@ test.describe('La intro del logo', () => {
     // Y la landing sigue entera en ese mismo HTML: la cortina va delante, no
     // en lugar de.
     expect(html.toLowerCase()).toContain('pilates');
-    expect(html).toContain('El software que lleva');
+    expect(html).toContain('Todo lo que necesitas para dirigir tu estudio');
   });
 
   test('se retira aunque no haya JavaScript', async ({ browser }) => {
