@@ -272,7 +272,7 @@ interface StudioContextValue {
   redesSociales: Record<RedSocialId, string>;
   /** Textos de la portada de /reservar escritos por el estudio. Vacío = el
    *  texto por defecto de la página (ver su hero). */
-  textosReservar: { titular: string; subtitulo: string; cta: string };
+  textosReservar: { titular: string; subtitulo: string; cta: string; sobreTitulo: string; sobreTexto: string };
   /** Orden/visibilidad CRUDOS de las secciones de /reservar. Se guardan tal
    *  cual y las reglas las aplica `ordenarSecciones` en quien pinta — así la
    *  página y el editor no pueden divergir. */
@@ -638,7 +638,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [themeIdPublicado, setThemeIdPublicado] = useState<string | null>(null);
   const [portalReact, setPortalReact] = useState(false);
   const [redesSociales, setRedesSociales] = useState<Record<RedSocialId, string>>({ instagram: '', facebook: '', whatsapp: '' });
-  const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '' });
+  const [textosReservar, setTextosReservar] = useState({ titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '' });
   const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -887,6 +887,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Haciéndolo aquí, ningún consumidor tiene que acordarse.
       const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
       setTextosReservar({
+        sobreTitulo: texto((pub as { reservarSobreTitulo?: unknown }).reservarSobreTitulo),
+        sobreTexto: texto((pub as { reservarSobreTexto?: unknown }).reservarSobreTexto),
         titular: texto((pub as { reservarTitular?: unknown }).reservarTitular),
         subtitulo: texto((pub as { reservarSubtitulo?: unknown }).reservarSubtitulo),
         cta: texto((pub as { reservarCta?: unknown }).reservarCta),

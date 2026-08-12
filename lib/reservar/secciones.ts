@@ -31,6 +31,9 @@ export interface SeccionReservar {
 export const SECCIONES_RESERVAR: SeccionReservar[] = [
   { id: 'portada', label: 'Portada', ayuda: 'Titular, foto y botón.' },
   { id: 'horario', label: 'Horario y reservas', ayuda: 'Las clases y el calendario.' },
+  // La única cuyo contenido entero escribe el estudio. Si no ha escrito nada,
+  // no se pinta — y por eso su ayuda dice qué hay que hacer para verla.
+  { id: 'sobre', label: 'Sobre nosotros', ayuda: 'Lo que cuentas de tu estudio. Sin texto, no se ve.' },
   { id: 'cifras', label: 'Cifras del estudio', ayuda: 'Clases por semana, instructoras.' },
   { id: 'contacto', label: 'Contacto y pie', ayuda: 'Teléfono, email y enlaces legales.' },
 ];
@@ -91,8 +94,8 @@ export interface OrdenGuardado {
  *     sección añadida después de que este estudio personalizara su página.
  *  3. Un id guardado que ya no exista en el catálogo se descarta: una sección
  *     retirada del producto no puede dejar un hueco en la página de nadie.
- *  4. Las FIJAS van siempre, y en su posición del catálogo, pase lo que pase
- *     con lo guardado.
+ *  4. Las ANCLADAS van siempre, y en su posición del catálogo, pase lo que
+ *     pase con lo guardado.
  */
 export function ordenarSecciones(guardado: OrdenGuardado | null | undefined): SeccionReservar[] {
   const catalogo = new Map(SECCIONES_RESERVAR.map((s) => [s.id, s]));

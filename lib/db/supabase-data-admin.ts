@@ -541,6 +541,11 @@ export async function fetchPublicStudioData(
       // los de arriba, pero al revés: una variable CSS puede llevar un color,
       // no una frase. Sin esto, el titular seguiría siendo una constante del
       // código servida idéntica a todos los estudios.
+      // «Sobre nosotros»: vacío significa que la sección NO existe, así que
+      // aquí NO se sustituye por nada — quien lo pinta distingue vacío de
+      // ausente sin ayuda.
+      reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
+      reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
       reservarTitular: temaPublicado?.reservarTitular ?? null,
       reservarSubtitulo: temaPublicado?.reservarSubtitulo ?? null,
       reservarCta: temaPublicado?.reservarCta ?? null,
