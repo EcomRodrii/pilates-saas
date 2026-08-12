@@ -98,4 +98,17 @@ test.describe('La ventana de cancelación que se enseña es la de la clase, no s
     await expect(hoja.getByText(/Cancela con al menos 12h de antelación/)).toBeVisible();
     await expect(hoja.getByText(/Cancela con al menos 24h de antelación/)).toHaveCount(0);
   });
+
+  // ⚠️ El mismo estudio, mirado SIN abrir ninguna clase. La caja «Cómo
+  // funciona» leía `studios.cancelacion_ventana_horas` a secas, así que con
+  // este fixture prometía 12 h mientras el Reformer exigía 24: quien lo leyera
+  // ahí y cancelara a 18 h perdería la clase. Ahora anuncia el plazo más
+  // estricto y avisa de que depende de la clase.
+  test('⚠️ «Cómo funciona» no promete las 12 h del estudio cuando una clase exige 24', async ({ page }) => {
+    await mockBackend(page);
+    await page.goto(`/reservar/${SLUG}`);
+    await expect(page.getByText('CÓMO FUNCIONA')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Cancela gratis hasta 24 h antes, según la clase.')).toBeVisible();
+    await expect(page.getByText(/Cancela gratis hasta 12/)).toHaveCount(0);
+  });
 });
