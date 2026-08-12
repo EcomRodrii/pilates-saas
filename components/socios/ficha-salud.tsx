@@ -15,7 +15,7 @@ import {
   Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, Activity, CalendarClock, ShieldCheck, Bot, Loader2, X,
 } from 'lucide-react';
 import type {
-  CondicionSalud, CategoriaCondicion, ZonaCorporal, SeveridadCondicion,
+  CondicionSalud, CategoriaCondicion, ZonaCorporal, SeveridadCondicion, PlantillaCuestionarioSalud,
 } from '@/lib/types';
 import {
   semaforo, nivelRiesgo, SEMAFORO_META, RIESGO_META, RESPUESTA_META,
@@ -23,6 +23,7 @@ import {
 } from '@/lib/ficha-clinica';
 import { dbRegistrarLecturaFichaSalud, getCurrentStudioId } from '@/lib/supabase-data';
 import { sugerirAdaptacionesSocio, type AdaptacionSocioIA } from '@/lib/ai/ficha-clinica-socio-client';
+import type { ResultadoEscritura } from '@/lib/errores';
 
 // ─── Etiquetas de presentación ───────────────────────────────────────────────
 
@@ -302,10 +303,116 @@ function ConsentimientoSaludDialog({
   );
 }
 
+// ─── Cuestionario de salud (Fase 1) — una pregunta, guarda al perder el foco
+// (texto) o al elegir (booleano/selección), sin botón "Guardar" aparte: mismo
+// lenguaje que el Toggle de "Activo" en la lista de preguntas.
+function PreguntaCuestionario({
+  pregunta, respuesta, onGuardar,
+}: {
+  pregunta: PlantillaCuestionarioSalud;
+  respuesta: string | null;
+  onGuardar: (valor: string | null) => Promise<ResultadoEscritura>;
+}) {
+  const [valor, setValor] = useState(respuesta ?? '');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Ajuste de estado durante el render (no en un efecto, mismo patrón que
+  // `socioIdPrevio` en FichaSalud): evita el cascading-render que bloquea el
+  // linter de React Compiler.
+  const [respuestaPrevia, setRespuestaPrevia] = useState(respuesta);
+  if (respuesta !== respuestaPrevia) {
+    setRespuestaPrevia(respuesta);
+    setValor(respuesta ?? '');
+  }
+
+  async function guardarSiCambio(nuevo: string | null) {
+    if ((nuevo ?? '') === (respuesta ?? '')) return;
+    setGuardando(true);
+    setError(null);
+    const res = await onGuardar(nuevo);
+    setGuardando(false);
+    // Sin esto, un fallo de escritura (RLS, red) hacía desaparecer "Guardando…"
+    // como si hubiera ido bien — la instructora se iba creyendo que la
+    // respuesta quedó guardada cuando el servidor había dicho que no. Mismo
+    // patrón de bug que #500/#505/#560 ya documentados en este repo.
+    if (!res.ok) { setError(res.error); setValor(respuesta ?? ''); }
+  }
+
+  const opciones = pregunta.tipoRespuesta === 'seleccion_multiple' ? valor.split(',').filter(Boolean) : [];
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-foreground mb-1 block">{pregunta.pregunta}</label>
+      {pregunta.tipoRespuesta === 'texto' && (
+        <textarea
+          className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+          rows={2}
+          value={valor}
+          onChange={e => setValor(e.target.value)}
+          onBlur={() => guardarSiCambio(valor.trim() || null)}
+        />
+      )}
+      {pregunta.tipoRespuesta === 'booleano' && (
+        <div className="flex gap-2">
+          {(['Sí', 'No'] as const).map(op => (
+            <button key={op} type="button"
+              onClick={() => { setValor(op); guardarSiCambio(op); }}
+              className={cn(
+                'text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors',
+                valor === op ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {op}
+            </button>
+          ))}
+        </div>
+      )}
+      {pregunta.tipoRespuesta === 'seleccion_unica' && (
+        <select
+          className="w-full text-sm rounded-lg border border-border bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+          value={valor}
+          onChange={e => { setValor(e.target.value); guardarSiCambio(e.target.value || null); }}
+        >
+          <option value="">Sin responder</option>
+          {pregunta.opciones.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      )}
+      {pregunta.tipoRespuesta === 'seleccion_multiple' && (
+        <div className="flex flex-wrap gap-1.5">
+          {pregunta.opciones.map(o => {
+            const marcada = opciones.includes(o);
+            return (
+              <button key={o} type="button"
+                onClick={() => {
+                  const nuevas = marcada ? opciones.filter(x => x !== o) : [...opciones, o];
+                  const nuevo = nuevas.join(',');
+                  setValor(nuevo);
+                  guardarSiCambio(nuevo || null);
+                }}
+                className={cn(
+                  'text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors',
+                  marcada ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {o}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {guardando && <p className="text-[10px] text-muted-foreground mt-1">Guardando…</p>}
+      {error && <p role="alert" className="text-[10px] text-destructive mt-1">{error}</p>}
+    </div>
+  );
+}
+
 // ─── Pestaña completa ────────────────────────────────────────────────────────
 
 export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
-  const { socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores } = useStudio();
+  const {
+    socios, condicionesSalud, respuestasSesion, addCondicion, updateCondicion, deleteCondicion, updateSocio, instructores,
+    plantillasCuestionarioSalud, respuestasCuestionarioSalud, guardarRespuestaCuestionarioSalud,
+  } = useStudio();
   const { user } = useAuth();
   const rol = useRol();
   const socio = useMemo(() => socios.find(s => s.id === socioId) ?? null, [socios, socioId]);
@@ -333,6 +440,10 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
   // salud: se confirma en un diálogo accesible, no con el confirm() nativo.
   const [aBorrar, setABorrar] = useState<CondicionSalud | null>(null);
   const [consentimientoDialogOpen, setConsentimientoDialogOpen] = useState(false);
+  // Qué hacer justo después de autorizar — por defecto abre el formulario de
+  // condición (comportamiento de siempre); el cuestionario de salud lo
+  // sobrescribe para simplemente cerrar el diálogo y dejar rellenar.
+  const [trasConsentimiento, setTrasConsentimiento] = useState<(() => void) | null>(null);
   const [guardandoConsentimiento, setGuardandoConsentimiento] = useState(false);
   const [errorConsentimiento, setErrorConsentimiento] = useState<string | null>(null);
   const [adaptacionIA, setAdaptacionIA] = useState<AdaptacionSocioIA | null>(null);
@@ -360,6 +471,15 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
     [respuestasSesion, socioId],
   );
 
+  const preguntasActivas = useMemo(
+    () => plantillasCuestionarioSalud.filter(p => p.activo).sort((a, b) => a.orden - b.orden),
+    [plantillasCuestionarioSalud],
+  );
+  const respuestasCuestionario = useMemo(
+    () => respuestasCuestionarioSalud.filter(r => r.socioId === socioId),
+    [respuestasCuestionarioSalud, socioId],
+  );
+
   const nivel = semaforo(condiciones);
   const meta = SEMAFORO_META[nivel];
   const riesgo = nivelRiesgo(condiciones, respuestas.slice(0, 3), now);
@@ -369,7 +489,11 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
   function abrirNueva() {
     // Art. 9 RGPD: no se guarda ninguna condición sin el consentimiento
     // específico de la socia — si aún no consta, se pide antes de nada.
-    if (!socio?.consentimientoSalud) { setConsentimientoDialogOpen(true); return; }
+    if (!socio?.consentimientoSalud) {
+      setTrasConsentimiento(() => () => { setEditando(null); setDialogOpen(true); });
+      setConsentimientoDialogOpen(true);
+      return;
+    }
     setEditando(null);
     setDialogOpen(true);
   }
@@ -396,8 +520,9 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
     setGuardandoConsentimiento(false);
     if (!r.ok) { setErrorConsentimiento(r.error); return; }
     setConsentimientoDialogOpen(false);
-    setEditando(null);
-    setDialogOpen(true);
+    const cb = trasConsentimiento;
+    setTrasConsentimiento(null);
+    if (cb) cb(); else { setEditando(null); setDialogOpen(true); }
   }
 
   async function guardar(f: FormState) {
@@ -510,6 +635,34 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
             })}
           </div>
           <p className="text-[10px] text-muted-foreground mt-2">De la más antigua (izq.) a la más reciente (der.). Las últimas influyen en el riesgo.</p>
+        </div>
+      )}
+
+      {/* Cuestionario de salud (Fase 1, ficha Lorari-vs-Tentare) — plantilla
+          configurable en Configuración > Cuestionario de salud; solo staff
+          rellena aquí, nunca la propia clienta. */}
+      {preguntasActivas.length > 0 && (
+        <div className="rounded-xl border border-border p-4 mb-5">
+          <p className="text-xs font-semibold text-muted-foreground mb-3">Cuestionario de salud</p>
+          {!socio?.consentimientoSalud ? (
+            <button
+              onClick={() => { setTrasConsentimiento(() => () => {}); setConsentimientoDialogOpen(true); }}
+              className="text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors"
+            >
+              Autorizar para responder
+            </button>
+          ) : (
+            <div className="space-y-3">
+              {preguntasActivas.map(p => (
+                <PreguntaCuestionario
+                  key={p.id}
+                  pregunta={p}
+                  respuesta={respuestasCuestionario.find(r => r.preguntaId === p.id)?.respuesta ?? null}
+                  onGuardar={valor => guardarRespuestaCuestionarioSalud(socioId, p.id, valor)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

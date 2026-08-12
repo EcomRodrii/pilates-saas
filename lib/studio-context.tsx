@@ -43,6 +43,8 @@ import {
   dbUpsertChallengeProgress, dbInsertChallengeHistory,
   dbInsertNotaInterna, dbDeleteNotaInterna,
   dbInsertCondicion, dbUpdateCondicion, dbDeleteCondicion,
+  dbFetchPlantillasCuestionarioSalud, dbInsertPlantillaCuestionarioSalud, dbUpdatePlantillaCuestionarioSalud, dbDeletePlantillaCuestionarioSalud,
+  dbFetchRespuestasCuestionarioSalud, dbUpsertRespuestaCuestionarioSalud,
   dbInsertRespuestaSesion, dbUpdateRespuestaSesion,
   dbInsertCampana, dbDeleteCampana, dbUpdateCampana,
   dbInsertAutomatizacion, dbUpdateAutomatizacion, dbDeleteAutomatizacion,
@@ -101,6 +103,8 @@ import type {
   Spot,
   NotaInterna,
   CondicionSalud,
+  PlantillaCuestionarioSalud,
+  RespuestaCuestionarioSalud,
   RespuestaSesionRow,
   RespuestaSesion,
   Cita,
@@ -348,6 +352,16 @@ interface StudioContextValue {
   // Ficha clínica — evolución post-clase (Fase 2)
   respuestasSesion: RespuestaSesionRow[];
   registrarRespuestaSesion: (params: { socioId: string; sesionId: string | null; respuesta: RespuestaSesion; nota?: string | null }) => Promise<ResultadoEscritura>;
+
+  // Cuestionario de salud configurable (Fase 1, ficha Lorari-vs-Tentare) — la
+  // plantilla la gestiona solo PROPIETARIO (RLS); la rellenan PROPIETARIO/
+  // INSTRUCTOR en la ficha de la clienta. Sin canal público/portal.
+  plantillasCuestionarioSalud: PlantillaCuestionarioSalud[];
+  addPlantillaCuestionarioSalud: (fields: Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  updatePlantillaCuestionarioSalud: (id: string, changes: Partial<Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
+  deletePlantillaCuestionarioSalud: (id: string) => Promise<ResultadoEscritura>;
+  respuestasCuestionarioSalud: RespuestaCuestionarioSalud[];
+  guardarRespuestaCuestionarioSalud: (socioId: string, preguntaId: string, respuesta: string | null) => Promise<ResultadoEscritura>;
 
   // Sesiones
   addSesion: (fields: Omit<Sesion, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
@@ -689,6 +703,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
   const [respuestasSesion, setRespuestasSesion] = useState<RespuestaSesionRow[]>([]);
+  const [plantillasCuestionarioSalud, setPlantillasCuestionarioSalud] = useState<PlantillaCuestionarioSalud[]>([]);
+  const [respuestasCuestionarioSalud, setRespuestasCuestionarioSalud] = useState<RespuestaCuestionarioSalud[]>([]);
 
   const [citas, setCitas] = useState<Cita[]>([]);
   const [citasServicios, setCitasServicios] = useState<ServicioCita[]>([]);
@@ -1123,6 +1139,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       dbFetchCamposPersonalizados().then(setCamposPersonalizados).catch(() => {});
       dbFetchPlantillasEmail().then(setPlantillasEmail).catch(() => {});
       dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
+      // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
+      // no hace falta comprobar el rol en cliente antes de pedirlo.
+      dbFetchPlantillasCuestionarioSalud().then(setPlantillasCuestionarioSalud).catch(() => {});
+      dbFetchRespuestasCuestionarioSalud().then(setRespuestasCuestionarioSalud).catch(() => {});
 
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
       // vistas se rellenan un instante después. Ninguna lógica de negocio las
@@ -1585,6 +1605,45 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteCampoPersonalizado(id);
     if (!res.ok) return res;
     setCamposPersonalizados(prev => prev.filter(c => c.id !== id));
+    return res;
+  }
+
+  // ── Cuestionario de salud configurable (Fase 1) ─────────────────────────────
+  // Mismo patrón no-optimista que campos personalizados/condiciones de salud:
+  // se confía en la RLS del servidor (plantilla: solo PROPIETARIO escribe;
+  // respuesta: PROPIETARIO/INSTRUCTOR + consentimiento) para rechazar, no en
+  // un gate de rol duplicado aquí.
+
+  async function addPlantillaCuestionarioSalud(fields: Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+    const nueva: PlantillaCuestionarioSalud = { ...fields, id: `pcs-${uid()}`, studioId: getCurrentStudioId() };
+    const res = await dbInsertPlantillaCuestionarioSalud(nueva);
+    if (!res.ok) return res;
+    setPlantillasCuestionarioSalud(prev => [...prev, nueva]);
+    return res;
+  }
+  async function updatePlantillaCuestionarioSalud(id: string, changes: Partial<Omit<PlantillaCuestionarioSalud, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
+    const res = await dbUpdatePlantillaCuestionarioSalud(id, changes);
+    if (!res.ok) return res;
+    setPlantillasCuestionarioSalud(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
+    return res;
+  }
+  async function deletePlantillaCuestionarioSalud(id: string): Promise<ResultadoEscritura> {
+    const res = await dbDeletePlantillaCuestionarioSalud(id);
+    if (!res.ok) return res;
+    setPlantillasCuestionarioSalud(prev => prev.filter(p => p.id !== id));
+    return res;
+  }
+  async function guardarRespuestaCuestionarioSalud(socioId: string, preguntaId: string, respuesta: string | null): Promise<ResultadoEscritura> {
+    const existente = respuestasCuestionarioSalud.find(r => r.socioId === socioId && r.preguntaId === preguntaId);
+    const id = existente?.id ?? `rcs-${uid()}`;
+    const res = await dbUpsertRespuestaCuestionarioSalud({
+      id, studioId: getCurrentStudioId(), socioId, preguntaId, respuesta, creadoPor: existente?.creadoPor ?? null,
+    });
+    if (!res.ok) return res;
+    const ahora = new Date().toISOString();
+    setRespuestasCuestionarioSalud(prev => existente
+      ? prev.map(r => r.id === id ? { ...r, respuesta, actualizadoEn: ahora } : r)
+      : [...prev, { id, studioId: getCurrentStudioId(), socioId, preguntaId, respuesta, creadoPor: null, creadoEn: ahora, actualizadoEn: ahora }]);
     return res;
   }
 
@@ -4307,6 +4366,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteCondicion,
     respuestasSesion,
     registrarRespuestaSesion,
+    plantillasCuestionarioSalud,
+    addPlantillaCuestionarioSalud,
+    updatePlantillaCuestionarioSalud,
+    deletePlantillaCuestionarioSalud,
+    respuestasCuestionarioSalud,
+    guardarRespuestaCuestionarioSalud,
     addSesion,
     updateSesion,
     deleteSesion,
@@ -4457,6 +4522,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion,
+    plantillasCuestionarioSalud, respuestasCuestionarioSalud,
     citas, citasServicios, citasDisponibilidad, productosPOS, ventasPOS, campanas, automatizaciones,
     discountCodes.codigosDescuento,
     actividadReciente, notificaciones,

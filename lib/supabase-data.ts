@@ -45,6 +45,8 @@ import type {
   RowMensajesEquipo,
   RowCanalesEquipo,
   RowCondicionesSalud,
+  RowPlantillasCuestionarioSalud,
+  RowRespuestasCuestionarioSalud,
   RowRespuestasSesion,
   RowNotasInternas,
   RowNotasProgreso,
@@ -113,6 +115,8 @@ import type {
   CanalEquipo,
   MetodoCobro,
   CondicionSalud,
+  PlantillaCuestionarioSalud,
+  RespuestaCuestionarioSalud,
   RespuestaSesionRow,
   NotaInterna,
   NotaProgreso,
@@ -1719,6 +1723,94 @@ export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<Ca
 export async function dbDeleteCampoPersonalizado(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteCampoPersonalizado]', error) : ESCRITURA_OK;
+}
+
+// ── Cuestionario de salud configurable (Fase 1, ficha Lorari-vs-Tentare) ────
+// Mismo esqueleto que campos personalizados, pero RLS acotada a
+// PROPIETARIO/INSTRUCTOR (dato de salud) — ver migr 20260812200000.
+function mapPlantillaCuestionarioSalud(r: RowPlantillasCuestionarioSalud): PlantillaCuestionarioSalud {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    pregunta: r.pregunta,
+    tipoRespuesta: (r.tipo_respuesta ?? 'texto') as PlantillaCuestionarioSalud['tipoRespuesta'],
+    opciones: r.opciones ?? [],
+    orden: r.orden,
+    activo: r.activo,
+  };
+}
+
+function plantillaCuestionarioSaludToDb(p: PlantillaCuestionarioSalud) {
+  return {
+    id: p.id,
+    studio_id: p.studioId ?? STUDIO_ID,
+    pregunta: p.pregunta,
+    tipo_respuesta: p.tipoRespuesta,
+    opciones: p.opciones ?? [],
+    orden: p.orden,
+    activo: p.activo,
+  };
+}
+
+export async function dbFetchPlantillasCuestionarioSalud(): Promise<PlantillaCuestionarioSalud[]> {
+  const { data, error } = await supabase
+    .from('plantillas_cuestionario_salud')
+    .select('*')
+    .order('orden', { ascending: true });
+  if (error) { reportDbError('[dbFetchPlantillasCuestionarioSalud]', error); return []; }
+  return (data ?? []).map(r => mapPlantillaCuestionarioSalud(r as RowPlantillasCuestionarioSalud));
+}
+
+export async function dbInsertPlantillaCuestionarioSalud(p: PlantillaCuestionarioSalud): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('plantillas_cuestionario_salud').insert(plantillaCuestionarioSaludToDb(p));
+  return error ? falloEscritura('[dbInsertPlantillaCuestionarioSalud]', error) : ESCRITURA_OK;
+}
+
+export async function dbUpdatePlantillaCuestionarioSalud(id: string, changes: Partial<PlantillaCuestionarioSalud>): Promise<ResultadoEscritura> {
+  const db: Record<string, unknown> = {};
+  if ('pregunta' in changes) db.pregunta = changes.pregunta;
+  if ('tipoRespuesta' in changes) db.tipo_respuesta = changes.tipoRespuesta;
+  if ('opciones' in changes) db.opciones = changes.opciones ?? [];
+  if ('orden' in changes) db.orden = changes.orden;
+  if ('activo' in changes) db.activo = changes.activo;
+  const { error } = await supabase.from('plantillas_cuestionario_salud').update(db).eq('id', id);
+  return error ? falloEscritura('[dbUpdatePlantillaCuestionarioSalud]', error) : ESCRITURA_OK;
+}
+
+export async function dbDeletePlantillaCuestionarioSalud(id: string): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('plantillas_cuestionario_salud').delete().eq('id', id);
+  return error ? falloEscritura('[dbDeletePlantillaCuestionarioSalud]', error) : ESCRITURA_OK;
+}
+
+function mapRespuestaCuestionarioSalud(r: RowRespuestasCuestionarioSalud): RespuestaCuestionarioSalud {
+  return {
+    id: r.id,
+    studioId: r.studio_id,
+    socioId: r.socio_id,
+    preguntaId: r.pregunta_id,
+    respuesta: r.respuesta,
+    creadoPor: r.creado_por,
+    creadoEn: r.creado_en ?? '',
+    actualizadoEn: r.actualizado_en ?? '',
+  };
+}
+
+export async function dbFetchRespuestasCuestionarioSalud(): Promise<RespuestaCuestionarioSalud[]> {
+  const { data, error } = await supabase.from('respuestas_cuestionario_salud').select('*');
+  if (error) { reportDbError('[dbFetchRespuestasCuestionarioSalud]', error); return []; }
+  return (data ?? []).map(r => mapRespuestaCuestionarioSalud(r as RowRespuestasCuestionarioSalud));
+}
+
+// Una fila por (socioId, preguntaId) — upsert por el UNIQUE de la migración,
+// así "guardar" sirve igual para la primera respuesta que para corregirla.
+export async function dbUpsertRespuestaCuestionarioSalud(r: {
+  id: string; studioId: string; socioId: string; preguntaId: string; respuesta: string | null; creadoPor: string | null;
+}): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('respuestas_cuestionario_salud').upsert({
+    id: r.id, studio_id: r.studioId, socio_id: r.socioId, pregunta_id: r.preguntaId,
+    respuesta: r.respuesta, creado_por: r.creadoPor, actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'socio_id,pregunta_id' });
+  return error ? falloEscritura('[dbUpsertRespuestaCuestionarioSalud]', error) : ESCRITURA_OK;
 }
 
 // ── Riesgo de concentración por instructor ──────────────────────────────────

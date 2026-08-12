@@ -31,6 +31,7 @@ const TabBackups = dynamic(() => import('@/components/configuracion/tab-backups'
 const TabClasesSalas = dynamic(() => import('@/components/configuracion/tab-clases-salas').then(m => m.TabClasesSalas), { loading: () => <PanelSkeleton /> });
 const TabCitas = dynamic(() => import('@/components/configuracion/tab-citas').then(m => m.TabCitas), { loading: () => <PanelSkeleton /> });
 const TabApi = dynamic(() => import('@/components/configuracion/tab-api').then(m => m.TabApi), { loading: () => <PanelSkeleton /> });
+const TabCuestionarioSalud = dynamic(() => import('@/components/configuracion/tab-cuestionario-salud').then(m => m.TabCuestionarioSalud), { loading: () => <PanelSkeleton /> });
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -229,7 +230,7 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'api' | 'campos' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'api' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -240,6 +241,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'estudio',     label: 'Estudio' },
   { id: 'api',         label: 'API' },
   { id: 'campos',      label: 'Campos de clienta' },
+  { id: 'cuestionario-salud', label: 'Cuestionario de salud' },
   { id: 'plantillas',  label: 'Emails' },
   { id: 'backups',     label: 'Copias de seguridad' },
   { id: 'perfil',      label: 'Mi perfil' },
@@ -357,6 +359,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
       {activeTab === 'api'         && <TabApi          showToast={showToast} />}
       {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
+      {activeTab === 'cuestionario-salud' && <TabCuestionarioSalud showToast={showToast} />}
       {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}
       {activeTab === 'perfil'      && <TabPerfil       showToast={showToast} />}
 
