@@ -36,21 +36,45 @@ export const SECCIONES_RESERVAR: SeccionReservar[] = [
 ];
 
 /**
- * ⚠️ **El horario NO se puede ocultar ni mover.**
+ * Secciones que NO cambian de sitio.
  *
- * Es la razón de existir del widget: una página de reservas sin el horario es
- * una página rota, y dejarla ocultar es dejar que alguien se la rompa sin
- * querer buscando otra cosa. Va siempre, y va en su sitio.
+ * **El horario** es la razón de existir del widget: va siempre, y va en su
+ * sitio. Que esté anclado es además lo único que garantiza que lo vean los
+ * estudios que ya tengan un orden guardado — los ids nuevos entran al FINAL del
+ * orden existente (el gotcha que ya documenta la home del panel) y el horario
+ * enterrado al final sería justo el desastre que esto evita.
  *
- * Que sea fija es además lo único que garantiza que la vean los estudios que ya
- * tengan un orden guardado: los ids nuevos entran al FINAL del orden existente
- * —el gotcha que ya documenta la home del panel— y el horario enterrado al
- * final sería justo el desastre que esto evita.
+ * ⚠️ **La portada está anclada por una razón distinta, y de fuera del código:
+ * el fondo.** Portada, barra de marca y pestañas comparten un único
+ * `linear-gradient(175deg, …)` (`MODO_TOKENS.dia.hero`). Un degradado se pinta
+ * por CAJA, así que separar la portada para poder moverla lo reinicia y deja
+ * dos costuras horizontales visibles en la página de TODOS los estudios —
+ * medido con capturas antes/después, no supuesto. Se probó y se descartó: pagar
+ * una regresión visible para todos a cambio de un reordenado que casi nadie
+ * quiere (una portada por debajo del pie no es una página, es un accidente) era
+ * mal negocio.
+ *
+ * Anclada NO es lo mismo que obligatoria: la portada **sí se puede ocultar**,
+ * que es lo que de verdad pide quien incrusta el widget en una web que ya tiene
+ * su propia cabecera. Ver `SECCIONES_SIEMPRE_VISIBLES`.
  */
-export const SECCIONES_FIJAS: readonly string[] = ['horario'];
+export const SECCIONES_ANCLADAS: readonly string[] = ['portada', 'horario'];
 
-export function esFija(id: string): boolean {
-  return SECCIONES_FIJAS.includes(id);
+/**
+ * Las que no se pueden ocultar. Solo el horario: una página de reservas sin
+ * horario está rota, y dejarla ocultar es dejar que alguien se la rompa sin
+ * querer buscando otra cosa.
+ */
+export const SECCIONES_SIEMPRE_VISIBLES: readonly string[] = ['horario'];
+
+/** ¿Se queda donde está? (No dice nada sobre si se puede ocultar.) */
+export function esAnclada(id: string): boolean {
+  return SECCIONES_ANCLADAS.includes(id);
+}
+
+/** ¿Se puede ocultar? */
+export function sePuedeOcultar(id: string): boolean {
+  return !SECCIONES_SIEMPRE_VISIBLES.includes(id);
 }
 
 export interface OrdenGuardado {
@@ -77,19 +101,19 @@ export function ordenarSecciones(guardado: OrdenGuardado | null | undefined): Se
   // bloques de bonos seguidos es algo que la clienta ve al instante y que el
   // estudio no sabría de dónde le viene.
   const guardadas = [...new Set(
-    (guardado?.orden ?? []).filter((id) => catalogo.has(id) && !esFija(id)),
+    (guardado?.orden ?? []).filter((id) => catalogo.has(id) && !esAnclada(id)),
   )];
   const nuevas = SECCIONES_RESERVAR
-    .filter((s) => !esFija(s.id) && !guardadas.includes(s.id))
+    .filter((s) => !esAnclada(s.id) && !guardadas.includes(s.id))
     .map((s) => s.id);
 
-  // Se reconstruye recorriendo el CATÁLOGO para colocar las fijas en su sitio,
-  // e intercalando las movibles en el orden que decidió el estudio.
+  // Se reconstruye recorriendo el CATÁLOGO para colocar las ancladas en su
+  // sitio, e intercalando las movibles en el orden que decidió el estudio.
   const movibles = [...guardadas, ...nuevas];
   const fuera: SeccionReservar[] = [];
   let i = 0;
   for (const s of SECCIONES_RESERVAR) {
-    if (esFija(s.id)) {
+    if (esAnclada(s.id)) {
       fuera.push(s);
       continue;
     }
@@ -103,10 +127,11 @@ export function ordenarSecciones(guardado: OrdenGuardado | null | undefined): Se
 /**
  * ¿Se pinta esta sección?
  *
- * Una fija se pinta SIEMPRE, aunque alguien la haya metido en `ocultos` a mano
- * o en una versión anterior en la que sí se podía.
+ * Las de `SECCIONES_SIEMPRE_VISIBLES` se pintan SIEMPRE, aunque alguien las
+ * haya metido en `ocultos` a mano o en una versión anterior en la que sí se
+ * podía. Estar anclada no basta: la portada no se mueve y aun así se oculta.
  */
 export function seccionVisible(id: string, guardado: OrdenGuardado | null | undefined): boolean {
-  if (esFija(id)) return true;
+  if (!sePuedeOcultar(id)) return true;
   return !(guardado?.ocultos ?? []).includes(id);
 }

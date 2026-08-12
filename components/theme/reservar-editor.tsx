@@ -21,15 +21,15 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { fetchLayout, guardarLayoutApi } from '@/lib/api-client';
 import {
-  SECCIONES_RESERVAR, ordenarSecciones, esFija, type SeccionReservar,
+  SECCIONES_RESERVAR, ordenarSecciones, esAnclada, sePuedeOcultar, type SeccionReservar,
 } from '@/lib/reservar/secciones';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 
-// Solo estas se arrastran; el horario va fijo y no entra nunca en `orden`
-// (ver el comentario de SECCIONES_FIJAS). Es también lo único que se guarda:
-// mandar el id fijo lo dejaría escrito en la config para que `ordenarSecciones`
-// lo tuviera que volver a ignorar en cada lectura.
-const MOVIBLES = SECCIONES_RESERVAR.filter((s) => !esFija(s.id)).map((s) => s.id);
+// Solo estas se arrastran; las ancladas no entran nunca en `orden` (ver el
+// comentario de SECCIONES_ANCLADAS). Es también lo único que se guarda: mandar
+// un id anclado lo dejaría escrito en la config para que `ordenarSecciones` lo
+// tuviera que volver a ignorar en cada lectura.
+const MOVIBLES = SECCIONES_RESERVAR.filter((s) => !esAnclada(s.id)).map((s) => s.id);
 
 /**
  * Estado + persistencia del orden de `/reservar` — la página pública que el
@@ -58,8 +58,8 @@ export function useReservarSeccionesEditor() {
     // Se normaliza a través de `ordenarSecciones` para que lo que se ve sea lo
     // que se pinta, y para que un `orden` guardado con basura (duplicados, ids
     // retirados) no llegue nunca al estado del editor.
-    setItems(ordenarSecciones(l.reservar).map((s) => s.id).filter((id) => !esFija(id)));
-    setOcultos(new Set((l.reservar?.ocultos ?? []).filter((id) => !esFija(id))));
+    setItems(ordenarSecciones(l.reservar).map((s) => s.id).filter((id) => !esAnclada(id)));
+    setOcultos(new Set((l.reservar?.ocultos ?? []).filter(sePuedeOcultar)));
   }
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function useReservarSeccionesEditor() {
   }
 
   function toggle(id: string) {
-    if (esFija(id)) return; // el ojo ni se pinta para las fijas; segunda puerta
+    if (!sePuedeOcultar(id)) return; // el ojo ni se pinta ahí; segunda puerta
     setOcultos((prev) => {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
@@ -136,17 +136,32 @@ function Fila({ seccion, oculto, onToggle }: { seccion: SeccionReservar; oculto:
   );
 }
 
-// La fija se pinta EN SU SITIO dentro de la misma lista, no fuera ni al final:
-// así se ve dónde cae de verdad respecto a las que sí se mueven. Sin asa y sin
-// ojo — lo que no se puede hacer no se ofrece.
-function FilaFija({ seccion }: { seccion: SeccionReservar }) {
+// La anclada se pinta EN SU SITIO dentro de la misma lista, no fuera ni al
+// final: así se ve dónde cae de verdad respecto a las que sí se mueven. Sin
+// asa — lo que no se puede hacer no se ofrece.
+//
+// ⚠️ Pero el ojo SÍ va si la sección se puede ocultar. Son dos permisos
+// distintos y confundirlos costaría justo lo que más pide quien incrusta el
+// widget: quitar la portada porque su web ya tiene cabecera propia.
+function FilaAnclada({ seccion, oculto, onToggle }: {
+  seccion: SeccionReservar; oculto: boolean; onToggle: (() => void) | null;
+}) {
   return (
     <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-dashed border-border bg-muted/40">
       <Lock size={15} className="flex-none text-muted-foreground" aria-hidden />
       <span className="flex-1 min-w-0">
-        <span className="block text-[13px] font-medium truncate text-foreground">{seccion.label}</span>
-        <span className="block text-[11px] text-muted-foreground/80 truncate">Va siempre, y en su sitio.</span>
+        <span className={`block text-[13px] font-medium truncate ${oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
+          {seccion.label}
+        </span>
+        <span className="block text-[11px] text-muted-foreground/80 truncate">
+          {onToggle ? 'No cambia de sitio; se puede ocultar.' : 'Va siempre, y en su sitio.'}
+        </span>
       </span>
+      {onToggle && (
+        <button onClick={onToggle} title={oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={oculto ? `Mostrar ${seccion.label}` : `Ocultar ${seccion.label}`}>
+          {oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      )}
     </div>
   );
 }
@@ -160,7 +175,7 @@ export function ReservarSeccionesList({ hook }: { hook: ReturnType<typeof useRes
   return (
     <div className="space-y-3">
       <p className="text-[12.5px] text-muted-foreground">
-        Arrastra para reordenar tu página pública de reservas y usa el ojo para ocultar lo que no uses. El horario va siempre.
+        Usa el ojo para ocultar lo que no necesites y arrastra para reordenar. El horario va siempre; la portada no cambia de sitio, pero se puede quitar.
       </p>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={hook.onDragEnd}>
         {/* Al contexto de arrastre solo entran las movibles: la fija no es un
@@ -169,8 +184,11 @@ export function ReservarSeccionesList({ hook }: { hook: ReturnType<typeof useRes
         <SortableContext items={hook.items} strategy={verticalListSortingStrategy}>
           <div className="space-y-1.5">
             {hook.secciones.map((s) => (
-              esFija(s.id)
-                ? <FilaFija key={s.id} seccion={s} />
+              esAnclada(s.id)
+                ? <FilaAnclada
+                    key={s.id} seccion={s} oculto={hook.ocultos.has(s.id)}
+                    onToggle={sePuedeOcultar(s.id) ? () => hook.toggle(s.id) : null}
+                  />
                 : <Fila key={s.id} seccion={s} oculto={hook.ocultos.has(s.id)} onToggle={() => hook.toggle(s.id)} />
             ))}
           </div>
@@ -193,7 +211,7 @@ export function ReservarEsquema({ hook }: { hook: ReturnType<typeof useReservarS
     <div className="w-[360px] rounded-2xl border border-border bg-background p-4 space-y-2">
       <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Tu página de reservas</p>
       {hook.secciones.map((s) => {
-        const oculta = !esFija(s.id) && hook.ocultos.has(s.id);
+        const oculta = sePuedeOcultar(s.id) && hook.ocultos.has(s.id);
         return (
           <div
             key={s.id}

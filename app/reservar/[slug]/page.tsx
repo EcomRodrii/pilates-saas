@@ -21,7 +21,7 @@ import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
-import { seccionVisible } from '@/lib/reservar/secciones';
+import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
@@ -1062,8 +1062,26 @@ export default function ReservarPage() {
 
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
+  // ── Orden y visibilidad de las secciones ───────────────────────────────────
+  // Lo decide el estudio desde el editor de Apariencia. La resolución sale de
+  // `ordenarSecciones`, la MISMA función que pinta el rail del editor: aquí no
+  // se vuelve a decidir nada, así que el rail no puede prometer un orden que
+  // esta página no cumpla.
+  //
+  // ⚠️ Se reordena con `order` de CSS sobre un contenedor flex, **sin mover el
+  // DOM** — la misma técnica que ya usa `portal-home-view.tsx`. La alternativa
+  // era extraer las ~500 líneas de contenido de pestañas a una variable para
+  // poder emitirlas en orden: medio fichero movido por algo que el navegador
+  // hace solo.
+  //
+  // El precio, que es real y conviene tener escrito: el orden de tabulación y
+  // el de un lector de pantalla siguen el DOM, no lo que se ve. Solo afecta a
+  // quien reordene de verdad — sin tocar nada, los dos órdenes coinciden.
+  const posicionSeccion = new Map(ordenarSecciones(ordenReservar).map((s, i) => [s.id, i]));
+  const orden = (id: string) => posicionSeccion.get(id) ?? 0;
+
   return (
-    <div style={{ ...containerRoot, width: '100%', minHeight: '100vh', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden' }}>
+    <div style={{ ...containerRoot, width: '100%', minHeight: '100vh', background: 'var(--portal-bg)', color: 'var(--portal-ink)', fontFamily: sans, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── HERO ──────────────────────────────────────────────────────────────
           ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga
@@ -1075,7 +1093,14 @@ export default function ReservarPage() {
           pintaba porque este párrafo decía que no se podía.
           Es el mismo fallo que ya costó un hero desplegado y muerto: un dato
           que sí viaja, y una nota que asegura que no. */}
-      <div style={{ position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
+      {/* ⚠️ UNA sola caja para barra + portada + pestañas, y no tres.
+          `RT.hero` es un `linear-gradient(175deg, …)`, y un degradado se pinta
+          por CAJA: partirlo lo reinicia en cada trozo y deja dos costuras
+          horizontales en la página de todos los estudios. Se probó partido —
+          para poder mover la portada por separado— y las capturas antes/después
+          lo enseñaron sin lugar a dudas. Por eso la portada va ANCLADA al
+          horario (`SECCIONES_ANCLADAS`): se puede ocultar, no mover. */}
+      <div style={{ order: orden('horario'), position: 'relative', overflow: 'hidden', background: embedMode ? 'var(--portal-bg)' : RT.hero }}>
         {!embedMode && (
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 14, padding: `${cq(20, 2.4, 30)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, minWidth: 0 }}>
@@ -1116,7 +1141,10 @@ export default function ReservarPage() {
         </div>
         )}
 
-        {!embedMode && (
+        {/* ── PORTADA ───────────────────────────────────────────────────────
+            Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
+            tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
+        {!embedMode && seccionVisible('portada', ordenReservar) && (
         <div
           style={{
             position: 'relative',
@@ -1195,9 +1223,14 @@ export default function ReservarPage() {
         </div>
       </div>
 
-      {/* ── AVISO DE PAGO (retorno de Stripe) ───────────────────────────────── */}
+      {/* ── AVISO DE PAGO (retorno de Stripe) ─────────────────────────────────
+          Mismo `order` que el horario, a propósito: «Horario y reservas» no es
+          un solo nodo del DOM sino tres hermanos (la barra de pestañas, este
+          aviso y el contenido). Con el mismo valor, el navegador respeta entre
+          ellos el orden del DOM, así que se mueven en bloque y sin cambiar de
+          orden relativo. */}
       {pagoAviso && (
-        <div style={{ padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
+        <div style={{ order: orden('horario'), padding: `12px ${cq(20, 3.8, 48)} 0`, maxWidth: 1280, marginInline: 'auto' }}>
           <div
             className={pagoAviso === 'ok' ? 'text-success bg-success/10 border-success/30' : 'text-muted-foreground bg-muted/50 border-[var(--portal-line)]'}
             style={{ border: '1px solid', borderRadius: 14, padding: '10px 16px', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}
@@ -1212,8 +1245,10 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {/* ── CONTENT ─────────────────────────────────────────────────────────── */}
-      <div style={{ padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto' }}>
+      {/* ── CONTENT ───────────────────────────────────────────────────────────
+          El tercero de los hermanos de «Horario y reservas» — ver el comentario
+          del aviso de pago. */}
+      <div style={{ order: orden('horario'), padding: `0 ${cq(20, 3.8, 48)}`, maxWidth: 1280, marginInline: 'auto', width: '100%' }}>
 
         {/* ── TAB: CLASES ─────────────────────────────────────────────────── */}
         {tab === 'clases' && (
@@ -1681,7 +1716,7 @@ export default function ReservarPage() {
           pestañas, con redes sociales (si el estudio las configuró en "Marca y
           colores") y los mismos enlaces legales de siempre. */}
       {seccionVisible('cifras', ordenReservar) && mereceBanda(cifras) && (
-        <div style={{ borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
+        <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (
               <div key={c.id} style={{ textAlign: 'center' }}>
@@ -1693,7 +1728,8 @@ export default function ReservarPage() {
         </div>
       )}
 
-      <footer style={{ borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
+      {seccionVisible('contacto', ordenReservar) && (
+      <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
               existe: una fila de contacto con huecos vacíos, o peor, con un
@@ -1763,6 +1799,7 @@ export default function ReservarPage() {
           </div>
         </div>
       </footer>
+      )}
 
       {/* ── MODAL ───────────────────────────────────────────────────────────── */}
       <PublicSheet

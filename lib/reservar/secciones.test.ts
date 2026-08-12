@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  SECCIONES_RESERVAR, ordenarSecciones, seccionVisible, esFija,
+  SECCIONES_RESERVAR, ordenarSecciones, seccionVisible, esAnclada, sePuedeOcultar,
 } from './secciones.ts';
 
 const ids = (s: { id: string }[]) => s.map((x) => x.id);
@@ -19,25 +19,33 @@ test('sin nada guardado, el orden es el de siempre', () => {
 });
 
 test('lo guardado manda para las secciones movibles', () => {
-  const r = ids(ordenarSecciones({ orden: ['contacto', 'cifras', 'portada'] }));
-  // El horario es fijo y se queda en SU posición del catálogo (la segunda).
-  assert.equal(r[1], 'horario');
-  // Las movibles salen en el orden elegido, salteando el hueco de la fija.
-  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'cifras', 'portada']);
+  const r = ids(ordenarSecciones({ orden: ['contacto', 'cifras'] }));
+  // Portada y horario están ANCLADAS: se quedan en su posición del catálogo.
+  assert.deepEqual(r.slice(0, 2), ['portada', 'horario']);
+  // Las movibles salen en el orden elegido, detrás de las ancladas.
+  assert.deepEqual(r.slice(2), ['contacto', 'cifras']);
 });
 
-test('⚠️ el horario no se puede mover ni sacar del orden', () => {
-  // Ni pidiéndolo explícitamente: una página de reservas sin horario está rota.
-  const r = ids(ordenarSecciones({ orden: ['horario', 'portada'] }));
-  assert.ok(r.includes('horario'));
-  assert.equal(r[1], 'horario');
+test('⚠️ ni el horario ni la portada se mueven, ni pidiéndolo explícitamente', () => {
+  // Una página de reservas sin horario está rota; y la portada comparte el
+  // degradado del hero con la barra y las pestañas, así que separarla deja
+  // costuras a la vista (ver SECCIONES_ANCLADAS).
+  const r = ids(ordenarSecciones({ orden: ['horario', 'portada', 'contacto'] }));
+  assert.deepEqual(r.slice(0, 2), ['portada', 'horario']);
+  assert.equal(esAnclada('horario'), true);
+  assert.equal(esAnclada('portada'), true);
+  assert.equal(esAnclada('cifras'), false);
 });
 
-test('⚠️ el horario no se puede ocultar, aunque esté en `ocultos`', () => {
-  // Puede haber llegado ahí a mano, o de una versión en la que sí se podía.
+test('⚠️ anclada NO es lo mismo que obligatoria: la portada se oculta', () => {
+  // La distinción que más importa aquí: quien incrusta el widget bajo la
+  // cabecera que ya tiene su web quiere quitar la portada, no moverla.
+  assert.equal(sePuedeOcultar('portada'), true);
+  assert.equal(seccionVisible('portada', { ocultos: ['portada'] }), false);
+  // El horario no.
+  assert.equal(sePuedeOcultar('horario'), false);
   assert.equal(seccionVisible('horario', { ocultos: ['horario'] }), true);
-  assert.equal(esFija('horario'), true);
-  // Las demás sí.
+  // Las movibles, como siempre.
   assert.equal(seccionVisible('cifras', { ocultos: ['cifras'] }), false);
   assert.equal(seccionVisible('cifras', { ocultos: [] }), true);
   assert.equal(seccionVisible('cifras', null), true);
@@ -46,21 +54,21 @@ test('⚠️ el horario no se puede ocultar, aunque esté en `ocultos`', () => {
 test('una sección NUEVA entra al final del orden ya guardado', () => {
   // El gotcha que ya documenta la home del panel: quien personalizó su página
   // antes de que existiera «cifras» no puede encontrársela en medio.
-  const r = ids(ordenarSecciones({ orden: ['contacto', 'portada'] }));
-  assert.deepEqual(r.filter((x) => x !== 'horario'), ['contacto', 'portada', 'cifras']);
+  const r = ids(ordenarSecciones({ orden: ['contacto'] }));
+  assert.deepEqual(r.slice(2), ['contacto', 'cifras']);
 });
 
 test('una sección RETIRADA del producto no deja hueco', () => {
-  const r = ids(ordenarSecciones({ orden: ['cifras', 'ya-no-existe', 'portada'] }));
+  const r = ids(ordenarSecciones({ orden: ['cifras', 'ya-no-existe'] }));
   assert.ok(!r.includes('ya-no-existe'));
   // Y las que faltaban siguen entrando al final.
   assert.equal(r.length, POR_DEFECTO.length);
 });
 
 test('un orden guardado con duplicados no duplica la sección', () => {
-  // Lo deja un arrastre mal guardado, y duplicar el bloque de bonos en la
+  // Lo deja un arrastre mal guardado, y duplicar una sección entera en la
   // página sería visible al instante para la clienta.
-  const r = ids(ordenarSecciones({ orden: ['cifras', 'cifras', 'portada'] }));
+  const r = ids(ordenarSecciones({ orden: ['cifras', 'cifras', 'contacto'] }));
   assert.equal(r.filter((x) => x === 'cifras').length, 1);
   assert.equal(r.length, POR_DEFECTO.length);
 });

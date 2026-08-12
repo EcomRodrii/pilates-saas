@@ -10,9 +10,10 @@ import { resolveTheme } from '../lib/theme-schema.ts';
 // en `lib/reservar/secciones.test.ts`, que es puro y no necesita navegador. Lo
 // que un unitario no puede ver es si el arrastre llega al cuerpo del PUT.
 //
-// Y la regla que más importa: el horario NO se puede mover ni ocultar. Una
-// página de reservas sin horario está rota, así que su fila no tiene ni asa ni
-// ojo — se comprueba que no existen, no solo que "no funcionan".
+// Y las dos reglas que más importan, que son DISTINTAS entre sí:
+//  · el horario no se mueve NI se oculta — su fila no tiene ni asa ni ojo;
+//  · la portada no se mueve pero SÍ se oculta — tiene ojo y no tiene asa.
+// Se comprueba que los controles no existen, no solo que "no funcionan".
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -74,8 +75,7 @@ async function montar(page: Page, reservar = { orden: [] as string[], ocultos: [
 test.describe('Página pública de reservas — orden de secciones', () => {
   test('el orden por defecto es el de la página, con el horario en su sitio', async ({ page }) => {
     await montar(page);
-    const filas = page.locator('[aria-label^="Reordenar "], [aria-label="Ocultar Portada"]').first();
-    await expect(filas).toBeVisible();
+    await expect(page.getByLabel('Reordenar Cifras del estudio')).toBeVisible();
 
     // El esquema del lienzo enseña el orden completo, fijas incluidas.
     const esquema = page.getByText('Tu página de reservas').locator('..');
@@ -87,10 +87,24 @@ test.describe('Página pública de reservas — orden de secciones', () => {
 
   test('⚠️ el horario no ofrece ni arrastrar ni ocultar', async ({ page }) => {
     await montar(page);
-    // Las movibles sí las tienen; la fija, ninguna de las dos.
-    await expect(page.getByLabel('Reordenar Portada')).toBeVisible();
+    // Las movibles sí tienen asa; el horario, ninguno de los dos controles.
+    await expect(page.getByLabel('Reordenar Cifras del estudio')).toBeVisible();
     await expect(page.getByLabel('Reordenar Horario y reservas')).toHaveCount(0);
     await expect(page.getByLabel('Ocultar Horario y reservas')).toHaveCount(0);
+  });
+
+  test('⚠️ la portada no ofrece arrastrar, pero SÍ ocultar', async ({ page }) => {
+    // Los dos permisos son distintos y confundirlos costaría justo lo que más
+    // se pide: quitar la portada porque la web del estudio ya tiene cabecera.
+    const { puts } = await montar(page);
+    await expect(page.getByLabel('Reordenar Portada')).toHaveCount(0);
+    await page.getByLabel('Ocultar Portada').click();
+    await page.getByRole('button', { name: 'Guardar cambios' }).click();
+    await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
+    const enviado = puts[0].reservar as { orden: string[]; ocultos: string[] };
+    expect(enviado.ocultos).toEqual(['portada']);
+    // Y no se cuela en `orden`: no es reordenable.
+    expect(enviado.orden).not.toContain('portada');
   });
 
   test('ocultar una sección y guardar manda ese id en `ocultos`', async ({ page }) => {
@@ -102,36 +116,46 @@ test.describe('Página pública de reservas — orden de secciones', () => {
     expect(puts).toHaveLength(1);
     const enviado = puts[0].reservar as { orden: string[]; ocultos: string[] };
     expect(enviado.ocultos).toEqual(['cifras']);
-    // El horario nunca viaja en `orden` — no es reordenable, así que guardarlo
+    // Lo anclado nunca viaja en `orden` — no es reordenable, así que guardarlo
     // solo daría trabajo a `ordenarSecciones` para volver a descartarlo.
     expect(enviado.orden).not.toContain('horario');
+    expect(enviado.orden).not.toContain('portada');
   });
 
-  test('arrastrar la portada al final cambia el orden que se guarda', async ({ page }) => {
+  test('arrastrar las cifras al final cambia el orden que se guarda', async ({ page }) => {
     const { puts } = await montar(page);
     // A mano y no con `dragTo`: el PointerSensor de dnd-kit exige 5 px de
     // movimiento para activarse y luego lee cada `pointermove`, así que un
     // salto único de origen a destino no levanta nada.
-    const a = (await page.getByLabel('Reordenar Portada').boundingBox())!;
+    // ⚠️ Traerlas a la vista ANTES de medir. Este grupo es el penúltimo de un
+    // rail largo, así que las filas movibles nacen por debajo del borde;
+    // `boundingBox()` devuelve coordenadas igualmente y el ratón acababa
+    // moviéndose fuera de la ventana — el arrastre no fallaba, no llegaba a
+    // empezar, y el test parecía decir que reordenar no funciona.
+    await page.getByLabel('Reordenar Contacto y pie').scrollIntoViewIfNeeded();
+    const a = (await page.getByLabel('Reordenar Cifras del estudio').boundingBox())!;
     const b = (await page.getByLabel('Reordenar Contacto y pie').boundingBox())!;
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
     await page.mouse.down();
-    for (let i = 1; i <= 8; i++) {
-      await page.mouse.move(a.x + a.width / 2, a.y + ((b.y - a.y) * i) / 8 + a.height / 2);
+    // Se pasa de largo a propósito: dnd-kit intercambia al cruzar el CENTRO de
+    // la fila de destino, y quedarse justo en su asa se queda corto — con dos
+    // filas movibles adyacentes, «casi» no mueve nada.
+    const destino = b.y + b.height * 1.5;
+    for (let i = 1; i <= 10; i++) {
+      await page.mouse.move(a.x + a.width / 2, a.y + ((destino - a.y) * i) / 10);
     }
     await page.mouse.up();
 
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    // El horario NO aparece en lo guardado ni cuando la portada le pasa por
-    // encima: sigue sin ser una posición que nadie pueda elegir.
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['cifras', 'contacto', 'portada']);
+    // Solo viajan las MOVIBLES: ni el horario ni la portada, que van ancladas.
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras']);
   });
 
   test('un orden ya guardado se lee y se vuelve a guardar igual', async ({ page }) => {
-    const { puts } = await montar(page, { orden: ['contacto', 'cifras', 'portada'], ocultos: [] });
+    const { puts } = await montar(page, { orden: ['contacto', 'cifras'], ocultos: [] });
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras', 'portada']);
+    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras']);
   });
 });
