@@ -29,7 +29,7 @@ import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-est
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
-  AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock,
+  AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock, Megaphone,
   Send, CheckCircle2, Filter, ShieldCheck, FileSignature,
   Bot, Loader2, Mic, RefreshCw,
 } from 'lucide-react';
@@ -1509,6 +1509,12 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                 <div className="flex items-center gap-2.5">
                   <CreditCard size={13} className="text-muted-foreground shrink-0" />
                   <span className="text-xs font-medium text-foreground">{socio.nif}</span>
+                </div>
+              )}
+              {socio.origenLead && (
+                <div className="flex items-center gap-2.5">
+                  <Megaphone size={13} className="text-muted-foreground shrink-0" />
+                  <span className="text-xs font-medium text-foreground truncate">Origen: {socio.origenLead}</span>
                 </div>
               )}
               <div className="flex items-center gap-2.5">

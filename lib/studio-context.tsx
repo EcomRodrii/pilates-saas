@@ -310,7 +310,7 @@ interface StudioContextValue {
 
   // Socios
   addSocio: (fields: Omit<Socio, 'id' | 'studioId' | 'fechaAlta'> & { planId?: string; aceptacionContrato?: AceptacionContrato }) => Promise<ResultadoEscritura & { id?: string }>;
-  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }) => Promise<ResultadoEscritura>;
+  addSocioFromPortal: (fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }) => Promise<ResultadoEscritura>;
   updateSocio: (id: string, changes: Partial<Socio>) => Promise<ResultadoEscritura>;
   deleteSocio: (id: string) => Promise<void>;
   addTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
@@ -1777,7 +1777,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     }
   }
 
-  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null }): Promise<ResultadoEscritura> {
+  async function addSocioFromPortal(fields: { id: string; nombre: string; email: string; telefono?: string; aceptacionContrato?: AceptacionContrato; referidoPor?: string | null; origenLead?: string | null }): Promise<ResultadoEscritura> {
     const cpub = ctxPublico();
     if (cpub) {
       // Alta pública vía endpoint (service-role). Se AWAITea para que la reserva
@@ -1789,6 +1789,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         accion: 'registrar', studioId: cpub.studioId, id: fields.id, nombre: fields.nombre, email: fields.email,
         telefono: fields.telefono || undefined,
         aceptacion: fields.aceptacionContrato, referidoPor: fields.referidoPor ?? null,
+        origenLead: fields.origenLead ?? null,
       });
     }
     const nuevaSocia: Socio = {
@@ -1803,6 +1804,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       activo: true,
       ...(fields.aceptacionContrato ? { aceptacionContrato: fields.aceptacionContrato } : {}),
       ...(fields.referidoPor ? { referidoPor: fields.referidoPor } : {}),
+      ...(fields.origenLead ? { origenLead: fields.origenLead } : {}),
     };
     // Se ESPERA y se comprueba, igual que en `addSocio`. Antes se pintaba la
     // socia y se lanzaba el insert sin mirar la respuesta, devolviendo `ok`

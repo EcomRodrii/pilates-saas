@@ -2196,6 +2196,7 @@ export async function registrarSociaPublica(params: {
   authUserId?: string;
   aceptacion?: { fecha: string; firma: string; versionTexto: string };
   referidoPor?: string | null;
+  origenLead?: string | null;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
@@ -2232,7 +2233,7 @@ export async function registrarSociaPublica(params: {
   // adopta uno de forma determinista en vez de no adoptar ninguno.
   const { data: fantasmas } = await admin
     .from('socios')
-    .select('id')
+    .select('id, origen_lead')
     .eq('studio_id', params.studioId)
     .ilike('email', params.email)
     .is('auth_user_id', null)
@@ -2256,6 +2257,9 @@ export async function registrarSociaPublica(params: {
       // referido_por (entregarPlanComprado no acepta código de referido), así
       // que adoptarla sin escribirlo aquí perdía el premio de quien invitó.
       ...(referido ? { referido_por: referido } : {}),
+      // Igual criterio: no pisar el origen real de quien ya iba a comprar
+      // antes de este alta con el de un enlace de referido posterior.
+      ...(params.origenLead && !fantasma.origen_lead ? { origen_lead: params.origenLead } : {}),
     }).eq('id', fantasma.id);
     if (error) return { error: error.message };
     return { ok: true as const, socioId: fantasma.id as string };
@@ -2281,6 +2285,7 @@ export async function registrarSociaPublica(params: {
     aceptacion_firma: params.aceptacion?.firma ?? null,
     aceptacion_version: params.aceptacion?.versionTexto ?? null,
     referido_por: referido,
+    origen_lead: params.origenLead ?? null,
   });
   if (error) return { error: error.message };
   return { ok: true as const };

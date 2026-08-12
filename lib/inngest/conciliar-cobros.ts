@@ -285,6 +285,7 @@ async function entregar(
     // y este barrido el estudio puede haber cambiado el precio del plan.
     importeCobradoCentimos: typeof sesion?.amount_total === 'number' ? sesion.amount_total : null,
     paymentIntentId: typeof sesion?.payment_intent === 'string' ? sesion.payment_intent : null,
+    origenLead: p.origenLead,
   });
 
   if (!entrega.ok) {
