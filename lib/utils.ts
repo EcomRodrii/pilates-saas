@@ -168,3 +168,32 @@ export function horaEstudio(fecha: Date | string): string {
 export function cuandoEstudio(fecha: Date | string): string {
   return `${fechaLargaEstudio(fecha)} a las ${horaEstudio(fecha)}`;
 }
+
+/**
+ * Copia al portapapeles y dice SI LO CONSIGUIÓ.
+ *
+ * ⚠️ Existe porque cinco pantallas hacían `navigator.clipboard.writeText(x)` sin
+ * `await` ni `catch` y a continuación anunciaban «Copiado». En Chrome cuela; en
+ * Safari `writeText` **rechaza** cuando la llamada no cuelga de un gesto del
+ * usuario o el permiso está denegado — así que el aviso decía que sí y el
+ * portapapeles se quedaba vacío. Es el patrón de bug que este repo nombra como
+ * el más repetido («cero escritura optimista sin comprobar el resultado real»),
+ * aplicado al portapapeles, y del mismo tipo que el `BarcodeDetector` de #565:
+ * una API que Chrome resuelve y Safari no, en la que CI nunca se fija porque
+ * los e2e corren solo en Chromium.
+ *
+ * `navigator.clipboard` tampoco existe fuera de contexto seguro, así que se
+ * comprueba antes de tocarlo.
+ */
+export async function copiarAlPortapapeles(texto: string): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return false;
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch {
+    // Sin `console.error`: que falle la copia no es un fallo de la aplicación, y
+    // quien llama ya tiene que enseñar la alternativa (el texto sigue en
+    // pantalla para copiarlo a mano).
+    return false;
+  }
+}

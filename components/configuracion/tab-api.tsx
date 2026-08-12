@@ -5,6 +5,7 @@ import { Check, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { copiarAlPortapapeles } from '@/lib/utils';
 
 // Antes vivía escondido dentro de Estudio → Enlaces, una sub-pestaña que
 // nadie mira buscando "cómo pongo Tentare en mi web". Movido a su propio
@@ -112,8 +113,13 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   const codigo = `<iframe id="${iframeId}" src="${src}" style="width:100%;max-width:${maxWidth};height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}"></iframe>
 <script>window.addEventListener('message',function(e){if(e.data&&e.data.tentareEmbedAltura&&e.data.tentareSlug==='${slug}'){var f=document.getElementById('${iframeId}');if(f)f.style.height=e.data.tentareEmbedAltura+'px';}});</script>`;
 
-  function copiar() {
-    navigator.clipboard.writeText(codigo);
+  async function copiar() {
+    if (!(await copiarAlPortapapeles(codigo))) {
+      // Decir «copiado» y que no lo esté es peor que decir que no: se iría a su
+      // web a pegar nada y daría por roto el widget.
+      showToast('No se pudo copiar. Selecciona el código y cópialo a mano.');
+      return;
+    }
     setCopiado(true);
     showToast('Código copiado');
     setTimeout(() => setCopiado(false), 2000);

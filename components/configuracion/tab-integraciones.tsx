@@ -19,6 +19,7 @@ import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } fr
 import { authHeader } from '@/lib/api-client';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
+import { uuidV4 } from '@/lib/utils';
 
 type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' };
 
@@ -469,7 +470,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     dbInsertSoporteSolicitud({
       // Clave primaria de la fila de soporte, no se pinta en ningún sitio:
       // randomUUID da unicidad sin depender del reloj ni de Math.random.
-      id: crypto.randomUUID(),
+      // `uuidV4()` y no `crypto.randomUUID()`: este componente es de cliente y
+      // corre en el Safari del iPad de recepción, donde `randomUUID` exige
+      // contexto seguro y Safari >=15.4. El helper ya trae el fallback real.
+      id: uuidV4(),
       tipo: 'MEJORA',
       mensaje: `Quiero que se avise cuando esté disponible la integración con ${cat.nombre}.`,
       contacto: null,
