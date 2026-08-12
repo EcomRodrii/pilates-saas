@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { uid } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 import {
   enviarEmailContactoSustituta,
@@ -48,9 +48,7 @@ export function appUrl(): string {
 // Fecha/hora de la clase en texto legible (España). Compartido por ruta, avisos y escalado.
 export function formatCuando(inicio: string): string {
   const d = new Date(inicio);
-  const fecha = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
-  return `${fecha} · ${hora}`;
+  return `${fechaLargaEstudio(d)} · ${horaEstudio(d)}`;
 }
 
 type SesionMin = { inicio: string; tipo_clase_id: string | null } | null;

@@ -9,7 +9,7 @@ import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
-import { uid } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
@@ -797,8 +797,8 @@ async function datosClaseParaEmail(
     admin.from('studios').select('nombre').eq('id', studioId).maybeSingle(),
   ]);
   const inicio = new Date(ses.inicio as string);
-  const fecha = inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' });
-  const hora = inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
+  const fecha = fechaLargaEstudio(inicio);
+  const hora = horaEstudio(inicio);
   return {
     inicioISO: ses.inicio as string,
     claseNombre: tipo?.nombre ?? 'Clase',
@@ -1137,8 +1137,8 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     const datos = {
       inicioISO: ses.inicio as string,
       claseNombre: tipoNombre.get(ses.tipo_clase_id as string) ?? 'Clase',
-      fecha: inicio.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Madrid' }),
-      hora: inicio.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
+      fecha: fechaLargaEstudio(inicio),
+      hora: horaEstudio(inicio),
       sala: (ses.sala_id ? salaNombre.get(ses.sala_id as string) : '') ?? '',
       instructor: (ses.instructor_id ? instNombre.get(ses.instructor_id as string) : '') ?? '',
       estudioNombre: studioNombre.get(ses.studio_id as string) ?? 'Tentare',
