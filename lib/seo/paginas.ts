@@ -467,6 +467,8 @@ export function urlDe(path: string): string {
 export const PREFIJOS_NO_INDEXABLES = [
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno',
+  // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
+  '/demo',
   // Cara pública operativa de cada estudio (decisión: B2B primero, sin miles de URLs por estudio)
   '/portal', '/kiosk', '/reservar',
   // Enlaces firmados de un solo uso
