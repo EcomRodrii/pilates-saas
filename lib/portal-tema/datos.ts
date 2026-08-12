@@ -22,6 +22,9 @@ import type {
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 const CLAVE_DIA = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+/** El día de la semana entero, para la cabecera del Inicio ("Miércoles, 14 de
+ *  mayo"). En minúscula: quien lo pinta decide si va en versalitas. */
+const NOMBRE_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 /**
  * El nivel, en palabras. `tipos_clase.nivel` es un enum
  * (`TODOS`/`PRINCIPIANTE`/`MEDIO`/`AVANZADO`) y el portal lo pinta tal cual en
@@ -89,6 +92,22 @@ export function semanaDe(ahora: Date, tz = TZ_ESTUDIO): DiaPortal[] {
  *  las clases (`StudioClass.day`) y la tira de la semana. */
 export function diaDelMesHoy(ahora: Date, tz = TZ_ESTUDIO): number {
   return partes(fechaLocalDe(ahora, tz)).dia;
+}
+
+/**
+ * Hoy, en la zona del estudio: el día del mes y su fecha en palabras.
+ *
+ * Las dos salen de la MISMA fecha local a propósito. Calcular el número por un
+ * lado y la etiqueta por otro es lo que deja la cabecera diciendo «miércoles»
+ * mientras el horario marca el jueves las noches de cambio de hora.
+ */
+export function hoyDe(ahora: Date, tz = TZ_ESTUDIO): { num: number; largo: string } {
+  const local = fechaLocalDe(ahora, tz);
+  const { anio, mes, dia } = partes(local);
+  // Mediodía UTC, mismo motivo que en `diasDeLaSemana`: a las 00:00 el
+  // desplazamiento de zona puede cruzar de día.
+  const idx = new Date(Date.UTC(anio, mes - 1, dia, 12)).getUTCDay();
+  return { num: dia, largo: `${NOMBRE_DIA[idx]}, ${dia} de ${MESES[mes - 1]}` };
 }
 
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
@@ -235,6 +254,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
   const clases = clasesDeLaSemana({ ...f, tz });
   return {
     clases,
+    hoy: hoyDe(f.ahora, tz),
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
     planes: planesDe(f.planes),

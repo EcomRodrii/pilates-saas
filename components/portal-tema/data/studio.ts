@@ -131,6 +131,10 @@ export const plural = (n: number, one: string, many: string) => n + " " + (n ===
 /** Lo que ve la previsualización de temas: no hay estudio del que tirar. */
 export const DATOS_DE_MUESTRA: DatosPortal = {
   clases: CLASSES,
+  // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
+  // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
+  // estudio; aquí es de muestra, como el resto de este objeto.
+  hoy: { num: 4, largo: "martes, 4 de septiembre" },
   dias: [...DAYS],
   filtros: [...FILTERS],
   planes: PLANS,

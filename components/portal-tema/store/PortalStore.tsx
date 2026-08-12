@@ -88,6 +88,7 @@ export interface PortalActions {
   goTab(tab: TabId): void;
   goSchedule(): void;
   goBookings(): void;
+  goPasses(): void;
   goProfile(): void;
   goto(screen: ScreenId): void;
   openClass(id?: string): void;
@@ -381,6 +382,12 @@ export function PortalProvider({
       goTab: (tab) => ir({ tab, screen: tab }),
       goSchedule: () => ir({ tab: "clases", screen: "clases" }),
       goBookings: () => ir({ tab: "reservas", screen: "reservas" }),
+      // Bonos NO es una pestaña (`TabId` son cuatro) pero SÍ es pantalla y
+      // ruta (`/portal/<slug>/bonos`, ver PANTALLA_A_RUTA en el marco): se
+      // navega sin tocar `tab`, igual que `goto`. Existe como acción propia y
+      // no como `goto("bonos")` suelto para que los bloques no tengan que
+      // saber cómo se llama la pantalla.
+      goPasses: () => ir({ screen: "bonos" }),
       goProfile: () => ir({ tab: "perfil", screen: "perfil" }),
       goto: (screen) => ir({ screen }),
       openClass: (id) => ir({ screen: "detalle", classId: id || stateRef.current.classId }),

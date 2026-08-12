@@ -21,7 +21,10 @@ export const THEME: ThemeConfig = {
     "quick_links_style": "bare",
     "tab_bar_style": "classic",
     "tab_icon_fill": false,
-    "detail_style": "bleed"
+    "detail_style": "bleed",
+    // La tarjeta con foto y velo de siempre. El billete troquelado es de
+    // Tentada (ver `NextClassStyle` en tipos-tema.ts).
+    "next_class_style": "hero"
   },
   "home_blocks": [
     "greeting",

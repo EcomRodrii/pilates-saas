@@ -5,6 +5,7 @@ import { THEME_DEFINITIONS, getThemeDefinition } from './theme-definitions.ts';
 import { themeDraftSchema, themeConfigSchema, DEFAULT_THEME } from './theme-schema.ts';
 import { validarContrasteTheme, themeToCssVars } from './theme-runtime.ts';
 import { VARIANTES_PORTAL } from './theme-variantes.ts';
+import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO } from '../themes/registro.ts';
 
 test('THEME_DEFINITIONS: ids únicos, y "classic" existe con defaults vacíos (el tema de siempre)', () => {
   const ids = THEME_DEFINITIONS.map((d) => d.id);
@@ -47,8 +48,24 @@ test('THEME_DEFINITIONS: todos los temas pasan el gate de contraste, sin retocar
   }
 });
 
-test('la biblioteca es el predeterminado y los tres temas de diseño, nada más', () => {
-  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['classic', 'oliva', 'bloom', 'noir']);
+test('la biblioteca es Tentada, el tema de siempre y los tres de diseño, nada más', () => {
+  assert.deepEqual(THEME_DEFINITIONS.map((t) => t.id), ['tentada', 'classic', 'oliva', 'bloom', 'noir']);
+});
+
+test('Tentada va PRIMERA: es el tema predeterminado de la app de la alumna', () => {
+  // El orden de este array es el de la biblioteca. Que Tentada abra la lista
+  // no es cosmético: es lo que la hace el punto de partida por defecto, y
+  // `TEMA_PORTAL_POR_DEFECTO` (themes/registro.ts) apunta al mismo id.
+  assert.equal(THEME_DEFINITIONS[0].id, 'tentada');
+  assert.equal(TEMA_PORTAL_POR_DEFECTO, 'tentada');
+  assert.ok(TEMAS_PORTAL[TEMA_PORTAL_POR_DEFECTO]);
+});
+
+test('Tentada NO es retroactiva: `classic` sigue existiendo y sigue vacío', () => {
+  // La regresión cara de esta tanda sería "predeterminado" entendido como
+  // "aplicado a todos": un estudio que sigue en `classic` (o en cualquier
+  // otro) conserva su tema, porque `themeId` es un dato de su fila.
+  assert.deepEqual(getThemeDefinition('classic')!.defaults, {});
 });
 
 // ⚠️ Antes había una guardia que exigía lo contrario ("siguen estando los
@@ -70,11 +87,31 @@ test('Noir es el único que pide barra oscura; Bloom el único que pide barra fl
   assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraFlotante).length, 1);
 });
 
-test('Oliva y Noir piden barra clásica; Bloom no la pide (sigue flotando)', () => {
+test('Tentada, Oliva y Noir piden barra clásica; Bloom no la pide (sigue flotando)', () => {
+  assert.equal(getThemeDefinition('tentada')!.defaults.barraClasica, true);
   assert.equal(getThemeDefinition('oliva')!.defaults.barraClasica, true);
   assert.equal(getThemeDefinition('noir')!.defaults.barraClasica, true);
   assert.ok(!getThemeDefinition('bloom')!.defaults.barraClasica);
-  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraClasica).length, 2);
+  assert.equal(THEME_DEFINITIONS.filter((t) => t.defaults.barraClasica).length, 3);
+});
+
+test('Tentada: la escala del prototipo, con el saludo como titular de pantalla', () => {
+  const e = getThemeDefinition('tentada')!.defaults.escalaTexto;
+  // 44px contra los 19-24 del resto: en Tentada el saludo NO es una línea de
+  // cabecera, es el titular sobre la foto. Este test es el que impide que se
+  // "corrija" a la baja por parecerse a los otros temas.
+  assert.equal(e?.saludo, 44);
+  assert.equal(e?.seccion, 20);
+  assert.equal(e?.tituloPantalla, 26);
+});
+
+test('Tentada es la única que titula con Cormorant Garamond', () => {
+  assert.equal(getThemeDefinition('tentada')!.defaults.portalHeadingFontId, 'cormorant');
+  assert.equal(
+    THEME_DEFINITIONS.filter((t) => t.defaults.portalHeadingFontId === 'cormorant').length, 1);
+  const v = varsDe('tentada');
+  assert.match(v['--portal-heading-font'], /--font-cormorant/);
+  assert.equal(v['--portal-heading-weight'], '500');
 });
 
 // Valores exactos del prototipo real (paleta() → radCard/radBoton), leído vía

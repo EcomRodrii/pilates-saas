@@ -91,9 +91,48 @@ export function useViewModel() {
         initial: datos.socia.initial || cfg.member_initial,
         headline: cfg.headline,
         hasAlert: !state.alertsSeen,
+        // La cabecera con foto de Tentada: nombre a secas ("Hola, Laura"),
+        // la fecha de hoy y la nota del tema. Sin nombre de socia (la
+        // previsualización) cae al del tema, igual que `micro`/`name`.
+        hola: `Hola, ${datos.socia.short || cfg.member_name}`,
+        today: datos.hoy.largo,
+        note: cfg.greeting_note,
       },
 
-      next: next && { id: next.id, name: next.name, teacher: next.teacher, meta: "Mañana, " + next.time + " · " + next.room },
+      // El horario de HOY, aunque la socia esté mirando otro día en la tira de
+      // la semana: es la fila «Hoy en el estudio», no «el día seleccionado».
+      today: datos.clases
+        .filter((c) => c.day === datos.hoy.num)
+        // Por hora, y aquí y no en el adaptador: es una lista de RELOJ («qué
+        // pasa hoy en la sala»), no la del horario. `clasesDeLaSemana` ya
+        // ordena, pero esta lista tiene que salir en orden venga de donde
+        // venga — con los datos de muestra salía 18:00 antes que 10:00.
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .map((c) => {
+          const mine = idsReservados.includes(c.id);
+          const full = !mine && c.seats === 0;
+          return {
+            id: c.id, time: c.time, name: c.name,
+            meta: c.teacher + " · " + c.room,
+            // Tres estados y no un booleano: "mía", "completa" y "libre" se
+            // pintan distinto y el orden de precedencia importa — una clase
+            // completa que YA es mía se lee como mía.
+            tone: (mine ? "mine" : full ? "full" : "free") as "mine" | "full" | "free",
+            tag: mine ? "TU CLASE" : full ? "COMPLETA" : "RESERVAR",
+          };
+        }),
+
+      // ⚠️ `meta` decía literalmente "Mañana, 18:00 · Sala 2" fuera cuando
+      // fuera la clase: venía así del kit de diseño, donde la próxima clase
+      // siempre era mañana. Con datos reales puede ser hoy o el sábado, así
+      // que el día sale de `etiquetaDia` y "Hoy" de la fecha del estudio.
+      next: next && {
+        id: next.id, name: next.name, teacher: next.teacher,
+        time: next.time, room: next.room, duration: next.duration,
+        isToday: next.day === datos.hoy.num,
+        day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
+        meta: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + ", " + next.time + " · " + next.room,
+      },
       nextHeading: next ? (cfg.id === "noir" ? "Tu próxima clase" : "Próxima clase") : "Tu semana",
 
       progress: {
@@ -144,6 +183,10 @@ export function useViewModel() {
         if (!c) return [];
         return [{
           id: c.id, name: c.name, time: c.time, day: etiquetaDia(datos, c.day),
+          // El número del mes, para el bloque que pinta la fecha en grande.
+          // Va aparte de `day` (la etiqueta "MAR") y no concatenado: quien
+          // pinta decide si enseña una, la otra o las dos.
+          dayNum: c.day,
           meta: c.room + " · " + c.teacher,
           // El id que hay que mandar para cancelar NO es el de la clase.
           // `undefined` en la demo, donde no hay reserva que cancelar.
@@ -152,9 +195,16 @@ export function useViewModel() {
       }),
 
       pass: {
-        name: datos.bono.name, left: passLeft, expires: datos.bono.expires,
+        name: datos.bono.name, left: passLeft, total: datos.bono.total, expires: datos.bono.expires,
         // Sin bono no hay porcentaje que enseñar, y dividir por cero daría NaN.
         percent: datos.bono.total ? Math.round((passLeft / datos.bono.total) * 100) : 0,
+        // Una semilla por sesión del bono, encendidas las que quedan. Se topan
+        // a 12: con un bono de 50 la fila se convierte en una raya gris y deja
+        // de contarse de un vistazo, que es lo único que aporta frente a la
+        // barra. Por encima del tope el bloque enseña la barra y no las
+        // semillas — ver `seedsFit`.
+        seeds: Array.from({ length: Math.min(datos.bono.total, 12) }, (_, i) => i < passLeft),
+        seedsFit: datos.bono.total > 0 && datos.bono.total <= 12,
       },
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
       metrics: [

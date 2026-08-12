@@ -82,6 +82,10 @@ export const ESTILOS_TITULAR_PORTAL = [
   // registrada en next/font (app/layout.tsx); aquí se reusa en negrita para
   // titulares, sin fuente nueva.
   { id: 'poppins', label: 'Poppins (negrita)' },
+  // Tema "Tentada" — Cormorant Garamond, registrada en next/font
+  // (app/layout.tsx) con su cursiva. Es la ÚNICA de esta lista que trae una
+  // familia nueva: las otras tres reusan fuentes que el layout ya cargaba.
+  { id: 'cormorant', label: 'Cormorant Garamond' },
 ] as const;
 
 export type PortalHeadingFontId = (typeof ESTILOS_TITULAR_PORTAL)[number]['id'];

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  horaLocal, inicialDe, planesDe, reservadasDe, semanaDe, sociaDe,
+  horaLocal, hoyDe, inicialDe, planesDe, reservadasDe, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -355,4 +355,28 @@ test('construirDatosPortal: sin socia identificada, `reservadas` es undefined', 
     socio: null, suscripciones: [], planes: [],
   });
   assert.equal(datos.reservadas, undefined);
+});
+
+// ── hoyDe: la fecha que pinta la cabecera del Inicio ────────────────────────
+
+test('hoyDe: el número del mes y la fecha en palabras salen de la MISMA fecha local', () => {
+  // 5 de agosto de 2026, martes.
+  const r = hoyDe(new Date('2026-08-05T09:00:00Z'));
+  assert.deepEqual(r, { num: 5, largo: 'miércoles, 5 de agosto' });
+});
+
+test('hoyDe: la medianoche de Madrid NO se va al día anterior', () => {
+  // 00:30 en Madrid es el día ANTERIOR en UTC. Es el mismo bug que ya se comió
+  // `semanaDe`: con UTC la cabecera diría «martes, 4 de agosto» mientras la
+  // tira de la semana marca el 5.
+  const r = hoyDe(new Date('2026-08-04T22:30:00Z'));
+  assert.equal(r.num, 5);
+  assert.equal(r.largo, 'miércoles, 5 de agosto');
+});
+
+test('hoyDe: el número y la etiqueta nunca discrepan en el cambio de hora', () => {
+  // Madrugada del cambio de hora de octubre de 2026 (25/10).
+  const r = hoyDe(new Date('2026-10-25T00:30:00Z'));
+  assert.equal(r.num, 25);
+  assert.ok(r.largo.startsWith('domingo, 25 de octubre'));
 });

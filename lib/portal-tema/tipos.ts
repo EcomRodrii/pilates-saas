@@ -83,6 +83,12 @@ export interface ReservaPortal {
 
 export interface DatosPortal {
   clases: StudioClass[];
+  /**
+   * Hoy en la zona del estudio. `num` es el día del MES (casa con
+   * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
+   * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.
+   */
+  hoy: { num: number; largo: string };
   dias: DiaPortal[];
   filtros: FiltroPortal[];
   planes: PlanPortal[];

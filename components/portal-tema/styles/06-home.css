@@ -206,3 +206,224 @@
 .quick-links--bare .quick-link__label { display: block; margin-top: 9px; }
 
 .week-card { padding: 18px 18px 20px; }
+
+/* ── Cabecera con foto (Tentada) ─────────────────────────────────────────
+ *
+ * Sale del lienzo con márgenes negativos en lugar de vivir fuera de `.canvas`:
+ * el orden de los bloques lo decide `home_blocks`, y un bloque que tuviera que
+ * montarse fuera del contenedor dejaría de ser reordenable.
+ *
+ * Los `-22px` laterales son el `padding` de `.canvas`; el `-2px` de arriba, el
+ * suyo. Si ese padding cambiara, esto cambia con él — de ahí que estén juntos
+ * en esta hoja y no repartidos.
+ */
+.home-header {
+  position: relative;
+  margin: -2px -22px 0;
+  min-height: var(--home-header-height, 300px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 62px 22px 30px;
+  background: var(--home-header-bg, var(--brand));
+  overflow: hidden;
+}
+.home-header__photo { position: absolute; inset: 0; }
+.home-header__photo img { width: 100%; height: 100%; object-fit: cover; }
+.home-header__veil { position: absolute; inset: 0; background: var(--home-header-veil); }
+.home-header__top {
+  position: absolute; top: 62px; left: 22px; right: 22px;
+  display: flex; align-items: center; justify-content: space-between;
+  color: var(--home-header-ink, #fff);
+}
+.home-header__date {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--home-header-ink-soft, rgba(255,255,255,.85));
+}
+.home-header__body { position: relative; }
+.home-header__hello {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-greeting); line-height: .98; letter-spacing: .005em;
+  color: var(--home-header-ink, #fff);
+  /* La Garamond a 44px con un nombre largo ("Hola, Inmaculada") desborda; que
+   * parta antes de recortarse. */
+  overflow-wrap: anywhere;
+}
+.home-header__note {
+  margin-top: 9px;
+  font-family: var(--font-display); font-style: italic; font-size: 17px;
+  color: var(--home-header-ink-soft, rgba(255,255,255,.88));
+}
+/* La campana de la cabecera va sobre foto: cristal, no transparente. */
+.home-header .icon-btn--glass {
+  border: 1px solid rgba(255,255,255,.3);
+  background: rgba(24,27,15,.25);
+  backdrop-filter: blur(6px);
+  color: var(--home-header-ink, #fff);
+}
+.home-header .icon-btn--glass:hover { background: rgba(24,27,15,.45); }
+
+/* ── El billete de la próxima clase (Tentada) ────────────────────────────
+ *
+ * ⚠️ El `margin-top` negativo lo monta sobre la cabecera de foto, que es lo
+ * que hace que se lea como una entrada que asoma. Solo cuando va JUSTO
+ * detrás: si el tema reordena `home_blocks` y el billete queda en medio de la
+ * pantalla, el selector no aplica y el bloque se comporta como una tarjeta
+ * normal.
+ */
+.ticket {
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-card);
+  background: var(--ticket-bg, var(--surface));
+  border: 1px solid var(--ticket-border, var(--border));
+  box-shadow: var(--ticket-shadow, var(--shadow-card));
+  transition: box-shadow .24s ease, transform .12s ease;
+}
+.home-header + .ticket { margin-top: -42px; position: relative; z-index: 2; }
+.ticket:hover { box-shadow: var(--shadow-float); }
+.ticket__top, .ticket__foot { display: block; padding: 15px 18px 13px; }
+.ticket__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ticket__kicker {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--brand);
+}
+.ticket__badge {
+  flex: none;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  color: var(--on-brand); background: var(--brand);
+  border-radius: 999px; padding: 4px 10px;
+}
+.ticket__line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.ticket__name {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: var(--size-hero-title); line-height: 1.05; color: var(--ink);
+}
+.ticket__time {
+  flex: none;
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: calc(var(--size-hero-title) + 2px); line-height: 1.05; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ticket__meta { display: block; margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+
+/* El troquel: una línea de puntos y dos muescas del color del LIENZO. */
+.ticket__perf { position: relative; display: block; border-top: 1.6px dashed var(--ticket-perf, var(--border)); }
+.ticket__perf::before, .ticket__perf::after {
+  content: ""; position: absolute; top: -9px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--ticket-notch, var(--bg));
+}
+.ticket__perf::before { left: -10px; }
+.ticket__perf::after { right: -10px; }
+
+.ticket__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ticket__note { font-size: 10.5px; color: var(--muted); }
+.ticket__cta {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: var(--brand);
+}
+
+/* ── Hoy en el estudio (Tentada) ─────────────────────────────────────────── */
+.timeline { display: flex; flex-direction: column; gap: 7px; }
+.timeline__row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 14px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.timeline__time {
+  width: 40px; flex: none;
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.timeline__dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--brand); }
+.timeline__body { flex: 1; min-width: 0; }
+.timeline__name { display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+.timeline__meta { display: block; margin-top: 2px; font-size: 10.5px; color: var(--muted); }
+.timeline__tag {
+  flex: none;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--brand);
+}
+/* La clase que ya es tuya: la fila entera de color de marca. */
+.timeline__row--mine { background: var(--brand); border-color: var(--brand); }
+.timeline__row--mine .timeline__time { color: var(--on-brand); }
+.timeline__row--mine .timeline__dot { background: var(--on-brand); opacity: .9; }
+.timeline__row--mine .timeline__name { color: var(--on-brand); }
+.timeline__row--mine .timeline__meta,
+.timeline__row--mine .timeline__tag { color: var(--on-brand); opacity: .75; }
+/* La completa se apaga, pero sigue siendo pulsable: desde el detalle se entra
+ * en la lista de espera. */
+.timeline__row--full { background: var(--track); border-color: var(--track); }
+.timeline__row--full :is(.timeline__time, .timeline__name, .timeline__meta, .timeline__tag) { color: var(--muted); }
+.timeline__row--full .timeline__dot { background: var(--card-hover-border); }
+
+/* ── El bono con semillas (Tentada) ──────────────────────────────────────── */
+.pass-card {
+  width: 100%;
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color .2s ease;
+}
+.pass-card:hover { border-color: var(--card-hover-border); }
+.pass-card__body { flex: 1; min-width: 0; }
+.pass-card__name {
+  display: block;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted);
+}
+.pass-card__left {
+  display: block; margin-top: 4px;
+  font-family: var(--font-display); font-size: var(--size-pass-name); color: var(--ink);
+}
+.pass-card__left b { font-weight: 600; color: var(--brand); }
+.seeds { flex: none; display: flex; gap: 4.5px; }
+.seed { display: block; width: 7px; height: 7px; border-radius: 50%; background: var(--track); }
+.seed.is-on { background: var(--brand); }
+/* Bono largo: una barra, que sí se lee de un vistazo por encima de 12 pasos. */
+.pass-card__track { flex: 0 0 80px; height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.pass-card__fill { display: block; height: 100%; border-radius: 999px; background: var(--brand); transition: width .4s ease; }
+.pass-card__chevron { flex: none; color: var(--card-hover-border); }
+
+/* ── Mis reservas (Tentada) ──────────────────────────────────────────────── */
+.booking-list { display: flex; flex-direction: column; gap: 10px; }
+.booking {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 15px 11px 11px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color .2s ease;
+}
+.booking:hover { border-color: var(--card-hover-border); }
+.booking__day {
+  flex: none;
+  width: 47px; height: 54px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-radius: 15px;
+  background: var(--accent-soft);
+  color: var(--brand);
+}
+.booking__num {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 22px; line-height: 1;
+}
+.booking__dow {
+  margin-top: 2px;
+  font-size: 8px; font-weight: 700; letter-spacing: .14em;
+  opacity: .65;
+}
+.booking__body { flex: 1; min-width: 0; }
+.booking__name { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+.booking__meta { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+.booking__time {
+  flex: none;
+  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

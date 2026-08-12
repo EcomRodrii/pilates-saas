@@ -1,0 +1,196 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * Tentada — tokens de diseño
+ *
+ * El tema PREDETERMINADO de la app de la alumna. Sale del prototipo
+ * "Balance App" de Claude Design (proyecto f706a211), medido color a color
+ * sobre el HTML entregado, no recordado.
+ *
+ * Mismas dos reglas que Oliva/Bloom/Noir, y por los mismos motivos (ver la
+ * cabecera de `themes/oliva/tokens.css`):
+ *
+ *   1. `html[data-theme="…"]` y no `[data-theme="…"]` a secas, porque el
+ *      layout raíz ya declara `--font-display` en <html> con una clase de
+ *      `next/font` y a igual especificidad decidiría el orden de los chunks.
+ *   2. Las fuentes van por `var(--font-…)`, nunca por nombre de familia: este
+ *      repo las sirve con `next/font` desde su propio dominio y el `<link>` a
+ *      fonts.googleapis.com del prototipo sobra.
+ *
+ * ⚠️ El prototipo escribe `var(--brand,#333B24)` en cada regla porque su
+ * runtime inyecta `--brand` en <html> desde un prop. Aquí ese fallback no se
+ * copia: `--brand` SIEMPRE existe (lo declara este bloque, y la propietaria lo
+ * pisa en línea desde Apariencia). Un fallback duplicado solo serviría para
+ * que un fallo de carga pasara desapercibido.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+html[data-theme="tentada"] {
+  /* ── Marca ─────────────────────────────────────────────────────────── */
+  --brand: #333B24;
+  --brand-hover: #4A5330;
+  --on-brand: #F6F3EB;
+  --support: #ECDFD2;
+  --support-soft: color-mix(in srgb, #ECDFD2 55%, #FFFFFF);
+  /* Tentada no tiene tercer color, igual que Oliva: su carácter es el verde
+   * profundo sobre crema y la serif. El "acento" es la marca otra vez — el
+   * único color ajeno del prototipo es el arena del bloque "Pilates en casa",
+   * que es superficie (`--support`), no acento. */
+  --accent: #333B24;
+  --accent-soft: color-mix(in srgb, #333B24 8%, #FFFFFF);
+  --accent-ink: #333B24;
+
+  /* ── Superficies y texto ───────────────────────────────────────────── */
+  --bg: #F6F3EB;
+  --surface: #FFFFFF;
+  --border: #E8E4D7;
+  --ink: #22261B;
+  --muted: #8A8C7E;
+  --card-hover-border: #CFCBBB;
+  --focus-ring: color-mix(in srgb, #333B24 22%, transparent);
+
+  /* ── Semánticos ────────────────────────────────────────────────────── */
+  --success: #3F6B4A;
+  --warning: #8A6B22;
+  --danger: #B4452F;
+  --dot: #333B24;
+  --fav: #333B24;
+  --done-bg: #ECDFD2;
+  --done-ink: #333B24;
+  --track: #EDEADD;
+
+  /* ── Tipografía ────────────────────────────────────────────────────── */
+  /* Cormorant Garamond en los titulares, Plus Jakarta Sans en todo lo demás.
+   * El peso de display es 500 y no 700: en una Garamond el 700 no existe en
+   * el subconjunto que carga el layout, y a este tamaño (44px del saludo) el
+   * 500 ya pesa por el contraste del trazo — subirlo la ensucia. */
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-body: var(--font-jakarta), system-ui, sans-serif;
+  --weight-display: 500;
+
+  /* El rótulo de sección de Tentada son versalitas de cuerpo, no un titular
+   * pequeño en la serif: «HOY EN EL ESTUDIO», no «Hoy en el estudio». De ahí
+   * que `--size-section` (20px, el paso de la escala) NO se use para el
+   * rótulo, que va a 10.5px — el paso grande manda en los titulares de
+   * bloque, y aquí lo pisa `--size-section-title`. */
+  --size-section: 20px;
+  --size-section-title: 10.5px;
+  --section-title-family: var(--font-body);
+  --section-title-weight: 700;
+  --section-title-tracking: .16em;
+  --section-title-transform: uppercase;
+  --section-title-color: var(--muted);
+
+  --size-screen-title: 26px;
+  --size-greeting: 44px;
+  --size-hero-title: 25px;
+  --size-pass-name: 18px;
+  --size-detail-label: 14px;
+
+  /* ── Espaciado ─────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --canvas-gap: 22px;
+
+  /* ── Rejilla ───────────────────────────────────────────────────────── */
+  --page-width: 1200px;
+  --gutter: 22px;
+  --grid-gap: 22px;
+  --section-pad-block: 84px;
+
+  /* ── Radios ────────────────────────────────────────────────────────── */
+  --radius-card: 20px;
+  --radius-button: 16px;
+  --radius-chip: 999px;
+  --radius-input: 14px;
+  --radius-quick-link: 18px;
+
+  /* ── Sombras ───────────────────────────────────────────────────────── */
+  --shadow-card: none;
+  --shadow-card-hover: 0 20px 44px -24px rgba(24,27,15,.42);
+  --shadow-float: 0 22px 48px -22px rgba(24,27,15,.5);
+  --shadow-control: 0 10px 28px -8px rgba(24,27,17,.5);
+
+  /* ── Teléfono ──────────────────────────────────────────────────────── */
+  --phone-width: 393px;
+  --phone-height: 852px;
+  --bezel: #3A3A34;
+  --desk: #EDEBE2;
+  --desk-ink: #1D1D19;
+  --desk-muted: #9A9C8E;
+
+  /* ── Componentes ───────────────────────────────────────────────────── */
+  --chip-height: 34px;
+  --chip-bg: #FFFFFF;
+  --tab-bar-bg: #FFFFFF;
+  --tab-bar-border: 1px solid #EBE7DA;
+  --tab-active: #333B24;
+  --tab-idle: #9A9C8E;
+  --bell-bg: transparent;
+  --bell-border: none;
+  --photo-bg: #2A2E20;
+  --control-bg: #FFFFFF;
+  --control-border: 1px solid #E4E0D2;
+
+  /* ── Próxima clase ─────────────────────────────────────────────────── */
+  /* En Tentada la próxima clase NO es una tarjeta con foto: es el billete
+   * blanco con la perforación (`next_class_style: "ticket"`). Estos tokens
+   * siguen declarados porque el mismo componente pinta las dos formas y la
+   * variante `hero` tiene que seguir siendo legible si alguien la elige. */
+  --hero-bg: #FFFFFF;
+  --hero-veil: linear-gradient(180deg,rgba(24,27,15,.58) 0%,rgba(24,27,15,.10) 46%,rgba(24,27,15,.66) 100%);
+  --hero-ink: #FFFFFF;
+  --hero-ink-soft: rgba(255,255,255,.78);
+  --hero-ink-strong: rgba(255,255,255,.92);
+  --hero-cta-bg: #F6F3EB;
+  --hero-cta-ink: #333B24;
+  --hero-arrow: inherit;
+  --hero-arrow-opacity: 0.7;
+
+  /* ── El billete de la próxima clase ────────────────────────────────── */
+  --ticket-bg: #FFFFFF;
+  --ticket-border: #EBE7DA;
+  --ticket-shadow: 0 20px 44px -24px rgba(24,27,15,.42);
+  --ticket-perf: #DFDACA;
+  /* Los dos semicírculos de la perforación son del color del LIENZO, no del
+   * billete: es lo que da la ilusión del troquel. Si el bloque se moviera a un
+   * fondo distinto, esto es lo único que hay que cambiar. */
+  --ticket-notch: var(--bg);
+
+  /* ── Cabecera con foto del Inicio ──────────────────────────────────── */
+  --home-header-height: 318px;
+  --home-header-bg: #2A2E20;
+  --home-header-veil: linear-gradient(180deg,rgba(24,27,15,.58) 0%,rgba(24,27,15,.18) 30%,rgba(24,27,15,.06) 52%,rgba(24,27,15,.38) 78%,rgba(24,27,15,.66) 100%);
+  --home-header-ink: #FFFFFF;
+  --home-header-ink-soft: rgba(255,255,255,.85);
+
+  /* ── Bienvenida ────────────────────────────────────────────────────── */
+  --welcome-bg: #2A2E20;
+  --welcome-veil: linear-gradient(180deg,rgba(24,27,17,.42) 0%,rgba(24,27,17,0) 32%,rgba(24,27,17,0) 46%,rgba(24,27,17,.82) 88%);
+  --welcome-ink: #FFFFFF;
+  --welcome-ink-soft: rgba(255,255,255,.82);
+  --welcome-accent: inherit;
+  --welcome-pad: 0 28px 46px;
+  --welcome-measure: 280px;
+  --welcome-leading: 1.28;
+  --size-welcome: 25px;
+  --size-welcome-text: 13.5px;
+  --welcome-cta-bg: #F6F3EB;
+  --welcome-cta-ink: #22261B;
+  --welcome-cta-height: 54px;
+  --welcome-cta-justify: center;
+  --welcome-cta-pad: 0 24px;
+  --welcome-cta-shadow: none;
+  --welcome-dots: flex-start;
+  --welcome-dot-on: #FFFFFF;
+  --welcome-dot-off: rgba(255,255,255,.4);
+
+  /* ── Hero de la web pública ────────────────────────────────────────── */
+  --hero-section-veil: linear-gradient(180deg,rgba(24,27,15,.10) 0%,rgba(24,27,15,.16) 46%,rgba(24,27,15,.70) 100%);
+  --hero-section-ink: #FFFFFF;
+  --hero-section-ink-soft: rgba(255,255,255,.86);
+}

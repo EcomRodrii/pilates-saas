@@ -21,7 +21,10 @@ export const THEME: ThemeConfig = {
     "quick_links_style": "cards",
     "tab_bar_style": "classic",
     "tab_icon_fill": true,
-    "detail_style": "card"
+    "detail_style": "card",
+    // La tarjeta con foto y velo de siempre. El billete troquelado es de
+    // Tentada (ver `NextClassStyle` en tipos-tema.ts).
+    "next_class_style": "hero"
   },
   "home_blocks": [
     "greeting",

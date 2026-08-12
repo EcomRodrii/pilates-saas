@@ -41,7 +41,7 @@ import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
 import { construirDatosPortal, diaDelMesHoy } from '@/lib/portal-tema/datos';
-import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
+import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
 
 /** Última parte de la ruta → pantalla del kit. Lo que no esté aquí, no lo cubre. */
@@ -97,7 +97,9 @@ export function PortalTemaMarco() {
 
   const slug = studio?.slug ?? '';
   const pantalla = pantallaDeRuta(pathname, slug) ?? 'inicio';
-  const tema = esTemaPortal(themeIdPublicado) ? TEMAS_PORTAL[themeIdPublicado] : TEMAS_PORTAL.oliva;
+  const tema = esTemaPortal(themeIdPublicado)
+    ? TEMAS_PORTAL[themeIdPublicado]
+    : TEMAS_PORTAL[TEMA_PORTAL_POR_DEFECTO];
 
   // El día de HOY en la zona del estudio. Sin esto sale el 4 de la demo, que
   // con datos reales es un día cualquiera del pasado.
