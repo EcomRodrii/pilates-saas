@@ -91,3 +91,55 @@ export function buscarCodigo(codigos: CodigoDescuento[], texto: string): CodigoD
   if (!t) return null;
   return codigos.find(c => c.codigo.trim().toUpperCase() === t) ?? null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilización de los códigos con límite, para la cabecera de Marketing.
+//
+// ⚠️ Existe porque la pantalla enseñaba la MEDIA SIN PONDERAR de los
+// porcentajes de cada código: un código de 1 uso con su único uso gastado
+// (100 %) y otro de 1000 con 5 canjes (0,5 %) daban «Utilización media 50 %».
+// No describía nada — ni la capacidad emitida ni la consumida. Es el mismo
+// patrón que ya costó el «Compatibilidad 87 %» de sustituciones: una cifra con
+// pinta de calculada que quien la lee se cree.
+//
+// Se pondera: usos totales sobre límite total. Eso sí responde a la pregunta
+// que hace la etiqueta — cuánto se ha gastado de lo que se puso a disposición.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UsoCodigo {
+  usos?: number | null;
+  usosMax?: number | null;
+}
+
+export interface Utilizacion {
+  /** `null` = no hay ningún código con límite. NUNCA 0. */
+  pct: number | null;
+  /** Los números que sostienen el porcentaje. Se pintan junto a él. */
+  usos: number;
+  limite: number;
+  codigos: number;
+}
+
+/**
+ * ⚠️ **Sin códigos con límite devuelve `null`, no 0.** Un 0 % se lee como «los
+ * emitiste y no los usó nadie», que es una afirmación sobre el negocio; la
+ * verdad es que no hay nada que medir. Misma regla que la probabilidad de
+ * aceptación de una instructora sin historial (`lib/sustituciones/encaje.ts`).
+ */
+export function utilizacionCodigos(codigos: readonly UsoCodigo[]): Utilizacion {
+  const conLimite = codigos.filter((c) => (c.usosMax ?? 0) > 0);
+  const limite = conLimite.reduce((acc, c) => acc + (c.usosMax as number), 0);
+  // Se acota cada código a su propio límite ANTES de sumar: un código con más
+  // canjes que su tope (una carrera al validar, o un tope bajado después de
+  // emitirlo) no puede inflar el total ajeno.
+  const usos = conLimite.reduce(
+    (acc, c) => acc + Math.min(c.usos ?? 0, c.usosMax as number), 0,
+  );
+  if (conLimite.length === 0 || limite === 0) {
+    return { pct: null, usos: 0, limite: 0, codigos: 0 };
+  }
+  return {
+    pct: Math.round((usos / limite) * 100),
+    usos, limite, codigos: conLimite.length,
+  };
+}
