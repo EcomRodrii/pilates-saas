@@ -63,6 +63,8 @@ export interface ReservaSlot {
   instructorColor?: string | null;
   instructorRol?: string | null;
   instructorFotoUrl?: string | null;
+  /** P1 auditoría Momence: nombre de quien daba la clase originalmente, solo si hay sustitución confirmada. */
+  instructorOriginalNombre?: string | null;
   salaNombre?: string | null;
   aforoMaximo: number;
   ocupadas: number;
@@ -548,7 +550,11 @@ function BookingSheet({
               <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={34} ring={t.surface2} />
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontSize: 13.5, fontWeight: 800, color: t.ink, lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{slot.instructorNombre}</p>
-                <p style={{ fontSize: 11.5, color: t.muted }}>{slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora'}</p>
+                <p style={{ fontSize: 11.5, color: t.muted }}>
+                  {slot.instructorOriginalNombre
+                    ? `Sustituye a ${slot.instructorOriginalNombre} hoy`
+                    : (slot.instructorRol === 'PROPIETARIO' ? 'Directora' : 'Instructora')}
+                </p>
               </div>
             </div>
           )}

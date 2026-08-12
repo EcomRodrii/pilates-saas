@@ -139,6 +139,7 @@ import type {
   NotaProgreso,
   Integracion,
   TipoIntegracion,
+  SustitucionConfirmadaPublica,
 } from '@/lib/types';
 import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
@@ -551,6 +552,8 @@ interface StudioContextValue {
   studio: Studio | null;
   /** Id del plan más contratado del estudio, calculado en servidor. null = no destacar. */
   planMasElegidoId: string | null;
+  /** Sustituciones ya confirmadas (P1 auditoría Momence) — para avisar "sustituye a X" en el widget público. */
+  sustitucionesConfirmadas: SustitucionConfirmadaPublica[];
   updateAvatarAdmin: (avatarId: string | null) => Promise<ResultadoEscritura>;
   updateStudio: (changes: Partial<Studio>) => Promise<ResultadoEscritura>;
   updateHorarioEstudio: (dias: DiaHorario[]) => Promise<ResultadoEscritura>;
@@ -711,6 +714,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // «EL MÁS ELEGIDO» de /reservar: lo calcula el SERVIDOR sobre las
   // suscripciones del estudio entero. Aquí solo llega el id ganador (o null).
   const [planMasElegidoId, setPlanMasElegidoId] = useState<string | null>(null);
+  // P1 auditoría Momence: sustituciones ya confirmadas del catálogo público.
+  const [sustitucionesConfirmadas, setSustitucionesConfirmadas] = useState<SustitucionConfirmadaPublica[]>([]);
 
   // B0.6: etiqueta cada error de Sentry con el estudio activo (además del usuario,
   // que se fija en auth-context). Así se puede filtrar "qué estudios sufren X".
@@ -837,6 +842,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (!pub || pub.error) { setDataLoaded(true); return; }
       setStudio(pub.studio ?? null);
       setPlanMasElegidoId((pub as { planMasElegidoId?: string | null }).planMasElegidoId ?? null);
+      setSustitucionesConfirmadas((pub as { sustitucionesConfirmadas?: SustitucionConfirmadaPublica[] }).sustitucionesConfirmadas ?? []);
       // El portal muestra a la clienta la política/términos del estudio y quedan con
       // su aceptación: hay que hidratarlos aquí (antes usaba siempre el texto por defecto).
       setStudioConfig(configLegalDe(
@@ -4331,6 +4337,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     actualizarLog,
     dataLoaded,
     planMasElegidoId,
+    sustitucionesConfirmadas,
     recargarPublico: cargarPublico,
     refrescarAforo,
     studio,
@@ -4367,7 +4374,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     backups,
     studioConfig,
     automationRules, automationLogs, progressNotesStore.notasProgreso,
-    dataLoaded, planMasElegidoId,
+    dataLoaded, planMasElegidoId, sustitucionesConfirmadas,
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);

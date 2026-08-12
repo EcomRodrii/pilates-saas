@@ -427,7 +427,7 @@ export async function fetchPublicStudioData(
   const catalogo = await conCacheCatalogo(claveCatalogoPublico(studioId, liviano), async () => {
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
-      citasServiciosRes, citasDisponibilidadRes, susPlanesRes,
+      citasServiciosRes, citasDisponibilidadRes, susPlanesRes, sustitucionesRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -443,6 +443,12 @@ export async function fetchPublicStudioData(
       // suscripciones que allí hay (las de la socia identificada, y ninguna si
       // no lo está) convertía su propia compra repetida en prueba social.
       admin.from('suscripciones').select('plan_id').eq('studio_id', studioId),
+      // P1 auditoría Momence: solo `sesion_id`/`instructor_original_id` de
+      // sustituciones YA `confirmada` — el único estado no reversible
+      // (`confirmar_sustitucion()` sobreescribe `sesiones.instructor_id` en la
+      // misma transacción). Nunca `motivo`/`origen`/candidatas descartadas.
+      admin.from('sustituciones').select('sesion_id, instructor_original_id')
+        .eq('studio_id', studioId).eq('estado', 'confirmada'),
     ]);
 
     // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
@@ -551,6 +557,13 @@ export async function fetchPublicStudioData(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
       ),
+      // P1 auditoría Momence: "Tentare tiene el motor de sustituciones entero
+      // y no lo enseña en público" — permite a la página resolver, por
+      // sesión, si hubo un cambio de instructora confirmado.
+      sustitucionesConfirmadas: (sustitucionesRes.data ?? []).map(r => ({
+        sesionId: r.sesion_id as string,
+        instructorOriginalId: r.instructor_original_id as string,
+      })),
       retoConteos,
     };
   });

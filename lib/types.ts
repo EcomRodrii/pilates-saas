@@ -650,6 +650,14 @@ export interface Instructor {
   bio?: string | null;
 }
 
+// P1 auditoría Momence-vs-Tentare: una sustitución YA confirmada para una
+// sesión concreta, expuesta al widget público. Solo lo mínimo para resolver
+// "quién daba originalmente esta clase" — nunca motivo/origen/candidatas.
+export interface SustitucionConfirmadaPublica {
+  sesionId: string;
+  instructorOriginalId: string;
+}
+
 export interface Sesion {
   id: string;
   studioId: string;
