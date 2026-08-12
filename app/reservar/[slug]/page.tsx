@@ -778,6 +778,10 @@ export default function ReservarPage() {
         origen: 'PORTAL',
       },
       referidoPor: referidoValido,
+      // P1 auditoría Momence: valor CRUDO de `?ref=`, no `referidoValido` —
+      // uno es la cadena de atribución a guardar, el otro solo la lógica de
+      // recompensa entre socias.
+      origenLead: refCode ?? null,
     });
   }
 
@@ -1005,6 +1009,14 @@ export default function ReservarPage() {
           socioId: socia?.socioId ?? null,
           socioEmail: socia?.email ?? null,
           socioNombre: socia?.nombre ?? 'Socia',
+          // P1 auditoría Momence: lead-id del widget, viaja en la metadata de
+          // Stripe hasta entregarPlanComprado (ver origenLead ahí). Se lee
+          // `searchParams.get('ref')` directo, no la variable `refCode` de
+          // arriba: referenciarla aquí disparaba 3 falsos positivos del
+          // linter de React Compiler en funciones sin relación (hoisting de
+          // `openBooking`, `Date.now` en `handleSignContract`, mutación de
+          // `window.top`) — mismo valor, sin ese efecto colateral.
+          origenLead: searchParams.get('ref') ?? null,
         }),
       });
       const data = await res.json() as { url?: string; error?: string };

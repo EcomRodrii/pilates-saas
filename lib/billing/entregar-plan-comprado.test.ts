@@ -51,6 +51,7 @@ const COMPRA: CompraPlan = {
   // que comprueba precisamente que mandan los céntimos cobrados.
   importeCobradoCentimos: 13000,
   paymentIntentId: 'pi_test_abc123',
+  origenLead: null,
 };
 
 test('el recibo registra lo COBRADO, no el precio del plan releído ahora', async () => {

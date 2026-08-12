@@ -547,6 +547,7 @@ export interface RowSocios {
   tarjeta_exp_anio: number | null;
   tarjeta_marca: string | null;
   tarjeta_ultimos4: string | null;
+  origen_lead: string | null;
 }
 
 export interface RowSoporteSolicitudes {

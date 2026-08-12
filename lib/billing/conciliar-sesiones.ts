@@ -15,7 +15,7 @@ export interface SesionCobrada {
 }
 
 export type Pendiente =
-  | { sesionId: string; tipo: 'plan'; studioId: string; planId: string; socioId: string | null }
+  | { sesionId: string; tipo: 'plan'; studioId: string; planId: string; socioId: string | null; origenLead: string | null }
   | { sesionId: string; tipo: 'recibo'; studioId: string; reciboId: string };
 
 /**
@@ -54,7 +54,7 @@ export function queEntregar(s: SesionCobrada, studioEsperado: string): Pendiente
   if (md.planId) {
     return {
       sesionId: s.id, tipo: 'plan', studioId: studioEsperado,
-      planId: md.planId, socioId: md.socioId ?? null,
+      planId: md.planId, socioId: md.socioId ?? null, origenLead: md.origenLead ?? null,
     };
   }
   return null;

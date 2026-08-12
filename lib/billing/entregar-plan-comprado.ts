@@ -53,6 +53,13 @@ export interface CompraPlan {
    * entregar: el dinero ya está cobrado.
    */
   paymentIntentId: string | null;
+  /**
+   * P1 auditoría Momence: lead-id crudo del widget público (`?ref=`), leído
+   * de `metadata.origenLead`. Solo se escribe al crear una ficha NUEVA — si
+   * ya existía alguien con ese email, no se pisa su origen con el de una
+   * compra posterior.
+   */
+  origenLead: string | null;
 }
 
 export type ResultadoEntrega =
@@ -136,6 +143,7 @@ export async function entregarPlanComprado(
         activo: true,
         fecha_alta: ahora,
         campos_extra: {},
+        origen_lead: compra.origenLead ?? null,
         // Sin contrato aceptado a propósito: no lo ha firmado. El portal se lo
         // pedirá la primera vez que entre (reservar/[slug] mira !aceptacionContrato).
       });

@@ -282,6 +282,11 @@ export interface Socio {
   direccion?: string | null;
   fotoUrl?: string | null;
   referidoPor?: string | null; // id del socio que la invitó (programa de referidos)
+  // P1 auditoría Momence-vs-Tentare: valor crudo de `?ref=` del widget
+  // público cuando NO coincide con el id de una socia (referidoPor cubre ese
+  // caso) — texto libre sin interpretar, mismo criterio que
+  // studios.como_nos_conocio.
+  origenLead?: string | null;
   // Valores de los campos personalizados del estudio: { [campoId]: valor }.
   camposExtra?: Record<string, string | number | boolean | null>;
 }

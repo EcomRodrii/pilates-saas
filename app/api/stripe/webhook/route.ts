@@ -141,6 +141,8 @@ export async function POST(req: NextRequest) {
     // Compra de un PLAN desde el enlace público. Se escribía en el checkout y
     // aquí no se leía nunca: Stripe cobraba y no se entregaba nada.
     const planId = session.metadata?.planId;
+    // P1 auditoría Momence: lead-id crudo del widget público.
+    const origenLead = session.metadata?.origenLead;
 
     // P0-18: la persistencia se hace con service-role (bypassa RLS; el webhook
     // no tiene sesión de usuario) y cualquier fallo de escritura devuelve un
@@ -300,6 +302,7 @@ export async function POST(req: NextRequest) {
           // El cargo real, para poder devolverlo después desde el panel sin
           // buscarlo a mano en Stripe.
           paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+          origenLead: origenLead ?? null,
         });
         if (!entrega.ok) {
           Sentry.captureMessage('[stripe webhook] cobrado pero NO entregado', {

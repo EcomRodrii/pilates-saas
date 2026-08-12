@@ -37,7 +37,7 @@ test('abierta o caducada no cuenta', () => {
 test('compra de plan', () => {
   const p = queEntregar(ses(), 'studio-1');
   assert.deepEqual(p, {
-    sesionId: 'cs_live_abc123', tipo: 'plan', studioId: 'studio-1', planId: 'plan-3', socioId: null,
+    sesionId: 'cs_live_abc123', tipo: 'plan', studioId: 'studio-1', planId: 'plan-3', socioId: null, origenLead: null,
   });
 });
 

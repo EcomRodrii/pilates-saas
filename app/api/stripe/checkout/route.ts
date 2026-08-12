@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     // (clase suelta / bono / primer pago). Bizum no es recurrente ni guardable,
     // así que activarlo desactiva el guardado de tarjeta (setup_future_usage).
     bizum?: boolean;
+    // P1 auditoría Momence: lead-id crudo del widget público (`?ref=`),
+    // viaja en la metadata de Stripe hasta entregarPlanComprado.
+    origenLead?: string | null;
   } | null;
 
   if (!body?.studioId) {
@@ -133,6 +136,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Importe no válido' }, { status: 409 });
   }
   if (socioId) metadata.socioId = socioId;
+  // Stripe exige valores de metadata como string no vacío.
+  if (body.origenLead) metadata.origenLead = body.origenLead;
 
   const { data: studio } = await admin
     .from('studios')
