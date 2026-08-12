@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenConfirmacion } from '@/lib/confirmacion-riesgo/token';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Endpoint PÚBLICO (sin login): la socia confirma desde el deep link que viene
 // a su clase, sin más. El token ES la autorización (scope 'confirmar_reserva',
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     .from('reservas').update({ confirmado_en: new Date().toISOString() })
     .eq('id', claim.reservaId).eq('estado', 'CONFIRMADA').is('confirmado_en', null)
     .select('id');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('public/confirmacion-reserva:post', error, 'No se ha podido confirmar la reserva. Inténtalo de nuevo.');
   if (!actualizada || actualizada.length === 0) {
     return NextResponse.json({ ok: false, yaResuelta: true });
   }

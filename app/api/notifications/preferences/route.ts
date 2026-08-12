@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Preferencias de notificación por usuario y categoría (qué quiere recibir y por
 // qué canal). Ausencia de fila = valores por defecto (in-app + push ON). Cada
@@ -46,6 +47,6 @@ export async function PUT(req: NextRequest) {
     sms: b.sms ?? false,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,category' });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('notifications/preferences:put', error, 'No se han podido guardar las preferencias. Inténtalo de nuevo.');
   return NextResponse.json({ ok: true });
 }

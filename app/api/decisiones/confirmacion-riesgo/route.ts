@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { errorInterno } from '@/lib/errores-servidor';
 
 // Toggle de "pedir confirmación a socias de riesgo de plantón y liberar su
 // plaza si no responden" (migración 0059). Solo el propietario, y solo con plan
@@ -36,6 +37,6 @@ export async function PUT(req: NextRequest) {
 
   const { error } = await requireSupabaseAdmin()
     .from('studios').update({ pedir_confirmacion_riesgo: body.activo }).eq('id', g.studioId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorInterno('decisiones/confirmacion-riesgo:put', error, 'No se ha podido guardar el cambio. Inténtalo de nuevo.');
   return NextResponse.json({ activo: body.activo });
 }
