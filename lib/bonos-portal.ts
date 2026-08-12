@@ -80,7 +80,9 @@ export interface BonoActivo {
   }[];
 }
 
-const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+// Exportado: portal-bonos-view.tsx también lo usa para el estado PAUSADA de
+// la plaza fija (Feature #2), que plazaFijaTexto de abajo excluye a propósito.
+export const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',

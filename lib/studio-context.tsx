@@ -287,6 +287,15 @@ interface StudioContextValue {
   // sitio (violación de la exclusión GiST). quitar = baja lógica (estado BAJA).
   asignarPlazaFija: (fields: Omit<PlazaFija, 'id' | 'studioId' | 'creadaEn'>) => Promise<{ ok: true } | { error: string }>;
   quitarPlazaFija: (id: string) => Promise<ResultadoEscritura>;
+  // Feature #2 (ficha Lorari-vs-Tentare): autoservicio desde el portal — solo
+  // tiene efecto con sesión de socia (ctxPublico presente); nunca desde staff,
+  // que sigue usando asignarPlazaFija/quitarPlazaFija de arriba.
+  // reservaEstaSemana: si al crearla ya materializó la ocurrencia de esta
+  // semana (la sesión desde la que se creó), null si ya la tenía reservada.
+  crearPlazaFijaPropia: (sesionId: string) => Promise<{ ok: true; reservaEstaSemana: { estado: string; reservaId: string } | null } | { ok: false; error: string }>;
+  pausarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
+  reanudarPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
+  darDeBajaPlazaFijaPropia: (id: string) => Promise<ResultadoEscritura>;
   recuperaciones: Recuperacion[];
   // F2 (B2.9): excepciones "porque lo digo yo". Toggle: poner (upsert) / quitar (delete).
   socioExcepciones: SocioExcepcion[];
@@ -353,7 +362,10 @@ interface StudioContextValue {
   // sobre la fila ya creada. Solo tiene efecto si la reserva queda CONFIRMADA
   // (una LISTA_ESPERA no puede tener asistencia) y fuera de la vía pública.
   addReserva: (sesionId: string, socioId: string, spotId?: string | null, opciones?: { checkInInmediato?: boolean }) => Promise<ResultadoReserva>;
-  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura>;
+  // recuperacionCreada/recuperacionCaducaEl: solo la vía pública los rellena
+  // (al cancelar una ocurrencia de plaza fija, ver cancelarReservaPublica) —
+  // el panel de staff los deja undefined, no aplica ahí.
+  cancelarReserva: (reservaId: string) => Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }>;
   // Fase 2b: acepta una oferta de plaza de lista de espera dentro de su plazo.
   // Solo tiene sentido desde el portal (socia con sesión iniciada) — ver
   // app/api/reservas/aceptar-oferta-espera/route.ts.
@@ -921,6 +933,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Su plaza fija: la pantalla de Bonos la enseña, y en la vía pública solo
       // llegan las suyas (el servidor las acota por socio_id).
       setPlazasFijas(socia?.plazasFijas ?? []);
+      // Feature #1: sus créditos de recuperación (generados al cancelar una
+      // ocurrencia de plaza fija). Antes solo se cargaban en el snapshot de
+      // staff — la socia nunca sabía que los tenía.
+      setRecuperaciones(socia?.recuperaciones ?? []);
       setRecibos(socia?.recibos ?? []);
       setFacturas(socia?.facturas ?? []);
       setMemberCredits(socia?.memberCredits ?? []);
@@ -1311,6 +1327,36 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: 'BAJA' as const } : p));
     return res;
   }
+
+  // Feature #2 (ficha Lorari-vs-Tentare): autoservicio de plaza fija desde el
+  // portal. Solo tiene efecto con sesión de socia — sin `cpub` no hay a quién
+  // atribuírsela, así que se rechaza en vez de intentar algo con studioId
+  // vacío (mismo guard que el resto de escrituras públicas de este contexto).
+  async function crearPlazaFijaPropia(
+    sesionId: string,
+  ): Promise<{ ok: true; reservaEstaSemana: { estado: string; reservaId: string } | null } | { ok: false; error: string }> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No disponible' };
+    const r = await postPublico('/api/public/plaza-fija', { accion: 'crear', studioId: cpub.studioId, sesionId });
+    if (!r.ok) return r;
+    const datos = r.datos as { id?: string; reservaEstaSemana?: { estado: string; reservaId: string } | null } | null;
+    return { ok: true, reservaEstaSemana: datos?.reservaEstaSemana ?? null };
+  }
+
+  async function cambiarEstadoPlazaFijaPropia(id: string, accion: 'pausar' | 'reanudar' | 'dar_de_baja'): Promise<ResultadoEscritura> {
+    const cpub = ctxPublico();
+    if (!cpub) return { ok: false, error: 'No disponible' };
+    // Optimista: la propia socia ya sabe qué acaba de pulsar. `postPublico`
+    // re-sincroniza en su `finally`, así que un rechazo (p.ej. choque de sitio
+    // al reanudar) se corrige solo.
+    const estadoNuevo = accion === 'pausar' ? 'PAUSADA' : accion === 'reanudar' ? 'ACTIVA' : 'BAJA';
+    setPlazasFijas(prev => prev.map(p => p.id === id ? { ...p, estado: estadoNuevo as PlazaFija['estado'] } : p));
+    const r = await postPublico('/api/public/plaza-fija', { accion, studioId: cpub.studioId, plazaId: id });
+    return r.ok ? { ok: true } : r;
+  }
+  const pausarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'pausar');
+  const reanudarPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'reanudar');
+  const darDeBajaPlazaFijaPropia = (id: string) => cambiarEstadoPlazaFijaPropia(id, 'dar_de_baja');
 
   // F2 (B2.3): concede una recuperación (dueña-first). La caducidad y el tope (4)
   // los resuelve la RPC; al crearla, recargamos la lista para reflejar caduca_el.
@@ -2586,7 +2632,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return postPublico('/api/public/retos', { studioId: cpub.studioId, retoKey, accion });
   }
 
-  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura> {
+  async function cancelarReserva(reservaId: string): Promise<ResultadoEscritura & { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null }> {
     const cpub = ctxPublico();
     if (cpub) {
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r)); // optimista
@@ -2594,7 +2640,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Si el servidor la rechaza, `cargarPublico()` (en el finally de
       // postPublico) devuelve la reserva a su sitio: el optimismo dura lo que
       // tarda la respuesta, no para siempre.
-      return r.ok ? { ok: true } : r;
+      if (!r.ok) return r;
+      // `r.datos` es el JSON crudo de cancelarReservaPublica — antes se tiraba
+      // aquí mismo (`{ok:true}` a secas), así que a la socia se le concedía un
+      // crédito de recuperación de verdad y la pantalla solo decía "cancelada",
+      // sin decirle que lo tenía ni cuándo caduca.
+      const datos = r.datos as { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null } | null;
+      return { ok: true, recuperacionCreada: datos?.recuperacionCreada, recuperacionCaducaEl: datos?.recuperacionCaducaEl };
     }
 
     const cancelada = reservas.find(r => r.id === reservaId);
@@ -4198,6 +4250,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     quitarAveria,
     asignarPlazaFija,
     quitarPlazaFija,
+    crearPlazaFijaPropia,
+    pausarPlazaFijaPropia,
+    reanudarPlazaFijaPropia,
+    darDeBajaPlazaFijaPropia,
     darRecuperacion,
     anularRecuperacion,
     addTipoClase,

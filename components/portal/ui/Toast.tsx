@@ -22,9 +22,15 @@ import { EASE, dur } from '@/lib/portal-design';
 export interface AvisoToast {
   texto: string;
   error?: boolean;
+  // Feature #1 (autoservicio de cancelación/recuperación): "Reagendar" tras
+  // cancelar una plaza fija con crédito de recuperación. Opcional — el resto
+  // de toasts del portal no lo necesitan.
+  accion?: { texto: string; onClick: () => void };
 }
 
-const DURACION_MS = { ok: 3000, error: 5000 };
+// Con CTA se da más margen: 3s es tiempo de sobra para leer pero no para
+// reaccionar y tocar un botón.
+const DURACION_MS = { ok: 3000, error: 5000, accion: 7000 };
 
 export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismiss: () => void }) {
   const { t } = useModo();
@@ -40,7 +46,8 @@ export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismis
   useEffect(() => { onDismissRef.current = onDismiss; });
   useEffect(() => {
     if (!aviso) return;
-    const id = setTimeout(() => onDismissRef.current(), aviso.error ? DURACION_MS.error : DURACION_MS.ok);
+    const duracion = aviso.accion ? DURACION_MS.accion : (aviso.error ? DURACION_MS.error : DURACION_MS.ok);
+    const id = setTimeout(() => onDismissRef.current(), duracion);
     return () => clearTimeout(id);
   }, [aviso]);
 
@@ -75,7 +82,25 @@ export function Toast({ aviso, onDismiss }: { aviso: AvisoToast | null; onDismis
           {aviso.error
             ? <AlertCircle size={16} style={{ flexShrink: 0 }} />
             : <CheckCircle2 size={16} style={{ flexShrink: 0 }} />}
-          <span>{aviso.texto}</span>
+          <span style={{ flex: 1 }}>{aviso.texto}</span>
+          {aviso.accion && (
+            <button
+              type="button"
+              onClick={() => { onDismissRef.current(); aviso.accion?.onClick(); }}
+              style={{
+                flexShrink: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+                color: 'inherit', fontSize: 13, fontWeight: 800, textDecoration: 'underline',
+                // Mínimo táctil de 44px (mismo criterio que Button.tsx/Pill.tsx/
+                // Tabs.tsx en este mismo directorio) — el texto solo no llega ni
+                // de lejos; el contenedor centra verticalmente (`alignItems:
+                // 'center'`), así que esto ensancha el toast entero en vez de
+                // dejar el botón clavado en una esquina imposible de tocar.
+                minHeight: 44, minWidth: 44, padding: '0 4px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {aviso.accion.texto}
+            </button>
+          )}
         </div>
       )}
     </div>
