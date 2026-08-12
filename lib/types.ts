@@ -782,6 +782,14 @@ export interface Factura {
   verifactuPrevHash: string | null;
   verifactuTs: string | null;
   verifactuSeq: number | null;
+  // Rectificativas (issue #769). Opcionales: los construidos a mano en tests/
+  // otros mappers (factura-pdf, cierre-engine) no las conocen todavía, y
+  // ausentes equivale a "sin rectificativa" en toda la UI que las consulte.
+  serie?: string;
+  tipo?: string;
+  rectificaA?: string | null;
+  tipoRectificativa?: 'S' | 'I' | null;
+  importeRectificacion?: number | null;
 }
 
 // Ingreso cobrado FUERA de Tentare (efectivo, transferencia, otra plataforma…)
