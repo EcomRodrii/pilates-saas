@@ -7,6 +7,8 @@
 // Testeable en aislamiento (ver reserva-calendario-logic.test.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { inicioDeSemana } from './utils.ts';
+
 // Clave de día en hora local ('YYYY-MM-DD'). No usar toISOString() (UTC): a
 // última hora podría saltar de día y colocar una clase en la casilla errónea.
 export function localDayKey(d: Date): string {
@@ -20,17 +22,11 @@ export function addDays(d: Date, n: number): Date {
   return c;
 }
 
-// Medianoche local del lunes de la semana que contiene `d` (semana europea:
-// lunes → domingo).
-export function inicioSemanaLunes(d: Date): Date {
-  const medianoche = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const dow = (medianoche.getDay() + 6) % 7; // 0 = lunes … 6 = domingo
-  return addDays(medianoche, -dow);
-}
-
-// Los 7 días (medianoche local) de la semana que contiene `anchor`.
+// Los 7 días (medianoche local) de la semana que contiene `anchor` (semana
+// europea: lunes → domingo). `inicioDeSemana` (./utils.ts) ya calcula esto —
+// antes había aquí una segunda fórmula equivalente, `inicioSemanaLunes`.
 export function diasSemana(anchor: Date): Date[] {
-  const start = inicioSemanaLunes(anchor);
+  const start = inicioDeSemana(anchor);
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
