@@ -312,6 +312,43 @@ test.describe('Editor a pantalla completa — constructor de bloques del portal'
     await expect(page.getByText(/Reserva online tu clase de Pilates reformer/)).toBeVisible();
   });
 
+  // Muchas fotos del estudio ya viven en su web o en un Drive público. Bajarlas
+  // al ordenador para volver a subirlas era trabajo inventado, y el control de
+  // los bloques ya tenía «o pegar un enlace» desde hacía tiempo — solo que
+  // ninguno de los cinco paneles escritos a mano lo ofrecía.
+  test('la imagen para compartir también se puede pegar por enlace', async ({ page }) => {
+    await montar(page);
+    // Un PNG de 1×1 de verdad: si el enlace no cargara, la previsualización
+    // avisaría de «no carga ninguna imagen» y este test estaría comprobando
+    // otra cosa.
+    await page.route('**/cdn.estudio.test/**', route => route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'),
+    }));
+    await abrirCategoriaTema(page, 'Compartir y buscadores');
+    await expect(page.getByText('Studio Carmen — Reserva tu clase de Pilates')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'o pegar un enlace' }).click();
+    const campo = page.getByLabel('Enlace de imagen para compartir');
+    const usar = page.getByRole('button', { name: 'Usar este enlace' });
+
+    // `http://` no vale: el portal va por HTTPS y el navegador bloquearía la
+    // imagen como contenido mixto, sin decir nada. Guardarla sería dejarle algo
+    // que nunca se ve.
+    await campo.fill('http://cdn.estudio.test/og.png');
+    await expect(usar).toBeDisabled();
+
+    await campo.fill('https://cdn.estudio.test/og.png');
+    await expect(usar).toBeEnabled();
+    await usar.click();
+
+    // La tarjeta de previsualización —el mismo cálculo que hace el servidor—
+    // pasa a enseñar la imagen pegada, no la de por defecto.
+    await expect(page.locator('img[src="https://cdn.estudio.test/og.png"]').first()).toBeVisible();
+    await expect(page.locator('img[src*="/por-defecto/estudio-hero"]')).toHaveCount(0);
+  });
+
   test('los flags de la barra viven junto a su propio preview, en "Navegación del portal"', async ({ page }) => {
     await montar(page);
     await abrirCategoriaTema(page, 'Navegación del portal');
@@ -623,6 +660,12 @@ test.describe('Fotos por bloque', () => {
     await page.getByRole('button', { name: /^Banner/ }).click();
     await page.getByRole('button', { name: 'o pegar un enlace' }).click();
     await page.getByLabel(/Enlace de/).fill('https://ejemplo.test/sala.jpg');
+    // El enlace se confirma con el botón, no al teclear. Antes cada carácter
+    // era un cambio del borrador; el control es ahora el mismo que usan la foto
+    // del portal y la de una clase, que NO son borrador —cada tecla habría sido
+    // una escritura en la base de datos— y además así se puede ver la imagen
+    // antes de guardarla.
+    await page.getByRole('button', { name: 'Usar este enlace' }).click();
 
     await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
     expect(putsPorPantalla.home.at(-1)).toEqual(expect.arrayContaining([

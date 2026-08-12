@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InfoTip } from '@/components/ui/tooltip';
@@ -12,6 +12,7 @@ import type { TipoClase } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
+import { CampoImagen } from '@/components/ui/campo-imagen';
 
 // "Hereda" = usa el ajuste general del estudio (Configuración → Estudio →
 // Reservas y cancelaciones). Un checkbox no puede representar tres estados
@@ -102,30 +103,31 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
   const [guardando, setGuardando] = useState(false);
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
-  const fotoInputRef = useRef<HTMLInputElement>(null);
   const editando = editId ? tiposClase.find(t => t.id === editId) ?? null : null;
 
-  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !editId) return;
-    if (!file.type.startsWith('image/')) { showToast('Elige un archivo de imagen'); return; }
-    if (file.size > 5 * 1024 * 1024) { showToast('La imagen no puede superar 5 MB'); return; }
+  // Subir y guardar van separados: `CampoImagen` ofrece dos vías —archivo o
+  // enlace pegado— y solo la primera pasa por Storage.
+  async function subirFotoDeClase(file: File) {
+    if (!editId) return { error: 'Guarda la clase antes de ponerle foto.' };
+    if (!file.type.startsWith('image/')) return { error: 'Elige un archivo de imagen' };
+    if (file.size > 5 * 1024 * 1024) return { error: 'La imagen no puede superar 5 MB' };
     setSubiendoFoto(true);
     const result = await subirFotoClase(editId, file);
     setSubiendoFoto(false);
-    if ('error' in result) { showToast(result.error); return; }
-    const res = await updateTipoClase(editId, { fotoUrl: result.url });
-    if (!res.ok) showToast(res.error);
+    return result;
   }
 
-  async function handleEliminarFoto() {
+  async function guardarFotoDeClase(url: string | null) {
     if (!editId) return;
-    setSubiendoFoto(true);
-    const result = await eliminarFotoClase(editId);
-    setSubiendoFoto(false);
-    if ('error' in result) { showToast(result.error); return; }
-    const res = await updateTipoClase(editId, { fotoUrl: null });
+    // Quitar borra también el archivo del bucket; si lo que había era un
+    // enlace pegado no hay nada que borrar y no pasa nada.
+    if (url === null) {
+      setSubiendoFoto(true);
+      const result = await eliminarFotoClase(editId);
+      setSubiendoFoto(false);
+      if ('error' in result) { showToast(result.error); return; }
+    }
+    const res = await updateTipoClase(editId, { fotoUrl: url });
     if (!res.ok) showToast(res.error);
   }
 
@@ -288,36 +290,24 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
               label="Foto de la clase"
               description="Se usa en todas partes donde aparece esta clase: portal de tus alumnas y sesión guiada. La suben una vez y vale para todas sus sesiones. Mientras no pongas la tuya se usa una foto de Tentare, elegida por el nombre de la clase. Lo ideal es 1600 × 900 px."
             >
-                <div className="flex items-center gap-3">
-                  {/* La miniatura enseña la foto POR DEFECTO cuando no hay
-                      ninguna subida — es lo que ven sus alumnas. El
-                      `ColorSwatch` de antes daba a entender que la clase salía
-                      solo con su color, y ya no es así. */}
-                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex items-center justify-center shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imagenDeClase({ fotoUrl: editando?.fotoUrl, nombre: form.nombre })}
-                      alt={form.nombre}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => fotoInputRef.current?.click()}
-                      disabled={subiendoFoto}
-                      className="text-[12px] font-semibold text-brand-secondary underline underline-offset-2 disabled:opacity-50"
-                    >
-                      {subiendoFoto ? 'Subiendo…' : editando?.fotoUrl ? 'Cambiar foto' : 'Subir foto'}
-                    </button>
-                    {editando?.fotoUrl && (
-                      <button type="button" onClick={handleEliminarFoto} className="text-[12px] text-muted-foreground text-left">
-                        Quitar foto
-                      </button>
-                    )}
-                  </div>
-                  <input ref={fotoInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
-                </div>
+                {/* La miniatura enseña la foto POR DEFECTO cuando no hay
+                    ninguna subida — es lo que ven sus alumnas. El
+                    `ColorSwatch` de antes daba a entender que la clase salía
+                    solo con su color, y ya no es así.
+                    El respaldo se recalcula con el NOMBRE del formulario, no
+                    con el guardado: al renombrar «Clase abierta» a «Yoga
+                    suave» la foto por defecto cambia mientras escribe. */}
+                <CampoImagen
+                  etiqueta={`foto de ${form.nombre || 'la clase'}`}
+                  valor={editando?.fotoUrl}
+                  respaldo={imagenDeClase({ nombre: form.nombre })}
+                  onSubir={subirFotoDeClase}
+                  onCambiar={guardarFotoDeClase}
+                  ocupado={subiendoFoto}
+                  clasePreview="w-16 h-16"
+                  textoSubir="Subir foto"
+                  textoCambiar="Cambiar foto"
+                />
             </Field>
             )}
             <div className="grid grid-cols-2 gap-3">

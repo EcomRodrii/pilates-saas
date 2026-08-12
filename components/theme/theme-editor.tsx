@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Upload, Trash2, Check, AlertTriangle, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, AlertTriangle, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { WidgetPreview } from './widget-preview';
 import { usePermisos } from '@/lib/permisos';
@@ -29,7 +29,7 @@ import {
   RESERVAR_COMO_FUNCIONA_MAX,
   RESERVAR_SOBRE_TITULO_MAX, RESERVAR_SOBRE_TEXTO_MAX,
 } from '@/lib/theme-schema';
-import { metadatosPublicos, tituloAutomatico, descripcionAutomatica } from '@/lib/theme/seo-publico';
+import { metadatosPublicos, tituloAutomatico, descripcionAutomatica, IMAGEN_COMPARTIR_POR_DEFECTO } from '@/lib/theme/seo-publico';
 import { PanelVisibilidad } from './panel-visibilidad';
 import { validarContrasteTheme, themeToCssVars } from '@/lib/theme-runtime';
 import { resolveVariantes } from '@/lib/theme-variantes';
@@ -46,7 +46,8 @@ import { NAV_DISPONIBLES, NAV_ICONOS_DISPONIBLES, navItemsVisibles, resolveNavCo
 import { PortalNav } from '@/components/portal/portal-nav';
 import { altura } from '@/lib/portal-design';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
-import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
+import { IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { CampoImagen } from '@/components/ui/campo-imagen';
 
 // "Ajustes" del workspace de Apariencia (theme-workspace.tsx) — color de
 // marca, tipografía, radios, navegación del portal, redes sociales, logo/
@@ -332,68 +333,68 @@ export function useThemeEditor() {
     }
   }
 
-  async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !studio) return;
+  // Subir y guardar van SEPARADOS a propósito: `CampoImagen` ofrece dos vías
+  // —archivo o enlace pegado— y solo la primera pasa por Storage. Un handler
+  // único de `<input type="file">` no podía servir a las dos.
+  async function subirLogo(file: File) {
+    if (!studio) return { error: 'Todavía no se ha cargado el estudio.' };
     setSubiendo('logo');
     const r = await subirLogoEstudio(studio.id, file);
     setSubiendo(null);
-    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
-    const res = await updateStudio({ logoUrl: r.url });
-    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+    return r;
   }
 
-  async function handleQuitarLogo() {
+  async function guardarLogo(url: string | null) {
     if (!studio) return;
-    setSubiendo('logo');
-    await eliminarLogoEstudio(studio.id);
-    setSubiendo(null);
-    const res = await updateStudio({ logoUrl: null });
+    // Quitar el logo borra TAMBIÉN el archivo del bucket. Si lo que había era
+    // un enlace pegado, `eliminarLogoEstudio` no encuentra nada y no pasa nada.
+    if (url === null) {
+      setSubiendo('logo');
+      await eliminarLogoEstudio(studio.id);
+      setSubiendo(null);
+    }
+    const res = await updateStudio({ logoUrl: url });
     if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
   }
 
-  async function handleFavicon(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !studio) return;
+  async function subirFavicon(file: File) {
+    if (!studio) return { error: 'Todavía no se ha cargado el estudio.' };
     setSubiendo('favicon');
     const r = await subirFaviconEstudio(studio.id, file);
     setSubiendo(null);
-    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
-    setCampo('faviconUrl', r.url);
+    return r;
   }
 
-  async function handleQuitarFavicon() {
+  async function guardarFavicon(url: string | null) {
     if (!studio) return;
-    setSubiendo('favicon');
-    await eliminarFaviconEstudio(studio.id);
-    setSubiendo(null);
-    setCampo('faviconUrl', null);
+    if (url === null) {
+      setSubiendo('favicon');
+      await eliminarFaviconEstudio(studio.id);
+      setSubiendo(null);
+    }
+    setCampo('faviconUrl', url);
   }
 
   // Imagen de bienvenida/portada del portal — NO es `studio.fotoUrl` (esa es
   // la foto de perfil de la propietaria, solo panel). Se persiste directo con
   // `updateStudio`, igual que el logo: sin borrador, no forma parte del JSON
   // de tema.
-  async function handleImagenBienvenida(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !studio) return;
+  async function subirImagenBienvenidaArchivo(file: File) {
+    if (!studio) return { error: 'Todavía no se ha cargado el estudio.' };
     setSubiendo('bienvenida');
     const r = await subirImagenBienvenida(studio.id, file);
     setSubiendo(null);
-    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
-    const res = await updateStudio({ imagenBienvenidaUrl: r.url });
-    if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
+    return r;
   }
 
-  async function handleQuitarImagenBienvenida() {
+  async function guardarImagenBienvenida(url: string | null) {
     if (!studio) return;
-    setSubiendo('bienvenida');
-    await eliminarImagenBienvenida(studio.id);
-    setSubiendo(null);
-    const res = await updateStudio({ imagenBienvenidaUrl: null });
+    if (url === null) {
+      setSubiendo('bienvenida');
+      await eliminarImagenBienvenida(studio.id);
+      setSubiendo(null);
+    }
+    const res = await updateStudio({ imagenBienvenidaUrl: url });
     if (!res.ok) setAviso({ tipo: 'error', texto: res.error });
   }
 
@@ -403,22 +404,19 @@ export function useThemeEditor() {
   //
   // Reutiliza `subirImagenPortal`, que ya redimensiona y sanea la clave del
   // fichero; no hace falta un subidor propio para esto.
-  async function handleImagenCompartir(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !studio) return;
+  async function subirImagenCompartir(file: File) {
+    if (!studio) return { error: 'Todavía no se ha cargado el estudio.' };
     setSubiendo('compartir');
     const r = await subirImagenPortal(studio.id, 'compartir', file);
     setSubiendo(null);
-    if ('error' in r) return setAviso({ tipo: 'error', texto: r.error });
-    setCampo('seoImagenUrl', r.url);
+    return r;
   }
 
   // Sin borrar del bucket: la imagen ANTERIOR sigue siendo la publicada hasta
   // que se pulse Publicar. Borrarla aquí dejaría el enlace real enseñando un
   // hueco roto por haber tocado un borrador.
-  function handleQuitarImagenCompartir() {
-    setCampo('seoImagenUrl', null);
+  function guardarImagenCompartir(url: string | null) {
+    setCampo('seoImagenUrl', url);
   }
 
   function restaurar() {
@@ -442,9 +440,10 @@ export function useThemeEditor() {
     rol, studio, draft, estado, guardando, publicando, aviso, subiendo, contraste,
     navPortalResuelto, redesSocialesResueltas,
     setCampo, aplicarPaleta, elegirTema, toggleNavOculto, setNavEtiqueta, setNavIcono, setRedSocial,
-    handleGuardar, handlePublicar, handleLogo, handleQuitarLogo, handleFavicon, handleQuitarFavicon,
-    handleImagenBienvenida, handleQuitarImagenBienvenida,
-    handleImagenCompartir, handleQuitarImagenCompartir, restaurar, recargar,
+    handleGuardar, handlePublicar,
+    subirLogo, guardarLogo, subirFavicon, guardarFavicon,
+    subirImagenBienvenidaArchivo, guardarImagenBienvenida,
+    subirImagenCompartir, guardarImagenCompartir, restaurar, recargar,
     // Deshacer/rehacer de los AJUSTES. `instanteUltimo` es lo que permite a la
     // barra superior decidir qué pila deshacer cuando hay dos (bloques y
     // ajustes): la del paso más reciente, que es lo que la propietaria
@@ -497,13 +496,9 @@ export function AjustesCategoriaPanel({
   // Los <input type="file"> ocultos necesitan un ref por instancia del panel
   // — declarados aquí arriba (nunca tras un `return` condicional) para no
   // romper las reglas de hooks, aunque solo se usen en la rama 'logo-favicon'.
-  const logoRef = useRef<HTMLInputElement>(null);
-  const faviconRef = useRef<HTMLInputElement>(null);
-  const bienvenidaRef = useRef<HTMLInputElement>(null);
-  const compartirRef = useRef<HTMLInputElement>(null);
 
   if (categoriaId === 'compartir') {
-    return <PanelCompartir hook={hook} fileRef={compartirRef} />;
+    return <PanelCompartir hook={hook} />;
   }
 
   if (categoriaId === 'reservar-portada') {
@@ -1104,32 +1099,29 @@ export function AjustesCategoriaPanel({
             "miniatura + botón Subir" seguidos, indistinguibles de un vistazo.
             Quien buscaba dónde poner su foto no lo encontraba. */}
         <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Logo</p>
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
-            {studio?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={studio.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-            ) : (
-              <span className="text-[10px] text-muted-foreground">Sin logo</span>
-            )}
-          </div>
-          <button onClick={() => logoRef.current?.click()} disabled={subiendo === 'logo'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
-            <Upload size={14} /> {studio?.logoUrl ? 'Cambiar logo' : 'Subir logo'}
-          </button>
-          {studio?.logoUrl && (
-            <button onClick={hook.handleQuitarLogo} disabled={subiendo === 'logo'} className="text-muted-foreground hover:text-destructive" aria-label="Quitar logo">
-              <Trash2 size={16} />
-            </button>
-          )}
-          <input ref={logoRef} type="file" accept="image/*" hidden onChange={hook.handleLogo} />
-        </div>
-        {/* Este mismo logo sale también en el icono de tus notificaciones
-            push a clientas (antes salía siempre el genérico de Tentare) y
-            en el icono de tu app instalada — cuadrado y sin márgenes es lo
-            que mejor se ve en los dos sitios. */}
-        <p className="text-[11px] text-muted-foreground">
-          Recomendado: 512×512 px, cuadrado, fondo transparente o sólido (sin márgenes de sobra).
-        </p>
+        {/* Sin `respaldo`: el logo es la marca del estudio y no tiene foto por
+            defecto que valga — una genérica sería la marca de otro. Sin logo,
+            la miniatura enseña «Sin imagen», que aquí es la verdad. */}
+        <CampoImagen
+          etiqueta="logo"
+          valor={studio?.logoUrl}
+          onSubir={hook.subirLogo}
+          onCambiar={hook.guardarLogo}
+          ocupado={subiendo === 'logo'}
+          ajuste="contain"
+          clasePreview="w-12 h-12"
+          textoSubir="Subir logo"
+          textoCambiar="Cambiar logo"
+          ayuda={
+            // Este mismo logo sale también en el icono de tus notificaciones
+            // push a clientas (antes salía siempre el genérico de Tentare) y
+            // en el icono de tu app instalada — cuadrado y sin márgenes es lo
+            // que mejor se ve en los dos sitios.
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Recomendado: 512×512 px, cuadrado, fondo transparente o sólido (sin márgenes de sobra).
+            </p>
+          }
+        />
       </div>
 
       {/* Imagen de bienvenida/portada del portal.
@@ -1142,41 +1134,26 @@ export function AjustesCategoriaPanel({
           golpe a toda socia del estudio. */}
       <div className="space-y-2 border-t border-border pt-4">
         <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Foto del portal</p>
-        <div className="flex items-center gap-3">
-          {/* La miniatura enseña la foto POR DEFECTO cuando no hay ninguna
-              subida, no un cartel de «Sin imagen»: es lo que están viendo sus
-              alumnas ahora mismo, y esconderlo aquí haría que la propietaria
-              creyera que su portal está vacío cuando no lo está. El botón sigue
-              diciendo «Subir imagen» — la foto no es suya y no se guarda en su
-              ficha. */}
-          <div className="w-16 h-10 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imagenDeEstudio('vertical', studio?.imagenBienvenidaUrl)}
-              alt={studio?.imagenBienvenidaUrl ? 'Imagen de bienvenida' : 'Foto por defecto del portal'}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <button onClick={() => bienvenidaRef.current?.click()} disabled={subiendo === 'bienvenida'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
-            <Upload size={14} /> {studio?.imagenBienvenidaUrl ? 'Cambiar imagen' : 'Subir imagen'}
-          </button>
-          {studio?.imagenBienvenidaUrl && (
-            <button onClick={hook.handleQuitarImagenBienvenida} disabled={subiendo === 'bienvenida'} className="text-muted-foreground hover:text-destructive" aria-label="Quitar imagen de bienvenida">
-              <Trash2 size={16} />
-            </button>
-          )}
-          <input ref={bienvenidaRef} type="file" accept="image/*" hidden onChange={hook.handleImagenBienvenida} />
-        </div>
-        {/* Decir DÓNDE sale, y no solo que «la ven tus alumnas». El feedback
-            fue «no se puede poner imagen en la bienvenida ni en las tarjetas»
-            — cuando esta misma foto es las tres cosas. Enumerarlas es la
-            diferencia entre una función que existe y una que se encuentra. */}
-        <p className="text-[11px] text-muted-foreground">
-          Es la foto de tu estudio, no tu foto de perfil. Con una sola se visten tres sitios:
-          la <strong>pantalla de acceso</strong>, la <strong>bienvenida</strong> y el fondo de la
-          <strong> tarjeta grande del Inicio</strong>. Mientras no subas la tuya, esos tres usan
-          una foto de Tentare — la que ves aquí al lado. Lo ideal es 1200 × 1600 px, vertical.
-        </p>
+        <CampoImagen
+          etiqueta="imagen de bienvenida"
+          valor={studio?.imagenBienvenidaUrl}
+          respaldo={IMAGENES_POR_DEFECTO.vertical[0]}
+          onSubir={hook.subirImagenBienvenidaArchivo}
+          onCambiar={hook.guardarImagenBienvenida}
+          ocupado={subiendo === 'bienvenida'}
+          ayuda={
+            // Decir DÓNDE sale, y no solo que «la ven tus alumnas». El feedback
+            // fue «no se puede poner imagen en la bienvenida ni en las tarjetas»
+            // — cuando esta misma foto es las tres cosas. Enumerarlas es la
+            // diferencia entre una función que existe y una que se encuentra.
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Es la foto de tu estudio, no tu foto de perfil. Con una sola se visten tres sitios:
+              la <strong>pantalla de acceso</strong>, la <strong>bienvenida</strong> y el fondo de la
+              <strong> tarjeta grande del Inicio</strong>. Mientras no subas la tuya, esos tres usan
+              una foto de Tentare — la que ves aquí al lado. Lo ideal es 1200 × 1600 px, vertical.
+            </p>
+          }
+        />
       </div>
 
       {/* Encuadre de la imagen de bienvenida.
@@ -1222,25 +1199,20 @@ export function AjustesCategoriaPanel({
       <div className="space-y-2 border-t border-border pt-4">
         <p className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Favicon</p>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
-          {draft.faviconUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={draft.faviconUrl} alt="Favicon" className="w-6 h-6 object-contain" />
-          ) : (
-            <span className="text-[10px] text-muted-foreground">Sin favicon</span>
-          )}
-        </div>
-        <button onClick={() => faviconRef.current?.click()} disabled={subiendo === 'favicon'} className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border">
-          <Upload size={14} /> {draft.faviconUrl ? 'Cambiar favicon' : 'Subir favicon'}
-        </button>
-        {draft.faviconUrl && (
-          <button onClick={hook.handleQuitarFavicon} disabled={subiendo === 'favicon'} className="text-muted-foreground hover:text-destructive" aria-label="Quitar favicon">
-            <Trash2 size={16} />
-          </button>
-        )}
-        <input ref={faviconRef} type="file" accept="image/*" hidden onChange={hook.handleFavicon} />
-      </div>
+      {/* Tampoco lleva `respaldo`: el favicon es marca, como el logo. Sin él,
+          la pestaña enseña el de Tentare — poner ahí una imagen genérica de
+          Pilates sería peor, no mejor. */}
+      <CampoImagen
+        etiqueta="favicon"
+        valor={draft.faviconUrl}
+        onSubir={hook.subirFavicon}
+        onCambiar={hook.guardarFavicon}
+        ocupado={subiendo === 'favicon'}
+        ajuste="contain"
+        clasePreview="w-12 h-12"
+        textoSubir="Subir favicon"
+        textoCambiar="Cambiar favicon"
+      />
     </div>
   );
 }
@@ -1254,10 +1226,7 @@ export function AjustesCategoriaPanel({
  * pegando su enlace en un chat de verdad — que además queda cacheado por
  * WhatsApp durante días, así que el error tarda en poder corregirse.
  */
-function PanelCompartir({ hook, fileRef }: {
-  hook: ReturnType<typeof useThemeEditor>;
-  fileRef: React.RefObject<HTMLInputElement | null>;
-}) {
+function PanelCompartir({ hook }: { hook: ReturnType<typeof useThemeEditor> }) {
   const { draft, setCampo, studio, subiendo } = hook;
   // ⚠️ `?? ''` y no `draft.seoTitulo` a secas, aunque el tipo diga que es un
   // string. `fetchThemeBorrador` hace `res.json() as Promise<ThemeConfig>`:
@@ -1303,24 +1272,18 @@ function PanelCompartir({ hook, fileRef }: {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={subiendo === 'compartir'}
-            className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl border border-border"
-          >
-            <Upload size={14} /> {draft.seoImagenUrl ? 'Cambiar imagen' : 'Subir imagen'}
-          </button>
-          {draft.seoImagenUrl && (
-            <button onClick={hook.handleQuitarImagenCompartir} className="text-muted-foreground hover:text-destructive" aria-label="Quitar imagen para compartir">
-              <Trash2 size={16} />
-            </button>
-          )}
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={hook.handleImagenCompartir} />
-        </div>
-        <p className="text-[11px] text-muted-foreground">Apaisada, 1200 × 630 va perfecta.</p>
-      </div>
+      {/* La tarjeta de arriba ya enseña la imagen GUARDADA. La miniatura de
+          aquí sirve para lo otro: ver un enlace recién pegado antes de
+          guardarlo, que la tarjeta todavía no refleja. */}
+      <CampoImagen
+        etiqueta="imagen para compartir"
+        valor={draft.seoImagenUrl}
+        respaldo={IMAGEN_COMPARTIR_POR_DEFECTO}
+        onSubir={hook.subirImagenCompartir}
+        onCambiar={hook.guardarImagenCompartir}
+        ocupado={subiendo === 'compartir'}
+        ayuda={<p className="text-[11px] text-muted-foreground mt-1.5">Apaisada, 1200 × 630 va perfecta.</p>}
+      />
 
       {/* ⚠️ Los `maxLength` no son decoración: el schema rechaza por encima de
           esos límites, así que sin ellos se podría escribir un título que

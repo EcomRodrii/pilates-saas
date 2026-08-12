@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { subirImagenPortal } from '@/lib/portal-storage';
+import { CampoImagen as CampoImagenUI } from '@/components/ui/campo-imagen';
 import { claveSubidaDeCampo } from '@/lib/storage-clave';
 import {
   agruparCampos, validarCampo,
@@ -199,78 +200,33 @@ function CampoImagen({
   onChange: (v: string) => void;
 }) {
   const { studio } = useStudio();
-  const ref = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [error, setError] = useState('');
-  const [verEnlace, setVerEnlace] = useState(false);
 
-  async function alElegir(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Se limpia SIEMPRE el input: sin esto, elegir el mismo fichero dos veces
-    // seguidas (tras un error, que es justo cuando se reintenta) no dispara
-    // `change` y parece que el botón se ha quedado muerto.
-    e.target.value = '';
-    if (!file || !studio?.id) return;
-    setError('');
-    setSubiendo(true);
-    try {
-      const r = await subirImagenPortal(studio.id, clave, file);
-      if ('error' in r) { setError(r.error); return; }
-      onChange(r.url);
-    } finally {
-      setSubiendo(false);
-    }
-  }
-
+  // El control es el MISMO que usan el logo, el favicon, la foto del portal,
+  // la imagen para compartir y la foto de una clase. Aquí nació —era el único
+  // sitio con «o pegar un enlace»— y de aquí salió a `components/ui`; lo que
+  // queda es el cableado con el schema y con Storage.
   return (
     <div>
       <span className={labelCls}>{campo.etiqueta}</span>
-      <div className="flex items-center gap-2">
-        <div className="w-16 h-11 rounded-lg border border-border bg-muted overflow-hidden shrink-0 flex items-center justify-center">
-          {valor ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={valor} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-[9px] text-muted-foreground text-center px-1">Sin foto</span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => ref.current?.click()}
-          disabled={subiendo}
-          className="flex items-center gap-1.5 text-[12.5px] font-semibold px-2.5 py-1.5 rounded-lg border border-border disabled:opacity-50"
-        >
-          <Upload size={13} /> {subiendo ? 'Subiendo…' : valor ? 'Cambiar' : 'Subir foto'}
-        </button>
-        {valor && !subiendo && (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            aria-label={`Quitar ${campo.etiqueta}`}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-        <input ref={ref} type="file" accept="image/*" hidden onChange={alElegir} />
-      </div>
-      {error && <span className="text-[11px] text-destructive block mt-1">{error}</span>}
-      <button
-        type="button"
-        onClick={() => setVerEnlace((v) => !v)}
-        className="text-[11px] text-muted-foreground underline mt-1.5"
-      >
-        {verEnlace ? 'Ocultar el enlace' : 'o pegar un enlace'}
-      </button>
-      {verEnlace && (
-        <input
-          className={`${inputCls} mt-1`}
-          value={valor}
-          placeholder={campo.marcador ?? 'https://…'}
-          onChange={(e) => onChange(e.target.value)}
-          aria-label={`Enlace de ${campo.etiqueta}`}
-        />
-      )}
+      <CampoImagenUI
+        etiqueta={campo.etiqueta}
+        valor={valor}
+        ocupado={subiendo}
+        clasePreview="w-16 h-11"
+        textoSubir="Subir foto"
+        textoCambiar="Cambiar"
+        onSubir={async (file) => {
+          if (!studio?.id) return { error: 'Todavía no se ha cargado el estudio.' };
+          setSubiendo(true);
+          const r = await subirImagenPortal(studio.id, clave, file);
+          setSubiendo(false);
+          return r;
+        }}
+        // El schema guarda '' para «sin imagen», no `null`: es un campo de
+        // texto dentro del JSON del bloque, no una columna nullable.
+        onCambiar={(url) => onChange(url ?? '')}
+      />
     </div>
   );
 }
