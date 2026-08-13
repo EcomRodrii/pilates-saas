@@ -23,7 +23,7 @@ export default function FavoritasNetworkPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <Link href="/network" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+      <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
         <ArrowLeft size={13} /> Volver al buscador
       </Link>
 
@@ -36,7 +36,7 @@ export default function FavoritasNetworkPage() {
       ) : perfiles.length === 0 ? (
         <div className={`${cardCls} p-8 text-center`}>
           <p className="text-[13px] text-muted-foreground">Todavía no has guardado ninguna instructora.</p>
-          <Link href="/network" className="text-[12px] text-brand font-medium mt-2 inline-block">Buscar instructoras</Link>
+          <Link href="/network/buscar" className="text-[12px] text-brand font-medium mt-2 inline-block">Buscar instructoras</Link>
         </div>
       ) : (
         <div className="space-y-2.5">

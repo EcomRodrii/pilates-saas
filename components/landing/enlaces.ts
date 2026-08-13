@@ -35,12 +35,15 @@ export const NAV_V5: EnlaceNav[] = [
 
 /**
  * Único enlace del menú que NO es una ancla de esta página: Tentare Network
- * es un producto público aparte (alta independiente, sin estudio detrás —
- * ver app/network/unirse), así que su sitio es el menú de la landing, no una
- * sección de /funcionalidades. Sustituye al hueco que /instructora/alta dejó
- * en PIE_V5 (ver comentario ahí) — mismo criterio, destino nuevo.
+ * es un producto público aparte con su propia landing/marketplace
+ * (rediseño 2026-08, app/network/page.tsx), así que su sitio es el menú de
+ * la landing, no una sección de /funcionalidades. Sustituye al hueco que
+ * /instructora/alta dejó en PIE_V5 (ver comentario ahí) — mismo criterio,
+ * destino nuevo. Antes apuntaba a /network/unirse (alta directa); ahora a
+ * /network, la landing de descubrimiento — /network/unirse se queda viva
+ * sin enlazar desde aquí (decisión explícita, no borrar sin pedirlo).
  */
-export const NAV_NETWORK: EnlaceNav = { href: '/network/unirse', label: 'Tentare Network' };
+export const NAV_NETWORK: EnlaceNav = { href: '/network', label: 'Tentare Network' };
 
 /**
  * Salidas de cada sección hacia el árbol real. Esto es lo que el diseño no

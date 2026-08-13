@@ -78,7 +78,10 @@ const allSections: NavSection[] = [
       // instructora gestiona su propio perfil (eso se mudó fuera del panel,
       // a app/network/mi-perfil — cuenta independiente, sin studio_id). Por
       // eso ya no está en PERMITIDO_INSTRUCTOR (lib/permisos-reglas.ts).
-      { href: '/network', label: 'Buscar instructoras', icon: Network },
+      // /network/buscar y no /network: esa URL literal la ocupa ahora la
+      // landing PÚBLICA de Network (app/network/page.tsx, rediseño 2026-08) —
+      // no puede haber dos páginas en la misma ruta.
+      { href: '/network/buscar', label: 'Buscar instructoras', icon: Network },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },

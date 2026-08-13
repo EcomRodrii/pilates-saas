@@ -14,23 +14,26 @@
 // decide su propio guard de sesión (mi-perfil/solicitudes → fuera si no hay
 // user; unirse → fuera si YA hay user).
 //
-// /network/unirse es la excepción: es una landing completa (nav, hero,
-// pie propios — components/landing/network/), no una pantalla de
-// autoservicio. Envolverla en esta cabecera + `max-w-2xl` la aplastaría a
-// una columna estrecha y apilaría dos barras de navegación. Se detecta por
-// pathname en vez de mover la lógica a un layout hermano porque solo esta
-// ruta necesita salirse — todo lo demás bajo /network sigue igual.
-
+// Rediseño 2026-08: /network dejó de ser solo autoservicio — ahora también
+// vive aquí debajo la landing/marketplace/perfil/acceso PÚBLICOS
+// (components/network-v2/), cada uno con su propio nav+pie completos. Antes
+// esto se resolvía con una excepción para /network/unirse; con más rutas
+// públicas que privadas, se invierte a una lista blanca de las privadas
+// (autoservicio de la instructora YA logueada) — todo lo demás bajo
+// /network pasa sin la cabecera "logo + salir" ni el `max-w-2xl` que la
+// aplastaría a una columna estrecha y apilaría dos barras de navegación.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 
+const RUTAS_AUTOSERVICIO = ['/network/mi-perfil', '/network/solicitudes', '/network/mis-mensajes'];
+
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
 
-  if (pathname === '/network/unirse') return <>{children}</>;
+  if (!RUTAS_AUTOSERVICIO.includes(pathname ?? '')) return <>{children}</>;
 
   return (
     <div className="min-h-dvh" style={{ background: '#EEEEE8' }}>

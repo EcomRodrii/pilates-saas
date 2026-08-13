@@ -22,7 +22,7 @@ import {
   emailVerificado, experienciaVerificada, referenciaProfesional, identidadVerificada, activaRecientemente,
 } from './badges.ts';
 import {
-  esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esDisponibilidadEstadoValido,
+  esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esDisponibilidadEstadoValido, esTarifaRangoValida,
 } from './catalogo.ts';
 import type {
   FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
@@ -61,6 +61,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     horarios: listaParam('horarios').filter(esHorarioValido) as FiltroBusquedaNetwork['horarios'],
     tipoTrabajo: listaParam('tipoTrabajo').filter(esTipoTrabajoValido) as FiltroBusquedaNetwork['tipoTrabajo'],
     experienciaMinima: experienciaMinimaRaw && Number.isFinite(Number(experienciaMinimaRaw)) ? Number(experienciaMinimaRaw) : null,
+    tarifaRango: listaParam('tarifaRango').filter(esTarifaRangoValida) as FiltroBusquedaNetwork['tarifaRango'],
   };
 }
 
@@ -83,6 +84,7 @@ export async function buscarPerfilesPublico(
   if (filtro.horarios.length > 0) query = query.overlaps('disponibilidad_horarios', filtro.horarios);
   if (filtro.tipoTrabajo.length > 0) query = query.overlaps('tipo_trabajo', filtro.tipoTrabajo);
   if (filtro.experienciaMinima != null) query = query.gte('anios_experiencia', filtro.experienciaMinima);
+  if (filtro.tarifaRango.length > 0) query = query.in('tarifa_rango', filtro.tarifaRango);
 
   const { data, error } = await query;
   if (error) return { error };
