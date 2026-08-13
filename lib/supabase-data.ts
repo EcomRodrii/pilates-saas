@@ -3161,19 +3161,19 @@ export async function dbInsertNotaProgreso(nota: NotaProgreso): Promise<Resultad
   return error ? falloEscritura('[dbInsertNotaProgreso]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertCodigoDescuento(c: CodigoDescuento) {
+export async function dbInsertCodigoDescuento(c: CodigoDescuento): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('codigos_descuento').insert(codigoDescuentoToDb(c));
-  if (error) reportDbError('[dbInsertCodigoDescuento]', error);
+  return error ? falloEscritura('[dbInsertCodigoDescuento]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCodigoDescuento(id: string, changes: Partial<CodigoDescuento>) {
+export async function dbUpdateCodigoDescuento(id: string, changes: Partial<CodigoDescuento>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('activo' in changes) db.activo = changes.activo;
   if ('usos' in changes) db.usos = changes.usos;
   if ('minImporte' in changes) db.min_importe = changes.minImporte;
   if ('soloNuevas' in changes) db.solo_nuevas = changes.soloNuevas;
   const { error } = await supabase.from('codigos_descuento').update(db).eq('id', id);
-  if (error) reportDbError('[dbUpdateCodigoDescuento]', error);
+  return error ? falloEscritura('[dbUpdateCodigoDescuento]', error) : ESCRITURA_OK;
 }
 
 // Consume un uso del código de forma ATÓMICA (0050). Devuelve los usos ya
@@ -3186,9 +3186,9 @@ export async function dbConsumirCodigoDescuento(id: string): Promise<number | nu
   return typeof data === 'number' ? data : null;
 }
 
-export async function dbDeleteCodigoDescuento(id: string) {
+export async function dbDeleteCodigoDescuento(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('codigos_descuento').delete().eq('id', id);
-  if (error) reportDbError('[dbDeleteCodigoDescuento]', error);
+  return error ? falloEscritura('[dbDeleteCodigoDescuento]', error) : ESCRITURA_OK;
 }
 
 export async function dbInsertNotaInterna(nota: NotaInterna): Promise<ResultadoEscritura> {

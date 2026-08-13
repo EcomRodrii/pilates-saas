@@ -44,18 +44,18 @@ export function CodigosDescuento() {
 
   const puedeCrear = form.codigo.trim().length > 0 && parseFloat(form.valor) > 0;
 
-  function crear() {
+  async function crear() {
     if (!puedeCrear) return;
     // El código es único por estudio (índice uq_codigo_descuento_estudio, 0049).
-    // Se comprueba aquí porque addCodigoDescuento es optimista + escritura
-    // fire-and-forget: sin esto, un duplicado fallaría en silencio en la BD y el
-    // código aparecería en pantalla sin existir de verdad.
+    // Comprobado aquí en cliente para dar el error al instante; addCodigoDescuento
+    // también espera la escritura real y devuelve el error de la BD si el
+    // duplicado se cuela igualmente (condición de carrera entre dos altas).
     if (buscarCodigo(codigosDescuento, form.codigo)) {
       setErrorAlta('Ya existe un código con ese nombre');
       return;
     }
     setErrorAlta(null);
-    addCodigoDescuento({
+    const res = await addCodigoDescuento({
       codigo: form.codigo.trim().toUpperCase(),
       descripcion: form.descripcion.trim() || 'Creado desde el Centro de Control',
       tipo: form.tipo,
@@ -66,6 +66,7 @@ export function CodigosDescuento() {
       minImporte: null,
       soloNuevas: false,
     });
+    if (!res.ok) { setErrorAlta(res.error); return; }
     setForm({ codigo: '', tipo: 'PORCENTAJE', valor: '', usosMax: '', expira: '', descripcion: '' });
     setAbierto(false);
   }
@@ -166,7 +167,7 @@ export function CodigosDescuento() {
               <div className="flex shrink-0 items-center gap-3">
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${est.clase}`}>{est.texto}</span>
                 <button
-                  onClick={() => toggleCodigoDescuento(c.id)}
+                  onClick={async () => { const res = await toggleCodigoDescuento(c.id); if (!res.ok) window.alert(res.error); }}
                   className="text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {c.activo ? 'Desactivar' : 'Activar'}
