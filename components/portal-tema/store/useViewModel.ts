@@ -369,6 +369,13 @@ export function useViewModel() {
           kicker: u.estado === "CONFIRMADA" ? "Reserva confirmada" : "Tu solicitud",
           name: c.name, teacher: c.teacher, room: c.room, duration: c.duration,
           when: (c.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, c.day)) + " · " + c.time,
+          // Para el `.ics`: el instante real, no la hora de pared.
+          ics: {
+            id: c.id, inicio: c.startsAt, fin: c.endsAt, titulo: c.name,
+            instructora: c.teacher, sala: c.room,
+            estudioNombre: datos.estudio.nombre || cfg.studio,
+            estudioDireccion: [datos.estudio.direccion, datos.estudio.ciudad].filter(Boolean).join(", "),
+          },
         };
       })(),
 
