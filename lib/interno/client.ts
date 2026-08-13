@@ -201,6 +201,36 @@ export const fetchResenasNetworkInterno = (estado: string) =>
 export const moderarResenaNetworkInterno = (id: string, estado: 'publicada' | 'oculta') =>
   pedir<{ ok: true }>('/network/resenas', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
 
+// Fase 3 del rediseño de Tentare Network — a diferencia de
+// VerificacionNetworkInterna (solo lectura, resuelve el estudio), estas dos
+// colas SÍ las resuelve el equipo de Tentare: documento de identidad y
+// certificaciones, ambas con motivo obligatorio al rechazar.
+export interface VerificacionIdentidadNetworkInterna {
+  id: string; estado: string; motivoRechazo: string | null;
+  creadoEn: string; resueltoEn: string | null;
+  perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
+}
+export const fetchVerificacionesIdentidadNetworkInterno = (estado: string) =>
+  pedir<{ verificaciones: VerificacionIdentidadNetworkInterna[] }>(`/network/verificaciones-identidad?estado=${encodeURIComponent(estado)}`);
+export const resolverVerificacionIdentidadNetworkInterno = (id: string, aprobar: boolean, motivo?: string) =>
+  pedir<{ ok: true }>('/network/verificaciones-identidad', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
+
+export interface CertificacionNetworkInterna {
+  id: string; nombre: string; institucion: string; anio: number | null; duracion: string | null;
+  estado: string; motivoRechazo: string | null; creadoEn: string; resueltoEn: string | null;
+  perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
+}
+export const fetchCertificacionesNetworkInterno = (estado: string) =>
+  pedir<{ certificaciones: CertificacionNetworkInterna[] }>(`/network/certificaciones?estado=${encodeURIComponent(estado)}`);
+export const resolverCertificacionNetworkInterno = (id: string, aprobar: boolean, motivo?: string) =>
+  pedir<{ ok: true }>('/network/certificaciones', { method: 'PATCH', body: JSON.stringify({ id, aprobar, motivo }) });
+
+// URL firmada de 5 min — se pide bajo demanda (clic en "Ver documento"), no
+// al cargar la lista: el bucket no tiene SELECT para nadie salvo
+// service-role, así que cada vista del documento es una llamada nueva.
+export const obtenerUrlDocumentoNetworkInterno = (id: string, tipo: 'identidad' | 'certificacion') =>
+  pedir<{ url: string }>(`/network/verificaciones-identidad/documento?id=${encodeURIComponent(id)}&tipo=${tipo}`);
+
 export interface AnaliticaNetwork {
   perfiles: {
     total: number; publicados: number; borradores: number; suspendidos: number; ocultos: number;
