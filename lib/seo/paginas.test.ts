@@ -156,6 +156,24 @@ test('esNoIndexable usa prefijo de cadena, como robots.txt', () => {
   assert.equal(esNoIndexable('/precios'), false);
 });
 
+test('las rutas privadas DINÁMICAS de Network quedan bloqueadas, no solo las estáticas', () => {
+  // rutasEstaticas() excluye a propósito los segmentos `[...]`, así que el
+  // test "ninguna ruta del panel de gestión queda sin bloquear" nunca ve
+  // app/(dashboard)/network/[perfilId] (la vista privada de una candidata) —
+  // el rediseño 2026-08 de Network lo dejó sin bloquear precisamente por
+  // este punto ciego (nombraba cada ruta privada a mano en vez de un
+  // prefijo `/network/`), verificado en vivo antes del arreglo:
+  // esNoIndexable('/network/algun-id') devolvía false. Caso explícito para
+  // que no vuelva a colarse.
+  assert.equal(esNoIndexable('/network/red-perfil-de-prueba-123'), true);
+  // El marketplace público SÍ sigue indexable, dinámico incluido — la
+  // excepción no puede tragarse también lo privado.
+  assert.equal(esNoIndexable('/network'), false);
+  assert.equal(esNoIndexable('/network/instructoras'), false);
+  assert.equal(esNoIndexable('/network/instructoras/alguna-instructora'), false);
+  assert.equal(esNoIndexable('/network/instructoras/ciudad/madrid'), false);
+});
+
 test('ningún prefijo bloqueado tumba una página del registro', () => {
   // Red de seguridad de la trampa anterior: si alguien añade '/fun' a la lista
   // de bloqueo, diez páginas desaparecen del índice en silencio.
