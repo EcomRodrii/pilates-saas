@@ -1,5 +1,7 @@
 'use client';
 
+import { aInputLocal, desdeInputLocal, fechaValida } from '@/lib/contenido/fechas';
+
 import { useState } from 'react';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,12 +16,6 @@ import { Trash2, Check } from 'lucide-react';
 
 const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10';
 const selectCls = inputCls;
-
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
 
 export function PublicacionDialog({
   open, onClose, publicacion, fechaInicial,
@@ -63,13 +59,16 @@ export function PublicacionDialog({
       setTipo(publicacion.tipo);
       setEstado(publicacion.estado);
       setPlataformas(publicacion.plataformas);
-      setFecha(toLocalInput(publicacion.fechaProgramada));
+      setFecha(aInputLocal(publicacion.fechaProgramada));
       setHashtags(publicacion.hashtags.join(' '));
     } else {
-      const base = fechaInicial ?? new Date();
-      if (!fechaInicial) base.setHours(base.getHours() + 1, 0, 0, 0);
+      // ⚠️ El mismo agujero por el otro lado: `base.toISOString()` también
+      // revienta si el día que llega del calendario no es una fecha válida.
+      // Ante la duda, ahora — nunca una pantalla caída.
+      const base = fechaInicial && fechaValida(fechaInicial) ? fechaInicial : new Date();
+      if (base !== fechaInicial) base.setHours(base.getHours() + 1, 0, 0, 0);
       setTitulo(''); setContenido(''); setTipo('post'); setEstado('programada');
-      setPlataformas(['instagram']); setFecha(toLocalInput(base.toISOString())); setHashtags('');
+      setPlataformas(['instagram']); setFecha(aInputLocal(base.toISOString())); setHashtags('');
     }
   }
 
@@ -79,7 +78,11 @@ export function PublicacionDialog({
 
   function guardar() {
     if (!titulo.trim()) return;
-    const iso = new Date(fecha).toISOString();
+    // ⚠️ Antes esto era `new Date(fecha).toISOString()` a pelo: con el campo
+    // vacío lanzaba `RangeError: Invalid time value`, sin capturar, y el botón
+    // se quedaba muerto sin decir por qué (Sentry JAVASCRIPT-NEXTJS-1B).
+    const iso = desdeInputLocal(fecha);
+    if (!iso) return;
     const tags = hashtags.split(/[\s,]+/).map((t) => t.trim()).filter(Boolean)
       .map((t) => (t.startsWith('#') ? t : `#${t}`));
     const payload = {
@@ -146,6 +149,11 @@ export function PublicacionDialog({
 
           <Field label="Fecha y hora">
             <input type="datetime-local" className={inputCls} value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            {/* Sin fecha no se puede programar nada, y el botón apagado por sí
+                solo no explica cuál de los dos campos falta. */}
+            {!desdeInputLocal(fecha) && (
+              <p className="mt-1 text-[11px] text-muted-foreground">Elige cuándo se publica.</p>
+            )}
           </Field>
 
           <Field label="Contenido">
@@ -165,7 +173,7 @@ export function PublicacionDialog({
           ) : <span />}
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
-            <button onClick={guardar} disabled={!titulo.trim()} className="rounded-full bg-foreground text-background px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
+            <button onClick={guardar} disabled={!titulo.trim() || !desdeInputLocal(fecha)} className="rounded-full bg-foreground text-background px-4 py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity">
               {editando ? 'Guardar' : 'Crear'}
             </button>
           </div>
