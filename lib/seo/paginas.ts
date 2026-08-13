@@ -133,7 +133,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 1,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/recursos/cubrir-baja-instructora'],
+    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/recursos/cubrir-baja-instructora', '/network/instructoras'],
   },
   {
     path: '/funcionalidades/bonos-y-membresias',
@@ -327,6 +327,25 @@ export const PAGINAS: PaginaSeo[] = [
     relacionadas: ['/precios', '/comparativa', '/recursos'],
   },
   ...FUNCIONALIDADES,
+
+  // ── Tentare Network — marketplace público de instructoras de Pilates ──────
+  // `changeFrequency: 'daily'`: a diferencia del resto del registro (páginas
+  // de contenido estático), el listado cambia con cada perfil nuevo
+  // publicado. El perfil individual (/network/instructoras/[slug]) es
+  // dinámico — no se registra aquí (rutasEstaticas() ya lo excluye, mismo
+  // criterio que /portal/[slug]) — pero SÍ está indexable: la excepción vive
+  // en EXCEPCIONES_INDEXABLES, no aquí.
+  {
+    path: '/network/instructoras',
+    titulo: 'Instructoras de Pilates | Tentare Network',
+    descripcion: 'Encuentra instructoras de Pilates disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Tentare Network',
+    resumen: 'La red profesional de instructoras de Pilates.',
+    prioridad: 0.7,
+    changeFrequency: 'daily',
+    relacionadas: ['/funcionalidades', '/funcionalidades/sustituciones'],
+  },
 
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
@@ -539,7 +558,18 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
 ] as const;
 
+/**
+ * Excepciones DENTRO de un prefijo bloqueado: `/network` está bloqueado
+ * entero (autoservicio de la instructora — mi-perfil/solicitudes/unirse — y
+ * el buscador privado del panel), pero el marketplace público sí debe
+ * indexarse. Se resuelve como excepción explícita y no quitando `/network`
+ * de PREFIJOS_NO_INDEXABLES: la lista de bloqueo sigue reflejando el panel
+ * tal cual, y aquí queda documentado qué se abrió y por qué.
+ */
+export const EXCEPCIONES_INDEXABLES = ['/network/instructoras'] as const;
+
 /** ¿Esta ruta cae bajo un prefijo bloqueado? Prefijo de cadena, como robots.txt. */
 export function esNoIndexable(path: string): boolean {
+  if (EXCEPCIONES_INDEXABLES.some((p) => path === p || path.startsWith(`${p}/`))) return false;
   return PREFIJOS_NO_INDEXABLES.some((p) => path.startsWith(p));
 }

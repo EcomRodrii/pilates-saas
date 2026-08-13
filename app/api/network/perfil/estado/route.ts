@@ -3,6 +3,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { mapFilaAPerfil, type FilaRedPerfil } from '@/lib/network/mapeo';
+import { slugBase, slugConSufijo } from '@/lib/network/slug';
 
 // Tentare Network, Fase 3 (publicación) — docs/NETWORK-IMPLEMENTATION-PLAN.md.
 //
@@ -20,7 +21,7 @@ import { mapFilaAPerfil, type FilaRedPerfil } from '@/lib/network/mapeo';
 const ESTADOS_ACEPTADOS = new Set(['draft', 'published', 'hidden']);
 
 const SELECT_COLUMNAS = `
-  id, auth_user_id, nombre, foto_url, ciudad, zona, radio_km, descripcion,
+  id, auth_user_id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
   estado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en
@@ -56,7 +57,7 @@ export async function PATCH(req: NextRequest) {
 
   const { data: perfil, error: errLeer } = await admin
     .from('red_perfiles')
-    .select('id, nombre, ciudad, especialidades, estado')
+    .select('id, nombre, ciudad, especialidades, estado, slug')
     .eq('auth_user_id', usuario.userId)
     .maybeSingle();
   if (errLeer) return errorInterno('network:perfil:estado:leer', errLeer, 'No se ha podido leer tu perfil.');
@@ -74,10 +75,29 @@ export async function PATCH(req: NextRequest) {
     if (motivo) return errorPeticion(motivo);
   }
 
+  // Slug: se genera una sola vez, al primer publicar — nunca se regenera en
+  // publicaciones posteriores (ocultar → volver a publicar), para que un
+  // enlace ya compartido/indexado no se rompa si cambia el nombre o la
+  // ciudad más tarde. Colisión resuelta con sufijo numérico, acotado: pasado
+  // el límite (perfiles con nombre+ciudad idénticos, caso extremo) se cae al
+  // propio id, que siempre es único.
+  let slug = perfil.slug as string | null;
+  if (estado === 'published' && !slug) {
+    const base = slugBase(perfil.nombre as string, perfil.ciudad as string | null);
+    slug = base;
+    for (let intento = 1; intento <= 20; intento++) {
+      const candidato = slugConSufijo(base, intento);
+      const { data: choque } = await admin.from('red_perfiles').select('id').eq('slug', candidato).maybeSingle();
+      if (!choque) { slug = candidato; break; }
+      slug = null;
+    }
+    if (!slug) slug = perfil.id as string;
+  }
+
   const ahora = new Date().toISOString();
   const { data, error } = await admin
     .from('red_perfiles')
-    .update({ estado, actualizado_en: ahora, ultimo_acceso_en: ahora })
+    .update({ estado, slug, actualizado_en: ahora, ultimo_acceso_en: ahora })
     .eq('id', perfil.id)
     .select(SELECT_COLUMNAS)
     .single();

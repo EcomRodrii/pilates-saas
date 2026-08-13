@@ -12,6 +12,7 @@
 // automáticamente a partir de la metadata del signup.
 import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { UserCircle2, Search, MessageCircle, ShieldCheck, Mail, BadgeCheck, Clock3 } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
@@ -96,7 +97,7 @@ export default function UnirseNetworkPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center text-center mb-10">
+      <div className="flex flex-col items-center text-center mb-6">
         <LogoTentare formato="vertical" producto="network" titulo="Tentare Network" alto={92} />
         <p className="text-[14px] text-[#8E8E86] mt-2 max-w-sm">
           Un perfil profesional para instructoras y profesores de Pilates. Gratis, sin comisión: publicas tu
@@ -107,6 +108,15 @@ export default function UnirseNetworkPage() {
           style={{ background: 'var(--brand)', color: 'var(--brand-foreground)' }}>
           Crear mi perfil gratis
         </a>
+      </div>
+
+      <div className="text-center mb-10">
+        <Link
+          href="/network/instructoras"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#E7E7E0] bg-white text-[13px] font-medium text-[#3A3A34] hover:bg-[#F1F2EA] transition-colors"
+        >
+          ¿Eres un estudio? Busca instructoras →
+        </Link>
       </div>
 
       <div className="max-w-sm mx-auto mb-10">

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useId } from 'react'
+import Link from 'next/link'
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation'
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags'
 import { cn } from '@/lib/utils'
-import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, Pencil } from 'lucide-react'
+import { Plus, Copy, Trash2, ToggleLeft, ToggleRight, Mail, MessageSquare, Bell, Zap, Eye, EyeOff, Check, Filter, BarChart3, PieChart, MoreVertical, Sparkles, Loader2, Send, Play, Pause, Flag, ArrowRight, ArrowUpRight, Pencil } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useStudio } from '@/lib/studio-context'
 import { authHeader } from '@/lib/api-client'
@@ -797,6 +798,18 @@ export default function MarketingPage() {
             {t === 'resumen' ? 'Resumen' : t === 'campanas' ? 'Campañas' : t === 'automatizaciones' ? 'Automatizaciones' : 'Códigos de descuento'}
           </button>
         ))}
+        {/* No es una pestaña de este componente: /contenido es su propia
+            página (con su propio hub de accesos a calendario/biblioteca/
+            ideas/métricas/guiones/carruseles, ver ACCESOS en
+            app/(dashboard)/contenido/page.tsx). Vive aquí al lado para que
+            siga alcanzable en un clic ahora que el sidebar solo tiene un
+            enlace "Marketing" — ver lib/nav-config.ts. */}
+        <Link
+          href="/contenido"
+          className="px-4 py-2 text-sm rounded-lg transition-colors text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        >
+          Contenido <ArrowUpRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
       {/* ==================== TAB 0: RESUMEN ==================== */}
