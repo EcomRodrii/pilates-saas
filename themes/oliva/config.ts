@@ -26,7 +26,9 @@ export const THEME: ThemeConfig = {
     // Tentada (ver `NextClassStyle` en tipos-tema.ts).
     "next_class_style": "hero",
     // La tarjeta «Esta semana» de siempre. La fila desnuda es de Tentada.
-    "week_strip_style": "card"
+    "week_strip_style": "card",
+    // Las cuatro de siempre. La barra de cinco con «Mi centro» es de Tentada.
+    "tab_set": "basico"
   },
   "home_blocks": [
     "greeting",

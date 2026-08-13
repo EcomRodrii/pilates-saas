@@ -7,10 +7,13 @@ import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
-  | "inicio" | "clases" | "calendario" | "reservas" | "perfil"
-  | "bonos" | "checkout" | "detalle" | "sesion" | "videos";
+  | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
+  | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores";
 
-export type TabId = "inicio" | "clases" | "reservas" | "perfil";
+// Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
+// barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
+// pestaña de más en el tipo no pinta nada por sí sola.
+export type TabId = "inicio" | "clases" | "reservas" | "perfil" | "bonos" | "centro";
 
 export interface PortalState {
   screen: ScreenId;
@@ -90,6 +93,8 @@ export interface PortalActions {
   goBookings(): void;
   goPasses(): void;
   goVideos(): void;
+  goCentro(): void;
+  goTeachers(): void;
   goProfile(): void;
   goto(screen: ScreenId): void;
   openClass(id?: string): void;
@@ -152,7 +157,8 @@ export type NavegarPortal = (destino: DestinoPortal) => boolean;
 
 /** Las cuatro pantallas que además son pestaña de la barra. */
 const ES_PESTANA = (p: ScreenId): p is TabId =>
-  p === "inicio" || p === "clases" || p === "reservas" || p === "perfil";
+  p === "inicio" || p === "clases" || p === "reservas" || p === "perfil" ||
+  p === "bonos" || p === "centro";
 
 const StateCtx = createContext<PortalState | null>(null);
 const ActionsCtx = createContext<PortalActions | null>(null);
@@ -388,7 +394,11 @@ export function PortalProvider({
       // navega sin tocar `tab`, igual que `goto`. Existe como acción propia y
       // no como `goto("bonos")` suelto para que los bloques no tengan que
       // saber cómo se llama la pantalla.
-      goPasses: () => ir({ screen: "bonos" }),
+      goPasses: () => ir({ tab: "bonos", screen: "bonos" }),
+      goCentro: () => ir({ tab: "centro", screen: "centro" }),
+      // Como Vídeos: es RUTA del portal (`/portal/<slug>/instructores`, la
+      // sirve el portal de siempre) sin pantalla propia en el kit.
+      goTeachers: () => ir({ screen: "instructores" }),
       // Vídeos es RUTA del portal (`/portal/<slug>/videos`, la sirve el portal
       // de siempre) pero el kit no tiene pantalla propia: en la
       // previsualización el `SCREENS[...] ?? Home` la deja en el Inicio, que

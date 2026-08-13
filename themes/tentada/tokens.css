@@ -77,6 +77,10 @@ html[data-theme="tentada"] {
   --section-title-tracking: .16em;
   --section-title-transform: uppercase;
   --section-title-color: var(--muted);
+  /* El título de pantalla va en la SANS, no en la Garamond: el diseño reserva
+   * la serif para el saludo, el nombre de la clase y las notas en cursiva. */
+  --screen-title-family: var(--font-body);
+  --screen-title-weight: 800;
 
   --size-screen-title: 26px;
   --size-greeting: 44px;

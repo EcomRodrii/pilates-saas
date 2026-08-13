@@ -22,6 +22,13 @@ export type NextClassStyle = "hero" | "ticket";
  */
 export type WeekStripStyle = "card" | "bare";
 
+/**
+ * Qué pestañas lleva la barra.
+ *   `basico`  — Inicio · Clases · Reservas · Perfil (Oliva/Bloom/Noir).
+ *   `centro`  — Inicio · Reservas · Mi centro · Bonos · Perfil (Tentada).
+ */
+export type TabSet = "basico" | "centro";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -52,6 +59,7 @@ export interface ThemeFeatures {
   detail_style: DetailStyle;
   next_class_style: NextClassStyle;
   week_strip_style: WeekStripStyle;
+  tab_set: TabSet;
 }
 
 export interface PaletteEntry {

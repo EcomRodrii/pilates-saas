@@ -41,9 +41,12 @@ a.card:hover, button.card:hover, .card--interactive:hover {
 }
 .section-head .section-title { margin-bottom: 0; }
 
+/* Mismo caso que `.section-title`: Oliva/Bloom/Noir titulan la pantalla con la
+ * display, y Tentada con la sans en negra («Mi centro», «Mis bonos»). Dos
+ * tokens con el valor de siempre por defecto, no un selector por tema. */
 .screen-title {
-  font-family: var(--font-display);
-  font-weight: var(--weight-display);
+  font-family: var(--screen-title-family, var(--font-display));
+  font-weight: var(--screen-title-weight, var(--weight-display));
   font-size: var(--size-screen-title);
   line-height: 1.1;
   letter-spacing: -.02em;

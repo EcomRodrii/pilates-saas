@@ -18,7 +18,7 @@ type StudioForm = {
   nombre: string; razonSocial: string; nif: string;
   direccion: string; ciudad: string; codigoPostal: string;
   telefono: string; email: string;
-  descripcion: string; anioFundacion: string;
+  descripcion: string; anioFundacion: string; normasTexto: string;
 };
 
 function studioToForm(s: Studio | null): StudioForm {
@@ -33,6 +33,7 @@ function studioToForm(s: Studio | null): StudioForm {
     email: s?.email ?? '',
     descripcion: s?.descripcion ?? '',
     anioFundacion: s?.anioFundacion ? String(s.anioFundacion) : '',
+    normasTexto: s?.normasTexto ?? '',
   };
 }
 
@@ -59,11 +60,15 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
     if (nifInvalido) { showToast('El NIF/CIF no es válido: revisa la letra o el dígito de control.'); return; }
     const anio = form.anioFundacion.trim();
     if (anio && !/^\d{4}$/.test(anio)) { showToast('El año de apertura tiene que ser de cuatro cifras.'); return; }
-    const { anioFundacion, descripcion, ...resto } = form;
+    const { anioFundacion, descripcion, normasTexto, ...resto } = form;
     const res = await updateStudio({
       ...resto,
       descripcion: descripcion.trim() || null,
       anioFundacion: anio ? Number(anio) : null,
+      // Vacío se guarda como NULL, no como cadena vacía: el portal distingue
+      // «no las ha escrito» (no pinta la sección) de «las ha escrito y están
+      // en blanco», que no significaría nada.
+      normasTexto: normasTexto.trim() || null,
     });
     showToast(res.ok ? 'Datos del estudio guardados' : res.error);
   }
@@ -114,6 +119,20 @@ export function TabEstudioGeneral({ showToast }: { showToast: (m: string) => voi
             />
             <p className="text-[11px] text-muted-foreground mt-1">
               Sale en tu página de reservas. Si lo dejas vacío, ese bloque no se pinta.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className={labelCls}>Normas del centro</p>
+            <textarea
+              className={`${inputCls} min-h-[96px] resize-y`}
+              value={form.normasTexto}
+              maxLength={800}
+              placeholder={'Llega 5 minutos antes: las clases empiezan puntuales.\nCalcetines antideslizantes obligatorios en todas las salas.\nCancela con 6 h de antelación para recuperar tu clase.'}
+              onChange={e => setForm(f => ({ ...f, normasTexto: e.target.value }))}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Una norma por línea. Las ven tus alumnas en la app, en «Mi centro».
+              Si lo dejas vacío, esa sección no se pinta.
             </p>
           </div>
           <div>

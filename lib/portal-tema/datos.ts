@@ -228,7 +228,7 @@ export interface FuenteDatosPortal {
    * es nullable y NO es `creadoEn` (el alta en Tentare, migr 0134) — sin él
    * el pie se pinta sin año en vez de inventarse uno.
    */
-  estudio?: { nombre: string; anioFundacion: number | null };
+  estudio?: DatosPortal['estudio'];
   tz?: string;
 }
 
@@ -344,7 +344,10 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     clases,
     hoy: hoyDe(f.ahora, tz),
     racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
-    estudio: f.estudio ?? { nombre: '', anioFundacion: null },
+    estudio: f.estudio ?? {
+      nombre: '', anioFundacion: null, direccion: '', ciudad: '',
+      codigoPostal: '', telefono: '', email: '', fotoUrl: null, normas: [],
+    },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
     planes: planesDe(f.planes),

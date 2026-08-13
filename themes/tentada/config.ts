@@ -48,7 +48,8 @@ export const THEME: ThemeConfig = {
     "tab_icon_fill": false,
     "detail_style": "card",
     "next_class_style": "ticket",
-    "week_strip_style": "bare"
+    "week_strip_style": "bare",
+    "tab_set": "centro"
   },
   "home_blocks": [
     "home-header",

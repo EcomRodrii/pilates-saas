@@ -95,8 +95,26 @@ export interface DatosPortal {
    * `rachaDe` — el prototipo la traía como texto fijo y aquí se calcula.
    */
   racha: { semanas: number; esMejor: boolean } | null;
-  /** Quién firma la pantalla. `anioFundacion` null = el pie va sin año. */
-  estudio: { nombre: string; anioFundacion: number | null };
+  /**
+   * El estudio: quién firma la pantalla y cómo se le llega. Todo sale de
+   * columnas reales de `studios` — `anioFundacion` y `fotoUrl` son nullable de
+   * verdad, y cuando faltan la pantalla se calla en vez de rellenar el hueco.
+   */
+  estudio: {
+    nombre: string;
+    anioFundacion: number | null;
+    direccion: string;
+    ciudad: string;
+    codigoPostal: string;
+    telefono: string;
+    email: string;
+    fotoUrl: string | null;
+    /**
+     * Las normas del centro, una por línea (migr 20260813004723). Array vacío
+     * = la propietaria no las ha escrito, y la pantalla no pinta la sección.
+     */
+    normas: string[];
+  };
   dias: DiaPortal[];
   filtros: FiltroPortal[];
   planes: PlanPortal[];

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
-  CHALLENGES, CLASSES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, WEEK_BARS,
+  CHALLENGES, CLASSES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
 import { usePortal, useDatos, type PortalState } from "./PortalStore";
@@ -271,14 +271,25 @@ export function useViewModel() {
         running: state.running,
       },
 
-      tabs: TABS.map((t) => ({
+      // La pantalla «Mi centro». `postal` junta CP y ciudad porque se pintan
+      // en la misma línea; si falta uno, sale el otro y no un guion suelto.
+      centro: {
+        nombre: datos.estudio.nombre || cfg.studio,
+        direccion: datos.estudio.direccion,
+        postal: [datos.estudio.codigoPostal, datos.estudio.ciudad].filter(Boolean).join(" "),
+        telefono: datos.estudio.telefono,
+        email: datos.estudio.email,
+        normas: datos.estudio.normas,
+      },
+
+      tabs: (f.tab_set === "centro" ? TABS_CON_CENTRO : TABS).map((t) => ({
         key: t.key, label: t.label, icon: t.icon as IconName,
         active: state.tab === t.key,
         fill: state.tab === t.key && f.tab_icon_fill ? "currentColor" : "none",
         stroke: state.tab === t.key ? 2.2 : 1.7,
         showLabel: f.tab_bar_style !== "floating" || state.tab === t.key,
       })),
-      showTabBar: (["inicio", "clases", "calendario", "reservas", "perfil", "bonos"] as string[]).includes(state.screen),
+      showTabBar: (["inicio", "clases", "calendario", "reservas", "perfil", "bonos", "centro"] as string[]).includes(state.screen),
       tabBarFloating: f.tab_bar_style === "floating",
 
       welcome: cfg.welcome,
