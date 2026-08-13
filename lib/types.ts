@@ -1013,8 +1013,7 @@ export type TriggerAutomatizacion =
   | 'BONO_AGOTADO'
   | 'BONO_QUEDA_1'
   | 'NUEVA_ALTA'
-  | 'CITA_RECORDATORIO'
-  | 'CONTENIDO_PUBLICADO';
+  | 'CITA_RECORDATORIO';
 
 export interface Automatizacion {
   id: string;
@@ -1032,16 +1031,19 @@ export interface Automatizacion {
   pasos?: PasoFlujo[] | null;
 }
 
-// Acciones disponibles en el constructor visual de flujos.
-export type AccionFlujo = 'EMAIL' | 'TAREA' | 'PUBLICAR_RED' | 'NOTIFICAR_EQUIPO';
+// Acciones disponibles en el constructor visual de flujos. Antes incluía
+// TAREA y PUBLICAR_RED, pero el motor (marketing-automation-engine.ts) nunca
+// las ejecutó — no hay tabla de tareas ni integración de publicación en
+// redes que las respalde. Se quitaron para no prometer algo que no pasa
+// nunca de la vista previa. Solo EMAIL/NOTIFICAR_EQUIPO, que el motor sí
+// procesa (columna `accion` de Automatizacion, un único canal por flujo).
+export type AccionFlujo = 'EMAIL' | 'NOTIFICAR_EQUIPO';
 
 export interface PasoFlujo {
   id: string;
   accion: AccionFlujo;
   // Config específica por acción (claves libres):
   //  EMAIL: { asunto, mensaje }
-  //  TAREA: { titulo, asignadoA }
-  //  PUBLICAR_RED: { red, texto }
   //  NOTIFICAR_EQUIPO: { mensaje }
   config: Record<string, string>;
 }

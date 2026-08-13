@@ -449,9 +449,9 @@ interface StudioContextValue {
 
   // Códigos de descuento
   codigosDescuento: CodigoDescuento[];
-  addCodigoDescuento: (fields: Omit<CodigoDescuento, 'id' | 'studioId' | 'usos' | 'creadoEn'>) => void;
-  toggleCodigoDescuento: (codigoId: string) => void;
-  deleteCodigoDescuento: (id: string) => void;
+  addCodigoDescuento: (fields: Omit<CodigoDescuento, 'id' | 'studioId' | 'usos' | 'creadoEn'>) => Promise<ResultadoEscritura>;
+  toggleCodigoDescuento: (codigoId: string) => Promise<ResultadoEscritura>;
+  deleteCodigoDescuento: (id: string) => Promise<ResultadoEscritura>;
   registrarUsoCodigo: (codigoId: string) => void;
 
   // Actividad reciente

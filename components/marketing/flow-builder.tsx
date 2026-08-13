@@ -1,23 +1,25 @@
 'use client'
 
-// Constructor visual de flujos (Fase 7). Define un desencadenante y una cadena
-// de acciones (email, tarea, publicar en otra red, notificar al equipo).
-// Persiste los pasos en automatizaciones.pasos (jsonb).
+// Constructor visual de flujos (Fase 7). Define un desencadenante y UNA
+// acción (email o aviso interno al equipo) — no una cadena: la columna
+// `accion` de Automatizacion (NOT NULL) admite un único canal por fila, y
+// el motor (lib/engines/marketing-automation-engine.ts) solo ejecuta ese
+// canal. Antes esta pantalla dejaba encadenar varios pasos con vista previa
+// de todos ellos, pero solo el primero llegaba a guardarse/ejecutarse — el
+// resto era decorado sin efecto. Persiste el paso en automatizaciones.pasos
+// (jsonb, array de 1 elemento) para no romper la vista "Flujo" que ya lee
+// ese campo.
 
 import { useState, useId } from 'react'
 import { cn } from '@/lib/utils'
 import { useStudio } from '@/lib/studio-context'
 import { DashboardSheet } from '@/components/ui/dashboard-sheet'
 import type { Automatizacion, PasoFlujo, AccionFlujo, TriggerAutomatizacion } from '@/lib/types'
-import {
-  Mail, CheckSquare, Share2, Bell, Plus, Trash2, ChevronUp, ChevronDown,
-  Zap, X, ArrowRight, Loader2,
-} from 'lucide-react'
+import { Mail, Bell, Zap, X, ArrowRight, Loader2 } from 'lucide-react'
 
 const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10'
 
 const TRIGGERS: { value: TriggerAutomatizacion; label: string; desc: string }[] = [
-  { value: 'CONTENIDO_PUBLICADO', label: 'Se publica un contenido', desc: 'Al publicar una publicación del módulo de Contenido' },
   { value: 'NUEVA_ALTA', label: 'Nueva clienta registrada', desc: 'Cuando se registra una nueva clienta' },
   { value: 'CUMPLEANOS', label: 'Cumpleaños de clienta', desc: 'El día del cumpleaños' },
   { value: 'PRIMERA_CLASE', label: 'Primera clase', desc: 'Tras completar la primera clase' },
@@ -27,7 +29,7 @@ const TRIGGERS: { value: TriggerAutomatizacion; label: string; desc: string }[] 
   { value: 'BONO_AGOTADO', label: 'Bono agotado', desc: 'Cuando se agota el bono' },
 ]
 
-interface CampoDef { key: string; label: string; textarea?: boolean; select?: string[]; placeholder?: string }
+interface CampoDef { key: string; label: string; textarea?: boolean; placeholder?: string }
 
 export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementType; color: string; campos: CampoDef[] }> = {
   EMAIL: {
@@ -35,20 +37,6 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
     campos: [
       { key: 'asunto', label: 'Asunto', placeholder: '¡Gracias por tu confianza!' },
       { key: 'mensaje', label: 'Mensaje', textarea: true, placeholder: 'Hola {nombre}…' },
-    ],
-  },
-  TAREA: {
-    label: 'Crear tarea', icon: CheckSquare, color: '#6E7650',
-    campos: [
-      { key: 'titulo', label: 'Título de la tarea', placeholder: 'Llamar a la clienta' },
-      { key: 'asignadoA', label: 'Asignar a', placeholder: 'Recepción' },
-    ],
-  },
-  PUBLICAR_RED: {
-    label: 'Publicar en otra red', icon: Share2, color: '#ec4899',
-    campos: [
-      { key: 'red', label: 'Red social', select: ['Instagram', 'TikTok', 'Facebook', 'LinkedIn', 'YouTube', 'X'] },
-      { key: 'texto', label: 'Texto de la publicación', textarea: true, placeholder: 'Copia adaptada a la red…' },
     ],
   },
   NOTIFICAR_EQUIPO: {
@@ -59,17 +47,10 @@ export const ACCIONES: Record<AccionFlujo, { label: string; icon: React.ElementT
   },
 }
 
-const ORDEN_ACCIONES: AccionFlujo[] = ['EMAIL', 'TAREA', 'PUBLICAR_RED', 'NOTIFICAR_EQUIPO']
+const ORDEN_ACCIONES: AccionFlujo[] = ['EMAIL', 'NOTIFICAR_EQUIPO']
 
 let pasoSeq = 0
 function nuevoPasoId() { pasoSeq += 1; return `paso-${Date.now().toString(36)}-${pasoSeq}` }
-
-// La columna accion (NOT NULL) espera EMAIL/WHATSAPP/NOTIFICACION. Mapeamos la
-// primera acción del flujo para mantener compatibilidad con las vistas simples.
-function accionCompat(pasos: PasoFlujo[]): 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION' {
-  const primera = pasos[0]?.accion
-  return primera === 'EMAIL' ? 'EMAIL' : 'NOTIFICACION'
-}
 
 export function FlowBuilder({
   open, onClose, automatizacion,
@@ -85,51 +66,36 @@ export function FlowBuilder({
   // El componente se monta/desmonta al abrir (el padre lo renderiza con key),
   // así que inicializamos el estado directamente desde la automatización.
   const [nombre, setNombre] = useState(automatizacion?.nombre ?? '')
-  const [trigger, setTrigger] = useState<TriggerAutomatizacion>(automatizacion?.trigger ?? 'CONTENIDO_PUBLICADO')
-  const [pasos, setPasos] = useState<PasoFlujo[]>(() => {
-    if (automatizacion?.pasos?.length) return automatizacion.pasos.map(p => ({ ...p, id: p.id || nuevoPasoId() }))
-    if (automatizacion) return [{ id: nuevoPasoId(), accion: (automatizacion.accion === 'EMAIL' ? 'EMAIL' : 'NOTIFICAR_EQUIPO') as AccionFlujo, config: { asunto: automatizacion.asunto || '', mensaje: automatizacion.mensaje || '' } }]
-    return [{ id: nuevoPasoId(), accion: 'EMAIL', config: {} }]
+  const [trigger, setTrigger] = useState<TriggerAutomatizacion>(automatizacion?.trigger ?? 'NUEVA_ALTA')
+  const [paso, setPaso] = useState<PasoFlujo>(() => {
+    // Automatizaciones antiguas guardadas con varios pasos: solo el primero
+    // llegó a ejecutarse nunca, así que es el único que tiene sentido editar.
+    if (automatizacion?.pasos?.[0]) return { ...automatizacion.pasos[0], id: automatizacion.pasos[0].id || nuevoPasoId() }
+    if (automatizacion) return { id: nuevoPasoId(), accion: (automatizacion.accion === 'EMAIL' ? 'EMAIL' : 'NOTIFICAR_EQUIPO') as AccionFlujo, config: { asunto: automatizacion.asunto || '', mensaje: automatizacion.mensaje || '' } }
+    return { id: nuevoPasoId(), accion: 'EMAIL', config: {} }
   })
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<string | null>(null)
 
-  function addPaso(accion: AccionFlujo) {
-    setPasos(prev => [...prev, { id: nuevoPasoId(), accion, config: {} }])
+  function setConfig(key: string, value: string) {
+    setPaso(prev => ({ ...prev, config: { ...prev.config, [key]: value } }))
   }
-  function setConfig(id: string, key: string, value: string) {
-    setPasos(prev => prev.map(p => p.id === id ? { ...p, config: { ...p.config, [key]: value } } : p))
-  }
-  function cambiarAccion(id: string, accion: AccionFlujo) {
-    setPasos(prev => prev.map(p => p.id === id ? { ...p, accion, config: {} } : p))
-  }
-  function removePaso(id: string) {
-    setPasos(prev => prev.filter(p => p.id !== id))
-  }
-  function movePaso(id: string, dir: -1 | 1) {
-    setPasos(prev => {
-      const i = prev.findIndex(p => p.id === id)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= prev.length) return prev
-      const copia = [...prev]
-      ;[copia[i], copia[j]] = [copia[j], copia[i]]
-      return copia
-    })
+  function cambiarAccion(accion: AccionFlujo) {
+    setPaso(prev => ({ ...prev, accion, config: {} }))
   }
 
   async function guardar() {
-    if (!nombre.trim() || pasos.length === 0) return
+    if (!nombre.trim()) return
     setGuardando(true)
     setErrorGuardar(null)
-    const primerEmail = pasos.find(p => p.accion === 'EMAIL')
     const payload = {
       nombre: nombre.trim(),
       trigger,
-      accion: accionCompat(pasos),
-      asunto: primerEmail?.config.asunto ?? '',
-      mensaje: primerEmail?.config.mensaje ?? '',
+      accion: (paso.accion === 'EMAIL' ? 'EMAIL' : 'NOTIFICACION') as 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION',
+      asunto: paso.config.asunto ?? '',
+      mensaje: paso.config.mensaje ?? '',
       activa: automatizacion?.activa ?? true,
-      pasos,
+      pasos: [paso],
     }
     const res = automatizacion ? await updateAutomatizacion(automatizacion.id, payload) : await addAutomatizacion(payload)
     setGuardando(false)
@@ -138,6 +104,7 @@ export function FlowBuilder({
   }
 
   const triggerMeta = TRIGGERS.find(t => t.value === trigger)
+  const meta = ACCIONES[paso.accion]
 
   return (
     <DashboardSheet
@@ -171,54 +138,27 @@ export function FlowBuilder({
               {triggerMeta && <p className="text-[11px] text-muted-foreground">{triggerMeta.desc}</p>}
             </div>
 
-            {/* Pasos */}
+            {/* Acción */}
             <div className="space-y-2">
               <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Entonces, haz esto…</label>
-              {pasos.map((p, i) => {
-                const meta = ACCIONES[p.accion]
-                return (
-                  <div key={p.id} className="rounded-xl border border-border p-3 space-y-2.5 bg-background">
-                    <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold" style={{ background: meta.color }}>{i + 1}</span>
-                      <select className={cn(inputCls, 'flex-1')} value={p.accion} onChange={e => cambiarAccion(p.id, e.target.value as AccionFlujo)}>
-                        {ORDEN_ACCIONES.map(a => <option key={a} value={a}>{ACCIONES[a].label}</option>)}
-                      </select>
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        <button onClick={() => movePaso(p.id, -1)} disabled={i === 0} aria-label="Mover paso arriba" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronUp className="w-4 h-4" /></button>
-                        <button onClick={() => movePaso(p.id, 1)} disabled={i === pasos.length - 1} aria-label="Mover paso abajo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted disabled:opacity-30 transition-colors"><ChevronDown className="w-4 h-4" /></button>
-                        <button onClick={() => removePaso(p.id)} disabled={pasos.length <= 1} aria-label="Eliminar paso" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 disabled:opacity-30 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
+              <div className="rounded-xl border border-border p-3 space-y-2.5 bg-background">
+                <div className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold" style={{ background: meta.color }}>1</span>
+                  <select className={cn(inputCls, 'flex-1')} value={paso.accion} onChange={e => cambiarAccion(e.target.value as AccionFlujo)}>
+                    {ORDEN_ACCIONES.map(a => <option key={a} value={a}>{ACCIONES[a].label}</option>)}
+                  </select>
+                </div>
+                <div className="pl-9 space-y-2">
+                  {meta.campos.map(campo => (
+                    <div key={campo.key}>
+                      {campo.textarea ? (
+                        <textarea rows={2} className={cn(inputCls, 'resize-y')} placeholder={campo.placeholder ?? campo.label} value={paso.config[campo.key] ?? ''} onChange={e => setConfig(campo.key, e.target.value)} />
+                      ) : (
+                        <input className={inputCls} placeholder={campo.placeholder ?? campo.label} value={paso.config[campo.key] ?? ''} onChange={e => setConfig(campo.key, e.target.value)} />
+                      )}
                     </div>
-                    <div className="pl-9 space-y-2">
-                      {meta.campos.map(campo => (
-                        <div key={campo.key}>
-                          {campo.select ? (
-                            <select className={inputCls} value={p.config[campo.key] ?? ''} onChange={e => setConfig(p.id, campo.key, e.target.value)}>
-                              <option value="">{campo.label}…</option>
-                              {campo.select.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                          ) : campo.textarea ? (
-                            <textarea rows={2} className={cn(inputCls, 'resize-y')} placeholder={campo.placeholder ?? campo.label} value={p.config[campo.key] ?? ''} onChange={e => setConfig(p.id, campo.key, e.target.value)} />
-                          ) : (
-                            <input className={inputCls} placeholder={campo.placeholder ?? campo.label} value={p.config[campo.key] ?? ''} onChange={e => setConfig(p.id, campo.key, e.target.value)} />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-
-              {/* Añadir acción */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {ORDEN_ACCIONES.map(a => {
-                  const m = ACCIONES[a]; const Icon = m.icon
-                  return (
-                    <button key={a} onClick={() => addPaso(a)} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors">
-                      <Plus className="w-3.5 h-3.5" /> <Icon className="w-3.5 h-3.5" style={{ color: m.color }} /> {m.label}
-                    </button>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -231,22 +171,14 @@ export function FlowBuilder({
                 <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1"><Zap className="w-3 h-3" /> Cuando</div>
                 <p className="text-[13px] font-semibold text-foreground leading-snug">{triggerMeta?.label}</p>
               </div>
-              {pasos.map((p) => {
-                const meta = ACCIONES[p.accion]; const Icon = meta.icon
-                const resumen = p.config[meta.campos[0]?.key] || meta.label
-                return (
-                  <div key={p.id}>
-                    <div className="flex justify-center py-0.5"><ArrowRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" /></div>
-                    <div className="rounded-xl border border-border bg-card p-3">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-white" style={{ background: meta.color }}><Icon className="w-3 h-3" /></span>
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{meta.label}</span>
-                      </div>
-                      <p className="text-[12px] text-foreground leading-snug line-clamp-2">{resumen}</p>
-                    </div>
-                  </div>
-                )
-              })}
+              <div className="flex justify-center py-0.5"><ArrowRight className="w-3.5 h-3.5 text-muted-foreground rotate-90" /></div>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-white" style={{ background: meta.color }}><meta.icon className="w-3 h-3" /></span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{meta.label}</span>
+                </div>
+                <p className="text-[12px] text-foreground leading-snug line-clamp-2">{paso.config[meta.campos[0]?.key] || meta.label}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -255,7 +187,7 @@ export function FlowBuilder({
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
           {errorGuardar && <p className="text-sm text-destructive mr-auto">{errorGuardar}</p>}
           <button onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-border text-foreground hover:bg-muted transition-colors">Cancelar</button>
-          <button onClick={guardar} disabled={!nombre.trim() || pasos.length === 0 || guardando} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-40 transition-colors font-medium">
+          <button onClick={guardar} disabled={!nombre.trim() || guardando} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:brightness-95 disabled:opacity-40 transition-colors font-medium">
             {guardando ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {editando ? 'Guardar flujo' : 'Crear flujo'}
           </button>
