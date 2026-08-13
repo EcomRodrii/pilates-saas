@@ -137,8 +137,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // portal a medio tintar sería peor que dejarle el de siempre. Así, encender
   // la bandera en un estudio sin tema del kit no rompe nada: no pasa nada.
   //
-  // ⚠️ TEMPORAL. Esta rama y el portal viejo se van juntos cuando acabe el
-  // despliegue por fases; no dejar que eche raíces.
+  // ⚠️ TEMPORAL, y con fecha: esta rama y el portal viejo se van juntos el
+  // `FECHA_SALIDA_PORTAL_REACT` de `lib/portal-tema/caducidad.ts`. Ese día la
+  // suite se pone roja sola — «no dejar que eche raíces» era una buena
+  // intención mientras nada la comprobara, que es como un flag temporal se
+  // queda para siempre.
   //
   // Y solo en las CINCO rutas que el kit cubre: `/progreso`, `/compras`,
   // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
