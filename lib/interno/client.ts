@@ -191,3 +191,12 @@ export const fetchReportesNetworkInterno = (estado: string) =>
   pedir<{ reportes: ReporteNetworkInterno[] }>(`/network/reportes?estado=${encodeURIComponent(estado)}`);
 export const resolverReporteNetworkInterno = (id: string, estado: 'revisado' | 'resuelto') =>
   pedir<{ ok: true }>('/network/reportes', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
+
+export interface ResenaNetworkInterna {
+  id: string; puntuacion: number; comentario: string | null; estado: string;
+  creadoEn: string; perfilId: string | null; perfilNombre: string; estudioNombre: string;
+}
+export const fetchResenasNetworkInterno = (estado: string) =>
+  pedir<{ resenas: ResenaNetworkInterna[] }>(`/network/resenas?estado=${encodeURIComponent(estado)}`);
+export const moderarResenaNetworkInterno = (id: string, estado: 'publicada' | 'oculta') =>
+  pedir<{ ok: true }>('/network/resenas', { method: 'PATCH', body: JSON.stringify({ id, estado }) });

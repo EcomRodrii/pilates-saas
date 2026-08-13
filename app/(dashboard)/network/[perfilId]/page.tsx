@@ -2,13 +2,14 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart } from 'lucide-react';
+import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart, Star } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import {
   fetchPerfilNetworkPublico, contactarPerfilNetwork, reportarPerfilNetwork,
   fetchFavoritosNetwork, toggleFavoritoNetwork,
+  elegibilidadResenaNetwork, enviarResenaNetwork,
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
@@ -39,6 +40,13 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   const [reportado, setReportado] = useState(false);
   const [esFavorito, setEsFavorito] = useState(false);
   const [cambiandoFavorito, setCambiandoFavorito] = useState(false);
+  const [elegibleResena, setElegibleResena] = useState(false);
+  const [yaResenado, setYaResenado] = useState(false);
+  const [modalResenaAbierto, setModalResenaAbierto] = useState(false);
+  const [puntuacionResena, setPuntuacionResena] = useState(5);
+  const [comentarioResena, setComentarioResena] = useState('');
+  const [enviandoResena, setEnviandoResena] = useState(false);
+  const [errorResena, setErrorResena] = useState('');
 
   useEffect(() => {
     let vivo = true;
@@ -50,6 +58,11 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       setCargando(false);
     });
     fetchFavoritosNetwork().then(fs => { if (vivo) setEsFavorito(fs.some(f => f.id === perfilId)); });
+    elegibilidadResenaNetwork(perfilId).then(r => {
+      if (!vivo) return;
+      setElegibleResena(r.elegible);
+      setYaResenado(r.yaResenado);
+    });
     return () => { vivo = false; };
   }, [perfilId]);
 
@@ -105,6 +118,13 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
             <p className="text-[13px] font-medium text-foreground mt-1">
               {DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}
             </p>
+            {perfil.resumenResenas.total > 0 && (
+              <p className="text-[12.5px] text-foreground flex items-center gap-1 mt-1">
+                <Star size={12} className="text-amber-500" fill="currentColor" />
+                {perfil.resumenResenas.promedio}
+                <span className="text-muted-foreground">({perfil.resumenResenas.total} reseñas)</span>
+              </p>
+            )}
           </div>
         </div>
         {perfil.descripcion && (
@@ -230,6 +250,87 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
             </button>
             <button
               onClick={() => setModalAbierto(false)}
+              className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </DashboardSheet>
+
+      {(elegibleResena || yaResenado) && (
+        <div className={`${cardCls} p-5`}>
+          {yaResenado ? (
+            <p className="text-[12.5px] text-muted-foreground flex items-center gap-1.5">
+              <Check size={13} className="text-success" /> Ya has dejado una reseña sobre {perfil.nombre.split(' ')[0]}.
+            </p>
+          ) : (
+            <>
+              <h3 className="text-[13px] font-semibold text-foreground mb-1">¿Cómo fue tu experiencia?</h3>
+              <p className="text-[12px] text-muted-foreground mb-3">
+                Habéis tenido contacto aceptado — tu reseña ayuda a otros estudios.
+              </p>
+              <button
+                onClick={() => setModalResenaAbierto(true)}
+                className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground flex items-center gap-1.5"
+              >
+                <Star size={13} /> Dejar una reseña
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      <DashboardSheet open={modalResenaAbierto} onClose={() => setModalResenaAbierto(false)} label={`Reseñar a ${perfil.nombre}`}>
+        <div className="p-5 space-y-3">
+          <h3 className="text-[14px] font-semibold text-foreground">Reseñar a {perfil.nombre}</h3>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 5 }, (_, i) => {
+              const valor = i + 1;
+              return (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setPuntuacionResena(valor)}
+                  aria-label={`${valor} estrellas`}
+                  className="p-0.5"
+                >
+                  <Star
+                    size={22}
+                    className={valor <= puntuacionResena ? 'text-amber-500' : 'text-muted-foreground/40'}
+                    fill="currentColor"
+                  />
+                </button>
+              );
+            })}
+          </div>
+          <textarea
+            className={`${inputCls} min-h-24 resize-y`}
+            value={comentarioResena} onChange={e => setComentarioResena(e.target.value)}
+            placeholder="Cuéntanos cómo fue trabajar con ella (opcional)."
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Se publica tras una revisión rápida del equipo de Tentare.
+          </p>
+          {errorResena && <p className="text-[11px] text-destructive">{errorResena}</p>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                setErrorResena(''); setEnviandoResena(true);
+                const res = await enviarResenaNetwork(perfilId, puntuacionResena, comentarioResena || null);
+                setEnviandoResena(false);
+                if (!res.ok) { setErrorResena(res.error ?? 'No se ha podido enviar.'); return; }
+                setModalResenaAbierto(false);
+                setElegibleResena(false);
+                setYaResenado(true);
+              }}
+              disabled={enviandoResena}
+              className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium disabled:opacity-60"
+            >
+              {enviandoResena ? 'Enviando…' : 'Enviar reseña'}
+            </button>
+            <button
+              onClick={() => setModalResenaAbierto(false)}
               className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground"
             >
               Cancelar

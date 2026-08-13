@@ -60,10 +60,18 @@ export default function SolicitudesNetworkPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <PageHeader
-        title="Solicitudes de contacto"
-        description="Estudios que han visto tu perfil en Tentare Network y quieren hablar contigo."
-      />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader
+          title="Solicitudes de contacto"
+          description="Estudios que han visto tu perfil en Tentare Network y quieren hablar contigo."
+        />
+        <Link
+          href="/network/mis-mensajes"
+          className="shrink-0 px-3 py-1.5 rounded-lg border border-border bg-card text-[12px] font-medium text-foreground"
+        >
+          Mensajes
+        </Link>
+      </div>
 
       {cargandoSesion || !user || cargando ? (
         <div className="flex items-center justify-center py-16">

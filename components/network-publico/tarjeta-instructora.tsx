@@ -10,9 +10,10 @@ import type { PerfilNetworkPublico } from '@/lib/network/tipos';
 // Google: foto protagonista, jerarquía visual fuerte, "premium", no una fila
 // de tabla. brief punto 10/27.
 //
-// Sin estrellas/rating: no hay reviews todavía (fuera de esta ronda) —
-// inventar un "4.9 ★" sería mentir. El badge de verificación SÍ es real
-// (experienciaVerificada, calculado en lote en el buscador).
+// El rating solo se pinta si resumenResenas.total > 0 — promedio es `null`
+// sin reseñas publicadas (lib/network/publico.ts), nunca 0 ni un "4.9 ★"
+// inventado. El badge de verificación SÍ es real (experienciaVerificada,
+// calculado en lote en el buscador).
 const DISPONIBILIDAD_ETIQUETA: Partial<Record<PerfilNetworkPublico['disponibilidadEstado'], string>> = {
   disponible: 'Disponible ahora',
   disponible_sustituciones: 'Disponible para sustituciones',
@@ -40,7 +41,16 @@ export function TarjetaInstructoraPublica({ perfil }: { perfil: PerfilNetworkPub
         )}
       </div>
       <div className="p-4 flex flex-col gap-1.5">
-        <p className="text-[15px] font-semibold text-foreground">{perfil.nombre}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-[15px] font-semibold text-foreground">{perfil.nombre}</p>
+          {perfil.resumenResenas.total > 0 && (
+            <span className="flex items-center gap-0.5 text-[12px] font-medium text-foreground shrink-0">
+              <Star size={11} className="text-amber-500" fill="currentColor" />
+              {perfil.resumenResenas.promedio}
+              <span className="text-muted-foreground font-normal">({perfil.resumenResenas.total})</span>
+            </span>
+          )}
+        </div>
         <p className="text-[12.5px] text-muted-foreground">Instructora de Pilates</p>
         {perfil.ciudad && (
           <p className="text-[12.5px] text-muted-foreground flex items-center gap-1">

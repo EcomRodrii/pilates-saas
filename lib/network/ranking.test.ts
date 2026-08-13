@@ -11,6 +11,7 @@ function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): Perf
   return {
     slug: null,
     destacado: false,
+    resumenResenas: { promedio: null, total: 0 },
     nombre: 'Test', fotoUrl: null, ciudad: null, zona: null, radioKm: null, descripcion: null,
     especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
