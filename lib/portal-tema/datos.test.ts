@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
+  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -613,4 +613,73 @@ test('horarioDe: un día que falta en la BD no inventa una fila', () => {
   // Un estudio puede tener solo cinco filas. Rellenar los dos que faltan con
   // «Cerrado» sería afirmar algo que nadie ha dicho.
   assert.deepEqual(horarioDe([dia(1), dia(2)]).map((x) => x.dia), ['Lunes', 'Martes']);
+});
+
+// ── Rejilla del mes (Calendario) ────────────────────────────────────────────
+// Reemplaza el mes de muestra ("Septiembre 2026", 30 días, hoy=3) que vivía en
+// `useViewModel`. Punto 4 de `themes/RETOMAR.md`.
+
+const claseEn = (iso: string): StudioClass => ({
+  id: `c-${iso}`, name: 'Reformer', type: 'reformer',
+  day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
+  startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
+  level: 'Todos los niveles', teacher: 'Ana',
+  initial: 'A', seats: 10, description: '', benefits: [],
+});
+
+test('la rejilla empieza en lunes y cubre el mes entero', () => {
+  // Agosto de 2026 empieza en SÁBADO: el peor relleno por delante.
+  const r = rejillaMesPortal(new Date('2026-08-13T10:00:00Z'), [], 13);
+  assert.equal(r.month, 'Agosto 2026');
+  assert.equal(r.cells[0].fecha, '2026-07-27'); // el lunes anterior al día 1
+  assert.equal(r.cells[0].outside, true);
+  assert.ok(r.cells.some((c) => c.fecha === '2026-08-01' && !c.outside));
+  assert.ok(r.cells.some((c) => c.fecha === '2026-08-31' && !c.outside));
+});
+
+test('siempre son semanas completas, y ninguna fila entera de relleno', () => {
+  const r = rejillaMesPortal(new Date('2026-08-13T10:00:00Z'), [], 13);
+  assert.equal(r.cells.length % 7, 0);
+  const filas = Array.from({ length: r.cells.length / 7 }, (_, i) => r.cells.slice(i * 7, i * 7 + 7));
+  assert.ok(filas.every((f) => f.some((c) => !c.outside)));
+});
+
+test('un mes que empieza en lunes no lleva relleno por delante', () => {
+  // Junio de 2026 empieza en lunes.
+  const r = rejillaMesPortal(new Date('2026-06-10T10:00:00Z'), [], 10);
+  assert.equal(r.cells[0].fecha, '2026-06-01');
+  assert.equal(r.cells[0].outside, false);
+});
+
+test('⚠️ las marcas casan por FECHA COMPLETA, no por día del mes', () => {
+  // El fallo que este pase existe para no repetir: al adaptador le llegan
+  // TODAS las sesiones del estudio, y el 13 de septiembre tiene el mismo
+  // `day` que el 13 de agosto.
+  const r = rejillaMesPortal(new Date('2026-08-13T10:00:00Z'), [
+    claseEn('2026-09-13T08:00:00Z'),
+  ], 13);
+  const trece = r.cells.find((c) => c.fecha === '2026-08-13')!;
+  assert.equal(trece.marked, false);
+});
+
+test('una clase del propio mes sí marca su día', () => {
+  const r = rejillaMesPortal(new Date('2026-08-13T10:00:00Z'), [
+    claseEn('2026-08-14T08:00:00Z'),
+  ], 13);
+  assert.equal(r.cells.find((c) => c.fecha === '2026-08-14')!.marked, true);
+});
+
+test('hoy es hoy en la zona del estudio, no en UTC', () => {
+  // 23:30 UTC del 13 de agosto ya son las 01:30 del 14 en Madrid.
+  const r = rejillaMesPortal(new Date('2026-08-13T23:30:00Z'), [], 1);
+  assert.equal(r.cells.find((c) => c.today)!.fecha, '2026-08-14');
+});
+
+test('⚠️ el día seleccionado no se marca en el relleno del mes vecino', () => {
+  // Sin la guarda, el 1 de septiembre (relleno) saldría seleccionado a la vez
+  // que el 1 de agosto.
+  const r = rejillaMesPortal(new Date('2026-08-13T10:00:00Z'), [], 1);
+  const seleccionadas = r.cells.filter((c) => c.selected);
+  assert.equal(seleccionadas.length, 1);
+  assert.equal(seleccionadas[0].fecha, '2026-08-01');
 });

@@ -3,36 +3,12 @@
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
-  CHALLENGES, CLASSES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
+  CHALLENGES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
-import { usePortal, useDatos, type PortalState } from "./PortalStore";
+import { rejillaMesPortal } from "@/lib/portal-tema/datos";
+import { usePortal, useDatos } from "./PortalStore";
 import { useTema } from "./TemaContext";
-
-/**
- * Rejilla del mes: cinco semanas desde el lunes anterior al día 1.
- *
- * ⚠️ Sigue siendo de MUESTRA a propósito, y por eso importa `CLASSES` y no los
- * datos reales: el mes está fijado a "Septiembre 2026" y a 30 días. Marcar los
- * días con clase de verdad sobre una rejilla inventada quedaría medio bien y
- * eso es peor que quedar claramente falso — se ve real y no lo es. La pantalla
- * de Calendario necesita su propia pasada; hasta entonces, no se toca.
- */
-function buildCalendar(state: PortalState) {
-  const cells = [];
-  for (let i = -2; i <= 32; i++) {
-    const outside = i < 1 || i > 30;
-    cells.push({
-      key: i,
-      label: outside ? (i < 1 ? 30 + i : i - 30) : i,
-      outside,
-      today: i === 3,
-      selected: i === state.day,
-      marked: CLASSES.some((c) => c.day === i),
-    });
-  }
-  return { month: "Septiembre 2026", dow: ["L", "M", "X", "J", "V", "S", "D"], cells };
-}
 
 const money = (n: number) => n.toFixed(2).replace(".", ",") + " €";
 
@@ -424,7 +400,10 @@ export function useViewModel() {
       })(),
 
       auth: { working: state.authWorking },
-      calendar: buildCalendar(state),
+      // La rejilla sale de la capa de datos (probada), no de aquí: es lógica
+      // de fechas y zona horaria. `ahoraISO` viaja con los datos para que la
+      // vista previa siga siendo determinista.
+      calendar: rejillaMesPortal(new Date(datos.ahoraISO), datos.clases, state.day),
       icons: ICON_PATHS,
       toast: state.toast,
       toastId: state.toastId,
