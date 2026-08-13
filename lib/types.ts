@@ -959,7 +959,7 @@ export interface VentaPOS {
   realizadaEn: string;
 }
 
-export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
+export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
 export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
 export type DestinatariosCampana = 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP';
 

@@ -113,7 +113,6 @@ import type {
   ProductoPOS,
   VentaPOS,
   Campana,
-  DestinatariosCampana,
   Automatizacion,
   CodigoDescuento,
   ActividadReciente,
@@ -145,9 +144,9 @@ import type {
   TipoIntegracion,
   SustitucionConfirmadaPublica,
 } from '@/lib/types';
-import { enviarEmailCampana, enviarMensajeCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
-import { mapLimit } from '@/lib/concurrency';
+import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -437,7 +436,8 @@ interface StudioContextValue {
   deleteCampana: (id: string) => Promise<ResultadoEscritura>;
   duplicateCampana: (campana: Campana) => Promise<ResultadoEscritura>;
   updateCampana: (id: string, patch: Partial<Campana>) => Promise<ResultadoEscritura>;
-  enviarCampana: (campana: Campana) => Promise<{ enviados: number; total: number }>;
+  enviarCampana: (campana: Campana) => Promise<ResultadoEscritura>;
+  contarDestinatariasCampana: (campana: Campana) => number;
 
   // Automatizaciones
   automatizaciones: Automatizacion[];
@@ -3596,83 +3596,41 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // pausar/reanudar/finalizar → cambios de `estado`). Persiste en BD con el
   // mismo helper que ya usa el envío.
   async function updateCampana(id: string, patch: Partial<Campana>): Promise<ResultadoEscritura> {
-    const res = await dbUpdateCampana(id, patch);
+    const res = await dbUpdateCampana(id, getCurrentStudioId(), patch);
     if (!res.ok) return res;
     setCampanas(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
     return res;
   }
 
-  // Resuelve las destinatarias de una campaña a partir de su segmento.
-  function resolverDestinatariasCampana(destinatarios: DestinatariosCampana): Socio[] {
-    const conSusActiva = new Set(
-      suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
-    );
-    switch (destinatarios) {
-      case 'ACTIVAS': return socios.filter(s => s.activo !== false);
-      case 'INACTIVAS': return socios.filter(s => s.activo === false);
-      case 'SIN_PLAN': return socios.filter(s => !conSusActiva.has(s.id));
-      case 'BONO': return socios.filter(s => conSusActiva.has(s.id));
-      case 'VIP': return socios.filter(s => s.tags?.includes('VIP'));
-      case 'TODAS':
-      default: return socios;
-    }
+  // Cuántas destinatarias tiene HOY el segmento de una campaña, con el mismo
+  // filtro de contacto (email válido / teléfono) que aplica el envío real —
+  // usado por la UI para el mensaje inmediato al encolar (lib/marketing/segmentos.ts,
+  // compartido con el job de servidor que hace el envío de verdad).
+  function contarDestinatariasCampana(campana: Campana): number {
+    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones });
+    return campana.tipo === 'EMAIL'
+      ? base.filter(s => s.email && s.email.includes('@')).length
+      : base.filter(s => s.telefono && s.telefono.trim()).length;
   }
 
-  // Envía una campaña de verdad y la marca como ENVIADA con el recuento real.
-  // Enruta por canal: EMAIL → Resend (necesita email); WHATSAPP/SMS → Twilio
-  // (necesita teléfono). Sin el canal configurado en servidor, cada envío falla
-  // con gracia (503) y el recuento refleja lo que sí salió.
-  async function enviarCampana(campana: Campana): Promise<{ enviados: number; total: number }> {
-    const canal = campana.tipo;
-    const base = resolverDestinatariasCampana(campana.destinatarios);
-    const destinatarias = canal === 'EMAIL'
-      ? base.filter(s => s.email && s.email.includes('@'))
-      : base.filter(s => s.telefono && s.telefono.trim());
-
-    // P0-24: antes era un for...await secuencial (un round-trip a la vez → horas
-    // con muchas destinatarias). Concurrencia acotada: más rápido y sin saturar.
-    // (El fix definitivo a escala masiva es una cola en servidor.)
-    const resultados = await mapLimit(destinatarias, 8, socio =>
-      canal === 'EMAIL'
-        ? enviarEmailCampana({
-            to: socio.email!,
-            toName: `${socio.nombre} ${socio.apellidos}`.trim(),
-            asunto: campana.asunto,
-            contenido: campana.contenido,
-          })
-        : enviarMensajeCampana({
-            canal,
-            to: socio.telefono!,
-            asunto: campana.asunto,
-            contenido: campana.contenido,
-          }),
-    );
-    const enviados = resultados.filter(Boolean).length;
-
-    // Los envíos de arriba ya salieron de verdad (awaited) — si este UPDATE
-    // falla, no hay nada que deshacer, pero si se pinta "ENVIADA" sin que la
-    // base de datos se entere, la campaña queda eternamente en su estado
-    // anterior (ej. "PROGRAMADA") y podría reenviarse por error.
-    const enviadaEn = new Date().toISOString();
-    const resUpdate = await dbUpdateCampana(campana.id, { estado: 'ENVIADA', enviados, enviadaEn });
-    if (!resUpdate.ok) {
-      capturarMensaje('[enviarCampana] mensajes enviados pero no se pudo marcar la campaña como ENVIADA', 'error', {
-        extra: { campanaId: campana.id, enviados, error: resUpdate.error },
-      });
-    } else {
-      setCampanas(prev => prev.map(c =>
-        c.id === campana.id
-          ? { ...c, estado: 'ENVIADA' as const, enviados, enviadaEn }
-          : c
-      ));
-    }
+  // Encola el envío real en servidor (Inngest, lib/inngest/campanas.ts) y
+  // marca la campaña ENVIANDO de inmediato — P0-24: el envío ya no se
+  // orquesta en el navegador (mapLimit secuencial-acotado), que a escala de
+  // cientos de destinatarias tardaba minutos con la pestaña abierta y podía
+  // perderse si se cerraba a mitad. El recuento final (`enviados`) lo escribe
+  // el job al terminar; esta pestaña no lo espera. Ver
+  // docs/marketing-integrations-arquitectura.md §5.
+  async function enviarCampana(campana: Campana): Promise<ResultadoEscritura> {
+    const res = await encolarEnvioCampana(campana.id);
+    if (!res.ok) return res;
+    setCampanas(prev => prev.map(c => (c.id === campana.id ? { ...c, estado: 'ENVIANDO' as const } : c)));
     addActividadReciente(
       'MENSAJE_ENVIADO',
-      `Campaña "${campana.nombre}" (${canal}) enviada a ${enviados} de ${destinatarias.length} destinatarias`,
+      `Campaña "${campana.nombre}" (${campana.tipo}) puesta en cola de envío`,
       undefined,
       '/marketing',
     );
-    return { enviados, total: destinatarias.length };
+    return res;
   }
 
   // ── Automatizaciones ─────────────────────────────────────────────────────────
@@ -4421,6 +4379,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     duplicateCampana,
     updateCampana,
     enviarCampana,
+    contarDestinatariasCampana,
     automatizaciones,
     addAutomatizacion,
     updateAutomatizacion,

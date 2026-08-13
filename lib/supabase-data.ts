@@ -3256,7 +3256,10 @@ export async function dbInsertCampana(c: Campana): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertCampana]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCampana(id: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
+// studioId: filtro de fila explícito, no solo RLS — dbEscritura() usa
+// service-role cuando corre en servidor (el job de envío de campañas,
+// lib/inngest/campanas.ts), donde no hay JWT que la RLS pueda comprobar.
+export async function dbUpdateCampana(id: string, studioId: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -3272,7 +3275,7 @@ export async function dbUpdateCampana(id: string, changes: Partial<Campana>): Pr
   if ('objetivo' in changes) db.objetivo = changes.objetivo;
   if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
   if ('publicaciones' in changes) db.publicaciones = changes.publicaciones;
-  const { error } = await supabase.from('campanas').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('campanas').update(db).eq('id', id).eq('studio_id', studioId);
   return error ? falloEscritura('[dbUpdateCampana]', error) : ESCRITURA_OK;
 }
 

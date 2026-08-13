@@ -110,6 +110,7 @@ function formatDateEs(dateStr: string | null | undefined) {
 function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; programadaEn?: string | null; enviadaEn?: string | null }) {
   const dotColor =
     estado === 'ENVIADA' ? 'bg-success' :
+    estado === 'ENVIANDO' ? 'bg-info animate-pulse' :
     estado === 'PROGRAMADA' ? 'bg-warning' :
     estado === 'BORRADOR' ? 'bg-muted-foreground' :
     estado === 'ACTIVA' ? 'bg-brand' :
@@ -118,6 +119,7 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
 
   const bgColor =
     estado === 'ENVIADA' ? 'bg-success/10 text-success' :
+    estado === 'ENVIANDO' ? 'bg-info/10 text-info' :
     estado === 'PROGRAMADA' ? 'bg-warning/10 text-warning' :
     estado === 'BORRADOR' ? 'bg-muted text-muted-foreground' :
     estado === 'ACTIVA' ? 'bg-info/10 text-info' :
@@ -134,6 +136,7 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
       <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotColor)} />
       {estado === 'BORRADOR' ? 'Borrador' :
        estado === 'PROGRAMADA' ? 'Programada' :
+       estado === 'ENVIANDO' ? 'Enviando…' :
        estado === 'ENVIADA' ? 'Enviada' :
        estado === 'ACTIVA' ? 'Activa' :
        estado === 'PAUSADA' ? 'Pausada' :
@@ -462,7 +465,7 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 export default function MarketingPage() {
   const uid = useId();
   const {
-    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
+    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana, contarDestinatariasCampana,
     automatizaciones, toggleAutomatizacion, deleteAutomatizacion,
     automationRules,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
@@ -570,14 +573,22 @@ export default function MarketingPage() {
       setResultadoEnvio({ texto: `"${c.nombre}" no tiene ${!c.asunto?.trim() ? 'asunto' : 'contenido'}. Edítala antes de enviarla.`, tipo: 'warning' })
       return
     }
+    // El recuento es local (ya tenemos socios/suscripciones en memoria) — el
+    // envío real ahora corre en servidor (Inngest), así que esto solo decide
+    // si merece la pena encolar, no el resultado final.
+    const total = contarDestinatariasCampana(c)
+    if (total === 0) {
+      setResultadoEnvio({ texto: `"${c.nombre}": no hay destinatarias con email en ese segmento.`, tipo: 'warning' })
+      return
+    }
     setEnviandoId(c.id)
     setResultadoEnvio(null)
     try {
-      const { enviados, total } = await enviarCampana(c)
+      const res = await enviarCampana(c)
       setResultadoEnvio(
-        total === 0
-          ? { texto: `"${c.nombre}": no hay destinatarias con email en ese segmento.`, tipo: 'warning' }
-          : { texto: `"${c.nombre}" enviada a ${enviados} de ${total} destinatarias.`, tipo: 'ok' }
+        res.ok
+          ? { texto: `"${c.nombre}" enviándose a ${total} destinatarias en segundo plano.`, tipo: 'ok' }
+          : { texto: `No se pudo enviar "${c.nombre}": ${res.error}`, tipo: 'error' }
       )
     } catch {
       setResultadoEnvio({ texto: `No se pudo enviar "${c.nombre}". Revisa la configuración de email.`, tipo: 'error' })

@@ -206,6 +206,44 @@ compite con el ~84% de cuota de la misma forma que un polling — pero sí
 hay que medir el volumen real esperado (número de campañas/mes × tamaño
 de destinatarios) antes de asumir que es gratis en cuota.
 
+**Implementado (paso 4 del §8)**: `POST /api/marketing/campanas/[id]/enviar`
+(solo PROPIETARIO, mismo gate `bloqueoPorFeature('marketing')` que el resto)
+hace compare-and-set (`estado IN ('BORRADOR','PROGRAMADA') → 'ENVIANDO'`,
+mismo criterio que `dbTransicionarRecomendacion` en
+`app/api/decisiones/[id]/aprobar` — evita doble-encolar por doble clic o dos
+pestañas) y dispara `EVENTS.CAMPANA_ENVIAR`. `lib/inngest/campanas.ts`
+(`procesarEnvioCampana`) hace el envío real: un `step.run` por destinataria
+(mismo patrón que `procesarEstudioAutomatizaciones`, NO
+`enviarFanOutEnLotes` — esa es para fan-out ESTUDIO→estudio del dispatcher,
+no destinataria-a-destinataria dentro de un estudio ya resuelto), usando el
+`EmailProvider`/`SmsProvider` del paso 3. Idempotencia: `idempotencyKey`
+de Resend (`campana-{id}-{socioId}`) + memoización del propio `step.run` en
+Inngest (WhatsApp no tiene idempotency key nativo, mismo gap ya aceptado en
+`procesarCandidatoMkt`). `resolverDestinatariasCampana` se extrajo a
+`lib/marketing/segmentos.ts` (antes vivía solo en `studio-context.tsx`) para
+que cliente (recuento inmediato) y servidor (envío real) usen el mismo
+criterio sin poder divergir.
+
+Migración `20260813115726_campanas_estado_enviando.sql` añade `'ENVIANDO'`
+al CHECK de `campanas.estado`.
+
+Decisión de UX explícita: **sin progreso en vivo**. La UI marca la campaña
+ENVIANDO de inmediato (optimista) y muestra el recuento estimado
+(calculado en cliente, datos ya en memoria); el recuento REAL
+(`campanas.enviados`) lo escribe el job al terminar, pero la pestaña no lo
+espera ni hace polling ni abre un canal Realtime nuevo — se ve al recargar.
+Se descartó a propósito replicar el patrón Realtime de `instructores`
+(`lib/studio-context.tsx`, canal + rotación de JWT) por ser más superficie
+de la que pedía este paso; si se quiere progreso en vivo, es una fase
+aparte a decidir explícitamente.
+
+`enviarMensajeCampana` (`lib/api-client.ts`) quedó sin caller al mover el
+envío de WhatsApp/SMS de campañas a `twilioSmsProvider` directo — se
+retiró esa función, pero el endpoint `/api/mensajes/send` que usaba se
+dejó intacto (queda sin caller también, pero es infraestructura completa y
+auditada — no se retiró como efecto colateral de este cambio, es una
+decisión aparte si se quiere).
+
 ## 6. Integraciones OAuth — Klaviyo/Brevo/Mailchimp
 
 Diseño mínimo reutilizando lo que ya existe:
@@ -262,8 +300,8 @@ vez de un esquema de versiones paralelo).
 3. ✅ Formalizar `EmailProvider`/`SmsProvider` como interfaces sobre el
    código ya existente (§1) — sin cambiar comportamiento, solo el
    contrato.
-4. Cola server-side de envío de campañas (§5) — prerequisito técnico de
-   todo lo que sigue.
+4. ✅ Cola server-side de envío de campañas (§5) — prerequisito técnico de
+   todo lo que sigue. Sin progreso en vivo (decisión de alcance, ver §5).
 5. Consentimiento RGPD específico de marketing (§7) — transversal, antes
    de cualquier envío masivo real a producción.
 6. Ampliar segmentación con señales ya existentes; builder de condiciones
