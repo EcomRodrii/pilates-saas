@@ -2,25 +2,43 @@
 //
 // Los tres proyectos que entregó diseño (Oliva/Bloom/Noir) comparten 56 de 56
 // ficheros salvo dos — `config.ts` y `tokens.css`. Medido, no supuesto. Por eso
-// aquí no hay tres copias de nada: hay tres entradas de datos y un solo
-// `components/portal-tema/`.
+// aquí no hay una copia por tema: hay cuatro entradas de datos y un solo
+// `components/portal-tema/`. Tentada (el predeterminado, del prototipo
+// "Balance App") entró después por esta misma puerta: dos ficheros de datos y
+// tres banderas nuevas, cero código propio.
 //
-// El tema activo se elige poniendo `data-theme` en <html>. Los tres bloques de
+// El tema activo se elige poniendo `data-theme` en <html>. Los cuatro bloques de
 // tokens conviven en el bundle (cada uno bajo `[data-theme="…"]`), así que
 // cambiar de tema no recarga ninguna hoja.
 
+import { THEME as TENTADA } from './tentada/config.ts';
 import { THEME as OLIVA } from './oliva/config.ts';
 import { THEME as BLOOM } from './bloom/config.ts';
 import { THEME as NOIR } from './noir/config.ts';
 import type { ThemeConfig } from '../components/portal-tema/tipos-tema.ts';
 
-export type TemaPortalId = 'oliva' | 'bloom' | 'noir';
+export type TemaPortalId = 'tentada' | 'oliva' | 'bloom' | 'noir';
 
+/**
+ * `tentada` va PRIMERO porque es el predeterminado: es el que se resuelve
+ * cuando un estudio todavía no ha publicado ninguno (ver `TEMA_PORTAL_POR_DEFECTO`)
+ * y el primero que se ofrece en la biblioteca.
+ */
 export const TEMAS_PORTAL: Record<TemaPortalId, ThemeConfig> = {
+  tentada: TENTADA,
   oliva: OLIVA,
   bloom: BLOOM,
   noir: NOIR,
 };
+
+/**
+ * El tema de la app de la alumna cuando el estudio no ha elegido ninguno.
+ *
+ * ⚠️ Esto NO cambia el tema de un estudio que ya publicó otro: `themeId` es un
+ * dato suyo y sigue mandando. Solo decide qué se pinta cuando no hay ninguno,
+ * que antes era Oliva por ser el primero de la lista.
+ */
+export const TEMA_PORTAL_POR_DEFECTO: TemaPortalId = 'tentada';
 
 export const TEMAS_PORTAL_IDS = Object.keys(TEMAS_PORTAL) as TemaPortalId[];
 

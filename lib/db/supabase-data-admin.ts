@@ -244,6 +244,12 @@ function studioPublico(r: RowStudios) {
     descripcion: r.descripcion ?? null,
     anioFundacion: r.anio_fundacion ?? null,
     direccion: r.direccion,
+    // ⚠️ `studioPublico` es LISTA BLANCA: lo que no se nombra aquí no llega al
+    // portal, y no falla — llega vacío, en silencio. Es lo que dejó muerto el
+    // hero con foto en su día. `codigoPostal` y `normasTexto` entran con «Mi
+    // centro» e «Información del centro», que los pintan.
+    codigoPostal: r.codigo_postal,
+    normasTexto: (r as { normas_texto?: string | null }).normas_texto ?? null,
     email: r.email,
     telefono: r.telefono,
     colorPrimario: r.color_primario,

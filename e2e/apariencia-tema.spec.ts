@@ -130,16 +130,21 @@ test.describe('Biblioteca de temas', () => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    // El predeterminado y los tres temas de diseño. Ni uno más: 'geometric' y
-    // 'editorial' se retiraron de la biblioteca.
-    for (const id of ['classic', 'oliva', 'bloom', 'noir']) {
+    // Tentada (el predeterminado nuevo), el tema de siempre y los tres de
+    // diseño. Ni uno más: 'geometric' y 'editorial' se retiraron.
+    for (const id of ['tentada', 'classic', 'oliva', 'bloom', 'noir']) {
       await expect(filaTema(page, id)).toBeVisible();
     }
     for (const id of ['geometric', 'editorial']) {
       await expect(filaTema(page, id)).toHaveCount(0);
     }
-    // Sin themeId guardado, el tema resuelto es "classic" → es el que está en uso.
+    // ⚠️ Sin themeId guardado el tema en uso sigue siendo "classic", NO Tentada.
+    // Que Tentada sea "el predeterminado" significa que abre la biblioteca y que
+    // resuelve el portal del kit cuando no hay ninguno — no que se aplique sola
+    // a un estudio que ya tiene el suyo. Este assert es lo que impide que se
+    // convierta en retroactiva por descuido.
     await expect(filaTema(page, 'classic').getByText('En uso')).toBeVisible();
+    await expect(filaTema(page, 'tentada').getByText('En uso')).toHaveCount(0);
     await expect(filaTema(page, 'noir').getByText('En uso')).toHaveCount(0);
   });
 

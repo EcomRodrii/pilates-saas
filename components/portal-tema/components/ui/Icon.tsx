@@ -30,6 +30,11 @@ export const ICON_PATHS = {
   info: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z", "M12 11v6M12 7.6v.1"],
   warning: ["M12 3 2.5 20h19z", "M12 9v5M12 17.4v.1"],
   trend: ["m3 17 6-6 4 4 8-8", "M15 7h6v6"],
+  // Teléfono y correo entran con «Mi centro». Se añaden en vez de reusar
+  // `clock`/`card`, que es lo primero que probé: un icono que no dice lo que
+  // hay al lado es peor que ninguno.
+  phone: ["M5.5 3.8h3.2l1.6 3.9-2.1 1.6a11.4 11.4 0 0 0 5.5 5.5l1.6-2.1 3.9 1.6v3.2a1.7 1.7 0 0 1-1.8 1.7C10.2 18.8 5.2 13.8 4.8 5.6a1.7 1.7 0 0 1 1.7-1.8z", ""],
+  mail: ["M3.5 5.5h17a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 2 17V7a1.5 1.5 0 0 1 1.5-1.5z", "m2.6 7 9.4 6.4L21.4 7"],
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

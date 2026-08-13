@@ -26,6 +26,16 @@ export interface Studio {
   descripcion: string | null;
   /** Año en que abrió. NO es `creadoEn`, que es el alta en Tentare (migr 0134). */
   anioFundacion: number | null;
+  /**
+   * Normas del centro que ve la socia en el portal (migr 20260813004723). Una
+   * línea por norma. `null` = sin escribir, y entonces la pantalla no pinta la
+   * sección en vez de un bloque vacío.
+   *
+   * ⚠️ El HORARIO no vive aquí: es `studio_horario` / `horarioSemana`, con
+   * apertura y cierre por día. Dos fuentes del mismo dato es como se acaba con
+   * el panel diciendo una cosa y el portal otra.
+   */
+  normasTexto: string | null;
   email: string;
   telefono: string;
   colorPrimario: string;

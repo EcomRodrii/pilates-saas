@@ -21,7 +21,14 @@ export const THEME: ThemeConfig = {
     "quick_links_style": "cards",
     "tab_bar_style": "classic",
     "tab_icon_fill": true,
-    "detail_style": "card"
+    "detail_style": "card",
+    // La tarjeta con foto y velo de siempre. El billete troquelado es de
+    // Tentada (ver `NextClassStyle` en tipos-tema.ts).
+    "next_class_style": "hero",
+    // La tarjeta «Esta semana» de siempre. La fila desnuda es de Tentada.
+    "week_strip_style": "card",
+    // Las cuatro de siempre. La barra de cinco con «Mi centro» es de Tentada.
+    "tab_set": "basico"
   },
   "home_blocks": [
     "greeting",

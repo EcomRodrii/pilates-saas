@@ -37,11 +37,12 @@ import { Schedule } from '@/components/portal-tema/screens/Schedule';
 import { Bookings } from '@/components/portal-tema/screens/Bookings';
 import { Passes } from '@/components/portal-tema/screens/Passes';
 import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
+import { Centro } from '@/components/portal-tema/screens/Centro';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
 import { construirDatosPortal, diaDelMesHoy } from '@/lib/portal-tema/datos';
-import { TEMAS_PORTAL, esTemaPortal } from '@/themes/registro';
+import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
 
 /** Última parte de la ruta → pantalla del kit. Lo que no esté aquí, no lo cubre. */
@@ -50,16 +51,22 @@ const RUTA_A_PANTALLA: Record<string, ScreenId> = {
   clases: 'clases',
   reservas: 'reservas',
   bonos: 'bonos',
+  centro: 'centro',
 };
 
 const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
-  inicio: 'home', clases: 'clases', reservas: 'reservas', bonos: 'bonos',
+  inicio: 'home', clases: 'clases', reservas: 'reservas', bonos: 'bonos', centro: 'centro',
   // Sigue siendo un destino navegable aunque el kit ya no la pinte: la píldora
   // "Perfil" de la barra tiene que llevar al perfil de verdad, no a ningún
   // sitio.
   perfil: 'perfil',
   // El kit tiene calendario propio; aquí la agenda es la de Clases.
   calendario: 'clases',
+  // La sirve el portal de siempre, pero es una ruta de verdad: el bloque
+  // «Pilates en casa» del Inicio tiene que llevar ahí.
+  videos: 'videos',
+  // Profesores: ruta del portal de siempre, alcanzable desde «Mi centro».
+  instructores: 'instructores',
 };
 
 /**
@@ -69,6 +76,7 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
  */
 const PANTALLAS = {
   inicio: Home, clases: Schedule, reservas: Bookings, bonos: Passes, detalle: ClassDetail,
+  centro: Centro,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -97,7 +105,9 @@ export function PortalTemaMarco() {
 
   const slug = studio?.slug ?? '';
   const pantalla = pantallaDeRuta(pathname, slug) ?? 'inicio';
-  const tema = esTemaPortal(themeIdPublicado) ? TEMAS_PORTAL[themeIdPublicado] : TEMAS_PORTAL.oliva;
+  const tema = esTemaPortal(themeIdPublicado)
+    ? TEMAS_PORTAL[themeIdPublicado]
+    : TEMAS_PORTAL[TEMA_PORTAL_POR_DEFECTO];
 
   // El día de HOY en la zona del estudio. Sin esto sale el 4 de la demo, que
   // con datos reales es un día cualquiera del pasado.
@@ -111,6 +121,22 @@ export function PortalTemaMarco() {
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, instructores,
     planes: planesTarifa,
+    // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
+    // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
+    // sin año en vez de inventarse uno.
+    estudio: {
+      nombre: studio?.nombre ?? '',
+      anioFundacion: studio?.anioFundacion ?? null,
+      direccion: studio?.direccion ?? '',
+      ciudad: studio?.ciudad ?? '',
+      codigoPostal: studio?.codigoPostal ?? '',
+      telefono: studio?.telefono ?? '',
+      email: studio?.email ?? '',
+      fotoUrl: studio?.fotoUrl ?? null,
+      // Una norma por línea, sin vacías. Se trocea aquí y no al pintar para
+      // que el portal reciba el dato ya masticado, como el resto.
+      normas: (studio?.normasTexto ?? '').split('\n').map((l) => l.trim()).filter(Boolean),
+    },
     socio: socia,
     // Las SUYAS, con su id de reserva. Sin esto la pantalla de Reservas usaba
     // la lista de demostración del kit —que arranca vacía— y la socia no veía
@@ -119,7 +145,10 @@ export function PortalTemaMarco() {
     // Solo las SUYAS: el adaptador elige el bono al que le quedan menos
     // sesiones, y con las de todo el estudio elegiría el de otra persona.
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
-  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId]);
+  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId,
+       studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
+       studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
+       studio?.normasTexto]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];

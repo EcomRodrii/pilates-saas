@@ -83,6 +83,31 @@ export const TABS = [
   { key: "perfil", label: "Perfil", icon: "user" },
 ] as const;
 
+/**
+ * La barra de cinco de Tentada: Inicio · Reservas · Mi centro · Bonos · Perfil.
+ *
+ * Dos diferencias con `TABS` que no son cosméticas:
+ *
+ *  · «Reservas» aquí es el HORARIO (`clases`), donde se reserva — no la lista
+ *    de las tuyas. Es como lo nombra el diseño, y encaja: la lista de las tuyas
+ *    vive en el Inicio, con «Ver todas» llevando a `/reservas`, que sigue
+ *    existiendo como ruta. No se pierde ninguna pantalla.
+ *  · «Bonos» entra en la barra (era un acceso desde dentro) y «Mi centro» es
+ *    pantalla nueva.
+ *
+ * ⚠️ Esto NO toca `NAV_SEG_IDS` (lib/portal-nav.ts), que es la barra del portal
+ * de siempre y lo que la propietaria configura con ocultar/renombrar. Son dos
+ * barras distintas conviviendo mientras dure el despliegue por fases; tocar
+ * aquella cambiaría la config guardada de cada estudio.
+ */
+export const TABS_CON_CENTRO = [
+  { key: "inicio", label: "Inicio", icon: "home" },
+  { key: "clases", label: "Reservas", icon: "calendar" },
+  { key: "centro", label: "Mi centro", icon: "pin" },
+  { key: "bonos", label: "Bonos", icon: "pass" },
+  { key: "perfil", label: "Perfil", icon: "user" },
+] as const;
+
 export const PLANS = [
   { key: "suelta", name: "Clase suelta", classes: 1, price: 18, badge: "", perks: ["Válida 30 días", "Cualquier sala"] },
   { key: "bono10", name: "Bono 10 clases", classes: 10, price: 145, badge: "La más elegida", perks: ["Caduca a los 3 meses", "Reserva con 15 días de antelación", "Cancelación gratis hasta 6 h antes"] },
@@ -131,6 +156,23 @@ export const plural = (n: number, one: string, many: string) => n + " " + (n ===
 /** Lo que ve la previsualización de temas: no hay estudio del que tirar. */
 export const DATOS_DE_MUESTRA: DatosPortal = {
   clases: CLASSES,
+  // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
+  // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
+  // estudio; aquí es de muestra, como el resto de este objeto.
+  hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
+  // De muestra, como el resto: en el portal real la calcula `rachaDe` con las
+  // asistencias de la socia.
+  racha: { semanas: 6, esMejor: true },
+  estudio: {
+    nombre: "Estudio Tentada", anioFundacion: 2019,
+    direccion: "Carrer de la Pau, 12", ciudad: "Barcelona", codigoPostal: "08001",
+    telefono: "+34 600 123 456", email: "hola@estudiotentada.com", fotoUrl: null,
+    normas: [
+      "Llega 5 minutos antes: las clases empiezan puntuales.",
+      "Calcetines antideslizantes obligatorios en todas las salas.",
+      "Cancela con 6 h de antelación para recuperar tu clase.",
+    ],
+  },
   dias: [...DAYS],
   filtros: [...FILTERS],
   planes: PLANS,

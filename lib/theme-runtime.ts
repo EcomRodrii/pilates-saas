@@ -112,6 +112,15 @@ function varsTitularPortal(t: ThemeConfig): Record<string, string> {
       '--portal-heading-weight': '700',
     };
   }
+  if (t.portalHeadingFontId === 'cormorant') {
+    // Tema "Tentada". Peso 500 y no 600/700: en una Garamond el trazo ya
+    // contrasta por sí solo y engordarlo la ensucia — mismo motivo por el que
+    // Instrument Serif se queda en 400.
+    return {
+      '--portal-heading-font': "var(--font-cormorant), Georgia, serif",
+      '--portal-heading-weight': '500',
+    };
+  }
   if (t.portalHeadingFontId === 'poppins') {
     // Tema "Bloom" — reusa --font-poppins (ya cargada para el cuerpo del
     // mismo tema) en negrita para el titular, sin fuente nueva.

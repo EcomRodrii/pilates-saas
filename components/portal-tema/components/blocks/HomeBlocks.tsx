@@ -6,6 +6,7 @@ import { DayStrip, FotoTema } from "@/components/portal-tema/components/layout/c
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { HomeBlockName } from "@/components/portal-tema/tipos-tema";
+import { PORTAL_VIDEOS_CONGELADO } from "@/lib/frozen-features";
 
 /** Cabecera del inicio: saludo, avatar y campana con aviso. */
 function Greeting({ vm }: { vm: ViewModel }) {
@@ -25,15 +26,80 @@ function Greeting({ vm }: { vm: ViewModel }) {
   );
 }
 
+/**
+ * Cabecera con foto a sangre (Tentada): fecha, campana y el saludo en grande
+ * sobre la imagen. Sustituye a `greeting` — los temas instalan una o la otra,
+ * nunca las dos, o el nombre de la socia sale dos veces seguidas.
+ *
+ * Sale del lienzo con márgenes negativos en vez de moverse fuera de `.canvas`:
+ * el orden de los bloques lo decide `home_blocks` y un bloque que tuviera que
+ * ir fuera del contenedor dejaría de ser reordenable.
+ */
+function HomeHeader({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  return (
+    <header className="home-header">
+      <span className="home-header__photo"><FotoTema nombre="portada.svg" /></span>
+      <span className="home-header__veil"></span>
+      <div className="home-header__top">
+        <p className="home-header__date">{vm.greeting.today}</p>
+        <button className="icon-btn icon-btn--glass is-pressable" onClick={actions.alerts} aria-label="Avisos">
+          <Icon name="bell" stroke={1.8} size={19} />
+          {vm.greeting.hasAlert ? <i className="icon-btn__dot"></i> : null}
+        </button>
+      </div>
+      <div className="home-header__body">
+        <p className="home-header__hello">{vm.greeting.hola}</p>
+        {vm.greeting.note ? <p className="home-header__note">{vm.greeting.note}</p> : null}
+      </div>
+    </header>
+  );
+}
+
 /** Titular de bienvenida. Solo lo usan los temas que lo declaran. */
 function Headline({ vm }: { vm: ViewModel }) {
   if (!vm.greeting.headline) return null;
   return <p className="headline">{vm.greeting.headline}</p>;
 }
 
+/**
+ * La próxima clase como BILLETE (Tentada): dos mitades separadas por una línea
+ * de puntos y dos muescas del color del lienzo.
+ *
+ * No lleva rótulo de sección encima porque el rótulo va DENTRO del billete
+ * ("TU PRÓXIMA CLASE"), que es lo que hace que se lea como una entrada.
+ */
+function NextClassTicket({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  const next = vm.next!;
+  return (
+    <button className="ticket is-pressable" onClick={() => actions.openClass(next.id)}>
+      <span className="ticket__top">
+        <span className="ticket__head">
+          <span className="ticket__kicker">{vm.nextHeading}</span>
+          {next.isToday ? <span className="ticket__badge">HOY</span> : null}
+        </span>
+        <span className="ticket__line">
+          <span className="ticket__name">{next.name}</span>
+          <span className="ticket__time">{next.time}</span>
+        </span>
+        <span className="ticket__meta">
+          {next.isToday ? "" : next.day + " · "}con {next.teacher} · {next.room} · {next.duration}
+        </span>
+      </span>
+      <span className="ticket__perf" aria-hidden="true"></span>
+      <span className="ticket__foot">
+        <span className="ticket__note">{vm.pass.total ? "Se descuenta 1 clase de tu bono" : "Tu plaza está guardada"}</span>
+        <span className="ticket__cta">Ver detalles <Icon name="forward" size={12} stroke={1.8} /></span>
+      </span>
+    </button>
+  );
+}
+
 /** Próxima clase. Sin reserva no se queda vacío: propone el horario. */
 function NextClass({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  if (vm.next && vm.features.next_class_style === "ticket") return <NextClassTicket vm={vm} />;
   return (
     <section>
       <SectionTitle>{vm.nextHeading}</SectionTitle>
@@ -63,6 +129,178 @@ function NextClass({ vm }: { vm: ViewModel }) {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * El horario de HOY (Tentada). Una fila por clase, con la tuya en color de
+ * marca y las completas apagadas.
+ *
+ * ⚠️ Es el día de hoy, no el seleccionado en la tira de la semana: el rótulo
+ * dice «Hoy en el estudio» y cambiarlo al pulsar otro día lo dejaría mintiendo.
+ * Para el día seleccionado ya está la pantalla de Clases, que es a donde lleva
+ * «Ver horario».
+ */
+function TodayTimeline({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (!vm.today.length) return null;
+  return (
+    <section>
+      <SectionHead title="Hoy en el estudio" action="Ver horario" onAction={actions.goSchedule} />
+      <div className="timeline">
+        {vm.today.map((row) => (
+          <button
+            key={row.id}
+            className={"timeline__row timeline__row--" + row.tone + " is-pressable"}
+            onClick={() => actions.openClass(row.id)}
+          >
+            <span className="timeline__time">{row.time}</span>
+            <i className="timeline__dot"></i>
+            <span className="timeline__body">
+              <span className="timeline__name">{row.name}</span>
+              <span className="timeline__meta">{row.meta}</span>
+            </span>
+            <span className="timeline__tag">{row.tag}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * El bono, con una semilla por sesión (Tentada).
+ *
+ * Sin bono no se pinta: proponerle «quedan 0 clases» a quien nunca ha
+ * comprado uno no es un estado vacío, es ruido. Y con un bono largo (>12) cae
+ * a la barra de progreso — doce puntos ya no se cuentan de un vistazo.
+ */
+function PassCard({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (!vm.pass.total) return null;
+  return (
+    <button className="pass-card is-pressable" onClick={actions.goPasses}>
+      <span className="pass-card__body">
+        <span className="pass-card__name">{vm.pass.name}</span>
+        <span className="pass-card__left">
+          quedan <b>{vm.pass.left}</b> {vm.pass.left === 1 ? "clase" : "clases"}
+        </span>
+      </span>
+      {vm.pass.seedsFit ? (
+        <span className="seeds">
+          {vm.pass.seeds.map((on, i) => (
+            <i key={i} className={"seed " + (on ? "is-on" : "")}></i>
+          ))}
+        </span>
+      ) : (
+        <span className="pass-card__track">
+          <span className="pass-card__fill" style={{ width: vm.pass.percent + "%" }}></span>
+        </span>
+      )}
+      <Icon name="forward" size={13} stroke={1.7} className="pass-card__chevron" />
+    </button>
+  );
+}
+
+/** Las reservas vivas de la socia (Tentada), con el día en grande a la izquierda. */
+function BookingsList({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  return (
+    <section>
+      <SectionHead title="Mis reservas" action="Ver todas" onAction={actions.goBookings} />
+      {vm.bookings.length ? (
+        <div className="booking-list">
+          {vm.bookings.map((b) => (
+            <button key={b.id} className="booking is-pressable" onClick={() => actions.openClass(b.id)}>
+              <span className="booking__day">
+                <span className="booking__num">{b.dayNum}</span>
+                <span className="booking__dow">{b.day}</span>
+              </span>
+              <span className="booking__body">
+                <span className="booking__name">{b.name}</span>
+                <span className="booking__meta">{b.meta}</span>
+              </span>
+              <span className="booking__time">{b.time}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="No tienes reservas"
+          text="Busca tu próxima clase en el horario."
+          cta="Reservar"
+          onAction={actions.goSchedule}
+        />
+      )}
+    </section>
+  );
+}
+
+/**
+ * La racha (Tentada): «6 semanas seguidas — tu mejor racha».
+ *
+ * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `rachaDe`, y por eso
+ * puede no pintarse: sin dos semanas seguidas asistiendo no hay racha, y una
+ * píldora que anuncia una racha que no existe es peor que no tenerla. El
+ * «— tu mejor racha» tampoco es decorativo: solo se escribe cuando lo es.
+ */
+function StreakPill({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (!vm.streak) return null;
+  return (
+    <button className="streak is-pressable" onClick={actions.goProfile}>
+      <span className="streak__mark">✦</span>
+      <span className="streak__text">
+        {vm.streak.semanas} semanas seguidas{vm.streak.esMejor ? " — tu mejor racha" : ""}
+      </span>
+      <Icon name="forward" size={13} stroke={1.7} className="streak__chevron" />
+    </button>
+  );
+}
+
+/**
+ * El acceso a los vídeos para casa (Tentada): la tarjeta arena con el play.
+ *
+ * ⚠️ No se pinta con VOD congelado, y esto NO es una precaución teórica:
+ * `app/portal/[slug]/videos/page.tsx` hace `router.replace(.../home)` mientras
+ * `PORTAL_VIDEOS_CONGELADO` sea `true`. Sin esta guardia el bloque es un
+ * callejón sin salida — la socia lo toca y rebota al Inicio sin explicación.
+ * Se oculta también en la previsualización a propósito: enseñarle a la
+ * propietaria un bloque que su portal no va a tener es justo lo que este repo
+ * lleva pagando caro.
+ */
+function VideosCta({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (PORTAL_VIDEOS_CONGELADO) return null;
+  return (
+    <button className="videos-cta is-pressable" onClick={actions.goVideos}>
+      <span className="videos-cta__play">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M4.6 2.8v8.4l6.4-4.2z"></path></svg>
+      </span>
+      <span className="videos-cta__body">
+        <span className="videos-cta__title">{vm.videosCta.title}</span>
+        <span className="videos-cta__text">{vm.videosCta.text}</span>
+      </span>
+      <Icon name="forward" size={13} stroke={1.7} className="videos-cta__chevron" />
+    </button>
+  );
+}
+
+/**
+ * El cierre del Inicio (Tentada): la cita del tema, firmada por el estudio.
+ *
+ * ⚠️ El año NO se inventa. `studios.anio_fundacion` es nullable y no es la
+ * fecha de alta en Tentare: sin él la firma va sin año, no con el que le
+ * tocara. Es lo mismo que hace el prototipo con «DESDE 2019», salvo que allí
+ * el 2019 estaba escrito a mano.
+ */
+function StudioQuote({ vm }: { vm: ViewModel }) {
+  if (!vm.closing) return null;
+  return (
+    <div className="closing">
+      <p className="closing__quote">«{vm.closing.quote}»</p>
+      <p className="closing__sign">{vm.closing.sign}</p>
+    </div>
   );
 }
 
@@ -150,9 +388,24 @@ function QuickLinks({ vm }: { vm: ViewModel }) {
   );
 }
 
-/** Resumen de la semana (Oliva): siete días, con punto si hay clase. */
+/**
+ * Resumen de la semana. Dos formas y los MISMOS siete días: Oliva/Bloom/Noir
+ * lo meten en una tarjeta con «Ver agenda»; Tentada lo deja a pelo sobre el
+ * lienzo con el mes en cursiva a la derecha.
+ */
 function WeekStrip({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  if (vm.features.week_strip_style === "bare") {
+    return (
+      <section className="week-bare">
+        <div className="section-head">
+          <p className="section-title">Tu semana</p>
+          <p className="week-bare__month">{vm.weekMonth}</p>
+        </div>
+        <DayStrip week={vm.week} />
+      </section>
+    );
+  }
   return (
     <Card className="week-card">
       <SectionHead title="Esta semana" action="Ver agenda" onAction={actions.goSchedule} />
@@ -187,8 +440,15 @@ function StudioBanner({
 
 const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode> = {
   greeting: Greeting,
+  "home-header": HomeHeader,
   headline: Headline,
   "next-class": NextClass,
+  "today-timeline": TodayTimeline,
+  "pass-card": PassCard,
+  "bookings-list": BookingsList,
+  "streak-pill": StreakPill,
+  "videos-cta": VideosCta,
+  "studio-quote": StudioQuote,
   "weekly-progress": WeeklyProgress,
   challenges: Challenges,
   "quick-links": QuickLinks,

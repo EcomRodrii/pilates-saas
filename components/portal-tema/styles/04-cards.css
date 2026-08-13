@@ -17,13 +17,19 @@ a.card:hover, button.card:hover, .card--interactive:hover {
 .card--pad { padding: 18px; }
 .card--pad-lg { padding: 24px; }
 
+/* El rótulo de sección es de los pocos sitios donde los temas no discrepan
+ * solo en tamaño: Oliva/Bloom/Noir lo escriben como un titular pequeño en la
+ * display, y Tentada como versalitas de cuerpo ("HOY EN EL ESTUDIO"). En vez
+ * de un selector por tema, cinco tokens con el valor de siempre por defecto —
+ * un tema que no los declare se ve exactamente igual que antes. */
 .section-title {
-  font-family: var(--font-display);
-  font-weight: var(--weight-display);
-  font-size: var(--size-section);
+  font-family: var(--section-title-family, var(--font-display));
+  font-weight: var(--section-title-weight, var(--weight-display));
+  font-size: var(--size-section-title, var(--size-section));
   line-height: 1.2;
-  letter-spacing: -.02em;
-  color: var(--ink);
+  letter-spacing: var(--section-title-tracking, -.02em);
+  text-transform: var(--section-title-transform, none);
+  color: var(--section-title-color, var(--ink));
   margin-bottom: 12px;
 }
 .section-head {
@@ -35,9 +41,12 @@ a.card:hover, button.card:hover, .card--interactive:hover {
 }
 .section-head .section-title { margin-bottom: 0; }
 
+/* Mismo caso que `.section-title`: Oliva/Bloom/Noir titulan la pantalla con la
+ * display, y Tentada con la sans en negra («Mi centro», «Mis bonos»). Dos
+ * tokens con el valor de siempre por defecto, no un selector por tema. */
 .screen-title {
-  font-family: var(--font-display);
-  font-weight: var(--weight-display);
+  font-family: var(--screen-title-family, var(--font-display));
+  font-weight: var(--screen-title-weight, var(--weight-display));
   font-size: var(--size-screen-title);
   line-height: 1.1;
   letter-spacing: -.02em;

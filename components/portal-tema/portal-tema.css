@@ -1,7 +1,7 @@
 /* Orden de carga del portal en React. Los tokens van primero: todo lo demás
  * los lee.
  *
- * Los tres temas conviven en la misma hoja, cada uno bajo su
+ * Los cuatro temas conviven en la misma hoja, cada uno bajo su
  * `html[data-theme="…"]`, así que cambiar de tema no descarga ni carga nada:
  * es cambiar un atributo. Ese es el motivo de que haya UNA copia del código y
  * los temas sean datos.
@@ -14,6 +14,7 @@
  * documentación del propio kit y ninguna de sus 20 clases aparece en ningún
  * componente. */
 
+@import "../../themes/tentada/tokens.css";
 @import "../../themes/oliva/tokens.css";
 @import "../../themes/bloom/tokens.css";
 @import "../../themes/noir/tokens.css";

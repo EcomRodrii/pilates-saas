@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -61,6 +61,22 @@ const poppins = Poppins({
   display: 'swap',
 });
 
+// Tema "Tentada" (themes/tentada/) — la serif de los titulares del portal de
+// la alumna. Se piden 500/600 y la CURSIVA porque el diseño titula con las dos
+// («Hola, Laura» en redonda, «hoy toca cuidarte» y la nota del bono en
+// cursiva): sin la cursiva real el navegador inclina la redonda, y en una
+// Garamond eso se nota tanto como en la Instrument Serif del portal de siempre
+// (ver el comentario de `instrumentSerif` arriba). Mismo criterio que `outfit`
+// y `poppins`: coste fijo, se carga siempre, `next/font` no admite carga
+// condicional por tenant.
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  variable: '--font-cormorant',
+  weight: ['400', '500', '600'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: 'Software de Gestión para Estudios de Pilates | Tentare',
@@ -96,7 +112,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>

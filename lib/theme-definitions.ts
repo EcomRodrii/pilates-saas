@@ -79,6 +79,57 @@ export interface ThemeDefinition {
 
 export const THEME_DEFINITIONS: ThemeDefinition[] = [
   {
+    // ── El PREDETERMINADO de la app de la alumna ────────────────────────────
+    //
+    // Va primero a propósito: es el que se ofrece de entrada y el que resuelve
+    // `TEMA_PORTAL_POR_DEFECTO` (themes/registro.ts) cuando un estudio no ha
+    // publicado ninguno.
+    //
+    // ⚠️ "Predeterminado" NO significa retroactivo. Un estudio que ya publicó
+    // otro tema —o que sigue en 'classic'— conserva el suyo: `themeId` es un
+    // dato de su fila, no una constante del producto. Cambiarlo por debajo
+    // repintaría portales vivos en silencio, que es justo lo que este archivo
+    // lleva avisando desde la primera tanda.
+    //
+    // Fuente: prototipo "Balance App" de Claude Design (f706a211), medido
+    // sobre su HTML. Los valores de abajo son los suyos, no una interpretación.
+    id: 'tentada',
+    version: 1,
+    label: 'Tentada',
+    description: 'Verde profundo sobre crema y titulares en Garamond. El tema de casa: cálido, editorial y con la clase de hoy por delante.',
+    capabilities: ['colors', 'typography', 'buttons', 'cards'],
+    defaults: {
+      primary: '#333B24',
+      // Arena cálida: la superficie del bloque de vídeos para casa. No es
+      // texto — mismo papel que `secondary` en Oliva/Noir.
+      secondary: '#ECDFD2',
+      accent: '#F0EDE1',
+      // Tentada no tiene tercer color: el destacado es la marca otra vez,
+      // igual que en Oliva.
+      destacado: '#333B24',
+      background: '#F6F3EB',
+      text: '#22261B',
+      fontId: 'jakarta',
+      portalHeadingFontId: 'cormorant',
+      radius: 'rounded',
+      buttonStyle: 'solid',
+      // Plana: el billete de la próxima clase ya lleva su propia sombra
+      // (`--ticket-shadow`), y dársela a TODA tarjeta sobre un crema tan claro
+      // ensucia el resto de la pantalla.
+      cardStyle: 'flat',
+      radioTema: { card: 20, boton: 16, chip: 999, acceso: 18 },
+      // Escala del prototipo. El saludo es el número que más se separa del
+      // resto de temas (44 contra 19-24): en Tentada el saludo ES el titular
+      // de la pantalla, sobre la foto de la cabecera.
+      escalaTexto: { seccion: 20, tituloPantalla: 26, saludo: 44, tituloHero: 25, bienvenida: 25, numeroBono: 60 },
+      barraClasica: true,
+      variantes: { cabeceraInicio: 'saludo', accesosRapidos: 'rejilla', barra: 'todas', tarjetaPrincipal: 'rotulada', bienvenida: 'foto' },
+    },
+    // `proximaClase` primero, como en los otros tres. La cabecera con foto es
+    // el bloque `cabecera`, que es FIJO y va siempre encima de él.
+    bloquesHome: ['proximaClase', 'tiraSemana', 'accesosRapidos', 'contenidoEstudio'],
+  },
+  {
     id: 'classic',
     version: 1,
     label: 'Clásico',

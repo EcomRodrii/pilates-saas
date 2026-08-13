@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  horaLocal, inicialDe, planesDe, reservadasDe, semanaDe, sociaDe,
+  horaLocal, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -355,4 +355,83 @@ test('construirDatosPortal: sin socia identificada, `reservadas` es undefined', 
     socio: null, suscripciones: [], planes: [],
   });
   assert.equal(datos.reservadas, undefined);
+});
+
+// ── hoyDe: la fecha que pinta la cabecera del Inicio ────────────────────────
+
+test('hoyDe: el número del mes y la fecha en palabras salen de la MISMA fecha local', () => {
+  // 5 de agosto de 2026, martes.
+  const r = hoyDe(new Date('2026-08-05T09:00:00Z'));
+  assert.deepEqual(r, { num: 5, largo: 'miércoles, 5 de agosto', mes: 'agosto' });
+});
+
+test('hoyDe: la medianoche de Madrid NO se va al día anterior', () => {
+  // 00:30 en Madrid es el día ANTERIOR en UTC. Es el mismo bug que ya se comió
+  // `semanaDe`: con UTC la cabecera diría «martes, 4 de agosto» mientras la
+  // tira de la semana marca el 5.
+  const r = hoyDe(new Date('2026-08-04T22:30:00Z'));
+  assert.equal(r.num, 5);
+  assert.equal(r.largo, 'miércoles, 5 de agosto');
+});
+
+test('hoyDe: el número y la etiqueta nunca discrepan en el cambio de hora', () => {
+  // Madrugada del cambio de hora de octubre de 2026 (25/10).
+  const r = hoyDe(new Date('2026-10-25T00:30:00Z'));
+  assert.equal(r.num, 25);
+  assert.ok(r.largo.startsWith('domingo, 25 de octubre'));
+});
+
+// ── rachaDe: las semanas seguidas asistiendo ────────────────────────────────
+//
+// Fechas reales, no inventadas: el 1 de agosto de 2026 cae en sábado, así que
+// los lunes de esas semanas son el 10, el 3, el 27 de julio… Todo el bloque
+// mira desde el jueves 13 de agosto.
+
+const AHORA = new Date('2026-08-13T10:00:00Z');
+// Una sesión por semana, siempre a media mañana para que la zona no la mueva.
+const SES = [
+  { id: 's0', inicio: '2026-08-11T09:00:00Z' }, // semana en curso (lunes 10)
+  { id: 's1', inicio: '2026-08-05T09:00:00Z' }, // semana -1 (lunes 3)
+  { id: 's2', inicio: '2026-07-29T09:00:00Z' }, // semana -2 (lunes 27 jul)
+  { id: 's4', inicio: '2026-07-15T09:00:00Z' }, // semana -4 (hueco en la -3)
+  { id: 's5', inicio: '2026-07-08T09:00:00Z' }, // semana -5
+  { id: 's6', inicio: '2026-07-01T09:00:00Z' }, // semana -6
+];
+const asistio = (...ids: string[]) => ids.map((sesionId) => ({ sesionId, estado: 'ASISTIDA' as const }));
+
+test('rachaDe: tres semanas seguidas asistiendo, y es su mejor marca', () => {
+  assert.deepEqual(rachaDe(asistio('s0', 's1', 's2'), SES, AHORA), { semanas: 3, esMejor: true });
+});
+
+test('rachaDe: reservar NO es venir — solo cuenta ASISTIDA', () => {
+  // La regresión que más engaña: con CONFIRMADA la racha se la inventaría
+  // quien reserva y no aparece.
+  const soloReservado = ['s0', 's1', 's2'].map((sesionId) => ({ sesionId, estado: 'CONFIRMADA' as const }));
+  assert.equal(rachaDe(soloReservado, SES, AHORA), null);
+});
+
+test('rachaDe: la semana EN CURSO vacía no rompe la racha', () => {
+  // Es jueves y aún no ha ido esta semana. Si contara como semana en blanco,
+  // la racha se pondría a cero cada lunes y volvería al día siguiente.
+  assert.deepEqual(rachaDe(asistio('s1', 's2'), SES, AHORA), { semanas: 2, esMejor: true });
+});
+
+test('rachaDe: una semana suelta no es una racha', () => {
+  assert.equal(rachaDe(asistio('s1'), SES, AHORA), null);
+});
+
+test('rachaDe: «tu mejor racha» solo cuando LO es', () => {
+  // Ahora lleva 2 seguidas, pero en julio encadenó 3. No es su mejor marca y
+  // no se le dice que lo sea.
+  const r = rachaDe(asistio('s1', 's2', 's4', 's5', 's6'), SES, AHORA);
+  assert.deepEqual(r, { semanas: 2, esMejor: false });
+});
+
+test('rachaDe: sin socia identificada, sin racha', () => {
+  assert.equal(rachaDe(undefined, SES, AHORA), null);
+  assert.equal(rachaDe([], SES, AHORA), null);
+});
+
+test('rachaDe: una reserva cuya sesión no está cargada se ignora, no rompe', () => {
+  assert.deepEqual(rachaDe(asistio('s0', 's1', 'fantasma'), SES, AHORA), { semanas: 2, esMejor: true });
 });

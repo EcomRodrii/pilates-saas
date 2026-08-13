@@ -83,6 +83,38 @@ export interface ReservaPortal {
 
 export interface DatosPortal {
   clases: StudioClass[];
+  /**
+   * Hoy en la zona del estudio. `num` es el día del MES (casa con
+   * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
+   * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.
+   */
+  hoy: { num: number; largo: string; mes: string };
+  /**
+   * Semanas seguidas asistiendo, y si es su mejor marca. `null` = no hay
+   * racha que enseñar (menos de dos seguidas, o nadie identificado). Ver
+   * `rachaDe` — el prototipo la traía como texto fijo y aquí se calcula.
+   */
+  racha: { semanas: number; esMejor: boolean } | null;
+  /**
+   * El estudio: quién firma la pantalla y cómo se le llega. Todo sale de
+   * columnas reales de `studios` — `anioFundacion` y `fotoUrl` son nullable de
+   * verdad, y cuando faltan la pantalla se calla en vez de rellenar el hueco.
+   */
+  estudio: {
+    nombre: string;
+    anioFundacion: number | null;
+    direccion: string;
+    ciudad: string;
+    codigoPostal: string;
+    telefono: string;
+    email: string;
+    fotoUrl: string | null;
+    /**
+     * Las normas del centro, una por línea (migr 20260813004723). Array vacío
+     * = la propietaria no las ha escrito, y la pantalla no pinta la sección.
+     */
+    normas: string[];
+  };
   dias: DiaPortal[];
   filtros: FiltroPortal[];
   planes: PlanPortal[];
