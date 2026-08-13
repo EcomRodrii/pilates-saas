@@ -464,6 +464,7 @@ export default function MarketingPage() {
   const {
     campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
     automatizaciones, toggleAutomatizacion, deleteAutomatizacion,
+    automationRules,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
     suscripciones,
@@ -475,6 +476,20 @@ export default function MarketingPage() {
     if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard')
   }, [router])
   const [tab, setTab] = useState<'resumen' | 'campanas' | 'automatizaciones' | 'codigos'>('resumen')
+  // Automatización pendiente de confirmar antes de ENCENDERLA por solape con
+  // AUSENCIA_DIAS (motor clásico) — ver docs/marketing-solape-motores-diseno.md
+  // §3, Nivel A. No bloquea, avisa en el momento de activar en vez de un texto
+  // que nadie lee después.
+  const [confirmarSolape, setConfirmarSolape] = useState<Automatizacion | null>(null)
+  const ausenciaDiasActiva = automationRules.some(r => r.activa && r.trigger === 'AUSENCIA_DIAS')
+
+  function handleToggleAutomatizacion(a: Automatizacion) {
+    if (!a.activa && a.trigger === 'INACTIVIDAD_30D' && ausenciaDiasActiva) {
+      setConfirmarSolape(a)
+      return
+    }
+    toggleAutomatizacion(a.id).then(res => { if (!res.ok) window.alert(res.error) })
+  }
 
   // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
   const leadsPorMes = (() => {
@@ -1023,7 +1038,7 @@ export default function MarketingPage() {
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
-                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                        onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
@@ -1124,7 +1139,7 @@ export default function MarketingPage() {
                         </td>
                         <td className="px-4 py-4">
                           <button
-                            onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                            onClick={() => handleToggleAutomatizacion(a)}
                             className={cn(
                               'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
                               a.activa ? 'bg-primary' : 'bg-muted-foreground/40'
@@ -1152,7 +1167,7 @@ export default function MarketingPage() {
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                       <button
-                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                        onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
@@ -1334,6 +1349,47 @@ export default function MarketingPage() {
           )}
         </div>
       )}
+
+      {/* Solape con AUSENCIA_DIAS (motor clásico) — ver
+          docs/marketing-solape-motores-diseno.md §3, Nivel A. */}
+      <Dialog open={confirmarSolape !== null} onOpenChange={open => !open && setConfirmarSolape(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              Ya tienes una automatización parecida activa
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
+            <p>
+              Tienes activa <span className="font-semibold text-foreground">&quot;Ausencia de clienta&quot;</span> en
+              Automatizaciones (Automatizaciones → días 7/14/25 sin venir). Se solapa con{' '}
+              <span className="font-semibold text-foreground">&quot;{confirmarSolape?.nombre}&quot;</span>:
+              una socia inactiva podría recibir avisos de las dos.
+            </p>
+            <p>
+              Puedes tener ambas activas a la vez si lo prefieres — el sistema evita que
+              coincidan el mismo día — o desactivar una de las dos desde su pantalla.
+            </p>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarSolape(null)}
+            >
+              No, dejarla pausada
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (confirmarSolape) toggleAutomatizacion(confirmarSolape.id).then(res => { if (!res.ok) window.alert(res.error) })
+                setConfirmarSolape(null)
+              }}
+            >
+              Sí, activar igualmente
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ==================== MODAL: NUEVA CAMPAÑA ==================== */}
       <Dialog open={showCampanaModal} onOpenChange={(open) => {

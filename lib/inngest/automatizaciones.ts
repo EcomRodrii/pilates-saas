@@ -9,6 +9,7 @@ import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } f
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
 import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
 import { conReintentoResend } from '@/lib/emails/resend-reintentos';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import { remitentePorMarca } from '../emails/remitente.ts';
@@ -220,6 +221,11 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     }
   }
 
+  // Marca el log como parte de la señal "socia inactiva" para que el motor de
+  // marketing (INACTIVIDAD_30D) pueda deduplicar en cruz — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
+  if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
+
   if (!dry) await dbUpsertAutomationLog(log);
   return log;
 }
@@ -318,6 +324,11 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
       ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
       : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"` };
   }
+
+  // Marca el log como parte de la señal "socia inactiva" para que el motor
+  // clásico (AUSENCIA_DIAS) pueda deduplicar en cruz — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
+  if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
 
   if (!dry) await dbUpsertAutomationLog(log);
   return log;

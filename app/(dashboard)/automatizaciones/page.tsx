@@ -459,7 +459,7 @@ function LogItem({
 
 export default function AutomatizacionesPage() {
   const {
-    studio, automationRules, automationLogs, socios,
+    studio, automationRules, automationLogs, socios, automatizaciones,
     toggleAutomationRule, addAutomationRule, runAutomation, dismissLog, actualizarLog,
   } = useStudio();
 
@@ -474,6 +474,11 @@ export default function AutomatizacionesPage() {
   const pendingAdmin = automationLogs.filter(l => l.resultado === 'PENDIENTE_ADMIN');
   // A cuánta gente puede llegar de verdad una regla que manda mensajes.
   const contactables = socios.filter(s => s.activo && (s.email || s.telefono)).length;
+  // Solape con el motor de marketing (docs/marketing-solape-motores-diseno.md
+  // §3, Nivel A): mismo motivo de negocio, dos secuencias distintas. No se
+  // bloquea — la propietaria puede querer las dos a la vez — pero se avisa
+  // en el momento de activar, no solo con un texto que nadie lee después.
+  const inactividad30dActiva = automatizaciones.some(a => a.activa && a.trigger === 'INACTIVIDAD_30D');
 
   function handleToggleRule(rule: AutomationRule) {
     if (!rule.activa && TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS.has(rule.trigger)) {
@@ -726,6 +731,14 @@ export default function AutomatizacionesPage() {
               </span>{' '}
               que {contactables === 1 ? 'tiene' : 'tienen'} email o teléfono.
             </p>
+            {confirmarEncender?.trigger === 'AUSENCIA_DIAS' && inactividad30dActiva && (
+              <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-foreground">
+                Ya tienes activa <span className="font-semibold">&quot;Sin actividad 45 días&quot;</span> en
+                Marketing → Automatizaciones. Se solapa con esta secuencia (días 7/14/25): una
+                socia inactiva podría recibir avisos de las dos. Puedes tener ambas si lo prefieres —
+                el sistema evita que coincidan el mismo día.
+              </p>
+            )}
             <p>Puedes pausarla cuando quieras desde esta misma pantalla.</p>
           </div>
           <div className="flex gap-2 mt-4">

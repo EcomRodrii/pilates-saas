@@ -45,6 +45,44 @@ test('INACTIVIDAD_30D: última asistencia hace 50 días dispara; hace 40 no (umb
   const s1 = socio({ id: '1' }), s2 = socio({ id: '2' });
   const c = run({ automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s1, s2], reservas: [reserva('1', 'ASISTIDA', diasAntes(50)), reserva('2', 'ASISTIDA', diasAntes(40))] });
   assert.deepEqual(c.map(x => x.socio.id), ['1']);
+  assert.equal(c[0].marcaInactividad, true, 'INACTIVIDAD_30D debe marcarse para el dedup cruzado');
+});
+
+// ── Dedup CRUZADO con AUSENCIA_DIAS (motor clásico) ────────────────────────────
+// docs/marketing-solape-motores-diseno.md §2: los dos motores comparten
+// automation_logs, marcados con el prefijo [INACTIVIDAD] en `detalle`.
+test('INACTIVIDAD_30D: NO dispara si AUSENCIA_DIAS (motor clásico) ya avisó hace <72h', () => {
+  const s = socio({ id: '1' });
+  // Log del OTRO motor: con ruleId (no automatizacionId) — igual que escribe
+  // procesarCandidato — y marcado con el prefijo compartido.
+  const logCruzado: AutomationLog = {
+    id: 'l-cruzado', studioId: 'e1', ruleId: 'rule-AUSENCIA_DIAS', automatizacionId: null,
+    ruleName: '', socioId: '1', socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a1@x.com: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(0), proximaAccionEn: null, reciboId: null,
+  };
+  const c = run({
+    automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s],
+    reservas: [reserva('1', 'ASISTIDA', diasAntes(50))],
+    automationLogs: [logCruzado],
+  });
+  assert.equal(c.length, 0, 'el motor de marketing no debe pisar un aviso de inactividad reciente del motor clásico');
+});
+
+test('INACTIVIDAD_30D: SÍ dispara si el aviso de inactividad cruzado es antiguo (>72h)', () => {
+  const s = socio({ id: '1' });
+  const logCruzado: AutomationLog = {
+    id: 'l-cruzado', studioId: 'e1', ruleId: 'rule-AUSENCIA_DIAS', automatizacionId: null,
+    ruleName: '', socioId: '1', socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a1@x.com: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(30), proximaAccionEn: null, reciboId: null,
+  };
+  const c = run({
+    automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s],
+    reservas: [reserva('1', 'ASISTIDA', diasAntes(50))],
+    automationLogs: [logCruzado],
+  });
+  assert.equal(c.length, 1, 'pasada la ventana de gracia, las dos secuencias pueden convivir (caso de uso legítimo)');
 });
 
 test('BONO_QUEDA_1 y BONO_AGOTADO leen sesionesRestantes', () => {

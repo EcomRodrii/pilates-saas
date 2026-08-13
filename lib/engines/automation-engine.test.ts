@@ -113,6 +113,39 @@ test('AUSENCIA_DIAS: SÍ reintenta si el último envío FALLÓ', () => {
   assert.equal(c[0].accion, 'ENVIAR_EMAIL');
 });
 
+// ── Dedup CRUZADO con INACTIVIDAD_30D (motor de marketing) ────────────────────
+// docs/marketing-solape-motores-diseno.md §2: los dos motores comparten
+// automation_logs, marcados con el prefijo [INACTIVIDAD] en `detalle`.
+test('AUSENCIA_DIAS: NO dispara si INACTIVIDAD_30D (motor de marketing) ya avisó hace <72h', () => {
+  const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7 } });
+  const s = socio({ id: 'a' });
+  const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
+  // Log del OTRO motor: sin ruleId, con automatizacionId — igual que escribe
+  // procesarCandidatoMkt — y marcado con el prefijo compartido.
+  const l = log({
+    ruleId: null, automatizacionId: 'auto-inactividad', socioId: 'a',
+    accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a@b.c: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(0),
+  });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reservas: [res], automationLogs: [l] }), NOW);
+  assert.equal(c.length, 0, 'el motor clásico no debe pisar un aviso de inactividad reciente del motor de marketing');
+});
+
+test('AUSENCIA_DIAS: SÍ dispara si el aviso de inactividad cruzado es antiguo (>72h)', () => {
+  const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7 } });
+  const s = socio({ id: 'a' });
+  const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
+  const l = log({
+    ruleId: null, automatizacionId: 'auto-inactividad', socioId: 'a',
+    accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a@b.c: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(10), // fuera de la ventana de gracia de 72h
+  });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], reservas: [res], automationLogs: [l] }), NOW);
+  assert.equal(c.length, 1, 'pasada la ventana de gracia, las dos secuencias pueden convivir (caso de uso legítimo)');
+});
+
 // ── CLASE_LLENA_RECURRENTE ────────────────────────────────────────────────────
 // Franja: mismos día/hora/tipo, 3 semanas seguidas. inicio a la misma hora local.
 function slot(diasAtras: number): Sesion {
