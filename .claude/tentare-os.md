@@ -16,13 +16,32 @@ aquí deja de ser cierto, corrígelo en vez de dejarlo como ruido.
   Los imports relativos dentro de `lib/` necesitan la extensión `.ts` explícita
   (`tsconfig.json` tiene `allowImportingTsExtensions` justo para esto) — sin ella, pasa en
   local pero rompe en CI.
-  ⚠️ **Dos puntos ciegos que la suite NO ve, por diseño, y que ya han costado bugs en prod:**
-  (1) `page.route` mockea la red, así que **ningún test ve nunca un 4xx** — una pantalla que
-  escribe puede anunciar éxito con el servidor diciendo que no (#500, #505, #560);
-  (2) los e2e corren **solo en Chromium**, así que una API que Chrome tiene y Safari no
-  (`BarcodeDetector`) pasa verde y falla en el iPad de recepción (#565). Lo que dependa de
-  una respuesta real del servidor o de un navegador concreto **hay que mirarlo, no
-  testearlo**.
+  Los **dos puntos ciegos históricos** de la suite —que costaron #500/#505/#560 y #565—
+  están cubiertos desde 2026-08-13, pero cubiertos NO es «resueltos para siempre»:
+  - **(1) Ningún test veía un 4xx**, porque `page.route` siempre devolvía 200: una pantalla
+    que escribe podía anunciar éxito con el servidor diciendo que no. Ya hay mocks de
+    400/500/red caída (`e2e/reservar-el-servidor-dice-no.spec.ts`, #992).
+    ⚠️ **Un test de camino de fallo SIN contador de peticiones es hueco.** En `/reservar`,
+    `handleReservarCalendario` deriva al modal de acceso y no escribe salvo que se cumplan
+    tres cosas a la vez (sesión de portal + `socio.aceptacionContrato` + gate en falso), así
+    que «no mintió» puede ser verdad por no haber intentado nada — pasó, con dos tests en
+    verde. Siempre `expect(intentos).toBeGreaterThan(0)`, y reutiliza el andamiaje
+    `e2e/socia-lista.ts` en vez de rehacerlo.
+  - **(2) Los e2e solo corrían en Chromium.** Ahora el proyecto `webkit-publico`
+    (`playwright.config.ts`, #998) pasa por WebKit/iPhone las pantallas PÚBLICAS —
+    `/reservar`, que es el widget que el estudio incrusta en su web. El panel queda fuera a
+    propósito: se usa desde el iPad de recepción, pero ahí hay alguien que puede avisar;
+    una socia con el widget roto se va y no lo cuenta. Añadir una spec exige ese criterio
+    (pública + la sufre alguien de fuera), porque pasar la suite entera dobla el e2e.
+    ⚠️ La clave de caché de navegadores lleva **qué** navegadores contiene
+    (`-chromium-webkit`): sin eso, añadir uno acierta con la caché vieja, el install se
+    salta por su `if` y los tests mueren con «Executable doesn't exist» — se lee como fallo
+    de test y no lo es.
+  ⚠️ **Nada de esto sustituye mirar.** WebKit de Playwright NO es Safari de iOS (comparten
+  motor; permisos de portapapeles y gestos, no), y un mock nunca es el servidor real. Lo que
+  dependa de una respuesta real o de un navegador concreto **sigue habiendo que mirarlo**:
+  el bug de #994 —tres pantallas diciendo «Copiado» con el portapapeles vacío— salió de
+  leer el código buscando APIs que Safari no resuelve, no de un test.
 - **Commits**: Conventional Commits con scope en español que refleja el área de negocio
   (`fix(seguridad):`, `feat(alta):`, `chore(migraciones):`, `perf(panel):`...) y número de
   PR entre paréntesis cuando exista. El tono puede ser narrativo/autocrítico, no hace falta
