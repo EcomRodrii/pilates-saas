@@ -13,7 +13,7 @@ const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'],
   no_disponible: '#9CA3AF',
 };
 
-export function TarjetaResultadoNetwork({ perfil }: { perfil: PerfilNetworkPublico }) {
+export function TarjetaResultadoNetwork({ perfil, distanciaKm }: { perfil: PerfilNetworkPublico; distanciaKm?: number | null }) {
   return (
     <Link
       href={`/network/${perfil.id}`}
@@ -39,6 +39,7 @@ export function TarjetaResultadoNetwork({ perfil }: { perfil: PerfilNetworkPubli
           <p className="text-[12px] text-muted-foreground flex items-center gap-1 mt-0.5">
             <MapPin size={11} className="shrink-0" />
             {perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}
+            {distanciaKm != null && <span className="text-foreground font-medium"> · a {distanciaKm} km</span>}
           </p>
         )}
         {perfil.especialidades.length > 0 && (
