@@ -78,13 +78,31 @@ const ESCENAS = [
       await page.waitForTimeout(1800);
       // La rejilla abre sobre la hora actual y en la demo las clases están por
       // la mañana: sin esto se graba una parrilla vacía.
+      //
+      // Se busca la PRIMERA clase de la semana y se encuadra ella, en vez de
+      // desplazar una fracción fija del alto. Con la fracción fija (era 0,3)
+      // el plano acababa cayendo al final de la mañana: se veía una sola fila
+      // de clases y debajo seis horas de tarde en blanco. Un calendario vacío
+      // en la portada cuenta justo lo contrario de lo que se quiere contar, y
+      // el sitio exacto donde caía dependía de si ese día había o no un aviso
+      // arriba empujando la rejilla.
       await page.evaluate(() => {
         const cajas = [...document.querySelectorAll('div')].filter((d) => {
           const s = getComputedStyle(d);
           return (s.overflowY === 'auto' || s.overflowY === 'scroll') && d.scrollHeight > d.clientHeight + 40;
         });
         const grid = cajas.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-        if (grid) grid.scrollTo({ top: Math.max(0, grid.scrollHeight * 0.3), behavior: 'instant' });
+        if (!grid) return;
+        // Las clases se pintan como bloques posicionados con "HH:MM" propio.
+        const clases = [...grid.querySelectorAll('div')]
+          .filter((d) => /^\d{2}:\d{2}\b/.test((d.innerText || '').trim()) && d.offsetHeight > 20 && d.offsetHeight < 220);
+        const arriba = clases.length
+          ? Math.min(...clases.map((c) => c.getBoundingClientRect().top - grid.getBoundingClientRect().top + grid.scrollTop))
+          : grid.scrollHeight * 0.3;
+        // Aire por encima. 110 y no 40: la fila de días (LUN 10, MAR 11…) va
+        // pegada arriba y con menos aire tapaba la hora de la primera clase,
+        // que salía sin su "11:00".
+        grid.scrollTo({ top: Math.max(0, arriba - 110), behavior: 'instant' });
       });
       await page.waitForTimeout(1200);
     },
@@ -109,30 +127,29 @@ const ESCENAS = [
     // no hace ningún competidor.
     //
     // Para que esto se pudiera grabar hubo que cargar la disponibilidad de
-    // las instructoras del estudio de demo —usando el flujo real del
-    // producto, "Pedirle disponibilidad" → rejilla → guardar—: sin ese dato
-    // el motor no puede proponer a nadie y la pantalla enseñaba el caso de
-    // fallo, con un botón rojo de cancelar la clase.
+    // TODAS las instructoras del estudio de demo —usando el flujo real del
+    // producto, "Pedirles su disponibilidad" → enlace → rejilla → guardar—:
+    // sin ese dato el motor no puede proponer a nadie y la pantalla enseñaba
+    // el caso de fallo, con un botón rojo de cancelar la clase.
+    //
+    // La última que faltaba (Nuria Vidal) no tenía el botón en su tarjeta de
+    // equipo —con la ocupación baja, la acción principal pasa a ser "Revisar
+    // sus horas" (`accion()`, lib/equipo-tarjetas.ts)—, pero el propio aviso
+    // ámbar de esta pantalla ofrece "Pedirles su disponibilidad" para las que
+    // les falta. Con la suya cargada, el aviso desaparece y las DOS
+    // sustituciones de la demo resuelven con sustituta.
     nombre: '05-sustituciones',
     ruta: '/sustituciones',
     async preparar(page) {
       await page.waitForFunction(() => document.body.innerText.includes('Sustituta ideal encontrada'), null, { timeout: 45_000 });
       await page.waitForTimeout(1500);
-      // Encuadre: la tarjeta de la sustituta llena el plano. El aviso ámbar
-      // de más arriba habla de una TERCERA instructora sin disponibilidad
-      // cargada, que no es lo que cuenta esta escena.
+      // Encuadre: la tarjeta de la sustituta llena el plano. Ya no hay nada
+      // que esquivar —ni aviso ámbar de "sin disponibilidad cargada" ni el
+      // bloque rojo de "ninguna candidata" de la segunda sustitución—, así
+      // que basta con centrarla.
       await page.evaluate(() => {
         const nodo = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && /Sustituta ideal encontrada/.test(e.textContent || ''));
-        if (!nodo) return;
-        // Centrada. Se probó subirla más para dejar fuera el aviso ámbar de
-        // arriba, pero entonces entra por abajo la SEGUNDA sustitución, que
-        // sigue sin candidata (la tercera instructora no tiene disponibilidad
-        // cargada y no hay forma de cargársela desde el panel: el enlace lo
-        // pide ella). Entre enseñar un aviso ámbar explicando por qué no
-        // puede proponer a alguien y enseñar un bloque rojo de "ninguna
-        // candidata", gana el primero — y en los dos casos la tarjeta que
-        // manda en el plano es la de la sustituta encontrada.
-        nodo.scrollIntoView({ block: 'center', behavior: 'instant' });
+        if (nodo) nodo.scrollIntoView({ block: 'center', behavior: 'instant' });
       });
       await page.waitForTimeout(1200);
     },
