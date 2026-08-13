@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { ContenidoProvider } from '@/lib/contenido/store';
 import { MARKETING_MODULE_ENABLED } from '@/lib/feature-flags';
 import {
-  Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
+  Sparkles, CalendarDays, Library, Lightbulb, LineChart,
 } from 'lucide-react';
 
 const SUBNAV = [
@@ -16,8 +16,6 @@ const SUBNAV = [
   { href: '/contenido/biblioteca', label: 'Biblioteca', icon: Library },
   { href: '/contenido/ideas', label: 'Ideas', icon: Lightbulb },
   { href: '/contenido/metricas', label: 'Métricas', icon: LineChart },
-  { href: '/contenido/guiones', label: 'Guiones IA', icon: ScrollText },
-  { href: '/contenido/carruseles', label: 'Carruseles IA', icon: GalleryHorizontalEnd },
 ];
 
 export default function ContenidoLayout({ children }: { children: React.ReactNode }) {

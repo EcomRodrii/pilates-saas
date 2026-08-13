@@ -67,8 +67,6 @@ export interface Publicacion {
   fechaProgramada: string;        // ISO — día/hora de publicación (o programación)
   fechaPublicada?: string;        // ISO — cuando estado === 'publicada'
   hashtags: string[];
-  guionId?: string;               // enlace a Guion IA
-  carruselId?: string;            // enlace a Carrusel IA
   metricas?: MetricasPublicacion; // solo publicaciones publicadas
   createdAt: string;
   updatedAt: string;
@@ -94,61 +92,9 @@ export interface Idea {
   updatedAt: string;
 }
 
-export interface Guion {
-  id: string;
-  tema: string;
-  titulo: string;
-  gancho: string;
-  desarrollo: string;
-  cta: string;
-  descripcion: string;
-  hashtags: string[];
-  duracionSegundos: number;
-  plataforma: Plataforma;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type TipoSlide = 'portada' | 'contenido' | 'cta';
-
-export interface SlideCarrusel {
-  id: string;
-  tipo: TipoSlide;
-  titulo: string;
-  cuerpo: string;
-}
-
-export type EstiloCarrusel = 'minimal' | 'bold' | 'gradient' | 'editorial' | 'dark';
-
-export const ESTILO_CARRUSEL: Record<EstiloCarrusel, {
-  label: string;
-  bg: string;        // fondo de la diapositiva (CSS)
-  fg: string;        // color de texto
-  accent: string;    // color de acento
-  font: string;      // familia tipográfica
-}> = {
-  minimal:   { label: 'Minimal',   bg: '#ffffff', fg: '#111111', accent: '#111111', font: 'system-ui, sans-serif' },
-  bold:      { label: 'Bold',      bg: '#111111', fg: '#ffffff', accent: '#facc15', font: 'system-ui, sans-serif' },
-  gradient:  { label: 'Gradient',  bg: 'linear-gradient(135deg,#7c3aed,#ec4899)', fg: '#ffffff', accent: '#fde68a', font: 'system-ui, sans-serif' },
-  editorial: { label: 'Editorial', bg: '#f5f1e8', fg: '#1c1917', accent: '#b45309', font: 'Georgia, serif' },
-  dark:      { label: 'Dark',      bg: 'linear-gradient(135deg,#0f172a,#1e293b)', fg: '#f1f5f9', accent: '#38bdf8', font: 'system-ui, sans-serif' },
-};
-
-export interface Carrusel {
-  id: string;
-  tema: string;
-  estilo: EstiloCarrusel;
-  slides: SlideCarrusel[];
-  plataforma: Plataforma;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export type TipoActividadContenido =
   | 'publicacion_creada'
   | 'publicacion_publicada'
-  | 'guion_generado'
-  | 'carrusel_generado'
   | 'idea_creada';
 
 export interface ActividadContenido {
@@ -162,7 +108,5 @@ export interface ActividadContenido {
 export interface ContenidoState {
   publicaciones: Publicacion[];
   ideas: Idea[];
-  guiones: Guion[];
-  carruseles: Carrusel[];
   actividad: ActividadContenido[];
 }

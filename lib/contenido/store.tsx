@@ -8,7 +8,7 @@ import {
   createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from 'react';
 import type {
-  ContenidoState, Publicacion, Idea, Guion, Carrusel,
+  ContenidoState, Publicacion, Idea,
   ActividadContenido, TipoActividadContenido,
 } from './types';
 import { seedContenido, cid } from './seed';
@@ -30,16 +30,6 @@ interface ContenidoContextValue extends ContenidoState {
   crearIdea: (i: Partial<Idea> & Pick<Idea, 'titulo'>) => Idea;
   actualizarIdea: (id: string, patch: Partial<Idea>) => void;
   eliminarIdea: (id: string) => void;
-  // Guiones
-  guardarGuion: (g: Omit<Guion, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => Guion;
-  actualizarGuion: (id: string, patch: Partial<Guion>) => void;
-  eliminarGuion: (id: string) => void;
-  duplicarGuion: (id: string) => void;
-  // Carruseles
-  guardarCarrusel: (c: Omit<Carrusel, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => Carrusel;
-  actualizarCarrusel: (id: string, patch: Partial<Carrusel>) => void;
-  eliminarCarrusel: (id: string) => void;
-  duplicarCarrusel: (id: string) => void;
   // Utilidad
   resetDemo: () => void;
 }
@@ -48,7 +38,7 @@ const ContenidoContext = createContext<ContenidoContextValue | null>(null);
 
 export function ContenidoProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ContenidoState>({
-    publicaciones: [], ideas: [], guiones: [], carruseles: [], actividad: [],
+    publicaciones: [], ideas: [], actividad: [],
   });
   const [ready, setReady] = useState(false);
   const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -101,8 +91,6 @@ export function ContenidoProvider({ children }: { children: ReactNode }) {
         fechaProgramada: p.fechaProgramada ?? iso,
         fechaPublicada: p.estado === 'publicada' ? (p.fechaPublicada ?? iso) : undefined,
         hashtags: p.hashtags ?? [],
-        guionId: p.guionId,
-        carruselId: p.carruselId,
         metricas: p.metricas,
         createdAt: iso,
         updatedAt: iso,
@@ -156,64 +144,6 @@ export function ContenidoProvider({ children }: { children: ReactNode }) {
     },
     eliminarIdea: (id) => {
       setState((s) => ({ ...s, ideas: s.ideas.filter((i) => i.id !== id) }));
-    },
-
-    guardarGuion: (g) => {
-      const iso = nowIso();
-      const existente = g.id ? state.guiones.find((x) => x.id === g.id) : undefined;
-      const saved: Guion = existente
-        ? { ...existente, ...g, updatedAt: iso }
-        : { ...g, id: g.id ?? cid('guion'), createdAt: iso, updatedAt: iso };
-      setState((s) => existente
-        ? { ...s, guiones: s.guiones.map((x) => x.id === saved.id ? saved : x) }
-        : { ...s, guiones: [saved, ...s.guiones] });
-      logActividad('guion_generado', `Guion guardado: ${g.titulo || g.tema}`);
-      return saved;
-    },
-    actualizarGuion: (id, patch) => {
-      setState((s) => ({
-        ...s, guiones: s.guiones.map((g) => g.id === id ? { ...g, ...patch, updatedAt: nowIso() } : g),
-      }));
-    },
-    eliminarGuion: (id) => {
-      setState((s) => ({ ...s, guiones: s.guiones.filter((g) => g.id !== id) }));
-    },
-    duplicarGuion: (id) => {
-      setState((s) => {
-        const o = s.guiones.find((g) => g.id === id);
-        if (!o) return s;
-        const iso = nowIso();
-        return { ...s, guiones: [{ ...o, id: cid('guion'), titulo: `${o.titulo} (copia)`, createdAt: iso, updatedAt: iso }, ...s.guiones] };
-      });
-    },
-
-    guardarCarrusel: (c) => {
-      const iso = nowIso();
-      const existente = c.id ? state.carruseles.find((x) => x.id === c.id) : undefined;
-      const saved: Carrusel = existente
-        ? { ...existente, ...c, updatedAt: iso }
-        : { ...c, id: c.id ?? cid('carr'), createdAt: iso, updatedAt: iso };
-      setState((s) => existente
-        ? { ...s, carruseles: s.carruseles.map((x) => x.id === saved.id ? saved : x) }
-        : { ...s, carruseles: [saved, ...s.carruseles] });
-      logActividad('carrusel_generado', `Carrusel guardado: ${c.tema}`);
-      return saved;
-    },
-    actualizarCarrusel: (id, patch) => {
-      setState((s) => ({
-        ...s, carruseles: s.carruseles.map((c) => c.id === id ? { ...c, ...patch, updatedAt: nowIso() } : c),
-      }));
-    },
-    eliminarCarrusel: (id) => {
-      setState((s) => ({ ...s, carruseles: s.carruseles.filter((c) => c.id !== id) }));
-    },
-    duplicarCarrusel: (id) => {
-      setState((s) => {
-        const o = s.carruseles.find((c) => c.id === id);
-        if (!o) return s;
-        const iso = nowIso();
-        return { ...s, carruseles: [{ ...o, id: cid('carr'), tema: `${o.tema} (copia)`, slides: o.slides.map((sl) => ({ ...sl, id: cid('sl') })), createdAt: iso, updatedAt: iso }, ...s.carruseles] };
-      });
     },
 
     resetDemo: () => {

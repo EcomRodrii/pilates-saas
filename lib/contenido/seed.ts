@@ -3,7 +3,7 @@
 // publicaciones "de esta semana" y "próximas" con sentido.
 
 import type {
-  ContenidoState, Publicacion, Idea, Guion, Carrusel,
+  ContenidoState, Publicacion, Idea,
   Plataforma, TipoPublicacion, MetricasPublicacion,
 } from './types';
 
@@ -135,46 +135,11 @@ export function seedContenido(now: Date): ContenidoState {
     { id: cid('idea'), titulo: 'Carrusel: guía de respiración', notas: 'Técnicas de respiración para principiantes.', estado: 'usada', plataformaSugerida: 'instagram', tags: ['carrusel', 'guia'], createdAt: iso, updatedAt: iso },
   ];
 
-  const guiones: Guion[] = [
-    {
-      id: cid('guion'),
-      tema: 'Cómo mantener la constancia en el gym',
-      titulo: 'La constancia gana al talento',
-      gancho: '¿Empiezas con todo y a las 2 semanas lo dejas? No es falta de motivación.',
-      desarrollo: 'La motivación es un pico, los hábitos son la base. Empieza con sesiones cortas de 20 min, agenda el entreno como una cita innegociable y mide el progreso más allá de la báscula. Rodéate de una comunidad que te empuje los días que no te apetece.',
-      cta: 'Guarda este vídeo y compártelo con esa persona que necesita volver al gym.',
-      descripcion: 'Deja de depender de la motivación. Estos 3 principios te ayudan a construir el hábito que sí dura. 💪',
-      hashtags: ['#constancia', '#habitos', '#fitness', '#motivacion'],
-      duracionSegundos: 45,
-      plataforma: 'instagram',
-      createdAt: iso, updatedAt: iso,
-    },
-  ];
-
-  const carruseles: Carrusel[] = [
-    {
-      id: cid('carr'),
-      tema: 'Guía de respiración para principiantes',
-      estilo: 'gradient',
-      plataforma: 'instagram',
-      slides: [
-        { id: cid('sl'), tipo: 'portada', titulo: 'Respira mejor,\nentrena mejor', cuerpo: 'La guía que necesitabas para dominar tu respiración' },
-        { id: cid('sl'), tipo: 'contenido', titulo: '1. Respiración diafragmática', cuerpo: 'Inhala por la nariz llevando el aire al abdomen, no al pecho.' },
-        { id: cid('sl'), tipo: 'contenido', titulo: '2. Exhala en el esfuerzo', cuerpo: 'Suelta el aire en la fase de mayor esfuerzo del ejercicio.' },
-        { id: cid('sl'), tipo: 'contenido', titulo: '3. Ritmo constante', cuerpo: 'Evita aguantar la respiración: mantén un ritmo fluido.' },
-        { id: cid('sl'), tipo: 'cta', titulo: '¿Te ha servido?', cuerpo: 'Guarda el carrusel y síguenos para más 👉' },
-      ],
-      createdAt: iso, updatedAt: iso,
-    },
-  ];
-
   const actividad: ContenidoState['actividad'] = [
     { id: cid('act'), tipo: 'publicacion_publicada', descripcion: `Se publicó "${TITULOS_PUBLICADAS[0]}"`, ts: atHour(addDays(now, -1), 9) },
-    { id: cid('act'), tipo: 'carrusel_generado', descripcion: 'Carrusel IA generado: Guía de respiración', ts: atHour(addDays(now, -1), 16) },
-    { id: cid('act'), tipo: 'guion_generado', descripcion: 'Guion IA generado: La constancia gana al talento', ts: atHour(addDays(now, -2), 11) },
     { id: cid('act'), tipo: 'publicacion_creada', descripcion: `Programada "${TITULOS_PROGRAMADAS[0]}"`, ts: atHour(addDays(now, -2), 18) },
     { id: cid('act'), tipo: 'idea_creada', descripcion: 'Nueva idea: Serie "mitos del fitness"', ts: atHour(addDays(now, -3), 10) },
   ];
 
-  return { publicaciones, ideas, guiones, carruseles, actividad };
+  return { publicaciones, ideas, actividad };
 }

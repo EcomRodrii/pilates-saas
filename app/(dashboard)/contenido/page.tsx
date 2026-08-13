@@ -11,7 +11,7 @@ import { calcularResumen } from '@/lib/contenido/analytics';
 import type { Publicacion } from '@/lib/contenido/types';
 import {
   CalendarClock, CheckCircle2, FileEdit, CalendarDays, Activity,
-  ScrollText, GalleryHorizontalEnd, Sparkles, Plus, ArrowUpRight,
+  Sparkles, Plus, ArrowUpRight,
   BarChart3, Lightbulb, Heart, Eye, Bookmark, MessageCircle,
 } from 'lucide-react';
 
@@ -25,8 +25,6 @@ function startOfWeek(d: Date): Date {
 }
 
 const ACCESOS = [
-  { href: '/contenido/guiones', label: 'Nuevo guion IA', icon: ScrollText },
-  { href: '/contenido/carruseles', label: 'Nuevo carrusel IA', icon: GalleryHorizontalEnd },
   { href: '/contenido/calendario', label: 'Programar publicación', icon: CalendarDays },
   { href: '/contenido/ideas', label: 'Añadir idea', icon: Lightbulb },
   { href: '/contenido/metricas', label: 'Ver métricas', icon: BarChart3 },
@@ -34,7 +32,7 @@ const ACCESOS = [
 ];
 
 export default function PanelContenidoPage() {
-  const { publicaciones, actividad, guiones, carruseles, ready } = useContenido();
+  const { publicaciones, actividad, ready } = useContenido();
 
   const data = useMemo(() => {
     const now = new Date();
@@ -191,8 +189,7 @@ export default function PanelContenidoPage() {
               ))}
             </ul>
           )}
-          <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-[12px] text-muted-foreground">
-            <span>{guiones.length} guiones · {carruseles.length} carruseles</span>
+          <div className="mt-4 pt-4 border-t border-border flex items-center justify-end text-[12px] text-muted-foreground">
             <Link href="/contenido/biblioteca" className="font-semibold hover:text-foreground">Ver todo</Link>
           </div>
         </section>

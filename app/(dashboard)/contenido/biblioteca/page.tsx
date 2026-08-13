@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useContenido } from '@/lib/contenido/store';
 import {
@@ -12,12 +11,10 @@ import {
   PLATAFORMAS, PLATAFORMA_META, ESTADO_META,
   type Publicacion, type Plataforma, type EstadoPublicacion,
 } from '@/lib/contenido/types';
-import {
-  Plus, Search, Copy, Trash2, ScrollText, GalleryHorizontalEnd, ArrowUpRight,
-} from 'lucide-react';
+import { Plus, Search, Copy, Trash2 } from 'lucide-react';
 
 export default function BibliotecaPage() {
-  const { publicaciones, guiones, carruseles, duplicarPublicacion, eliminarPublicacion } = useContenido();
+  const { publicaciones, duplicarPublicacion, eliminarPublicacion } = useContenido();
   const [q, setQ] = useState('');
   const [estado, setEstado] = useState<EstadoPublicacion | 'todos'>('todos');
   const [plat, setPlat] = useState<Plataforma | 'todas'>('todas');
@@ -50,26 +47,6 @@ export default function BibliotecaPage() {
           </button>
         }
       />
-
-      {/* Accesos a las bibliotecas de IA */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/contenido/guiones" className="flex items-center gap-3 bg-card border border-border rounded-2xl p-4 hover:border-muted-foreground/50 transition-colors">
-          <span className="w-10 h-10 rounded-full border border-border flex items-center justify-center shrink-0"><ScrollText className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-foreground">Guiones IA</p>
-            <p className="text-[12px] text-muted-foreground">{guiones.length} guardados</p>
-          </div>
-          <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
-        </Link>
-        <Link href="/contenido/carruseles" className="flex items-center gap-3 bg-card border border-border rounded-2xl p-4 hover:border-muted-foreground/50 transition-colors">
-          <span className="w-10 h-10 rounded-full border border-border flex items-center justify-center shrink-0"><GalleryHorizontalEnd className="w-5 h-5" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-foreground">Carruseles IA</p>
-            <p className="text-[12px] text-muted-foreground">{carruseles.length} guardados</p>
-          </div>
-          <ArrowUpRight className="w-4 h-4 text-muted-foreground" />
-        </Link>
-      </div>
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
