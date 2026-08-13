@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: '¿Necesito WhatsApp Business para los recordatorios?',
-    a: 'Para enviar por WhatsApp, sí: conectas tu propio número y tu propia app de Meta desde configuración, no hay una cuenta compartida. Sin ella los avisos siguen saliendo por email y por notificación en la app.',
+    a: 'Para enviar por WhatsApp, sí: conectas tu propio número y tu propia app de Meta desde configuración, no hay una cuenta compartida. Sin ella los avisos siguen saliendo por email y por notificación en la app. El recordatorio llega igual aunque hayan pasado días desde el último mensaje de tu clienta.',
   },
   {
     q: '¿Puedo cambiar el texto de lo que se envía?',
