@@ -1,7 +1,7 @@
 // Fila de Postgres (snake_case) ↔ PerfilNetwork (camelCase). Mismo patrón
 // que el resto del repo (p.ej. mapInstructorPublico en supabase-data-admin).
 import type {
-  PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica,
+  PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -23,6 +23,7 @@ export interface FilaRedPerfil {
   email_contacto: string | null;
   telefono_contacto: string | null;
   estado: string;
+  destacado: boolean;
   identidad_verificada_en: string | null;
   creado_en: string;
   actualizado_en: string;
@@ -55,6 +56,7 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     emailContacto: f.email_contacto,
     telefonoContacto: f.telefono_contacto,
     estado: f.estado as PerfilNetwork['estado'],
+    destacado: f.destacado,
     identidadVerificadaEn: f.identidad_verificada_en,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
@@ -104,11 +106,14 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
   };
 }
 
-export function mapFilaAPerfilPublico(f: FilaRedPerfilPublica, experienciaVerificada: boolean): PerfilNetworkPublico {
+export function mapFilaAPerfilPublico(
+  f: FilaRedPerfilPublica, experienciaVerificada: boolean, resumenResenas: ResumenResenas = { promedio: null, total: 0 },
+): PerfilNetworkPublico {
   return {
     id: f.id,
     slug: f.slug,
     experienciaVerificada,
+    resumenResenas,
     nombre: f.nombre,
     fotoUrl: f.foto_url,
     ciudad: f.ciudad,
@@ -122,6 +127,7 @@ export function mapFilaAPerfilPublico(f: FilaRedPerfilPublica, experienciaVerifi
     disponibilidadHorarios: f.disponibilidad_horarios as PerfilNetworkPublico['disponibilidadHorarios'],
     tipoTrabajo: f.tipo_trabajo as PerfilNetworkPublico['tipoTrabajo'],
     estado: f.estado as PerfilNetworkPublico['estado'],
+    destacado: f.destacado,
     identidadVerificadaEn: f.identidad_verificada_en,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,

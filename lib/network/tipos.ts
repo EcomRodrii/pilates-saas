@@ -27,6 +27,11 @@ export interface PerfilNetwork {
   emailContacto: string | null;
   telefonoContacto: string | null;
   estado: 'draft' | 'published' | 'hidden' | 'suspended';
+  // Solo el equipo de Tentare lo escribe (app/interno/network) — nunca desde
+  // /network/mi-perfil. Empuja al principio del ranking (lib/network/
+  // ranking.ts), no es un badge de confianza (esos son hechos verificables,
+  // esto es una decisión editorial).
+  destacado: boolean;
   identidadVerificadaEn: string | null;
   creadoEn: string;
   actualizadoEn: string;
@@ -57,8 +62,12 @@ export type CambiosPerfilNetwork = Partial<
 // sin N+1). El resto de badges (email, referencia, identidad, actividad)
 // solo viven en `BadgesNetwork`, del detalle de UN perfil — ver
 // app/api/network/buscar/route.ts para la justificación de coste.
+// `resumenResenas`: mismo criterio de coste que `experienciaVerificada` —
+// se calcula en LOTE para los N perfiles de un listado (una query con
+// `.in(perfilId)` agrupada), nunca una consulta por tarjeta.
 export type PerfilNetworkPublico =
-  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'> & { experienciaVerificada: boolean };
+  Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'>
+  & { experienciaVerificada: boolean; resumenResenas: ResumenResenas };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
 // opcionales: sin filtros, se listan todos los perfiles publicados.
@@ -105,4 +114,37 @@ export interface BadgesNetwork {
   referenciaProfesional: boolean;
   identidadVerificada: boolean;
   activaRecientemente: boolean;
+}
+
+// Reseñas — brief §25: nunca "5 estrellas porque sí". Solo existen con
+// origen real: un estudio con una solicitud de contacto ACEPTADA para ese
+// perfil (red_resenas.solicitud_id, unique por studio+perfil). `estudioNombre`
+// es del propio estudio que reseña, no de la persona — dato ya público en
+// cualquier búsqueda de estudios, no es información privada de nadie.
+export interface ResenaNetwork {
+  id: string;
+  puntuacion: number;
+  comentario: string | null;
+  estudioNombre: string;
+  creadoEn: string;
+}
+
+// `promedio` es `null` con 0 reseñas — nunca 0 estrellas fabricadas
+// (mismo criterio que Prediccion/Confianza en lib/decision/prediccion.ts:
+// sin datos, null, no un número que finge saber algo).
+export interface ResumenResenas {
+  promedio: number | null;
+  total: number;
+}
+
+// Mensajería interna (brief §9) — un hilo por solicitud de contacto YA
+// ACEPTADA, no un concepto de "conversación" aparte. `remitenteSoyYo` se
+// resuelve en el servidor (compara con quien pide el hilo), nunca se manda
+// el auth_user_id del remitente al cliente sin necesidad.
+export interface MensajeNetwork {
+  id: string;
+  cuerpo: string;
+  remitenteSoyYo: boolean;
+  creadoEn: string;
+  leidoEn: string | null;
 }

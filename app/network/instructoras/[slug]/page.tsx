@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { MapPin, BadgeCheck } from 'lucide-react';
+import { MapPin, BadgeCheck, Star } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerPerfilPublicoPorSlug } from '@/lib/network/publico';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -50,7 +50,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
   const detalle = await cargar(slug);
   if (!detalle) notFound();
 
-  const { perfil, experiencias, badges } = detalle;
+  const { perfil, experiencias, badges, resenas } = detalle;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -61,6 +61,13 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
     ...(perfil.fotoUrl ? { image: perfil.fotoUrl } : {}),
     ...(perfil.descripcion ? { description: perfil.descripcion } : {}),
     url: `${LEGAL.url}/network/instructoras/${slug}`,
+    ...(perfil.resumenResenas.total > 0 ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: perfil.resumenResenas.promedio,
+        reviewCount: perfil.resumenResenas.total,
+      },
+    } : {}),
   };
 
   return (
@@ -75,6 +82,15 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             {badges.experienciaVerificada && <BadgeCheck size={18} className="text-brand" />}
           </div>
           <p className="text-[13.5px] text-[#8E8E86]">Instructora de Pilates</p>
+          {perfil.resumenResenas.total > 0 && (
+            <p className="text-[13px] font-medium text-[#1A1A1A] flex items-center justify-center gap-1 mt-0.5">
+              <Star size={13} className="text-amber-500" fill="currentColor" />
+              {perfil.resumenResenas.promedio}
+              <span className="text-[#8E8E86] font-normal">
+                ({perfil.resumenResenas.total} {perfil.resumenResenas.total === 1 ? 'reseña' : 'reseñas'})
+              </span>
+            </p>
+          )}
           {perfil.ciudad && (
             <p className="text-[13px] text-[#8E8E86] flex items-center justify-center gap-1 mt-0.5">
               <MapPin size={12} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}
@@ -140,6 +156,33 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               {perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).join(' · ')}
             </p>
           )}
+        </div>
+      )}
+
+      {resenas.length > 0 && (
+        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
+          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-3">
+            Reseñas de estudios ({resenas.length})
+          </h2>
+          <div className="space-y-3">
+            {resenas.map(r => (
+              <div key={r.id} className="border-t border-[#E7E7E0] first:border-t-0 first:pt-0 pt-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star
+                        key={i} size={12}
+                        className={i < r.puntuacion ? 'text-amber-500' : 'text-[#E7E7E0]'}
+                        fill="currentColor"
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-[#8E8E86]">{r.estudioNombre}</span>
+                </div>
+                {r.comentario && <p className="text-[12.5px] text-[#3A3A34] mt-1.5">{r.comentario}</p>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

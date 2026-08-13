@@ -58,6 +58,10 @@ function actividadRecienteMs(ultimoAccesoEn: string | null): number {
 
 function clavesOrden(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork): number[] {
   return [
+    // Destacado (app/interno/network, editorial — nunca la propia
+    // instructora) manda sobre todo lo demás, incluida la disponibilidad:
+    // es una decisión humana del equipo de Tentare, no una señal del perfil.
+    p.destacado ? 0 : 1,
     -PRIORIDAD_DISPONIBILIDAD[p.disponibilidadEstado],
     -coincidenciaEspecialidad(p.especialidades, filtro.especialidades),
     distanciaAproximada(p.ciudad, filtro.ciudad),

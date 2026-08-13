@@ -14,6 +14,7 @@ import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
   PerfilNetwork, PerfilNetworkPublico, CambiosPerfilNetwork, FiltroBusquedaNetwork,
   ExperienciaNetwork, ExperienciaNetworkPublica, NuevaExperienciaNetwork, BadgesNetwork,
+  MensajeNetwork,
 } from '@/lib/network/tipos';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
@@ -2165,6 +2166,37 @@ export async function fetchSolicitudesContactoNetwork(): Promise<SolicitudContac
   }
 }
 
+// Favoritos (brief §19: "Network → Buscar instructoras / Mis favoritas /
+// Solicitudes"). POST es un toggle — el servidor decide añadir o quitar
+// según si ya existe, la respuesta dice cuál de las dos pasó.
+export async function fetchFavoritosNetwork(): Promise<PerfilNetworkPublico[]> {
+  try {
+    const res = await fetch('/api/network/favoritos', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { perfiles?: PerfilNetworkPublico[] };
+    return data.perfiles ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleFavoritoNetwork(
+  perfilId: string,
+): Promise<{ ok: true; favorito: boolean } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/favoritos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ perfilId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { favorito?: boolean; error?: string };
+    if (!res.ok || data.favorito === undefined) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, favorito: data.favorito };
+  } catch {
+    return { ok: false, error: 'No se pudo actualizar favoritas' };
+  }
+}
+
 // Fase 10: reportar un perfil.
 export async function reportarPerfilNetwork(
   perfilId: string, motivo: string, detalle: string | null,
@@ -2195,5 +2227,85 @@ export async function resolverSolicitudContactoNetwork(
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo resolver la solicitud' };
+  }
+}
+
+// Reseñas — brief §25. Solo desde el panel del estudio (staff), tras una
+// solicitud de contacto aceptada.
+export async function elegibilidadResenaNetwork(
+  perfilId: string,
+): Promise<{ elegible: boolean; yaResenado: boolean }> {
+  try {
+    const res = await fetch(`/api/network/resenas?perfilId=${encodeURIComponent(perfilId)}`, { headers: await authHeader() });
+    if (!res.ok) return { elegible: false, yaResenado: false };
+    return (await res.json()) as { elegible: boolean; yaResenado: boolean };
+  } catch {
+    return { elegible: false, yaResenado: false };
+  }
+}
+
+export async function enviarResenaNetwork(
+  perfilId: string, puntuacion: number, comentario: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/resenas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ perfilId, puntuacion, comentario }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la reseña' };
+  }
+}
+
+// Mensajería interna — brief §9. Un hilo por solicitud de contacto ya
+// aceptada; funciona igual para staff de estudio y para la instructora
+// (dos vías de auth distintas, la ruta resuelve cuál aplica).
+export async function fetchMensajesNetwork(solicitudId: string): Promise<MensajeNetwork[]> {
+  try {
+    const res = await fetch(`/api/network/mensajes?solicitudId=${encodeURIComponent(solicitudId)}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { mensajes?: MensajeNetwork[] };
+    return data.mensajes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function enviarMensajeNetwork(
+  solicitudId: string, cuerpo: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/mensajes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ solicitudId, cuerpo }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar el mensaje' };
+  }
+}
+
+export interface HiloNetwork {
+  solicitudId: string;
+  nombre: string;
+  fotoUrl: string | null;
+  ultimoMensaje: string | null;
+  ultimoMensajeEn: string | null;
+  noLeidos: number;
+}
+
+export async function fetchHilosMensajesNetwork(): Promise<HiloNetwork[]> {
+  try {
+    const res = await fetch('/api/network/mensajes/hilos', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { hilos?: HiloNetwork[] };
+    return data.hilos ?? [];
+  } catch {
+    return [];
   }
 }
