@@ -49,7 +49,8 @@ export const THEME: ThemeConfig = {
     "detail_style": "card",
     "next_class_style": "ticket",
     "week_strip_style": "bare",
-    "tab_set": "centro"
+    "tab_set": "centro",
+    "schedule_style": "tabs"
   },
   "home_blocks": [
     "home-header",

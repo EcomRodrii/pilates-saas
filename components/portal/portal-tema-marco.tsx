@@ -38,6 +38,7 @@ import { Bookings } from '@/components/portal-tema/screens/Bookings';
 import { Passes } from '@/components/portal-tema/screens/Passes';
 import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
 import { Centro } from '@/components/portal-tema/screens/Centro';
+import { Confirmed } from '@/components/portal-tema/screens/Confirmed';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
@@ -77,6 +78,9 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
 const PANTALLAS = {
   inicio: Home, clases: Schedule, reservas: Bookings, bonos: Passes, detalle: ClassDetail,
   centro: Centro,
+  // Sin ruta propia, como el detalle: se llega reservando, y una URL de
+  // «confirmada» compartida o recargada no tendría nada que confirmar.
+  confirmada: Confirmed,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -201,6 +205,11 @@ export function PortalTemaMarco() {
     // la pantalla decía CONFIRMADA y la BD LISTA_ESPERA.
     return {
       ok: true as const,
+      // El estado tal cual, para que la pantalla de confirmación no tenga que
+      // deducirlo del texto. `ASISTIDA` no llega aquí: es un estado posterior.
+      estado: (r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION'
+        ? r.estado
+        : 'CONFIRMADA') as 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION',
       mensaje: r.estado === 'LISTA_ESPERA'
         ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
         : r.estado === 'PENDIENTE_APROBACION'

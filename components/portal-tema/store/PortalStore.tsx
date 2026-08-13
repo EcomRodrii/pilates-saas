@@ -8,7 +8,8 @@ import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
 export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
-  | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores";
+  | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
+  | "confirmada";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -35,6 +36,13 @@ export interface PortalState {
   plan: string;
   paying: boolean;
   authWorking: boolean;
+  /**
+   * Qué acaba de pasar al reservar, para la pantalla de confirmación. `null` =
+   * no se viene de reservar, y entonces esa pantalla no tiene nada que contar.
+   */
+  ultimaReserva: { classId: string; estado: 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION' } | null;
+  /** Pestaña abierta del horario: el día o la cola. Solo la usa `schedule_style: "tabs"`. */
+  horarioTab: 'clases' | 'espera';
 }
 
 const STORAGE_KEY = "tentare-portal";
@@ -59,6 +67,8 @@ const initialState = (): PortalState => ({
   plan: "bono10",
   paying: false,
   authWorking: false,
+  ultimaReserva: null,
+  horarioTab: 'clases',
 });
 
 type Action = { type: "patch"; patch: Partial<PortalState> } | { type: "reset" };
@@ -80,7 +90,10 @@ function restore(): PortalState {
     // muestra daba igual (el mes estaba congelado); con un estudio real, la
     // socia abría Clases en un día cualquiera del pasado.
     const { day: _descartado, ...guardado } = JSON.parse(raw) as Partial<PortalState>;
-    return { ...base, ...guardado, loading: false, toast: "", running: false, paying: false, authWorking: false };
+    // `ultimaReserva` tampoco se restaura: es el resultado de una acción que
+    // acaba de ocurrir, no un estado. Restaurarlo abriría la app en «¡Reserva
+    // confirmada!» días después de reservar.
+    return { ...base, ...guardado, loading: false, toast: "", running: false, paying: false, authWorking: false, ultimaReserva: null };
   } catch {
     return base;
   }
@@ -102,7 +115,9 @@ export interface PortalActions {
   reset(): void;
   selectDay(num: number): void;
   setFilter(key: string): void;
-  reserve(): void;
+  setHorarioTab(tab: 'clases' | 'espera'): void;
+  /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
+  reserve(id?: string): void;
   /** `reservaId` es lo que se manda al servidor; sin él solo se puede
    *  simular (la demo). Ver el comentario de `cancel` más abajo. */
   cancel(id: string, reservaId?: string): void;
@@ -202,8 +217,21 @@ export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
  * el servidor, y "Reservada. Te esperamos" no vale para las tres. Nunca se
  * dice nada sin esta respuesta (bug #500).
  */
-export type AlReservarPortal = (sesionId: string) =>
-  Promise<{ ok: true; mensaje: string } | { ok: false; error: string }>;
+export type AlReservarPortal = (sesionId: string) => Promise<
+  | {
+      ok: true;
+      /**
+       * ⚠️ El ESTADO, no solo el mensaje. La pantalla de confirmación tiene que
+       * decir la verdad —«confirmada», «en lista de espera» o «pendiente de
+       * aprobación»— y adivinarlo parseando el texto sería reconstruir el dato
+       * que el servidor ya devuelve. Es la misma lección del bug #500: quien
+       * sabe qué pasó es la base de datos.
+       */
+      estado: 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION';
+      mensaje: string;
+    }
+  | { ok: false; error: string }
+>;
 
 /**
  * `datos` es lo que cambia de un estudio a otro (clases, semana, planes, bono,
@@ -422,10 +450,13 @@ export function PortalProvider({
 
       selectDay: (num) => ir({ day: Number(num), tab: "clases", screen: "clases" }),
       setFilter: (key) => set({ filter: key }),
+      setHorarioTab: (horarioTab) => set({ horarioTab }),
 
-      reserve: () => {
+      reserve: (id) => {
         const s = stateRef.current;
-        const cls = buscarClase(datosRef.current, s.classId);
+        // La fila del horario reserva la SUYA, no la que quedara abierta antes.
+        const classId = id ?? s.classId;
+        const cls = buscarClase(datosRef.current, classId);
         // Sin clase no hay nada que reservar: la lista puede estar vacía de
         // verdad (semana sin programar) o la clase haberse cancelado mientras
         // la socia tenía la pantalla abierta.
@@ -437,28 +468,44 @@ export function PortalProvider({
         // por `cancel`, que ya tiene su propio camino real.
         const reservar = alReservarRef.current;
         if (reservar) {
-          const reservada = (datosRef.current.reservadas ?? []).find((r) => r.classId === s.classId);
-          if (reservada) return self.cancel(s.classId, reservada.reservaId);
+          const reservada = (datosRef.current.reservadas ?? []).find((r) => r.classId === classId);
+          if (reservada) return self.cancel(classId, reservada.reservaId);
           if (s.loading) return;
-          set({ loading: true });
-          reservar(s.classId).then((r) => {
+          set({ loading: true, classId });
+          reservar(classId).then((r) => {
             set({ loading: false });
-            notify(r.ok ? r.mensaje : r.error);
+            if (!r.ok) return notify(r.error);
+            // A la pantalla de confirmación con el desenlace que dio el
+            // SERVIDOR. El aviso se queda igualmente: si la navegación la
+            // lleva una ruta que aún no ha pintado, el mensaje ya está.
+            set({ ultimaReserva: { classId, estado: r.estado } });
+            notify(r.mensaje);
+            ir({ screen: "confirmada" });
           });
           return;
         }
 
-        if (s.booked.includes(s.classId)) {
-          set({ booked: s.booked.filter((x) => x !== s.classId) });
+        if (s.booked.includes(classId)) {
+          set({ booked: s.booked.filter((x) => x !== classId) });
           return notify("Reserva anulada");
         }
-        if (!cls.seats) return notify("Completa · te apunto a la lista de espera");
-        set({ loading: true });
+        // La maqueta del kit. Sin plazas simula la cola, no un fallo: es lo que
+        // hace el servidor de verdad, y así la previsualización enseña también
+        // ese desenlace en vez de solo el feliz.
+        const estado = cls.seats ? "CONFIRMADA" as const : "LISTA_ESPERA" as const;
+        set({ loading: true, classId });
         if (reserveTimer.current) clearTimeout(reserveTimer.current);
         reserveTimer.current = setTimeout(() => {
           const now = stateRef.current;
-          set({ loading: false, booked: now.booked.concat([now.classId]) });
-          notify("Reservada · " + cls.time + " en " + cls.room);
+          set({
+            loading: false,
+            booked: estado === "CONFIRMADA" ? now.booked.concat([classId]) : now.booked,
+            ultimaReserva: { classId, estado },
+          });
+          notify(estado === "CONFIRMADA"
+            ? "Reservada · " + cls.time + " en " + cls.room
+            : "Completa · estás en la lista de espera");
+          ir({ screen: "confirmada" });
         }, 800);
       },
       // ⚠️ Esto anunciaba "Reserva cancelada" SIN hablar con el servidor: la

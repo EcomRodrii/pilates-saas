@@ -29,6 +29,13 @@ export type WeekStripStyle = "card" | "bare";
  */
 export type TabSet = "basico" | "centro";
 
+/**
+ * Forma de la pantalla de horario.
+ *   `chips` — «Clases», contador y filtros por tipo (Oliva/Bloom/Noir).
+ *   `tabs`  — «Reservas» con dos pestañas, Clases y Lista de espera (Tentada).
+ */
+export type ScheduleStyle = "chips" | "tabs";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -60,6 +67,7 @@ export interface ThemeFeatures {
   next_class_style: NextClassStyle;
   week_strip_style: WeekStripStyle;
   tab_set: TabSet;
+  schedule_style: ScheduleStyle;
 }
 
 export interface PaletteEntry {

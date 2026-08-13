@@ -209,18 +209,18 @@ function BookingsList({ vm }: { vm: ViewModel }) {
     <section>
       <SectionHead title="Mis reservas" action="Ver todas" onAction={actions.goBookings} />
       {vm.bookings.length ? (
-        <div className="booking-list">
+        <div className="home-bookings">
           {vm.bookings.map((b) => (
-            <button key={b.id} className="booking is-pressable" onClick={() => actions.openClass(b.id)}>
-              <span className="booking__day">
-                <span className="booking__num">{b.dayNum}</span>
-                <span className="booking__dow">{b.day}</span>
+            <button key={b.id} className="home-booking is-pressable" onClick={() => actions.openClass(b.id)}>
+              <span className="home-booking__day">
+                <span className="home-booking__num">{b.dayNum}</span>
+                <span className="home-booking__dow">{b.day}</span>
               </span>
-              <span className="booking__body">
-                <span className="booking__name">{b.name}</span>
-                <span className="booking__meta">{b.meta}</span>
+              <span className="home-booking__body">
+                <span className="home-booking__name">{b.name}</span>
+                <span className="home-booking__meta">{b.meta}</span>
               </span>
-              <span className="booking__time">{b.time}</span>
+              <span className="home-booking__time">{b.time}</span>
             </button>
           ))}
         </div>

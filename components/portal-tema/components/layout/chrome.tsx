@@ -67,11 +67,16 @@ export function TabBar({
 }
 
 export function DayStrip({
-  week, tight,
-}: { week: { label: string; num: number; active: boolean; hasClass: boolean }[]; tight?: boolean }) {
+  week, tight, boxed,
+}: {
+  week: { label: string; num: number; active: boolean; hasClass: boolean }[];
+  tight?: boolean;
+  /** La tira de la pantalla de Reservas de Tentada: cajas, no círculos. */
+  boxed?: boolean;
+}) {
   const actions = useActions();
   return (
-    <div className={("week " + (tight ? "week--tight" : "")).trim()}>
+    <div className={["week", tight ? "week--tight" : "", boxed ? "week--boxed" : ""].filter(Boolean).join(" ")}>
       {week.map((day) => (
         <button
           key={day.num}
@@ -89,7 +94,10 @@ export function DayStrip({
 
 export interface ClassRowData {
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
-  meta: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
+  meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
+  /** En la cola de esa clase, no con plaza. Son cosas distintas. */
+  waiting: boolean;
+  full: boolean;
 }
 
 export function ClassRow({ row }: { row: ClassRowData }) {
@@ -121,5 +129,60 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
     <div className="phone">
       <div className="phone__screen">{children}</div>
     </div>
+  );
+}
+
+/**
+ * La fila del horario de Tentada: hora a la izquierda, y a la derecha lo único
+ * que puede hacer la socia con esa clase.
+ *
+ * Cuatro estados y no dos, porque el diseño los pinta distinto y significan
+ * cosas distintas: **tuya** (fila de marca con su check), **en la cola** (con
+ * su puesto), **completa** (apagada, pero pulsable — desde el detalle se entra
+ * en la lista) y **libre** (con su botón de reservar).
+ *
+ * ⚠️ El botón reserva de verdad: pasa por `reserve(id)`, o sea por
+ * `alReservar` y su respuesta del servidor. No hay atajo optimista aquí — es
+ * el camino que costó el bug #500.
+ */
+export function ClassRowPlana({ row }: { row: ClassRowData }) {
+  const actions = useActions();
+  if (row.booked) {
+    return (
+      <button className="row-mia is-pressable" onClick={() => actions.openClass(row.id)}>
+        <span className="row-mia__time">{row.time}</span>
+        <span className="row-mia__body">
+          <span className="row-mia__name">{row.name}</span>
+          <span className="row-mia__meta">con {row.teacher} · {row.room}</span>
+          <span className="row-mia__dur">{row.duration}</span>
+        </span>
+        <span className="row-mia__check"><Icon name="check" size={14} stroke={2} /></span>
+      </button>
+    );
+  }
+  return (
+    <button className="row-libre is-pressable" onClick={() => actions.openClass(row.id)}>
+      <span className="row-libre__time">{row.time}</span>
+      <span className="row-libre__body">
+        <span className="row-libre__name">{row.name}</span>
+        <span className="row-libre__meta">con {row.teacher} · {row.room}</span>
+        <span className="row-libre__dur">{row.duration}</span>
+      </span>
+      {row.waiting ? (
+        <span className="row-libre__cola">{row.status}</span>
+      ) : row.full ? (
+        <span className="row-libre__lleno">
+          <span className="row-libre__pill">Completa</span>
+          <span className="row-libre__link">Lista de espera ›</span>
+        </span>
+      ) : (
+        <span
+          role="button" tabIndex={0}
+          className="row-libre__cta"
+          onClick={(e) => { e.stopPropagation(); actions.reserve(row.id); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); actions.reserve(row.id); } }}
+        >Reservar</span>
+      )}
+    </button>
   );
 }
