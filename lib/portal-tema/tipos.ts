@@ -33,6 +33,12 @@ export interface StudioClass {
   /** Plazas libres. 0 = completa, y entonces la UI ofrece lista de espera. */
   seats: number;
   /**
+   * La foto que se pinta en el detalle y en la tarjeta de «próxima clase». Ya
+   * resuelta: la del TIPO de clase si la propietaria la subió, y si no la de
+   * su familia (`imagenDeClase`). Nunca vacía — quien la pinta no decide.
+   */
+  fotoUrl: string;
+  /**
    * Las plazas físicas de la sala, en orden de sala. `[]` = este estudio no
    * asigna sitio (la mayoría) y se reserva sin elegir — NO es «sala llena».
    */
@@ -176,6 +182,20 @@ export interface PlazaPortal {
 export interface DatosPortal {
   clases: StudioClass[];
   /**
+   * Las fotos del ESTUDIO que pinta el kit, ya resueltas: la que subió la
+   * propietaria, o la de por defecto (`lib/imagenes-por-defecto.ts`).
+   *
+   * ⚠️ Se resuelven aquí y no en el componente porque son el mismo hueco en
+   * varias pantallas a la vez, y porque `imagenes-por-defecto.ts` ya es la
+   * ÚNICA fuente de este repo: un segundo juego de marcadores dentro del kit
+   * es exactamente lo que había —`public/media/*.svg`— y lo que esto retira.
+   *
+   * ⚠️ `vertical` cae sobre una foto OSCURA a propósito: la bienvenida pinta
+   * su titular en blanco sobre un velo que apenas la tiñe en dos de los cuatro
+   * temas. Una foto clara ahí deja la pantalla ilegible con el CSS intacto.
+   */
+  fotos: { portada: string; vertical: string };
+  /**
    * El instante desde el que se calcula todo lo que depende de «ahora», en ISO.
    *
    * ⚠️ Va como dato y no se llama a `new Date()` en los componentes a
@@ -209,6 +229,8 @@ export interface DatosPortal {
     telefono: string;
     email: string;
     fotoUrl: string | null;
+    /** La foto a pantalla completa de la bienvenida. `null` = sin subir. */
+    imagenBienvenidaUrl: string | null;
     /**
      * Las normas del centro, una por línea (migr 20260813004723). Array vacío
      * = la propietaria no las ha escrito, y la pantalla no pinta la sección.

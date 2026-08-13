@@ -15,6 +15,7 @@ import { fechaLocalDe } from '../citas/slots.ts';
 // El aforo lo decide `plazasOcupadas` y solo ella. Contarlo aquí a mano sería
 // un segundo criterio del mismo dato — y el primer intento ya se dejó fuera
 // `ASISTIDA`, con lo que una clase pasada aparecería con plazas libres.
+import { imagenDeClase, imagenDeEstudio } from '../imagenes-por-defecto.ts';
 import { plazasOcupadas } from '../booking-logic.ts';
 // Los objetivos son una lista FIJA y compartida con la página pública. Se
 // resuelven a sus etiquetas aquí y no en el componente: si el estudio guardó un
@@ -451,6 +452,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         initial: inicialDe(nombreInstructor),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),
         plazas: plazasDeSesion(s, f.spots, f.reservas),
+        fotoUrl: imagenDeClase(tipo),
         description: tipo?.descripcion ?? '',
         benefits: etiquetasObjetivo(tipo?.objetivos),
       };
@@ -538,7 +540,16 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
     estudio: f.estudio ?? {
       nombre: '', anioFundacion: null, direccion: '', ciudad: '',
-      codigoPostal: '', telefono: '', email: '', fotoUrl: null, normas: [], horario: [], privacidad: null,
+      codigoPostal: '', telefono: '', email: '', fotoUrl: null, imagenBienvenidaUrl: null,
+      normas: [], horario: [], privacidad: null,
+    },
+    // El orden de herencia es del que llama, no de `imagenDeEstudio`: la
+    // bienvenida prefiere SU foto (`imagenBienvenidaUrl`) y solo entonces la
+    // general; la portada al revés. Mismo criterio que ya usan las cuatro
+    // vistas viejas del portal.
+    fotos: {
+      portada: imagenDeEstudio('portada', [f.estudio?.fotoUrl, f.estudio?.imagenBienvenidaUrl]),
+      vertical: imagenDeEstudio('vertical', [f.estudio?.imagenBienvenidaUrl, f.estudio?.fotoUrl]),
     },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
