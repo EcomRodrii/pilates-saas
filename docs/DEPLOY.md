@@ -72,6 +72,36 @@ Una sola app OAuth de Google para toda la plataforma. Para que aparezca el botó
 8. En la app: *Conectar con Google* → OAuth → el estudio queda con
    `google_calendar_email` y aparece **Sincronizar ahora**.
 
+## Klaviyo — sincronización de marketing (paso 7 del Marketing Hub)
+
+Una sola app OAuth de Klaviyo para toda la plataforma, mismo patrón que
+Google Calendar. ⚠️ **Sin verificar contra la Klaviyo real** — ver
+`docs/marketing-integrations-arquitectura.md` §6. Para que aparezca el botón
+**Configuración → Integraciones → Conectar con Klaviyo**:
+
+| Variable | Dónde se usa | Valor |
+|---|---|---|
+| `NEXT_PUBLIC_KLAVIYO_CLIENT_ID` | cliente: construye la URL OAuth; servidor: intercambia el code | client_id de la app OAuth |
+| `KLAVIYO_CLIENT_SECRET` | servidor: intercambia el code por tokens | secreto de la app OAuth |
+| `NEXT_PUBLIC_APP_URL` | calcula el redirect URI | `https://www.tentare.app` |
+| `OAUTH_STATE_SECRET` | firma el `state` (y el `code_verifier` de PKCE) | ya debe estar configurada (Google/Zoom la comparten) |
+
+### Pasos para habilitar "Conectar con Klaviyo"
+
+1. En **developers.klaviyo.com** → crea una cuenta de developer y una **app OAuth**.
+2. En **Redirect URIs** añade **exactamente**:
+   `https://www.tentare.app/api/integrations/klaviyo/callback`
+3. Scopes a activar en la app: `accounts:read`, `lists:write`, `profiles:write`,
+   `subscriptions:write`.
+4. Copia el **Client ID** y el **Client secret**.
+5. En Vercel añade `NEXT_PUBLIC_KLAVIYO_CLIENT_ID` (Production) y
+   `KLAVIYO_CLIENT_SECRET` (Production). **Redeploy** (el Client ID es
+   `NEXT_PUBLIC_*` → regla de oro).
+6. **Probar en un estudio de pruebas primero**: conectar → Sincronizar ahora
+   con un puñado de socias de prueba con consentimiento de marketing dado →
+   verificar en el dashboard de Klaviyo que llegaron a la lista "Tentare —
+   Marketing" con `subscriptions.email.marketing.consent = SUBSCRIBED`.
+
 ## Agregadores (ClassPass, Urban Sports Club, Wellhub, EGYM Wellpass, myclubs)
 
 No se conectan por API pública: requieren **alta como partner** (contrato) con

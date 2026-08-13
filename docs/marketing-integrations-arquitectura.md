@@ -312,6 +312,70 @@ para que "esta campaña generó 8 reservas" (analítica del §26 del brief) se
 pueda calcular igual venga el envío de Resend/Twilio o de un proveedor
 externo — un solo modelo de analítica, no uno por proveedor.
 
+**Implementado (paso 7 del §8) — correcciones sobre el diseño original**:
+
+1. **No se creó `integraciones_marketing`.** Ya existía
+   `integracion_credenciales` (studio_id, provider, access_token,
+   refresh_token, expires_at) — la usan Google Calendar/Gmail/Zoom desde
+   antes. Se le añadió una columna `metadata jsonb` (migración
+   `20260813151635`) para lo que Klaviyo necesita y ningún proveedor
+   anterior tenía: el id de la lista donde caen las socias sincronizadas.
+   Reutilizar en vez de duplicar tabla.
+2. **Sin cifrado de tokens.** El diseño original decía "guardar tokens
+   cifrados" — al revisar el código, Google/Gmail/Zoom YA guardan sus
+   tokens en TEXTO PLANO en `integracion_credenciales`, protegidos solo
+   por RLS-sin-policies (deny-by-default, service-role únicamente, nunca
+   alcanzable desde `anon`/`authenticated`). Klaviyo sigue el mismo
+   patrón — introducir cifrado solo para un proveedor habría sido
+   inconsistente sin arreglar los otros tres, y eso es un cambio de
+   seguridad transversal aparte, no parte de este paso.
+3. **PKCE, no solo `state` firmado.** Klaviyo bloquea el flujo OAuth sin
+   PKCE desde 2025 (Google/Zoom no lo necesitan). `lib/oauth-state.ts`
+   lleva el `code_verifier` DENTRO del propio state firmado — sigue
+   siendo stateless, sin tabla de sesión nueva.
+   `lib/marketing/pkce.ts` (`generarPkce`) es la única pieza de la
+   integración con tests reales (RFC 7636: longitud, alfabeto, derivación
+   SHA-256) — extraída aparte de `lib/klaviyo.ts` precisamente para que
+   fuera testable sin arrastrar `lib/db/supabase-data-admin.ts` (un
+   fichero enorme de imports `@/lib/...` de valor que `node --test` no
+   resuelve, mismo gotcha ya documentado varias veces en este proyecto).
+4. **Sincronización SÍNCRONA, no un job de Inngest.** El diseño original
+   proponía un job de Inngest para la sincronización — pero
+   `app/api/integrations/google-calendar/sync` (la única integración de
+   sincronización que YA existe en este repo) lo hace síncrono dentro de
+   la propia request. Seguir ese patrón evita un mecanismo nuevo para lo
+   mismo; `app/api/integrations/klaviyo/sync` hace lo mismo, acotado por
+   el límite real de la API de Klaviyo (1000 perfiles por lote).
+5. **Guard de consentimiento aplicado también aquí.** La sincronización
+   solo sube socias con `consentimiento_marketing_texto` vigente (mismo
+   criterio exacto que campañas/automatizaciones, paso 5) — Klaviyo nunca
+   debe recibir a nadie que no haya dado su consentimiento específico.
+6. **`manejarWebhook`/analítica de aperturas y clics: NO construido.**
+   Recibir webhooks de Klaviyo (opens/clicks) requiere que Klaviyo sepa
+   la URL del endpoint — algo que se configura en el dashboard de
+   Klaviyo, un paso manual de Marcos posterior a tener la app conectada.
+   Queda para el paso 9 (analítica), no bloquea el connect/sync básico
+   de este paso.
+
+⚠️ **NO VERIFICADO end-to-end — bloqueante real, no una formalidad.**
+Klaviyo exige que **Tentare** (la plataforma, no cada estudio) registre
+una app OAuth propia en developers.klaviyo.com para obtener
+`KLAVIYO_CLIENT_ID`/`KLAVIYO_CLIENT_SECRET` — algo que solo puede hacer
+Marcos, con una cuenta de Klaviyo real. Sin esas credenciales:
+- Las cards de Klaviyo en Configuración → Integraciones muestran
+  "No disponible todavía" (mismo fail-soft que Google/Zoom sin sus
+  respectivas env vars — no rompe nada, simplemente no aparece el botón
+  de conectar).
+- Ninguna llamada de este código ha hablado con la Klaviyo real. Los
+  endpoints, headers y forma de cada request/response (`lib/klaviyo.ts`)
+  salen de la documentación oficial de Klaviyo (developers.klaviyo.com),
+  no de una prueba en vivo.
+- Recomendado: probar el flujo completo (connect → sync con 2-3 socias de
+  prueba → verificar en el dashboard de Klaviyo que llegaron con el
+  consentimiento marcado) en un estudio de pruebas antes de anunciarlo a
+  propietarias reales — mismo criterio que ya aplica este repo a Stripe
+  Fase 3 ("construido, no probado con un cobro real").
+
 ## 7. Consentimiento — dónde vive, qué falta
 
 Hoy: preferencias de notificación in-app/push (con categoría `marketing`
@@ -394,8 +458,11 @@ solo el enlace de email.
 6. ✅ Ampliar segmentación con señales ya existentes (§4) — 3 segmentos
    nuevos con ventana fija, no la adaptativa de Decision OS F3. Builder de
    condiciones sigue fuera de alcance salvo que se pida.
-7. `integraciones_marketing` + flujo OAuth genérico extendido a Klaviyo
-   (primer proveedor, el resto sigue el mismo patrón) (§6).
+7. ⚠️ **Código completo, NO VERIFICADO** — flujo OAuth+PKCE, connect/
+   callback/disconnect/sync (§6). Reutiliza `integracion_credenciales`
+   existente, no una tabla nueva. Bloqueado para pruebas reales hasta que
+   Marcos registre una app OAuth en developers.klaviyo.com y configure
+   `KLAVIYO_CLIENT_ID`/`SECRET`.
 8. Brevo, Mailchimp — repetición del patrón de (7), no rediseño.
 9. Analítica de conversión (campaña → mensaje → reserva → ingreso) sobre
    el modelo de eventos ya unificado en (6 del audit)/(§6 aquí).

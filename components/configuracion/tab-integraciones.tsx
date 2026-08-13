@@ -159,6 +159,16 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     probarUrl: '/api/integrations/kisi/probar',
   },
   {
+    tipo: 'KLAVIYO',
+    nombre: 'Klaviyo',
+    descripcion: 'Sincroniza las clientas que han consentido marketing por email con tu cuenta de Klaviyo. Conexión OAuth — no necesitas pegar ninguna clave.',
+    Icon: Megaphone,
+    color: '#000000',
+    bg: '#F5F5F5',
+    categoria: 'Marketing',
+    campos: [],
+  },
+  {
     tipo: 'MAILCHIMP',
     nombre: 'Mailchimp / Brevo',
     descripcion: 'Sincroniza clientas, leads, etiquetas y campañas con tu lista de email marketing. Muy útil si vienes de otra plataforma.',
@@ -446,6 +456,64 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Klaviyo (paso 7, docs/marketing-integrations-arquitectura.md §6): mismo
+  // patrón OAuth que Google/Zoom, con una diferencia — Klaviyo exige PKCE, así
+  // que /api/integrations/oauth-state también devuelve codeChallenge para
+  // este proveedor (ver ese route.ts). ⚠️ NO VERIFICADO end-to-end: sin
+  // KLAVIYO_CLIENT_ID/SECRET reales (solo Marcos puede registrar la app OAuth
+  // en developers.klaviyo.com), este flujo nunca se ha probado contra Klaviyo
+  // de verdad — mismo tipo de límite que Stripe Fase 3.
+  const klaviyoConectado = !!studio?.klaviyoAccountName;
+  const klaviyoClientId = process.env.NEXT_PUBLIC_KLAVIYO_CLIENT_ID;
+  const puedeConectarKlaviyo = !!(klaviyoClientId && studio);
+  async function conectarKlaviyo() {
+    if (!klaviyoClientId) return;
+    const res = await fetch('/api/integrations/oauth-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ provider: 'klaviyo' }),
+    });
+    if (!res.ok) { showToast('No se pudo iniciar la conexión con Klaviyo'); return; }
+    const { state, codeChallenge } = await res.json() as { state: string; codeChallenge: string };
+    const redirect = encodeURIComponent(`${appUrl}/api/integrations/klaviyo/callback`);
+    const scope = encodeURIComponent('accounts:read lists:write profiles:write subscriptions:write');
+    window.location.href = `https://www.klaviyo.com/oauth/authorize?response_type=code&client_id=${klaviyoClientId}&redirect_uri=${redirect}&scope=${scope}&state=${encodeURIComponent(state)}&code_challenge_method=S256&code_challenge=${encodeURIComponent(codeChallenge)}`;
+  }
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('klaviyo_connected')) {
+      showToast('Klaviyo conectado');
+      window.history.replaceState({}, '', '/configuracion');
+    } else if (params.get('klaviyo_error')) {
+      showToast(`Error al conectar Klaviyo: ${params.get('klaviyo_error')}`);
+      window.history.replaceState({}, '', '/configuracion');
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const desconectarKlaviyo = async () => {
+    const res = await fetch('/api/integrations/klaviyo/disconnect', { method: 'POST', headers: await authHeader() });
+    if (res.ok) {
+      const upd = await updateStudio({ klaviyoAccountName: null });
+      showToast(upd.ok ? 'Klaviyo desconectado' : upd.error);
+    } else {
+      const data = await res.json().catch(() => null);
+      showToast(`No se pudo desconectar: ${data?.error ?? 'error desconocido'}`);
+    }
+  };
+
+  const [sincronizandoKlaviyo, setSincronizandoKlaviyo] = useState(false);
+  const sincronizarKlaviyo = async () => {
+    setSincronizandoKlaviyo(true);
+    try {
+      const res = await fetch('/api/integrations/klaviyo/sync', { method: 'POST', headers: await authHeader() });
+      const data = await res.json();
+      showToast(res.ok ? `${data.sincronizadas} clientas sincronizadas con Klaviyo` : `Error: ${data.error ?? 'no se pudo sincronizar'}`);
+    } finally {
+      setSincronizandoKlaviyo(false);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -564,7 +632,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -654,6 +722,19 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     <button type="button" onClick={conectarZoom} className={cn(btnPrimary, 'no-underline')}>Conectar cuenta de Zoom</button>
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_ZOOM_CLIENT_ID" />
+                  )
+                ) : cat.tipo === 'KLAVIYO' ? (
+                  klaviyoConectado ? (
+                    <>
+                      <button onClick={sincronizarKlaviyo} disabled={sincronizandoKlaviyo} className={cn(btnPrimary, sincronizandoKlaviyo && 'opacity-50')}>
+                        {sincronizandoKlaviyo ? 'Sincronizando…' : 'Sincronizar ahora'}
+                      </button>
+                      <button onClick={desconectarKlaviyo} className={btnSecondary}>Desconectar</button>
+                    </>
+                  ) : puedeConectarKlaviyo ? (
+                    <button type="button" onClick={conectarKlaviyo} className={cn(btnPrimary, 'no-underline')}>Conectar con Klaviyo</button>
+                  ) : (
+                    <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
                   )
                 ) : (
                   <>

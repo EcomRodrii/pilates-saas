@@ -2979,6 +2979,60 @@ export async function dbDeleteGoogleCalendarCredenciales(studioId: string) {
   if (error) reportDbError('[dbDeleteGoogleCalendarCredenciales]', error);
 }
 
+// Klaviyo (paso 7, docs/marketing-integrations-arquitectura.md §6) — mismo
+// patrón exacto que Google Calendar, con `listId` extra (metadata jsonb: la
+// lista donde caen las socias sincronizadas, se crea una vez por estudio).
+export interface KlaviyoCredenciales {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  listId: string | null;
+}
+
+export async function dbGetKlaviyoCredenciales(studioId: string): Promise<KlaviyoCredenciales | null> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin
+    .from('integracion_credenciales')
+    .select('access_token, refresh_token, expires_at, metadata')
+    .eq('studio_id', studioId)
+    .eq('provider', 'klaviyo')
+    .maybeSingle();
+  if (error) { reportDbError('[dbGetKlaviyoCredenciales]', error); return null; }
+  if (!data || !data.refresh_token) return null;
+  const metadata = data.metadata as { listId?: string } | null;
+  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at, listId: metadata?.listId ?? null };
+}
+
+export async function dbSaveKlaviyoCredenciales(studioId: string, c: KlaviyoCredenciales) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').upsert({
+    studio_id: studioId,
+    provider: 'klaviyo',
+    access_token: c.accessToken,
+    refresh_token: c.refreshToken,
+    expires_at: c.expiresAt,
+    metadata: c.listId ? { listId: c.listId } : null,
+    actualizado_en: new Date().toISOString(),
+  }, { onConflict: 'studio_id,provider' });
+  if (error) reportDbError('[dbSaveKlaviyoCredenciales]', error);
+}
+
+export async function dbDeleteKlaviyoCredenciales(studioId: string) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('integracion_credenciales').delete().eq('studio_id', studioId).eq('provider', 'klaviyo');
+  if (error) reportDbError('[dbDeleteKlaviyoCredenciales]', error);
+}
+
+export async function dbSetKlaviyoAccountName(studioId: string, nombre: string | null) {
+  const admin = getSupabaseAdmin();
+  if (!admin) return;
+  const { error } = await admin.from('studios').update({ klaviyo_account_name: nombre }).eq('id', studioId);
+  if (error) reportDbError('[dbSetKlaviyoAccountName]', error);
+}
+
 // Gmail: mismo patrón exacto que Google Calendar (misma app de Google,
 // mismo `integracion_credenciales` genérico por proveedor — solo cambia el
 // valor de `provider` a 'gmail' para no mezclar los tokens de las dos

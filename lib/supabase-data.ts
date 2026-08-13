@@ -4029,6 +4029,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     googleCalendarEmail: r.google_calendar_email ?? null,
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
+    klaviyoAccountName: r.klaviyo_account_name ?? null,
     gestoriaEmail: r.gestoria_email ?? null,
     gestoriaEnvioAutomatico: (r.gestoria_envio_automatico as 'desactivado' | 'trimestral') ?? 'desactivado',
     cadenaId: r.cadena_id ?? null,

@@ -84,6 +84,7 @@ export interface Studio {
   googleCalendarEmail: string | null;
   gmailEmail: string | null;
   zoomEmail: string | null;
+  klaviyoAccountName: string | null;
   gestoriaEmail: string | null;
   // 'trimestral' = el cron manda el Cierre del trimestre a gestoriaEmail el
   // día 1 del mes siguiente, sin que nadie pulse el botón manual.
@@ -230,7 +231,7 @@ export interface MandatoSEPA {
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
   | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP' | 'EXCEL'
-  | 'ZOOM' | 'KISI' | 'MAILCHIMP';
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO';
 
 export interface Integracion {
   id: string;

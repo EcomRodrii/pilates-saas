@@ -278,6 +278,7 @@ export interface RowIntegracionCredenciales {
   refresh_token: string | null;
   expires_at: string | null;
   actualizado_en: string | null;
+  metadata: unknown | null;
 }
 
 export interface RowIntegraciones {
@@ -600,6 +601,7 @@ export interface RowStudios {
   avatar_admin: string | null;
   tema_portal: string | null;
   google_calendar_email: string | null;
+  klaviyo_account_name: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
