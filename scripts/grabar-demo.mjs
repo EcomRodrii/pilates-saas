@@ -57,11 +57,14 @@ const ESCENAS = [
     nombre: '01-dashboard',
     ruta: '/dashboard',
     async preparar(page) { await page.waitForTimeout(2500); },
-    // Paneo corto a propósito: más abajo está la lista de "Primeros pasos"
-    // (con "todavía no has conectado Stripe"), que en un vídeo de portada
-    // cuenta que el estudio está a medio montar. El plano se queda en lo que
-    // sí vende: lo que necesita atención y las ventas recientes.
-    async actuar(page) { await paneo(page, 80); },
+    // Sin paneo, y no por pereza: la tarjeta de "Primeros pasos con tu
+    // estudio" (con su "todavía no has conectado Stripe") arranca en y=903 y
+    // el plano mide 900 de alto, así que se queda 3 px por debajo del corte.
+    // Cualquier desplazamiento la mete en cuadro — y en la portada del
+    // producto que vendes, "no has conectado Stripe" cuenta que el estudio
+    // está a medio montar. Esta pantalla se queda quieta; el movimiento lo
+    // ponen las otras cuatro.
+    async actuar(page) { await page.waitForTimeout(400); },
   },
   {
     nombre: '02-calendario',

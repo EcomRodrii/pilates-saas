@@ -143,6 +143,14 @@ export function SeccionHero() {
         .v5-menu-cta { text-align: center; padding: 16px; font-size: 16px; font-weight: 700; color: #D9C29E;
           background: #343825; border-radius: 999px; }
 
+        /* Los enlaces de la barra saltan a secciones de esta misma página. La
+           barra flota (sticky, top:14, alto 58), así que sin esto el título de
+           la sección aterriza justo DEBAJO de ella y queda tapado — se ve al
+           pulsar "Sustituciones", "Precios" o "FAQ". Medido: la sección
+           llegaba a top:0 con la barra ocupando hasta 72. */
+        #producto, #sustituciones, #calendario, #app, #widget, #clientas,
+        #cambiarse, #funcionalidades, #precio, #faq { scroll-margin-top: 88px; }
+
         /* --alto-barra: la barra mide 58px y va en el flujo, así que sin esto
            queda una franja del fondo de página por encima de la foto. */
         .v5-hero { --alto-barra: 58px; position: relative; isolation: isolate; overflow: hidden;
