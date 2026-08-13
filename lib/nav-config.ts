@@ -75,10 +75,12 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/equipo', label: 'Equipo', icon: UserCog },
-      // Único módulo de "Estudio" también en PERMITIDO_INSTRUCTOR
-      // (lib/permisos-reglas.ts): es donde la instructora gestiona SU PROPIO
-      // perfil profesional, no una herramienta de gestión del negocio.
-      { href: '/network', label: 'Tentare Network', icon: Network },
+      // Buscador de candidatas de Tentare Network — herramienta de
+      // contratación de la propietaria/manager/recepción, NO donde una
+      // instructora gestiona su propio perfil (eso se mudó fuera del panel,
+      // a app/network/mi-perfil — cuenta independiente, sin studio_id). Por
+      // eso ya no está en PERMITIDO_INSTRUCTOR (lib/permisos-reglas.ts).
+      { href: '/network', label: 'Buscar instructoras', icon: Network },
       { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },

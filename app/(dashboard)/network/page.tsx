@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { ArrowRight, SlidersHorizontal, Loader2 } from 'lucide-react';
+import { SlidersHorizontal, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
@@ -48,26 +47,10 @@ export default function NetworkBuscadorPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <PageHeader
-          title="Tentare Network"
-          description="Encuentra profesionales de Pilates disponibles para tu estudio."
-        />
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/network/solicitudes"
-            className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Solicitudes
-          </Link>
-          <Link
-            href="/network/mi-perfil"
-            className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
-          >
-            Tu perfil <ArrowRight size={13} />
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Buscar instructoras"
+        description="Encuentra profesionales de Pilates de Tentare Network disponibles para tu estudio."
+      />
 
       <div className="md:hidden">
         <button
