@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Camera, Check, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
@@ -75,8 +76,16 @@ function formDesdePerfil(p: PerfilNetwork): FormState {
 
 export default function MiPerfilNetworkPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, loading: cargandoSesion } = useAuth();
   const nombreDefecto = (user?.user_metadata?.nombre as string | undefined) ?? '';
+
+  // Página fuera de app/(dashboard) a propósito (ver app/network/layout.tsx)
+  // — sin DashboardShell no hay ningún guard de sesión heredado, así que
+  // cada página aquí pone el suyo.
+  useEffect(() => {
+    if (!cargandoSesion && !user) router.replace('/network/unirse');
+  }, [cargandoSesion, user, router]);
 
   const [cargando, setCargando] = useState(true);
   const [perfil, setPerfil] = useState<PerfilNetwork | null>(null);
@@ -169,7 +178,7 @@ export default function MiPerfilNetworkPage() {
     showToast('Foto actualizada');
   }
 
-  if (cargando) {
+  if (cargandoSesion || !user || cargando) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 size={20} className="animate-spin text-muted-foreground" />

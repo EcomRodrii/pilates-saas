@@ -18,11 +18,13 @@ import type { Rol } from './types';
 // — nada de cobros, informes, marketing ni ajustes del negocio.
 // CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
 // lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
-// '/network': la instructora es la persona a la que va dirigido su propio
-// perfil profesional (docs/NETWORK-IMPLEMENTATION-PLAN.md) — sin esta entrada
-// la lista blanca la dejaría fuera de la funcionalidad pensada para ella.
+// '/network' YA NO está aquí: es el buscador de candidatas de la
+// propietaria/manager/recepción (herramienta de contratación), no algo que
+// competa a una instructora. Su propio perfil de Network vive fuera del
+// panel, en app/network/mi-perfil — cuenta independiente por auth_user_id,
+// sin studio_id, alcanzable sin pasar por esta lista blanca en absoluto.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil', '/network',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil',
 ];
 
 // ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre

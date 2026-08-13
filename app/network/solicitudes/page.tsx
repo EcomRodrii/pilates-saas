@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Check, X, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
+import { useAuth } from '@/lib/auth-context';
 import {
   fetchSolicitudesContactoNetwork, resolverSolicitudContactoNetwork, type SolicitudContactoRecibida,
 } from '@/lib/api-client';
@@ -23,15 +25,24 @@ const ESTADO_INFO: Record<SolicitudContactoRecibida['estado'], { texto: string; 
 // ninguna otra — la revelación va en el envío de la notificación).
 export default function SolicitudesNetworkPage() {
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
+  const router = useRouter();
+  const { user, loading: cargandoSesion } = useAuth();
   const [cargando, setCargando] = useState(true);
   const [solicitudes, setSolicitudes] = useState<SolicitudContactoRecibida[]>([]);
   const [resolviendoId, setResolviendoId] = useState<string | null>(null);
 
+  // Misma razón que app/network/mi-perfil/page.tsx: fuera de (dashboard), sin
+  // guard de sesión heredado.
   useEffect(() => {
+    if (!cargandoSesion && !user) router.replace('/network/unirse');
+  }, [cargandoSesion, user, router]);
+
+  useEffect(() => {
+    if (!user) return;
     let vivo = true;
     fetchSolicitudesContactoNetwork().then(r => { if (vivo) { setSolicitudes(r); setCargando(false); } });
     return () => { vivo = false; };
-  }, []);
+  }, [user]);
 
   async function resolver(id: string, aceptar: boolean) {
     setResolviendoId(id);
@@ -54,7 +65,7 @@ export default function SolicitudesNetworkPage() {
         description="Estudios que han visto tu perfil en Tentare Network y quieren hablar contigo."
       />
 
-      {cargando ? (
+      {cargandoSesion || !user || cargando ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
