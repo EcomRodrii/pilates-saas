@@ -208,13 +208,21 @@ export default function LoginPage() {
       // El token de invitación se guarda en la metadata de la cuenta para que
       // sobreviva al enlace de confirmación del email (ver el efecto de arriba).
       const invitacion = leerTokenInvitacion();
-      const { error, needsConfirmation } = await signUp(
+      const { error, needsConfirmation, yaRegistrado } = await signUp(
         email, password,
         invitacion ? { [CLAVE_INVITACION]: invitacion } : undefined,
         token || undefined,
       );
       if (error) {
         setError(error);
+        setSubmitting(false);
+      } else if (yaRegistrado) {
+        // Ya hay cuenta confirmada con ese email: gotrue no manda nada, así
+        // que decir "revisa tu email" sería mentir. Se dice la verdad y se
+        // manda a iniciar sesión (o a "he olvidado mi contraseña" si no la
+        // recuerda).
+        setInfo('Ya existe una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña» si no la recuerdas.');
+        setModo('entrar');
         setSubmitting(false);
       } else if (needsConfirmation) {
         setInfo('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.');
