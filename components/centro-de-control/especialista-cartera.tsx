@@ -94,6 +94,10 @@ export function EspecialistaCartera() {
     .sort((a, b) => b.porcentajeFacturacion - a.porcentajeFacturacion);
 
   if (conActividad.length === 0) return null; // sin análisis → sin tarjeta
+  // Feature #9: una cuenta FREELANCE tiene un único instructor por
+  // construcción — "concentración de cartera en esa persona" sería el 100%
+  // siempre, ruido garantizado, no una señal de riesgo real.
+  if (studio?.tipoCuenta === 'FREELANCE') return null;
 
   const hayAlto = riesgos.some(s => s.nivelRiesgo === 'ALTO');
   const estado = hayAlto ? ESTADO.CRITICO : riesgos.length > 0 ? ESTADO.ATENCION : ESTADO.BUENO;

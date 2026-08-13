@@ -4,7 +4,8 @@ import { useState, useEffect, useId, useRef } from 'react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
-import { dbCreateStudio, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
+import { dbCreateStudio, dbInsertInstructoraPropia, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
+import { uid as generarId } from '@/lib/utils';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 
@@ -68,6 +69,43 @@ export default function LoginPage() {
         const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
         if (newStudio) setCurrentStudioId(newStudio.id);
         await supabase.auth.updateUser({ data: { pending_studio: null } });
+      }
+      // Alta de instructora freelance (feature #9, /instructora/alta): mismo
+      // patrón que pending_studio, con un paso extra — el estudio de un solo
+      // miembro necesita también SU PROPIA ficha en `instructores` (rol
+      // PROPIETARIO) para poder ser instructor_id de sus propias sesiones.
+      // Sin fila en `instructores`, `current_studio_id()` seguiría resolviendo
+      // por el brazo `studios.owner_auth_user_id` — sirve para el rol, pero
+      // no hay a quién asignar una clase.
+      const pendingFreelance = user.user_metadata?.pending_freelance as
+        | { nombre: string; ciudad: string; telefono: string }
+        | undefined;
+      if (pendingFreelance) {
+        const newStudio = await dbCreateStudio({
+          nombre: pendingFreelance.nombre, ciudad: pendingFreelance.ciudad, telefono: pendingFreelance.telefono,
+          ownerAuthUserId: user.id, tipoCuenta: 'FREELANCE',
+        });
+        // La metadata solo se limpia si las DOS escrituras salieron bien —
+        // igual que pending_studio de arriba nunca comprobaba el resultado
+        // de dbCreateStudio, así que un fallo raro (RLS, red) borraba la
+        // metadata igual y dejaba un estudio a medias sin forma de reintentar
+        // (dbCreateStudio ES idempotente por su id determinista, así que
+        // reintentar en el siguiente login es seguro, nunca duplica). Sin
+        // fila en `instructores`, no hay a quién asignar una clase — dejar
+        // pending_freelance puesto es lo que permite que el próximo login
+        // lo complete solo.
+        let instructoraOk = false;
+        if (newStudio) {
+          setCurrentStudioId(newStudio.id);
+          const res = await dbInsertInstructoraPropia({
+            id: `ins-${generarId()}`, studioId: newStudio.id, authUserId: user.id,
+            nombre: pendingFreelance.nombre, email: user.email ?? null,
+          });
+          instructoraOk = res.ok;
+        }
+        if (newStudio && instructoraOk) {
+          await supabase.auth.updateUser({ data: { pending_freelance: null } });
+        }
       }
       // Vincular la cuenta con su ficha de equipo. Solo si viene de un enlace de
       // invitación: sin él no hay nada que reclamar (el servidor tampoco lo

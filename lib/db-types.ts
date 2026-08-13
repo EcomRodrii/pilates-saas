@@ -588,6 +588,7 @@ export interface RowStudios {
   telefono: string | null;
   color_primario: string | null;
   plan: string | null;
+  tipo_cuenta: string;
   creado_en: string | null;
   owner_auth_user_id: string | null;
   slug: string | null;
