@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // Fase 1 · PR-5 — Bizum presencial en el POS.
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+  }
+  // Otra puerta por la que entra dinero (Bizum presencial). Mismo guardia que
+  // /api/stripe/checkout y terminal/cobrar: con el `.env.local` de producción
+  // copiado a una máquina, esta ruta generaría un cobro Bizum real. Ver
+  // lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) {
+    return NextResponse.json({ error: modo.motivo }, { status: 503 });
   }
   const admin = getSupabaseAdmin();
   if (!admin) {

@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
 import { LEGAL } from '@/lib/legal-info';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/legal';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Aviso legal · Tentare',
-  description: 'Información legal y datos identificativos del titular de tentare.app conforme a la LSSI-CE.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
+  openGraph: { type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 export default function AvisoLegal() {

@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-momence';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs Momence: comparativa para estudios de Pilates en España',
-  description: 'Precio real (con comisiones), facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a Momence, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-momence') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Momence',
     description: 'Precio real con comisiones, Veri*factu y dónde viven tus datos — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-momence'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsMomencePage() {
       h1={<>Tentare frente a Momence.</>}
       intro={<>Momence anuncia un plan gratuito, pero cobra comisión por cada cobro que procesas. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, el precio real suele acabar muy por encima del que ves en su web — y falta la parte fiscal española.</>}
       rows={ROWS}
+      veredicto={<>Si facturas en España y quieres saber de antemano lo que vas a pagar sin que dependa de cuánto cobres ese mes, Tentare es la opción más predecible de las dos. Si tu estudio ya vive en parte de clases grabadas y contenido bajo demanda dentro del mismo software, Momence lo trae integrado y nosotros hoy no.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de Momence a mediados de 2026 (momence.com/pricing). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Momence es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

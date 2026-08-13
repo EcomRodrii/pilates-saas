@@ -281,10 +281,19 @@ const FUNCIONALIDADES: PaginaSeo[] = [
 
 export const PAGINAS: PaginaSeo[] = [
   {
+    // ⚠️ El title/description REALES de esta página no salen de aquí — `/`
+    // no tiene `page.tsx` propio con `metadata`, así que hereda el de
+    // `app/layout.tsx` (obligatorio: es el layout raíz, no hay otro sitio
+    // donde Next resuelva la metadata de `/`). Tocar ese fichero para leer
+    // de `paginaDe('/')` tiene mucho más radio de impacto que el resto de
+    // páginas (afecta al fallback de TODA la app), así que aquí solo se
+    // mantiene el texto EN SYNC a mano — verificado que coincide
+    // literalmente con `app/layout.tsx` el 2026-08-13, tras encontrar que
+    // llevaba divergido desde el lote P0 original.
     path: '/',
-    titulo: 'Tentare — Software para estudios de Pilates | Reservas, cobros y sustituciones',
+    titulo: 'Software de Gestión para Estudios de Pilates | Tentare',
     descripcion:
-      'El software completo para tu estudio de Pilates en España: reservas, cobros, calendario, alumnas e instructoras — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
+      'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,
@@ -322,34 +331,67 @@ export const PAGINAS: PaginaSeo[] = [
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
+    titulo: 'Comparativa: Tentare frente a los 7 software de gestión de Pilates',
     descripcion:
-      'Compara Tentare con el software de gestión tradicional para estudios de Pilates en España: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
+      'Compara Tentare con los 7 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
     grupo: 'software',
     etiqueta: 'Comparativa',
     resumen: 'Tentare frente a las siete plataformas con las que más se compara.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
+    actualizado: '2026-08-13',
     relacionadas: ['/precios', '/funcionalidades', '/seguridad'],
   },
+  // relacionadas y descripcion por competidor: la descripción NO es una
+  // plantilla única — cada una es la misma que ya está escrita a mano en su
+  // page.tsx (verificada línea a línea el 2026-08-13), porque cada
+  // competidor tiene un punto débil distinto y una plantilla genérica se
+  // queda corta o sobreclama (p.ej. Lorari/Bonsai no confirman en público
+  // dónde alojan los datos, así que su descripción no menciona esa cláusula).
+  // Las relacionadas son las dos funcionalidades donde la propia tabla
+  // ✓/✗/≈ de esa página marca la diferencia más grande frente a ESE
+  // competidor concreto — ver docs/SEO-AI-MASTERPLAN.md §28.
   ...([
-    ['tentare-vs-mindbody', 'Mindbody'],
-    ['tentare-vs-bsport', 'bsport'],
-    ['tentare-vs-momence', 'Momence'],
-    ['tentare-vs-timp', 'TIMP'],
-    ['tentare-vs-eversports', 'Eversports'],
-    ['tentare-vs-lorari', 'Lorari'],
-    ['tentare-vs-bonsai', 'Bonsai'],
-  ] as const).map(([slug, nombre]): PaginaSeo => ({
+    ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
+      'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y comisión por captar clientas — Tentare frente a Mindbody, punto por punto.'],
+    ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
+      'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a bsport, punto por punto.'],
+    ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
+      'Precio real (con comisiones), facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a Momence, punto por punto.'],
+    ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
+      'Precio, permanencia, Veri*factu y TicketBAI, comisión por captar clientas y sustitución de instructoras — Tentare frente a TIMP, punto por punto.'],
+    ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
+      'Precio, permanencia, facturación Veri*factu, comisión por captar clientas y sustitución de instructoras — Tentare frente a Eversports, punto por punto.'],
+    ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
+      'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.'],
+    ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
+      'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.'],
+  ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     titulo: `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
-    descripcion: `Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a ${nombre}, punto por punto.`,
+    descripcion,
     grupo: 'software',
     etiqueta: `Tentare vs ${nombre}`,
     prioridad: 0.7,
     changeFrequency: 'monthly',
-    relacionadas: ['/comparativa', '/precios'],
+    // /precios sigue alcanzable desde el footer de estas páginas — aquí el
+    // hueco lo gana /soluciones/cambiar-de-software: quien termina de leer
+    // "Tentare vs X" está decidiendo si (y cómo) cambiarse, no mirando precio.
+    relacionadas: [...relacionadasFuncionalidad, '/soluciones/cambiar-de-software'],
   })),
+  {
+    path: '/soluciones/cambiar-de-software',
+    titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
+    descripcion:
+      'Migración de clientas, bonos, clases, reservas, citas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te lo hacemos nosotros en 48h.',
+    grupo: 'soluciones',
+    etiqueta: 'Cambiarte de software',
+    resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: '2026-08-13',
+    relacionadas: ['/comparativa', '/precios', '/recursos/checklist-elegir-software-estudio'],
+  },
   {
     path: '/recursos',
     titulo: 'Centro de Recursos — Guías para tu estudio de Pilates | Tentare',
@@ -364,7 +406,7 @@ export const PAGINAS: PaginaSeo[] = [
   },
   ...([
     ['cubrir-baja-instructora', '2026-07-01', 'Cómo cubrir una baja de instructora sin hacer una llamada'],
-    ['facturacion-electronica-verifactu', '2026-07-01', 'Facturación electrónica para estudios en España'],
+    ['facturacion-electronica-verifactu', '2026-08-13', 'Facturación electrónica para estudios en España'],
     ['precios-reformer-mat', '2026-07-01', 'Reformer vs. mat: cómo poner precio a cada clase'],
     ['estudios-pilates-de-exito', '2026-08-06', 'Qué puedes aprender de los estudios de Pilates que más crecen'],
     ['ocupacion-clases-valle', '2026-08-06', 'Cómo subir la ocupación de tus clases valle'],
@@ -391,35 +433,47 @@ export const PAGINAS: PaginaSeo[] = [
     resumen: 'Qué significa cada término del sector, sin marketing.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
+    actualizado: '2026-08-13',
     relacionadas: ['/recursos', '/funcionalidades'],
   },
   {
     path: '/seguridad',
-    titulo: 'Seguridad y protección de datos — Tentare',
+    titulo: 'Seguridad y privacidad — Tentare',
     descripcion:
-      'Cómo protege Tentare los datos de tu estudio y de tus alumnas: aislamiento por estudio, cifrado, RGPD, alojamiento en la UE y exportación de tus datos cuando quieras.',
+      'Cómo protege Tentare los datos de tu estudio y tus alumnas: aislamiento por estudio, datos alojados en la UE, RGPD, facturación Veri*factu, pagos con Stripe y copias de seguridad.',
     grupo: 'recursos',
     etiqueta: 'Seguridad',
     resumen: 'Aislamiento por estudio, RGPD y datos en la UE.',
     prioridad: 0.6,
     changeFrequency: 'monthly',
+    actualizado: '2026-08-13',
     relacionadas: ['/funcionalidades/ficha-de-clienta', '/comparativa'],
   },
 
   // ── Legales ───────────────────────────────────────────────────────────────
+  // `titulo`/`descripcion` van ya con el texto real de cada page.tsx (más
+  // descriptivo que el `${etiqueta} — Tentare` genérico de antes) — solo se
+  // estandarizó el separador a "—" para que coincida con el resto del sitio
+  // (`/seguridad`, `/glosario`…), que usaban "—" mientras estas 4 usaban "·".
+  // `etiqueta` se queda corta a propósito: la usan breadcrumbs/footer/nav.
   ...([
-    ['/legal', 'Aviso legal', 'Aviso legal de Tentare: titular del sitio, condiciones de uso y propiedad intelectual.'],
-    ['/privacidad', 'Privacidad', 'Política de privacidad de Tentare: qué datos tratamos, con qué base legal, quién los procesa y cómo ejercer tus derechos.'],
-    ['/terminos', 'Términos', 'Términos y condiciones del servicio Tentare: contratación, planes, pagos, cancelación y responsabilidades.'],
-    ['/cookies', 'Cookies', 'Política de cookies de Tentare: qué cookies usamos, para qué sirven y cómo gestionarlas.'],
-  ] as const).map(([path, etiqueta, descripcion]): PaginaSeo => ({
+    ['/legal', 'Aviso legal', 'Aviso legal — Tentare',
+      'Información legal y datos identificativos del titular de tentare.app conforme a la LSSI-CE.'],
+    ['/privacidad', 'Privacidad', 'Política de privacidad — Tentare',
+      'Cómo Tentare trata los datos personales conforme al RGPD y la LOPDGDD: qué datos, con qué base legal y cómo ejercer tus derechos.'],
+    ['/terminos', 'Términos', 'Términos y condiciones — Tentare',
+      'Condiciones de uso del servicio Tentare para estudios de Pilates: contratación, planes, pagos y cancelación.'],
+    ['/cookies', 'Cookies', 'Política de cookies — Tentare',
+      'Qué cookies y tecnologías similares utiliza tentare.app, para qué sirven y cómo puedes gestionarlas o rechazarlas.'],
+  ] as const).map(([path, etiqueta, titulo, descripcion]): PaginaSeo => ({
     path,
-    titulo: `${etiqueta} — Tentare`,
+    titulo,
     descripcion,
     grupo: 'legal',
     etiqueta,
     prioridad: 0.3,
     changeFrequency: 'yearly',
+    actualizado: '2026-08-13',
   })),
 ];
 

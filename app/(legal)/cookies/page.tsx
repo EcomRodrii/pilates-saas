@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
 import { LEGAL } from '@/lib/legal-info';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/cookies';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Política de cookies · Tentare',
-  description: 'Qué cookies utiliza tentare.app y cómo gestionarlas.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
+  openGraph: { type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 export default function Cookies() {

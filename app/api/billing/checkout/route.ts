@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { PLANES, TRIAL_DIAS, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
 
@@ -17,6 +18,14 @@ export async function POST(req: NextRequest) {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
     return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+  }
+  // Otra puerta por la que entra dinero (alta de suscripción SaaS del
+  // estudio). Mismo guardia que /api/stripe/checkout, terminal/cobrar y
+  // pos-bizum: con el `.env.local` de producción copiado a una máquina, esta
+  // ruta abriría un Checkout de suscripción real. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) {
+    return NextResponse.json({ error: modo.motivo }, { status: 503 });
   }
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

@@ -45,6 +45,7 @@ export default function VerifactuPage() {
         description="Qué es Veri*factu, cuándo es obligatorio (2027) y qué debe tener cada factura de tu estudio de Pilates."
         slug="facturacion-electronica-verifactu"
         datePublished="2026-07-01"
+        dateModified="2026-08-13"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
@@ -73,6 +74,7 @@ export default function VerifactuPage() {
           note="La mayoría de estudios de Pilates en España — autónomas o pequeñas sociedades — entran en el segundo grupo. Confirma tu caso con tu asesoría: los plazos han cambiado antes y pueden volver a ajustarse."
         />
         <p>2026 es, en la práctica, <strong>el año para prepararte</strong> sin la presión de la fecha límite encima. Cambiar de software de facturación lleva semanas, no días: revisar los datos, migrarlos y comprobar que todo cuadra.</p>
+        <p>Hay un matiz que se suele pasar por alto: esas dos fechas son para <strong>quien emite las facturas</strong> — tu estudio. Los <strong>desarrolladores del software</strong> ya tenían su propia fecha límite, anterior y ya pasada: el <strong>29 de julio de 2025</strong>. En la práctica, esto significa que cualquier software que sigas usando en 2026 y todavía no cumpla Veri*factu ya va con retraso respecto a su propia obligación — no es que &ldquo;todavía le quede tiempo&rdquo; como al tuyo.</p>
 
         <h2 id="s3">Qué debe tener cada factura</h2>
         <p>Con un sistema en modalidad Veri*factu, cada factura que emite tu estudio incluye de forma automática:</p>
@@ -120,8 +122,8 @@ export default function VerifactuPage() {
 
         <RelatedLinks
           items={[
+            { href: '/funcionalidades/facturacion', category: 'Producto', categoryColor: '#3E7C86', title: 'Cómo factura Tentare con Veri*factu, punto por punto' },
             { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#6E7650', title: 'Cómo cubrir una baja sin hacer una llamada' },
-            { href: '/recursos/precios-reformer-mat', category: 'Rentabilidad', categoryColor: '#3E7C86', title: 'Reformer vs. mat: cómo poner precio a cada clase' },
           ]}
         />
       </ArticleShell>

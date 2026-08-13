@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -7,6 +8,7 @@ import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { ComparativaBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { relacionadasDe } from '@/lib/seo/paginas';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
@@ -30,6 +32,7 @@ export function CompetitorPage({
   h1,
   intro,
   rows,
+  veredicto,
   honestyIntro,
   honesty,
   footnote,
@@ -41,11 +44,14 @@ export function CompetitorPage({
   h1: React.ReactNode;
   intro: React.ReactNode;
   rows: ComparativaRow[];
+  /** Párrafo corto: para qué estudio concreto tiene sentido cada opción. Sintetiza `rows`/`honesty`, no añade datos nuevos del competidor. */
+  veredicto: React.ReactNode;
   honestyIntro: string;
   honesty: HonestyCard[];
   footnote: string;
   ctaBody?: string;
 }) {
+  const relacionadas = relacionadasDe(`/comparativa/${slug}`);
   return (
     <PageShell>
       <OrganizationStructuredData />
@@ -96,6 +102,13 @@ export function CompetitorPage({
         </div>
       </section>
 
+      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(8px,2vw,20px)' }}>
+        <Reveal style={{ maxWidth: 640, margin: '0 auto', background: '#F7F8F1', border: '1px solid #E7E7E0', borderRadius: 18, padding: '22px 24px' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: '#5A5A52', margin: '0 0 10px' }}>El veredicto corto</h2>
+          <p style={{ fontSize: 15, lineHeight: 1.6, color: '#1A1A1A', margin: 0 }}>{veredicto}</p>
+        </Reveal>
+      </section>
+
       <section style={{ background: '#0F0F0F', color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <Reveal className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 16 }}>Con honestidad</Reveal>
@@ -112,17 +125,41 @@ export function CompetitorPage({
         </div>
       </section>
 
+      {relacionadas.length > 0 && (
+        <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
+          <div style={{ maxWidth: 900, margin: '0 auto' }}>
+            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#8E8E86', margin: '0 0 18px' }}>Sigue por aquí</h2>
+            <div className="cmp1-rel">
+              {relacionadas.map((r) => (
+                <Link key={r.path} href={r.path} className="cmp1-rel-card">
+                  <span className="cmp1-rel-nombre">{r.etiqueta}</span>
+                  <span className="cmp1-rel-resumen">{r.resumen ?? r.descripcion}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section style={{ padding: 'clamp(64px,8vw,110px) clamp(20px,4vw,44px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <CtaBlock title="Compruébalo con tu propio estudio." body={ctaBody} />
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }]} />
+      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }]} />
 
       <style>{`
         .cmp1-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 760px) { .cmp1-two { grid-template-columns: 1fr; } }
+        .cmp1-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+        .cmp1-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0;
+          border-radius: 16px; padding: 20px; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease; }
+        .cmp1-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
+        .cmp1-rel-nombre { display: block; font-size: 15.5px; font-weight: 700; color: #1A1A1A; margin-bottom: 6px; }
+        .cmp1-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
+        @media (max-width: 760px) { .cmp1-rel { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .cmp1-rel-card { transition: none; } }
       `}</style>
     </PageShell>
   );

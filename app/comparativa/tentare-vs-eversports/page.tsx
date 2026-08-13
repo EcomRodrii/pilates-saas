@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-eversports';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs Eversports: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, facturación Veri*factu, comisión por captar clientas y sustitución de instructoras — Tentare frente a Eversports, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-eversports') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Eversports',
     description: 'Precio, permanencia, Veri*factu y comisión por captar clientas — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-eversports'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsEversportsPage() {
       h1={<>Tentare frente a Eversports.</>}
       intro={<>Eversports combina software de gestión con su propio marketplace de clases. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la pregunta es si esa visibilidad compensa la comisión y el contrato anual.</>}
       rows={ROWS}
+      veredicto={<>Si prefieres no pagar comisión por cada alumna que te llega y no quieres firmar un contrato anual, Tentare sale más barato en la mayoría de estudios de tamaño normal. Si tu negocio depende de captar clientas nuevas a través de un marketplace con tráfico real buscando clase en tu ciudad, la visibilidad de Eversports.es puede compensar esa comisión — es un cálculo que solo tú puedes hacer con tus propios números.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de Eversports a mediados de 2026 (eversports.es). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Eversports es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

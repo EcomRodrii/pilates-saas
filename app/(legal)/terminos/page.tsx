@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
 import { LEGAL } from '@/lib/legal-info';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/terminos';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Términos y condiciones · Tentare',
-  description: 'Condiciones de uso del servicio Tentare para estudios de Pilates.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
+  openGraph: { type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 export default function Terminos() {
