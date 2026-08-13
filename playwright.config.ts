@@ -19,6 +19,31 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 // para reproducir CI tal cual: `E2E_USA_BUILD=1 npm run build && npx playwright test`.
 const USA_BUILD = process.env.E2E_USA_BUILD === '1';
 
+// ⚠️ Las pantallas que corren TAMBIÉN en WebKit — la lista es corta a propósito.
+//
+// El repo documenta como punto ciego que los e2e solo corran en Chromium: una
+// API que Chrome resuelve y Safari no pasa verde y falla en el iPad de
+// recepción (#565, `BarcodeDetector`), y en #994 se encontraron tres pantallas
+// que decían «Copiado» con el portapapeles vacío por lo mismo.
+//
+// Pero pasar TODA la suite por WebKit dobla el e2e, y este repo peleó su CI de
+// 24m36s a 5m44s a base de no hacer eso. El criterio es dónde un fallo solo de
+// Safari le pasa a una CLIENTA REAL: `/reservar` es el widget que el estudio
+// incrusta en su web y que se abre casi siempre desde un iPhone. Ahí sí se
+// paga la segunda pasada.
+//
+// Se emula un iPhone entero (`devices['iPhone 13']`), no solo el motor: el
+// viewport y el táctil forman parte de lo que se está probando.
+//
+// Para añadir una: que sea PÚBLICA y que su fallo lo sufra alguien de fuera
+// del estudio. El panel no entra — se usa desde el iPad de recepción, sí, pero
+// ahí hay alguien que puede avisar; una socia con el widget roto se va.
+const SPECS_WEBKIT = [
+  '**/reservar-acoplar-widget.spec.ts',
+  '**/reservar-el-servidor-dice-no.spec.ts',
+  '**/reservar-vista-mes.spec.ts',
+];
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -38,6 +63,11 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'webkit-publico',
+      use: { ...devices['iPhone 13'] },
+      testMatch: SPECS_WEBKIT,
+    },
   ],
   // Arranca el servidor (build o dev, ver USA_BUILD) si no hay ya uno en el
   // puerto. El env forzado aquí
