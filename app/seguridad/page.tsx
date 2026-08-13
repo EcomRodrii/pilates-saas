@@ -7,17 +7,20 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/seguridad';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Seguridad y privacidad — Tentare',
-  description: 'Cómo protege Tentare los datos de tu estudio y tus alumnas: aislamiento por estudio, datos alojados en la UE, RGPD, facturación Veri*factu, pagos con Stripe y copias de seguridad.',
-  alternates: { canonical: urlDe('/seguridad') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
-    title: 'Seguridad y privacidad — Tentare',
+    title: pagina.titulo,
     description: 'Datos aislados por estudio, alojados en la UE y conformes al RGPD. Sin permanencia.',
-    url: urlDe('/seguridad'),
+    url: urlDe(PATH),
   },
 };
 
@@ -156,7 +159,7 @@ export default function SeguridadPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }, { href: '/glosario', label: 'Glosario' }]} />
+      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/recursos', label: 'Recursos' }]} />
 
       <style>{`
         .sec-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }

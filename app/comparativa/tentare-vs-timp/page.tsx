@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-timp';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs TIMP: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, Veri*factu y TicketBAI, comisión por captar clientas y sustitución de instructoras — Tentare frente a TIMP, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-timp') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs TIMP',
     description: 'Precio, permanencia, Veri*factu/TicketBAI y sustitución de instructoras — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-timp'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsTimpPage() {
       h1={<>Tentare frente a TIMP.</>}
       intro={<>TIMP es un software de gestión español, con Veri*factu y TicketBAI nativos igual que nosotros. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates</strong>, la diferencia está en el precio de entrada, la permanencia y si pagas comisión por captar clientas.</>}
       rows={ROWS}
+      veredicto={<>Entre dos españoles con Veri*factu nativo, la diferencia está en el enfoque: TIMP cubre fisioterapia, nutrición, psicología y más disciplinas con más de 15 módulos; Tentare solo hace pilates, pero cubre la sustitución de instructoras de una forma que TIMP no muestra en su web pública. Si necesitas gestionar varias disciplinas distintas desde un solo software, TIMP tiene hoy más recorrido en eso.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de TIMP a mediados de 2026 (timp.pro). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. TIMP es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

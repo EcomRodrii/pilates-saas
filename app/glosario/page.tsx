@@ -85,6 +85,102 @@ const TERMINOS: Termino[] = [
     description:
       'Indicador que mide qué parte de las clases de un estudio dependen de una sola instructora. Un estudio con dependencia alta sufre más si esa persona causa una baja larga, porque hay pocas alternativas reales para cubrir sus clases.',
   },
+  {
+    slug: 'aforo-por-puesto',
+    name: 'Aforo por puesto (o por reformer)',
+    description:
+      'Forma de fijar la capacidad de una clase contando las máquinas o puestos físicos disponibles —cada reformer, cada colchoneta— en lugar de un número de aforo fijo para la sala. Si una máquina se avería, la capacidad de esa clase concreta baja sola, sin tener que cambiar el aforo general.',
+    guia: { href: '/funcionalidades/calendario-y-salas', label: 'Calendario, salas y aforo por reformer' },
+  },
+  {
+    slug: 'plaza-fija',
+    name: 'Plaza fija',
+    description:
+      'Reserva recurrente de una alumna en el mismo horario semanal, sin tener que reservar clase a clase. Suele combinarse con un sistema de recuperaciones para las semanas en las que la alumna no puede asistir.',
+  },
+  {
+    slug: 'recuperacion-de-clase',
+    name: 'Recuperación de clase',
+    description:
+      'Sesión que una alumna con plaza fija o bono puede usar más adelante cuando falta a su horario habitual, en lugar de perder esa sesión sin más. El estudio define las condiciones: en cuánto tiempo, en qué otros horarios y con qué límite.',
+  },
+  {
+    slug: 'ventana-de-cancelacion',
+    name: 'Ventana de cancelación',
+    description:
+      'Plazo mínimo antes del inicio de una clase dentro del cual una alumna puede cancelar su reserva sin penalización y recuperando su sesión o su plaza en el bono. Cancelar fuera de esa ventana suele tratarse como si hubiera asistido.',
+    guia: { href: '/funcionalidades/cancelaciones-y-politicas', label: 'Qué pasa con el bono y la plaza al cancelar' },
+  },
+  {
+    slug: 'penalizacion-no-show',
+    name: 'Penalización por no-show',
+    description:
+      'Cargo económico opcional que un estudio puede aplicar cuando una alumna reserva una clase y no se presenta, sin haber cancelado a tiempo. Requiere tarjeta guardada y, si se hace bien, un consentimiento explícito comprobado antes de cobrar.',
+    guia: { href: '/recursos/reducir-cancelaciones-ultima-hora', label: 'Cómo reducir las cancelaciones de última hora' },
+  },
+  {
+    slug: 'autonomia-en-sustituciones',
+    name: 'Niveles de autonomía en sustituciones',
+    description:
+      'Distintos grados de intervención de la propietaria en el proceso de cubrir una baja: desde uno totalmente manual (ella busca y decide) hasta uno autónomo (el sistema busca, contacta y confirma sustituta sin que nadie lo apruebe a mano), pasando por un modo asistido intermedio.',
+    guia: { href: '/funcionalidades/sustituciones', label: 'Cómo funciona el motor de sustituciones' },
+  },
+  {
+    slug: 'cobro-recurrente-sepa',
+    name: 'Cobro recurrente y domiciliación SEPA',
+    description:
+      'Cobro automático y periódico de una cuota o bono con una tarjeta guardada o una cuenta bancaria domiciliada (SEPA), sin que la alumna tenga que pagar a mano cada mes. Incluye normalmente reintentos automáticos cuando un cobro falla antes de darlo por impagado.',
+    guia: { href: '/funcionalidades/cobros-recurrentes', label: 'Cobro recurrente, SEPA y recuperación de impagos' },
+  },
+  {
+    slug: 'margen-por-clase',
+    name: 'Margen de contribución por clase',
+    description:
+      'Diferencia entre lo que ingresa una clase concreta —repartiendo el precio de bonos y cuotas entre las sesiones que cubren— y el coste de la instructora que la imparte, calculado con su tarifa por hora real. Sirve para ver qué clases dan dinero de verdad, no solo cuáles se llenan.',
+    guia: { href: '/funcionalidades/informes-y-rentabilidad', label: 'Informes de rentabilidad y margen por clase' },
+  },
+  {
+    slug: 'app-de-marca-pwa',
+    name: 'App de marca instalable (PWA)',
+    description:
+      'Aplicación web progresiva con el nombre, el logo y los colores del estudio, que una alumna puede instalar en la pantalla de inicio de su móvil desde el navegador, sin pasar por App Store ni Google Play. Se diferencia de una app nativa en que no requiere descarga desde una tienda de aplicaciones.',
+    guia: { href: '/funcionalidades/app-para-alumnas', label: 'App de marca instalable, no nativa' },
+  },
+  {
+    slug: 'multi-centro-cadena',
+    name: 'Multi-centro / cadena de estudios',
+    description:
+      'Gestión de varias sedes de un mismo negocio desde un solo acceso, con datos separados por sede pero configuración compartida —menú, marca— a nivel de cadena. Una instructora puede trabajar en más de una sede, con rol y tarifa propios en cada una.',
+    guia: { href: '/funcionalidades/multi-centro', label: 'Software para cadenas con varios centros' },
+  },
+  {
+    slug: 'plan-por-tipo-de-clase',
+    name: 'Plan por tipo de clase',
+    description:
+      'Bono o suscripción que solo da acceso a un tipo concreto de clase —por ejemplo, solo reformer— en lugar de a todo el catálogo del estudio. Permite precios distintos según el coste real de cada tipo de clase.',
+    guia: { href: '/funcionalidades/bonos-y-membresias', label: 'Bonos, cuotas y planes por tipo de clase' },
+  },
+  {
+    slug: 'ficha-de-salud-operativa',
+    name: 'Ficha de salud operativa',
+    description:
+      'Registro de condiciones, lesiones o adaptaciones de una alumna pensado para que la instructora sepa qué tener en cuenta al dar la clase —no un historial clínico médico. No diagnostica ni prescribe: es una nota operativa, visible solo para quien debe verla.',
+    guia: { href: '/seguridad', label: 'Quién puede ver qué dato en Tentare' },
+  },
+  {
+    slug: 'ticketbai',
+    name: 'TicketBAI',
+    description:
+      'Sistema de control de facturación de las haciendas forales del País Vasco y Navarra, equivalente en propósito a Veri*factu pero con su propio régimen técnico y normativo. Un software que cumple Veri*factu no cumple TicketBAI automáticamente: son sistemas distintos.',
+    guia: { href: '/recursos/facturacion-electronica-verifactu', label: 'Veri*factu, TicketBAI y cuándo aplica cada uno' },
+  },
+  {
+    slug: 'comision-por-reserva-marketplace',
+    name: 'Comisión por reserva (marketplace de clases)',
+    description:
+      'Modelo en el que un software de gestión también opera un directorio público donde alumnas nuevas descubren y reservan clase en distintos estudios, a cambio de una comisión sobre cada reserva o cobro captado por esa vía. Es distinto de un software sin marketplace, que no cobra ese porcentaje pero tampoco aporta esa visibilidad.',
+    guia: { href: '/comparativa', label: 'Qué modelo usa cada software con el que se compara Tentare' },
+  },
 ];
 
 export default function GlosarioPage() {
@@ -126,7 +222,7 @@ export default function GlosarioPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/recursos', label: 'Recursos' }, { href: '/comparativa', label: 'Comparativa' }, { href: '/seguridad', label: 'Seguridad' }]} />
+      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/recursos', label: 'Recursos' }, { href: '/comparativa', label: 'Comparativa' }]} />
     </PageShell>
   );
 }

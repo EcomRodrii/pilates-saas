@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-bonsai';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs Bonsai: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-bonsai') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Bonsai',
     description: 'Precio, permanencia, Veri*factu y sustitución de instructoras — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-bonsai'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsBonsaiPage() {
       h1={<>Tentare frente a Bonsai.</>}
       intro={<>Bonsai es un software español, con sede en Valencia, pensado también para estudios de yoga y pilates. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia principal hoy está en Veri*factu y en la sustitución de instructoras.</>}
       rows={ROWS}
+      veredicto={<>El plan gratuito de Bonsai puede compensar si tu estudio mueve poco volumen y no te importa el 3% extra en cada cobro con tarjeta. En cuanto factura de verdad, o necesitas cubrir una sustitución de instructora sin hacer tú misma las llamadas, la diferencia empieza a notarse cada mes.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de Bonsai a mediados de 2026 (mybonsai.app). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Bonsai es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

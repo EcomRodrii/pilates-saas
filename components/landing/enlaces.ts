@@ -71,6 +71,10 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
       { href: '/funcionalidades/cobros-recurrentes', label: 'Cobros' },
       { href: '/funcionalidades/facturacion', label: 'Facturación' },
+      // Solo 4 de las 15 caben sin que la columna se desborde — el resto se
+      // alcanza en un clic desde aquí. Antes esta columna era el único techo
+      // de las 11 restantes desde el pie global (docs/SEO-AI-MASTERPLAN.md §19).
+      { href: '/funcionalidades', label: 'Ver las 15 →' },
     ],
   },
   {

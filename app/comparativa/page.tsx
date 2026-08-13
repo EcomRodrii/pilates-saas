@@ -7,26 +7,33 @@ import { SiteFooter } from '@/components/recursos/SiteFooter';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
-  description: 'Compara Tentare con el software de gestión tradicional para estudios de Pilates en España: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
-  alternates: { canonical: urlDe('/comparativa') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
-    title: 'Comparativa: Tentare vs bsport, Mindbody y Eversports',
+    title: pagina.titulo,
     description: 'Las diferencias que se notan cada día y cada fin de mes en un estudio de Pilates en España.',
-    url: urlDe('/comparativa'),
+    url: urlDe(PATH),
   },
 };
 
+// Mismo orden que las columnas de la tabla ROWS de abajo (bsport, momence,
+// eversports, mindbody, timp, lorari, bonsai) — si se reordena aquí, hay que
+// reordenar las celdas del <tbody> también, o la cabecera deja de casar con
+// los datos.
 const COMPETITORS = [
-  { slug: 'tentare-vs-mindbody', name: 'Mindbody' },
   { slug: 'tentare-vs-bsport', name: 'bsport' },
   { slug: 'tentare-vs-momence', name: 'Momence' },
-  { slug: 'tentare-vs-timp', name: 'TIMP' },
   { slug: 'tentare-vs-eversports', name: 'Eversports' },
+  { slug: 'tentare-vs-mindbody', name: 'Mindbody' },
+  { slug: 'tentare-vs-timp', name: 'TIMP' },
   { slug: 'tentare-vs-lorari', name: 'Lorari' },
   { slug: 'tentare-vs-bonsai', name: 'Bonsai' },
 ];
@@ -39,14 +46,89 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
   return <><span style={{ color, fontWeight: 800 }}>{symbol}</span> {label}</>;
 }
 
-const ROWS: { feature: string; tentare: [Verdict, string]; bsport: [Verdict, string]; mindbody: [Verdict, string]; eversports: [Verdict, string] }[] = [
-  { feature: 'Facturación España (Veri*factu) nativa', tentare: ['yes', 'Nativo'], bsport: ['no', 'Vía ERP externo'], mindbody: ['no', 'No'], eversports: ['partial', 'Add-on de pago'] },
-  { feature: 'Precios públicos', tentare: ['yes', 'Desde 29€'], bsport: ['no', 'A demanda'], mindbody: ['no', 'A demanda'], eversports: ['yes', 'Público'] },
-  { feature: 'Sin permanencia', tentare: ['yes', 'Sí'], bsport: ['no', 'Contrato anual'], mindbody: ['no', '12-24 meses'], eversports: ['no', 'Anual'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí'], bsport: ['yes', 'Sí'], mindbody: ['no', 'EE. UU.'], eversports: ['yes', 'Sí'] },
-  { feature: 'Sin comisión por captar clientas', tentare: ['yes', 'Sin marketplace'], bsport: ['yes', 'Sin marketplace'], mindbody: ['no', '~20%'], eversports: ['no', '~25%'] },
-  { feature: 'Sustitución de instructoras integrada', tentare: ['yes', 'Con niveles de autonomía'], bsport: ['yes', 'Herramientas'], mindbody: ['partial', 'Limitado'], eversports: ['partial', 'Limitado'] },
-  { feature: 'Aviso de dependencia de una instructora', tentare: ['yes', 'Riesgo de plantón'], bsport: ['no', 'No'], mindbody: ['no', 'No'], eversports: ['no', 'No'] },
+// Los 7 valores por competidor de cada fila son los MISMOS que ya están
+// verificados y publicados en su propia página /comparativa/tentare-vs-<x> —
+// no se ha inventado ningún dato nuevo aquí, solo se reutiliza lo que ya
+// existía repartido en 7 páginas distintas para que esta tabla resumen no
+// mienta por omisión (antes solo comparaba contra 3 de los 7 competidores
+// enlazados debajo — ver docs/SEO-AI-MASTERPLAN.md §8 y §28).
+const ROWS: {
+  feature: string;
+  tentare: [Verdict, string];
+  bsport: [Verdict, string];
+  momence: [Verdict, string];
+  eversports: [Verdict, string];
+  mindbody: [Verdict, string];
+  timp: [Verdict, string];
+  lorari: [Verdict, string];
+  bonsai: [Verdict, string];
+}[] = [
+  {
+    feature: 'Facturación España (Veri*factu) nativa',
+    tentare: ['yes', 'Nativo'],
+    bsport: ['no', 'Vía ERP externo'],
+    momence: ['no', 'No'],
+    eversports: ['partial', 'Add-on de pago'],
+    mindbody: ['no', 'No'],
+    timp: ['yes', 'Nativo, con TicketBAI'],
+    lorari: ['no', 'Sin mención pública'],
+    bonsai: ['no', 'Sin mención pública'],
+  },
+  {
+    feature: 'Precio público en la web',
+    tentare: ['yes', 'Desde 29€/mes'],
+    bsport: ['no', 'A demanda'],
+    momence: ['yes', 'Gratis / 60$ / 199$ por mes'],
+    eversports: ['yes', 'Público'],
+    mindbody: ['no', 'A demanda'],
+    timp: ['yes', 'Desde 50€/mes'],
+    lorari: ['yes', 'Desde 12€/mes'],
+    bonsai: ['yes', 'Gratis (3% comisión) o desde 29€/mes'],
+  },
+  {
+    feature: 'Sin permanencia',
+    tentare: ['yes', 'Sí'],
+    bsport: ['no', 'Contrato anual'],
+    momence: ['partial', 'No lo especifica en público'],
+    eversports: ['no', 'Contrato anual'],
+    mindbody: ['no', '12-24 meses'],
+    timp: ['partial', 'Preaviso de 15 días'],
+    lorari: ['partial', 'No lo especifica'],
+    bonsai: ['yes', 'Sí'],
+  },
+  {
+    feature: 'Datos alojados en la UE',
+    tentare: ['yes', 'Sí'],
+    bsport: ['yes', 'Sí'],
+    momence: ['partial', 'No especifica dónde'],
+    eversports: ['yes', 'Sí'],
+    mindbody: ['no', 'Estados Unidos'],
+    timp: ['partial', 'No especifica el país'],
+    lorari: ['partial', 'No especifica el país'],
+    bonsai: ['yes', 'Lo declaran en su web'],
+  },
+  {
+    feature: 'Sin comisión por captar clientas',
+    tentare: ['yes', 'Sin marketplace'],
+    bsport: ['yes', 'Sin marketplace'],
+    momence: ['partial', 'Solo con el plan más caro'],
+    eversports: ['no', '~25% por venta'],
+    mindbody: ['no', '~20% por venta'],
+    timp: ['no', 'Vía TIMPY, con comisión'],
+    lorari: ['yes', 'Sin marketplace'],
+    bonsai: ['yes', 'Sin marketplace'],
+  },
+  {
+    feature: 'Sustitución de instructoras integrada',
+    tentare: ['yes', 'Con niveles de autonomía'],
+    bsport: ['yes', 'Herramientas de sustitución'],
+    momence: ['yes', 'Notificación automática por SMS'],
+    eversports: ['partial', 'Limitado'],
+    mindbody: ['partial', 'Limitado'],
+    timp: ['no', 'Sin evidencia pública'],
+    lorari: ['no', 'No encontrada'],
+    bonsai: ['no', 'No encontrada'],
+  },
 ];
 
 export default function ComparativaPage() {
@@ -60,7 +142,7 @@ export default function ComparativaPage() {
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Comparativa</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a bsport, Mindbody y Eversports.</h1>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 7 software con los que más se compara.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>No somos mejores en todo — y te lo contamos abajo, sin rodeos. Pero para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, hay diferencias que se notan cada día y cada fin de mes.</p>
         </div>
       </header>
@@ -73,14 +155,14 @@ export default function ComparativaPage() {
               <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
             </div>
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-              <table style={{ width: '100%', minWidth: 760, borderCollapse: 'separate', borderSpacing: 0 }}>
+              <table style={{ width: '100%', minWidth: 1360, borderCollapse: 'separate', borderSpacing: 0 }}>
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: '18px 20px', fontSize: 11, fontWeight: 600, color: '#8E8E86', textTransform: 'uppercase', letterSpacing: '.06em', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0', minWidth: 210 }}>Para tu estudio</th>
                     <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 13, fontWeight: 800, color: '#fff', background: ACC, borderBottom: `1px solid ${ACC}` }}>Tentare</th>
-                    <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 12.5, fontWeight: 700, color: '#5A5A52', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>bsport</th>
-                    <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 12.5, fontWeight: 700, color: '#5A5A52', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>Mindbody</th>
-                    <th style={{ textAlign: 'left', padding: '18px 16px', fontSize: 12.5, fontWeight: 700, color: '#5A5A52', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>Eversports</th>
+                    {COMPETITORS.map((c) => (
+                      <th key={c.slug} style={{ textAlign: 'left', padding: '18px 16px', fontSize: 12.5, fontWeight: 700, color: '#5A5A52', background: '#F5F5F1', borderBottom: '1px solid #E7E7E0' }}>{c.name}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -89,15 +171,19 @@ export default function ComparativaPage() {
                       <td style={{ padding: '15px 20px', fontSize: 14, fontWeight: 600, borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}>{r.feature}</td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#1A1A1A', background: '#F7F8F1', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.tentare[0]} label={r.tentare[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bsport[0]} label={r.bsport[1]} /></td>
-                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.mindbody[0]} label={r.mindbody[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.momence[0]} label={r.momence[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.eversports[0]} label={r.eversports[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.mindbody[0]} label={r.mindbody[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.timp[0]} label={r.timp[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.lorari[0]} label={r.lorari[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bonsai[0]} label={r.bonsai[1]} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Mindbody y Eversports son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari y Bonsai son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
         </div>
       </section>
 
@@ -143,7 +229,7 @@ export default function ComparativaPage() {
         </div>
       </section>
 
-      <SiteFooter links={[{ href: '/seguridad', label: 'Seguridad' }, { href: '/recursos', label: 'Recursos' }, { href: '/glosario', label: 'Glosario' }]} />
+      <SiteFooter links={[{ href: '/funcionalidades', label: 'Funcionalidades' }, { href: '/precios', label: 'Precios' }, { href: '/recursos', label: 'Recursos' }, { href: '/seguridad', label: 'Seguridad' }]} />
 
       <style>{`
         .cmp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }

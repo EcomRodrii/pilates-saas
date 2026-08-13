@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-lorari';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs Lorari: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-lorari') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Lorari',
     description: 'Precio, permanencia, Veri*factu y sustitución de instructoras — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-lorari'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsLorariPage() {
       h1={<>Tentare frente a Lorari.</>}
       intro={<>Lorari es un software de reservas más ligero y con un plan de entrada más barato. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia real está en lo que cada uno cubre por debajo: fiscalidad, sustituciones y dónde viven tus datos.</>}
       rows={ROWS}
+      veredicto={<>Si tu estudio es muy pequeño y solo necesita reservas y bonos sin más, el plan de entrada de Lorari es más barato que el nuestro. En cuanto entra en juego la parte fiscal española o necesitas cubrir la baja de una instructora sin hacer tú misma las llamadas, Tentare cubre algo que Lorari no muestra tener en público.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de Lorari a mediados de 2026 (lorari.com/pricing). Lorari no publica de forma explícita su política de permanencia ni dónde aloja los datos — lo marcamos como no confirmado en vez de asumirlo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Lorari es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
