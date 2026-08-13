@@ -217,12 +217,19 @@ jobs:
 
       # La versión de Playwright fija la del navegador: si no cambia el
       # package-lock, el binario cacheado sirve tal cual.
-      - name: Restaurar navegador de Playwright
+      #
+      # ⚠️ La clave lleva TAMBIÉN qué navegadores se instalan, y no es adorno:
+      # sin ese sufijo, añadir WebKit acertaba con la caché vieja —que solo
+      # tenía Chromium—, el paso de instalar se saltaba por su `if`, y los tests
+      # de WebKit morían con «Executable doesn't exist at .../webkit-2311».
+      # No es un fallo de test y se lee como si lo fuera. Si algún día se añade
+      # otro navegador, hay que tocar este sufijo además del comando de abajo.
+      - name: Restaurar navegadores de Playwright
         id: cache-playwright
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-chromium-webkit
 
       # WebKit además de Chromium: el proyecto `webkit-publico` de
       # playwright.config.ts pasa las pantallas PÚBLICAS por Safari. El binario
