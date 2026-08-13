@@ -1,4 +1,5 @@
 import { getStudioSeo } from '@/lib/studio-seo';
+import { urlMonograma } from '@/lib/monograma-estudio';
 
 // Manifest PWA POR ESTUDIO: la "app de marca" instalada debe llamarse como el
 // estudio y llevar su color y su logo — no "Mi Estudio Pilates" con el tema de
@@ -22,14 +23,29 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
       background_color: '#F8F9FA',
       theme_color: studio?.colorPrimario ?? '#131313',
       orientation: 'portrait',
-      icons: [
-        // El logo del estudio primero (si lo tiene); los iconos 192/512 de la
-        // plataforma se mantienen como fallback para cumplir los requisitos de
-        // instalación de PWA (tamaños declarados conocidos).
-        ...(studio?.logoUrl ? [{ src: studio.logoUrl, sizes: 'any' }] : []),
-        { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
-      ],
+      icons: studio?.logoUrl
+        ? [
+            { src: studio.logoUrl, sizes: 'any' },
+            // El logo cubre el requisito de instalación por sí solo, pero se
+            // añaden igual los dos tamaños declarados por si el logo no es
+            // cuadrado — algunos instaladores de Android lo descartan sin un
+            // 192/512 exacto entre las opciones.
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          ]
+        : [
+            // Sin logo, antes esto caía al icono de TENTARE — la app
+            // instalada de un estudio de Pilates llevaba la marca de otro
+            // negocio en la pantalla de inicio de su alumna. La inicial de su
+            // nombre sobre su propio color de marca es su icono, no un
+            // préstamo.
+            // `nombre` (ya con el fallback 'Mi estudio' aplicado) y no
+            // `studio?.nombre`: sin esto, un estudio no encontrado enseñaba
+            // «Mi estudio» como nombre de la app y un «?» como icono —
+            // inconsistentes entre sí porque cada uno leía una fuente distinta.
+            { src: urlMonograma(nombre, studio?.colorPrimario, 192), sizes: '192x192', type: 'image/png' },
+            { src: urlMonograma(nombre, studio?.colorPrimario, 512), sizes: '512x512', type: 'image/png' },
+          ],
     },
     { headers: { 'Content-Type': 'application/manifest+json', 'Cache-Control': 'public, max-age=3600' } },
   );
