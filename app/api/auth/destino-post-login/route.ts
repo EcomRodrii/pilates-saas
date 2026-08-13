@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verificarSesionStaff } from '@/lib/auth-server';
+import { verificarSesionStaff, verificarUsuarioSupabase } from '@/lib/auth-server';
+import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { resolverDestinoPostLogin } from '@/lib/network/routing-post-login';
 
 // Único punto de decisión de "a dónde mando a esta cuenta tras iniciar
 // sesión" — docs/NETWORK-AUDIT-2.md §2/§11. Antes esto no existía: cada
@@ -11,12 +13,27 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 // verificarSesionStaff ya es la respuesta correcta a "¿esta auth_user_id
 // tiene un estudio de verdad?" (instructores O studios.owner_auth_user_id,
 // lib/auth-server.ts) — no se reimplementa esa consulta aquí, solo se usa su
-// resultado. Sin studio real, la única pantalla que le pertenece a esta
-// cuenta es su perfil de Network: no hace falta distinguir "ya tiene fila en
-// red_perfiles" de "todavía no" porque /network/mi-perfil ya sabe pintar un
-// formulario vacío cuando no existe (fetchMiPerfilNetwork devuelve null).
+// resultado.
+//
+// Rediseño 2026-08 (Fase 4): con estudio real → /dashboard, sin cambios.
+// Sin estudio, la rama binaria de antes ("todo lo demás a mi-perfil") ya no
+// basta — mi-perfil dejó de ser el sitio del alta (PR de onboarding) y
+// ahora distingue tres casos reales: sin perfil o con el onboarding a
+// medias → /network/reanudar ("Hola de nuevo", 2f del brief, NUNCA el
+// dashboard de propietaria); perfil ya publicado → /network/mi-perfil (el
+// panel). El propio /network/reanudar usa el mismo cálculo de "paso
+// incompleto" (lib/network/pasos-onboarding.ts) que el wizard usa al
+// abrirse solo, así que las dos pantallas nunca pueden discrepar en qué
+// paso toca.
 export async function GET(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
-  const destino = sesion ? '/dashboard' : '/network/mi-perfil';
-  return NextResponse.json({ destino });
+  if (sesion) return NextResponse.json({ destino: resolverDestinoPostLogin(true, null) });
+
+  const usuario = await verificarUsuarioSupabase(req);
+  const admin = usuario ? getSupabaseAdmin() : null;
+  const { data: perfil } = admin
+    ? await admin.from('red_perfiles').select('estado').eq('auth_user_id', usuario!.userId).maybeSingle()
+    : { data: null };
+
+  return NextResponse.json({ destino: resolverDestinoPostLogin(false, perfil?.estado ?? null) });
 }

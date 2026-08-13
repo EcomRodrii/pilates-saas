@@ -45,22 +45,8 @@ import {
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
 } from '@/lib/network/catalogo';
 import type { PerfilNetwork, PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
+import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
 import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_ESTADO } from '@/components/network-v2/tokens';
-
-const PASOS = [
-  { n: 1, titulo: 'Tu cuenta' },
-  { n: 2, titulo: 'Verifica tu identidad' },
-  { n: 3, titulo: 'Dónde estás' },
-  { n: 4, titulo: 'Tu experiencia' },
-  { n: 5, titulo: 'Especialidades' },
-  { n: 6, titulo: 'Formación' },
-  { n: 7, titulo: 'Cómo quieres trabajar' },
-  { n: 8, titulo: 'Disponibilidad' },
-  { n: 9, titulo: 'Tarifa' },
-  { n: 10, titulo: 'Tu perfil' },
-  { n: 11, titulo: 'Revisar' },
-  { n: 12, titulo: 'Publicar' },
-] as const;
 
 const inputCls = 'w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none';
 const inputStyle = { border: `1px solid ${NW_BORDE}`, color: NW_TINTA };
@@ -174,10 +160,7 @@ export default function CrearPerfilNetworkPage() {
   useEffect(() => {
     if (cargando || pasoInicialElegido || !user) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (perfil?.estado === 'published') { setPaso(PASOS.length - 1); setPasoInicialElegido(true); return; }
-    if (!perfil) { setPaso(0); setPasoInicialElegido(true); return; }
-    const idx = !perfil.ciudad ? 2 : perfil.especialidades.length === 0 ? 4 : PASOS.length - 3;
-    setPaso(idx);
+    setPaso(pasoIncompletoDe(perfil));
     setPasoInicialElegido(true);
   }, [cargando, pasoInicialElegido, user, perfil]);
 
