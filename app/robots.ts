@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { BASE_URL, PREFIJOS_NO_INDEXABLES } from '@/lib/seo/paginas';
+import { BASE_URL, PREFIJOS_NO_INDEXABLES, EXCEPCIONES_INDEXABLES } from '@/lib/seo/paginas';
 
 // La lista de `disallow` sale del registro (PREFIJOS_NO_INDEXABLES), no de una
 // copia a mano.
@@ -16,7 +16,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
-      allow: '/',
+      // El orden importa poco para Google (gana la regla más específica,
+      // no la última), pero para crawlers menos estrictos si — `allow` va
+      // DESPUÉS del `disallow` que lo contiene, mismo criterio que
+      // esNoIndexable() en lib/seo/paginas.ts.
+      allow: ['/', ...EXCEPCIONES_INDEXABLES],
       disallow: [...PREFIJOS_NO_INDEXABLES],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,

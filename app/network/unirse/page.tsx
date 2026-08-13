@@ -12,6 +12,7 @@
 // automáticamente a partir de la metadata del signup.
 import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -69,9 +70,20 @@ export default function UnirseNetworkPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center mb-8">
+      <div className="flex flex-col items-center mb-6">
         <LogoTentare formato="vertical" producto="network" titulo="Tentare Network" alto={92} />
-        <p className="text-[14px] text-[#8E8E86] mt-2">La red profesional de instructoras de Pilates</p>
+        <p className="text-[14px] text-[#8E8E86] mt-2 text-center max-w-xs">
+          Encuentra instructoras de Pilates para tu estudio. Descubre oportunidades y conecta con estudios.
+        </p>
+      </div>
+
+      <div className="text-center mb-8">
+        <Link
+          href="/network/instructoras"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#E7E7E0] bg-white text-[13px] font-medium text-[#3A3A34] hover:bg-[#F1F2EA] transition-colors"
+        >
+          ¿Eres un estudio? Busca instructoras →
+        </Link>
       </div>
 
       <div className="bg-white rounded-2xl p-6 max-w-sm mx-auto" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
