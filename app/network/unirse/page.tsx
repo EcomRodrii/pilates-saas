@@ -13,9 +13,36 @@
 import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { UserCircle2, Search, MessageCircle, ShieldCheck, Mail, BadgeCheck, Clock3 } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+
+const DISCO_NETWORK = '#4F8A5B';
+
+const PASOS = [
+  {
+    icon: UserCircle2,
+    titulo: 'Creas tu perfil',
+    texto: 'Especialidad (reformer, mat, máquina, yoga, HIIT), años de experiencia, disponibilidad y tarifa orientativa.',
+  },
+  {
+    icon: Search,
+    titulo: 'Los estudios te encuentran',
+    texto: 'Buscan por ciudad, especialidad y disponibilidad. No mandas candidaturas a ciegas: te ven cuando encajas.',
+  },
+  {
+    icon: MessageCircle,
+    titulo: 'Te contactan y decides tú',
+    texto: 'Tu email y teléfono se quedan privados hasta que aceptas la solicitud. Nadie te escribe sin tu permiso.',
+  },
+] as const;
+
+const CONFIANZA = [
+  { icon: Mail, texto: 'Email verificado' },
+  { icon: BadgeCheck, texto: 'Experiencia confirmada por el estudio donde trabajaste' },
+  { icon: Clock3, texto: 'Actividad reciente, para que se note si sigues buscando' },
+] as const;
 
 export default function UnirseNetworkPage() {
   const uid = useId();
@@ -70,14 +97,20 @@ export default function UnirseNetworkPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center mb-6">
+      <div className="flex flex-col items-center text-center mb-6">
         <LogoTentare formato="vertical" producto="network" titulo="Tentare Network" alto={92} />
-        <p className="text-[14px] text-[#8E8E86] mt-2 text-center max-w-xs">
-          Encuentra instructoras de Pilates para tu estudio. Descubre oportunidades y conecta con estudios.
+        <p className="text-[14px] text-[#8E8E86] mt-2 max-w-sm">
+          Un perfil profesional para instructoras y profesores de Pilates. Gratis, sin comisión: publicas tu
+          disponibilidad, los estudios te encuentran y te contactan directamente.
         </p>
+        <a href="#registro"
+          className="mt-5 inline-block px-6 py-2.5 rounded-full text-[13px] font-bold text-white transition-all hover:brightness-110"
+          style={{ background: 'var(--brand)', color: 'var(--brand-foreground)' }}>
+          Crear mi perfil gratis
+        </a>
       </div>
 
-      <div className="text-center mb-8">
+      <div className="text-center mb-10">
         <Link
           href="/network/instructoras"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#E7E7E0] bg-white text-[13px] font-medium text-[#3A3A34] hover:bg-[#F1F2EA] transition-colors"
@@ -86,7 +119,39 @@ export default function UnirseNetworkPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-2xl p-6 max-w-sm mx-auto" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
+      <div className="max-w-sm mx-auto mb-10">
+        <h2 className="text-[13px] font-semibold text-[#8E8E86] uppercase tracking-wide mb-4 text-center">Cómo funciona</h2>
+        <ol className="space-y-4">
+          {PASOS.map((paso, i) => (
+            <li key={paso.titulo} className="bg-white rounded-2xl p-4 flex gap-3" style={{ border: '1px solid #E7E7E0' }}>
+              <div className="shrink-0 size-9 rounded-full flex items-center justify-center" style={{ background: `color-mix(in srgb, ${DISCO_NETWORK} 14%, white)` }}>
+                <paso.icon size={17} style={{ color: DISCO_NETWORK }} />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-[#1A1A1A]">{i + 1}. {paso.titulo}</p>
+                <p className="text-[12.5px] text-[#8E8E86] mt-0.5">{paso.texto}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="max-w-sm mx-auto mb-10 bg-white rounded-2xl p-5" style={{ border: '1px solid #E7E7E0' }}>
+        <div className="flex items-center gap-2 mb-3">
+          <ShieldCheck size={16} style={{ color: DISCO_NETWORK }} />
+          <h2 className="text-[13px] font-semibold text-[#1A1A1A]">Confianza, no solo un perfil bonito</h2>
+        </div>
+        <ul className="space-y-2">
+          {CONFIANZA.map(item => (
+            <li key={item.texto} className="flex items-center gap-2.5 text-[12.5px] text-[#5A5A52]">
+              <item.icon size={14} className="shrink-0 text-[#A8A89F]" />
+              {item.texto}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div id="registro" className="bg-white rounded-2xl p-6 max-w-sm mx-auto scroll-mt-6" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
         <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1">Regístrate gratis</h2>
         <p className="text-[13px] text-[#8E8E86] mb-5">
           Publica tu disponibilidad y experiencia. Los estudios te encuentran y te contactan — tú decides con quién hablar.
