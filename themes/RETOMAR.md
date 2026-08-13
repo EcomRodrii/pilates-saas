@@ -149,6 +149,19 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
+   ~~La fecha.~~ **PUESTA Y COMPROBADA**: `FECHA_SALIDA_PORTAL_REACT` en
+   `lib/portal-tema/caducidad.ts` (**2026-10-15**), con un test que pone la
+   suite roja ese día y dice qué borrar. El flag ya existía —
+   `studios.portal_react`, migr `20260807120000` — y su comentario decía
+   literalmente «ESTA COLUMNA TIENE FECHA DE CADUCIDAD»... **sin ninguna
+   fecha**, igual que `portal-shell.tsx` avisaba de «no dejar que eche raíces»
+   sin decir hasta cuándo. Las dos eran intención, no plazo: nada fallaba
+   nunca por incumplirlas.
+   **El piloto sigue sin empezar**: 0 de 13 estudios con la bandera encendida
+   (comprobado en prod el 2026-08-13). Encenderla en un estudio real cambia lo
+   que ven sus socias, así que es decisión de producto — y antes conviene
+   cerrar el selector de plaza del punto 5, que hoy deja la pantalla de Clases
+   fuera del kit en los estudios de reformer.
 7. ~~**Conectar las acciones de red.**~~ **HECHO lo que había que hacer, y las
    dos que quedan NO deben conectarse.** Revisado el 2026-08-13:
    - `reserve` → `alReservar` → `addReserva`, esperando la respuesta entera del
