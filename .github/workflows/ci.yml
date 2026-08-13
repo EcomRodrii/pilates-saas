@@ -224,9 +224,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Instalar navegador de Playwright
+      # WebKit además de Chromium: el proyecto `webkit-publico` de
+      # playwright.config.ts pasa las pantallas PÚBLICAS por Safari. El binario
+      # son ~90 MB más, pero la caché va por hash de `package-lock.json`, así
+      # que solo se descarga cuando cambia la versión de Playwright — no en cada
+      # ejecución.
+      - name: Instalar navegadores de Playwright
         if: steps.cache-playwright.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: E2E (registro · reserva · pago)
         # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
