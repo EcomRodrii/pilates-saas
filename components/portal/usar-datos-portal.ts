@@ -23,7 +23,7 @@ import { useStudio } from '@/lib/studio-context';
 export function useDatosPortal(socioId: string | null) {
   const {
     studio, sesiones, reservas, tiposClase, salas, spots, instructores,
-    planesTarifa, suscripciones, socios, recibos, studioConfig, rachaSocio,
+    planesTarifa, suscripciones, socios, recibos, studioConfig, rachaSocio, homeBloques,
   } = useStudio();
 
   // Antes de `datos`: ese `useMemo` la lee al construirse, y declararla
@@ -44,6 +44,9 @@ export function useDatosPortal(socioId: string | null) {
   const datos = useMemo(() => construirDatosPortal({
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, spots, instructores,
+    // Las secciones tal como las dejó la propietaria: el kit respeta su orden
+    // y sus ocultas en vez de imponer las del tema. Ver `ordenDelInicio`.
+    bloquesInicio: homeBloques,
     planes: planesTarifa,
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? null,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
@@ -82,7 +85,7 @@ export function useDatosPortal(socioId: string | null) {
     // filtra igualmente: el panel carga los de todo el estudio por otra vía y
     // este componente no puede depender de por cuál entró.
     recibos: socioId ? recibos.filter((r) => r.socioId === socioId) : [],
-  }), [sesiones, reservas, tiposClase, salas, spots, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
+  }), [sesiones, reservas, tiposClase, salas, spots, instructores, homeBloques, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl, studio?.imagenBienvenidaUrl,
        studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,

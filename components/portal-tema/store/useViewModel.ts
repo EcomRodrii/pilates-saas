@@ -114,6 +114,7 @@ export function useViewModel() {
       // siempre era mañana. Con datos reales puede ser hoy o el sábado, así
       // que el día sale de `etiquetaDia` y "Hoy" de la fecha del estudio.
       fotos: datos.fotos,
+      bloquesInicio: datos.bloquesInicio,
       next: next && {
         id: next.id, name: next.name, teacher: next.teacher, foto: next.fotoUrl,
         time: next.time, room: next.room, duration: next.duration,

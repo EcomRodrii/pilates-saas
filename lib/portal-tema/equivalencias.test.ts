@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { BLOQUE_EDITOR_A_KIT, BLOQUE_KIT_A_EDITOR, elTemaIncluye } from './equivalencias.ts';
+import { BLOQUE_EDITOR_A_KIT, BLOQUE_KIT_A_EDITOR, elTemaIncluye, ordenDelInicio } from './equivalencias.ts';
 import { TEMAS_PORTAL, TEMAS_PORTAL_IDS } from '../../themes/registro.ts';
 
 /**
@@ -58,4 +58,56 @@ test('lo que no tiene equivalente no se inventa', () => {
     assert.equal(BLOQUE_KIT_A_EDITOR[kit], undefined, kit);
   }
   assert.equal(elTemaIncluye('invitarAmiga', TEMAS_PORTAL.tentada.home_blocks), false);
+});
+
+// ── El orden lo manda el estudio ────────────────────────────────────────────
+
+const TEMA = ['home-header', 'next-class', 'week-strip', 'studio-quote'];
+const sis = (sistemaId: string, oculto?: boolean) => ({ kind: 'sistema', sistemaId, oculto });
+
+test('sin bloques guardados manda el tema — nadie ve un cambio', () => {
+  // El caso de los 13 estudios el día que esto se despliega.
+  assert.deepEqual(ordenDelInicio(TEMA, undefined), TEMA);
+  assert.deepEqual(ordenDelInicio(TEMA, []), TEMA);
+});
+
+test('el orden guardado gana', () => {
+  const r = ordenDelInicio(TEMA, [sis('tiraSemana'), sis('cabecera'), sis('proximaClase')]);
+  assert.deepEqual(r.slice(0, 3), ['week-strip', 'home-header', 'next-class']);
+});
+
+test('un bloque oculto no se pinta, ni siquiera por la puerta de atrás', () => {
+  // ⚠️ El de atrás importa: `studio-quote` NO está en la lista guardada, así
+  // que entraría por la regla de «lo que el tema trae y no ordenó, al final».
+  // Ocultarlo tiene que ganar a eso o el ojo no sirve para nada.
+  const r = ordenDelInicio(TEMA, [sis('cabecera'), sis('contenidoEstudio', true)]);
+  assert.ok(!r.includes('studio-banner'));
+  const r2 = ordenDelInicio(TEMA, [sis('tiraSemana', true), sis('cabecera')]);
+  assert.ok(!r2.includes('week-strip'), 'oculto y además guardado');
+});
+
+test('lo que el tema trae y el estudio nunca ordenó va al FINAL, no se pierde', () => {
+  // Si mañana un tema añade una sección, tiene que aparecer — no desaparecer
+  // por no estar en una lista guardada hace meses.
+  const r = ordenDelInicio(TEMA, [sis('proximaClase')]);
+  assert.equal(r[0], 'next-class');
+  assert.deepEqual(r.slice(1), ['home-header', 'week-strip', 'studio-quote']);
+});
+
+test('⚠️ lo que el kit no sabe pintar se ignora, no deja hueco', () => {
+  // Los 10 del catálogo (`texto`, `galeria`…) todavía no tienen renderizador
+  // en el kit. Colarlos pintaría un hueco vacío en el portal de la socia.
+  const r = ordenDelInicio(TEMA, [{ kind: 'texto' }, sis('cabecera'), { kind: 'galeria' }]);
+  assert.deepEqual(r, ['home-header', 'next-class', 'week-strip', 'studio-quote']);
+});
+
+test('una sección que el TEMA no compone no se cuela por estar guardada', () => {
+  // `retos` existe en el editor y en el kit, pero este tema no lo lista.
+  const r = ordenDelInicio(TEMA, [sis('retos'), sis('cabecera')]);
+  assert.ok(!r.includes('challenges'));
+});
+
+test('un id repetido no duplica la sección', () => {
+  const r = ordenDelInicio(TEMA, [sis('cabecera'), sis('cabecera')]);
+  assert.equal(r.filter((x) => x === 'home-header').length, 1);
 });

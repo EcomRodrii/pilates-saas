@@ -225,6 +225,12 @@ export interface DatosPortal {
    */
   fotos: { portada: string; vertical: string };
   /**
+   * Las secciones del Inicio tal como las dejó la PROPIETARIA (orden y
+   * ocultas), para que el kit las respete en vez de imponer las del tema.
+   * Ausente o vacío = manda el tema. Ver `ordenDelInicio`.
+   */
+  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean }[];
+  /**
    * El instante desde el que se calcula todo lo que depende de «ahora», en ISO.
    *
    * ⚠️ Va como dato y no se llama a `new Date()` en los componentes a
