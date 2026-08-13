@@ -348,8 +348,8 @@ export const PAGINAS: PaginaSeo[] = [
   // publicado. El perfil individual (/network/instructoras/[slug]) y las
   // variantes por ciudad (/network/instructoras/ciudad/[ciudad](/[especialidad]))
   // son dinámicos — no se registran aquí (rutasEstaticas() ya los excluye,
-  // mismo criterio que /portal/[slug]) — pero SÍ son indexables: ningún
-  // prefijo de PREFIJOS_NO_INDEXABLES los cubre.
+  // mismo criterio que /portal/[slug]) — pero SÍ son indexables: la excepción
+  // vive en EXCEPCIONES_INDEXABLES, no aquí.
   {
     path: '/network/instructoras',
     titulo: 'Instructoras de Pilates | Tentare Network',
@@ -573,25 +573,32 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
 
   // Tentare Network — autoservicio de la instructora y buscador privado de
-  // la propietaria. A diferencia del resto de este bloque, NO se cubren con
-  // el prefijo genérico `/network` (rediseño 2026-08): `/network` en sí y
-  // `/network/instructoras` son ahora la landing y el marketplace PÚBLICOS,
-  // así que el bloqueo tiene que nombrar cada ruta privada una por una.
-  '/network/mi-perfil', '/network/unirse', '/network/solicitudes', '/network/mis-mensajes',
-  '/network/acceso', '/network/crear-perfil', '/network/reanudar',
-  // Panel de la propietaria (dentro del route-group (dashboard), pero la URL
-  // sigue siendo /network/*, mismo caso que el resto de esta lista).
-  '/network/buscar', '/network/favoritas', '/network/mensajes',
+  // la propietaria. `/network/` CON BARRA FINAL, no una lista de rutas
+  // nombradas a mano: el rediseño 2026-08 intentó nombrar cada ruta privada
+  // una por una y se dejó fuera `app/(dashboard)/network/[perfilId]` (la
+  // vista privada de una candidata) porque es un segmento DINÁMICO — el
+  // recorrido de rutas de paginas.test.ts excluye a propósito los `[...]`,
+  // así que ese hueco no lo caza ningún test. Con la barra al final, este
+  // prefijo cubre CUALQUIER hijo de /network (estático o dinámico, presente
+  // o futuro) sin depender de acordarse de añadirlo aquí — y el landing
+  // público en sí (`/network`, sin hijo) nunca coincide con él porque no
+  // termina en barra. `/network/instructoras` y sus variantes dinámicas
+  // (`[slug]`, `ciudad/[ciudad](/[especialidad])`) se abren de vuelta como
+  // excepción explícita en EXCEPCIONES_INDEXABLES, mismo mecanismo que ya
+  // usaba este registro antes del rediseño.
+  '/network/',
 ] as const;
 
 /**
- * Reservado para futuras excepciones DENTRO de un prefijo bloqueado (mismo
- * mecanismo que ya usa esNoIndexable). Vacío desde el rediseño 2026-08:
- * `/network` y `/network/instructoras` ya no están bajo ningún prefijo de
- * bloqueo, así que no necesitan excepción — se quita el mecanismo cuando
- * deje de tener ningún consumidor real, no antes.
+ * Excepciones DENTRO de un prefijo bloqueado: `/network/` está bloqueado
+ * entero (ver el comentario en PREFIJOS_NO_INDEXABLES), pero el marketplace
+ * público (`/network/instructoras` y sus hijos dinámicos) sí debe indexarse.
+ * Se resuelve como excepción explícita y no quitando `/network/instructoras`
+ * de PREFIJOS_NO_INDEXABLES: la lista de bloqueo sigue reflejando "todo lo
+ * privado de Network" tal cual, y aquí queda documentado qué se abrió y por
+ * qué — mismo criterio que ya usaba este mecanismo antes del rediseño.
  */
-export const EXCEPCIONES_INDEXABLES: readonly string[] = [];
+export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras'];
 
 /** ¿Esta ruta cae bajo un prefijo bloqueado? Prefijo de cadena, como robots.txt. */
 export function esNoIndexable(path: string): boolean {

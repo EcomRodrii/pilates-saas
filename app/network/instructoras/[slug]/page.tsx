@@ -232,7 +232,10 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               <div className="mt-4">
                 <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
               </div>
-              <p className="mt-3 text-[12.5px]" style={{ color: NW_MUTED_2 }}>Responde normalmente en ~2 h</p>
+              {/* Sin cifra de tiempo de respuesta: no se mide en ningún
+                  sitio (mismo criterio que resumenResenas — nunca una señal
+                  fabricada), así que aquí no va nada hasta que exista el
+                  dato real. */}
               <div className="mt-5 pt-5 space-y-2 text-[13px]" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
                 {perfil.ciudad && <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Zona</span><span className="font-semibold">{perfil.ciudad}</span></div>}
                 <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Disponibilidad</span><span className="font-semibold">{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</span></div>
@@ -256,7 +259,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
           <div className="min-w-0">
             <p className="text-[13px] font-extrabold truncate" style={{ color: NW_TINTA }}>Contactar con {perfil.nombre.split(' ')[0]}</p>
             <p className="text-[11px]" style={{ color: NW_MUTED_2 }}>
-              {perfil.tarifaRango ? `Desde ${TARIFA_RANGO_LABEL[perfil.tarifaRango]}` : 'Tarifa a consultar'} · responde en ~2 h
+              {perfil.tarifaRango ? `Desde ${TARIFA_RANGO_LABEL[perfil.tarifaRango]}` : 'Tarifa a consultar'}
             </p>
           </div>
           <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
