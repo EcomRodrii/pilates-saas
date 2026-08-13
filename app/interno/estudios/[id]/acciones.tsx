@@ -28,7 +28,7 @@ export function AccionesEstudio({ id, plan, suspendido, motivo }: {
   const [motivoNuevo, setMotivoNuevo] = useState('');
   const [suspendiendo, setSuspendiendo] = useState(false);
 
-  // Meri no tiene studios.update: para ella esto no se pinta siquiera.
+  // Quien no tenga studios.update no ve esto siquiera.
   if (!tienePermiso(sesion.permisos, 'studios.update')) return null;
 
   async function ejecutar(cuerpo: Record<string, unknown>, exito?: string) {

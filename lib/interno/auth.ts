@@ -63,7 +63,7 @@ export async function verificarAdminInterno(req: NextRequest): Promise<AdminInte
 //   g.admin.nombre …
 //
 // Se distingue 401 (no eres del equipo) de 403 (eres, pero esto no te toca) a
-// propósito: al depurar por qué Meri no ve algo, el código de estado ya lo dice.
+// propósito: al depurar por qué alguien no ve algo, el código de estado ya lo dice.
 export async function exigirPermiso(
   req: NextRequest, permiso: Permiso,
 ): Promise<{ admin: AdminInterno } | { error: NextResponse }> {
