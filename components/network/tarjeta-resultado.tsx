@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Check } from 'lucide-react';
+import { MapPin, Check, Star } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ESPECIALIDAD_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL } from '@/lib/network/catalogo';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
@@ -28,6 +28,12 @@ export function TarjetaResultadoNetwork({ perfil }: { perfil: PerfilNetworkPubli
             style={{ backgroundColor: PUNTO_DISPONIBILIDAD[perfil.disponibilidadEstado] }}
             title={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}
           />
+          {perfil.resumenResenas.total > 0 && (
+            <span className="flex items-center gap-0.5 text-[11px] font-medium text-foreground shrink-0">
+              <Star size={10} className="text-amber-500" fill="currentColor" />
+              {perfil.resumenResenas.promedio}
+            </span>
+          )}
         </div>
         {perfil.ciudad && (
           <p className="text-[12px] text-muted-foreground flex items-center gap-1 mt-0.5">

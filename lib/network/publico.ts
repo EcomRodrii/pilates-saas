@@ -24,7 +24,17 @@ import {
 import {
   esEspecialidadValida, esHorarioValido, esTipoTrabajoValido, esDisponibilidadEstadoValido,
 } from './catalogo.ts';
-import type { FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork } from './tipos.ts';
+import type {
+  FiltroBusquedaNetwork, PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork,
+  ResumenResenas, ResenaNetwork,
+} from './tipos.ts';
+
+/** Media a 1 decimal; `null` sin reseñas — nunca 0 estrellas fabricadas. */
+function resumenDesdePuntuaciones(puntuaciones: number[]): ResumenResenas {
+  if (puntuaciones.length === 0) return { promedio: null, total: 0 };
+  const suma = puntuaciones.reduce((acc, p) => acc + p, 0);
+  return { promedio: Math.round((suma / puntuaciones.length) * 10) / 10, total: puntuaciones.length };
+}
 
 const SELECT_COLUMNAS_PUBLICAS = `
   id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
@@ -89,7 +99,21 @@ export async function buscarPerfilesPublico(
     : { data: [] as { perfil_id: string }[] };
   const perfilesConExperienciaVerificada = new Set((experienciasConfirmadas ?? []).map(e => e.perfil_id as string));
 
-  const perfiles = filas.map(f => mapFilaAPerfilPublico(f, perfilesConExperienciaVerificada.has(f.id)));
+  // Reseñas en LOTE, mismo criterio que arriba: una query con `.in(perfil_id)`
+  // para todo el listado, agregada en JS (Supabase-js no hace GROUP BY).
+  const { data: resenasData } = ids.length
+    ? await admin.from('red_resenas').select('perfil_id, puntuacion').in('perfil_id', ids).eq('estado', 'publicada')
+    : { data: [] as { perfil_id: string; puntuacion: number }[] };
+  const puntuacionesPorPerfil = new Map<string, number[]>();
+  for (const r of resenasData ?? []) {
+    const lista = puntuacionesPorPerfil.get(r.perfil_id as string) ?? [];
+    lista.push(r.puntuacion as number);
+    puntuacionesPorPerfil.set(r.perfil_id as string, lista);
+  }
+
+  const perfiles = filas.map(f => mapFilaAPerfilPublico(
+    f, perfilesConExperienciaVerificada.has(f.id), resumenDesdePuntuaciones(puntuacionesPorPerfil.get(f.id) ?? []),
+  ));
   return { perfiles: ordenarResultadosNetwork(perfiles, filtro) };
 }
 
@@ -97,6 +121,7 @@ export interface DetallePerfilPublico {
   perfil: PerfilNetworkPublico;
   experiencias: ExperienciaNetworkPublica[];
   badges: BadgesNetwork;
+  resenas: ResenaNetwork[];
 }
 
 async function detallePerfilDesdeFila(
@@ -116,13 +141,24 @@ async function detallePerfilDesdeFila(
   // `auth_user_id` se pide APARTE (nunca en SELECT_COLUMNAS_PUBLICAS) solo
   // para resolver si el email de la cuenta está confirmado — un único
   // perfil, un único lookup, no el N+1 que sería hacerlo en un listado.
-  const [{ data: filaAuth }, { count: referenciasConfirmadas }] = await Promise.all([
+  const [{ data: filaAuth }, { count: referenciasConfirmadas }, { data: resenasData }] = await Promise.all([
     admin.from('red_perfiles').select('auth_user_id').eq('id', id).maybeSingle(),
     admin.from('red_referencias').select('id', { count: 'exact', head: true }).eq('perfil_id', id).eq('estado', 'confirmada'),
+    admin.from('red_resenas').select('id, puntuacion, comentario, creado_en, studios ( nombre )')
+      .eq('perfil_id', id).eq('estado', 'publicada').order('creado_en', { ascending: false }),
   ]);
   const { data: userData } = filaAuth?.auth_user_id
     ? await admin.auth.admin.getUserById(filaAuth.auth_user_id as string)
     : { data: { user: null } };
+
+  type FilaResena = { id: string; puntuacion: number; comentario: string | null; creado_en: string; studios: { nombre: string | null } | null };
+  const resenas: ResenaNetwork[] = ((resenasData ?? []) as unknown as FilaResena[]).map(r => ({
+    id: r.id,
+    puntuacion: r.puntuacion,
+    comentario: r.comentario,
+    estudioNombre: r.studios?.nombre ?? 'Un estudio',
+    creadoEn: r.creado_en,
+  }));
 
   const filaPublica = data as unknown as FilaRedPerfilPublica;
   const tieneExperienciaVerificada = experienciaVerificada(experiencias.map(e => e.estadoVerificacion));
@@ -135,9 +171,10 @@ async function detallePerfilDesdeFila(
   };
 
   return {
-    perfil: mapFilaAPerfilPublico(filaPublica, tieneExperienciaVerificada),
+    perfil: mapFilaAPerfilPublico(filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion))),
     experiencias,
     badges,
+    resenas,
   };
 }
 

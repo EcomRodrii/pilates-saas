@@ -6,10 +6,12 @@
 // hay un modelo compartido, cada pestaña pide lo suyo.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Star } from 'lucide-react';
 import {
   fetchPerfilesNetworkInterno, cambiarEstadoPerfilNetworkInterno, destacarPerfilNetworkInterno, type PerfilNetworkInterno,
   fetchVerificacionesNetworkInterno, type VerificacionNetworkInterna,
   fetchReportesNetworkInterno, resolverReporteNetworkInterno, type ReporteNetworkInterno,
+  fetchResenasNetworkInterno, moderarResenaNetworkInterno, type ResenaNetworkInterna,
 } from '@/lib/interno/client';
 
 const cuando = (iso: string) =>
@@ -294,7 +296,107 @@ function TabReportes() {
   );
 }
 
-const PESTANAS = ['Perfiles', 'Verificaciones', 'Reportes'] as const;
+function TabResenas() {
+  const [estado, setEstado] = useState('pendiente');
+  const [resenas, setResenas] = useState<ResenaNetworkInterna[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [accionandoId, setAccionandoId] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    try { setResenas((await fetchResenasNetworkInterno(estado)).resenas); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  }, [estado]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function moderar(id: string, nuevoEstado: 'publicada' | 'oculta') {
+    setAccionandoId(id);
+    try { await moderarResenaNetworkInterno(id, nuevoEstado); await cargar(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+    setAccionandoId(null);
+  }
+
+  if (error) return <p className="text-[13.5px] text-muted-foreground">{error}</p>;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <select
+        value={estado} onChange={e => setEstado(e.target.value)}
+        className="w-fit rounded-lg border border-border bg-card px-2 py-1.5 text-[12.5px] text-foreground"
+      >
+        {['pendiente', 'publicada', 'oculta'].map(v => <option key={v} value={v}>{v}</option>)}
+      </select>
+
+      {!resenas ? (
+        <p className="text-[13px] text-muted-foreground">Cargando…</p>
+      ) : resenas.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground rounded-2xl border border-border bg-card px-4 py-6 text-center">
+          Nada en este estado.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {resenas.map(r => (
+            <div key={r.id} className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star key={i} size={12} className={i < r.puntuacion ? 'text-amber-500' : 'text-muted-foreground/30'} fill="currentColor" />
+                    ))}
+                  </div>
+                  <p className="text-[13px] font-medium text-foreground mt-1">
+                    {r.perfilNombre} · reseñada por {r.estudioNombre}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">{cuando(r.creadoEn)}</p>
+                  {r.comentario && <p className="text-[12px] text-foreground mt-1">{r.comentario}</p>}
+                </div>
+                {r.estado === 'pendiente' && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      disabled={accionandoId === r.id}
+                      onClick={() => moderar(r.id, 'publicada')}
+                      className="text-[12px] text-foreground underline disabled:opacity-50"
+                    >
+                      Publicar
+                    </button>
+                    <button
+                      disabled={accionandoId === r.id}
+                      onClick={() => moderar(r.id, 'oculta')}
+                      className="text-[12px] text-destructive underline disabled:opacity-50"
+                    >
+                      Ocultar
+                    </button>
+                  </div>
+                )}
+                {r.estado === 'publicada' && (
+                  <button
+                    disabled={accionandoId === r.id}
+                    onClick={() => moderar(r.id, 'oculta')}
+                    className="text-[12px] text-destructive underline shrink-0 disabled:opacity-50"
+                  >
+                    Ocultar
+                  </button>
+                )}
+                {r.estado === 'oculta' && (
+                  <button
+                    disabled={accionandoId === r.id}
+                    onClick={() => moderar(r.id, 'publicada')}
+                    className="text-[12px] text-foreground underline shrink-0 disabled:opacity-50"
+                  >
+                    Publicar
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PESTANAS = ['Perfiles', 'Verificaciones', 'Reportes', 'Reseñas'] as const;
 
 export default function ModeracionNetworkInterna() {
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]>('Perfiles');
@@ -325,6 +427,7 @@ export default function ModeracionNetworkInterna() {
       {pestana === 'Perfiles' && <TabPerfiles />}
       {pestana === 'Verificaciones' && <TabVerificaciones />}
       {pestana === 'Reportes' && <TabReportes />}
+      {pestana === 'Reseñas' && <TabResenas />}
     </div>
   );
 }

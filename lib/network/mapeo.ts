@@ -1,7 +1,7 @@
 // Fila de Postgres (snake_case) ↔ PerfilNetwork (camelCase). Mismo patrón
 // que el resto del repo (p.ej. mapInstructorPublico en supabase-data-admin).
 import type {
-  PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica,
+  PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -106,11 +106,14 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
   };
 }
 
-export function mapFilaAPerfilPublico(f: FilaRedPerfilPublica, experienciaVerificada: boolean): PerfilNetworkPublico {
+export function mapFilaAPerfilPublico(
+  f: FilaRedPerfilPublica, experienciaVerificada: boolean, resumenResenas: ResumenResenas = { promedio: null, total: 0 },
+): PerfilNetworkPublico {
   return {
     id: f.id,
     slug: f.slug,
     experienciaVerificada,
+    resumenResenas,
     nombre: f.nombre,
     fotoUrl: f.foto_url,
     ciudad: f.ciudad,
