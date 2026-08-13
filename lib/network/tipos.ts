@@ -78,6 +78,11 @@ export interface FiltroBusquedaNetwork {
   horarios: HorarioNetwork[];
   tipoTrabajo: TipoTrabajoNetwork[];
   experienciaMinima: number | null;
+  // "Precio máximo" del rediseño del marketplace (README design_handoff):
+  // el mock pide un slider continuo, pero el dato real es un rango
+  // discreto (tarifaRango, no un número) — aquí se filtra por los rangos
+  // seleccionados, honesto con lo que el dato puede responder de verdad.
+  tarifaRango: TarifaRangoNetwork[];
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.

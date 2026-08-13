@@ -84,7 +84,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   if (!perfil) {
     return (
       <div className="space-y-4 max-w-xl">
-        <Link href="/network" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+        <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
           <ArrowLeft size={13} /> Volver al buscador
         </Link>
         <div className={`${cardCls} p-8 text-center`}>
@@ -98,7 +98,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <Link href="/network" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+      <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
         <ArrowLeft size={13} /> Volver al buscador
       </Link>
 

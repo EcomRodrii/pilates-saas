@@ -1,21 +1,33 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { MapPin, BadgeCheck, Star } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Star, MapPin } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerPerfilPublicoPorSlug } from '@/lib/network/publico';
-import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { ListaBadgesNetwork } from '@/components/network/lista-badges';
+import { NavPublico } from '@/components/network-v2/NavPublico';
+import { PieNetwork } from '@/components/network-v2/PieNetwork';
+import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { BotonContactar, BotonReportar } from '@/components/network-publico/boton-contactar';
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
 } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA } from '@/components/network-v2/tokens';
 
-// Perfil público indexable — docs/NETWORK-AUDIT-2.md, brief §11/§12/§37.
-// Server Component puro (sin 'use client'): generateMetadata solo funciona
-// así, y es lo que hace que Google vea title/description/OG reales por
-// instructora en vez de una sola metadata genérica para todo /network.
+// Perfil público indexable (1c del rediseño) — Server Component puro, sin
+// 'use client': generateMetadata solo funciona así. Misma capa de datos que
+// antes (obtenerPerfilPublicoPorSlug, sin tocar); esto es un rediseño
+// visual: foto grande + cabecera + fila de stats, cuerpo en dos columnas
+// con aside de contacto sticky, en vez de la lista de tarjetas apiladas
+// anterior.
+//
+// La sección "Formación" del mock (certificaciones con estado verificado/
+// pendiente/rechazado) NO se pinta todavía: ese modelo de datos
+// (red_certificaciones) es trabajo del PR de onboarding+verificación, no de
+// este — mejor omitirla que fabricar un estado que no existe. Lo mismo con
+// la tabla semanal día-a-día: el dato real de hoy son franjas agregadas
+// (mañanas/tardes/noches/fines de semana), no un calendario por día.
 
 async function cargar(slug: string) {
   const admin = getSupabaseAdmin();
@@ -45,6 +57,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+function FilaStat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
+  return (
+    <div>
+      <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>{valor}</p>
+      <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
+    </div>
+  );
+}
+
+function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>{titulo}</h2>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
 export default async function PerfilInstructoraPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const detalle = await cargar(slug);
@@ -62,139 +92,178 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
     ...(perfil.descripcion ? { description: perfil.descripcion } : {}),
     url: `${LEGAL.url}/network/instructoras/${slug}`,
     ...(perfil.resumenResenas.total > 0 ? {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: perfil.resumenResenas.promedio,
-        reviewCount: perfil.resumenResenas.total,
-      },
+      aggregateRating: { '@type': 'AggregateRating', ratingValue: perfil.resumenResenas.promedio, reviewCount: perfil.resumenResenas.total },
     } : {}),
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div style={{ background: NW_FONDO, color: NW_TINTA }}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <NavPublico />
 
-      <div className="flex flex-col items-center text-center gap-3">
-        <ProfileAvatar fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} size="xl" />
-        <div>
-          <div className="flex items-center justify-center gap-1.5">
-            <h1 className="text-[20px] font-semibold text-[#1A1A1A]">{perfil.nombre}</h1>
-            {badges.experienciaVerificada && <BadgeCheck size={18} className="text-brand" />}
+      <div className="max-w-[1240px] mx-auto px-6 pt-8 pb-24">
+        <Link href="/network/instructoras" className="inline-flex items-center gap-1.5 text-[13px] font-semibold mb-6" style={{ color: NW_MUTED }}>
+          <ArrowLeft size={14} /> Volver a instructoras
+        </Link>
+
+        <div className="grid lg:grid-cols-[420px_1fr] gap-10">
+          <div>
+            <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} />
           </div>
-          <p className="text-[13.5px] text-[#8E8E86]">Instructora de Pilates</p>
-          {perfil.resumenResenas.total > 0 && (
-            <p className="text-[13px] font-medium text-[#1A1A1A] flex items-center justify-center gap-1 mt-0.5">
-              <Star size={13} className="text-amber-500" fill="currentColor" />
-              {perfil.resumenResenas.promedio}
-              <span className="text-[#8E8E86] font-normal">
-                ({perfil.resumenResenas.total} {perfil.resumenResenas.total === 1 ? 'reseña' : 'reseñas'})
+
+          <div>
+            {badges.experienciaVerificada && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: '#EAF0E7', color: '#2E5A3A' }}>
+                <BadgeCheck size={13} /> Perfil verificado
               </span>
+            )}
+            <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
+            <p className="mt-2 text-[24px]" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>
+              Instructora de Pilates{perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
-          )}
-          {perfil.ciudad && (
-            <p className="text-[13px] text-[#8E8E86] flex items-center justify-center gap-1 mt-0.5">
-              <MapPin size={12} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}
-            </p>
-          )}
-        </div>
-        <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
-      </div>
+            <div className="mt-3 flex items-center gap-4 flex-wrap text-[13.5px]" style={{ color: NW_MUTED }}>
+              {perfil.resumenResenas.total > 0 && (
+                <span className="flex items-center gap-1 font-semibold" style={{ color: NW_TINTA }}>
+                  <Star size={14} style={{ color: NW_ESTRELLA }} fill="currentColor" />
+                  {perfil.resumenResenas.promedio} ({perfil.resumenResenas.total})
+                </span>
+              )}
+              {perfil.ciudad && (
+                <span className="flex items-center gap-1"><MapPin size={13} />{perfil.ciudad}{perfil.zona ? ` · ${perfil.zona}` : ''}</span>
+              )}
+            </div>
 
-      {(badges.emailVerificado || badges.experienciaVerificada || badges.referenciaProfesional || badges.identidadVerificada || badges.activaRecientemente) && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <ListaBadgesNetwork badges={badges} />
-        </div>
-      )}
-
-      {perfil.descripcion && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-2">Sobre mí</h2>
-          <p className="text-[13.5px] text-[#3A3A34] whitespace-pre-line">{perfil.descripcion}</p>
-        </div>
-      )}
-
-      {perfil.especialidades.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-2">Especialidades</h2>
-          <div className="flex flex-wrap gap-1.5">
-            {perfil.especialidades.map(e => (
-              <span key={e} className="px-3 py-1 rounded-full bg-[#F1F2EA] text-[12.5px] text-[#3A3A34]">{ESPECIALIDAD_LABEL[e]}</span>
-            ))}
+            <div className="mt-6 pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+              {perfil.aniosExperiencia != null && <FilaStat valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
+              <FilaStat valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
+              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" />
+              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" />
+            </div>
           </div>
         </div>
-      )}
 
-      {experiencias.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-3">Experiencia</h2>
-          <div className="space-y-3">
-            {experiencias.map(exp => (
-              <div key={exp.id}>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-[13px] font-medium text-[#1A1A1A]">{exp.nombreEstudio}</p>
-                  {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={13} className="text-brand" />}
+        <div className="mt-14 grid lg:grid-cols-[1fr_340px] gap-14">
+          <div className="space-y-10">
+            {perfil.descripcion && (
+              <Seccion titulo="Sobre mí">
+                <p className="text-[15px] leading-[1.7] max-w-[640px]" style={{ color: '#4A5347' }}>{perfil.descripcion}</p>
+              </Seccion>
+            )}
+
+            {perfil.especialidades.length > 0 && (
+              <Seccion titulo="Especialidades">
+                <div className="flex flex-wrap gap-2">
+                  {perfil.especialidades.map(e => (
+                    <span key={e} className="px-[18px] py-[9px] rounded-full text-[13.5px] font-bold" style={{ background: NW_SAGE, color: NW_TINTA }}>
+                      {ESPECIALIDAD_LABEL[e]}
+                    </span>
+                  ))}
                 </div>
-                <p className="text-[12px] text-[#8E8E86]">{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
-                {exp.descripcion && <p className="text-[12.5px] text-[#3A3A34] mt-1">{exp.descripcion}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+              </Seccion>
+            )}
 
-      {(perfil.tipoTrabajo.length > 0 || perfil.disponibilidadHorarios.length > 0) && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-2">Disponibilidad</h2>
-          <p className="text-[13px] text-[#3A3A34]">{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</p>
-          {perfil.disponibilidadHorarios.length > 0 && (
-            <p className="text-[12.5px] text-[#8E8E86] mt-1">
-              {perfil.disponibilidadHorarios.map(h => HORARIO_LABEL[h]).join(' · ')}
-            </p>
-          )}
-          {perfil.tipoTrabajo.length > 0 && (
-            <p className="text-[12.5px] text-[#8E8E86] mt-1">
-              {perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).join(' · ')}
-            </p>
-          )}
-        </div>
-      )}
+            {experiencias.length > 0 && (
+              <Seccion titulo="Experiencia">
+                <div>
+                  {experiencias.map((exp, i) => (
+                    <div key={exp.id} className="flex gap-3.5 py-4" style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined }}>
+                      <div
+                        className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-[14px] font-extrabold"
+                        style={{ background: NW_SAND, color: NW_TINTA }}
+                      >
+                        {exp.nombreEstudio.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[15px] font-bold" style={{ color: NW_TINTA }}>{exp.nombreEstudio}</p>
+                          {exp.estadoVerificacion === 'confirmada' && <BadgeCheck size={13} color={NW_PRODUCTO} />}
+                        </div>
+                        <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
+                        {exp.descripcion && <p className="text-[13.5px] mt-1" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Seccion>
+            )}
 
-      {resenas.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5">
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A] mb-3">
-            Reseñas de estudios ({resenas.length})
-          </h2>
-          <div className="space-y-3">
-            {resenas.map(r => (
-              <div key={r.id} className="border-t border-[#E7E7E0] first:border-t-0 first:pt-0 pt-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i} size={12}
-                        className={i < r.puntuacion ? 'text-amber-500' : 'text-[#E7E7E0]'}
-                        fill="currentColor"
-                      />
+            {(perfil.disponibilidadHorarios.length > 0 || perfil.tipoTrabajo.length > 0) && (
+              <Seccion titulo="Disponibilidad">
+                <p className="text-[14px] font-semibold" style={{ color: NW_TINTA }}>{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</p>
+                {perfil.disponibilidadHorarios.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {perfil.disponibilidadHorarios.map(h => (
+                      <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
+                        {HORARIO_LABEL[h]}
+                      </span>
                     ))}
                   </div>
-                  <span className="text-[11px] text-[#8E8E86]">{r.estudioNombre}</span>
-                </div>
-                {r.comentario && <p className="text-[12.5px] text-[#3A3A34] mt-1.5">{r.comentario}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                )}
+              </Seccion>
+            )}
 
-      <div className="bg-white rounded-2xl border border-[#E7E7E0] p-5 flex items-center justify-between">
-        <div>
-          <h2 className="text-[13.5px] font-semibold text-[#1A1A1A]">Tarifa</h2>
-          <p className="text-[13px] text-[#3A3A34] mt-1">
-            {perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'}
-          </p>
+            {resenas.length > 0 && (
+              <Seccion titulo={`Opiniones · ${perfil.resumenResenas.promedio ?? '—'} de ${resenas.length}`}>
+                <div className="space-y-4">
+                  {resenas.map((r, i) => (
+                    <div key={r.id} style={{ borderTop: i > 0 ? `1px solid ${NW_BORDE}` : undefined, paddingTop: i > 0 ? 16 : 0 }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }, (_, j) => (
+                            <Star key={j} size={13} style={{ color: j < r.puntuacion ? NW_ESTRELLA : NW_BORDE }} fill="currentColor" />
+                          ))}
+                        </div>
+                        <span className="text-[12px]" style={{ color: NW_MUTED_2 }}>{r.estudioNombre}</span>
+                      </div>
+                      {r.comentario && <p className="text-[14px] leading-[1.65] mt-2" style={{ color: '#4A5347' }}>{r.comentario}</p>}
+                    </div>
+                  ))}
+                </div>
+              </Seccion>
+            )}
+          </div>
+
+          {/* Aside sticky — oculto en móvil, sustituido por la barra fija de abajo. */}
+          <aside className="hidden lg:block self-start sticky top-24">
+            <div className="bg-white rounded-[22px] p-6" style={{ border: `1px solid ${NW_BORDE}` }}>
+              <p className="text-[20px]" style={{ fontFamily: 'var(--font-display)' }}>
+                ¿Quieres contactar con {perfil.nombre.split(' ')[0]}?
+              </p>
+              <div className="mt-4">
+                <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
+              </div>
+              <p className="mt-3 text-[12.5px]" style={{ color: NW_MUTED_2 }}>Responde normalmente en ~2 h</p>
+              <div className="mt-5 pt-5 space-y-2 text-[13px]" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+                {perfil.ciudad && <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Zona</span><span className="font-semibold">{perfil.ciudad}</span></div>}
+                <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Disponibilidad</span><span className="font-semibold">{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</span></div>
+                <div className="flex justify-between"><span style={{ color: NW_MUTED_2 }}>Precio</span><span className="font-semibold">{perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'}</span></div>
+              </div>
+              <p className="mt-4 text-[11.5px] rounded-lg px-3 py-2.5" style={{ background: NW_SAND, color: NW_MUTED }}>
+                Sin comisiones: contactas directamente con {perfil.nombre.split(' ')[0]}.
+              </p>
+              <div className="mt-3 text-center"><BotonReportar perfilId={perfil.id} /></div>
+            </div>
+          </aside>
         </div>
-        <BotonReportar perfilId={perfil.id} />
       </div>
+
+      {/* CTA sticky inferior en móvil (1e frame 2). */}
+      <div
+        className="lg:hidden fixed bottom-0 inset-x-0 p-4 pt-8"
+        style={{ background: 'linear-gradient(to top, #FAF9F5 55%, transparent)' }}
+      >
+        <div className="bg-white rounded-2xl p-3 flex items-center justify-between gap-3" style={{ border: `1px solid ${NW_BORDE}`, boxShadow: '0 -8px 24px rgba(34,42,51,.1)' }}>
+          <div className="min-w-0">
+            <p className="text-[13px] font-extrabold truncate" style={{ color: NW_TINTA }}>Contactar con {perfil.nombre.split(' ')[0]}</p>
+            <p className="text-[11px]" style={{ color: NW_MUTED_2 }}>
+              {perfil.tarifaRango ? `Desde ${TARIFA_RANGO_LABEL[perfil.tarifaRango]}` : 'Tarifa a consultar'} · responde en ~2 h
+            </p>
+          </div>
+          <BotonContactar perfilId={perfil.id} nombre={perfil.nombre} />
+        </div>
+      </div>
+
+      <PieNetwork />
     </div>
   );
 }

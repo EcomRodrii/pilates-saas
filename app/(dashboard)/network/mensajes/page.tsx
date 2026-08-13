@@ -11,7 +11,7 @@ import { ListaHilosMensajes } from '@/components/network/lista-hilos-mensajes';
 export default function MensajesNetworkPage() {
   return (
     <div className="space-y-6 max-w-2xl">
-      <Link href="/network" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+      <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
         <ArrowLeft size={13} /> Volver al buscador
       </Link>
 
