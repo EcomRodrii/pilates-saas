@@ -29,7 +29,11 @@ test.describe('Portal — detalle de clase: cancelar con crédito de recuperaci�
     await expect(cta).toBeVisible();
     await cta.click();
 
-    await expect(page).toHaveURL(`/portal/${SLUG}/clases`);
+    // 30_000, no el 5_000 por defecto: mismo criterio que CUALQUIER OTRO
+    // `toHaveURL` tras una navegación dentro de /portal en toda la suite
+    // (portal-bonos-compras, portal-avisos-v2, portal-sesion-guiada...). Este
+    // era el único que se había quedado con el timeout por defecto.
+    await expect(page).toHaveURL(`/portal/${SLUG}/clases`, { timeout: 30_000 });
   });
 
   test('cancelar una reserva normal (sin plaza fija) no promete recuperación', async ({ page }) => {

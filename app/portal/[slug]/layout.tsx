@@ -4,6 +4,8 @@ import { PortalShell } from '@/components/portal/portal-shell';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { ThemeStyle } from '@/components/theme-style';
 import { getStudioSeo } from '@/lib/studio-seo';
+import { getThemePublicado } from '@/lib/theme-data';
+import { urlMonograma } from '@/lib/monograma-estudio';
 
 // Metadata dinámica: el portal es la "app de marca" del estudio, así que el
 // título, el nombre de la app instalada (appleWebApp.title) y el manifest son
@@ -14,6 +16,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const studio = await getStudioSeo(slug);
   const nombre = studio?.nombre ?? 'Mi Estudio';
+  // Sin esto, la pestaña del navegador del portal —lo que la alumna tiene
+  // abierto a diario, mucho más que /reservar— enseñaba SIEMPRE el favicon
+  // raíz de Tentare, tuviera o no la propietaria uno propio subido: esta ruta
+  // nunca había tocado `icons`. `getThemePublicado` está cacheada por
+  // request, así que reusa la misma consulta que ya hace `ThemeStyle` más
+  // abajo — sin duplicar trabajo.
+  const theme = studio ? await getThemePublicado(studio.id) : null;
   return {
     title: `${nombre} · Portal`,
     description: 'Tu espacio de miembro',
@@ -23,6 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       statusBarStyle: 'default' as const,
       title: nombre,
     },
+    icons: { icon: theme?.faviconUrl || urlMonograma(nombre, studio?.colorPrimario, 192) },
   };
 }
 
