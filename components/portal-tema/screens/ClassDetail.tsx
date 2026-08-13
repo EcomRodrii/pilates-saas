@@ -153,7 +153,15 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
           </div>
         ) : null}
 
-        <Button block size="lg" variant={d.booked ? "done" : "primary"} loading={d.loading} onClick={() => actions.reserve()}>
+        {/* Reservar va directo; CANCELAR pasa por la hoja. Es irreversible —la
+            plaza se libera y puede irse a quien esté en la cola— y hasta ahora
+            se hacía de un toque. */}
+        <Button
+          block size="lg" variant={d.booked ? "done" : "primary"} loading={d.loading}
+          onClick={() => (d.booked
+            ? actions.abrirHoja({ tipo: 'cancelar', classId: d.id, reservaId: d.reservaId })
+            : actions.reserve())}
+        >
           {d.confirmed ? (
             <svg className="icon animate-pop" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

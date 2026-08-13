@@ -45,6 +45,16 @@ export interface StudioClass {
    * marcado ninguno, y el detalle no pinta la sección.
    */
   benefits: string[];
+  /**
+   * Horas de antelación para cancelar sin perder la sesión, YA resueltas para
+   * esta clase: el override del tipo si lo tiene, y si no la del estudio
+   * (`heredaOverride`). `null` = el estudio no fija ninguna.
+   *
+   * ⚠️ Es un dato, no el «6 horas» que el prototipo escribe a mano. Prometerle
+   * a la socia una ventana que no es la de su estudio la deja pagando una
+   * cancelación que creía gratis.
+   */
+  cancelHoras: number | null;
 }
 
 export interface DiaPortal {

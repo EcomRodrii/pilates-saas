@@ -124,3 +124,42 @@
 }
 .tooltip-wrap:hover .tooltip,
 .tooltip-wrap:focus-within .tooltip { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── Las hojas inferiores (Tentada) ────────────────────────────────────────
+ *
+ * Un solo cascarón para las siete del prototipo: velo, panel que sube y asa.
+ * Se pintan al final del árbol de la pantalla, así que tapan también la barra.
+ */
+.hoja { position: absolute; inset: 0; z-index: 100; }
+.hoja__velo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: rgba(24,27,17,.45);
+  animation: theme-fade .2s ease;
+  cursor: pointer;
+}
+.hoja__panel {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  border-radius: 28px 28px 0 0;
+  padding: 10px 22px 34px;
+  animation: theme-sheet-up .3s cubic-bezier(.2,.9,.3,1);
+}
+.hoja__asa {
+  display: block;
+  width: 40px; height: 4px; margin: 0 auto 18px;
+  border-radius: 99px;
+  background: var(--card-hover-border);
+}
+.hoja__titulo { font-size: 17px; font-weight: 800; color: var(--ink); }
+.hoja__texto { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.hoja__profe { display: flex; align-items: center; gap: 14px; }
+/* El botón destructivo: contorno y no relleno. Un rojo macizo del ancho de la
+ * pantalla pesa más que «Mantener reserva», y la que conserva la plaza es la
+ * opción segura. */
+.hoja__peligro {
+  margin-top: 20px;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+}
+.hoja__peligro:hover { background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }

@@ -8,6 +8,10 @@
 @keyframes theme-fade  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes theme-pop   { 0% { transform: scale(1); } 42% { transform: scale(1.28); } 100% { transform: scale(1); } }
 @keyframes theme-spin  { to { transform: rotate(360deg); } }
+/* La hoja inferior, que sube desde abajo. Con el prefijo `theme-` como el
+ * resto: el prototipo la llama `sheetUp` a secas y este kit acota TODO su CSS
+ * a `.portal-tema` justamente para no pisar el del panel. */
+@keyframes theme-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes theme-shimmer { from { background-position: -180% 0; } to { background-position: 180% 0; } }
 
 .is-enter        { animation: theme-enter .28s cubic-bezier(.16,1,.3,1) both; }
@@ -16,6 +20,9 @@
 .animate-pop     { animation: theme-pop .34s ease; }
 
 @media (prefers-reduced-motion: reduce) {
-  .is-enter, .animate-rise, .animate-fade, .animate-pop { animation: none; }
+  /* Las hojas animan por su clase propia, no por una utilidad: si no se
+   * nombran aquí, suben deslizándose a quien ha pedido menos movimiento. */
+  .is-enter, .animate-rise, .animate-fade, .animate-pop,
+  .hoja__velo, .hoja__panel { animation: none; }
   * { transition-duration: .01ms !important; }
 }

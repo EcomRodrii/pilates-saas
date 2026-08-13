@@ -34,6 +34,7 @@ import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
+import { Hojas } from '@/components/portal-tema/components/ui/hojas';
 import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
 import { useViewModel } from '@/components/portal-tema/store/useViewModel';
@@ -163,6 +164,7 @@ export function PortalTemaMarco() {
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, spots, instructores,
     planes: planesTarifa,
+    cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? null,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
     // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
     // sin año en vez de inventarse uno.
@@ -201,7 +203,8 @@ export function PortalTemaMarco() {
   }), [sesiones, reservas, tiposClase, salas, spots, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
-       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha]);
+       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,
+       studio?.cancelacionVentanaHoras]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
@@ -351,6 +354,8 @@ function Pantalla() {
     <div className="screen">
       <Screen vm={vm} />
       {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
+      {/* Al final del árbol: las hojas tapan también la barra. */}
+      <Hojas vm={vm} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { PhoneFrame, TabBar } from "@/components/portal-tema/components/layout/chrome";
 import { Toast } from "@/components/portal-tema/components/ui/overlays";
+import { Hojas } from "@/components/portal-tema/components/ui/hojas";
 import { PortalProvider } from "@/components/portal-tema/store/PortalStore";
 import { TemaProvider } from "@/components/portal-tema/store/TemaContext";
 import { useViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -59,6 +60,8 @@ function Portal() {
       <div className="screen is-enter" key={vm.screen} data-screen-label={vm.screen}>
         <Screen vm={vm} />
         {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
+        {/* Al final del árbol: las hojas tapan también la barra. */}
+        <Hojas vm={vm} />
       </div>
       <Toast text={vm.toast} id={vm.toastId} />
     </>

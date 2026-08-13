@@ -15,7 +15,7 @@ import { fechaLocalDe } from '../citas/slots.ts';
 // El aforo lo decide `plazasOcupadas` y solo ella. Contarlo aquí a mano sería
 // un segundo criterio del mismo dato — y el primer intento ya se dejó fuera
 // `ASISTIDA`, con lo que una clase pasada aparecería con plazas libres.
-import { plazasOcupadas } from '../booking-logic.ts';
+import { heredaOverride, plazasOcupadas } from '../booking-logic.ts';
 // Los objetivos son una lista FIJA y compartida con la página pública. Se
 // resuelven a sus etiquetas aquí y no en el componente: si el estudio guardó un
 // id de una versión anterior, `resolverObjetivos` lo descarta en vez de
@@ -284,6 +284,8 @@ export interface FuenteDatosPortal {
    */
   racha?: { semanas: number; esMejor: boolean } | null;
   planes: PlanTarifa[];
+  /** La ventana de cancelación del estudio (`studios.cancelacion_ventana_horas`). */
+  cancelacionVentanaHoras?: number | null;
   /**
    * Nombre y año de apertura, para el cierre de pantalla que firma el
    * estudio. `anioFundacion` es opcional de verdad: `studios.anio_fundacion`
@@ -393,6 +395,9 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         plazas: plazasDeSesion(s, f.spots, f.reservas),
         description: tipo?.descripcion ?? '',
         benefits: etiquetasObjetivo(tipo?.objetivos),
+        // El override del tipo manda sobre el del estudio, con el MISMO helper
+        // que usa el motor de reservas — no una segunda regla de herencia.
+        cancelHoras: heredaOverride(tipo?.ventanaCancelacionHoras, f.cancelacionVentanaHoras ?? null),
       };
     });
 }

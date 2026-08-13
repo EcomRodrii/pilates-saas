@@ -109,6 +109,9 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
     // sección «Beneficios» — vacío y ausente significan lo mismo.
     benefits: [],
+    // Sin ventana en el tipo NI en el estudio: la hoja de cancelar no promete
+    // ninguna, en vez de copiar el «6 horas» del prototipo.
+    cancelHoras: null,
   });
 });
 
@@ -327,7 +330,7 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 function clase(id: string): StudioClass {
   return {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
-    startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z',
+    startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
     level: 'Todos los niveles', seats: 3, plazas: [], description: '', benefits: [],
   };
@@ -600,7 +603,7 @@ const claseEn = (iso: string): StudioClass => ({
   id: `c-${iso}`, name: 'Reformer', type: 'reformer',
   day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
-  level: 'Todos los niveles', teacher: 'Ana',
+  level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
   initial: 'A', seats: 10, plazas: [], description: '', benefits: [],
 });
 
