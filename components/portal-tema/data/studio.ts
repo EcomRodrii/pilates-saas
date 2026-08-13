@@ -169,8 +169,8 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // previa tiene que verse igual hoy que dentro de un mes.
   ahoraISO: '2026-08-13T09:00:00.000Z',
   hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
-  // De muestra, como el resto: en el portal real la calcula `rachaDe` con las
-  // asistencias de la socia.
+  // De muestra, como el resto: en el portal real viene de `calcularRacha`
+  // (`lib/engines/streak-engine.ts`), la misma que alimenta los logros.
   racha: { semanas: 6, esMejor: true },
   estudio: {
     nombre: "Estudio Tentada", anioFundacion: 2019,

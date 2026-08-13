@@ -177,7 +177,8 @@ export interface DatosPortal {
   /**
    * Semanas seguidas asistiendo, y si es su mejor marca. `null` = no hay
    * racha que enseñar (menos de dos seguidas, o nadie identificado). Ver
-   * `rachaDe` — el prototipo la traía como texto fijo y aquí se calcula.
+   * `calcularRacha` (`lib/engines/streak-engine.ts`) — el prototipo la traía
+   * como texto fijo, y no se recalcula aquí: esa cifra ya tenía dueño.
    */
   racha: { semanas: number; esMejor: boolean } | null;
   /**

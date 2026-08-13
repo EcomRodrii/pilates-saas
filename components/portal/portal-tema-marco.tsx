@@ -130,7 +130,7 @@ export function PortalTemaMarco() {
   const {
     studio, sesiones, reservas, tiposClase, salas, instructores,
     planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado,
-    cancelarReserva, addReserva, updateSocio,
+    cancelarReserva, addReserva, updateSocio, rachaSocio,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -147,6 +147,18 @@ export function PortalTemaMarco() {
   // Antes de `datos`: ese `useMemo` la lee al construirse, y declararla
   // después la dejaba en zona muerta (ReferenceError en el primer render).
   const socia = useMemo(() => socios.find((s) => s.id === socioId) ?? null, [socios, socioId]);
+  // ⚠️ La racha NO se calcula aquí: viene de `calcularRacha`
+  // (`lib/engines/streak-engine.ts`), que ya existía y es la MISMA que alimenta
+  // los logros. Se escribió un segundo cálculo para el Inicio de Tentada y era
+  // exactamente eso: una segunda fuente de la misma cifra, que habría dejado el
+  // Inicio diciendo 6 semanas y su insignia 5.
+  //
+  // Y se resuelve AQUÍ, fuera del `useMemo` de `datos`: `rachaSocio` es una
+  // función que el contexto recrea en cada render, así que meterla en las
+  // dependencias recalcularía `datos` siempre y volvería a renderizar el portal
+  // entero para nada — justo lo que evitan los refs de `PortalStore`. Con el
+  // VALOR en las dependencias, solo cambia cuando cambia la racha.
+  const racha = socioId ? rachaSocio(socioId) : null;
   const datos = useMemo(() => construirDatosPortal({
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, instructores,
@@ -177,6 +189,7 @@ export function PortalTemaMarco() {
     // la lista de demostración del kit —que arranca vacía— y la socia no veía
     // ni una de sus reservas reales.
     reservasPropias: socioId ? reservas.filter((r) => r.socioId === socioId) : undefined,
+    racha,
     // Solo las SUYAS: el adaptador elige el bono al que le quedan menos
     // sesiones, y con las de todo el estudio elegiría el de otra persona.
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
@@ -188,7 +201,7 @@ export function PortalTemaMarco() {
   }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
-       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad]);
+       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
