@@ -5,6 +5,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, dbInsertInstructoraPropia, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
+import { authHeader } from '@/lib/api-client';
 import { uid as generarId } from '@/lib/utils';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -123,7 +124,7 @@ export default function LoginPage() {
           await supabase.auth.updateUser({ data: { [CLAVE_INVITACION]: null } });
         }
       }
-    })().finally(() => {
+    })().finally(async () => {
       // Hard navigation on purpose: StudioProvider (mounted once at the root
       // layout) already resolved/fetched with whatever studio_id was current
       // *before* the studio creation/claim above finished. A client-side
@@ -137,7 +138,18 @@ export default function LoginPage() {
       // se puede usar para phishing con nuestro propio dominio.
       const destino = new URLSearchParams(window.location.search).get('destino');
       const seguro = destino === '/interno' || destino?.startsWith('/interno/');
-      window.location.href = seguro ? destino! : '/dashboard';
+      if (seguro) { window.location.href = destino!; return; }
+
+      // Antes esto era un `/dashboard` fijo, sin mirar si la cuenta tiene
+      // estudio de verdad — una cuenta de Tentare Network (sin studio_id) se
+      // quedaba atrapada en un skeleton infinito ahí (docs/NETWORK-AUDIT-2.md
+      // §2). /api/auth/destino-post-login es la única fuente de verdad de
+      // "a dónde pertenece esta cuenta"; fail-open a /dashboard si la llamada
+      // falla, que es el comportamiento de siempre.
+      const destinoResuelto = await fetch('/api/auth/destino-post-login', { headers: await authHeader() })
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null);
+      window.location.href = destinoResuelto?.destino ?? '/dashboard';
     });
   }, [session, user, loading]);
 
