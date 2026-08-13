@@ -204,10 +204,10 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // Dos, y uno ilimitado: el caso que `bonoDe` descarta a propósito y que
   // hasta ahora no se veía en ninguna pantalla.
   bonos: [
-    { id: "b10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
+    { id: "b10", planKey: "bono10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
       subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80,
       terminos: ["Caduca a los 90 días de comprarlo", "Máximo 3 clases por semana"] },
-    { id: "plan", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
+    { id: "plan", planKey: "mensual", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
       subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0,
       // Sin condiciones: así se ve también el bono que NO ofrece «Ver detalles».
       terminos: [] },

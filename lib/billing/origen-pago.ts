@@ -45,8 +45,25 @@ export function urlsDeRetorno(p: {
   slug: string | null;
   esCompraDePlan: boolean;
   reciboId?: string | null;
+  planId?: string | null;
 }): UrlsRetorno {
   if (p.origen === 'portal' && p.slug) {
+    // Comprar un bono y pagar un recibo terminan en sitios distintos, aunque
+    // los dos salgan del portal. Un recibo es una factura y su sitio es el
+    // historial; un bono es algo que la socia acaba de ganar, y su sitio es
+    // «Mis bonos» — que además es donde puede comprobar que está.
+    //
+    // ⚠️ `?compra=ok` NO significa «el bono ya está». Significa «Stripe dice
+    // que el pago salió». Quien lo entrega es el webhook
+    // (`checkout.session.completed`), que puede tardar unos segundos o
+    // reintentarse, así que la pantalla que recibe esto tiene que MIRAR si el
+    // bono está antes de felicitar a nadie. Va el plan para que pueda mirar el
+    // que toca y no uno cualquiera que ya tuviera.
+    if (p.esCompraDePlan) {
+      const base = `${p.appUrl}/portal/${p.slug}/bonos`;
+      const plan = p.planId ? `&plan=${encodeURIComponent(p.planId)}` : '';
+      return { successUrl: `${base}?compra=ok${plan}`, cancelUrl: `${base}?compra=cancelada` };
+    }
     const base = `${p.appUrl}/portal/${p.slug}/compras`;
     return { successUrl: `${base}?pago=ok`, cancelUrl: `${base}?pago=cancelado` };
   }

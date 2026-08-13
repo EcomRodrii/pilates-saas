@@ -31,12 +31,12 @@
 // ⚠️ TEMPORAL, con fecha de caducidad: vive detrás de `studios.portal_react`
 // y desaparece —con el portal viejo— cuando termine el despliegue por fases.
 
-import { useCallback, useMemo } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
 import { Hojas } from '@/components/portal-tema/components/ui/hojas';
-import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
+import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type CompraPortalVuelta, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
 import { useViewModel } from '@/components/portal-tema/store/useViewModel';
 import { Home } from '@/components/portal-tema/screens/Home';
@@ -51,6 +51,7 @@ import { Buy } from '@/components/portal-tema/screens/Buy';
 import { Teachers } from '@/components/portal-tema/screens/Teachers';
 import { Info } from '@/components/portal-tema/screens/Info';
 import { MyData } from '@/components/portal-tema/screens/MyData';
+import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
@@ -107,6 +108,10 @@ const PANTALLAS = {
   // «confirmada» compartida o recargada no tendría nada que confirmar.
   confirmada: Confirmed,
   comprar: Buy,
+  // La vuelta de Stripe. No tiene ruta propia en `RUTA_A_PANTALLA` a propósito:
+  // se llega a `/bonos?compra=…` y es la QUERY la que la elige, así que al
+  // quitarla («Ver mis bonos») queda la pantalla de bonos de siempre.
+  compra: BonoActivado,
   instructores: Teachers,
   info: Info,
   misdatos: MyData,
@@ -138,11 +143,43 @@ export function PortalTemaMarco() {
   const {
     studio, sesiones, reservas, tiposClase, salas, spots, instructores,
     planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado,
-    cancelarReserva, addReserva, updateSocio, rachaSocio,
+    cancelarReserva, addReserva, updateSocio, rachaSocio, recargarPublico,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
-  const pantalla = pantallaDeRuta(pathname, slug) ?? 'inicio';
+
+  // La vuelta de Stripe tras comprar un bono (`lib/billing/origen-pago.ts`).
+  // ⚠️ `compra=ok` es lo que dice STRIPE. Quien entrega el bono es el webhook,
+  // así que la pantalla comprueba que esté antes de felicitar — de ahí que
+  // viaje también el plan.
+  const query = useSearchParams();
+  const compraRaw = query?.get('compra');
+  const compra = useMemo<CompraPortalVuelta | null>(
+    () => (compraRaw === 'ok' || compraRaw === 'cancelada'
+      ? { estado: compraRaw, planId: query?.get('plan') ?? null }
+      : null),
+    [compraRaw, query],
+  );
+
+  const pantalla = compra ? 'compra' : (pantallaDeRuta(pathname, slug) ?? 'inicio');
+
+  // El webhook entrega el bono unos segundos DESPUÉS de que Stripe traiga aquí
+  // al navegador. La carga del montaje ya se hace sola —esto es una navegación
+  // completa, no un `push`—, así que lo único que falta es volver a preguntar
+  // un par de veces: sin ello la pantalla se queda en «estamos confirmando»
+  // hasta que la socia recargue a mano.
+  //
+  // ⚠️ `recargarPublico` NO puede ir en las dependencias: el contexto la crea
+  // de nuevo en cada render (está documentado en `studio-context`), y el efecto
+  // se dispararía en bucle. Va por `ref`, que siempre tiene la última.
+  const recargarRef = useRef(recargarPublico);
+  useEffect(() => { recargarRef.current = recargarPublico; });
+  const compraOk = compra?.estado === 'ok';
+  useEffect(() => {
+    if (!compraOk) return;
+    const relojes = [3000, 8000].map((ms) => setTimeout(() => recargarRef.current(), ms));
+    return () => relojes.forEach(clearTimeout);
+  }, [compraOk]);
   const tema = esTemaPortal(themeIdPublicado)
     ? TEMAS_PORTAL[themeIdPublicado]
     : TEMAS_PORTAL[TEMA_PORTAL_POR_DEFECTO];
@@ -329,6 +366,7 @@ export function PortalTemaMarco() {
         // kit no lo conoce, solo lo pinta. Sin esto la fila «Aspecto» no se
         // pinta, que es lo correcto en la previsualización.
         aspecto={aspecto}
+        compra={compra}
         pantallasDeRuta={PANTALLAS_DE_RUTA}
         pantalla={pantalla}
         // El día de HOY en la semana del estudio, no el 4 de la demo.

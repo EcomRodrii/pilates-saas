@@ -13,9 +13,40 @@ test('la socia que paga desde su portal vuelve a su portal, no al panel', () => 
   assert.doesNotMatch(u.successUrl, /\/cobros/);
 });
 
-test('el origen portal manda aunque sea una compra de plan', () => {
+test('comprar un bono desde el portal termina en «Mis bonos», con el plan que se compró', () => {
+  const r = urlsDeRetorno({
+    origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: true, planId: 'p1',
+  });
+  assert.equal(r.successUrl, 'https://x.app/portal/estudio/bonos?compra=ok&plan=p1');
+  assert.equal(r.cancelUrl, 'https://x.app/portal/estudio/bonos?compra=cancelada');
+});
+
+test('pagar un RECIBO desde el portal sigue yendo al historial: una factura no es un bono', () => {
+  const r = urlsDeRetorno({
+    origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: false, reciboId: 'r1',
+  });
+  assert.equal(r.successUrl, 'https://x.app/portal/estudio/compras?pago=ok');
+});
+
+test('sin planId no se compone un `&plan=` vacío que la pantalla tendría que descartar', () => {
+  const r = urlsDeRetorno({ origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: true });
+  assert.equal(r.successUrl, 'https://x.app/portal/estudio/bonos?compra=ok');
+});
+
+test('el planId va escapado: es un id de la BD, pero nadie compone URLs a pelo aquí', () => {
+  const r = urlsDeRetorno({
+    origen: 'portal', appUrl: 'https://x.app', slug: 'estudio', esCompraDePlan: true, planId: 'a b&c',
+  });
+  assert.ok(r.successUrl.endsWith('&plan=a%20b%26c'));
+});
+
+test('el origen portal manda aunque sea una compra de plan: nunca al enlace público', () => {
   const u = urlsDeRetorno({ origen: 'portal', appUrl: APP, slug: 'mar', esCompraDePlan: true });
-  assert.match(u.successUrl, /\/portal\/mar\/compras/);
+  // Lo que este test defiende es que `origen: 'portal'` gana a la regla del
+  // enlace público (`/reservar`). El destino dentro del portal cambió —era
+  // `/compras`, ahora «Mis bonos»— y esa parte la cubre su propio test.
+  assert.match(u.successUrl, /\/portal\/mar\//);
+  assert.doesNotMatch(u.successUrl, /\/reservar\//);
 });
 
 test('sin origen, un cobro de recibo sigue volviendo al panel (comportamiento de siempre)', () => {

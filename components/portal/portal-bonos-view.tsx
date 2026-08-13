@@ -10,7 +10,7 @@
 // portal real.
 
 import { useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { bonoActivo, fechaLarga, DIAS } from '@/lib/bonos-portal';
@@ -33,6 +33,23 @@ export function PortalBonosView({
   } = useStudio();
   const { t, noche } = useModo();
   const socioId = session?.socioId ?? null;
+
+  // La vuelta de Stripe tras comprar un bono (`lib/billing/origen-pago.ts`).
+  // Esta pantalla la sirve el portal de siempre cuando el estudio todavía no
+  // tiene `portal_react`, así que el aviso hace falta también aquí — si no, la
+  // socia paga y aterriza en una lista sin una palabra sobre su pago, que es
+  // exactamente el bug que hizo mover este destino la vez anterior.
+  //
+  // ⚠️ `compra=ok` es lo que dice STRIPE, no lo que dice nuestra base de datos:
+  // el bono lo entrega el webhook y puede tardar. Por eso el texto no dice
+  // «activado», dice que aparecerá en cuanto se registre.
+  const params = useSearchParams();
+  const avisoCompra = useMemo(() => {
+    const v = params?.get('compra');
+    if (v === 'ok') return 'Pago completado. Tu bono aparece aquí en cuanto el estudio lo registra.';
+    if (v === 'cancelada') return 'Has salido sin completar el pago. No se te ha cobrado nada.';
+    return null;
+  }, [params]);
   // Feature #2 (ficha Lorari-vs-Tentare): autoservicio — pausar/reanudar/dar
   // de baja SU plaza fija, aquí mismo donde ya la ve. ACTIVA o PAUSADA (para
   // poder reanudarla); una en BAJA ya no cuenta como "tiene plaza fija".
@@ -147,6 +164,14 @@ export function PortalBonosView({
       <div style={{ padding: '0 24px 24px' }}>
         <div style={{ ...micro(9.5, 0.28), color: t.micro }}>{txt('listadoBonos', 'antetitulo', 'Saldo y planes')}</div>
         <h1 style={{ ...display(escala('titulo-pantalla', 50)), color: t.ink, marginTop: 12 }}>{txt('listadoBonos', 'titulo', 'Bonos')}</h1>
+
+        {avisoCompra ? (
+          <p style={{
+            marginTop: 18, padding: '12px 14px', borderRadius: 14,
+            background: t.surface, border: `1px solid ${t.line}`,
+            ...texto.nota, color: t.muted, lineHeight: 1.55,
+          }}>{avisoCompra}</p>
+        ) : null}
 
         {bono ? (
           <div style={{
