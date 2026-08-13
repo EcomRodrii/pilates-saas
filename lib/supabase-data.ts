@@ -3895,7 +3895,17 @@ export async function dbInsertInstructoraPropia(fields: {
     id: fields.id, studio_id: fields.studioId, auth_user_id: fields.authUserId,
     nombre: fields.nombre, email: fields.email, rol: 'PROPIETARIO', activo: true,
   });
-  return error ? falloEscritura('[dbInsertInstructoraPropia]', error) : ESCRITURA_OK;
+  if (!error) return ESCRITURA_OK;
+  // Mismo caso que `dbCreateStudio` (efecto re-disparado, doble clic, o el
+  // login anterior sí escribió pero el cliente no vio la respuesta): el
+  // `UNIQUE(auth_user_id, studio_id)` de `instructores_auth_studio_unique`
+  // (migr 20260731003736) ya garantiza que solo puede existir ESTA fila para
+  // esta persona en este estudio, así que un choque contra ella significa
+  // "ya está insertada", no un fallo — sin este tratamiento, un reintento
+  // desde `/login` quedaría fallando en silencio para siempre (el estudio y
+  // la instructora ya existen, pero `pending_freelance` nunca se limpiaría).
+  if (error.code === '23505' && error.message.includes('instructores_auth_studio_unique')) return ESCRITURA_OK;
+  return falloEscritura('[dbInsertInstructoraPropia]', error);
 }
 
 export interface SedeSeleccionable {
