@@ -481,7 +481,7 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/automatizaciones', '/calendario', '/centro-de-control', '/chat', '/cierre', '/citas',
   '/clientas', '/cobros', '/comunidad', '/configuracion', '/contenido', '/dashboard',
   '/equipo', '/explorar-funciones', '/facturas', '/informes', '/libreta', '/marketing',
-  '/mensajeria', '/mi-perfil', '/migracion', '/notificaciones', '/ondemand', '/pagos',
+  '/mensajeria', '/mi-perfil', '/migracion', '/network', '/notificaciones', '/ondemand', '/pagos',
   '/pos', '/primeros-pasos', '/productos', '/socios', '/sustituciones', '/transacciones',
 ] as const;
 

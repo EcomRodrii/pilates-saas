@@ -35,6 +35,66 @@ async function recepcionistas(admin: SupabaseClient, studioId: string): Promise<
     }));
 }
 
+// Gerencia del estudio: dueña + managers activos (SIN recepción — verificar
+// una experiencia de Network es decisión de gerencia, no de mostrador).
+async function gerencia(admin: SupabaseClient, studioId: string): Promise<Recipient[]> {
+  const [p, { data }] = await Promise.all([
+    propietaria(admin, studioId),
+    admin.from('instructores')
+      .select('id, nombre, email, auth_user_id')
+      .eq('studio_id', studioId).eq('rol', 'MANAGER').eq('activo', true),
+  ]);
+  const managers = (data ?? [])
+    .filter(r => r.auth_user_id)
+    .map(r => ({
+      role: 'MANAGER' as const, userId: r.auth_user_id as string,
+      nombre: (r.nombre as string | null) ?? 'Manager', email: (r.email as string | null) ?? null,
+    }));
+  return [...p, ...managers];
+}
+
+// Tentare Network: la profesional dueña de un perfil, resuelta por su
+// auth_user_id — nunca por una fila `instructores` de ESTE estudio, porque
+// puede no tener ninguna (es la razón de ser de Network, ver docs/NETWORK-
+// AUDIT.md §1). El email es el de su cuenta (auth.users), no el `email_
+// contacto` opcional de `red_perfiles` — ese es para que OTROS la contacten,
+// no para que Tentare le escriba a ella.
+async function porAuthUserId(admin: SupabaseClient, authUserId: string, nombre?: string | null): Promise<Recipient[]> {
+  const { data } = await admin.auth.admin.getUserById(authUserId);
+  return [{
+    role: 'INSTRUCTOR',
+    userId: authUserId,
+    nombre: nombre ?? (data.user?.user_metadata?.nombre as string | undefined) ?? 'Profesional',
+    email: data.user?.email ?? null,
+  }];
+}
+
+// Tentare Network (Fase 9): quien envió una solicitud de contacto, para
+// avisarle cuando la profesional la acepta — nunca toda la gerencia, para
+// no convertir el contacto (que incluye email/teléfono privados) en un
+// listado (docs/NETWORK-IMPLEMENTATION-PLAN.md §6, comentario de
+// red_solicitudes_contacto). Puede ser la propietaria O cualquier staff con
+// sesión (POST /api/network/contacto no lo restringe a gerencia).
+async function staffPorAuthUserId(admin: SupabaseClient, studioId: string, authUserId: string): Promise<Recipient[]> {
+  const { data: studio } = await admin.from('studios')
+    .select('owner_auth_user_id, nombre, email, telefono').eq('id', studioId).maybeSingle();
+  if (studio?.owner_auth_user_id === authUserId) {
+    return [{
+      role: 'PROPIETARIO', userId: authUserId,
+      nombre: (studio.nombre as string | null) ?? 'Propietaria',
+      email: (studio.email as string | null) ?? null,
+      telefono: (studio.telefono as string | null) ?? null,
+    }];
+  }
+  const { data } = await admin.from('instructores')
+    .select('nombre, email, rol').eq('studio_id', studioId).eq('auth_user_id', authUserId).maybeSingle();
+  if (!data) return [];
+  return [{
+    role: data.rol as Recipient['role'], userId: authUserId,
+    nombre: (data.nombre as string | null) ?? 'Equipo', email: (data.email as string | null) ?? null,
+  }];
+}
+
 async function sociaPorId(admin: SupabaseClient, studioId: string, socioId: string): Promise<Recipient | null> {
   const { data } = await admin.from('socios')
     .select('id, nombre, apellidos, email, telefono, auth_user_id')
@@ -96,6 +156,9 @@ export async function resolverDestinatarios(
   const socioId = d.socioId as string | undefined;
   const instructorId = d.instructorId as string | undefined;
   const sesionId = d.sesionId as string | undefined;
+  const authUserId = d.authUserId as string | undefined;
+  const nombreProfesional = d.profesional as string | undefined;
+  const solicitanteAuthUserId = d.solicitanteAuthUserId as string | undefined;
 
   // Estas audiencias no pueden resolverse sin su id en `data`. Si falta, el aviso
   // se perdía sin rastro (le pasó a clase.cancelada en producción): grítalo.
@@ -136,6 +199,14 @@ export async function resolverDestinatarios(
       const soc = socioId ? await sociaPorId(admin, event.studioId, socioId) : null;
       return soc ? [...p, ...r, soc] : [...p, ...r];
     }
+    case 'gerencia':
+      return gerencia(admin, event.studioId);
+    case 'red-profesional':
+      return authUserId ? porAuthUserId(admin, authUserId, nombreProfesional) : falta('authUserId');
+    case 'red-solicitante-contacto':
+      return solicitanteAuthUserId
+        ? staffPorAuthUserId(admin, event.studioId, solicitanteAuthUserId)
+        : falta('solicitanteAuthUserId');
     default:
       return [];
   }

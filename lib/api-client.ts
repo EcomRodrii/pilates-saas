@@ -11,6 +11,10 @@ import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobr
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
+import type {
+  PerfilNetwork, PerfilNetworkPublico, CambiosPerfilNetwork, FiltroBusquedaNetwork,
+  ExperienciaNetwork, ExperienciaNetworkPublica, NuevaExperienciaNetwork, BadgesNetwork,
+} from '@/lib/network/tipos';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -1911,5 +1915,282 @@ export async function pedirPaseDeAcceso(slug: string) {
     return await res.json() as { hayPase: boolean; vigente?: boolean; yaAsistida?: boolean; minutosParaActivarse?: number; seActivaA?: string | null; inicio?: string; token?: string | null; codigo?: string | null };
   } catch {
     return null;
+  }
+}
+
+// ── Tentare Network: perfil profesional (Fase 2) ─────────────────────────────
+// Identidad por auth_user_id, no por studio_id — mismo JWT de staff
+// (authHeader) que el resto del panel, validado en el servidor por
+// verificarUsuarioSupabase en vez de verificarSesionStaff (no exige
+// pertenecer a ningún estudio).
+export async function fetchMiPerfilNetwork(): Promise<PerfilNetwork | null> {
+  try {
+    const res = await fetch('/api/network/perfil', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { perfil: PerfilNetwork | null };
+    return data.perfil ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarPerfilNetwork(
+  cambios: CambiosPerfilNetwork,
+): Promise<{ ok: true; perfil: PerfilNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/perfil', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cambios),
+    });
+    const data = (await res.json().catch(() => ({}))) as { perfil?: PerfilNetwork; error?: string };
+    if (!res.ok || !data.perfil) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, perfil: data.perfil };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar tu perfil' };
+  }
+}
+
+// Fase 3: publicar/ocultar. Endpoint aparte de guardarPerfilNetwork porque
+// lleva su propia validación mínima (nombre + ciudad + especialidad) — ver
+// app/api/network/perfil/estado/route.ts. Nunca acepta 'suspended': eso es
+// exclusivo de moderación.
+export async function cambiarEstadoPerfilNetwork(
+  estado: 'draft' | 'published' | 'hidden',
+): Promise<{ ok: true; perfil: PerfilNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/perfil/estado', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ estado }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { perfil?: PerfilNetwork; error?: string };
+    if (!res.ok || !data.perfil) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, perfil: data.perfil };
+  } catch {
+    return { ok: false, error: 'No se pudo cambiar el estado de tu perfil' };
+  }
+}
+
+// Fase 4: buscador. `especialidades`/`disponibilidad`/`horarios`/`tipoTrabajo`
+// viajan como lista separada por comas — la API los valida contra el
+// catálogo y descarta cualquier valor que no reconozca.
+export async function buscarPerfilesNetwork(filtro: FiltroBusquedaNetwork): Promise<PerfilNetworkPublico[]> {
+  try {
+    const qs = new URLSearchParams();
+    if (filtro.ciudad) qs.set('ciudad', filtro.ciudad);
+    if (filtro.especialidades.length) qs.set('especialidades', filtro.especialidades.join(','));
+    if (filtro.disponibilidad.length) qs.set('disponibilidad', filtro.disponibilidad.join(','));
+    if (filtro.horarios.length) qs.set('horarios', filtro.horarios.join(','));
+    if (filtro.tipoTrabajo.length) qs.set('tipoTrabajo', filtro.tipoTrabajo.join(','));
+    if (filtro.experienciaMinima != null) qs.set('experienciaMinima', String(filtro.experienciaMinima));
+
+    const res = await fetch(`/api/network/buscar?${qs.toString()}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { perfiles?: PerfilNetworkPublico[] };
+    return data.perfiles ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchPerfilNetworkPublico(
+  id: string,
+): Promise<{ perfil: PerfilNetworkPublico; experiencias: ExperienciaNetworkPublica[]; badges: BadgesNetwork } | null> {
+  try {
+    const res = await fetch(`/api/network/perfil/${encodeURIComponent(id)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      perfil?: PerfilNetworkPublico; experiencias?: ExperienciaNetworkPublica[]; badges?: BadgesNetwork;
+    };
+    if (!data.perfil || !data.badges) return null;
+    return { perfil: data.perfil, experiencias: data.experiencias ?? [], badges: data.badges };
+  } catch {
+    return null;
+  }
+}
+
+// Fase 6: experiencia laboral propia (gestión desde /network/mi-perfil).
+export async function fetchMisExperienciasNetwork(): Promise<ExperienciaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/experiencia', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { experiencias?: ExperienciaNetwork[] };
+    return data.experiencias ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearExperienciaNetwork(
+  nueva: NuevaExperienciaNetwork,
+): Promise<{ ok: true; experiencia: ExperienciaNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/experiencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(nueva),
+    });
+    const data = (await res.json().catch(() => ({}))) as { experiencia?: ExperienciaNetwork; error?: string };
+    if (!res.ok || !data.experiencia) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, experiencia: data.experiencia };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la experiencia' };
+  }
+}
+
+export async function eliminarExperienciaNetwork(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/experiencia', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo eliminar la experiencia' };
+  }
+}
+
+// Fase 7: verificación por estudios.
+export interface EstudioBusqueda { id: string; nombre: string; ciudad: string | null }
+
+export async function buscarEstudiosNetwork(q: string): Promise<EstudioBusqueda[]> {
+  try {
+    const res = await fetch(`/api/network/estudios/buscar?q=${encodeURIComponent(q)}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { estudios?: EstudioBusqueda[] };
+    return data.estudios ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function solicitarVerificacionExperiencia(
+  experienciaId: string, studioId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/experiencia/verificar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ experienciaId, studioId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la solicitud de verificación' };
+  }
+}
+
+export interface VerificacionPendienteNetwork {
+  id: string;
+  solicitadoEn: string;
+  experienciaId: string;
+  nombreEstudio: string;
+  fechaInicio: string;
+  fechaFin: string | null;
+  especialidades: string[];
+  descripcion: string | null;
+  profesionalNombre: string;
+  profesionalFotoUrl: string | null;
+}
+
+export async function fetchVerificacionesPendientesNetwork(): Promise<VerificacionPendienteNetwork[]> {
+  try {
+    const res = await fetch('/api/network/verificaciones', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { verificaciones?: VerificacionPendienteNetwork[] };
+    return data.verificaciones ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function resolverVerificacionNetwork(
+  id: string, aprobar: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/verificaciones/resolver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, aprobar }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo resolver la solicitud' };
+  }
+}
+
+// Fase 9: contacto.
+export async function contactarPerfilNetwork(
+  perfilId: string, mensaje: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/contacto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ perfilId, mensaje: mensaje || null }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la solicitud de contacto' };
+  }
+}
+
+export interface SolicitudContactoRecibida {
+  id: string;
+  studioId: string;
+  estudioNombre: string;
+  estudioCiudad: string | null;
+  mensaje: string | null;
+  estado: 'pendiente' | 'aceptada' | 'rechazada';
+  creadoEn: string;
+  resueltoEn: string | null;
+}
+
+export async function fetchSolicitudesContactoNetwork(): Promise<SolicitudContactoRecibida[]> {
+  try {
+    const res = await fetch('/api/network/contacto', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { solicitudes?: SolicitudContactoRecibida[] };
+    return data.solicitudes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+// Fase 10: reportar un perfil.
+export async function reportarPerfilNetwork(
+  perfilId: string, motivo: string, detalle: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/reportes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ perfilId, motivo, detalle }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar el reporte' };
+  }
+}
+
+export async function resolverSolicitudContactoNetwork(
+  id: string, aceptar: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/contacto/resolver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id, aceptar }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo resolver la solicitud' };
   }
 }

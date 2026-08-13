@@ -6,7 +6,7 @@
 export type NotificationRole = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER' | 'SOCIA';
 
 export type NotificationCategory =
-  | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema' | 'decisiones';
+  | 'reservas' | 'clases' | 'sustituciones' | 'pagos' | 'marketing' | 'sistema' | 'decisiones' | 'red';
 
 export type NotificationPriority =
   | 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA' | 'SILENCIOSA';

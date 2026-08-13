@@ -18,8 +18,11 @@ import type { Rol } from './types';
 // — nada de cobros, informes, marketing ni ajustes del negocio.
 // CONGELADO (feature-freeze PMF): se quitaron '/ondemand' y '/comunidad' de esta
 // lista blanca — ya no son visibles para nadie. Reactivar = volver a añadirlos.
+// '/network': la instructora es la persona a la que va dirigido su propio
+// perfil profesional (docs/NETWORK-IMPLEMENTATION-PLAN.md) — sin esta entrada
+// la lista blanca la dejaría fuera de la funcionalidad pensada para ella.
 const PERMITIDO_INSTRUCTOR = [
-  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil',
+  '/dashboard', '/calendario', '/citas', '/clientas', '/mensajeria', '/mi-perfil', '/network',
 ];
 
 // ⚠️ La lista blanca de arriba se compara POR PREFIJO, así que cada ruta abre

@@ -609,3 +609,102 @@ export async function emitirDecisionMensajeDia(
     console.error('[notifications] emitirDecisionMensajeDia:', e instanceof Error ? e.message : e);
   }
 }
+
+// Tentare Network, Fase 7 — docs/NETWORK-IMPLEMENTATION-PLAN.md §4/§10.
+// `studioId` aquí es el estudio que tiene que RESOLVER la solicitud (audiencia
+// 'gerencia'), no uno al que pertenezca la profesional.
+export async function emitirRedVerificacionSolicitada(
+  admin: SupabaseClient,
+  p: { studioId: string; verificacionId: string; profesional: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_VERIFICACION_SOLICITADA, studioId: p.studioId,
+      data: { profesional: p.profesional },
+      resource: { type: 'red_verificacion', id: p.verificacionId },
+      dedupKey: `red-verificacion:${p.verificacionId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedVerificacionSolicitada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Aquí `studioId` es el mismo estudio de arriba (el que resolvió) — la
+// audiencia 'red-profesional' ignora ese studioId y resuelve por
+// `data.authUserId`, ver recipients.ts. Se necesita igual porque
+// NotificationEvent.studioId es obligatorio (docs/NETWORK-AUDIT.md riesgo #2).
+export async function emitirRedExperienciaConfirmada(
+  admin: SupabaseClient,
+  p: { studioId: string; authUserId: string; profesional: string; estudio: string; experienciaId: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_EXPERIENCIA_CONFIRMADA, studioId: p.studioId,
+      data: { authUserId: p.authUserId, profesional: p.profesional, estudio: p.estudio },
+      resource: { type: 'red_experiencia', id: p.experienciaId },
+      dedupKey: `red-experiencia-confirmada:${p.experienciaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedExperienciaConfirmada:', e instanceof Error ? e.message : e);
+  }
+}
+
+export async function emitirRedExperienciaRechazada(
+  admin: SupabaseClient,
+  p: { studioId: string; authUserId: string; profesional: string; estudio: string; experienciaId: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_EXPERIENCIA_RECHAZADA, studioId: p.studioId,
+      data: { authUserId: p.authUserId, profesional: p.profesional, estudio: p.estudio },
+      resource: { type: 'red_experiencia', id: p.experienciaId },
+      dedupKey: `red-experiencia-rechazada:${p.experienciaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedExperienciaRechazada:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Fase 9 — docs/NETWORK-IMPLEMENTATION-PLAN.md §6/§9. `studioId` es el
+// estudio que envía la solicitud; `authUserId` es la profesional destino.
+export async function emitirRedContactoSolicitado(
+  admin: SupabaseClient,
+  p: { studioId: string; authUserId: string; solicitudId: string; estudioNombre: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_CONTACTO_SOLICITADO, studioId: p.studioId,
+      data: { authUserId: p.authUserId, estudio: p.estudioNombre },
+      resource: { type: 'red_solicitud_contacto', id: p.solicitudId },
+      dedupKey: `red-contacto-solicitado:${p.solicitudId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedContactoSolicitado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// `emailContacto` nunca es null aquí — aceptar exige que la profesional
+// tenga uno guardado (ver app/api/network/contacto/resolver/route.ts).
+export async function emitirRedContactoAceptado(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; solicitanteAuthUserId: string; solicitudId: string;
+    profesional: string; emailContacto: string; telefonoContacto: string | null;
+  },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_CONTACTO_ACEPTADO, studioId: p.studioId,
+      data: {
+        solicitanteAuthUserId: p.solicitanteAuthUserId,
+        profesional: p.profesional,
+        emailContacto: p.emailContacto,
+        telefonoTexto: p.telefonoContacto ? ` o al ${p.telefonoContacto}` : '',
+      },
+      resource: { type: 'red_solicitud_contacto', id: p.solicitudId },
+      dedupKey: `red-contacto-aceptado:${p.solicitudId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedContactoAceptado:', e instanceof Error ? e.message : e);
+  }
+}

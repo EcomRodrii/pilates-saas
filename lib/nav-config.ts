@@ -6,7 +6,7 @@ import {
   Settings, BarChart2,
   Clock, MessageCircle, Megaphone, Play,
   Bot, Package, Store, Inbox,
-  UserCog, Users2, Compass, Replace,
+  UserCog, Users2, Compass, Replace, Network,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
   Calculator, Notebook, DownloadCloud,
 } from 'lucide-react';
@@ -75,6 +75,10 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/equipo', label: 'Equipo', icon: UserCog },
+      // Único módulo de "Estudio" también en PERMITIDO_INSTRUCTOR
+      // (lib/permisos-reglas.ts): es donde la instructora gestiona SU PROPIO
+      // perfil profesional, no una herramienta de gestión del negocio.
+      { href: '/network', label: 'Tentare Network', icon: Network },
       { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
