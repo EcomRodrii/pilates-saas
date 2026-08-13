@@ -3813,7 +3813,7 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string }): Promise<{ id: string; slug: string } | null> {
+export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string; tipoCuenta?: 'ESTUDIO' | 'FREELANCE' }): Promise<{ id: string; slug: string } | null> {
   // Carreras que se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
   //    después; DOS PROPIETARIAS DISTINTAS con el mismo nombre de estudio pueden
@@ -3850,6 +3850,9 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
       owner_auth_user_id: fields.ownerAuthUserId,
       slug,
       como_nos_conocio: fields.comoNosConocio || null,
+      // Feature #9: por defecto ESTUDIO (columna DEFAULT), solo se manda si
+      // se pide FREELANCE explícitamente — no toca el camino existente.
+      ...(fields.tipoCuenta ? { tipo_cuenta: fields.tipoCuenta } : {}),
     });
     if (!error) return { id, slug };
     ultimoError = error;
@@ -3871,6 +3874,27 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
   }
   reportDbError('[dbCreateStudio]', ultimoError ?? { message: 'No se pudo crear el estudio tras varios intentos' });
   return null;
+}
+
+// Feature #9 (ficha Lorari-vs-Tentare): la propia freelance se inserta como
+// su ficha de instructora (rol PROPIETARIO), justo después de crear su
+// estudio de un solo miembro. A diferencia de dbInsertInstructor (que pasa
+// por /api/equipo — pensado para que UNA propietaria YA existente dé de
+// alta a otra persona, sin auth_user_id en el payload), esto es un INSERT
+// directo a la tabla: la policy `owner_write_instructores` (FOR ALL,
+// `current_rol()='PROPIETARIO' AND studio_id=current_studio_id()`, verificada
+// en vivo) ya lo permite sola, porque `current_studio_id()` para esta
+// persona resuelve por el brazo `studios.owner_auth_user_id` del studio que
+// se acaba de crear (todavía no tiene ninguna fila en `instructores`) — sin
+// RPC ni service-role nuevos.
+export async function dbInsertInstructoraPropia(fields: {
+  id: string; studioId: string; authUserId: string; nombre: string; email: string | null;
+}): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('instructores').insert({
+    id: fields.id, studio_id: fields.studioId, auth_user_id: fields.authUserId,
+    nombre: fields.nombre, email: fields.email, rol: 'PROPIETARIO', activo: true,
+  });
+  return error ? falloEscritura('[dbInsertInstructoraPropia]', error) : ESCRITURA_OK;
 }
 
 export interface SedeSeleccionable {
@@ -3969,6 +3993,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     depUmbralMedio: r.dep_umbral_medio ?? 15,
     depVentanaDias: r.dep_ventana_dias ?? 90,
     plan: r.plan,
+    tipoCuenta: (r.tipo_cuenta as Studio['tipoCuenta']) ?? 'ESTUDIO',
     avatarAdmin: r.avatar_admin ?? null,
     fotoUrl: r.foto_url ?? null,
     imagenBienvenidaUrl: r.imagen_bienvenida_url ?? null,

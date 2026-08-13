@@ -467,10 +467,14 @@ export function urlDe(path: string): string {
 export const PREFIJOS_NO_INDEXABLES = [
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno',
+  // Alta de cuenta freelance (feature #9) — mismo criterio que /crear-estudio.
+  '/instructora',
   // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
   '/demo',
   // Cara pública operativa de cada estudio (decisión: B2B primero, sin miles de URLs por estudio)
-  '/portal', '/kiosk', '/reservar',
+  // '/i' es el enlace público de instructora freelance — mismo motor que
+  // /reservar (reexporta su layout/page tal cual), misma decisión de no-index.
+  '/portal', '/kiosk', '/reservar', '/i',
   // Enlaces firmados de un solo uso
   '/aceptar-sustitucion', '/confirmar-reserva', '/disponibilidad', '/no-puedo', '/valorar',
   // Panel de gestión — TODOS los segmentos de app/(dashboard)

@@ -54,6 +54,11 @@ export interface Studio {
   depUmbralMedio: number;
   depVentanaDias: number;
   plan: 'BASE' | 'ESTUDIO' | 'CADENA';
+  // Feature #9 (ficha Lorari-vs-Tentare): FREELANCE = instructora sin equipo
+  // detrás, único miembro y PROPIETARIO de su propia cuenta. Para apagar
+  // features sin sentido con un solo miembro (p.ej. concentración por
+  // instructor) — nunca para gatear RLS, que sigue siendo por studio_id/rol.
+  tipoCuenta: 'ESTUDIO' | 'FREELANCE';
   avatarAdmin: string | null;
   fotoUrl: string | null;
   // Imagen de bienvenida/portada del PORTAL — la ven las alumnas al entrar
