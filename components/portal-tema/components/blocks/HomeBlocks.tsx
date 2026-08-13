@@ -239,7 +239,9 @@ function BookingsList({ vm }: { vm: ViewModel }) {
 /**
  * La racha (Tentada): «6 semanas seguidas — tu mejor racha».
  *
- * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `rachaDe`, y por eso
+ * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `calcularRacha`
+ * (`lib/engines/streak-engine.ts`) — la MISMA que alimenta los logros, para
+ * que el Inicio no pueda decir 6 semanas y su insignia 5 —, y por eso
  * puede no pintarse: sin dos semanas seguidas asistiendo no hay racha, y una
  * píldora que anuncia una racha que no existe es peor que no tenerla. El
  * «— tu mejor racha» tampoco es decorativo: solo se escribe cuando lo es.

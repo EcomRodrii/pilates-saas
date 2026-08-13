@@ -34,13 +34,18 @@ export function Teachers({ vm }: { vm: ViewModel }) {
         <div className="scroller no-scrollbar">
           {vm.teachers.length ? (
             vm.teachers.map((t) => (
-              <article className="profe" key={t.id}>
+              <button
+                className="profe is-pressable" key={t.id}
+                onClick={() => actions.abrirHoja({ tipo: 'profesor', id: t.id })}
+              >
                 <Avatar>{t.inicial}</Avatar>
-                <div className="profe__body">
-                  <p className="profe__name">{t.nombre}</p>
-                  {t.bio ? <p className="profe__bio">{t.bio}</p> : null}
-                </div>
-              </article>
+                <span className="profe__body">
+                  <span className="profe__name">{t.nombre}</span>
+                  {/* En la lista, la bio recortada; entera en la hoja. */}
+                  {t.bio ? <span className="profe__bio">{t.bio}</span> : null}
+                </span>
+                <Icon name="forward" size={15} stroke={1.6} />
+              </button>
             ))
           ) : (
             <EmptyState

@@ -8,10 +8,11 @@
 // la barra que se ve es la del kit, que es parte del diseño (la píldora que
 // flota de Bloom, la barra oscura con el dorado de Noir).
 //
-// El kit cubre CUATRO rutas. El resto del portal (`/perfil`, `/progreso`,
-// `/compras`, `/preferencias`, `/notificaciones`, `/invitar`, `/instructores`,
-// `/videos`) se queda con el portal de siempre — decisión del fundador, el
-// portal se ve mezclado un tiempo.
+// El resto del portal (`/progreso`, `/compras`, `/preferencias`,
+// `/notificaciones`, `/invitar`, `/videos`) se queda con el portal de siempre
+// — decisión del fundador, el portal se ve mezclado un tiempo. Son destinos
+// navegables igualmente: el kit tiene que poder llevar ahí desde sus filas y
+// sus bloques, aunque no los pinte él.
 //
 // ⚠️ `/perfil` estuvo FUERA por una razón que ya no aplica, y conviene dejar
 // escrito por qué vuelve. Se sacó porque la `Profile` del kit era una maqueta:
@@ -34,6 +35,7 @@ import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
+import { Hojas } from '@/components/portal-tema/components/ui/hojas';
 import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
 import { useViewModel } from '@/components/portal-tema/store/useViewModel';
@@ -72,6 +74,12 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   // Avisos y Progreso siguen siendo del portal de siempre: las dos tienen más
   // de lo que dibuja el prototipo (canales + push, recompensas + créditos).
   preferencias: 'preferencias', progreso: 'progreso',
+  // «Invitar a una amiga» es una fila del perfil en el prototipo y una HOJA
+  // con un código inventado («LAURA-2026»). Aquí no: el portal ya tiene una
+  // pantalla de invitación de verdad, con el enlace personal de la socia, las
+  // amigas que ya se han unido y los créditos que da la regla de recompensas
+  // del estudio. Un código que no canjea nada habría sido menos que eso.
+  invitar: 'invitar',
   // Sigue siendo un destino navegable aunque el kit ya no la pinte: la píldora
   // "Perfil" de la barra tiene que llevar al perfil de verdad, no a ningún
   // sitio.
@@ -130,7 +138,7 @@ export function PortalTemaMarco() {
   const {
     studio, sesiones, reservas, tiposClase, salas, spots, instructores,
     planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado,
-    cancelarReserva, addReserva, updateSocio,
+    cancelarReserva, addReserva, updateSocio, rachaSocio,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -147,10 +155,23 @@ export function PortalTemaMarco() {
   // Antes de `datos`: ese `useMemo` la lee al construirse, y declararla
   // después la dejaba en zona muerta (ReferenceError en el primer render).
   const socia = useMemo(() => socios.find((s) => s.id === socioId) ?? null, [socios, socioId]);
+  // ⚠️ La racha NO se calcula aquí: viene de `calcularRacha`
+  // (`lib/engines/streak-engine.ts`), que ya existía y es la MISMA que alimenta
+  // los logros. Se escribió un segundo cálculo para el Inicio de Tentada y era
+  // exactamente eso: una segunda fuente de la misma cifra, que habría dejado el
+  // Inicio diciendo 6 semanas y su insignia 5.
+  //
+  // Y se resuelve AQUÍ, fuera del `useMemo` de `datos`: `rachaSocio` es una
+  // función que el contexto recrea en cada render, así que meterla en las
+  // dependencias recalcularía `datos` siempre y volvería a renderizar el portal
+  // entero para nada — justo lo que evitan los refs de `PortalStore`. Con el
+  // VALOR en las dependencias, solo cambia cuando cambia la racha.
+  const racha = socioId ? rachaSocio(socioId) : null;
   const datos = useMemo(() => construirDatosPortal({
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, spots, instructores,
     planes: planesTarifa,
+    cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? null,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
     // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
     // sin año en vez de inventarse uno.
@@ -178,6 +199,7 @@ export function PortalTemaMarco() {
     // la lista de demostración del kit —que arranca vacía— y la socia no veía
     // ni una de sus reservas reales.
     reservasPropias: socioId ? reservas.filter((r) => r.socioId === socioId) : undefined,
+    racha,
     // Solo las SUYAS: el adaptador elige el bono al que le quedan menos
     // sesiones, y con las de todo el estudio elegiría el de otra persona.
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
@@ -189,7 +211,8 @@ export function PortalTemaMarco() {
   }), [sesiones, reservas, tiposClase, salas, spots, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl, studio?.imagenBienvenidaUrl,
-       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad]);
+       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,
+       studio?.cancelacionVentanaHoras]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
@@ -339,6 +362,8 @@ function Pantalla() {
     <div className="screen">
       <Screen vm={vm} />
       {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
+      {/* Al final del árbol: las hojas tapan también la barra. */}
+      <Hojas vm={vm} />
     </div>
   );
 }

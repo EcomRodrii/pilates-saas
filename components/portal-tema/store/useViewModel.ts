@@ -146,9 +146,10 @@ export function useViewModel() {
         cta: state.challenges.includes(c.key) ? "Apuntada ✓" : "Apuntarme",
       })),
 
-      // La racha real (`rachaDe`). `null` = no hay ninguna que enseñar; el
-      // bloque no se pinta en vez de anunciar «0 semanas».
-      streak: datos.racha,
+      // La racha real, de `calcularRacha`. `null` o menos de dos semanas = no
+      // hay ninguna que enseñar, y el bloque no se pinta en vez de anunciar
+      // «0 semanas»: una semana suelta no es una racha.
+      streak: datos.racha && datos.racha.semanas >= 2 ? datos.racha : null,
       weekMonth: datos.hoy.mes,
 
       // El acceso a los vídeos para casa. El texto es del producto, no del
@@ -244,6 +245,16 @@ export function useViewModel() {
       },
       teachers: datos.profesores,
 
+      // El aviso de la hoja de cancelar, redactado con la ventana REAL de esta
+      // clase. El prototipo escribe «Es gratis hasta 6 horas antes»; ese 6 es
+      // suyo. Si el estudio no fija ninguna ventana no se promete nada — y
+      // «gratis» solo se dice cuando de verdad lo es.
+      cancelSheet: {
+        aviso: cls?.cancelHoras
+          ? `Es gratis hasta ${cls.cancelHoras} ${cls.cancelHoras === 1 ? "hora" : "horas"} antes de la clase.`
+          : "Consulta con el estudio su política de cancelación.",
+      },
+
       // Su perfil. Los SEIS campos que edita, no los tres del prototipo: los
       // otros tres ya existen en el perfil que usa hoy y quitárselos sería que
       // el rediseño le costara dónde escribir su dirección.
@@ -315,7 +326,12 @@ export function useViewModel() {
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
         booked: booked && !enCola(state.classId),
+        // El id que hay que mandar para cancelar NO es el de la clase.
+        reservaId: reservaPorClase.get(state.classId),
         waiting: enCola(state.classId),
+        // Sin plazas y sin reserva propia: el botón no reserva, apunta a la
+        // cola — y eso pasa por la hoja, como cancelar.
+        full: !booked && !enCola(state.classId) && !cls.seats,
         waitingLabel: porClase.get(state.classId)?.posicion
           ? "Estás en la lista de espera · " + porClase.get(state.classId)!.posicion + "ª posición. Te avisaremos si se libera una plaza."
           : "Estás en la lista de espera. Te avisaremos si se libera una plaza.",

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, rachaDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Spot } from '../types.ts';
@@ -110,6 +110,9 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
     // sección «Beneficios» — vacío y ausente significan lo mismo.
     benefits: [],
+    // Sin ventana en el tipo NI en el estudio: la hoja de cancelar no promete
+    // ninguna, en vez de copiar el «6 horas» del prototipo.
+    cancelHoras: null,
   });
 });
 
@@ -257,7 +260,7 @@ test('sociaDe: nombre completo, nombre corto e inicial', () => {
     apellidos: 'Ortega', email: 'l@x.com',
     // ⚠️ Cadena vacía y NO null: estos seis alimentan un formulario, y un
     // `<input value={null}>` se vuelve NO controlado a mitad de escritura.
-    telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false, tarjeta: null,
   });
 });
 
@@ -265,11 +268,70 @@ test('sociaDe: sin socia (portal sin sesión) devuelve vacíos, no "undefined"',
   assert.deepEqual(sociaDe(null), {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   });
 });
 
 test('sociaDe: sin id no se puede guardar — la pantalla lo necesita para saberlo', () => {
   assert.equal(sociaDe(null).id, '');
+});
+
+test('sociaDe: la tarjeta guardada sale con su marca en mayúscula inicial y MM/AA', () => {
+  const socio = {
+    id: 's1', nombre: 'Laura', apellidos: '',
+    tarjetaMarca: 'visa', tarjetaUltimos4: '4242', tarjetaExpMes: 4, tarjetaExpAnio: 2027,
+  } as Socio;
+  assert.deepEqual(sociaDe(socio).tarjeta, { marca: 'Visa', ultimos4: '4242', caduca: '04/27' });
+});
+
+test('sociaDe: mes de un dígito va con cero — «4/27» no es una caducidad', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaUltimos4: '1111', tarjetaExpMes: 4, tarjetaExpAnio: 2031 } as Socio;
+  assert.equal(sociaDe(socio).tarjeta?.caduca, '04/31');
+});
+
+test('sociaDe: ⚠️ tarjeta sin caducidad todavía SÍ se enseña — `null` es «no se ha preguntado a Stripe», no «no caduca»', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaMarca: 'mastercard', tarjetaUltimos4: '4444' } as Socio;
+  assert.deepEqual(sociaDe(socio).tarjeta, { marca: 'Mastercard', ultimos4: '4444', caduca: '' });
+});
+
+test('sociaDe: sin últimos cuatro NO hay tarjeta — el prototipo dibuja una «Visa ···· 4242» a todo el mundo', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaMarca: 'visa' } as Socio;
+  assert.equal(sociaDe(socio).tarjeta, null);
+});
+
+// ── Condiciones de un plan ──────────────────────────────────────────────────
+
+test('condicionesDe: sin ninguna restricción no inventa condiciones', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'Bono 10')), []);
+});
+
+test('condicionesDe: validez, tope semanal y tipos cubiertos, en ese orden', () => {
+  const salida = condicionesDe(
+    plan('p1', 'Bono 10', { descripcion: 'Diez clases a tu ritmo', validezDias: 90, limiteSemanal: 3, tiposClaseIds: ['t1', 't2'] }),
+    [tipo('t1', 'Reformer'), tipo('t2', 'Suelo')],
+  );
+  assert.deepEqual(salida, [
+    'Diez clases a tu ritmo',
+    'Caduca a los 90 días de comprarlo',
+    'Máximo 3 clases por semana',
+    'Válido para Reformer y Suelo',
+  ]);
+});
+
+test('condicionesDe: un tope de una clase se dice en singular', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'B', { limiteSemanal: 1 })), ['Máximo una clase por semana']);
+});
+
+test('condicionesDe: un tipo de clase que ya no existe no se anuncia', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'B', { tiposClaseIds: ['borrado'] }), []), []);
+});
+
+test('condicionesDe: tres tipos se separan con comas y una «y» final', () => {
+  const salida = condicionesDe(
+    plan('p1', 'B', { tiposClaseIds: ['t1', 't2', 't3'] }),
+    [tipo('t1', 'A'), tipo('t2', 'B'), tipo('t3', 'C')],
+  );
+  assert.deepEqual(salida, ['Válido para A, B y C']);
 });
 
 // ── Piezas sueltas ──────────────────────────────────────────────────────────
@@ -301,6 +363,7 @@ test('construirDatosPortal: un estudio vacío da datos vacíos pero válidos', (
   assert.deepEqual(datos.socia, {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   });
 });
 
@@ -328,7 +391,7 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 function clase(id: string): StudioClass {
   return {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
-    startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z',
+    startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
     level: 'Todos los niveles', seats: 3, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
   };
@@ -406,60 +469,10 @@ test('hoyDe: el número y la etiqueta nunca discrepan en el cambio de hora', () 
   assert.ok(r.largo.startsWith('domingo, 25 de octubre'));
 });
 
-// ── rachaDe: las semanas seguidas asistiendo ────────────────────────────────
-//
-// Fechas reales, no inventadas: el 1 de agosto de 2026 cae en sábado, así que
-// los lunes de esas semanas son el 10, el 3, el 27 de julio… Todo el bloque
-// mira desde el jueves 13 de agosto.
-
-const AHORA = new Date('2026-08-13T10:00:00Z');
-// Una sesión por semana, siempre a media mañana para que la zona no la mueva.
-const SES = [
-  { id: 's0', inicio: '2026-08-11T09:00:00Z' }, // semana en curso (lunes 10)
-  { id: 's1', inicio: '2026-08-05T09:00:00Z' }, // semana -1 (lunes 3)
-  { id: 's2', inicio: '2026-07-29T09:00:00Z' }, // semana -2 (lunes 27 jul)
-  { id: 's4', inicio: '2026-07-15T09:00:00Z' }, // semana -4 (hueco en la -3)
-  { id: 's5', inicio: '2026-07-08T09:00:00Z' }, // semana -5
-  { id: 's6', inicio: '2026-07-01T09:00:00Z' }, // semana -6
-];
-const asistio = (...ids: string[]) => ids.map((sesionId) => ({ sesionId, estado: 'ASISTIDA' as const }));
-
-test('rachaDe: tres semanas seguidas asistiendo, y es su mejor marca', () => {
-  assert.deepEqual(rachaDe(asistio('s0', 's1', 's2'), SES, AHORA), { semanas: 3, esMejor: true });
-});
-
-test('rachaDe: reservar NO es venir — solo cuenta ASISTIDA', () => {
-  // La regresión que más engaña: con CONFIRMADA la racha se la inventaría
-  // quien reserva y no aparece.
-  const soloReservado = ['s0', 's1', 's2'].map((sesionId) => ({ sesionId, estado: 'CONFIRMADA' as const }));
-  assert.equal(rachaDe(soloReservado, SES, AHORA), null);
-});
-
-test('rachaDe: la semana EN CURSO vacía no rompe la racha', () => {
-  // Es jueves y aún no ha ido esta semana. Si contara como semana en blanco,
-  // la racha se pondría a cero cada lunes y volvería al día siguiente.
-  assert.deepEqual(rachaDe(asistio('s1', 's2'), SES, AHORA), { semanas: 2, esMejor: true });
-});
-
-test('rachaDe: una semana suelta no es una racha', () => {
-  assert.equal(rachaDe(asistio('s1'), SES, AHORA), null);
-});
-
-test('rachaDe: «tu mejor racha» solo cuando LO es', () => {
-  // Ahora lleva 2 seguidas, pero en julio encadenó 3. No es su mejor marca y
-  // no se le dice que lo sea.
-  const r = rachaDe(asistio('s1', 's2', 's4', 's5', 's6'), SES, AHORA);
-  assert.deepEqual(r, { semanas: 2, esMejor: false });
-});
-
-test('rachaDe: sin socia identificada, sin racha', () => {
-  assert.equal(rachaDe(undefined, SES, AHORA), null);
-  assert.equal(rachaDe([], SES, AHORA), null);
-});
-
-test('rachaDe: una reserva cuya sesión no está cargada se ignora, no rompe', () => {
-  assert.deepEqual(rachaDe(asistio('s0', 's1', 'fantasma'), SES, AHORA), { semanas: 2, esMejor: true });
-});
+// ⚠️ Los tests de la racha ya NO están aquí: viven en
+// `lib/engines/streak-engine.test.ts`, junto a `calcularRacha`, que es quien
+// la calcula de verdad y quien alimenta los logros. Se escribió aquí un
+// segundo cálculo (`rachaDe`) sin ver que esa cifra ya tenía dueño.
 
 // ── Tener plaza y estar en la cola no son lo mismo ──────────────────────────
 
@@ -651,7 +664,7 @@ const claseEn = (iso: string): StudioClass => ({
   id: `c-${iso}`, name: 'Reformer', type: 'reformer',
   day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
-  level: 'Todos los niveles', teacher: 'Ana',
+  level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
   initial: 'A', seats: 10, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
 });
 

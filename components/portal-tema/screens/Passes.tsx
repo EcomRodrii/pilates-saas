@@ -62,6 +62,15 @@ export function Passes({ vm }: { vm: ViewModel }) {
                       </span>
                     )}
                     {b.footline ? <p className="bono__foot">{b.footline}</p> : null}
+                    {/* Solo si el plan tiene condiciones que contar — validez,
+                        tope semanal, tipos de clase que cubre. Sin ninguna, el
+                        botón abriría una hoja vacía. */}
+                    {b.terminos.length ? (
+                      <button className="bono__detalles is-pressable"
+                        onClick={() => actions.abrirHoja({ tipo: "bono", bonoId: b.id })}>
+                        Ver detalles
+                      </button>
+                    ) : null}
                   </article>
                 ))
               ) : (

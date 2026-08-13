@@ -27,17 +27,17 @@ export const DAYS = [
 
 export const CLASSES: StudioClass[] = [
   { id: "c1", name: "Pilates Reformer", fotoUrl: imagenDeClase({ nombre: "Pilates Reformer" }), type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: [],
-    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"] },
+    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"], cancelHoras: 6 },
   { id: "c2", name: "Pilates de suelo", fotoUrl: imagenDeClase({ nombre: "Pilates de suelo" }), type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
-    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"] },
+    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"], cancelHoras: 6 },
   { id: "c3", name: "Reformer fuerza", fotoUrl: imagenDeClase({ nombre: "Reformer fuerza" }), type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: [],
-    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"] },
+    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"], cancelHoras: 6 },
   { id: "c4", name: "Pilates prenatal", fotoUrl: imagenDeClase({ nombre: "Pilates prenatal" }), type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
-    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"] },
+    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"], cancelHoras: 6 },
   { id: "c5", name: "Reformer suave", fotoUrl: imagenDeClase({ nombre: "Reformer suave" }), type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: [],
-    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"] },
+    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"], cancelHoras: 6 },
   { id: "c6", name: "Abdomen y espalda", fotoUrl: imagenDeClase({ nombre: "Abdomen y espalda" }), type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
-    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"] },
+    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"], cancelHoras: 6 },
 ];
 
 export const FILTERS = [
@@ -142,6 +142,9 @@ export const MEMBER = {
   id: "", name: "Laura Ortega", short: "Laura", initial: "L",
   apellidos: "Ortega", email: "laura@correo.com", telefono: "+34 600 000 000",
   fechaNacimiento: "", direccion: "", domiciliado: false,
+  // La previsualización SÍ enseña una tarjeta: es lo que deja ver la hoja de
+  // métodos de pago con su forma real. No es de nadie — no hay socia aquí.
+  tarjeta: { marca: "Visa", ultimos4: "4242", caduca: "04/27" },
 };
 
 /**
@@ -173,8 +176,8 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // previa tiene que verse igual hoy que dentro de un mes.
   ahoraISO: '2026-08-13T09:00:00.000Z',
   hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
-  // De muestra, como el resto: en el portal real la calcula `rachaDe` con las
-  // asistencias de la socia.
+  // De muestra, como el resto: en el portal real viene de `calcularRacha`
+  // (`lib/engines/streak-engine.ts`), la misma que alimenta los logros.
   racha: { semanas: 6, esMejor: true },
   estudio: {
     nombre: "Estudio Tentada", anioFundacion: 2019,
@@ -202,9 +205,12 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // hasta ahora no se veía en ninguna pantalla.
   bonos: [
     { id: "b10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
-      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80 },
+      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80,
+      terminos: ["Caduca a los 90 días de comprarlo", "Máximo 3 clases por semana"] },
     { id: "plan", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
-      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0 },
+      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0,
+      // Sin condiciones: así se ve también el bono que NO ofrece «Ver detalles».
+      terminos: [] },
   ],
   compras: [
     { id: "r1", concepto: "Bono 10 clases", cuando: "Comprado el 12 de marzo", importe: "145,00 €" },

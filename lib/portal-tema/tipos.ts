@@ -51,6 +51,16 @@ export interface StudioClass {
    * marcado ninguno, y el detalle no pinta la sección.
    */
   benefits: string[];
+  /**
+   * Horas de antelación para cancelar sin perder la sesión, YA resueltas para
+   * esta clase: el override del tipo si lo tiene, y si no la del estudio
+   * (`heredaOverride`). `null` = el estudio no fija ninguna.
+   *
+   * ⚠️ Es un dato, no el «6 horas» que el prototipo escribe a mano. Prometerle
+   * a la socia una ventana que no es la de su estudio la deja pagando una
+   * cancelación que creía gratis.
+   */
+  cancelHoras: number | null;
 }
 
 export interface DiaPortal {
@@ -101,6 +111,12 @@ export interface BonoCartera {
   footline: string;
   subline: string;
   percent: number;
+  /**
+   * Las condiciones del plan que lo vendió (`condicionesDe`). Vacío = ese plan
+   * no tiene ninguna que contar, y entonces no se ofrece «Ver detalles»: un
+   * botón que abre una hoja en blanco es peor que no estar.
+   */
+  terminos: string[];
 }
 
 /** Una compra de la socia, para el historial. Sale de `recibos`. */
@@ -141,6 +157,16 @@ export interface SociaPortal {
   /** Tiene mandato SEPA vivo. Es lo que el perfil de siempre resume como
    *  «Domiciliado» en Métodos de pago. */
   domiciliado: boolean;
+  /** La tarjeta guardada. `null` = no hay ninguna, no una de relleno. */
+  tarjeta: TarjetaPortal | null;
+}
+
+export interface TarjetaPortal {
+  /** `Visa`, `Mastercard`… Nunca vacío: sin marca conocida, «Tarjeta». */
+  marca: string;
+  ultimos4: string;
+  /** `MM/AA`. Vacío = Stripe todavía no la ha dicho, NO «no caduca». */
+  caduca: string;
 }
 
 /**
@@ -212,7 +238,8 @@ export interface DatosPortal {
   /**
    * Semanas seguidas asistiendo, y si es su mejor marca. `null` = no hay
    * racha que enseñar (menos de dos seguidas, o nadie identificado). Ver
-   * `rachaDe` — el prototipo la traía como texto fijo y aquí se calcula.
+   * `calcularRacha` (`lib/engines/streak-engine.ts`) — el prototipo la traía
+   * como texto fijo, y no se recalcula aquí: esa cifra ya tenía dueño.
    */
   racha: { semanas: number; esMejor: boolean } | null;
   /**

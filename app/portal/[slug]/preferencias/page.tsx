@@ -9,6 +9,11 @@ import { fetchPreferencias, guardarPreferencia } from '@/lib/notifications/clien
 import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
 import { activarPush, estadoPermiso } from '@/lib/notifications/push-client';
 import type { ModoTokens } from '@/lib/portal-modo';
+// La tipografía del tema, no tamaños sueltos: `display()` lee
+// `--portal-heading-font`, así que con Tentada el título sale en Garamond y
+// con Noir en su Instrument Sans. Antes esta pantalla era la única del portal
+// con la tipografía a mano, y por eso no seguía a ningún tema.
+import { display, micro } from '@/lib/portal-design';
 
 // Antes "Preferencias" (disponibilidad, instructora/tipo/duración/nivel
 // favoritos): esos campos se guardaban pero no los leía nada — ni el flujo de
@@ -21,19 +26,18 @@ import type { ModoTokens } from '@/lib/portal-modo';
 export default function PreferenciasPage() {
   const { studio } = useStudio();
   const { t } = useModo();
-  const microLabel: React.CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: t.muted };
 
   if (!studio?.id) return null;
 
   return (
     <div style={{ minHeight: '100%', background: t.bg }}>
       <div style={{ padding: '24px 20px 20px' }}>
-        <h1 style={{ color: t.ink, fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', lineHeight: 1 }}>Avisos</h1>
+        <h1 style={{ ...display(28), color: t.ink }}>Avisos</h1>
         <p style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Elige qué quieres saber y por dónde</p>
       </div>
 
       <div style={{ padding: '0 16px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <AvisosSocia t={t} studioId={studio.id} microLabel={microLabel} />
+        <AvisosSocia t={t} studioId={studio.id} />
       </div>
     </div>
   );
@@ -41,7 +45,7 @@ export default function PreferenciasPage() {
 
 // ── Avisos de la socia: qué notificaciones quiere recibir (por categoría/canal).
 // Estilo del portal (tokens de tema); guarda al vuelo vía /api/notifications/preferences.
-function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: string; microLabel: React.CSSProperties }) {
+function AvisosSocia({ t, studioId }: { t: ModoTokens; studioId: string }) {
   const cats = CATEGORIAS_POR_ROL.SOCIA;
   const [prefs, setPrefs] = useState<Record<string, { inapp: boolean; push: boolean }>>({});
   const [permiso, setPermiso] = useState<NotificationPermission | 'unsupported'>('default');
@@ -82,12 +86,10 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
   });
 
   return (
-    <Card style={{ padding: 20 }}>
-      <p style={{ ...microLabel, marginBottom: 4 }}>Avisos</p>
-      <p style={{ fontSize: 12, color: t.muted, marginBottom: 14 }}>Elige qué quieres recibir y por dónde. Los avisos importantes de pago se envían siempre.</p>
-
+    <>
+    <Card style={{ padding: 0, overflow: 'hidden' }}>
       {permiso !== 'unsupported' && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 14, background: t.surface2, marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '15px 16px', borderBottom: `1px solid ${t.line}` }}>
           <span style={{ fontSize: 12.5, fontWeight: 700, color: t.ink }}>Avisos en este dispositivo</span>
           {/* Botón SIEMPRE presente: aunque el permiso ya esté concedido puede no
               haber suscripción (falló antes) → hay que poder (re)activar. */}
@@ -97,20 +99,36 @@ function AvisosSocia({ t, studioId, microLabel }: { t: ModoTokens; studioId: str
           </button>
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {cats.map(cat => {
-          const p = prefs[cat] ?? { inapp: true, push: true };
-          return (
-            <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: t.ink }}>{CATEGORIA_ETIQUETA[cat]}</span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button type="button" onClick={() => toggle(cat, 'inapp')} style={chip(p.inapp)} aria-pressed={p.inapp}>App</button>
-                <button type="button" onClick={() => toggle(cat, 'push')} style={chip(p.push)} aria-pressed={p.push}>Push</button>
-              </div>
+      {cats.map((cat, i) => {
+        const p = prefs[cat] ?? { inapp: true, push: true };
+        return (
+          <div key={cat} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            padding: '15px 16px',
+            // Filas separadas por hilos dentro de una sola tarjeta, como el
+            // diseño — en vez de una lista suelta con hueco entre filas.
+            borderBottom: i === cats.length - 1 ? 'none' : `1px solid ${t.line}`,
+          }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: t.ink }}>{CATEGORIA_ETIQUETA[cat]}</span>
+            {/* ⚠️ DOS controles y no un interruptor, aunque el prototipo dibuje
+                uno: aquí se elige el canal (en la app o al móvil), y
+                colapsarlo le quitaría a la socia poder recibir un aviso sin
+                que le suene el teléfono. */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" onClick={() => toggle(cat, 'inapp')} style={chip(p.inapp)} aria-pressed={p.inapp}>App</button>
+              <button type="button" onClick={() => toggle(cat, 'push')} style={chip(p.push)} aria-pressed={p.push}>Push</button>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </Card>
+    {/* Al pie y no arriba, como el diseño: es una advertencia, no una
+        introducción, y arriba competía con la primera fila por la mirada.
+        El texto se conserva tal cual — dice qué se manda siempre, y cambiarlo
+        sería afirmar algo que no he comprobado. */}
+    <p style={{ ...micro(11.5), color: t.muted, marginTop: 12, padding: '0 4px', lineHeight: 1.55, textTransform: 'none', letterSpacing: 0 }}>
+      Elige qué quieres recibir y por dónde. Los avisos importantes de pago se envían siempre.
+    </p>
+    </>
   );
 }

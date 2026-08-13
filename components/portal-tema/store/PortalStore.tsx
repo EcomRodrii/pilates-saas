@@ -9,7 +9,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso";
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -47,6 +47,21 @@ export interface PortalState {
   bonosTab: 'bonos' | 'historial';
   /** Qué sección abre «Información del centro». */
   infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
+  /**
+   * La hoja abierta. `null` = ninguna.
+   *
+   * ⚠️ `cancelar` no es decorativa: hasta ahora el kit cancelaba una reserva
+   * en el acto, sin preguntar. Es una acción IRREVERSIBLE —la plaza se libera
+   * y puede irse a quien esté en la cola— y un toque de más en una lista se la
+   * llevaba por delante.
+   */
+  hoja:
+    | { tipo: 'cancelar'; classId: string; reservaId?: string }
+    | { tipo: 'profesor'; id: string }
+    | { tipo: 'espera'; classId: string }
+    | { tipo: 'bono'; bonoId: string }
+    | { tipo: 'pago' }
+    | null;
 }
 
 const STORAGE_KEY = "tentare-portal";
@@ -75,6 +90,7 @@ const initialState = (): PortalState => ({
   horarioTab: 'clases',
   bonosTab: 'bonos',
   infoKey: 'horario',
+  hoja: null,
 });
 
 type Action = { type: "patch"; patch: Partial<PortalState> } | { type: "reset" };
@@ -99,7 +115,9 @@ function restore(): PortalState {
     // `ultimaReserva` tampoco se restaura: es el resultado de una acción que
     // acaba de ocurrir, no un estado. Restaurarlo abriría la app en «¡Reserva
     // confirmada!» días después de reservar.
-    return { ...base, ...guardado, loading: false, toast: "", running: false, paying: false, authWorking: false, ultimaReserva: null };
+    // La hoja tampoco se restaura: abrir la app con un «¿Cancelar esta
+    // reserva?» de hace dos días sería, como poco, un susto.
+    return { ...base, ...guardado, loading: false, toast: "", running: false, paying: false, authWorking: false, ultimaReserva: null, hoja: null };
   } catch {
     return base;
   }
@@ -126,8 +144,11 @@ export interface PortalActions {
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
   goMisDatos(): void;
+  abrirHoja(hoja: PortalState['hoja']): void;
+  cerrarHoja(): void;
   goPrefs(): void;
   goProgress(): void;
+  goInvitar(): void;
   logout(): void;
   guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
@@ -520,12 +541,15 @@ export function PortalProvider({
       goBuy: () => ir({ screen: "comprar" }),
       goInfo: (infoKey) => { set({ infoKey }); ir({ screen: "info" }); },
       goMisDatos: () => ir({ screen: "misdatos" }),
+      abrirHoja: (hoja) => set({ hoja }),
+      cerrarHoja: () => set({ hoja: null }),
       // Avisos y Progreso son RUTAS del portal de siempre (`/preferencias`,
       // `/progreso`) y ahí se quedan: las dos tienen más de lo que dibuja el
       // prototipo —control por canal y push la primera, recompensas y créditos
       // la segunda— y el kit todavía no las cubre.
       goPrefs: () => ir({ screen: "preferencias" }),
       goProgress: () => ir({ screen: "progreso" }),
+      goInvitar: () => ir({ screen: "invitar" }),
       // Cerrar sesión lo hace quien tiene la sesión, no el kit. Sin vía real
       // (la previsualización) vuelve a la bienvenida, como la demo.
       logout: () => { const f = alSalirRef.current; if (f) return f(); self.reset(); },
@@ -547,6 +571,9 @@ export function PortalProvider({
       },
 
       reserve: (id) => {
+        // Se llega también desde la hoja de lista de espera, que tiene que
+        // cerrarse al confirmar — como hace `cancel`.
+        set({ hoja: null });
         const s = stateRef.current;
         // La fila del horario reserva la SUYA, no la que quedara abierta antes.
         const classId = id ?? s.classId;
@@ -611,6 +638,7 @@ export function PortalProvider({
       // se avisa cuando el servidor lo confirma. Sin él —la previsualización,
       // donde no hay ninguna reserva que cancelar— se queda la maqueta.
       cancel: (id, reservaId) => {
+        set({ hoja: null });
         const cancelar = alCancelarRef.current;
         if (!cancelar) {
           set({ booked: stateRef.current.booked.filter((x) => x !== id) });

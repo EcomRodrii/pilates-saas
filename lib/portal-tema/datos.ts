@@ -16,7 +16,7 @@ import { fechaLocalDe } from '../citas/slots.ts';
 // un segundo criterio del mismo dato — y el primer intento ya se dejó fuera
 // `ASISTIDA`, con lo que una clase pasada aparecería con plazas libres.
 import { imagenDeClase, imagenDeEstudio } from '../imagenes-por-defecto.ts';
-import { plazasOcupadas } from '../booking-logic.ts';
+import { heredaOverride, plazasOcupadas } from '../booking-logic.ts';
 // Los objetivos son una lista FIJA y compartida con la página pública. Se
 // resuelven a sus etiquetas aquí y no en el componente: si el estudio guardó un
 // id de una versión anterior, `resolverObjetivos` lo descarta en vez de
@@ -28,7 +28,7 @@ import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
 import { queImparten } from '../equipo.ts';
 import type {
   BonoCartera, BonoPortal, CompraPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal,
-  PlazaPortal, ProfesorPortal, ReservaPortal, SociaPortal, StudioClass,
+  PlazaPortal, ProfesorPortal, ReservaPortal, SociaPortal, StudioClass, TarjetaPortal,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -121,86 +121,20 @@ export function hoyDe(ahora: Date, tz = TZ_ESTUDIO): { num: number; largo: strin
   return { num: dia, largo: `${NOMBRE_DIA[idx]}, ${dia} de ${MESES[mes - 1]}`, mes: MESES[mes - 1] };
 }
 
-/** El lunes de la semana que contiene esa fecha local, como 'YYYY-MM-DD'.
- *  Es la clave con la que se agrupan las semanas de la racha. */
-function lunesDe(fechaLocal: string): string {
-  const { anio, mes, dia } = partes(fechaLocal);
-  // Mediodía UTC, mismo motivo que en `diasDeLaSemana`.
-  const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
-
-/** La semana anterior a una clave de `lunesDe`. */
-function semanaAnterior(lunes: string): string {
-  const { anio, mes, dia } = partes(lunes);
-  const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
-  d.setUTCDate(d.getUTCDate() - 7);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-}
-
 /**
- * Semanas seguidas en las que la socia ha ASISTIDO al menos a una clase.
+ * ⚠️ Aquí vivía `rachaDe`, un segundo cálculo de las semanas seguidas.
  *
- * El prototipo pintaba «6 semanas seguidas — tu mejor racha» como texto fijo.
- * Esto lo calcula, y por eso tiene tres reglas que un número inventado no
- * necesita:
+ * Se ha ido, y conviene que quede escrito por qué: `calcularRacha`
+ * (`lib/engines/streak-engine.ts`) YA hacía exactamente esto —mismas reglas,
+ * incluida la de que la semana en curso no rompe la racha— y además es la que
+ * alimenta el motor de logros. Con dos fuentes, el Inicio podía decir 6
+ * semanas y su insignia 5.
  *
- *  1. **Cuenta `ASISTIDA`, no `CONFIRMADA`.** Reservar no es venir. Una racha
- *     construida sobre reservas se rompería sola en cuanto alguien reserva y
- *     no aparece — y le habríamos dicho que la tenía.
- *  2. **La semana en curso no rompe la racha.** Es lunes por la mañana: nadie
- *     ha asistido a nada todavía. Si contara como semana en blanco, la racha
- *     se pondría a cero cada lunes y volvería el martes. Se cuenta si ya tiene
- *     una clase; si no, se empieza a contar desde la semana pasada.
- *  3. **«Tu mejor racha» solo se dice cuando LO ES.** Es una afirmación
- *     comprobable, así que se comprueba contra el resto de su historial en
- *     vez de escribirla siempre.
- *
- * `null` = no hay racha que enseñar (menos de dos semanas seguidas). Una
- * semana suelta no es una racha, y anunciarla como tal es ruido.
+ * Ahora la racha entra al adaptador YA CALCULADA (`FuenteDatosPortal.racha`),
+ * desde `rachaSocio()` del contexto. Lo único que se añadió al motor fue
+ * `esMejor`, que el tema Tentada necesita para no escribir «— tu mejor racha»
+ * cuando no lo es.
  */
-export function rachaDe(
-  reservas: Pick<Reserva, 'sesionId' | 'estado'>[] | undefined,
-  sesiones: Pick<Sesion, 'id' | 'inicio'>[],
-  ahora: Date,
-  tz = TZ_ESTUDIO,
-): { semanas: number; esMejor: boolean } | null {
-  if (!reservas?.length) return null;
-  const inicioPorSesion = new Map(sesiones.map((s) => [s.id, s.inicio]));
-
-  const conAsistencia = new Set<string>();
-  for (const r of reservas) {
-    if (r.estado !== 'ASISTIDA') continue;
-    const inicio = inicioPorSesion.get(r.sesionId);
-    if (!inicio) continue;
-    conAsistencia.add(lunesDe(fechaLocalDe(new Date(inicio), tz)));
-  }
-  if (conAsistencia.size === 0) return null;
-
-  // ── La racha actual ──────────────────────────────────────────────────────
-  const estaSemana = lunesDe(fechaLocalDe(ahora, tz));
-  let cursor = conAsistencia.has(estaSemana) ? estaSemana : semanaAnterior(estaSemana);
-  let semanas = 0;
-  while (conAsistencia.has(cursor)) {
-    semanas++;
-    cursor = semanaAnterior(cursor);
-  }
-  if (semanas < 2) return null;
-
-  // ── ¿Es la mejor? ────────────────────────────────────────────────────────
-  // Se recorre el historial ordenado contando tramos seguidos. Con `Set` no
-  // hay orden garantizado, de ahí el `sort` — las claves son 'YYYY-MM-DD', así
-  // que ordenan bien como texto.
-  const todas = [...conAsistencia].sort();
-  let mejor = 0, tramo = 0, previa: string | null = null;
-  for (const s of todas) {
-    tramo = previa !== null && semanaAnterior(s) === previa ? tramo + 1 : 1;
-    if (tramo > mejor) mejor = tramo;
-    previa = s;
-  }
-  return { semanas, esMejor: semanas >= mejor };
-}
 
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
 export function fechaLarga(iso: string | null | undefined, tz = TZ_ESTUDIO): string {
@@ -226,7 +160,7 @@ function etiquetasObjetivo(raw: unknown): string[] {
  * Ordenados: primero lo que se agota (una socia mira cuánto le queda), y los
  * ilimitados después.
  */
-export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz = TZ_ESTUDIO): BonoCartera[] {
+export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tipos: TipoClase[] = [], tz = TZ_ESTUDIO): BonoCartera[] {
   return suscripciones
     .filter((s) => s.estado === 'ACTIVA')
     .map((s): BonoCartera => {
@@ -247,6 +181,7 @@ export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz =
         // Sin sesiones no hay porcentaje: `left/0` sería NaN y una barra al
         // 100 % en un ilimitado no significa nada.
         percent: !ilimitado && total > 0 ? Math.round((left / total) * 100) : 0,
+        terminos: plan ? condicionesDe(plan, tipos) : [],
       };
     })
     .sort((a, b) => Number(a.unlimited) - Number(b.unlimited));
@@ -344,7 +279,15 @@ export interface FuenteDatosPortal {
   suscripciones: Suscripcion[];
   /** Los de la socia. `[]` = nadie identificado o sin compras. */
   recibos?: Recibo[];
+  /**
+   * Sus semanas seguidas, YA calculadas por `calcularRacha`. No se calcula
+   * aquí a propósito: esa cifra tiene un dueño y es el motor de rachas, que es
+   * el mismo del que salen sus logros.
+   */
+  racha?: { semanas: number; esMejor: boolean } | null;
   planes: PlanTarifa[];
+  /** La ventana de cancelación del estudio (`studios.cancelacion_ventana_horas`). */
+  cancelacionVentanaHoras?: number | null;
   /**
    * Nombre y año de apertura, para el cierre de pantalla que firma el
    * estudio. `anioFundacion` es opcional de verdad: `studios.anio_fundacion`
@@ -455,6 +398,9 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         fotoUrl: imagenDeClase(tipo),
         description: tipo?.descripcion ?? '',
         benefits: etiquetasObjetivo(tipo?.objetivos),
+        // El override del tipo manda sobre el del estudio, con el MISMO helper
+        // que usa el motor de reservas — no una segunda regla de herencia.
+        cancelHoras: heredaOverride(tipo?.ventanaCancelacionHoras, f.cancelacionVentanaHoras ?? null),
       };
     });
 }
@@ -473,7 +419,7 @@ export function filtrosDe(clases: StudioClass[], tiposClase: TipoClase[]): Filtr
 }
 
 /** Los planes que el estudio vende hoy, en el orden en que los tiene. */
-export function planesDe(planes: PlanTarifa[]): PlanPortal[] {
+export function planesDe(planes: PlanTarifa[], tipos: TipoClase[] = []): PlanPortal[] {
   return planes.filter((p) => p.activo).map((p) => ({
     key: p.id,
     name: p.nombre,
@@ -482,8 +428,46 @@ export function planesDe(planes: PlanTarifa[]): PlanPortal[] {
     classes: p.sesiones ?? Number.MAX_SAFE_INTEGER,
     price: p.precio,
     badge: '',
-    perks: p.descripcion ? [p.descripcion] : [],
+    perks: condicionesDe(p, tipos),
   }));
+}
+
+/**
+ * Las condiciones de un plan, sacadas de su política REAL.
+ *
+ * El prototipo las trae escritas a mano («Caduca a los 3 meses», «Cancelación
+ * gratis hasta 6 h antes»). Aquí no se escriben: `validez_dias`,
+ * `limite_semanal` y los tipos de clase que cubre ya viven en `planes_tarifa`,
+ * y son justo lo que la socia necesita saber antes de pagar. Un plan sin
+ * ninguna restricción devuelve solo su descripción — o nada, y entonces la
+ * hoja de condiciones no se ofrece.
+ */
+export function condicionesDe(p: PlanTarifa, tipos: TipoClase[] = []): string[] {
+  const fuera: string[] = [];
+  if (p.descripcion) fuera.push(p.descripcion);
+  if (p.validezDias) {
+    fuera.push(`Caduca a los ${p.validezDias} días de comprarlo`);
+  }
+  if (p.limiteSemanal) {
+    fuera.push(
+      p.limiteSemanal === 1
+        ? 'Máximo una clase por semana'
+        : `Máximo ${p.limiteSemanal} clases por semana`,
+    );
+  }
+  // Lista vacía o ausente = cubre TODAS, que es como se han comportado
+  // siempre: no se anuncia una restricción que no existe.
+  const cubre = (p.tiposClaseIds ?? [])
+    .map((id) => tipos.find((t) => t.id === id)?.nombre)
+    .filter((n): n is string => !!n);
+  if (cubre.length) fuera.push(`Válido para ${listaEnTexto(cubre)}`);
+  return fuera;
+}
+
+/** «a, b y c» — el separador final en español es «y», no otra coma. */
+function listaEnTexto(partes: string[]): string {
+  if (partes.length <= 1) return partes[0] ?? '';
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
 }
 
 /**
@@ -507,6 +491,7 @@ export function sociaDe(socio: Socio | null): SociaPortal {
   const vacia: SociaPortal = {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   };
   if (!socio) return vacia;
   const nombre = `${socio.nombre} ${socio.apellidos}`.trim();
@@ -526,7 +511,40 @@ export function sociaDe(socio: Socio | null): SociaPortal {
     // sin mandato no domicilia nada.
     domiciliado: (socio as { metodoPagoPreferido?: string | null }).metodoPagoPreferido === 'SEPA'
       && !!(socio as { sepaMandateId?: string | null }).sepaMandateId,
+    tarjeta: tarjetaDe(socio),
   };
+}
+
+/**
+ * La tarjeta guardada, tal como la conoce el estudio.
+ *
+ * Sin `tarjetaUltimos4` no hay tarjeta que enseñar: el prototipo dibuja
+ * siempre una «Visa ···· 4242», y decirle a quien no tiene ninguna guardada
+ * que la tiene es peor que no decir nada.
+ *
+ * ⚠️ La caducidad es aparte y puede faltar aunque la tarjeta esté: `null` en
+ * `tarjeta_exp_*` significa «todavía no se le ha preguntado a Stripe», NO «no
+ * caduca» (ver `lib/billing/caducidad-tarjeta.ts`, que la rellena por goteo).
+ * Por eso `caduca` es opcional dentro de la tarjeta, y no motivo para
+ * esconderla entera.
+ */
+export function tarjetaDe(socio: Socio): TarjetaPortal | null {
+  const ultimos4 = socio.tarjetaUltimos4 ?? '';
+  if (!ultimos4) return null;
+  const mes = socio.tarjetaExpMes;
+  const anio = socio.tarjetaExpAnio;
+  return {
+    marca: nombreDeMarca(socio.tarjetaMarca ?? ''),
+    ultimos4,
+    caduca: mes && anio ? `${String(mes).padStart(2, '0')}/${String(anio).slice(-2)}` : '',
+  };
+}
+
+/** Stripe manda la marca en minúscula (`visa`, `mastercard`). */
+function nombreDeMarca(marca: string): string {
+  if (!marca) return 'Tarjeta';
+  if (marca.toLowerCase() === 'visa') return 'Visa';
+  return marca.charAt(0).toUpperCase() + marca.slice(1);
 }
 
 /** El adaptador completo. Es lo único que necesita llamar quien monta el portal. */
@@ -537,7 +555,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     clases,
     ahoraISO: f.ahora.toISOString(),
     hoy: hoyDe(f.ahora, tz),
-    racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
+    racha: f.racha ?? null,
     estudio: f.estudio ?? {
       nombre: '', anioFundacion: null, direccion: '', ciudad: '',
       codigoPostal: '', telefono: '', email: '', fotoUrl: null, imagenBienvenidaUrl: null,
@@ -553,9 +571,9 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
-    planes: planesDe(f.planes),
+    planes: planesDe(f.planes, f.tiposClase),
     bono: bonoDe(f.suscripciones, f.planes, tz),
-    bonos: bonosDe(f.suscripciones, f.planes, tz),
+    bonos: bonosDe(f.suscripciones, f.planes, f.tiposClase, tz),
     compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
     profesores: profesoresDe(f.instructores),

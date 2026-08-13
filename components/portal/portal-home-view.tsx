@@ -290,7 +290,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
 
   const homeCard = useMemo(() => getHomeCardContext({
     now, misReservas, sesiones, tiposClase, salas, instructores, activeSus,
-    racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '' },
+    racha: racha ?? { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: '', esMejor: false },
   }), [now, misReservas, sesiones, tiposClase, salas, instructores, activeSus, racha]);
 
   // La clase CONCRETA que le proponemos (lib/portal-sugerencias.ts). Los cuatro
