@@ -2,11 +2,15 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Loader2, Send, Check, Flag } from 'lucide-react';
+import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
-import { fetchPerfilNetworkPublico, contactarPerfilNetwork, reportarPerfilNetwork } from '@/lib/api-client';
+import {
+  fetchPerfilNetworkPublico, contactarPerfilNetwork, reportarPerfilNetwork,
+  fetchFavoritosNetwork, toggleFavoritoNetwork,
+} from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL,
   TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
@@ -33,6 +37,8 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   const [enviandoReporte, setEnviandoReporte] = useState(false);
   const [errorReporte, setErrorReporte] = useState('');
   const [reportado, setReportado] = useState(false);
+  const [esFavorito, setEsFavorito] = useState(false);
+  const [cambiandoFavorito, setCambiandoFavorito] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -43,8 +49,16 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       setBadges(r?.badges ?? null);
       setCargando(false);
     });
+    fetchFavoritosNetwork().then(fs => { if (vivo) setEsFavorito(fs.some(f => f.id === perfilId)); });
     return () => { vivo = false; };
   }, [perfilId]);
+
+  async function alternarFavorito() {
+    setCambiandoFavorito(true);
+    const res = await toggleFavoritoNetwork(perfilId);
+    setCambiandoFavorito(false);
+    if (res.ok) setEsFavorito(res.favorito);
+  }
 
   if (cargando) {
     return (
@@ -163,18 +177,29 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
         </div>
       )}
 
-      {enviado ? (
-        <p className="text-[12px] text-success flex items-center gap-1.5">
-          <Check size={13} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
-        </p>
-      ) : (
+      <div className="flex items-center gap-2">
+        {enviado ? (
+          <p className="text-[12px] text-success flex items-center gap-1.5">
+            <Check size={13} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
+          </p>
+        ) : (
+          <button
+            onClick={() => setModalAbierto(true)}
+            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
+          >
+            <Send size={13} /> Contactar
+          </button>
+        )}
         <button
-          onClick={() => setModalAbierto(true)}
-          className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
+          onClick={alternarFavorito}
+          disabled={cambiandoFavorito}
+          aria-pressed={esFavorito}
+          title={esFavorito ? 'Quitar de favoritas' : 'Guardar en favoritas'}
+          className="px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted transition-colors disabled:opacity-60"
         >
-          <Send size={13} /> Contactar
+          <Heart size={15} className={cn(esFavorito ? 'text-destructive' : 'text-muted-foreground')} fill={esFavorito ? 'currentColor' : 'none'} />
         </button>
-      )}
+      </div>
 
       <DashboardSheet open={modalAbierto} onClose={() => setModalAbierto(false)} label={`Contactar a ${perfil.nombre}`}>
         <div className="p-5 space-y-3">

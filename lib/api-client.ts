@@ -2165,6 +2165,37 @@ export async function fetchSolicitudesContactoNetwork(): Promise<SolicitudContac
   }
 }
 
+// Favoritos (brief §19: "Network → Buscar instructoras / Mis favoritas /
+// Solicitudes"). POST es un toggle — el servidor decide añadir o quitar
+// según si ya existe, la respuesta dice cuál de las dos pasó.
+export async function fetchFavoritosNetwork(): Promise<PerfilNetworkPublico[]> {
+  try {
+    const res = await fetch('/api/network/favoritos', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { perfiles?: PerfilNetworkPublico[] };
+    return data.perfiles ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleFavoritoNetwork(
+  perfilId: string,
+): Promise<{ ok: true; favorito: boolean } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/favoritos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ perfilId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { favorito?: boolean; error?: string };
+    if (!res.ok || data.favorito === undefined) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, favorito: data.favorito };
+  } catch {
+    return { ok: false, error: 'No se pudo actualizar favoritas' };
+  }
+}
+
 // Fase 10: reportar un perfil.
 export async function reportarPerfilNetwork(
   perfilId: string, motivo: string, detalle: string | null,
