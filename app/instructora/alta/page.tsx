@@ -39,12 +39,21 @@ export default function AltaInstructoraFreelancePage() {
     const token = await pedirToken();
     if (token === null) { setSubmitting(false); setError(ERROR_CAPTCHA); return; }
 
-    const { error, needsConfirmation } = await signUp(
+    const { error, needsConfirmation, yaRegistrado } = await signUp(
       email, password,
       { pending_freelance: { nombre: nombre.trim(), ciudad: ciudad.trim(), telefono: telefono.trim() } },
       token || undefined,
     );
     if (error) { setError(error); setSubmitting(false); return; }
+    if (yaRegistrado) {
+      // Email ya registrado y confirmado (p.ej. ya es propietaria de un
+      // estudio): no se ha mandado ningún correo, así que decir "revisa tu
+      // email" sería mentir. Se dice la verdad — "Iniciar sesión" ya está
+      // enlazado justo debajo del formulario.
+      setError('Ya existe una cuenta con este email. Inicia sesión en su lugar.');
+      setSubmitting(false);
+      return;
+    }
     if (needsConfirmation) {
       setInfo('Cuenta creada. Revisa tu email para confirmarla — al volver, tu página pública ya estará lista.');
       setSubmitting(false);

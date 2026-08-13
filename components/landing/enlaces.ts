@@ -62,6 +62,10 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
+      // Feature #9 (ficha Lorari-vs-Tentare): la página existía desde el alta,
+      // pero sin ningún enlace de entrada era un callejón sin salida — nadie
+      // podía encontrarla sin conocer la URL de memoria.
+      { href: '/instructora/alta', label: 'Para instructoras sin estudio' },
     ],
   },
   {

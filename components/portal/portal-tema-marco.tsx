@@ -128,7 +128,7 @@ export function PortalTemaMarco() {
   const { noche, toggle } = useModo();
   const aspecto = useMemo(() => ({ noche, toggle }), [noche, toggle]);
   const {
-    studio, sesiones, reservas, tiposClase, salas, instructores,
+    studio, sesiones, reservas, tiposClase, salas, spots, instructores,
     planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado,
     cancelarReserva, addReserva, updateSocio, rachaSocio,
   } = useStudio();
@@ -161,7 +161,7 @@ export function PortalTemaMarco() {
   const racha = socioId ? rachaSocio(socioId) : null;
   const datos = useMemo(() => construirDatosPortal({
     ahora: new Date(),
-    sesiones, reservas, tiposClase, salas, instructores,
+    sesiones, reservas, tiposClase, salas, spots, instructores,
     planes: planesTarifa,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
     // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
@@ -198,7 +198,7 @@ export function PortalTemaMarco() {
     // filtra igualmente: el panel carga los de todo el estudio por otra vía y
     // este componente no puede depender de por cuál entró.
     recibos: socioId ? recibos.filter((r) => r.socioId === socioId) : [],
-  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
+  }), [sesiones, reservas, tiposClase, salas, spots, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
        studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha]);

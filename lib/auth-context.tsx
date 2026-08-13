@@ -25,7 +25,7 @@ type AuthContextType = {
     password: string,
     metadata?: Record<string, unknown>,
     captchaToken?: string,
-  ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  ) => Promise<{ error: string | null; needsConfirmation: boolean; yaRegistrado: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
   updateEmail: (nuevoEmail: string) => Promise<{ error: string | null; pendiente: boolean }>;
@@ -114,8 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (captchaToken) captchaGastado();
-    if (error) return { error: mensajeDeError(error), needsConfirmation: false };
-    return { error: null, needsConfirmation: !data.session };
+    if (error) return { error: mensajeDeError(error), needsConfirmation: false, yaRegistrado: false };
+    // Cuando el email ya tiene una cuenta CONFIRMADA, gotrue no devuelve un
+    // error (por diseño, para no dejar enumerar qué emails están registrados):
+    // responde 200 con un `user` fantasma e `identities: []`, sin sesión y sin
+    // mandar ningún correo. Sin este chequeo, `needsConfirmation` salía `true`
+    // igual que en un alta real — la pantalla decía "revisa tu email" y nunca
+    // se había enviado nada. Pasó de verdad probando el alta de instructora
+    // freelance con un email que ya era propietaria de otro estudio.
+    const yaRegistrado = !data.session && Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+    return { error: null, needsConfirmation: !data.session && !yaRegistrado, yaRegistrado };
   }
 
   async function signOut() {

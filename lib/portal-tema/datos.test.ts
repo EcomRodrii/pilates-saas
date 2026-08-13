@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
+import type { Spot } from '../types.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
 
 // ── Fixtures mínimos. Solo lo que el adaptador mira. ────────────────────────
@@ -104,7 +105,7 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
     // porque ya traían texto humano.
     room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
-    seats: 10, description: 'Fuerza y control',
+    seats: 10, plazas: [], description: 'Fuerza y control',
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
     // sección «Beneficios» — vacío y ausente significan lo mismo.
     benefits: [],
@@ -328,7 +329,7 @@ function clase(id: string): StudioClass {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
     startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z',
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
-    level: 'Todos los niveles', seats: 3, description: '', benefits: [],
+    level: 'Todos los niveles', seats: 3, plazas: [], description: '', benefits: [],
   };
 }
 
@@ -600,7 +601,7 @@ const claseEn = (iso: string): StudioClass => ({
   day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
   level: 'Todos los niveles', teacher: 'Ana',
-  initial: 'A', seats: 10, description: '', benefits: [],
+  initial: 'A', seats: 10, plazas: [], description: '', benefits: [],
 });
 
 test('la rejilla empieza en lunes y cubre el mes entero', () => {
@@ -658,4 +659,76 @@ test('⚠️ el día seleccionado no se marca en el relleno del mes vecino', () 
   const seleccionadas = r.cells.filter((c) => c.selected);
   assert.equal(seleccionadas.length, 1);
   assert.equal(seleccionadas[0].fecha, '2026-08-01');
+});
+
+// ── Plazas de la sala ───────────────────────────────────────────────────────
+// El kit reservaba SIEMPRE con `spotId: null`, así que `PortalShell` deja fuera
+// la pantalla de Clases en los estudios con plaza fija: un diseño nuevo no
+// puede costar funcionalidad. Esta es la capa de datos que lo desbloquea.
+
+const spot = (id: string, salaId: string, fila: number, columna: number, nombre = ''): Spot => ({
+  id, salaId, studioId: 's1', numero: columna, nombre, fila, columna, tipo: 'REFORMER' as Spot['tipo'], activo: true,
+});
+const sesionRef = { id: 'ses-1', salaId: 'sala-1' };
+
+test('sin spots la lista va vacía: este estudio no asigna sitio', () => {
+  // ⚠️ Vacío NO es «sala llena»: es «se reserva sin elegir», como hasta ahora.
+  assert.deepEqual(plazasDeSesion(sesionRef, undefined, []), []);
+  assert.deepEqual(plazasDeSesion(sesionRef, [], []), []);
+});
+
+test('solo entran las plazas de SU sala', () => {
+  const r = plazasDeSesion(sesionRef, [
+    spot('a', 'sala-1', 1, 1), spot('b', 'sala-2', 1, 1),
+  ], []);
+  assert.deepEqual(r.map((p) => p.id), ['a']);
+});
+
+test('el orden es fila, columna y número — el mismo que la hoja de siempre', () => {
+  const r = plazasDeSesion(sesionRef, [
+    spot('c', 'sala-1', 2, 1), spot('a', 'sala-1', 1, 1), spot('b', 'sala-1', 1, 2),
+  ], []);
+  assert.deepEqual(r.map((p) => p.id), ['a', 'b', 'c']);
+});
+
+test('⚠️ lista de espera y pendiente de aprobación NO bloquean plaza', () => {
+  // No ocupan aforo (Fase 2a), así que tampoco pueden reservar un sitio:
+  // quien está en la cola todavía no tiene reformer asignado. Contarlas
+  // dejaría plazas libres pintadas como cogidas.
+  const spots = [spot('a', 'sala-1', 1, 1), spot('b', 'sala-1', 1, 2), spot('c', 'sala-1', 1, 3)];
+  const r = plazasDeSesion(sesionRef, spots, [
+    { sesionId: 'ses-1', estado: 'CONFIRMADA', spotId: 'a' },
+    { sesionId: 'ses-1', estado: 'LISTA_ESPERA', spotId: 'b' },
+    { sesionId: 'ses-1', estado: 'PENDIENTE_APROBACION', spotId: 'c' },
+  ]);
+  assert.deepEqual(r.filter((p) => p.ocupada).map((p) => p.id), ['a']);
+});
+
+test('ASISTIDA sí ocupa: la clase ya pasó pero el sitio estuvo cogido', () => {
+  const r = plazasDeSesion(sesionRef, [spot('a', 'sala-1', 1, 1)], [
+    { sesionId: 'ses-1', estado: 'ASISTIDA', spotId: 'a' },
+  ]);
+  assert.equal(r[0].ocupada, true);
+});
+
+test('una reserva de OTRA sesión no bloquea esta', () => {
+  const r = plazasDeSesion(sesionRef, [spot('a', 'sala-1', 1, 1)], [
+    { sesionId: 'otra', estado: 'CONFIRMADA', spotId: 'a' },
+  ]);
+  assert.equal(r[0].ocupada, false);
+});
+
+test('una reserva confirmada SIN plaza no bloquea ninguna', () => {
+  // Pasa de verdad: el estudio activa plazas con reservas ya hechas sin sitio.
+  const r = plazasDeSesion(sesionRef, [spot('a', 'sala-1', 1, 1)], [
+    { sesionId: 'ses-1', estado: 'CONFIRMADA', spotId: null },
+  ]);
+  assert.equal(r[0].ocupada, false);
+});
+
+test('el nombre del estudio manda; sin él, el número', () => {
+  const r = plazasDeSesion(sesionRef, [
+    spot('a', 'sala-1', 1, 1, 'Reformer 1'), spot('b', 'sala-1', 1, 2),
+  ], []);
+  assert.deepEqual(r.map((p) => p.nombre), ['Reformer 1', '2']);
 });

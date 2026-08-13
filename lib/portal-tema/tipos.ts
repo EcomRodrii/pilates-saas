@@ -32,6 +32,11 @@ export interface StudioClass {
   initial: string;
   /** Plazas libres. 0 = completa, y entonces la UI ofrece lista de espera. */
   seats: number;
+  /**
+   * Las plazas físicas de la sala, en orden de sala. `[]` = este estudio no
+   * asigna sitio (la mayoría) y se reserva sin elegir — NO es «sala llena».
+   */
+  plazas: PlazaPortal[];
   description: string;
   /**
    * Para qué sirve esta clase, en palabras. Sale de `tipos_clase.objetivos`
@@ -156,6 +161,16 @@ export interface ReservaPortal {
   estado: 'CONFIRMADA' | 'ASISTIDA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION';
   /** Su puesto en la cola. `null` salvo en `LISTA_ESPERA`. */
   posicion: number | null;
+}
+
+/** Una plaza de la sala (un reformer, una camilla) para la pantalla de detalle. */
+export interface PlazaPortal {
+  id: string;
+  /** Lo que se pinta encima. El nombre del estudio si lo tiene; si no, el número. */
+  nombre: string;
+  fila: number;
+  columna: number;
+  ocupada: boolean;
 }
 
 export interface DatosPortal {
