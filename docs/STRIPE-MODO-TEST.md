@@ -45,6 +45,24 @@ obliga a ponerla a mano en Vercel, que es justo la fricción que se busca.
 
 ---
 
+## Comprobación previa
+
+Antes de tocar una tarjeta:
+
+```bash
+node scripts/stripe-sandbox-check.mjs
+```
+
+Dice qué falta y cómo arreglarlo, sin imprimir ningún valor secreto. Existe
+porque el montaje tiene seis piezas que fallan **por separado y casi ninguna
+avisa**: sin el webhook el cobro sale bien en Stripe y la app no se entera; con
+la clave en el modo equivocado el guardia bloquea y el mensaje acaba en un log
+que nadie mira. Descubrir eso con la tarjeta en la mano cuesta una tarde.
+
+⚠️ Valida la CONFIGURACIÓN, no que el cobro funcione. Eso solo lo prueba pagar.
+
+---
+
 ## Montaje
 
 ### 1. Claves de test (las pones tú)
@@ -147,12 +165,51 @@ Brain) funciona de punta a punta.
 
 ---
 
+### 6. Los crons de dinero (sin esperar a las 8:30)
+
+Aquí está la parte que de verdad no se ha probado nunca: el checkout es la
+puerta fácil, pero el dunning, las renovaciones y las penalizaciones **solo
+corren por cron**, y en local nadie los dispara. Se hace con el servidor de
+desarrollo de Inngest:
+
+```bash
+npx inngest-cli@latest dev
+```
+
+Descubre solo `http://localhost:3000/api/inngest` (con `npm run dev` levantado)
+y abre un panel en `http://localhost:8288` donde se pueden **lanzar eventos** e
+**invocar funciones** a mano.
+
+**Las que van por evento, con su payload** — el `nowISO` no es decorativo:
+manda la ventana de tiempo, así que moviéndolo se prueba «mañana» sin esperar:
+
+| Evento | Payload | Qué ejerce |
+|---|---|---|
+| `dunning/studio.sweep` | `{"studioId":"studio-1","nowISO":"2026-08-13T08:30:00Z"}` | reintento de recibos impagados |
+| `renovaciones/studio.sweep` | `{"studioId":"studio-1","nowISO":"2026-08-13T08:00:00Z"}` | recibo de renovación de cuotas caducadas |
+
+**Las que solo tienen cron** se invocan desde el panel por su id, sin payload:
+
+| Función | Id |
+|---|---|
+| Penalizaciones | `penalizaciones-procesar` |
+| Conciliador de cobros | `conciliar-cobros` |
+
+⚠️ **El conciliador es el camino principal, no una red de seguridad.** Los
+cobros de plan que llegan sin webhook los rescata él, así que probar el checkout
+sin probar el conciliador deja fuera la vía por la que de hecho entran los
+pagos.
+
+⚠️ **Estos crons cobran de verdad contra la clave que tengas puesta.** Con
+`sk_test_` es dinero de juguete; comprobar con
+`node scripts/stripe-sandbox-check.mjs` **antes** de invocarlos, no después.
+
+---
+
 ## Lo que este montaje NO cubre
 
 - **SEPA.** El adeudo domiciliado es asíncrono (tarda días y puede devolverse
   hasta 8 semanas). En test Stripe lo resuelve al instante, así que el sandbox
   sirve para el camino feliz pero **no** para probar los tiempos reales ni el
   backstop de reconciliación de `lib/inngest/dunning.ts`.
-- **Los crons de Inngest**, que corren en el despliegue, no en local. Para
-  probar el dunning hay que invocar la función a mano.
 - **Veri*Factu / Fiskaly**, que tiene su propio entorno de pruebas aparte.
