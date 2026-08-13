@@ -179,3 +179,54 @@
   background: var(--accent-soft);
   font-size: 12.5px; font-weight: 600; color: var(--brand);
 }
+
+/* ── Elegir sitio ────────────────────────────────────────────────────────────
+   Solo aparece en estudios que asignan plaza (reformers, camillas).
+
+   ⚠️ Las columnas salen de la SALA (`columnasDeSala`), no de un número fijo.
+   La hoja de reserva de siempre usa 7 a secas, y con la sala real del piloto
+   —8 plazas en dos filas de 4— eso pinta 7 arriba y 1 huérfana debajo: deja de
+   parecerse a la sala, que es lo único que hace útil elegir sitio. Tampoco
+   `auto-fit`, que con cuatro plazas daría cuatro celdas anchísimas. */
+.plazas {
+  display: grid;
+  grid-template-columns: repeat(var(--plazas-cols, 4), 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.plaza {
+  /* Centrado explícito: el número salía pegado a la izquierda heredando la
+     alineación del contenedor. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, color .18s ease;
+}
+/* La elegida tiene que cantar: es la única señal de qué máquina te llevas, y
+   sobre fondos claros un borde de marca a secas casi no se ve. Fondo de marca,
+   texto encima del mismo token que usan los botones primarios, y un anillo que
+   la separa de sus vecinas. */
+.plaza--elegida {
+  border-color: transparent;
+  background: var(--brand);
+  color: var(--on-brand);
+  font-weight: 700;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--brand);
+}
+/* Ocupada: sin fondo y a media tinta. No se tacha ni se pinta de rojo — no es
+   un error de la socia, es que ese sitio ya es de otra. */
+.plaza--ocupada {
+  background: transparent;
+  color: var(--muted);
+  opacity: .45;
+  cursor: default;
+}
+.plazas__nota { margin-top: 10px; }

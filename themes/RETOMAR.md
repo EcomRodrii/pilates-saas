@@ -145,6 +145,28 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    ~~Costura de navegación~~ **HECHA**: las doce acciones que navegaban pasan
    por `ir()`, y `PortalProvider` acepta `navegar`/`pantalla`. Por defecto
    sigue siendo el estado, así que la previsualización se comporta igual.
+   ~~Selector de plaza~~ **HECHO**, y con él **la puerta de Clases ya está
+   abierta**: `PortalShell` no mira `spots`. La rejilla vive en `ClassDetail`
+   (`.plazas`), el `spotId` viaja hasta `addReserva` —la MISMA vía que la hoja
+   de siempre— y elegir es OPCIONAL, igual que allí: obligar aquí sería una
+   regla nueva, y esto era para no perder funcionalidad, no para cambiarla.
+   ⚠️ Tres cosas que solo salieron al mirarlo, ninguna visible con `tsc`:
+   - **La fila del horario de Tentada tenía un atajo «Reservar»** que salta el
+     detalle. Reservar desde ahí en un estudio de reformer habría dejado a la
+     socia sin máquina — justo lo que la puerta cerrada evitaba. Con plazas,
+     ese atajo pasa a decir «Elegir sitio» y lleva al detalle. Los otros tres
+     temas usan `ClassRow`, sin atajo, así que no tenían el agujero.
+   - **La rejilla NO puede llevar un número fijo de columnas.** Copié el 7 de
+     la hoja de reserva de siempre y la sala real del piloto —8 plazas, 2×4—
+     salió como 7 + 1 huérfana. Ahora las columnas salen del dato
+     (`columnasDeSala`), contando columnas DISTINTAS: en producción los
+     índices van desde 0, así que ni `max` ni `max+1` acertaban.
+   - **La plaza elegida tiene que soltarse al cambiar de clase.** Sin eso, la
+     1 elegida en la clase de las 10 viaja a la de las 18, donde puede estar
+     cogida, y el servidor la rechaza con un mensaje que no explica nada.
+   Cubierto por `e2e/portal-tema-elegir-plaza.spec.ts` (4 casos, incluido que
+   una clase SIN plazas no pinta ninguna rejilla — vacío es «este estudio no
+   asigna sitio», no «sala llena»).
 6. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
@@ -184,6 +206,9 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
 8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
+   Ya no lo bloquea nada del punto 5 —Clases está abierta para todos—, pero
+   sigue esperando a que el piloto pase su semana: mientras el kit sirva a un
+   solo estudio, las vistas viejas son el portal de los otros doce.
 9. ~~**Sustituir las imágenes marcador** de `public/media/*.svg`.~~ **HECHO**,
    y no sustituyéndolas: **borrándolas**. El kit tenía un segundo juego de
    marcadores en paralelo al que este repo ya usa —

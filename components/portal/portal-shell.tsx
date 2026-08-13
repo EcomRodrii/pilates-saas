@@ -31,7 +31,7 @@ import { esTemaPortal } from '@/themes/registro';
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = usePortalAuth();
-  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado, spots } = useStudio();
+  const { dataLoaded, navPortal, barraClasica, variantes, portalReact, themeIdPublicado } = useStudio();
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   const pathname = usePathname();
   const router = useRouter();
@@ -147,17 +147,14 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
   // `/videos` no tienen pantalla equivalente y se quedan con el portal de
   // siempre. Encender la bandera no puede dejar a nadie sin esas pantallas.
-  // ⚠️ Y no en Clases si el estudio asigna plaza fija. El detalle del kit
-  // reserva sin elegir sitio (`spotId: null`): en un estudio de reformer eso
-  // dejaría a la socia sin máquina asignada, que es justo lo que la hoja de
-  // reserva de siempre le deja elegir. Un diseño nuevo no puede costar
-  // funcionalidad — mientras el kit no tenga selector de plaza, esa pantalla
-  // la sirve el portal completo. Los estudios sin `spots` (la mayoría) no
-  // notan nada.
+  // ⚠️ Clases estuvo fuera para los estudios con plaza fija hasta que el kit
+  // tuvo selector de sitio: el detalle reservaba con `spotId: null` y dejaba a
+  // la socia de un reformer sin máquina, que es justo lo que la hoja de
+  // reserva de siempre le deja elegir. Ya lo tiene (`ClassDetail`, rejilla
+  // `.plazas`), así que la excepción se retira y `spots` deja de mirarse aquí.
   const pantallaKit = pantallaDeRuta(pathname, slug);
-  const kitCubre = pantallaKit && !(pantallaKit === 'clases' && spots.length > 0);
 
-  if (portalReact && esTemaPortal(themeIdPublicado) && kitCubre) {
+  if (portalReact && esTemaPortal(themeIdPublicado) && pantallaKit) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
         <div className="flex flex-col overflow-hidden" style={{ ...FRAME, paddingTop: 'env(safe-area-inset-top)' }}>

@@ -1,5 +1,8 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
+import { columnasDeSala } from "@/lib/portal-tema/datos";
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Divider, EmptyState, Pill } from "@/components/portal-tema/components/ui/primitives";
 import { FotoTema, StatusBar , RESPALDO_CLASE } from "@/components/portal-tema/components/layout/chrome";
@@ -135,6 +138,45 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
                 </li>
               ))}
             </ul>
+          </>
+        ) : null}
+
+        {/* Elegir sitio. Solo en los estudios que lo asignan (reformers,
+            camillas): donde no, `plazas` viene vacío y aquí no se pinta nada.
+            ⚠️ Vacío NO significa «sala llena».
+
+            Elegir es OPCIONAL, igual que en la hoja de reserva de siempre: se
+            puede confirmar sin plaza y el estudio la asigna en mostrador.
+            Obligarla aquí sería una regla nueva que el portal viejo no tiene, y
+            este cambio es para no perder funcionalidad, no para cambiarla. */}
+        {d.plazas.length ? (
+          <>
+            <p className="detail__label" style={{ marginTop: 20 }}>Elige tu sitio</p>
+            <div
+              className="plazas"
+              role="group"
+              aria-label="Plazas de la sala"
+              style={{ "--plazas-cols": columnasDeSala(d.plazas) } as CSSProperties}
+            >
+              {d.plazas.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={"plaza" + (p.ocupada ? " plaza--ocupada" : "") + (d.plazaElegida === p.id ? " plaza--elegida" : "")}
+                  disabled={p.ocupada}
+                  aria-pressed={d.plazaElegida === p.id}
+                  aria-label={`Plaza ${p.nombre}${p.ocupada ? " (ocupada)" : ""}`}
+                  onClick={() => actions.elegirPlaza(p.id)}
+                >
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+            <p className="detail__seats plazas__nota">
+              {d.plazaElegida
+                ? "Puedes tocar tu sitio otra vez para soltarlo."
+                : "Si no eliges, te lo asignan al llegar."}
+            </p>
           </>
         ) : null}
 
