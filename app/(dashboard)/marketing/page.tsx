@@ -16,6 +16,7 @@ import type { PublicacionAsociada } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header';
 import { utilizacionCodigos } from '@/lib/codigos-descuento'
 import { copiarAlPortapapeles } from '@/lib/utils'
+import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -38,6 +39,9 @@ const destinatariosLabel: Record<string, string> = {
   SIN_PLAN: 'Sin plan',
   BONO: 'Con bono',
   VIP: 'VIP',
+  BONO_CADUCA_PRONTO: 'Bono caduca pronto',
+  PAGO_FALLIDO: 'Pago fallido',
+  CUMPLE_ESTE_MES: 'Cumple este mes',
 }
 
 const triggerLabel: Record<string, string> = {
@@ -624,18 +628,15 @@ export default function MarketingPage() {
     .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= hace30d)
     .reduce((acc, r) => acc + (r.importe ?? 0), 0)
 
-  // Recipient counts by destinatarios type
-  const socioIdsConSuscripcionActiva = new Set(
-    suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
+  // Recuento por segmento — vía el resolutor compartido (lib/marketing/segmentos.ts)
+  // en vez de reimplementar cada regla aquí: antes este mapa duplicaba la
+  // lógica de resolverDestinatariasCampana con riesgo real de divergir
+  // (ver docs/marketing-integrations-arquitectura.md §5/§6).
+  const recipientCount: Record<string, number> = Object.fromEntries(
+    (Object.keys(destinatariosLabel) as DestinatariosCampana[]).map(key =>
+      [key, resolverDestinatariasCampanaCompartido(key, { socios, suscripciones, recibos }).length]
+    )
   )
-  const recipientCount: Record<string, number> = {
-    TODAS: socios.length,
-    ACTIVAS: socios.filter(s => s.activo !== false).length,
-    INACTIVAS: socios.filter(s => s.activo === false).length,
-    SIN_PLAN: socios.filter(s => !socioIdsConSuscripcionActiva.has(s.id)).length,
-    BONO: socioIdsConSuscripcionActiva.size,
-    VIP: socios.filter(s => s.tags?.includes('VIP')).length,
-  }
 
   function abrirNuevaCampana() {
     setEditCampanaId(null)
@@ -1488,6 +1489,9 @@ export default function MarketingPage() {
                   <option value="SIN_PLAN">Sin plan</option>
                   <option value="BONO">Con bono</option>
                   <option value="VIP">VIP</option>
+                  <option value="BONO_CADUCA_PRONTO">Bono caduca pronto</option>
+                  <option value="PAGO_FALLIDO">Pago fallido</option>
+                  <option value="CUMPLE_ESTE_MES">Cumple este mes</option>
                 </select>
                 <span className="shrink-0 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                   ~{recipientCount[newCampana.destinatarios] ?? 0} destinatarias

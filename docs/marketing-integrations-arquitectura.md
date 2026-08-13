@@ -185,6 +185,44 @@ construir un builder genérico. Si con eso no basta, entonces sí se
 justifica el árbol de condiciones — pero como fase separada y explícita,
 no bloqueante para el resto del Hub.
 
+**Implementado (paso 6 del §8) — corrección sobre la propuesta original**:
+las 3 señales nuevas (`BONO_CADUCA_PRONTO`/`PAGO_FALLIDO`/
+`CUMPLE_ESTE_MES`, `lib/marketing/segmentos.ts`) NO reutilizan la lógica
+exacta de F3 (`lib/decision/especialistas/finanzas.ts`) — esa calcula una
+ventana ADAPTATIVA por ritmo real de asistencia de cada socia (necesita
+`IndicesSenal` completo: frecuencia histórica, `planPorId`, `socioPorId`)
+porque responde "avisa de ESTA socia concreta como insight accionable". Un
+segmento de campaña responde una pregunta distinta ("quién entra en este
+grupo para un envío masivo") y no necesita esa precisión — usa una ventana
+FIJA de 14 días (el suelo mínimo que ya usa F3) y el mismo proxy simple
+`sesionesRestantes !== null` que ya usan `BONO_AGOTADO`/`BONO_QUEDA_1` en
+`marketing-automation-engine.ts` para distinguir bono-por-sesiones de plan
+mensual, sin necesitar `planesTarifa`. `PAGO_FALLIDO` = algún recibo en
+`estado = 'FALLIDO'`. `CUMPLE_ESTE_MES` = mismo mes que hoy (la
+automatización `CUMPLEANOS` ya existente sigue comprobando el día exacto,
+sirven propósitos distintos: aviso puntual vs. segmento para una campaña
+del mes).
+
+De paso, `recipientCount` en `marketing/page.tsx` — el recuento por
+segmento que alimenta tanto el desplegable del formulario como el
+asistente de IA — reimplementaba `resolverDestinatariasCampana` a mano
+(divergencia real, no solo teórica: no aplicaba el filtro de
+consentimiento que sí aplica `contarDestinatariasCampana` en
+`studio-context.tsx`). Se sustituyó por una llamada al resolutor
+compartido para las 9 opciones.
+
+**Gotcha real encontrado al verificar**: las `<option>` del desplegable de
+segmentos en el formulario de campaña están hardcodeadas aparte de
+`destinatariosLabel` (el propio código ya lo advertía: "las `<option>` de
+justo debajo SON el enum completo"). Añadir los 3 valores solo a
+`DestinatariosCampana`/`destinatariosLabel` los habría dejado
+seleccionables por la IA pero invisibles/inalcanzables en el formulario
+manual — corregido añadiendo las 3 `<option>` que faltaban.
+
+Sin builder de condiciones — con estas 9 señales fijas se cierra el paso
+6 tal como estaba acotado; el árbol de condiciones genérico sigue fuera
+de alcance salvo que se pida explícitamente.
+
 ## 5. Envío masivo — de cliente-orquestado a cola server-side
 
 Esto es el prerequisito técnico real antes de cualquier integración
@@ -352,8 +390,9 @@ solo el enlace de email.
 5. ✅ Consentimiento RGPD específico de marketing (§7) — transversal, antes
    de cualquier envío masivo real a producción. Motor clásico
    (`automation-engine.ts`) fuera de alcance a propósito.
-6. Ampliar segmentación con señales ya existentes; builder de condiciones
-   solo si se justifica después (§4).
+6. ✅ Ampliar segmentación con señales ya existentes (§4) — 3 segmentos
+   nuevos con ventana fija, no la adaptativa de Decision OS F3. Builder de
+   condiciones sigue fuera de alcance salvo que se pida.
 7. `integraciones_marketing` + flujo OAuth genérico extendido a Klaviyo
    (primer proveedor, el resto sigue el mismo patrón) (§6).
 8. Brevo, Mailchimp — repetición del patrón de (7), no rediseño.

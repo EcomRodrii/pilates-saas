@@ -29,6 +29,12 @@ export const procesarEnvioCampana = inngest.createFunction(
   { id: 'campanas-enviar', triggers: [{ event: EVENTS.CAMPANA_ENVIAR }], retries: 3, concurrency: { limit: 5 } },
   async ({ event, step }) => {
     const { campanaId, studioId } = event.data as { campanaId: string; studioId: string };
+    // Determinismo entre reintentos (mismo patrón que automatizacionesDispatcher):
+    // usada por resolverDestinatariasCampana (BONO_CADUCA_PRONTO/CUMPLE_ESTE_MES),
+    // si se calculara fuera de un step.run un replay tras un fallo a mitad
+    // podría recalcular un segmento distinto a mitad de envío.
+    const nowISO = await step.run('now', async () => new Date().toISOString());
+    const now = new Date(nowISO);
 
     const campana = await step.run('fetch-campana', async () => {
       const { data, error } = await requireSupabaseAdmin()
@@ -48,12 +54,12 @@ export const procesarEnvioCampana = inngest.createFunction(
     // El recorte va DENTRO del step (mismo criterio que procesarEstudioAutomatizaciones):
     // solo se devuelve lo que hace falta, aunque fetchAllStudioData consulte
     // el arranque completo del panel por dentro.
-    const { socios, suscripciones } = await step.run('fetch-destinatarias', async () => {
+    const { socios, suscripciones, recibos } = await step.run('fetch-destinatarias', async () => {
       const d = await fetchAllStudioData(studioId);
-      return { socios: d.socios, suscripciones: d.suscripciones };
+      return { socios: d.socios, suscripciones: d.suscripciones, recibos: d.recibos };
     });
 
-    const base = resolverDestinatariasCampana(campana.destinatarios, { socios, suscripciones });
+    const base = resolverDestinatariasCampana(campana.destinatarios, { socios, suscripciones, recibos }, now);
     const porCanal = campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@'))
       : base.filter(s => s.telefono && s.telefono.trim());

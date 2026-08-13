@@ -968,7 +968,12 @@ export interface VentaPOS {
 
 export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
 export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
-export type DestinatariosCampana = 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP';
+export type DestinatariosCampana =
+  | 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP'
+  // Paso 6 de docs/marketing-integrations-arquitectura.md §8/§4: señales ya
+  // existentes en el repo (Decision OS F3, recibos, cumpleaños), no un
+  // segment builder genérico — ver el archivo para el porqué de ese corte.
+  | 'BONO_CADUCA_PRONTO' | 'PAGO_FALLIDO' | 'CUMPLE_ESTE_MES';
 
 export interface Campana {
   id: string;

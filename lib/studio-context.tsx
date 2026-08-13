@@ -3616,7 +3616,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // el texto y decide de verdad; este número puede ser ligeramente optimista
   // si el texto de consentimiento cambió desde que alguna socia lo dio.
   function contarDestinatariasCampana(campana: Campana): number {
-    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones })
+    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones, recibos })
       .filter(tieneConsentimientoMarketingAlgunaVez);
     return campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@')).length
