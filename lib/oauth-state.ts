@@ -17,7 +17,12 @@ import { createHmac, timingSafeEqual } from 'crypto';
 
 const TTL_MS = 10 * 60 * 1000;
 
-type Provider = 'stripe' | 'google' | 'gmail' | 'zoom';
+// klaviyo: paso 7 de docs/marketing-integrations-arquitectura.md §6/§8 —
+// primer proveedor que exige PKCE (Klaviyo bloquea el flujo sin él desde
+// 2025). code_verifier viaja DENTRO de este mismo payload firmado (en vez de
+// una tabla de sesión aparte): sigue siendo stateless, y nadie puede leerlo
+// sin la firma porque va en el mismo blob que studioId/provider/exp.
+type Provider = 'stripe' | 'google' | 'gmail' | 'zoom' | 'klaviyo';
 
 function secret(): string {
   const s = process.env.OAUTH_STATE_SECRET;
@@ -29,8 +34,11 @@ function firmar(payloadB64: string): string {
   return createHmac('sha256', secret()).update(payloadB64).digest('base64url');
 }
 
-export function firmarEstadoOAuth(studioId: string, provider: Provider, ahora: number): string {
-  const payloadB64 = Buffer.from(JSON.stringify({ studioId, provider, exp: ahora + TTL_MS })).toString('base64url');
+export function firmarEstadoOAuth(studioId: string, provider: Provider, ahora: number, codeVerifier?: string): string {
+  const payload: { studioId: string; provider: Provider; exp: number; codeVerifier?: string } =
+    { studioId, provider, exp: ahora + TTL_MS };
+  if (codeVerifier) payload.codeVerifier = codeVerifier;
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${payloadB64}.${firmar(payloadB64)}`;
 }
 
@@ -38,7 +46,7 @@ export function verificarEstadoOAuth(
   state: string | null | undefined,
   provider: Provider,
   ahora: number,
-): { studioId: string } | null {
+): { studioId: string; codeVerifier?: string } | null {
   if (!state) return null;
   const punto = state.indexOf('.');
   if (punto <= 0) return null;
@@ -52,12 +60,13 @@ export function verificarEstadoOAuth(
 
   try {
     const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
-      studioId?: unknown; provider?: unknown; exp?: unknown;
+      studioId?: unknown; provider?: unknown; exp?: unknown; codeVerifier?: unknown;
     };
     if (data.provider !== provider) return null;
     if (typeof data.exp !== 'number' || data.exp < ahora) return null;
     if (typeof data.studioId !== 'string' || data.studioId.length === 0) return null;
-    return { studioId: data.studioId };
+    const codeVerifier = typeof data.codeVerifier === 'string' ? data.codeVerifier : undefined;
+    return { studioId: data.studioId, ...(codeVerifier ? { codeVerifier } : {}) };
   } catch {
     return null;
   }

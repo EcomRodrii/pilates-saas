@@ -21,9 +21,22 @@ const reserva = (socioId: string, estado: Reserva['estado'], creadoEn: string): 
 const log = (automatizacionId: string, socioId: string, ejecutadoEn: string): AutomationLog =>
   ({ id: `l-${++n}`, studioId: 'e1', ruleId: null, automatizacionId, ruleName: '', socioId, socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO', detalle: '', ejecutadoEn, proximaAccionEn: null, reciboId: null });
 
+// Por defecto, TODAS las socias del test tienen consentimiento vigente —
+// así los tests existentes (escritos antes del guard de consentimiento)
+// siguen probando lo que probaban. Los tests del guard en sí pasan su
+// propio `consentimientosMarketing`/`textoConsentimientoVigente`.
+const TEXTO_CONSENTIMIENTO_TEST = 'texto-consentimiento-vigente-en-el-test';
+function consentirTodas(socios: Socio[]): Map<string, string> {
+  return new Map(socios.map(s => [s.id, TEXTO_CONSENTIMIENTO_TEST]));
+}
+
 function run(input: Partial<Parameters<typeof computeAutomatizacionMktCandidatos>[0]>) {
+  const socios = input.socios ?? [];
   return computeAutomatizacionMktCandidatos({
-    automatizaciones: [], automationLogs: [], socios: [], suscripciones: [], reservas: [], citas: [] as Cita[], ...input,
+    automatizaciones: [], automationLogs: [], socios, suscripciones: [], reservas: [], citas: [] as Cita[],
+    consentimientosMarketing: consentirTodas(socios),
+    textoConsentimientoVigente: TEXTO_CONSENTIMIENTO_TEST,
+    ...input,
   }, NOW);
 }
 
@@ -45,6 +58,44 @@ test('INACTIVIDAD_30D: última asistencia hace 50 días dispara; hace 40 no (umb
   const s1 = socio({ id: '1' }), s2 = socio({ id: '2' });
   const c = run({ automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s1, s2], reservas: [reserva('1', 'ASISTIDA', diasAntes(50)), reserva('2', 'ASISTIDA', diasAntes(40))] });
   assert.deepEqual(c.map(x => x.socio.id), ['1']);
+  assert.equal(c[0].marcaInactividad, true, 'INACTIVIDAD_30D debe marcarse para el dedup cruzado');
+});
+
+// ── Dedup CRUZADO con AUSENCIA_DIAS (motor clásico) ────────────────────────────
+// docs/marketing-solape-motores-diseno.md §2: los dos motores comparten
+// automation_logs, marcados con el prefijo [INACTIVIDAD] en `detalle`.
+test('INACTIVIDAD_30D: NO dispara si AUSENCIA_DIAS (motor clásico) ya avisó hace <72h', () => {
+  const s = socio({ id: '1' });
+  // Log del OTRO motor: con ruleId (no automatizacionId) — igual que escribe
+  // procesarCandidato — y marcado con el prefijo compartido.
+  const logCruzado: AutomationLog = {
+    id: 'l-cruzado', studioId: 'e1', ruleId: 'rule-AUSENCIA_DIAS', automatizacionId: null,
+    ruleName: '', socioId: '1', socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a1@x.com: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(0), proximaAccionEn: null, reciboId: null,
+  };
+  const c = run({
+    automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s],
+    reservas: [reserva('1', 'ASISTIDA', diasAntes(50))],
+    automationLogs: [logCruzado],
+  });
+  assert.equal(c.length, 0, 'el motor de marketing no debe pisar un aviso de inactividad reciente del motor clásico');
+});
+
+test('INACTIVIDAD_30D: SÍ dispara si el aviso de inactividad cruzado es antiguo (>72h)', () => {
+  const s = socio({ id: '1' });
+  const logCruzado: AutomationLog = {
+    id: 'l-cruzado', studioId: 'e1', ruleId: 'rule-AUSENCIA_DIAS', automatizacionId: null,
+    ruleName: '', socioId: '1', socioNombre: '', pasoIndex: 0, accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO',
+    detalle: '[INACTIVIDAD] Email enviado a a1@x.com: "Te echamos de menos"',
+    ejecutadoEn: diasAntes(30), proximaAccionEn: null, reciboId: null,
+  };
+  const c = run({
+    automatizaciones: [auto('INACTIVIDAD_30D')], socios: [s],
+    reservas: [reserva('1', 'ASISTIDA', diasAntes(50))],
+    automationLogs: [logCruzado],
+  });
+  assert.equal(c.length, 1, 'pasada la ventana de gracia, las dos secuencias pueden convivir (caso de uso legítimo)');
 });
 
 test('BONO_QUEDA_1 y BONO_AGOTADO leen sesionesRestantes', () => {
@@ -93,4 +144,49 @@ test('CITA_RECORDATORIO: cita de mañana dispara', () => {
   const cita: Cita = { id: 'c1', studioId: 'e1', socioId: '1', instructorId: 'i', tipo: 'PRIVADA', inicio: diasDespues(1), fin: diasDespues(1), notas: null, estado: 'CONFIRMADA', precio: null, pagada: false, creadoEn: diasAntes(1) };
   const c = run({ automatizaciones: [auto('CITA_RECORDATORIO')], socios: [s], citas: [cita] });
   assert.equal(c.length, 1);
+});
+
+// ── Guard de consentimiento de marketing (art. 7.4 RGPD) ───────────────────────
+// docs/marketing-integrations-arquitectura.md §7: sin consentimiento vigente,
+// EMAIL/WHATSAPP nunca disparan — NOTIFICACION (aviso interno) sí, porque no
+// toca a la socia.
+test('sin consentimiento de marketing → EMAIL no dispara', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = computeAutomatizacionMktCandidatos({
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    consentimientosMarketing: new Map(), // nadie ha consentido
+    textoConsentimientoVigente: 'texto vigente',
+  }, NOW);
+  assert.equal(c.length, 0);
+});
+
+test('consentimiento con texto DESACTUALIZADO (cambió la cláusula) → no dispara', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = computeAutomatizacionMktCandidatos({
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    consentimientosMarketing: new Map([['1', 'texto viejo, antes de añadir una cláusula']]),
+    textoConsentimientoVigente: 'texto nuevo, con la cláusula añadida',
+  }, NOW);
+  assert.equal(c.length, 0, 'un cambio en el texto de consentimiento invalida el consentimiento anterior, igual que AceptacionContrato.versionTexto');
+});
+
+test('consentimiento vigente (texto coincide) → EMAIL SÍ dispara', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = computeAutomatizacionMktCandidatos({
+    automatizaciones: [auto('CUMPLEANOS')], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    consentimientosMarketing: new Map([['1', 'texto vigente']]),
+    textoConsentimientoVigente: 'texto vigente',
+  }, NOW);
+  assert.equal(c.length, 1);
+});
+
+test('sin consentimiento de marketing → NOTIFICACION (aviso interno) SÍ dispara, no toca a la socia', () => {
+  const s = socio({ id: '1', fechaNacimiento: '1990-07-13' });
+  const c = computeAutomatizacionMktCandidatos({
+    automatizaciones: [auto('CUMPLEANOS', { accion: 'NOTIFICACION' })], automationLogs: [], socios: [s], suscripciones: [], reservas: [], citas: [],
+    consentimientosMarketing: new Map(),
+    textoConsentimientoVigente: 'texto vigente',
+  }, NOW);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].canal, 'NOTIFICACION');
 });

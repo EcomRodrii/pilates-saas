@@ -16,6 +16,7 @@ import type { PublicacionAsociada } from '@/lib/types'
 import { PageHeader } from '@/components/ui/page-header';
 import { utilizacionCodigos } from '@/lib/codigos-descuento'
 import { copiarAlPortapapeles } from '@/lib/utils'
+import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos'
 
 
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
@@ -38,6 +39,9 @@ const destinatariosLabel: Record<string, string> = {
   SIN_PLAN: 'Sin plan',
   BONO: 'Con bono',
   VIP: 'VIP',
+  BONO_CADUCA_PRONTO: 'Bono caduca pronto',
+  PAGO_FALLIDO: 'Pago fallido',
+  CUMPLE_ESTE_MES: 'Cumple este mes',
 }
 
 const triggerLabel: Record<string, string> = {
@@ -110,6 +114,7 @@ function formatDateEs(dateStr: string | null | undefined) {
 function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; programadaEn?: string | null; enviadaEn?: string | null }) {
   const dotColor =
     estado === 'ENVIADA' ? 'bg-success' :
+    estado === 'ENVIANDO' ? 'bg-info animate-pulse' :
     estado === 'PROGRAMADA' ? 'bg-warning' :
     estado === 'BORRADOR' ? 'bg-muted-foreground' :
     estado === 'ACTIVA' ? 'bg-brand' :
@@ -118,6 +123,7 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
 
   const bgColor =
     estado === 'ENVIADA' ? 'bg-success/10 text-success' :
+    estado === 'ENVIANDO' ? 'bg-info/10 text-info' :
     estado === 'PROGRAMADA' ? 'bg-warning/10 text-warning' :
     estado === 'BORRADOR' ? 'bg-muted text-muted-foreground' :
     estado === 'ACTIVA' ? 'bg-info/10 text-info' :
@@ -134,6 +140,7 @@ function EstadoBadge({ estado, programadaEn, enviadaEn }: { estado: string; prog
       <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', dotColor)} />
       {estado === 'BORRADOR' ? 'Borrador' :
        estado === 'PROGRAMADA' ? 'Programada' :
+       estado === 'ENVIANDO' ? 'Enviando…' :
        estado === 'ENVIADA' ? 'Enviada' :
        estado === 'ACTIVA' ? 'Activa' :
        estado === 'PAUSADA' ? 'Pausada' :
@@ -462,8 +469,9 @@ function UsageBar({ usos, usosMax }: { usos: number; usosMax: number | null }) {
 export default function MarketingPage() {
   const uid = useId();
   const {
-    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana,
+    campanas, addCampana, deleteCampana, duplicateCampana, updateCampana, enviarCampana, contarDestinatariasCampana,
     automatizaciones, toggleAutomatizacion, deleteAutomatizacion,
+    automationRules,
     codigosDescuento: codigos, addCodigoDescuento, toggleCodigoDescuento, deleteCodigoDescuento,
     socios,
     suscripciones,
@@ -475,6 +483,20 @@ export default function MarketingPage() {
     if (!MARKETING_MODULE_ENABLED) router.replace('/dashboard')
   }, [router])
   const [tab, setTab] = useState<'resumen' | 'campanas' | 'automatizaciones' | 'codigos'>('resumen')
+  // Automatización pendiente de confirmar antes de ENCENDERLA por solape con
+  // AUSENCIA_DIAS (motor clásico) — ver docs/marketing-solape-motores-diseno.md
+  // §3, Nivel A. No bloquea, avisa en el momento de activar en vez de un texto
+  // que nadie lee después.
+  const [confirmarSolape, setConfirmarSolape] = useState<Automatizacion | null>(null)
+  const ausenciaDiasActiva = automationRules.some(r => r.activa && r.trigger === 'AUSENCIA_DIAS')
+
+  function handleToggleAutomatizacion(a: Automatizacion) {
+    if (!a.activa && a.trigger === 'INACTIVIDAD_30D' && ausenciaDiasActiva) {
+      setConfirmarSolape(a)
+      return
+    }
+    toggleAutomatizacion(a.id).then(res => { if (!res.ok) window.alert(res.error) })
+  }
 
   // ── Resumen: leads captados por mes (últimos 6 meses, para el sparkline) ────
   const leadsPorMes = (() => {
@@ -555,14 +577,22 @@ export default function MarketingPage() {
       setResultadoEnvio({ texto: `"${c.nombre}" no tiene ${!c.asunto?.trim() ? 'asunto' : 'contenido'}. Edítala antes de enviarla.`, tipo: 'warning' })
       return
     }
+    // El recuento es local (ya tenemos socios/suscripciones en memoria) — el
+    // envío real ahora corre en servidor (Inngest), así que esto solo decide
+    // si merece la pena encolar, no el resultado final.
+    const total = contarDestinatariasCampana(c)
+    if (total === 0) {
+      setResultadoEnvio({ texto: `"${c.nombre}": no hay destinatarias con email en ese segmento.`, tipo: 'warning' })
+      return
+    }
     setEnviandoId(c.id)
     setResultadoEnvio(null)
     try {
-      const { enviados, total } = await enviarCampana(c)
+      const res = await enviarCampana(c)
       setResultadoEnvio(
-        total === 0
-          ? { texto: `"${c.nombre}": no hay destinatarias con email en ese segmento.`, tipo: 'warning' }
-          : { texto: `"${c.nombre}" enviada a ${enviados} de ${total} destinatarias.`, tipo: 'ok' }
+        res.ok
+          ? { texto: `"${c.nombre}" enviándose a ${total} destinatarias en segundo plano.`, tipo: 'ok' }
+          : { texto: `No se pudo enviar "${c.nombre}": ${res.error}`, tipo: 'error' }
       )
     } catch {
       setResultadoEnvio({ texto: `No se pudo enviar "${c.nombre}". Revisa la configuración de email.`, tipo: 'error' })
@@ -598,18 +628,15 @@ export default function MarketingPage() {
     .filter(r => r.estado === 'COBRADO' && r.fechaCobro && new Date(r.fechaCobro) >= hace30d)
     .reduce((acc, r) => acc + (r.importe ?? 0), 0)
 
-  // Recipient counts by destinatarios type
-  const socioIdsConSuscripcionActiva = new Set(
-    suscripciones.filter(s => s.estado === 'ACTIVA').map(s => s.socioId)
+  // Recuento por segmento — vía el resolutor compartido (lib/marketing/segmentos.ts)
+  // en vez de reimplementar cada regla aquí: antes este mapa duplicaba la
+  // lógica de resolverDestinatariasCampana con riesgo real de divergir
+  // (ver docs/marketing-integrations-arquitectura.md §5/§6).
+  const recipientCount: Record<string, number> = Object.fromEntries(
+    (Object.keys(destinatariosLabel) as DestinatariosCampana[]).map(key =>
+      [key, resolverDestinatariasCampanaCompartido(key, { socios, suscripciones, recibos }).length]
+    )
   )
-  const recipientCount: Record<string, number> = {
-    TODAS: socios.length,
-    ACTIVAS: socios.filter(s => s.activo !== false).length,
-    INACTIVAS: socios.filter(s => s.activo === false).length,
-    SIN_PLAN: socios.filter(s => !socioIdsConSuscripcionActiva.has(s.id)).length,
-    BONO: socioIdsConSuscripcionActiva.size,
-    VIP: socios.filter(s => s.tags?.includes('VIP')).length,
-  }
 
   function abrirNuevaCampana() {
     setEditCampanaId(null)
@@ -1023,7 +1050,7 @@ export default function MarketingPage() {
                       <button onClick={() => setFlowBuilder({ auto: a })} title="Editar flujo" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={async () => { const res = await deleteAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }} title="Eliminar" className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-rose-500/10 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       <button
-                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                        onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0 ml-1', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
@@ -1124,7 +1151,7 @@ export default function MarketingPage() {
                         </td>
                         <td className="px-4 py-4">
                           <button
-                            onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                            onClick={() => handleToggleAutomatizacion(a)}
                             className={cn(
                               'w-10 h-[22px] rounded-full transition-colors relative shrink-0',
                               a.activa ? 'bg-primary' : 'bg-muted-foreground/40'
@@ -1152,7 +1179,7 @@ export default function MarketingPage() {
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-semibold text-foreground text-[14px]">{a.nombre}</span>
                       <button
-                        onClick={async () => { const res = await toggleAutomatizacion(a.id); if (!res.ok) window.alert(res.error); }}
+                        onClick={() => handleToggleAutomatizacion(a)}
                         className={cn('w-10 h-[22px] rounded-full transition-colors relative shrink-0', a.activa ? 'bg-primary' : 'bg-muted-foreground/40')}
                         aria-label={a.activa ? 'Desactivar' : 'Activar'}
                       >
@@ -1335,6 +1362,47 @@ export default function MarketingPage() {
         </div>
       )}
 
+      {/* Solape con AUSENCIA_DIAS (motor clásico) — ver
+          docs/marketing-solape-motores-diseno.md §3, Nivel A. */}
+      <Dialog open={confirmarSolape !== null} onOpenChange={open => !open && setConfirmarSolape(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[15px] font-semibold text-foreground">
+              Ya tienes una automatización parecida activa
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
+            <p>
+              Tienes activa <span className="font-semibold text-foreground">&quot;Ausencia de clienta&quot;</span> en
+              Automatizaciones (Automatizaciones → días 7/14/25 sin venir). Se solapa con{' '}
+              <span className="font-semibold text-foreground">&quot;{confirmarSolape?.nombre}&quot;</span>:
+              una socia inactiva podría recibir avisos de las dos.
+            </p>
+            <p>
+              Puedes tener ambas activas a la vez si lo prefieres — el sistema evita que
+              coincidan el mismo día — o desactivar una de las dos desde su pantalla.
+            </p>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:bg-muted transition-colors"
+              onClick={() => setConfirmarSolape(null)}
+            >
+              No, dejarla pausada
+            </button>
+            <button
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:opacity-90 transition-opacity"
+              onClick={() => {
+                if (confirmarSolape) toggleAutomatizacion(confirmarSolape.id).then(res => { if (!res.ok) window.alert(res.error) })
+                setConfirmarSolape(null)
+              }}
+            >
+              Sí, activar igualmente
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ==================== MODAL: NUEVA CAMPAÑA ==================== */}
       <Dialog open={showCampanaModal} onOpenChange={(open) => {
         setShowCampanaModal(open)
@@ -1421,6 +1489,9 @@ export default function MarketingPage() {
                   <option value="SIN_PLAN">Sin plan</option>
                   <option value="BONO">Con bono</option>
                   <option value="VIP">VIP</option>
+                  <option value="BONO_CADUCA_PRONTO">Bono caduca pronto</option>
+                  <option value="PAGO_FALLIDO">Pago fallido</option>
+                  <option value="CUMPLE_ESTE_MES">Cumple este mes</option>
                 </select>
                 <span className="shrink-0 text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1.5 rounded-lg whitespace-nowrap">
                   ~{recipientCount[newCampana.destinatarios] ?? 0} destinatarias

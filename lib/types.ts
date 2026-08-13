@@ -84,6 +84,7 @@ export interface Studio {
   googleCalendarEmail: string | null;
   gmailEmail: string | null;
   zoomEmail: string | null;
+  klaviyoAccountName: string | null;
   gestoriaEmail: string | null;
   // 'trimestral' = el cron manda el Cierre del trimestre a gestoriaEmail el
   // día 1 del mes siguiente, sin que nadie pulse el botón manual.
@@ -230,7 +231,7 @@ export interface MandatoSEPA {
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
   | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP' | 'EXCEL'
-  | 'ZOOM' | 'KISI' | 'MAILCHIMP';
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO';
 
 export interface Integracion {
   id: string;
@@ -279,6 +280,13 @@ export interface Socio {
   // del contrato general). undefined = no lo ha dado — condiciones_salud no
   // debe recibir ninguna fila para esta socia hasta que exista.
   consentimientoSalud?: { fecha: string; registradoPor: string };
+  // Art. 7.4 RGPD: consentimiento específico para marketing por email (aparte
+  // del contrato general y de `consentimientoSalud`). `texto` es el texto
+  // COMPLETO aceptado (lib/legal-textos.ts textoConsentimientoMarketing),
+  // igual que AceptacionContrato.versionTexto — se compara contra el texto
+  // vigente para saber si sigue siendo válido. undefined = no lo ha dado,
+  // ninguna campaña ni automatización de marketing debe alcanzarla.
+  consentimientoMarketing?: { fecha: string; texto: string; registradoPor: string };
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;
@@ -959,9 +967,14 @@ export interface VentaPOS {
   realizadaEn: string;
 }
 
-export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
+export type EstadoCampana = 'BORRADOR' | 'PROGRAMADA' | 'ENVIANDO' | 'ENVIADA' | 'ACTIVA' | 'PAUSADA';
 export type TipoCampana = 'EMAIL' | 'WHATSAPP' | 'SMS';
-export type DestinatariosCampana = 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP';
+export type DestinatariosCampana =
+  | 'TODAS' | 'ACTIVAS' | 'INACTIVAS' | 'SIN_PLAN' | 'BONO' | 'VIP'
+  // Paso 6 de docs/marketing-integrations-arquitectura.md §8/§4: señales ya
+  // existentes en el repo (Decision OS F3, recibos, cumpleaños), no un
+  // segment builder genérico — ver el archivo para el porqué de ese corte.
+  | 'BONO_CADUCA_PRONTO' | 'PAGO_FALLIDO' | 'CUMPLE_ESTE_MES';
 
 export interface Campana {
   id: string;

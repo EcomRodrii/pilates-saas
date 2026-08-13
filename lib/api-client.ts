@@ -6,7 +6,7 @@ import type { Factura } from '@/lib/types';
 import type { ThemeConfig, ThemeDraft } from '@/lib/theme-schema';
 import type { LayoutConfig, LayoutDraft } from '@/lib/layout-schema';
 import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_IDS } from '@/lib/portal-home-bloques';
-import { mensajeSeguro, mensajeHttp } from '@/lib/errores';
+import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
@@ -1276,23 +1276,26 @@ export async function obtenerPagosHistoricosSocio(socioId: string): Promise<Arra
   }
 }
 
-// Envía un mensaje de campaña por WhatsApp/SMS (Twilio) a una destinataria.
-// Mismo shape que enviarEmailCampana pero con `canal` y a /api/mensajes/send.
-export async function enviarMensajeCampana(params: {
-  canal: 'WHATSAPP' | 'SMS';
-  to: string;
-  asunto: string;
-  contenido: string;
-}): Promise<boolean> {
+// Encola el envío real de una campaña en servidor (Inngest,
+// lib/inngest/campanas.ts) — el envío ya no se orquesta destinataria a
+// destinataria desde el navegador. Ver docs/marketing-integrations-arquitectura.md
+// §5. NOTA: esto deja sin caller a enviarMensajeCampana/`/api/mensajes/send`
+// (que sí seguían usándose para el WhatsApp de campañas) — se retiró la
+// función de aquí; el endpoint queda, por si un envío individual de WhatsApp
+// (paridad con el enviarEmailCampana de clientas/[id]) lo necesita.
+export async function encolarEnvioCampana(campanaId: string): Promise<ResultadoEscritura> {
   try {
-    const res = await fetch('/api/mensajes/send', {
+    const res = await fetch(`/api/marketing/campanas/${campanaId}/enviar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ canal: params.canal, to: params.to, asunto: params.asunto, contenido: params.contenido }),
     });
-    return res.ok;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, error: body.error ?? 'No se pudo encolar el envío' };
+    }
+    return { ok: true };
   } catch {
-    return false;
+    return { ok: false, error: 'No se pudo encolar el envío' };
   }
 }
 

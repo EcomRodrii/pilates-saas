@@ -8,10 +8,14 @@ import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/eng
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
-import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
-import { conReintentoResend } from '@/lib/emails/resend-reintentos';
+import { twilioConfigurado } from '@/lib/twilio';
+import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
+import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
+import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
+import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { appUrl } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
-import { remitentePorMarca } from '../emails/remitente.ts';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
@@ -170,7 +174,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       // fallo real, no algo que debamos disfrazar reintentando por email.
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no disponible (sin teléfono o sin Twilio configurado)', mensajeCliente: c.mensajeCliente };
     } else {
-      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
+      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}.`, mensajeCliente: c.mensajeCliente }
         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio', mensajeCliente: c.mensajeCliente };
@@ -199,26 +203,28 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       logoUrl: studioLogo,
     }));
     // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
-    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts.
-    const { error } = await conReintentoResend(() =>
-      resend!.emails.send(
-        {
-          from: remitentePorMarca(studioNombre || 'Tentare'),
-          to: [email],
-          subject: c.titulo,
-          html,
-        },
-        // Idempotency-Key: si el step se reintenta tras enviar pero antes de
-        // memoizar, Resend reconoce la clave y NO reenvía el email.
-        { idempotencyKey: base.id }
-      )
-    );
-    if (error) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message, mensajeCliente: c.mensajeCliente };
+    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts (dentro de
+    // resendEmailProvider).
+    const r = await resendEmailProvider(resend!).enviar({
+      to: email,
+      subject: c.titulo,
+      html,
+      studioNombre,
+      // Idempotency-Key: si el step se reintenta tras enviar pero antes de
+      // memoizar, Resend reconoce la clave y NO reenvía el email.
+      idempotencyKey: base.id,
+    });
+    if (!r.ok) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend', mensajeCliente: c.mensajeCliente };
     } else {
       log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente };
     }
   }
+
+  // Marca el log como parte de la señal "socia inactiva" para que el motor de
+  // marketing (INACTIVIDAD_30D) pueda deduplicar en cruz — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
+  if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
 
   if (!dry) await dbUpsertAutomationLog(log);
   return log;
@@ -292,7 +298,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     if (!twilioConfigurado('WHATSAPP')) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
     } else {
-      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
+      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };
@@ -306,18 +312,26 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
       detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else {
-    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
-    // Mismo reintento ante fallos transitorios que en procesarCandidato.
-    const { error } = await conReintentoResend(() =>
-      resend!.emails.send(
-        { from: remitentePorMarca(opts.studioNombre || 'Tentare'), to: [c.socio.email], subject: c.asunto, html },
-        { idempotencyKey: base.id },
-      )
-    );
-    log = error
-      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
+    const html = await render(AutomatizacionEmail({
+      socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre,
+      colorPrimario: studioColor, logoUrl: studioLogo,
+      // LSSI: toda comunicación comercial lleva enlace de baja.
+      unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`,
+    }));
+    // Mismo reintento ante fallos transitorios que en procesarCandidato (ver
+    // resendEmailProvider).
+    const r = await resendEmailProvider(resend!).enviar({
+      to: c.socio.email, subject: c.asunto, html, studioNombre: opts.studioNombre, idempotencyKey: base.id,
+    });
+    log = !r.ok
+      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend' }
       : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"` };
   }
+
+  // Marca el log como parte de la señal "socia inactiva" para que el motor
+  // clásico (AUSENCIA_DIAS) pueda deduplicar en cruz — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts.
+  if (c.marcaInactividad) log = { ...log, detalle: `${MARCA_INACTIVIDAD} ${log.detalle}` };
 
   if (!dry) await dbUpsertAutomationLog(log);
   return log;
@@ -472,12 +486,33 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       });
     }
 
+    // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
+    // §7): select TARGETED con el texto completo — data.socios (arriba) NO lo
+    // trae, mismo motivo que aceptacion_version (ver FilaSocioPanel). Filas
+    // crudas, no un Map: lo que devuelve un step.run se serializa como estado
+    // de Inngest y un Map se reconstruye como {} en el replay (mismo gotcha ya
+    // documentado para dbGetFeatureFlags) — el Map se construye fuera del step.
+    const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
+      const { data: rows } = await requireSupabaseAdmin()
+        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
+      return (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+    });
+    const consentimientosMarketing = new Map<string, string>();
+    for (const row of filasConsentimiento) {
+      if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
+    }
+    const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
+
     // ── Automatizaciones de MARKETING (tipo Automatizacion, con triggers) ──────
     // Antes se creaban pero nada las ejecutaba. Mismo patrón: candidatas puras +
     // envío durable por candidata + contador `ejecutadas`. Comparte automation_logs
     // (ruleId = id de la automatización) para dedup.
     const mktCandidatos = computeAutomatizacionMktCandidatos(
-      { automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios, suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas },
+      {
+        automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios,
+        suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas,
+        consentimientosMarketing, textoConsentimientoVigente,
+      },
       now,
     );
     let mktEnviados = 0, mktFallidos = 0;

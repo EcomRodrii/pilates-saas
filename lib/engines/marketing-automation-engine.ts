@@ -1,4 +1,6 @@
 import type { Automatizacion, AutomationLog, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
+import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
+import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
 
 // Motor de las Automatizaciones de MARKETING (tipo `Automatizacion`, con triggers
 // de negocio). Antes la UI las creaba pero NINGÚN proceso las ejecutaba — fachada
@@ -17,6 +19,12 @@ export interface AutomatizacionMktCandidato {
   canal: 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION';
   asunto: string;
   mensaje: string;
+  // Marca este candidato como parte de la señal "socia inactiva" (dedup
+  // cruzado con AUSENCIA_DIAS del motor clásico — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts).
+  // Lo lee lib/inngest/automatizaciones.ts para prefijar el `detalle` del
+  // log con MARCA_INACTIVIDAD.
+  marcaInactividad?: boolean;
 }
 
 // Ventana de deduplicación por trigger (días): no reenviar la misma automatización
@@ -55,10 +63,16 @@ export interface MktEngineInput {
   suscripciones: Suscripcion[];
   reservas: Reserva[];
   citas: Cita[];
+  // Consentimiento de marketing (art. 7.4 RGPD) — texto EXACTO que cada
+  // socia aceptó, keyed por socioId. Ausencia de entrada = sin consentimiento,
+  // nunca se le manda nada de este motor. Ver lib/marketing/consentimiento.ts
+  // y docs/marketing-integrations-arquitectura.md §7.
+  consentimientosMarketing: Map<string, string>;
+  textoConsentimientoVigente: string;
 }
 
 export function computeAutomatizacionMktCandidatos(
-  { automatizaciones, automationLogs, socios, suscripciones, reservas, citas }: MktEngineInput,
+  { automatizaciones, automationLogs, socios, suscripciones, reservas, citas, consentimientosMarketing, textoConsentimientoVigente }: MktEngineInput,
   now: Date,
 ): AutomatizacionMktCandidato[] {
   const candidatos: AutomatizacionMktCandidato[] = [];
@@ -83,13 +97,15 @@ export function computeAutomatizacionMktCandidatos(
   const susActivaPorSocio = new Map<string, Suscripcion>();
   for (const s of suscripciones) if (s.estado === 'ACTIVA' && !susActivaPorSocio.has(s.socioId)) susActivaPorSocio.set(s.socioId, s);
 
-  // Última asistencia (ASISTIDA) por socia + fecha de la PRIMERA asistencia.
-  const ultimaAsistida = new Map<string, string>();
+  // Última asistencia — compartida con automation-engine.ts (misma señal
+  // exacta, ver lib/engines/senales-inactividad.ts). Primera asistencia
+  // sigue local: solo la usa este motor (PRIMERA_CLASE).
+  const ultimaAsistida = ultimaAsistidaPorSocio(reservas);
   const primeraAsistida = new Map<string, string>();
   for (const r of reservas) {
     if (r.estado !== 'ASISTIDA') continue;
-    const u = ultimaAsistida.get(r.socioId); if (!u || r.creadoEn > u) ultimaAsistida.set(r.socioId, r.creadoEn);
-    const p = primeraAsistida.get(r.socioId); if (!p || r.creadoEn < p) primeraAsistida.set(r.socioId, r.creadoEn);
+    const p = primeraAsistida.get(r.socioId);
+    if (!p || r.creadoEn < p) primeraAsistida.set(r.socioId, r.creadoEn);
   }
 
   const hoyMD = `${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
@@ -97,15 +113,22 @@ export function computeAutomatizacionMktCandidatos(
   const diasHasta = (iso: string) => Math.floor((new Date(iso).getTime() - now.getTime()) / MS_DIA);
   const diasDesde = (iso: string) => Math.floor((now.getTime() - new Date(iso).getTime()) / MS_DIA);
 
-  const emitir = (a: Automatizacion, socio: Socio) => {
+  const emitir = (a: Automatizacion, socio: Socio, marcaInactividad = false) => {
     const canal: 'EMAIL' | 'WHATSAPP' | 'NOTIFICACION' =
       a.accion === 'WHATSAPP' ? 'WHATSAPP' : a.accion === 'NOTIFICACION' ? 'NOTIFICACION' : 'EMAIL';
     // Sin el dato de contacto del canal no hay envío (email para EMAIL, teléfono
     // para WhatsApp). NOTIFICACION no toca a la socia, no necesita contacto.
     if (canal === 'EMAIL' && !socio.email) return;
     if (canal === 'WHATSAPP' && !(socio.telefono && socio.telefono.trim())) return;
+    // NOTIFICACION es un aviso interno para el equipo, nunca toca a la socia
+    // — no necesita su consentimiento de marketing. EMAIL/WHATSAPP sí.
+    if (canal !== 'NOTIFICACION' && !tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
     if (yaEnviado(a.id, socio.id, DEDUP_DIAS[a.trigger] ?? 14)) return;
-    candidatos.push({ automatizacion: a, socio, canal, asunto: personalizar(a.asunto, socio), mensaje: personalizar(a.mensaje, socio) });
+    // Dedup CRUZADO con AUSENCIA_DIAS (motor clásico): solo aplica a
+    // INACTIVIDAD_30D (marcaInactividad=true) — ver
+    // docs/marketing-solape-motores-diseno.md §2.
+    if (marcaInactividad && huboAvisoInactividadReciente(automationLogs, socio.id, now)) return;
+    candidatos.push({ automatizacion: a, socio, canal, asunto: personalizar(a.asunto, socio), mensaje: personalizar(a.mensaje, socio), marcaInactividad });
   };
 
   for (const a of automatizaciones.filter(x => x.activa && (x.accion === 'EMAIL' || x.accion === 'WHATSAPP' || x.accion === 'NOTIFICACION'))) {
@@ -120,7 +143,7 @@ export function computeAutomatizacionMktCandidatos(
         for (const [socioId, fecha] of primeraAsistida) if (diasDesde(fecha) <= 1 && diasDesde(fecha) >= 0) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }
         break;
       case 'INACTIVIDAD_30D':
-        for (const [socioId, fecha] of ultimaAsistida) if (diasDesde(fecha) >= DEDUP_DIAS.INACTIVIDAD_30D) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s); }
+        for (const [socioId, fecha] of ultimaAsistida) if (diasDesde(fecha) >= DEDUP_DIAS.INACTIVIDAD_30D) { const s = socioById.get(socioId); if (s?.activo) emitir(a, s, true); }
         break;
       case 'SUSCRIPCION_EXPIRA_7D':
         for (const [socioId, sus] of susActivaPorSocio) if (sus.fechaFin) { const d = diasHasta(sus.fechaFin); if (d >= 2 && d <= 7) { const s = socioById.get(socioId); if (s) emitir(a, s); } }

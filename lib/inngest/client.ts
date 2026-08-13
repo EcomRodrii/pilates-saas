@@ -87,4 +87,9 @@ export const EVENTS = {
   // (fan-out del dispatcher cron semanal), mismo patrón que
   // NOTIF_AUTOMACION_ESTUDIO.
   RESUMEN_SEMANAL_ESTUDIO: 'resumen-semanal/studio.sweep',
+  // Envío de campaña de marketing (docs/marketing-integrations-arquitectura.md
+  // §5) — NO es fan-out de dispatcher: lo dispara un endpoint (POST
+  // /api/marketing/campanas/[id]/enviar) al pulsar "Enviar", un evento por
+  // campaña. Reemplaza el mapLimit(8) que orquestaba el envío en el navegador.
+  CAMPANA_ENVIAR: 'campanas/campana.enviar',
 } as const;

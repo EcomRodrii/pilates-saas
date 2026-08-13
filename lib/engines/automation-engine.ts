@@ -12,6 +12,7 @@ import type {
   PlanTarifa,
   TriggerRule,
 } from '@/lib/types';
+import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
 // ahora" del dashboard (app/api/automatizaciones/run/route.ts) y el cron de
@@ -59,6 +60,12 @@ export interface AutomationCandidato {
   // final (ver app/api/ai/recomendacion/route.ts) — el motor nunca llama a
   // la IA él mismo, solo detecta la situación y deja los datos listos.
   contextoIA?: Record<string, string | number>;
+  // Marca este candidato como parte de la señal "socia inactiva" (dedup
+  // cruzado con INACTIVIDAD_30D del motor de marketing — ver
+  // docs/marketing-solape-motores-diseno.md §2 y senales-inactividad.ts).
+  // Lo lee lib/inngest/automatizaciones.ts para prefijar el `detalle` del
+  // log con MARCA_INACTIVIDAD.
+  marcaInactividad?: boolean;
 }
 
 export interface AutomationEngineInput {
@@ -100,13 +107,10 @@ export function computeAutomationCandidatos(
   const logsDe = (ruleId: string, socioId: string | null | undefined): AutomationLog[] =>
     logsPorRuleSocio.get(`${ruleId}|${socioId ?? ''}`) ?? [];
 
-  // Última asistencia (creadoEn) por socia — para AUSENCIA_DIAS, en una pasada.
-  const ultimaAsistidaCreado = new Map<string, string>();
-  for (const r of reservas) {
-    if (r.estado !== 'ASISTIDA') continue;
-    const prev = ultimaAsistidaCreado.get(r.socioId);
-    if (!prev || r.creadoEn > prev) ultimaAsistidaCreado.set(r.socioId, r.creadoEn);
-  }
+  // Última asistencia (creadoEn) por socia — para AUSENCIA_DIAS. Compartida
+  // con marketing-automation-engine.ts (misma señal exacta, ver
+  // lib/engines/senales-inactividad.ts).
+  const ultimaAsistidaCreado = ultimaAsistidaPorSocio(reservas);
 
   // Plazas ocupadas por sesión (estado != CANCELADA) — para CLASE_LLENA_RECURRENTE.
   const ocupadasPorSesion = new Map<string, number>();
@@ -149,6 +153,12 @@ export function computeAutomationCandidatos(
         // ausencia meses después.
         const logsEpisodio = logsDe(rule.id, socio.id).filter(l => l.ejecutadoEn > ultimaCreado);
 
+        // Dedup CRUZADO con INACTIVIDAD_30D (motor de marketing): si esa
+        // automatización ya le mandó algo por el mismo motivo en las últimas
+        // 72h, no dispares también la secuencia clásica encima — ver
+        // docs/marketing-solape-motores-diseno.md §2.
+        if (huboAvisoInactividadReciente(automationLogs, socio.id, now)) return;
+
         if (dias >= diasCritico) {
           const yaOfrecido = logsEpisodio.some(
             l => l.accion === 'OFRECER_DESCUENTO' && l.resultado !== 'FALLIDO'
@@ -161,6 +171,7 @@ export function computeAutomationCandidatos(
             proximaAccionEn: null,
             accion: 'OFRECER_DESCUENTO',
             contextoIA: { nombre: socio.nombre, diasSinVenir: dias, descuentoPct },
+            marcaInactividad: true,
           });
           return;
         }
@@ -174,6 +185,7 @@ export function computeAutomationCandidatos(
             mensajeCliente: `${socio.nombre}, hace un par de semanas que no coincidimos en clase. Si hay algo que te esté costando encajar el horario, o alguna molestia, dínoslo — nos encanta ayudarte a volver a tu ritmo.`,
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
+            marcaInactividad: true,
           });
           return;
         }
@@ -194,6 +206,7 @@ export function computeAutomationCandidatos(
           mensajeCliente: `${socio.nombre}, llevas ${dias} días sin venir a clase. ¿Todo bien? Te esperamos pronto por el estudio.`,
           proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
           accion: 'ENVIAR_EMAIL',
+          marcaInactividad: true,
         });
       });
     }

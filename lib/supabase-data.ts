@@ -347,7 +347,12 @@ export function mapUsuario(r: RowUsuarios): Usuario {
 // ⚠️ Para que esa comprobación exista, la cadena del select tiene que ser UN
 // literal de UNA línea. Partirla en `'a,b' + 'c,d'` la degrada a `string`,
 // supabase-js pierde la inferencia y se pierde toda la verificación EN SILENCIO.
-export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en'>;
+// consentimiento_marketing_texto excluido por el mismo motivo que
+// aceptacion_version: es el texto COMPLETO (lib/legal-textos.ts
+// textoConsentimientoMarketing), idéntico para todas las socias del estudio,
+// y solo lo necesita el envío real (comparación exacta de vigencia) — no el
+// panel. El panel solo trae fecha+registradoPor (bool-ish, aproximado).
+export type FilaSocioPanel = Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto'>;
 export type FilaSesionPanel = Omit<RowSesiones, 'valoracion_pedida_en' | 'cancelada_motivo'>;
 // El arranque del panel NO trae ni `proximo_reintento` ni el snapshot de la
 // entrega: son columnas que solo lee el dunning (servidor) y la card de
@@ -400,6 +405,15 @@ export function mapSocio(r: FilaSocioPanel): Socio {
   const consentimientoSalud = r.consentimiento_salud_fecha
     ? { fecha: r.consentimiento_salud_fecha, registradoPor: r.consentimiento_salud_registrado_por ?? '' }
     : undefined;
+  // `texto` vacío a propósito, mismo motivo que aceptacionContrato.versionTexto
+  // arriba: FilaSocioPanel excluye consentimiento_marketing_texto (2,7 KB por
+  // fila, idéntico para todas). El panel solo necesita saber SI hay consentimiento
+  // (para el recuento aproximado de campañas); la vigencia EXACTA (comparar
+  // texto) la comprueba el envío real con su propio select — ver
+  // lib/marketing/consentimiento.ts.
+  const consentimientoMarketing = r.consentimiento_marketing_en
+    ? { fecha: r.consentimiento_marketing_en, texto: '', registradoPor: r.consentimiento_marketing_por ?? '' }
+    : undefined;
 
   return {
     id: r.id,
@@ -415,6 +429,7 @@ export function mapSocio(r: FilaSocioPanel): Socio {
     tags: r.tags ?? undefined,
     aceptacionContrato,
     consentimientoSalud,
+    consentimientoMarketing,
     avatar: r.avatar ?? null,
     stripeCustomerId: r.stripe_customer_id ?? null,
     stripePaymentMethodId: r.stripe_payment_method_id ?? null,
@@ -1647,6 +1662,11 @@ export async function dbUpdateSocio(id: string, changes: Partial<Socio>): Promis
   if ('consentimientoSalud' in changes) {
     db.consentimiento_salud_fecha = changes.consentimientoSalud?.fecha ?? null;
     db.consentimiento_salud_registrado_por = changes.consentimientoSalud?.registradoPor ?? null;
+  }
+  if ('consentimientoMarketing' in changes) {
+    db.consentimiento_marketing_en = changes.consentimientoMarketing?.fecha ?? null;
+    db.consentimiento_marketing_texto = changes.consentimientoMarketing?.texto ?? null;
+    db.consentimiento_marketing_por = changes.consentimientoMarketing?.registradoPor ?? null;
   }
   const { error } = await supabase.from('socios').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateSocio]', error) : ESCRITURA_OK;
@@ -3256,7 +3276,10 @@ export async function dbInsertCampana(c: Campana): Promise<ResultadoEscritura> {
   return error ? falloEscritura('[dbInsertCampana]', error) : ESCRITURA_OK;
 }
 
-export async function dbUpdateCampana(id: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
+// studioId: filtro de fila explícito, no solo RLS — dbEscritura() usa
+// service-role cuando corre en servidor (el job de envío de campañas,
+// lib/inngest/campanas.ts), donde no hay JWT que la RLS pueda comprobar.
+export async function dbUpdateCampana(id: string, studioId: string, changes: Partial<Campana>): Promise<ResultadoEscritura> {
   const db: Record<string, unknown> = {};
   if ('nombre' in changes) db.nombre = changes.nombre;
   if ('tipo' in changes) db.tipo = changes.tipo;
@@ -3272,7 +3295,7 @@ export async function dbUpdateCampana(id: string, changes: Partial<Campana>): Pr
   if ('objetivo' in changes) db.objetivo = changes.objetivo;
   if ('presupuesto' in changes) db.presupuesto = changes.presupuesto;
   if ('publicaciones' in changes) db.publicaciones = changes.publicaciones;
-  const { error } = await supabase.from('campanas').update(db).eq('id', id);
+  const { error } = await dbEscritura().from('campanas').update(db).eq('id', id).eq('studio_id', studioId);
   return error ? falloEscritura('[dbUpdateCampana]', error) : ESCRITURA_OK;
 }
 
@@ -4016,6 +4039,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     googleCalendarEmail: r.google_calendar_email ?? null,
     gmailEmail: r.gmail_email ?? null,
     zoomEmail: r.zoom_email ?? null,
+    klaviyoAccountName: r.klaviyo_account_name ?? null,
     gestoriaEmail: r.gestoria_email ?? null,
     gestoriaEnvioAutomatico: (r.gestoria_envio_automatico as 'desactivado' | 'trimestral') ?? 'desactivado',
     cadenaId: r.cadena_id ?? null,
@@ -4224,7 +4248,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     // 1000 filas — un estudio/cadena grande vería la retención y el ranking de
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
-    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     db.from('suscripciones').select('id, studio_id, socio_id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes, stripe_subscription_id').eq('studio_id', sid),
     db.from('salas').select('*').eq('studio_id', sid),
