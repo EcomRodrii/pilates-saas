@@ -145,6 +145,14 @@ export interface ReservaPortal {
 export interface DatosPortal {
   clases: StudioClass[];
   /**
+   * El instante desde el que se calcula todo lo que depende de «ahora», en ISO.
+   *
+   * ⚠️ Va como dato y no se llama a `new Date()` en los componentes a
+   * propósito: la vista previa y los tests fijan la fecha, y un reloj leído
+   * dentro del render la haría depender del momento de ejecutarlo.
+   */
+  ahoraISO: string;
+  /**
    * Hoy en la zona del estudio. `num` es el día del MES (casa con
    * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
    * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.
