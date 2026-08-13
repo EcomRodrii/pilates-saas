@@ -3,13 +3,14 @@
 Fecha: 2026-08-13. Depende de
 [`docs/marketing-integrations-audit.md`](./marketing-integrations-audit.md)
 — léelo primero, aquí no se repiten las citas de archivo/línea salvo que
-aporten algo nuevo. `MARKETING_MODULE_ENABLED` sigue en `false` — nada de
-lo implementado hasta ahora (pasos 2 y 3 del §8) depende de esa decisión ni
-cambia UI visible del módulo de marketing en sí, son refactors/formalización
-sobre código que ya corría. La decisión de si se reactiva el módulo
-existente o se rehace queda pendiente y expresamente fuera de este
-documento — lo que sigue es válido en cualquiera de los dos casos, porque
-describe la forma final, no el punto de partida.
+aporten algo nuevo.
+
+**Decisión del §8 paso 1 RESUELTA (2026-08-13) por Marcos**: reactivar y
+extender el módulo existente. `MARKETING_MODULE_ENABLED = true` desde este
+commit — las 1668 líneas de UI de campañas/automatizaciones/flow-builder
+que existían son ahora visibles en producción, encima de todo lo reforzado
+en los pasos 2-6 (dedup del solape de motores, Provider Layer, cola
+server-side, consentimiento RGPD, segmentación ampliada).
 
 ## Principio rector
 
@@ -378,8 +379,8 @@ solo el enlace de email.
 ## 8. Orden de fases (reconciliado con el §7 del brief original y la
    auditoría — sin duplicar lo que ya existe)
 
-1. **Decisión pendiente**: reactivar módulo existente vs rehacer (bloquea
-   todo lo demás, fuera de este documento).
+1. ✅ **Decisión resuelta (2026-08-13, Marcos)**: reactivar y extender el
+   módulo existente. `MARKETING_MODULE_ENABLED = true`.
 2. ✅ Resolver solape de motores de automatización (§2) — refactor puro,
    sin UI nueva. PR #1015.
 3. ✅ Formalizar `EmailProvider`/`SmsProvider` como interfaces sobre el
