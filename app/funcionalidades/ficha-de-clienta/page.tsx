@@ -25,6 +25,10 @@ const FAQ = [
     a: 'Solo quien las necesita para dar la clase. Recepción, que gestiona reservas y cobros, no ve ese detalle. La separación se aplica en la base de datos, no solo escondiendo un botón.',
   },
   {
+    q: '¿El cuestionario de salud es el mismo para todos los estudios?',
+    a: 'No. Cada estudio define sus propias preguntas y el tipo de respuesta (texto libre, sí/no, o una lista de opciones) desde Configuración. No hay un formulario fijo de Tentare de por medio.',
+  },
+  {
     q: '¿Hace falta consentimiento para guardar esos datos?',
     a: 'Sí, y queda registrado con la fecha y el texto exacto que la alumna aceptó, no un número de versión. Si el texto cambia, se vuelve a pedir. Es la forma de poder demostrar qué se aceptó y cuándo.',
   },
@@ -73,6 +77,11 @@ export default function FichaPage() {
           De ahí sale el semáforo que ve quien da la clase, calculado a partir de las restricciones grabadas, y de ahí salen
           las alertas automáticas: si una alumna tiene una restricción dura en una zona y va a hacer una clase que la
           compromete, se avisa.
+        </p>
+        <p>
+          Las preguntas no vienen fijadas por Tentare: <strong>las defines tú</strong>, desde Configuración — texto libre,
+          sí/no, o una lista de opciones, tantas como quieras. Cada estudio pregunta lo que de verdad necesita saber, no un
+          formulario genérico igual para todos. Las rellena quien atiende a la clienta, desde su ficha.
         </p>
         <Limite titulo="Qué es y qué no es">
           No es una historia clínica ni un diagnóstico. El propio sistema lo trata así: el semáforo y el nivel de riesgo son

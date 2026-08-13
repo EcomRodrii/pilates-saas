@@ -17,6 +17,10 @@ export const metadata: Metadata = {
 
 const FAQ = [
   {
+    q: '¿Tengo que cancelarle yo la reserva o dársela de baja de la plaza fija?',
+    a: 'No. Lo hace ella desde su portal, dentro de la ventana que hayas configurado — sin escribirte para avisarte. Si tiene plaza fija, también la pausa o la retoma cuando quiera. A tu panel llega ya resuelto.',
+  },
+  {
     q: '¿Tengo que cobrar por cancelar tarde?',
     a: 'No, y viene desactivado. La penalización económica es opcional y muchos estudios funcionan bien solo con la ventana de cancelación y con no devolver la sesión. Actívala si tu problema es que las plazas se quedan vacías a última hora de forma sistemática.',
   },
@@ -81,6 +85,11 @@ export default function CancelacionesPage() {
       </Seccion>
 
       <Seccion id="bono" titulo="Qué pasa con su bono">
+        <p>
+          Todo esto lo hace <strong>ella</strong>, desde su portal, dentro de la ventana que tú configuraste — no un paso
+          de mostrador que tengas que resolver a mano. Cancela, ve si recupera la sesión, y si tiene plaza fija, la
+          pausa o la retoma cuando quiera. A ti te llega hecho, no por hacer.
+        </p>
         <QuePasaConElBono />
         <p>
           Fíjate en dos filas. La primera: una cancelación tardía <strong>no le devuelve la sesión, pero sí libera la

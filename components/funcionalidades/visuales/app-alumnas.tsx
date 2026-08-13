@@ -15,7 +15,7 @@ import { PanelClaro, PanelOscuro } from './comunes';
 const PANTALLAS = [
   { t: 'Inicio', d: 'Su próxima clase, y qué le conviene hacer ahora' },
   { t: 'Clases', d: 'El horario, con filtros y plazas reales' },
-  { t: 'Mis reservas', d: 'Lo que tiene cogido y lo que puede cancelar' },
+  { t: 'Mis reservas', d: 'Lo que tiene cogido, lo que cancela y su plaza fija' },
   { t: 'Mi plan', d: 'Qué tiene contratado y cuánto le queda' },
   { t: 'Comprar', d: 'Bonos y planes, pagando ahí mismo' },
   { t: 'Progreso', d: 'Clases hechas y horas en sala' },
