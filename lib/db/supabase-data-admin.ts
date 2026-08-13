@@ -465,9 +465,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -498,6 +498,18 @@ export async function fetchPublicStudioData(
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
         admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+        // El horario de apertura del estudio (`studio_horario`, migr
+        // 20260804213940), para «Información del centro» del portal.
+        //
+        // Va en el grupo EXCLUSIVO del portal y dentro del caché a propósito:
+        // son 7 filas que cambian cada varios meses, y este bloque corre en
+        // cada visita — el widget embebido (`liviano`) no lo pide porque no
+        // enseña horarios de apertura.
+        //
+        // ⚠️ Y sale de aquí, NO de una columna de `studios`: la tabla ya
+        // existía con su RLS y su pestaña en el panel. Un texto de horario en
+        // `studios` habría sido una segunda fuente del mismo dato.
+        admin.from('studio_horario').select('*').eq('studio_id', studioId).order('dia_semana', { ascending: true }),
       ]);
 
     const retoConteos = (retoParticipRes?.data ?? []).reduce<Record<string, number>>((acc, r) => {
@@ -514,6 +526,13 @@ export async function fetchPublicStudioData(
       salas: (salasRes.data ?? []).map(mapSala),
       instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
       spots: (spotsRes.data ?? []).map(mapSpot),
+      // El horario de apertura, para «Información del centro». Vacío en el
+      // modo `liviano` (el widget no lo pide) — misma forma del objeto, como
+      // el resto de campos exclusivos del portal.
+      horarioSemana: (horarioRes?.data ?? []).map((r) => {
+        const f = r as { dia_semana: number; abierto: boolean; hora_apertura: string | null; hora_cierre: string | null };
+        return { diaSemana: f.dia_semana, abierto: f.abierto, horaApertura: f.hora_apertura, horaCierre: f.hora_cierre };
+      }),
       planesTarifa: planesConTiposPub,
       videosOnDemand: (videosRes?.data ?? []).map(mapVideoOnDemand),
       rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),

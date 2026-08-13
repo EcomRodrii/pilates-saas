@@ -172,6 +172,13 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
       "Calcetines antideslizantes obligatorios en todas las salas.",
       "Cancela con 6 h de antelación para recuperar tu clase.",
     ],
+    horario: [
+      { dia: "Lunes", cuando: "8:00 – 21:00" }, { dia: "Martes", cuando: "8:00 – 21:00" },
+      { dia: "Miércoles", cuando: "8:00 – 21:00" }, { dia: "Jueves", cuando: "8:00 – 21:00" },
+      { dia: "Viernes", cuando: "8:00 – 21:00" }, { dia: "Sábado", cuando: "9:00 – 14:00" },
+      { dia: "Domingo", cuando: "Cerrado" },
+    ],
+    privacidad: "Tus datos pertenecen a tu estudio y solo se usan para gestionar tus reservas, bonos y comunicaciones de clase.",
   },
   dias: [...DAYS],
   filtros: [...FILTERS],
@@ -190,4 +197,10 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
     { id: "r2", concepto: "Plan Mensual", cuando: "Comprado el 1 de septiembre", importe: "189,00 €" },
   ],
   socia: MEMBER,
+  profesores: [
+    { id: "i1", nombre: "Marta Gómez", inicial: "M", bio: "Fundadora del estudio. Más de diez años enseñando método clásico y contemporáneo." },
+    { id: "i2", nombre: "Emma Ruiz", inicial: "E", bio: "Formada en método clásico. Precisión técnica y muy buen ritmo." },
+    // Sin bio: la ficha no pinta un párrafo vacío ni texto de relleno.
+    { id: "i3", nombre: "Nuria Peña", inicial: "N", bio: "" },
+  ],
 };

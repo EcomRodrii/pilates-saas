@@ -264,6 +264,45 @@ export function useViewModel() {
         seeds: Array.from({ length: Math.min(datos.bono.total, 12) }, (_, i) => i < passLeft),
         seedsFit: datos.bono.total > 0 && datos.bono.total <= 12,
       },
+      teachers: datos.profesores,
+
+      // Las cuatro secciones de «Información del centro», ya resueltas: la
+      // pantalla solo coloca. Cada una se calla si su fuente está vacía —
+      // horario sin configurar, normas sin escribir— en vez de pintar un
+      // bloque en blanco.
+      info: (() => {
+        const e = datos.estudio;
+        const vacio = { filas: [] as { clave: string; valor: string }[], lista: [] as string[], parrafos: [] as string[] };
+        if (state.infoKey === "horario") {
+          return {
+            ...vacio, titulo: "Horario del centro",
+            filas: e.horario.map((h) => ({ clave: h.dia, valor: h.cuando })),
+            vacio: "El estudio todavía no ha publicado su horario de apertura.",
+          };
+        }
+        if (state.infoKey === "normas") {
+          return { ...vacio, titulo: "Normas del centro", lista: e.normas,
+            vacio: "El estudio todavía no ha escrito sus normas." };
+        }
+        if (state.infoKey === "contacto") {
+          return {
+            ...vacio, titulo: "Contacto",
+            filas: [
+              e.telefono ? { clave: "Teléfono", valor: e.telefono } : null,
+              e.email ? { clave: "Email", valor: e.email } : null,
+              e.direccion ? { clave: "Dirección", valor: [e.direccion, e.codigoPostal, e.ciudad].filter(Boolean).join(", ") } : null,
+            ].filter((x): x is { clave: string; valor: string } => x !== null),
+            vacio: "El estudio todavía no ha publicado sus datos de contacto.",
+          };
+        }
+        return {
+          ...vacio, titulo: "Privacidad",
+          // Un texto largo: se parte por párrafos en blanco, como está escrito.
+          parrafos: (e.privacidad ?? "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean),
+          vacio: "El estudio todavía no ha publicado su política de privacidad.",
+        };
+      })(),
+
       // Toda su cartera, no solo el bono que se está gastando: `bonoDe` deja
       // fuera los ilimitados y una socia con plan mensual no veía ninguno.
       wallet: datos.bonos,

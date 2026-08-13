@@ -40,10 +40,12 @@ import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
 import { Centro } from '@/components/portal-tema/screens/Centro';
 import { Confirmed } from '@/components/portal-tema/screens/Confirmed';
 import { Buy } from '@/components/portal-tema/screens/Buy';
+import { Teachers } from '@/components/portal-tema/screens/Teachers';
+import { Info } from '@/components/portal-tema/screens/Info';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
-import { construirDatosPortal, diaDelMesHoy } from '@/lib/portal-tema/datos';
+import { construirDatosPortal, diaDelMesHoy, horarioDe } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
 
@@ -67,8 +69,10 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   // La sirve el portal de siempre, pero es una ruta de verdad: el bloque
   // «Pilates en casa» del Inicio tiene que llevar ahí.
   videos: 'videos',
-  // Profesores: ruta del portal de siempre, alcanzable desde «Mi centro».
-  instructores: 'instructores',
+  // ⚠️ Profesores YA NO va a la ruta vieja: el kit tiene su pantalla y
+  // `queImparten` garantiza que la lista es la misma. Sin ruta aquí,
+  // `navegar` devuelve false y el store la abre en sitio, como el detalle.
+  // `/portal/<slug>/instructores` sigue existiendo para quien llegue por URL.
 };
 
 /**
@@ -83,6 +87,8 @@ const PANTALLAS = {
   // «confirmada» compartida o recargada no tendría nada que confirmar.
   confirmada: Confirmed,
   comprar: Buy,
+  instructores: Teachers,
+  info: Info,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -106,7 +112,7 @@ export function PortalTemaMarco() {
   const { session } = usePortalAuth();
   const {
     studio, sesiones, reservas, tiposClase, salas, instructores,
-    planesTarifa, suscripciones, socios, recibos, themeIdPublicado, cancelarReserva, addReserva,
+    planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado, cancelarReserva, addReserva,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -142,6 +148,11 @@ export function PortalTemaMarco() {
       // Una norma por línea, sin vacías. Se trocea aquí y no al pintar para
       // que el portal reciba el dato ya masticado, como el resto.
       normas: (studio?.normasTexto ?? '').split('\n').map((l) => l.trim()).filter(Boolean),
+      horario: horarioDe(studio?.horarioSemana),
+      // Del `studioConfig` del contexto, que ya hidrata el texto guardado del
+      // estudio (o el por defecto de `lib/legal-textos.ts`) — no de `studio`,
+      // donde no vive. Es el mismo texto que la socia acepta al darse de alta.
+      privacidad: studioConfig?.politicaPrivacidad ?? null,
     },
     socio: socia,
     // Las SUYAS, con su id de reserva. Sin esto la pantalla de Reservas usaba
@@ -159,7 +170,7 @@ export function PortalTemaMarco() {
   }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
-       studio?.normasTexto]);
+       studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
