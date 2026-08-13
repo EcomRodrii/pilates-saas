@@ -4275,6 +4275,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const tabBarStyleEfectivo = temaJsPreview?.tabBarStyle ?? tabBarStyle;
   const barraClasicaEfectiva = temaJsPreview?.barraClasica ?? barraClasica;
   const variantesEfectivas = temaJsPreview?.variantes ?? variantes;
+  // ⚠️ El borrador manda también aquí, y este eje pesa más que los otros tres:
+  // decide qué portal se pinta ENTERO. Sin él, la vista previa del editor
+  // enseñaba siempre el portal de siempre — la propietaria elegía un tema del
+  // kit y lo miraba montado sobre el portal que sus socias ya no usan.
+  const themeIdEfectivo = temaJsPreview ? temaJsPreview.temaKit : themeIdPublicado;
 
   const value: StudioContextValue = useMemo(() => ({
     planesTarifa,
@@ -4290,7 +4295,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     barraClasica: barraClasicaEfectiva,
     variantes: variantesEfectivas,
     navPortal,
-    themeIdPublicado,
+    themeIdPublicado: themeIdEfectivo,
     portalReact,
     redesSociales,
     textosReservar,
@@ -4522,7 +4527,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdPublicado, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,

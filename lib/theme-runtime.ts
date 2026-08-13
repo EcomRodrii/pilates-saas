@@ -303,10 +303,24 @@ function themeToVarMap(raw: unknown): Record<string, string> {
  * `ThemeStyle` para el porqué del selector.
  */
 export function varsKitDelTema(raw: unknown): string | null {
+  const vars = varsKitMap(raw);
+  const cuerpo = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
+  return cuerpo ? `:root:root { ${cuerpo} }` : null;
+}
+
+/**
+ * Lo mismo, como mapa.
+ *
+ * Lo usa el puente del preview en vivo, que las aplica EN LÍNEA sobre
+ * `documentElement` — y una propiedad en línea gana a cualquier selector, así
+ * que ahí no hace falta el truco de especificidad. Sin esto, tocar un color en
+ * el editor no movía nada dentro del iframe cuando el tema es del kit.
+ */
+export function varsKitMap(raw: unknown): Record<string, string> {
   const t = resolveTheme(raw);
   const tema = TEMAS_PORTAL[t.themeId as TemaPortalId];
-  if (!tema) return null;
-  const vars = {
+  if (!tema) return {};
+  return {
     ...varsColorSobreTema({
       primary: t.primary,
       onPrimary: foregroundParaFondo(t.primary),
@@ -321,8 +335,6 @@ export function varsKitDelTema(raw: unknown): string | null {
     ...varsRadioSobreTema(t.radioTema),
     ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
   };
-  const cuerpo = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
-  return cuerpo ? `:root:root { ${cuerpo} }` : null;
 }
 
 /** CSS variables como objeto para inline `style` (cliente / preview en vivo). */

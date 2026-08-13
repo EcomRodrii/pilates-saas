@@ -19,8 +19,11 @@ import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from './bienvenida-portal';
+import { useVistaPreviaKit } from './vista-previa-kit';
 
 export function PortalPreviewBienvenidaClient() {
+  // Con un tema del kit se enseña el kit, no el portal de siempre.
+  const kit = useVistaPreviaKit('welcome');
   const { studio, variantes } = useStudio();
   const { t } = useModo();
 
@@ -39,6 +42,7 @@ export function PortalPreviewBienvenidaClient() {
     );
   }
 
+  if (kit) return kit;
   return (
     <BienvenidaPortal
       nombreEstudio={studio?.nombre?.trim() || 'Tu estudio'}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MarcoDispositivo } from './marco-dispositivo';
 import type { DispositivoId } from '@/lib/theme/dispositivos';
 import { fetchHomePreviewToken } from '@/lib/api-client';
-import { themeToCssVars } from '@/lib/theme-runtime';
+import { varsKitMap, themeToCssVars } from '@/lib/theme-runtime';
 import { MENSAJE_TEMA_PREVIEW, resolveTemaJs } from '@/lib/theme-preview-puente';
 import type { ThemeConfig } from '@/lib/theme-schema';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
@@ -148,13 +148,19 @@ export function HomePreview({
       ref.current?.contentWindow?.postMessage(
         {
           type: MENSAJE_TEMA_PREVIEW,
-          vars: themeToCssVars(temaBorrador) as Record<string, string>,
+          // Los DOS vocabularios en el mismo mensaje: el portal de siempre lee
+          // `--portal-*` y el kit lee `--brand`/`--radius-card`/`--size-*`. El
+          // listener los aplica en línea, que gana a `html[data-theme="…"]`, así
+          // que tocar un color se ve al momento en los dos.
+          vars: { ...themeToCssVars(temaBorrador), ...varsKitMap(temaBorrador) } as Record<string, string>,
           // La mitad JS del tema (variantes de FORMA, barra) — ver
           // lib/theme-preview-puente.ts. Sin esto, el iframe pintaba la paleta
           // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
           // 'clasica' y los retos salían blancos aunque el borrador dijera otra
           // cosa. Lo aplica StudioProvider, que es donde vive `variantes`.
-          temaJs: resolveTemaJs(temaBorrador),
+          // `themeId` viaja como `temaKit`: es lo que decide si la vista
+          // previa monta el kit en React o el portal de siempre.
+          temaJs: resolveTemaJs({ ...temaBorrador, temaKit: temaBorrador.themeId }),
         },
         window.location.origin,
       );

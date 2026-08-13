@@ -24,6 +24,9 @@
 
 import { resolveVariantes, type VariantesResueltas } from './theme-variantes.ts';
 import type { TabBarStyleId } from './theme-schema.ts';
+// `esTemaPortal` es una guarda pura sobre un objeto literal — no arrastra React
+// ni zod, así que puede entrar en este módulo.
+import { esTemaPortal, type TemaPortalId } from '../themes/registro.ts';
 
 /** Tipo de mensaje del puente. Lo emiten ThemePreview y HomePreview; lo escuchan
  *  ThemePreviewListener (CSS vars) y StudioProvider (esto). */
@@ -34,6 +37,19 @@ export interface TemaJs {
   variantes: VariantesResueltas;
   barraClasica: boolean;
   tabBarStyle: TabBarStyleId;
+  /**
+   * Qué tema del kit en React es el borrador, si es que lo es.
+   *
+   * ⚠️ Es el eje MÁS grande de todos, y llegó el último: decide qué portal se
+   * pinta entero, no un elemento suelto. Sin él, la vista previa del editor
+   * montaba SIEMPRE el portal de siempre — así que la propietaria elegía un
+   * tema del kit, veía cómo quedaba en el portal que sus socias ya no usan, y
+   * lo que publicaba no se parecía a lo que había mirado.
+   *
+   * `null` = no es del kit (o el mensaje es viejo y no lo trae): se pinta el
+   * portal de siempre, que es lo que hacía antes.
+   */
+  temaKit: TemaPortalId | null;
 }
 
 /**
@@ -56,5 +72,8 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     variantes: resolveVariantes(o.variantes),
     barraClasica: o.barraClasica === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
+    // Entrada NO confiable, igual que el resto: solo pasa un id que exista de
+    // verdad en el registro de temas.
+    temaKit: typeof o.temaKit === 'string' && esTemaPortal(o.temaKit) ? o.temaKit : null,
   };
 }

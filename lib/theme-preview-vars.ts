@@ -98,3 +98,45 @@ export function varsDePreview(
   }
   return salida;
 }
+
+
+// ── Los tokens del kit ──────────────────────────────────────────────────────
+//
+// Whitelist aparte, y con una regla de limpieza OPUESTA a la de arriba. Merece
+// explicación, porque parece una incoherencia y no lo es:
+//
+// Con los `--portal-*`, quitar la propiedad en línea descubre el `<style>` del
+// tema PUBLICADO que pinta el servidor — o sea, el tema equivocado mientras se
+// previsualiza otro. Por eso allí se escribe `initial` en vez de borrar.
+//
+// Con los del kit, lo que hay debajo es el fichero del PROPIO tema
+// (`html[data-theme="…"]`), que es exactamente el valor al que queremos volver
+// cuando la propietaria no ha tocado ese ajuste. Aquí borrar es lo correcto, y
+// escribir `initial` sería el error: `border-radius: var(--radius-card)` no
+// lleva respaldo, así que un `initial` dejaría las tarjetas con las esquinas
+// cuadradas.
+export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
+  '--brand', '--on-brand', '--support', '--accent', '--bg', '--ink',
+  '--font-body', '--font-display', '--weight-display',
+  '--radius-card', '--radius-button', '--radius-chip', '--radius-quick-link',
+  // La escala se emite entera o no se emite: `varsEscalaSobreTema` aplica un
+  // factor a TODOS los pasos del tema, no solo a los que se tocaron.
+  '--size-section', '--size-section-title', '--size-screen-title',
+  '--size-greeting', '--size-hero-title', '--size-pass-name',
+  '--size-detail-label', '--size-welcome', '--size-welcome-text',
+]);
+
+/** Las que vienen, filtradas. Las que no vienen NO salen: se borran. */
+export function varsKitDePreview(
+  entrantes: Record<string, unknown>,
+  permitidas: ReadonlySet<string> = CLAVES_KIT_PERMITIDAS,
+): { aplicar: Record<string, string>; borrar: string[] } {
+  const aplicar: Record<string, string> = {};
+  const borrar: string[] = [];
+  for (const clave of permitidas) {
+    const v = entrantes[clave];
+    if (typeof v === 'string') aplicar[clave] = v;
+    else borrar.push(clave);
+  }
+  return { aplicar, borrar };
+}
