@@ -13,13 +13,24 @@
 // Sin sidebar ni topbar de gestión: solo logo + salir. Cada página hija
 // decide su propio guard de sesión (mi-perfil/solicitudes → fuera si no hay
 // user; unirse → fuera si YA hay user).
+//
+// /network/unirse es la excepción: es una landing completa (nav, hero,
+// pie propios — components/landing/network/), no una pantalla de
+// autoservicio. Envolverla en esta cabecera + `max-w-2xl` la aplastaría a
+// una columna estrecha y apilaría dos barras de navegación. Se detecta por
+// pathname en vez de mover la lógica a un layout hermano porque solo esta
+// ruta necesita salirse — todo lo demás bajo /network sigue igual.
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
+  const pathname = usePathname();
+
+  if (pathname === '/network/unirse') return <>{children}</>;
 
   return (
     <div className="min-h-dvh" style={{ background: '#EEEEE8' }}>
