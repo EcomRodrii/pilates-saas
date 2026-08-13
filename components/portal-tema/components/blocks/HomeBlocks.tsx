@@ -1,5 +1,19 @@
 "use client";
 
+import { BLOQUE_KIT_A_EDITOR } from "@/lib/portal-tema/equivalencias";
+
+/**
+ * El id con el que el EDITOR de Apariencia conoce a este bloque, o `undefined`
+ * si no tiene sección equivalente allí.
+ *
+ * ⚠️ Va en la RAÍZ de cada bloque, no en un envoltorio: el puente de la
+ * previsualización mide con `getBoundingClientRect` y un `<div>` con
+ * `display:contents` no genera caja —saldría 0×0 y el resaltado no se vería—,
+ * mientras que un `<div>` normal se convertiría en el hijo de `.canvas` y
+ * rompería los márgenes negativos y el `order` con los que los bloques se
+ * colocan.
+ */
+const idEditor = (kit: string) => BLOQUE_KIT_A_EDITOR[kit];
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Card, EmptyState, SectionHead, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
 import { DayStrip, FotoTema , RESPALDO_CLASE, RESPALDO_ESTUDIO } from "@/components/portal-tema/components/layout/chrome";
@@ -38,7 +52,7 @@ function Greeting({ vm }: { vm: ViewModel }) {
 function HomeHeader({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   return (
-    <header className="home-header">
+    <header className="home-header" data-bloque-id={idEditor("home-header")}>
       <span className="home-header__photo"><FotoTema src={vm.fotos.portada} respaldo={RESPALDO_ESTUDIO} /></span>
       <span className="home-header__veil"></span>
       <div className="home-header__top">
@@ -73,7 +87,7 @@ function NextClassTicket({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   const next = vm.next!;
   return (
-    <button className="ticket is-pressable" onClick={() => actions.openClass(next.id)}>
+    <button data-bloque-id={idEditor("next-class")} className="ticket is-pressable" onClick={() => actions.openClass(next.id)}>
       <span className="ticket__top">
         <span className="ticket__head">
           <span className="ticket__kicker">{vm.nextHeading}</span>
@@ -101,7 +115,7 @@ function NextClass({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   if (vm.next && vm.features.next_class_style === "ticket") return <NextClassTicket vm={vm} />;
   return (
-    <section>
+    <section data-bloque-id={idEditor("next-class")}>
       <SectionTitle>{vm.nextHeading}</SectionTitle>
       {vm.next ? (
         <button className="hero is-pressable" onClick={() => actions.openClass(vm.next!.id)}>
@@ -145,7 +159,7 @@ function TodayTimeline({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   if (!vm.today.length) return null;
   return (
-    <section>
+    <section data-bloque-id={idEditor("today-timeline")}>
       <SectionHead title="Hoy en el estudio" action="Ver horario" onAction={actions.goSchedule} />
       <div className="timeline">
         {vm.today.map((row) => (
@@ -309,7 +323,7 @@ function StudioQuote({ vm }: { vm: ViewModel }) {
 /** Progreso semanal (Noir). El anillo sale de las reservas reales. */
 function WeeklyProgress({ vm }: { vm: ViewModel }) {
   return (
-    <section>
+    <section data-bloque-id={idEditor("weekly-progress")}>
       <SectionTitle>Progreso semanal</SectionTitle>
       <Card className="progress">
         <div className="donut" style={{ "--turn": vm.progress.turn + "turn" } as React.CSSProperties}>
@@ -339,7 +353,7 @@ function WeeklyProgress({ vm }: { vm: ViewModel }) {
 function Challenges({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   return (
-    <section>
+    <section data-bloque-id={idEditor("challenges")}>
       <SectionHead title="Retos" action="Ver todos" onAction={actions.showFavourites} />
       <div className="rail">
         {vm.challenges.map((item) => (
@@ -372,7 +386,7 @@ function QuickLinks({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   const bare = vm.features.quick_links_style === "bare";
   return (
-    <section>
+    <section data-bloque-id={idEditor("quick-links")}>
       <SectionTitle>{vm.quickLinksHeading}</SectionTitle>
       <div className={("quick-links " + (bare ? "quick-links--bare" : "")).trim()}>
         {vm.quickLinks.map((link) => (
@@ -399,7 +413,7 @@ function WeekStrip({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   if (vm.features.week_strip_style === "bare") {
     return (
-      <section className="week-bare">
+      <section data-bloque-id={idEditor("week-strip")} className="week-bare">
         <div className="section-head">
           <p className="section-title">Tu semana</p>
           <p className="week-bare__month">{vm.weekMonth}</p>
@@ -428,7 +442,7 @@ function StudioBanner({
 }: { vm: ViewModel; title?: string; text?: string }) {
   const actions = useActions();
   return (
-    <section>
+    <section data-bloque-id={idEditor("studio-banner")}>
       <div className="banner">
         <div className="banner__body">
           <p className="banner__title">{title}</p>
