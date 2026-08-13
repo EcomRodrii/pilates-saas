@@ -401,9 +401,13 @@
 .pass-card__fill { display: block; height: 100%; border-radius: 999px; background: var(--brand); transition: width .4s ease; }
 .pass-card__chevron { flex: none; color: var(--card-hover-border); }
 
-/* ── Mis reservas (Tentada) ──────────────────────────────────────────────── */
-.booking-list { display: flex; flex-direction: column; gap: 10px; }
-.booking {
+/* ── Mis reservas (Tentada) ────────────────────────────────────────────────
+ *
+ * ⚠️ `home-booking`, no `booking`: ese nombre ya era de la PANTALLA de Reservas
+ * (07-lists.css) y reusarlo le metió un `display:flex` a sus tarjetas, que
+ * apilan cabecera y acciones. Dos bloques distintos, dos nombres. */
+.home-bookings { display: flex; flex-direction: column; gap: 10px; }
+.home-booking {
   display: flex; align-items: center; gap: 13px;
   padding: 11px 15px 11px 11px;
   border-radius: var(--radius-card);
@@ -411,8 +415,8 @@
   border: 1px solid var(--border);
   transition: border-color .2s ease;
 }
-.booking:hover { border-color: var(--card-hover-border); }
-.booking__day {
+.home-booking:hover { border-color: var(--card-hover-border); }
+.home-booking__day {
   flex: none;
   width: 47px; height: 54px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -420,19 +424,19 @@
   background: var(--accent-soft);
   color: var(--brand);
 }
-.booking__num {
+.home-booking__num {
   font-family: var(--font-display); font-weight: var(--weight-display);
   font-size: 22px; line-height: 1;
 }
-.booking__dow {
+.home-booking__dow {
   margin-top: 2px;
   font-size: 8px; font-weight: 700; letter-spacing: .14em;
   opacity: .65;
 }
-.booking__body { flex: 1; min-width: 0; }
-.booking__name { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
-.booking__meta { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); }
-.booking__time {
+.home-booking__body { flex: 1; min-width: 0; }
+.home-booking__name { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
+.home-booking__meta { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+.home-booking__time {
   flex: none;
   font-size: 13.5px; font-weight: 700; color: var(--ink);
   font-variant-numeric: tabular-nums;

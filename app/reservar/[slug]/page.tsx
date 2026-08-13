@@ -1,4 +1,5 @@
 'use client';
+import { aFechaCal, eventoIcs, nombreIcs } from '@/lib/calendario-ics';
 import { queImparten } from '@/lib/equipo';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -102,9 +103,7 @@ const NIVEL_COLOR: Record<string, { bg: string; text: string }> = {
 
 // ─── Calendar helpers ─────────────────────────────────────────────────────────
 
-function toCalDate(iso: string): string {
-  return iso.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z').slice(0, 15) + 'Z';
-}
+
 
 type SesionRich = {
   id: string; inicio: string; fin: string; aforoMaximo: number; cancelada: boolean;
@@ -119,7 +118,7 @@ function makeGoogleCalUrl(s: SesionRich, estudioNombre: string, estudioDireccion
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: s.tipo?.nombre ?? 'Clase Pilates',
-    dates: `${toCalDate(s.inicio)}/${toCalDate(s.fin)}`,
+    dates: `${aFechaCal(s.inicio)}/${aFechaCal(s.fin)}`,
     details: `Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
     location: `${estudioNombre} · ${estudioDireccion}`,
   });
@@ -127,31 +126,33 @@ function makeGoogleCalUrl(s: SesionRich, estudioNombre: string, estudioDireccion
 }
 
 function downloadICS(s: SesionRich, estudioNombre: string, estudioDireccion: string) {
-  // UID y DTSTAMP son obligatorios en RFC 5545 (sin ellos Outlook puede rechazar
-  // el evento). UID estable por sesión para que re-importar actualice, no duplique.
-  const dtstamp = toCalDate(new Date().toISOString());
-  const slug = estudioNombre.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'estudio';
-  const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${estudioNombre}//Reservas//ES`, 'CALSCALE:GREGORIAN',
-    'BEGIN:VEVENT',
-    `UID:${s.id}@${slug}`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART:${toCalDate(s.inicio)}`,
-    `DTEND:${toCalDate(s.fin)}`,
-    `SUMMARY:${s.tipo?.nombre ?? 'Clase Pilates'}`,
-    `LOCATION:${estudioNombre}\\, ${estudioDireccion}`,
-    `DESCRIPTION:Instructora: ${s.instructor?.nombre ?? ''} · Sala: ${s.sala?.nombre ?? ''}`,
-    'STATUS:CONFIRMED',
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].join('\r\n');
-  const blob = new Blob([lines], { type: 'text/calendar;charset=utf-8' });
+  // El fichero lo construye `lib/calendario-ics.ts`, compartido con el portal
+  // de la alumna. Aquí solo queda la parte de navegador (blob + descarga), que
+  // es lo único que no se puede probar con `node --test`.
+  //
+  // ⚠️ Al extraerlo salió un fallo que estaba aquí: se escapaba la coma que
+  // SEPARA nombre y dirección, pero no las de dentro («Carrer de la Pau, 12»),
+  // así que iCalendar partía LOCATION en dos valores y el evento entraba con
+  // la dirección a medias. El helper escapa el campo entero.
+  const ics = eventoIcs({
+    id: s.id,
+    inicio: s.inicio,
+    fin: s.fin,
+    titulo: s.tipo?.nombre ?? 'Clase Pilates',
+    instructora: s.instructor?.nombre,
+    sala: s.sala?.nombre,
+    estudioNombre,
+    estudioDireccion,
+  }, new Date());
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const nombreArchivo = (s.tipo?.nombre ?? 'clase').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  a.href = url; a.download = `${nombreArchivo || 'clase'}-${s.inicio.slice(0, 10)}.ics`; a.click();
+  a.href = url;
+  a.download = nombreIcs(s.tipo?.nombre ?? 'clase', s.inicio);
+  a.click();
   URL.revokeObjectURL(url);
 }
+
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

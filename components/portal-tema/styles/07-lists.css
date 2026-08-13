@@ -161,3 +161,115 @@
 }
 .summary dl, .summary dt, .summary dd { margin: 0; }
 .summary__row dd { color: var(--ink); font-weight: 500; }
+
+
+/* ── Las dos pestañas del horario (Tentada) ──────────────────────────────── */
+.subtabs { display: flex; gap: 26px; border-bottom: 1px solid var(--border); }
+.subtab {
+  padding: 0 2px 11px;
+  margin-bottom: -1px;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition: color .2s ease, border-color .2s ease;
+}
+.subtab.is-active { font-weight: 700; color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ── Filas del horario (Tentada) ─────────────────────────────────────────── */
+.row-mia, .row-libre {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%;
+  padding: 15px 16px;
+  border-radius: var(--radius-card);
+}
+.row-libre { background: var(--surface); border: 1px solid var(--border); transition: border-color .2s ease; }
+.row-libre:hover { border-color: var(--card-hover-border); }
+.row-mia { background: var(--brand); transition: filter .2s ease; }
+.row-mia:hover { filter: brightness(1.1); }
+
+.row-mia__time, .row-libre__time {
+  flex: none; width: 48px;
+  font-size: 15px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.row-mia__time { color: var(--on-brand); }
+.row-libre__time { color: var(--ink); }
+
+.row-mia__body, .row-libre__body { flex: 1; min-width: 0; }
+.row-mia__name, .row-libre__name { display: block; font-size: 14.5px; font-weight: 700; }
+.row-mia__name { color: var(--on-brand); }
+.row-libre__name { color: var(--ink); }
+.row-mia__meta, .row-libre__meta { display: block; margin-top: 3px; font-size: 12px; }
+.row-mia__meta { color: color-mix(in srgb, var(--on-brand) 75%, transparent); }
+.row-libre__meta { color: var(--muted); }
+.row-mia__dur, .row-libre__dur { display: block; margin-top: 2px; font-size: 11.5px; }
+.row-mia__dur { color: color-mix(in srgb, var(--on-brand) 60%, transparent); }
+.row-libre__dur { color: var(--muted); opacity: .8; }
+
+.row-mia__check {
+  flex: none;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1.4px solid color-mix(in srgb, var(--on-brand) 80%, transparent);
+  color: var(--on-brand);
+  display: grid; place-items: center;
+}
+.row-libre__cta {
+  flex: none;
+  display: inline-flex; align-items: center;
+  height: 33px; padding: 0 15px;
+  border-radius: 999px;
+  border: 1px solid var(--card-hover-border);
+  background: var(--surface);
+  font-size: 12px; font-weight: 700; color: var(--ink);
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.row-libre__cta:hover { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+.row-libre__lleno { flex: none; text-align: right; }
+.row-libre__pill {
+  display: inline-block;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--track); color: var(--muted);
+  font-size: 11px; font-weight: 700;
+}
+.row-libre__link { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 600; color: var(--brand); }
+.row-libre__cola {
+  flex: none;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--brand);
+  font-size: 11px; font-weight: 700;
+}
+
+/* ── La cola: filas y vacío ──────────────────────────────────────────────── */
+.wait-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 15px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.wait-row__body { flex: 1; min-width: 0; }
+.wait-row__date { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.wait-row__name { margin-top: 3px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.wait-row__meta { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.wait-row__side { flex: none; text-align: right; }
+.wait-row__pos {
+  display: inline-block;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--brand);
+  font-size: 11px; font-weight: 700;
+}
+.wait-row__leave {
+  display: block; margin-top: 7px; margin-left: auto;
+  font-size: 11px; font-weight: 700; color: var(--danger);
+}
+
+.wait-empty { text-align: center; padding: 52px 26px; }
+.wait-empty__mark {
+  width: 52px; height: 52px; margin: 0 auto 14px;
+  border-radius: 50%;
+  background: var(--track); color: var(--muted);
+  display: grid; place-items: center;
+}
+.wait-empty__title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.wait-empty__text { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--muted); }

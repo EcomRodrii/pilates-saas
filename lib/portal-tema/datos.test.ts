@@ -97,11 +97,17 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
   assert.deepEqual(clases[0], {
     id: 'x1', name: 'Reformer', type: 't1', day: 3,
     time: '18:00', end: '18:50', duration: '50 min',
+    // La hora de PARED es Madrid (18:00); el instante real es UTC. Las dos
+    // salen de la misma sesión, así que no pueden discrepar.
+    startsAt: '2026-09-03T16:00:00.000Z', endsAt: '2026-09-03T16:50:00.000Z',
     // ⚠️ 'Intermedio', no 'MEDIO': el portal pinta este campo tal cual en la
     // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
     // porque ya traían texto humano.
     room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
     seats: 10, description: 'Fuerza y control',
+    // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
+    // sección «Beneficios» — vacío y ausente significan lo mismo.
+    benefits: [],
   });
 });
 
@@ -304,24 +310,25 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 function clase(id: string): StudioClass {
   return {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
+    startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z',
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
-    level: 'Todos los niveles', seats: 3, description: '',
+    level: 'Todos los niveles', seats: 3, description: '', benefits: [],
   };
 }
 
 test('reservadasDe: empareja cada reserva viva con su clase', () => {
   const r = reservadasDe(
-    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CONFIRMADA' }],
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CONFIRMADA', posicionEspera: null }],
     [clase('ses-a')],
   );
   // El id que viaja al servidor para cancelar es el de la RESERVA, no el de la
   // clase: confundirlos cancela algo que no es (o nada).
-  assert.deepEqual(r, [{ classId: 'ses-a', reservaId: 'res-1' }]);
+  assert.deepEqual(r, [{ classId: 'ses-a', reservaId: 'res-1', estado: 'CONFIRMADA', posicion: null }]);
 });
 
 test('reservadasDe: una cancelada no cuenta como reserva', () => {
   const r = reservadasDe(
-    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CANCELADA' }],
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'CANCELADA', posicionEspera: null }],
     [clase('ses-a')],
   );
   assert.deepEqual(r, []);
@@ -330,7 +337,7 @@ test('reservadasDe: una cancelada no cuenta como reserva', () => {
 test('reservadasDe: la lista de espera SÍ se ve', () => {
   // Tiene que poder verla para salirse de la cola. No ocupa aforo, pero existe.
   const r = reservadasDe(
-    [{ id: 'res-1', sesionId: 'ses-a', estado: 'LISTA_ESPERA' }],
+    [{ id: 'res-1', sesionId: 'ses-a', estado: 'LISTA_ESPERA', posicionEspera: null }],
     [clase('ses-a')],
   );
   assert.equal(r.length, 1);
@@ -340,7 +347,7 @@ test('reservadasDe: una reserva sin clase en pantalla se cae de la lista', () =>
   // La clase se canceló, o es de otra semana: pintar media fila (sin hora ni
   // sala) es peor que no pintarla.
   const r = reservadasDe(
-    [{ id: 'res-1', sesionId: 'ses-fantasma', estado: 'CONFIRMADA' }],
+    [{ id: 'res-1', sesionId: 'ses-fantasma', estado: 'CONFIRMADA', posicionEspera: null }],
     [clase('ses-a')],
   );
   assert.deepEqual(r, []);
@@ -434,4 +441,59 @@ test('rachaDe: sin socia identificada, sin racha', () => {
 
 test('rachaDe: una reserva cuya sesión no está cargada se ignora, no rompe', () => {
   assert.deepEqual(rachaDe(asistio('s0', 's1', 'fantasma'), SES, AHORA), { semanas: 2, esMejor: true });
+});
+
+// ── Tener plaza y estar en la cola no son lo mismo ──────────────────────────
+
+test('reservadasDe: distingue plaza de cola, y la posición SOLO en la cola', () => {
+  // ⚠️ El portal las trataba a todas como «Reservada» porque `ReservaPortal` no
+  // llevaba el estado. Con una lista de espera de verdad, eso le decía a la
+  // socia que tenía plaza cuando estaba tercera.
+  const out = reservadasDe([
+    { id: 'r1', sesionId: 'ses-a', estado: 'CONFIRMADA', posicionEspera: 4 },
+    { id: 'r2', sesionId: 'ses-b', estado: 'LISTA_ESPERA', posicionEspera: 2 },
+  ], [clase('ses-a'), clase('ses-b')]);
+
+  assert.deepEqual(out, [
+    // `posicionEspera: 4` en una CONFIRMADA es basura de la fila: enseñarla
+    // diría «4ª» a quien ya tiene su sitio.
+    { classId: 'ses-a', reservaId: 'r1', estado: 'CONFIRMADA', posicion: null },
+    { classId: 'ses-b', reservaId: 'r2', estado: 'LISTA_ESPERA', posicion: 2 },
+  ]);
+});
+
+test('reservadasDe: en la cola sin número asignado, la posición es null y no 0', () => {
+  const [r] = reservadasDe(
+    [{ id: 'r1', sesionId: 'ses-a', estado: 'LISTA_ESPERA', posicionEspera: null }],
+    [clase('ses-a')],
+  );
+  assert.equal(r.posicion, null);
+});
+
+// ── Beneficios: la lista FIJA de objetivos, en palabras ─────────────────────
+
+test('clasesDeLaSemana: los objetivos del tipo salen como etiquetas, en el orden del catálogo', () => {
+  const [c] = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-03T16:00:00.000Z', '2026-09-03T16:50:00.000Z')],
+    // A propósito en orden inverso al catálogo: el orden lo manda OBJETIVOS,
+    // no cómo los guardó el estudio, para que dos clases con los mismos
+    // objetivos no los enseñen en distinto orden.
+    tiposClase: [tipo('t1', 'Reformer', { objetivos: ['reformer', 'empezar'] })],
+  });
+  assert.deepEqual(c.benefits, ['Empezar desde cero', 'Reformer']);
+});
+
+test('clasesDeLaSemana: un objetivo que ya no existe se descarta, no se pinta', () => {
+  // La lista es CONTRATO (lib/reservar/objetivos.ts): se pueden añadir ids pero
+  // los viejos siguen guardados en estudios que los marcaron. Uno desconocido
+  // no puede describir nada, y colarlo haría parecer que la clase cubre algo.
+  const [c] = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-03T16:00:00.000Z', '2026-09-03T16:50:00.000Z')],
+    tiposClase: [tipo('t1', 'Reformer', { objetivos: ['fuerza', 'adelgazar-2019'] })],
+  });
+  assert.deepEqual(c.benefits, ['Mejorar fuerza']);
 });

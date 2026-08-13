@@ -16,6 +16,11 @@ import { fechaLocalDe } from '../citas/slots.ts';
 // un segundo criterio del mismo dato — y el primer intento ya se dejó fuera
 // `ASISTIDA`, con lo que una clase pasada aparecería con plazas libres.
 import { plazasOcupadas } from '../booking-logic.ts';
+// Los objetivos son una lista FIJA y compartida con la página pública. Se
+// resuelven a sus etiquetas aquí y no en el componente: si el estudio guardó un
+// id de una versión anterior, `resolverObjetivos` lo descarta en vez de
+// enseñar un objetivo que ya no existe.
+import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
 import type {
   BonoPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal, ReservaPortal, SociaPortal, StudioClass,
 } from './tipos.ts';
@@ -198,6 +203,12 @@ export function fechaLarga(iso: string | null | undefined, tz = TZ_ESTUDIO): str
   return `${dia} de ${MESES[mes - 1]}`;
 }
 
+/** Los objetivos guardados, en palabras. Vacío si el estudio no marcó ninguno. */
+function etiquetasObjetivo(raw: unknown): string[] {
+  const ids = new Set<string>(resolverObjetivos(raw));
+  return OBJETIVOS.filter((o) => ids.has(o.id)).map((o) => o.label);
+}
+
 /** La inicial que va en el avatar. Vacío si no hay nombre. */
 export function inicialDe(nombre: string): string {
   return nombre.trim().charAt(0).toUpperCase();
@@ -219,7 +230,7 @@ export interface FuenteDatosPortal {
    * identificado; `[]` = identificada y sin ninguna reserva. Ver
    * `DatosPortal.reservadas`.
    */
-  reservasPropias?: Pick<Reserva, 'id' | 'sesionId' | 'estado'>[];
+  reservasPropias?: Pick<Reserva, 'id' | 'sesionId' | 'estado' | 'posicionEspera'>[];
   suscripciones: Suscripcion[];
   planes: PlanTarifa[];
   /**
@@ -275,6 +286,8 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         day: dia,
         time: horaLocal(s.inicio, tz),
         end: horaLocal(s.fin, tz),
+        startsAt: s.inicio,
+        endsAt: s.fin,
         duration: `${minutos} min`,
         room: sala?.nombre ?? '',
         level: tipo ? (NIVEL[tipo.nivel] ?? '') : '',
@@ -282,6 +295,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         initial: inicialDe(nombreInstructor),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),
         description: tipo?.descripcion ?? '',
+        benefits: etiquetasObjetivo(tipo?.objetivos),
       };
     });
 }
@@ -366,13 +380,21 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
  * verla y salirse de la cola.
  */
 export function reservadasDe(
-  reservas: Pick<Reserva, 'id' | 'sesionId' | 'estado'>[],
+  reservas: Pick<Reserva, 'id' | 'sesionId' | 'estado' | 'posicionEspera'>[],
   clases: StudioClass[],
 ): ReservaPortal[] {
   const hayClase = new Set(clases.map((c) => c.id));
   return reservas
     .filter((r) => VIVAS.has(r.estado) && hayClase.has(r.sesionId))
-    .map((r) => ({ classId: r.sesionId, reservaId: r.id }));
+    .map((r) => ({
+      classId: r.sesionId,
+      reservaId: r.id,
+      estado: r.estado as ReservaPortal['estado'],
+      // Solo tiene sentido en la cola. Fuera de ella el número existe en la
+      // fila pero no significa nada, y enseñarlo diría «3ª» a quien ya tiene
+      // su plaza.
+      posicion: r.estado === 'LISTA_ESPERA' ? r.posicionEspera : null,
+    }));
 }
 
 const VIVAS = new Set<Reserva['estado']>([

@@ -25,18 +25,18 @@ export const DAYS = [
 ] as const;
 
 export const CLASSES: StudioClass[] = [
-  { id: "c1", name: "Pilates Reformer", type: "reformer", day: 4, time: "18:00", end: "19:00", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3,
-    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración." },
-  { id: "c2", name: "Pilates de suelo", type: "suelo", day: 4, time: "10:00", end: "10:50", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6,
-    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna." },
-  { id: "c3", name: "Reformer fuerza", type: "reformer", day: 5, time: "09:00", end: "09:50", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12,
-    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación." },
-  { id: "c4", name: "Pilates prenatal", type: "prenatal", day: 5, time: "11:30", end: "12:15", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4,
-    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar." },
-  { id: "c5", name: "Reformer suave", type: "reformer", day: 6, time: "19:00", end: "19:50", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0,
-    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer." },
-  { id: "c6", name: "Abdomen y espalda", type: "suelo", day: 7, time: "08:00", end: "08:40", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5,
-    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día." },
+  { id: "c1", name: "Pilates Reformer", type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3,
+    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"] },
+  { id: "c2", name: "Pilates de suelo", type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6,
+    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"] },
+  { id: "c3", name: "Reformer fuerza", type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12,
+    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"] },
+  { id: "c4", name: "Pilates prenatal", type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4,
+    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"] },
+  { id: "c5", name: "Reformer suave", type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0,
+    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"] },
+  { id: "c6", name: "Abdomen y espalda", type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5,
+    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"] },
 ];
 
 export const FILTERS = [

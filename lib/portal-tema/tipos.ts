@@ -19,6 +19,12 @@ export interface StudioClass {
   day: number;
   time: string;
   end: string;
+  /**
+   * Inicio y fin en ISO. `time`/`end` son la hora de PARED en Madrid, que sirve
+   * para pintar pero no para exportar: un `.ics` necesita el instante real.
+   */
+  startsAt: string;
+  endsAt: string;
   duration: string;
   room: string;
   level: string;
@@ -27,6 +33,13 @@ export interface StudioClass {
   /** Plazas libres. 0 = completa, y entonces la UI ofrece lista de espera. */
   seats: number;
   description: string;
+  /**
+   * Para qué sirve esta clase, en palabras. Sale de `tipos_clase.objetivos`
+   * (lista FIJA, `lib/reservar/objetivos.ts`) resuelto a sus etiquetas — no es
+   * texto libre ni una lista inventada por pantalla. Vacío = el estudio no ha
+   * marcado ninguno, y el detalle no pinta la sección.
+   */
+  benefits: string[];
 }
 
 export interface DiaPortal {
@@ -79,6 +92,15 @@ export interface ReservaPortal {
   classId: string;
   /** El id de la RESERVA, que es lo que hay que mandar para cancelarla. */
   reservaId: string;
+  /**
+   * ⚠️ Tener plaza y estar en la cola NO son lo mismo, y hasta ahora el portal
+   * no los distinguía: `reservadasDe` mete las dos (ver `VIVAS`) y quien las
+   * leía las pintaba a todas como «Reservada». Con esto, la pestaña de lista
+   * de espera es real y el detalle puede decir la verdad.
+   */
+  estado: 'CONFIRMADA' | 'ASISTIDA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION';
+  /** Su puesto en la cola. `null` salvo en `LISTA_ESPERA`. */
+  posicion: number | null;
 }
 
 export interface DatosPortal {
