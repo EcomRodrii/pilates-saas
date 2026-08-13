@@ -3,7 +3,8 @@
 Fecha: 2026-08-13. Alcance: **solo SEO y contenido** — no cubre modo Stripe
 (live vs test), revisión legal por abogado, ni auditoría de seguridad. Esos
 tres son checklists aparte, con sus propios dueños (`tentare-stripe`,
-asesoría legal, `tentare-seguridad`).
+asesoría legal, `tentare-seguridad`). El de Stripe ya existe:
+[`STRIPE-CHECKLIST-LANZAMIENTO.md`](STRIPE-CHECKLIST-LANZAMIENTO.md).
 
 Contexto que hay que tener presente al leer esto: **Tentare todavía no está
 abierto al público** — `/crear-estudio` hoy solo recoge email de interés

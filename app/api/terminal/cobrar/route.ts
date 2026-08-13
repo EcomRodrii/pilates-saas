@@ -4,6 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { bloqueoPorSuscripcion } from '@/lib/billing/billing-guard';
+import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { puedeMoverDinero } from '@/lib/permisos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,6 +31,12 @@ export async function POST(req: NextRequest) {
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) return NextResponse.json({ error: 'Stripe no configurado' }, { status: 503 });
+  // Otra puerta por la que entra dinero (cargo al datáfono físico). Mismo
+  // guardia que /api/stripe/checkout y el cobro automático: con el
+  // `.env.local` de producción copiado a una máquina, esta ruta encendería
+  // el datáfono con clave live. Ver lib/billing/modo-stripe.ts.
+  const modo = comprobarModoStripe();
+  if (!modo.puedeCobrar) return NextResponse.json({ error: modo.motivo }, { status: 503 });
   const test = key.startsWith('sk_test');
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 
