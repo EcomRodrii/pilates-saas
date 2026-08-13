@@ -135,7 +135,13 @@ export const FAQ = [
 ];
 
 export const PASS = { name: "Bono 10 clases", total: 10, expires: "30 de septiembre" };
-export const MEMBER = { name: "Laura Ortega", short: "Laura", initial: "L" };
+export const MEMBER = {
+  // `id` vacío a propósito: en la previsualización no hay socia, y sin id el
+  // formulario de «Mis datos» no guarda nada — lo dice en pantalla.
+  id: "", name: "Laura Ortega", short: "Laura", initial: "L",
+  apellidos: "Ortega", email: "laura@correo.com", telefono: "+34 600 000 000",
+  fechaNacimiento: "", direccion: "", domiciliado: false,
+};
 
 /**
  * ⚠️ Devuelve `null` y no "la primera clase" como hacía la versión de muestra.

@@ -249,12 +249,25 @@ test('bonoDe: la caducidad sale formateada en largo, no en ISO', () => {
 // ── Socia ───────────────────────────────────────────────────────────────────
 
 test('sociaDe: nombre completo, nombre corto e inicial', () => {
-  const socio = { nombre: 'Laura', apellidos: 'Ortega' } as Socio;
-  assert.deepEqual(sociaDe(socio), { name: 'Laura Ortega', short: 'Laura', initial: 'L' });
+  const socio = { id: 's1', nombre: 'Laura', apellidos: 'Ortega', email: 'l@x.com', telefono: null } as Socio;
+  assert.deepEqual(sociaDe(socio), {
+    id: 's1', name: 'Laura Ortega', short: 'Laura', initial: 'L',
+    apellidos: 'Ortega', email: 'l@x.com',
+    // ⚠️ Cadena vacía y NO null: estos seis alimentan un formulario, y un
+    // `<input value={null}>` se vuelve NO controlado a mitad de escritura.
+    telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+  });
 });
 
 test('sociaDe: sin socia (portal sin sesión) devuelve vacíos, no "undefined"', () => {
-  assert.deepEqual(sociaDe(null), { name: '', short: '', initial: '' });
+  assert.deepEqual(sociaDe(null), {
+    id: '', name: '', short: '', initial: '',
+    apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+  });
+});
+
+test('sociaDe: sin id no se puede guardar — la pantalla lo necesita para saberlo', () => {
+  assert.equal(sociaDe(null).id, '');
 });
 
 // ── Piezas sueltas ──────────────────────────────────────────────────────────
@@ -283,7 +296,10 @@ test('construirDatosPortal: un estudio vacío da datos vacíos pero válidos', (
   assert.deepEqual(datos.filtros, [{ key: 'todas', label: 'Todas' }]);
   assert.deepEqual(datos.planes, []);
   assert.deepEqual(datos.bono, { name: '', total: 0, expires: '' });
-  assert.deepEqual(datos.socia, { name: '', short: '', initial: '' });
+  assert.deepEqual(datos.socia, {
+    id: '', name: '', short: '', initial: '',
+    apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+  });
 });
 
 test('construirDatosPortal: los filtros solo traen tipos que están en las clases', () => {
@@ -613,6 +629,16 @@ test('horarioDe: un día que falta en la BD no inventa una fila', () => {
   // Un estudio puede tener solo cinco filas. Rellenar los dos que faltan con
   // «Cerrado» sería afirmar algo que nadie ha dicho.
   assert.deepEqual(horarioDe([dia(1), dia(2)]).map((x) => x.dia), ['Lunes', 'Martes']);
+});
+
+test('sociaDe: «Domiciliado» exige mandato SEPA, no solo el método preferido', () => {
+  // Las DOS condiciones, igual que `PortalPerfilView`: con el método puesto
+  // pero sin mandato no se domicilia nada, y decir «Domiciliado» ahí le haría
+  // creer que su recibo se cobra solo.
+  const base = { id: 's1', nombre: 'Laura', apellidos: '', email: '', telefono: null } as Socio;
+  assert.equal(sociaDe({ ...base, metodoPagoPreferido: 'SEPA', sepaMandateId: 'mnd_1' } as Socio).domiciliado, true);
+  assert.equal(sociaDe({ ...base, metodoPagoPreferido: 'SEPA', sepaMandateId: null } as Socio).domiciliado, false);
+  assert.equal(sociaDe({ ...base, metodoPagoPreferido: 'TARJETA', sepaMandateId: 'mnd_1' } as Socio).domiciliado, false);
 });
 
 // ── Rejilla del mes (Calendario) ────────────────────────────────────────────

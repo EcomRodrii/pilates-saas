@@ -51,7 +51,8 @@ export const THEME: ThemeConfig = {
     "week_strip_style": "bare",
     "tab_set": "centro",
     "schedule_style": "tabs",
-    "passes_style": "cartera"
+    "passes_style": "cartera",
+    "profile_style": "header"
   },
   "home_blocks": [
     "home-header",
