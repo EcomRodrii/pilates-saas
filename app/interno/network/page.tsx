@@ -1,18 +1,29 @@
 'use client';
 
 // Moderación de Tentare Network — docs/NETWORK-IMPLEMENTATION-PLAN.md §10.
-// Tres colas independientes (perfiles / verificaciones / reportes), cada
-// una con su propia carga — mismo criterio que el resto de /interno: no
-// hay un modelo compartido, cada pestaña pide lo suyo.
+// Colas independientes (perfiles / identidad / verificaciones de
+// experiencia / reportes / reseñas), cada una con su propia carga — mismo
+// criterio que el resto de /interno: no hay un modelo compartido, cada
+// pestaña pide lo suyo.
+//
+// "Identidad" (Fase 3 del rediseño 2026-08) es la única pestaña que
+// resuelve documentos reales (DNI/certificaciones) — a diferencia de
+// "Verificaciones" (experiencia laboral, solo lectura: resuelve el
+// estudio), aquí SÍ aprueba/rechaza el equipo de Tentare, con motivo
+// obligatorio al rechazar y el documento solo visible con una URL firmada
+// de corta caducidad pedida bajo demanda.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, FileText, Loader2 } from 'lucide-react';
 import {
   fetchPerfilesNetworkInterno, cambiarEstadoPerfilNetworkInterno, destacarPerfilNetworkInterno, type PerfilNetworkInterno,
   fetchVerificacionesNetworkInterno, type VerificacionNetworkInterna,
   fetchReportesNetworkInterno, resolverReporteNetworkInterno, type ReporteNetworkInterno,
   fetchResenasNetworkInterno, moderarResenaNetworkInterno, type ResenaNetworkInterna,
   fetchAnaliticaNetworkInterno, type AnaliticaNetwork,
+  fetchVerificacionesIdentidadNetworkInterno, resolverVerificacionIdentidadNetworkInterno, type VerificacionIdentidadNetworkInterna,
+  fetchCertificacionesNetworkInterno, resolverCertificacionNetworkInterno, type CertificacionNetworkInterna,
+  obtenerUrlDocumentoNetworkInterno,
 } from '@/lib/interno/client';
 
 const cuando = (iso: string) =>
@@ -297,6 +308,198 @@ function TabReportes() {
   );
 }
 
+// "Solo equipo autorizado · los documentos no salen de esta vista" (2e del
+// rediseño) — el botón pide una URL firmada de 5 min bajo demanda, nunca se
+// guarda ni se muestra el path crudo.
+function BotonVerDocumento({ id, tipo }: { id: string; tipo: 'identidad' | 'certificacion' }) {
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
+  return (
+    <span>
+      <button
+        type="button"
+        disabled={cargando}
+        onClick={async () => {
+          setCargando(true); setError('');
+          try {
+            const { url } = await obtenerUrlDocumentoNetworkInterno(id, tipo);
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+          setCargando(false);
+        }}
+        className="inline-flex items-center gap-1 text-[12px] text-foreground underline disabled:opacity-50"
+      >
+        {cargando ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />} Ver documento
+      </button>
+      {error && <span className="text-[11px] text-destructive ml-2">{error}</span>}
+    </span>
+  );
+}
+
+interface FilaResolucion {
+  id: string; estado: string; motivoRechazo: string | null;
+  creadoEn: string; resueltoEn: string | null;
+  perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
+}
+
+function ColaResolucion<T extends FilaResolucion>({
+  filas, tipoDocumento, resolver, renderExtra,
+}: {
+  filas: T[];
+  tipoDocumento: 'identidad' | 'certificacion';
+  resolver: (id: string, aprobar: boolean, motivo?: string) => Promise<void>;
+  renderExtra?: (f: T) => React.ReactNode;
+}) {
+  const [motivoAbierto, setMotivoAbierto] = useState<string | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [accionandoId, setAccionandoId] = useState<string | null>(null);
+
+  async function aprobar(id: string) {
+    setAccionandoId(id);
+    await resolver(id, true);
+    setAccionandoId(null);
+  }
+  async function rechazar(id: string) {
+    if (!motivo.trim()) return;
+    setAccionandoId(id);
+    await resolver(id, false, motivo.trim());
+    setAccionandoId(null);
+    setMotivoAbierto(null);
+    setMotivo('');
+  }
+
+  if (filas.length === 0) {
+    return <p className="text-[13px] text-muted-foreground rounded-2xl border border-border bg-card px-4 py-6 text-center">Nada en este estado.</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {filas.map(f => (
+        <div key={f.id} className="rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-medium text-foreground">
+                {f.perfilSlug ? <a href={`/network/instructoras/${f.perfilSlug}`} target="_blank" rel="noopener noreferrer" className="hover:underline">{f.perfilNombre}</a> : f.perfilNombre}
+              </p>
+              {renderExtra?.(f)}
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                {cuando(f.creadoEn)} · <BotonVerDocumento id={f.id} tipo={tipoDocumento} />
+              </p>
+              {f.estado === 'rechazado' && f.motivoRechazo && (
+                <p className="text-[12px] text-destructive mt-1">Rechazada: {f.motivoRechazo}</p>
+              )}
+            </div>
+            {(f.estado === 'pendiente' || f.estado === 'en_revision') && (
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={accionandoId === f.id}
+                    onClick={() => aprobar(f.id)}
+                    className="text-[12px] text-foreground underline disabled:opacity-50"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    disabled={accionandoId === f.id}
+                    onClick={() => { setMotivoAbierto(motivoAbierto === f.id ? null : f.id); setMotivo(''); }}
+                    className="text-[12px] text-destructive underline disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+                {motivoAbierto === f.id && (
+                  <div className="flex flex-col items-end gap-1.5 w-56">
+                    <textarea
+                      value={motivo}
+                      onChange={e => setMotivo(e.target.value)}
+                      placeholder="Motivo del rechazo (obligatorio) — la instructora podrá volver a subirlo"
+                      rows={2}
+                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-[12px] text-foreground"
+                    />
+                    <button
+                      disabled={!motivo.trim() || accionandoId === f.id}
+                      onClick={() => rechazar(f.id)}
+                      className="text-[11.5px] font-medium text-destructive underline disabled:opacity-40"
+                    >
+                      Confirmar rechazo
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TabIdentidad() {
+  const [sub, setSub] = useState<'identidad' | 'certificacion'>('identidad');
+  const [estado, setEstado] = useState('pendiente');
+  const [verificaciones, setVerificaciones] = useState<VerificacionIdentidadNetworkInterna[] | null>(null);
+  const [certificaciones, setCertificaciones] = useState<CertificacionNetworkInterna[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    try {
+      if (sub === 'identidad') setVerificaciones((await fetchVerificacionesIdentidadNetworkInterno(estado)).verificaciones);
+      else setCertificaciones((await fetchCertificacionesNetworkInterno(estado)).certificaciones);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  }, [sub, estado]);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  if (error) return <p className="text-[13.5px] text-muted-foreground">{error}</p>;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-[12px] text-muted-foreground">
+        Solo equipo autorizado · los documentos no salen de esta vista.
+      </p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
+          {(['identidad', 'certificacion'] as const).map(v => (
+            <button
+              key={v}
+              onClick={() => setSub(v)}
+              className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors ${sub === v ? 'bg-foreground text-background' : 'text-muted-foreground'}`}
+            >
+              {v === 'identidad' ? 'Identidad' : 'Certificaciones'}
+            </button>
+          ))}
+        </div>
+        <select
+          value={estado} onChange={e => setEstado(e.target.value)}
+          className="rounded-lg border border-border bg-card px-2 py-1.5 text-[12.5px] text-foreground"
+        >
+          {['pendiente', 'verificado', 'rechazado'].map(v => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </div>
+
+      {sub === 'identidad' ? (
+        !verificaciones ? <p className="text-[13px] text-muted-foreground">Cargando…</p> : (
+          <ColaResolucion
+            filas={verificaciones}
+            tipoDocumento="identidad"
+            resolver={async (id, aprobar, motivo) => { await resolverVerificacionIdentidadNetworkInterno(id, aprobar, motivo); await cargar(); }}
+          />
+        )
+      ) : (
+        !certificaciones ? <p className="text-[13px] text-muted-foreground">Cargando…</p> : (
+          <ColaResolucion
+            filas={certificaciones}
+            tipoDocumento="certificacion"
+            resolver={async (id, aprobar, motivo) => { await resolverCertificacionNetworkInterno(id, aprobar, motivo); await cargar(); }}
+            renderExtra={f => <p className="text-[12px] text-muted-foreground">{f.nombre} · {f.institucion}{f.anio ? ` · ${f.anio}` : ''}</p>}
+          />
+        )
+      )}
+    </div>
+  );
+}
+
 function TabResenas() {
   const [estado, setEstado] = useState('pendiente');
   const [resenas, setResenas] = useState<ResenaNetworkInterna[] | null>(null);
@@ -497,7 +700,7 @@ function TabAnalitica() {
   );
 }
 
-const PESTANAS = ['Perfiles', 'Verificaciones', 'Reportes', 'Reseñas', 'Analítica'] as const;
+const PESTANAS = ['Perfiles', 'Identidad', 'Verificaciones', 'Reportes', 'Reseñas', 'Analítica'] as const;
 
 export default function ModeracionNetworkInterna() {
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]>('Perfiles');
@@ -526,6 +729,7 @@ export default function ModeracionNetworkInterna() {
       </div>
 
       {pestana === 'Perfiles' && <TabPerfiles />}
+      {pestana === 'Identidad' && <TabIdentidad />}
       {pestana === 'Verificaciones' && <TabVerificaciones />}
       {pestana === 'Reportes' && <TabReportes />}
       {pestana === 'Reseñas' && <TabResenas />}
