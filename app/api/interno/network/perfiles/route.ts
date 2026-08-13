@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   let query = db
     .from('red_perfiles')
-    .select('id, nombre, ciudad, estado, creado_en, actualizado_en, ultimo_acceso_en')
+    .select('id, nombre, ciudad, estado, destacado, creado_en, actualizado_en, ultimo_acceso_en')
     .order('creado_en', { ascending: false })
     .limit(500);
   if (q) query = query.ilike('nombre', `%${q}%`);
@@ -37,6 +37,12 @@ const ESTADOS_VALIDOS = new Set(['draft', 'published', 'hidden', 'suspended']);
 // La moderación puede poner CUALQUIER estado, incluido `suspended` — la RLS
 // (20260813112713) bloquea justo esto para el dueño del perfil, no para
 // service-role. Restaurar es el mismo endpoint con estado='published'.
+//
+// `destacado` es un campo aparte, no un estado más: una decisión editorial
+// del equipo de Tentare (empuja al principio del ranking, lib/network/
+// ranking.ts) que puede cambiar con independencia de si el perfil está
+// publicado o no — se admite en el mismo PATCH para no duplicar el
+// endpoint, pero `estado` sigue siendo opcional cuando solo se toca esto.
 export async function PATCH(req: NextRequest) {
   const g = await exigirPermiso(req, 'network.moderate');
   if ('error' in g) return g.error;
@@ -44,14 +50,19 @@ export async function PATCH(req: NextRequest) {
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
 
-  const body = (await req.json().catch(() => null)) as { id?: unknown; estado?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { id?: unknown; estado?: unknown; destacado?: unknown } | null;
   const id = typeof body?.id === 'string' ? body.id : null;
-  const estado = typeof body?.estado === 'string' ? body.estado : null;
-  if (!id || !estado || !ESTADOS_VALIDOS.has(estado)) {
+  const estado = typeof body?.estado === 'string' ? body.estado : undefined;
+  const destacado = typeof body?.destacado === 'boolean' ? body.destacado : undefined;
+  if (!id || (estado === undefined && destacado === undefined) || (estado !== undefined && !ESTADOS_VALIDOS.has(estado))) {
     return NextResponse.json({ error: 'Datos no válidos.' }, { status: 400 });
   }
 
-  const { error } = await db.from('red_perfiles').update({ estado, actualizado_en: new Date().toISOString() }).eq('id', id);
+  const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
+  if (estado !== undefined) cambios.estado = estado;
+  if (destacado !== undefined) cambios.destacado = destacado;
+
+  const { error } = await db.from('red_perfiles').update(cambios).eq('id', id);
   if (error) return NextResponse.json({ error: 'No se ha podido actualizar el perfil.' }, { status: 500 });
 
   return NextResponse.json({ ok: true });

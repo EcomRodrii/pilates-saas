@@ -10,6 +10,7 @@ const FILTRO_VACIO: FiltroBusquedaNetwork = {
 function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): PerfilNetworkPublico {
   return {
     slug: null,
+    destacado: false,
     nombre: 'Test', fotoUrl: null, ciudad: null, zona: null, radioKm: null, descripcion: null,
     especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
@@ -18,6 +19,13 @@ function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): Perf
     ...overrides,
   };
 }
+
+test('destacado gana a todo lo demás, incluida la disponibilidad', () => {
+  const sinDestacar = perfil({ id: 'a', disponibilidadEstado: 'disponible', destacado: false });
+  const destacada = perfil({ id: 'b', disponibilidadEstado: 'no_disponible', destacado: true });
+  const [primero] = ordenarResultadosNetwork([sinDestacar, destacada], FILTRO_VACIO);
+  assert.equal(primero.id, 'b');
+});
 
 test('disponible sale antes que no_disponible con todo lo demás igual', () => {
   const a = perfil({ id: 'a', disponibilidadEstado: 'no_disponible' });

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, BadgeCheck } from 'lucide-react';
+import { MapPin, BadgeCheck, Star } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ESPECIALIDAD_LABEL, TARIFA_RANGO_LABEL } from '@/lib/network/catalogo';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
@@ -28,6 +28,11 @@ export function TarjetaInstructoraPublica({ perfil }: { perfil: PerfilNetworkPub
     >
       <div className="relative aspect-[4/3] bg-muted flex items-center justify-center overflow-hidden">
         <ProfileAvatar fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} size="xl" className="scale-[2.2] group-hover:scale-[2.35] transition-transform duration-300" />
+        {perfil.destacado && (
+          <span className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/95 text-[11px] font-semibold text-amber-950 shadow-sm">
+            <Star size={12} fill="currentColor" /> Destacada
+          </span>
+        )}
         {perfil.experienciaVerificada && (
           <span className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 text-[11px] font-medium text-foreground shadow-sm">
             <BadgeCheck size={13} className="text-brand" /> Perfil verificado

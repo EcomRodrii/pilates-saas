@@ -27,6 +27,11 @@ export interface PerfilNetwork {
   emailContacto: string | null;
   telefonoContacto: string | null;
   estado: 'draft' | 'published' | 'hidden' | 'suspended';
+  // Solo el equipo de Tentare lo escribe (app/interno/network) — nunca desde
+  // /network/mi-perfil. Empuja al principio del ranking (lib/network/
+  // ranking.ts), no es un badge de confianza (esos son hechos verificables,
+  // esto es una decisión editorial).
+  destacado: boolean;
   identidadVerificadaEn: string | null;
   creadoEn: string;
   actualizadoEn: string;

@@ -162,7 +162,7 @@ export const borrarVersionChangelog = (id: string) =>
 
 // Moderación de Tentare Network — docs/NETWORK-IMPLEMENTATION-PLAN.md §10.
 export interface PerfilNetworkInterno {
-  id: string; nombre: string; ciudad: string | null; estado: string;
+  id: string; nombre: string; ciudad: string | null; estado: string; destacado: boolean;
   creado_en: string; actualizado_en: string; ultimo_acceso_en: string | null;
 }
 export const fetchPerfilesNetworkInterno = (params: { q?: string; estado?: string } = {}) => {
@@ -173,6 +173,8 @@ export const fetchPerfilesNetworkInterno = (params: { q?: string; estado?: strin
 };
 export const cambiarEstadoPerfilNetworkInterno = (id: string, estado: string) =>
   pedir<{ ok: true }>('/network/perfiles', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
+export const destacarPerfilNetworkInterno = (id: string, destacado: boolean) =>
+  pedir<{ ok: true }>('/network/perfiles', { method: 'PATCH', body: JSON.stringify({ id, destacado }) });
 
 export interface VerificacionNetworkInterna {
   id: string; estado: string; solicitadoEn: string; resueltoEn: string | null;

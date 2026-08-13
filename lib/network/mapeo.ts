@@ -23,6 +23,7 @@ export interface FilaRedPerfil {
   email_contacto: string | null;
   telefono_contacto: string | null;
   estado: string;
+  destacado: boolean;
   identidad_verificada_en: string | null;
   creado_en: string;
   actualizado_en: string;
@@ -55,6 +56,7 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     emailContacto: f.email_contacto,
     telefonoContacto: f.telefono_contacto,
     estado: f.estado as PerfilNetwork['estado'],
+    destacado: f.destacado,
     identidadVerificadaEn: f.identidad_verificada_en,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
@@ -122,6 +124,7 @@ export function mapFilaAPerfilPublico(f: FilaRedPerfilPublica, experienciaVerifi
     disponibilidadHorarios: f.disponibilidad_horarios as PerfilNetworkPublico['disponibilidadHorarios'],
     tipoTrabajo: f.tipo_trabajo as PerfilNetworkPublico['tipoTrabajo'],
     estado: f.estado as PerfilNetworkPublico['estado'],
+    destacado: f.destacado,
     identidadVerificadaEn: f.identidad_verificada_en,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,

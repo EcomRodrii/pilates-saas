@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  fetchPerfilesNetworkInterno, cambiarEstadoPerfilNetworkInterno, type PerfilNetworkInterno,
+  fetchPerfilesNetworkInterno, cambiarEstadoPerfilNetworkInterno, destacarPerfilNetworkInterno, type PerfilNetworkInterno,
   fetchVerificacionesNetworkInterno, type VerificacionNetworkInterna,
   fetchReportesNetworkInterno, resolverReporteNetworkInterno, type ReporteNetworkInterno,
 } from '@/lib/interno/client';
@@ -44,6 +44,15 @@ function TabPerfiles() {
     setAccionandoId(id);
     try {
       await cambiarEstadoPerfilNetworkInterno(id, nuevoEstado);
+      await cargar();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+    setAccionandoId(null);
+  }
+
+  async function destacar(id: string, destacado: boolean) {
+    setAccionandoId(id);
+    try {
+      await destacarPerfilNetworkInterno(id, destacado);
       await cargar();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
     setAccionandoId(null);
@@ -92,7 +101,7 @@ function TabPerfiles() {
             <tbody>
               {perfiles.map(p => (
                 <tr key={p.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2 text-foreground">{p.nombre}</td>
+                  <td className="px-4 py-2 text-foreground">{p.destacado && '⭐ '}{p.nombre}</td>
                   <td className="px-4 py-2 text-muted-foreground">{p.ciudad ?? '—'}</td>
                   <td className="px-4 py-2 text-foreground">{ESTADO_PERFIL_LABEL[p.estado] ?? p.estado}</td>
                   <td className="px-4 py-2 text-muted-foreground">{cuando(p.creado_en)}</td>
@@ -116,6 +125,13 @@ function TabPerfiles() {
                           Restaurar
                         </button>
                       )}
+                      <button
+                        disabled={accionandoId === p.id}
+                        onClick={() => destacar(p.id, !p.destacado)}
+                        className="text-foreground underline disabled:opacity-50"
+                      >
+                        {p.destacado ? 'Quitar destacado' : 'Destacar'}
+                      </button>
                     </div>
                   </td>
                 </tr>
