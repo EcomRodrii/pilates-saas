@@ -9,7 +9,8 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar";
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar"
+  | "compra";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -262,6 +263,15 @@ export function useAspecto(): AspectoPortal | null {
   return useContext(AspectoCtx);
 }
 
+export interface CompraPortalVuelta { estado: 'ok' | 'cancelada'; planId: string | null }
+
+const CompraCtx = createContext<CompraPortalVuelta | null>(null);
+
+/** La vuelta de Stripe. `null` = no se viene de comprar nada. */
+export function useCompra(): CompraPortalVuelta | null {
+  return useContext(CompraCtx);
+}
+
 /**
  * Arranca el cobro real de un plan. Devuelve `null` si ya va camino de Stripe
  * (la pestaña se va) o el mensaje de error si no se pudo ni empezar.
@@ -332,6 +342,7 @@ export function PortalProvider({
   alGuardarDatos,
   alSalir,
   aspecto,
+  compra,
   pantalla,
   pantallasDeRuta,
   diaPorDefecto,
@@ -340,6 +351,16 @@ export function PortalProvider({
   children,
 }: {
   datos?: DatosPortal;
+  /**
+   * La vuelta de Stripe tras comprar un bono, leída de la URL por quien monta
+   * el portal. `null` = no se viene de comprar.
+   *
+   * ⚠️ `estado: 'ok'` es lo que dice STRIPE, no lo que dice nuestra base de
+   * datos: quien entrega el bono es el webhook y puede tardar. Por eso viaja
+   * también `planId` — la pantalla comprueba que el bono esté antes de
+   * felicitar a nadie.
+   */
+  compra?: CompraPortalVuelta | null;
   /** Día del mes que sale seleccionado al abrir. Sin esto, el de la demo. */
   diaPorDefecto?: number;
   /** La barra de estado falsa y la isla dinámica del marco de teléfono. Van
@@ -795,11 +816,13 @@ export function PortalProvider({
     <DemoCtx.Provider value={esDemo}>
     <CromoDemoCtx.Provider value={cromoDemo}>
     <AspectoCtx.Provider value={aspecto ?? null}>
+    <CompraCtx.Provider value={compra ?? null}>
     <DatosCtx.Provider value={datos}>
       <StateCtx.Provider value={estado}>
         <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
       </StateCtx.Provider>
     </DatosCtx.Provider>
+    </CompraCtx.Provider>
     </AspectoCtx.Provider>
     </CromoDemoCtx.Provider>
     </DemoCtx.Provider>

@@ -171,6 +171,7 @@ export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tipo
       const fecha = fechaLarga(s.fechaFin, tz);
       return {
         id: s.id,
+        planKey: s.planId,
         name: plan?.nombre ?? 'Bono',
         unlimited: ilimitado,
         left, total,

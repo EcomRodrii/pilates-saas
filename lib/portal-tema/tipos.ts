@@ -102,6 +102,9 @@ export interface BonoPortal {
  */
 export interface BonoCartera {
   id: string;
+  /** El plan que lo vendió (`suscripciones.plan_id`). Es lo que permite saber
+   *  si el bono recién pagado ya está entregado, y no uno cualquiera. */
+  planKey: string;
   name: string;
   /** Plan sin sesiones que contar. Entonces no hay barra ni «quedan N». */
   unlimited: boolean;
