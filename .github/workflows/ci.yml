@@ -240,6 +240,27 @@ jobs:
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium webkit
 
+      # ⚠️ Las librerías del SISTEMA que necesita WebKit (gstreamer, libwoff2,
+      # libopus, libharfbuzz-icu…) se instalan con apt en /usr — NO viven en
+      # ~/.cache/ms-playwright, así que la caché de arriba no las guarda. Con
+      # cache-hit el paso anterior se salta entero por su `if`, y con él se
+      # saltaba también el `--with-deps`: el binario de WebKit estaba, pero sin
+      # sus dependencias arrancaba y moría en el acto.
+      #
+      # El síntoma no dice nada de librerías: 36 tests fallando de golpe con
+      # «browserType.launch: Target page, context or browser has been closed» y
+      # «kill ESRCH», que se lee como un runner saturado o como un flake. Costó
+      # dos reintentos a ciegas antes de mirar el paso de la caché.
+      #
+      # Y no saltó al añadir WebKit (#998) porque ese run creó la caché: fue
+      # cache-MISS, instaló con deps y salió verde. Rompe a partir del run
+      # siguiente, en el primer PR que acierte con la caché.
+      #
+      # Chromium sobrevivía porque el runner de Ubuntu ya trae casi todo lo suyo.
+      - name: Dependencias del sistema de los navegadores
+        if: steps.cache-playwright.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
+
       - name: E2E (registro · reserva · pago)
         # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
         # `next start` en vez de `next dev` (ver playwright.config.ts).
