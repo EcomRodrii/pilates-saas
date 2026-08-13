@@ -177,6 +177,7 @@ export function PortalTemaMarco() {
       telefono: studio?.telefono ?? '',
       email: studio?.email ?? '',
       fotoUrl: studio?.fotoUrl ?? null,
+      imagenBienvenidaUrl: studio?.imagenBienvenidaUrl ?? null,
       // Una norma por línea, sin vacías. Se trocea aquí y no al pintar para
       // que el portal reciba el dato ya masticado, como el resto.
       normas: (studio?.normasTexto ?? '').split('\n').map((l) => l.trim()).filter(Boolean),
@@ -202,7 +203,7 @@ export function PortalTemaMarco() {
     recibos: socioId ? recibos.filter((r) => r.socioId === socioId) : [],
   }), [sesiones, reservas, tiposClase, salas, spots, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
-       studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
+       studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl, studio?.imagenBienvenidaUrl,
        studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,
        studio?.cancelacionVentanaHoras]);
 

@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Card, EmptyState, SectionHead, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
-import { DayStrip, FotoTema } from "@/components/portal-tema/components/layout/chrome";
+import { DayStrip, FotoTema , RESPALDO_CLASE, RESPALDO_ESTUDIO } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { HomeBlockName } from "@/components/portal-tema/tipos-tema";
@@ -39,7 +39,7 @@ function HomeHeader({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   return (
     <header className="home-header">
-      <span className="home-header__photo"><FotoTema nombre="portada.svg" /></span>
+      <span className="home-header__photo"><FotoTema src={vm.fotos.portada} respaldo={RESPALDO_ESTUDIO} /></span>
       <span className="home-header__veil"></span>
       <div className="home-header__top">
         <p className="home-header__date">{vm.greeting.today}</p>
@@ -105,7 +105,7 @@ function NextClass({ vm }: { vm: ViewModel }) {
       <SectionTitle>{vm.nextHeading}</SectionTitle>
       {vm.next ? (
         <button className="hero is-pressable" onClick={() => actions.openClass(vm.next!.id)}>
-          <span className="hero__photo"><FotoTema nombre="clase.svg" /></span>
+          <span className="hero__photo"><FotoTema src={vm.next!.foto} respaldo={RESPALDO_CLASE} /></span>
           <span className="hero__veil"></span>
           <span className="hero__body">
             {vm.features.hero_badge ? (

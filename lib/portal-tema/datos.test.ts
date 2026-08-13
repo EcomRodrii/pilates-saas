@@ -105,7 +105,8 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
     // porque ya traían texto humano.
     room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
-    seats: 10, plazas: [], description: 'Fuerza y control',
+    seats: 10, plazas: [], // «Reformer» en el nombre → la foto de SU familia, no la genérica.
+        fotoUrl: '/por-defecto/clase-reformer.webp', description: 'Fuerza y control',
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
     // sección «Beneficios» — vacío y ausente significan lo mismo.
     benefits: [],
@@ -332,7 +333,7 @@ function clase(id: string): StudioClass {
     id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
     startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
-    level: 'Todos los niveles', seats: 3, plazas: [], description: '', benefits: [],
+    level: 'Todos los niveles', seats: 3, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
   };
 }
 
@@ -604,7 +605,7 @@ const claseEn = (iso: string): StudioClass => ({
   day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
   level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
-  initial: 'A', seats: 10, plazas: [], description: '', benefits: [],
+  initial: 'A', seats: 10, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
 });
 
 test('la rejilla empieza en lunes y cubre el mes entero', () => {

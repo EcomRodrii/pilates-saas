@@ -10,6 +10,7 @@
  * con tests) no tenga que importar nada de `components/`.
  */
 
+import { imagenDeClase, IMAGENES_POR_DEFECTO } from "@/lib/imagenes-por-defecto";
 import type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
 
 export type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
@@ -25,17 +26,17 @@ export const DAYS = [
 ] as const;
 
 export const CLASSES: StudioClass[] = [
-  { id: "c1", name: "Pilates Reformer", type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: [],
+  { id: "c1", name: "Pilates Reformer", fotoUrl: imagenDeClase({ nombre: "Pilates Reformer" }), type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: [],
     description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"], cancelHoras: 6 },
-  { id: "c2", name: "Pilates de suelo", type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
+  { id: "c2", name: "Pilates de suelo", fotoUrl: imagenDeClase({ nombre: "Pilates de suelo" }), type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
     description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"], cancelHoras: 6 },
-  { id: "c3", name: "Reformer fuerza", type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: [],
+  { id: "c3", name: "Reformer fuerza", fotoUrl: imagenDeClase({ nombre: "Reformer fuerza" }), type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: [],
     description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"], cancelHoras: 6 },
-  { id: "c4", name: "Pilates prenatal", type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
+  { id: "c4", name: "Pilates prenatal", fotoUrl: imagenDeClase({ nombre: "Pilates prenatal" }), type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
     description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"], cancelHoras: 6 },
-  { id: "c5", name: "Reformer suave", type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: [],
+  { id: "c5", name: "Reformer suave", fotoUrl: imagenDeClase({ nombre: "Reformer suave" }), type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: [],
     description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"], cancelHoras: 6 },
-  { id: "c6", name: "Abdomen y espalda", type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
+  { id: "c6", name: "Abdomen y espalda", fotoUrl: imagenDeClase({ nombre: "Abdomen y espalda" }), type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
     description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"], cancelHoras: 6 },
 ];
 
@@ -161,6 +162,9 @@ export const plural = (n: number, one: string, many: string) => n + " " + (n ===
 
 /** Lo que ve la previsualización de temas: no hay estudio del que tirar. */
 export const DATOS_DE_MUESTRA: DatosPortal = {
+  // La previsualización no tiene estudio, así que enseña las de por defecto:
+  // exactamente lo que ve una socia cuya propietaria aún no ha subido ninguna.
+  fotos: { portada: IMAGENES_POR_DEFECTO.portada[0], vertical: IMAGENES_POR_DEFECTO.vertical[0] },
   clases: CLASSES,
   // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
   // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
@@ -175,7 +179,8 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   estudio: {
     nombre: "Estudio Tentada", anioFundacion: 2019,
     direccion: "Carrer de la Pau, 12", ciudad: "Barcelona", codigoPostal: "08001",
-    telefono: "+34 600 123 456", email: "hola@estudiotentada.com", fotoUrl: null,
+    telefono: "+34 600 123 456", email: "hola@estudiotentada.com",
+    fotoUrl: null, imagenBienvenidaUrl: null,
     normas: [
       "Llega 5 minutos antes: las clases empiezan puntuales.",
       "Calcetines antideslizantes obligatorios en todas las salas.",

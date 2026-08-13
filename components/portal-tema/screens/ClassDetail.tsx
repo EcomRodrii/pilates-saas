@@ -2,7 +2,7 @@
 
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Divider, EmptyState, Pill } from "@/components/portal-tema/components/ui/primitives";
-import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar , RESPALDO_CLASE } from "@/components/portal-tema/components/layout/chrome";
 import { useActions, useEsDemo } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -67,7 +67,7 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
     <>
       {bleed ? (
         <div className="detail-photo">
-          <div className="detail-photo__media"><FotoTema nombre="clase.svg" /></div>
+          <div className="detail-photo__media"><FotoTema src={d.foto} respaldo={RESPALDO_CLASE} /></div>
           <div className="detail-photo__veil"></div>
           <StatusBar over />
           <div className="detail-top">
@@ -96,7 +96,7 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
             <FavouriteButton fav={d.fav} size={21} />
           </div>
           <div className="detail-photo detail-photo--card">
-            <div className="detail-photo__media"><FotoTema nombre="clase.svg" /></div>
+            <div className="detail-photo__media"><FotoTema src={d.foto} respaldo={RESPALDO_CLASE} /></div>
           </div>
         </>
       )}

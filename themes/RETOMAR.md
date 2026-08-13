@@ -149,6 +149,19 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
+   ~~La fecha.~~ **PUESTA Y COMPROBADA**: `FECHA_SALIDA_PORTAL_REACT` en
+   `lib/portal-tema/caducidad.ts` (**2026-10-15**), con un test que pone la
+   suite roja ese día y dice qué borrar. El flag ya existía —
+   `studios.portal_react`, migr `20260807120000` — y su comentario decía
+   literalmente «ESTA COLUMNA TIENE FECHA DE CADUCIDAD»... **sin ninguna
+   fecha**, igual que `portal-shell.tsx` avisaba de «no dejar que eche raíces»
+   sin decir hasta cuándo. Las dos eran intención, no plazo: nada fallaba
+   nunca por incumplirlas.
+   **El piloto sigue sin empezar**: 0 de 13 estudios con la bandera encendida
+   (comprobado en prod el 2026-08-13). Encenderla en un estudio real cambia lo
+   que ven sus socias, así que es decisión de producto — y antes conviene
+   cerrar el selector de plaza del punto 5, que hoy deja la pantalla de Clases
+   fuera del kit en los estudios de reformer.
 7. ~~**Conectar las acciones de red.**~~ **HECHO lo que había que hacer, y las
    dos que quedan NO deben conectarse.** Revisado el 2026-08-13:
    - `reserve` → `alReservar` → `addReserva`, esperando la respuesta entera del
@@ -171,10 +184,22 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
 8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-9. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
-   neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
-   velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
-   ilegible aunque el CSS esté bien.
+9. ~~**Sustituir las imágenes marcador** de `public/media/*.svg`.~~ **HECHO**,
+   y no sustituyéndolas: **borrándolas**. El kit tenía un segundo juego de
+   marcadores en paralelo al que este repo ya usa —
+   `lib/imagenes-por-defecto.ts` + `public/por-defecto/`, con su README y su
+   criterio de encuadre por hueco— y mantener dos era el problema, no la falta
+   de fotos. `FotoTema` ya no monta rutas: recibe un `src` que resuelve la capa
+   de datos (`DatosPortal.fotos`, `StudioClass.fotoUrl`), así que **la socia ve
+   la foto de SU estudio** si la propietaria la subió, y la de por defecto si
+   no. Con `onError` a la de por defecto, que cubre la foto borrada de Storage.
+   ⚠️ De los 7 SVG, **4 no los usaba nadie** (`estudio`, `instructora-1/2/3`).
+   Y las caras siguen SIN foto por defecto a propósito — decisión ya
+   documentada en los dos README: una modelo de catálogo haciéndose pasar por
+   la instructora es peor que las iniciales.
+   El aviso de la foto oscura era real y está comprobado, no supuesto:
+   `estudio-vertical.webp` mide 62/255 de luminancia media en la banda del
+   titular (p90 = 65), y la bienvenida se miró en los CUATRO temas.
 
 ## Reglas del encargo que no se pueden saltar
 
