@@ -20,6 +20,8 @@ test('resolveTemaJs: objeto vacío → el aspecto de hoy, completo', () => {
     variantes: DEFAULT_VARIANTES,
     barraClasica: false,
     tabBarStyle: 'clasica',
+    // Sin tema del kit: se pinta el portal de siempre, que es lo de antes.
+    temaKit: null,
   });
 });
 
@@ -66,4 +68,21 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
   const r = resolveTemaJs({ barraClasica: true, tabBarStyle: 'pestanaActiva' })!;
   assert.equal(r.barraClasica, true);
   assert.equal(r.tabBarStyle, 'pestanaActiva');
+});
+
+
+// ── El tema del kit por el puente ───────────────────────────────────────────
+
+test('resolveTemaJs: lleva el tema del kit que se está editando', () => {
+  assert.equal(resolveTemaJs({ temaKit: 'tentada' })?.temaKit, 'tentada');
+});
+
+test('⚠️ resolveTemaJs: un id que no existe NO pasa — es entrada de postMessage', () => {
+  assert.equal(resolveTemaJs({ temaKit: 'no-existe' })?.temaKit, null);
+  assert.equal(resolveTemaJs({ temaKit: 42 })?.temaKit, null);
+  assert.equal(resolveTemaJs({ temaKit: { id: 'tentada' } })?.temaKit, null);
+});
+
+test('resolveTemaJs: un mensaje sin el campo deja el portal de siempre, no revienta', () => {
+  assert.equal(resolveTemaJs({ variantes: {} })?.temaKit, null);
 });
