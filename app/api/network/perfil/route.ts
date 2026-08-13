@@ -112,10 +112,18 @@ export async function PUT(req: NextRequest) {
 
   const { data: existente, error: errLeer } = await admin
     .from('red_perfiles')
-    .select('id')
+    .select('id, estado')
     .eq('auth_user_id', usuario.userId)
     .maybeSingle();
   if (errLeer) return errorInterno('network:perfil:PUT:leer', errLeer, 'No se ha podido guardar tu perfil.');
+
+  // Este endpoint usa getSupabaseAdmin() (service_role): la RLS que bloquea
+  // el UPDATE de un perfil suspendido (20260813112713) no se aplica aquí, la
+  // RLS solo frena al `authenticated` propio. Mismo guard explícito que ya
+  // tiene PATCH /api/network/perfil/estado.
+  if (existente?.estado === 'suspended') {
+    return errorPeticion('Tu perfil ha sido suspendido por moderación y no puedes modificarlo. Contacta con soporte si crees que es un error.', 403);
+  }
 
   const ahora = new Date().toISOString();
 

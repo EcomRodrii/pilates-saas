@@ -42,15 +42,14 @@ function distanciaAproximada(ciudad: string | null, filtroCiudad: string | null)
 }
 
 /**
- * Badges de verificación. Hoy solo `identidadVerificadaEn` está en el
- * perfil (Badge 5, siempre null en V1) — Badges 3/4 (experiencia/referencia
- * confirmadas) viven en `red_experiencias`/`red_referencias` (Fase 6/7) y
- * este endpoint de búsqueda no las consulta todavía. Se deja el hueco
- * documentado en vez de fingir una cuenta completa: cuando esas fases
- * lleguen, se pasa el recuento real aquí sin tocar el resto del algoritmo.
+ * Badges de verificación. `identidadVerificadaEn` (Badge 5, siempre null en
+ * V1) y `experienciaVerificada` (Badge 3, en lote desde Fase 8 —
+ * app/api/network/buscar) ya llegan calculados en `PerfilNetworkPublico`.
+ * Badge 4 (referencia confirmada) todavía no tiene flujo de confirmación
+ * construido (lib/network/badges.ts) y se deja fuera hasta que exista.
  */
-function contarBadgesVerificacion(p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn'>): number {
-  return p.identidadVerificadaEn ? 1 : 0;
+function contarBadgesVerificacion(p: Pick<PerfilNetworkPublico, 'identidadVerificadaEn' | 'experienciaVerificada'>): number {
+  return (p.identidadVerificadaEn ? 1 : 0) + (p.experienciaVerificada ? 1 : 0);
 }
 
 function actividadRecienteMs(ultimoAccesoEn: string | null): number {

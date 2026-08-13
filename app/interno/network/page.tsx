@@ -5,7 +5,7 @@
 // una con su propia carga — mismo criterio que el resto de /interno: no
 // hay un modelo compartido, cada pestaña pide lo suyo.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchPerfilesNetworkInterno, cambiarEstadoPerfilNetworkInterno, type PerfilNetworkInterno,
   fetchVerificacionesNetworkInterno, type VerificacionNetworkInterna,
@@ -22,17 +22,22 @@ const ESTADO_PERFIL_LABEL: Record<string, string> = {
 function TabPerfiles() {
   const [perfiles, setPerfiles] = useState<PerfilNetworkInterno[] | null>(null);
   const [q, setQ] = useState('');
+  const qRef = useRef('');
   const [estado, setEstado] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [accionandoId, setAccionandoId] = useState<string | null>(null);
 
+  // qRef en vez de leer `q` directamente: `cargar` solo depende de `estado`
+  // a propósito (buscar por texto no dispara una petición por cada tecla,
+  // solo con Enter/clic en "Buscar"), pero eso deja `q` cerrado por closure
+  // al valor que tenía cuando `cargar` se creó — con `estado` sin cambiar,
+  // toda llamada a cargar() mandaba siempre q='' aunque hubiera texto en el
+  // input. El ref siempre lee el valor actual sin añadir `q` a las deps.
   const cargar = useCallback(async () => {
-    try { setPerfiles((await fetchPerfilesNetworkInterno({ q, estado })).perfiles); }
+    try { setPerfiles((await fetchPerfilesNetworkInterno({ q: qRef.current, estado })).perfiles); }
     catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estado]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void cargar(); }, [cargar]);
 
   async function cambiarEstado(id: string, nuevoEstado: string) {
@@ -51,7 +56,7 @@ function TabPerfiles() {
       <div className="flex items-center gap-2">
         <input
           value={q}
-          onChange={e => setQ(e.target.value)}
+          onChange={e => { setQ(e.target.value); qRef.current = e.target.value; }}
           onKeyDown={e => e.key === 'Enter' && cargar()}
           placeholder="Buscar por nombre…"
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12.5px] text-foreground"

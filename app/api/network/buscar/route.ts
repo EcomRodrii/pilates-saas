@@ -61,10 +61,16 @@ export async function GET(req: NextRequest) {
     ? Number(experienciaMinimaRaw)
     : null;
 
+  // order() antes de limit(): sin un orden explícito el recorte a
+  // LIMITE_RESULTADOS no es determinista (Postgres no garantiza el orden de
+  // un SELECT sin ORDER BY) — con más de 200 perfiles publicados, cuáles
+  // caen fuera del corte podía cambiar entre peticiones idénticas. El ranking
+  // real sigue siendo `ordenarResultadosNetwork` sobre lo que llega aquí.
   let query = admin
     .from('red_perfiles')
     .select(SELECT_COLUMNAS_PUBLICAS)
     .eq('estado', 'published')
+    .order('actualizado_en', { ascending: false })
     .limit(LIMITE_RESULTADOS);
 
   if (ciudad) query = query.ilike('ciudad', `%${ciudad}%`);

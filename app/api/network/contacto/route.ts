@@ -49,9 +49,15 @@ export async function POST(req: NextRequest) {
     return errorInterno('network:contacto:POST', error, 'No se ha podido enviar la solicitud.');
   }
 
+  // `sesion.nombre` es "instructora → su nombre; propietaria → nombre del
+  // estudio" (lib/auth-server.ts) — este endpoint es de cualquier rol de
+  // staff, no solo propietaria, así que hay que leer el nombre del ESTUDIO
+  // aparte en vez de asumir que sesion.nombre ya lo es.
+  const { data: estudio } = await admin.from('studios').select('nombre').eq('id', sesion.studioId).maybeSingle();
+
   await emitirRedContactoSolicitado(admin, {
     studioId: sesion.studioId, authUserId: perfil.auth_user_id as string,
-    solicitudId: solicitud.id as string, estudioNombre: sesion.nombre,
+    solicitudId: solicitud.id as string, estudioNombre: estudio?.nombre ?? sesion.nombre,
   });
 
   return NextResponse.json({ ok: true });

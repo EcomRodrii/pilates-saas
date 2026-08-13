@@ -21,42 +21,31 @@ export async function POST(req: NextRequest) {
   const aprobar = typeof body?.aprobar === 'boolean' ? body.aprobar : null;
   if (!id || aprobar == null) return errorPeticion('Faltan datos.');
 
-  const { data: verificacion } = await admin
-    .from('red_verificaciones_experiencia')
-    .select('id, experiencia_id, studio_id, estado')
-    .eq('id', id)
-    .eq('studio_id', sesion.studioId) // nunca resolver una solicitud de OTRO estudio
-    .maybeSingle();
-  if (!verificacion) return errorPeticion('Solicitud no encontrada.', 404);
-  if (verificacion.estado !== 'pendiente') return errorPeticion('Esta solicitud ya se resolvió.');
+  // red_resolver_verificacion_experiencia (migr 20260813135453): ambos UPDATE
+  // (la solicitud de verificación y la experiencia) en una sola transacción
+  // — antes eran dos escrituras secuenciales, y si la segunda fallaba la
+  // solicitud quedaba resuelta pero la experiencia seguía 'pendiente' para
+  // siempre (experiencia/verificar bloquea una nueva solicitud en ese estado).
+  const { data: filas, error: errResolver } = await admin.rpc('red_resolver_verificacion_experiencia', {
+    p_verificacion_id: id,
+    p_studio_id: sesion.studioId,
+    p_aprobar: aprobar,
+    p_resuelto_por: sesion.userId,
+  });
+  if (errResolver) {
+    if (errResolver.message?.includes('VERIFICACION_NO_ENCONTRADA')) return errorPeticion('Solicitud no encontrada.', 404);
+    if (errResolver.message?.includes('YA_RESUELTA')) return errorPeticion('Esta solicitud ya se resolvió.');
+    return errorInterno('network:verificaciones:resolver', errResolver, 'No se ha podido resolver la solicitud.');
+  }
+  const resultado = (filas as { experiencia_id: string; perfil_auth_user_id: string; perfil_nombre: string; nombre_estudio: string }[] | null)?.[0];
 
-  const { data: experiencia } = await admin
-    .from('red_experiencias')
-    .select('id, perfil_id, nombre_estudio, red_perfiles ( auth_user_id, nombre )')
-    .eq('id', verificacion.experiencia_id)
-    .maybeSingle();
-  const perfil = (experiencia?.red_perfiles ?? null) as { auth_user_id: string; nombre: string } | null;
-
-  const ahora = new Date().toISOString();
-  const { error: errVer } = await admin
-    .from('red_verificaciones_experiencia')
-    .update({ estado: aprobar ? 'confirmada' : 'rechazada', resuelto_en: ahora, resuelto_por: sesion.userId })
-    .eq('id', id);
-  if (errVer) return errorInterno('network:verificaciones:resolver:ver', errVer, 'No se ha podido resolver la solicitud.');
-
-  const { error: errExp } = await admin
-    .from('red_experiencias')
-    .update({ estado_verificacion: aprobar ? 'confirmada' : 'rechazada' })
-    .eq('id', verificacion.experiencia_id);
-  if (errExp) return errorInterno('network:verificaciones:resolver:exp', errExp, 'No se ha podido resolver la solicitud.');
-
-  if (perfil?.auth_user_id) {
+  if (resultado?.perfil_auth_user_id) {
     const datos = {
       studioId: sesion.studioId,
-      authUserId: perfil.auth_user_id,
-      profesional: perfil.nombre,
-      estudio: experiencia?.nombre_estudio ?? sesion.nombre,
-      experienciaId: verificacion.experiencia_id,
+      authUserId: resultado.perfil_auth_user_id,
+      profesional: resultado.perfil_nombre,
+      estudio: resultado.nombre_estudio,
+      experienciaId: resultado.experiencia_id,
     };
     if (aprobar) await emitirRedExperienciaConfirmada(admin, datos);
     else await emitirRedExperienciaRechazada(admin, datos);
