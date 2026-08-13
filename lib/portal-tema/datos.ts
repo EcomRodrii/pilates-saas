@@ -349,6 +349,25 @@ export function plazasDeSesion(
 }
 
 /** Los estados que de verdad ocupan una plaza. Ver `plazasDeSesion`. */
+/**
+ * Cuántas columnas tiene la sala, para pintarla como es.
+ *
+ * ⚠️ Se cuentan las columnas DISTINTAS, no `max(columna)`: en producción los
+ * índices vienen desde 0 (la sala real del piloto es `fila` 0-1, `columna`
+ * 0-3), pero nada impide que otro estudio los haya guardado desde 1. Contar
+ * valores distintos acierta con las dos convenciones y también si hay huecos.
+ *
+ * Sin esto la rejilla iría a un número fijo —7, heredado de la hoja de reserva
+ * de siempre— y una sala de 8 en dos filas de 4 saldría como 7 + 1 huérfana:
+ * deja de parecerse a la sala, que es lo único que hace útil elegir sitio.
+ */
+export function columnasDeSala(plazas: readonly PlazaPortal[]): number {
+  const columnas = new Set(plazas.map((p) => p.columna));
+  // Acotado: una sala mal rellenada (todo en la misma columna, o 20 columnas)
+  // no puede reventar la pantalla de un móvil.
+  return Math.min(Math.max(columnas.size, 1), 8);
+}
+
 const OCUPAN_PLAZA = new Set<Reserva['estado']>(['CONFIRMADA', 'ASISTIDA']);
 
 export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {

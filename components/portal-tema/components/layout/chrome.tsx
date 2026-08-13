@@ -109,6 +109,12 @@ export function DayStrip({
 }
 
 export interface ClassRowData {
+  /**
+   * `true` si el estudio asigna plaza en esa clase. Entonces el atajo de la
+   * fila NO reserva: lleva al detalle, que es donde está la rejilla. Reservar
+   * desde aquí dejaría a la socia sin máquina y sin haberlo decidido.
+   */
+  eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
   meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
   /** En la cola de esa clase, no con plaza. Son cosas distintas. */
@@ -195,9 +201,14 @@ export function ClassRowPlana({ row }: { row: ClassRowData }) {
         <span
           role="button" tabIndex={0}
           className="row-libre__cta"
-          onClick={(e) => { e.stopPropagation(); actions.reserve(row.id); }}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); actions.reserve(row.id); } }}
-        >Reservar</span>
+          onClick={(e) => { e.stopPropagation(); if (row.eligeSitio) return actions.openClass(row.id); actions.reserve(row.id); }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.stopPropagation(); e.preventDefault();
+            if (row.eligeSitio) return actions.openClass(row.id);
+            actions.reserve(row.id);
+          }}
+        >{row.eligeSitio ? "Elegir sitio" : "Reservar"}</span>
       )}
     </button>
   );

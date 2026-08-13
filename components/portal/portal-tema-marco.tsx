@@ -256,9 +256,12 @@ export function PortalTemaMarco() {
   // bono que no cubre el tipo, clase empezada, cancelada, tope de simultáneas,
   // límite semanal) y durante un tiempo ninguno de esos rechazos llegó a la
   // pantalla: la socia leía "Reservada" y en el panel no había nada (#500).
-  const alReservar: AlReservarPortal = useCallback(async (sesionId) => {
+  const alReservar: AlReservarPortal = useCallback(async (sesionId, spotId) => {
     if (!socioId) return { ok: false as const, error: 'Entra en tu cuenta para reservar.' };
-    const r = await addReserva(sesionId, socioId, null);
+    // ⚠️ `spotId` es la plaza que eligió en el detalle, y va tal cual: `null`
+    // significa «que me la asignen», no «cualquiera». Es el mismo tercer
+    // argumento que ya usa la hoja de reserva de siempre — la vía es una.
+    const r = await addReserva(sesionId, socioId, spotId ?? null);
     if (!r.ok) return { ok: false as const, error: r.error };
     // El estado lo decide la base de datos bloqueando la fila de la sesión, no
     // lo que se viera al pulsar: con dos socias peleando por la última plaza,

@@ -22,6 +22,15 @@ export interface PortalState {
   day: number;
   filter: string;
   classId: string;
+  /**
+   * La plaza elegida en el detalle, o `null` si no ha elegido ninguna.
+   *
+   * ⚠️ Se limpia al ABRIR otra clase (`openClass`) y al reservar. Sin eso, la
+   * plaza 3 elegida en la clase de las 10 viajaría a la de las 18, donde
+   * puede estar ocupada — y el servidor la rechazaría con un mensaje que no
+   * explica nada.
+   */
+  spotElegido: string | null;
   booked: string[];
   favourites: string[];
   loading: boolean;
@@ -72,6 +81,7 @@ const initialState = (): PortalState => ({
   day: 4,
   filter: "todas",
   classId: "c1",
+  spotElegido: null,
   booked: [],
   favourites: [],
   loading: false,
@@ -153,6 +163,14 @@ export interface PortalActions {
   guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
+  /**
+   * Elegir plaza en el detalle. Volver a pulsar la misma la suelta.
+   *
+   * ⚠️ Solo tiene sentido en un estudio que asigna sitio (reformers,
+   * camillas). Donde no lo hace, `StudioClass.plazas` viene vacío, el detalle
+   * no pinta la rejilla y esto no se llama nunca.
+   */
+  elegirPlaza(spotId: string | null): void;
   /** `reservaId` es lo que se manda al servidor; sin él solo se puede
    *  simular (la demo). Ver el comentario de `cancel` más abajo. */
   cancel(id: string, reservaId?: string): void;
@@ -284,7 +302,7 @@ export interface AspectoPortal { noche: boolean; toggle: () => void }
  * el servidor, y "Reservada. Te esperamos" no vale para las tres. Nunca se
  * dice nada sin esta respuesta (bug #500).
  */
-export type AlReservarPortal = (sesionId: string) => Promise<
+export type AlReservarPortal = (sesionId: string, spotId?: string | null) => Promise<
   | {
       ok: true;
       /**
@@ -518,7 +536,14 @@ export function PortalProvider({
       goVideos: () => ir({ screen: "videos" }),
       goProfile: () => ir({ tab: "perfil", screen: "perfil" }),
       goto: (screen) => ir({ screen }),
-      openClass: (id) => ir({ screen: "detalle", classId: id || stateRef.current.classId }),
+      openClass: (id) => {
+        // ⚠️ La plaza es de UNA clase. Ver `spotElegido`.
+        const destino = id || stateRef.current.classId;
+        if (destino !== stateRef.current.classId) set({ spotElegido: null });
+        ir({ screen: "detalle", classId: destino });
+      },
+      elegirPlaza: (spotId) =>
+        set({ spotElegido: stateRef.current.spotElegido === spotId ? null : spotId }),
       back: () => {
         // El cronómetro se para aquí y no en el destino: si la navegación la
         // lleva una ruta, el store de esta pantalla se desmonta y nadie más
@@ -593,8 +618,11 @@ export function PortalProvider({
           if (reservada) return self.cancel(classId, reservada.reservaId);
           if (s.loading) return;
           set({ loading: true, classId });
-          reservar(classId).then((r) => {
-            set({ loading: false });
+          // La plaza elegida solo vale para ESTA clase; si se reserva desde una
+          // fila del horario (`id`), no hay ninguna elegida y va `null`.
+          const plaza = id && id !== s.classId ? null : s.spotElegido;
+          reservar(classId, plaza).then((r) => {
+            set({ loading: false, spotElegido: null });
             if (!r.ok) return notify(r.error);
             // A la pantalla de confirmación con el desenlace que dio el
             // SERVIDOR. El aviso se queda igualmente: si la navegación la

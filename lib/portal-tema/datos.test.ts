@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
-import type { StudioClass } from './tipos.ts';
+import type { PlazaPortal, StudioClass } from './tipos.ts';
 import type { Spot } from '../types.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
 
@@ -795,4 +795,16 @@ test('el nombre del estudio manda; sin él, el número', () => {
     spot('a', 'sala-1', 1, 1, 'Reformer 1'), spot('b', 'sala-1', 1, 2),
   ], []);
   assert.deepEqual(r.map((p) => p.nombre), ['Reformer 1', '2']);
+});
+
+test('columnasDeSala cuenta columnas distintas, no el máximo', () => {
+  const pl = (columna: number): PlazaPortal => ({ id: 's' + columna, nombre: '', fila: 0, columna, ocupada: false });
+  // La sala real del piloto: índices desde 0. `max` daría 3, y son 4.
+  assert.equal(columnasDeSala([pl(0), pl(1), pl(2), pl(3)]), 4);
+  // Otro estudio pudo guardarlos desde 1. `max+1` daría 5, y son 4.
+  assert.equal(columnasDeSala([pl(1), pl(2), pl(3), pl(4)]), 4);
+  assert.equal(columnasDeSala([]), 1);
+  // Una sala mal rellenada no revienta la pantalla.
+  assert.equal(columnasDeSala(Array.from({ length: 20 }, (_, i) => pl(i))), 8);
+  assert.equal(columnasDeSala([pl(0), pl(0), pl(0)]), 1);
 });

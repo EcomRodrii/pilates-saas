@@ -189,6 +189,11 @@ export function useViewModel() {
           waiting: enCola(c.id),
           position: porClase.get(c.id)?.posicion ?? null,
           full: !isBooked && c.seats === 0,
+          // ⚠️ En un estudio que asigna sitio, el atajo «Reservar» de la fila
+          // reservaría SIN plaza: no hay dónde elegirla ahí. Con esto lleva al
+          // detalle, que es donde está la rejilla — un toque más, pero sin
+          // perder la máquina, que es justo lo que la fila vieja no perdía.
+          eligeSitio: c.plazas.length > 0,
           status: enCola(c.id)
             ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
             : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
@@ -323,6 +328,11 @@ export function useViewModel() {
       // estudio real la semana puede venir vacía o la clase estar cancelada.
       detail: !cls ? null : {
         id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial, foto: cls.fotoUrl,
+        // Las plazas de la sala. Vacío = este estudio NO asigna sitio (la
+        // mayoría), y entonces el detalle no pinta ninguna rejilla — que no es
+        // lo mismo que «la sala está llena».
+        plazas: cls.plazas,
+        plazaElegida: state.spotElegido,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
         booked: booked && !enCola(state.classId),
