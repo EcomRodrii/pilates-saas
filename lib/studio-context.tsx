@@ -147,6 +147,7 @@ import type {
 import { encolarEnvioCampana, enviarEmailPromocion, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, avisarClaseCreadaPorInstructor, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, verificarLimiteSocias } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido } from '@/lib/marketing/segmentos';
+import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
 import { reglaActivaPara, decidirOtorgarCreditos, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
@@ -3606,8 +3607,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // filtro de contacto (email válido / teléfono) que aplica el envío real —
   // usado por la UI para el mensaje inmediato al encolar (lib/marketing/segmentos.ts,
   // compartido con el job de servidor que hace el envío de verdad).
+  //
+  // Consentimiento: APROXIMADO a propósito (solo presencia, ver
+  // tieneConsentimientoMarketingAlgunaVez) — el panel no trae
+  // consentimiento_marketing_texto (2,7 KB idénticos por fila, mismo ahorro
+  // que aceptacionContrato.versionTexto), así que no puede comparar vigencia
+  // exacta. El envío real (lib/inngest/campanas.ts) hace su propio select con
+  // el texto y decide de verdad; este número puede ser ligeramente optimista
+  // si el texto de consentimiento cambió desde que alguna socia lo dio.
   function contarDestinatariasCampana(campana: Campana): number {
-    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones });
+    const base = resolverDestinatariasCampanaCompartido(campana.destinatarios, { socios, suscripciones })
+      .filter(tieneConsentimientoMarketingAlgunaVez);
     return campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@')).length
       : base.filter(s => s.telefono && s.telefono.trim()).length;

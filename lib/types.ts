@@ -279,6 +279,13 @@ export interface Socio {
   // del contrato general). undefined = no lo ha dado — condiciones_salud no
   // debe recibir ninguna fila para esta socia hasta que exista.
   consentimientoSalud?: { fecha: string; registradoPor: string };
+  // Art. 7.4 RGPD: consentimiento específico para marketing por email (aparte
+  // del contrato general y de `consentimientoSalud`). `texto` es el texto
+  // COMPLETO aceptado (lib/legal-textos.ts textoConsentimientoMarketing),
+  // igual que AceptacionContrato.versionTexto — se compara contra el texto
+  // vigente para saber si sigue siendo válido. undefined = no lo ha dado,
+  // ninguna campaña ni automatización de marketing debe alcanzarla.
+  consentimientoMarketing?: { fecha: string; texto: string; registradoPor: string };
   avatar?: string | null;
   stripeCustomerId?: string | null;
   stripePaymentMethodId?: string | null;

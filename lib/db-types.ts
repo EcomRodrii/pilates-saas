@@ -553,6 +553,9 @@ export interface RowSocios {
   tarjeta_marca: string | null;
   tarjeta_ultimos4: string | null;
   origen_lead: string | null;
+  consentimiento_marketing_en: string | null;
+  consentimiento_marketing_texto: string | null;
+  consentimiento_marketing_por: string | null;
 }
 
 export interface RowSoporteSolicitudes {

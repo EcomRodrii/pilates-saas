@@ -147,3 +147,22 @@ const SEPARADOR_LEGAL = '\n\n─────────────────
 export function textoLegalCompleto(c: { politicaPrivacidad: string; terminosServicio: string }): string {
   return [c.politicaPrivacidad, c.terminosServicio].join(SEPARADOR_LEGAL);
 }
+
+/**
+ * Consentimiento de marketing por email — DELIBERADAMENTE aparte de
+ * `textoLegalCompleto` (política de privacidad + términos). El RGPD (art. 7.4
+ * y considerando 43) exige que el consentimiento para marketing sea
+ * específico y no vaya empaquetado con la aceptación del contrato general —
+ * mezclarlo sería inválido aunque la clienta lo marque. Ver
+ * docs/marketing-integrations-arquitectura.md §7.
+ *
+ * Igual que `terminosServicioPorDefecto`, el texto SÍ es la clave de vigencia
+ * (`Socio.consentimientoMarketing.texto` se compara contra el texto actual —
+ * mismo patrón que `AceptacionContrato.versionTexto`): si este texto cambia,
+ * toda socia con un consentimiento anterior deja de contar como consentida
+ * hasta que vuelva a decir que sí.
+ */
+export function textoConsentimientoMarketing(e: DatosEstudioLegal = {}): string {
+  const nombreEstudio = !vacio(e.nombre) ? e.nombre!.trim() : 'el Estudio';
+  return `Acepto recibir por email novedades, promociones y ofertas de ${nombreEstudio}. Puedo retirar este consentimiento en cualquier momento, sin coste ni justificación, desde el enlace de baja de cualquier email o pidiéndolo directamente al estudio. Esta comunicación es independiente de los avisos necesarios para la prestación del servicio (reservas, pagos, cambios de horario), que seguiré recibiendo aunque retire este consentimiento.`;
+}

@@ -4,9 +4,13 @@ import { render } from '@react-email/render';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllStudioData, mapCampana } from '@/lib/supabase-data';
 import { resolverDestinatariasCampana } from '@/lib/marketing/segmentos';
+import { filtrarPorConsentimientoMarketing } from '@/lib/marketing/consentimiento';
+import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
 import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { appUrl } from '@/lib/emails/plantillas-server';
 import type { RowCampanas } from '@/lib/db-types';
 
 // Envío server-side de una campaña — reemplaza el mapLimit(8) que orquestaba
@@ -50,9 +54,29 @@ export const procesarEnvioCampana = inngest.createFunction(
     });
 
     const base = resolverDestinatariasCampana(campana.destinatarios, { socios, suscripciones });
-    const destinatarias = campana.tipo === 'EMAIL'
+    const porCanal = campana.tipo === 'EMAIL'
       ? base.filter(s => s.email && s.email.includes('@'))
       : base.filter(s => s.telefono && s.telefono.trim());
+
+    // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
+    // §7): select TARGETED con el texto completo (fetchAllStudioData/mapSocio
+    // lo excluye a propósito del arranque del panel, ver FilaSocioPanel) — mismo
+    // criterio que ya usa lib/inngest/penalizaciones.ts para AceptacionContrato.
+    const textoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
+    // Filas crudas, NO un Map: lo que devuelve un step.run se serializa como
+    // estado de Inngest, y un Map se reconstruye como {} en el replay (mismo
+    // gotcha ya documentado para dbGetFeatureFlags en lib/inngest/decision.ts).
+    // El Map se construye SIEMPRE fuera del step.
+    const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
+      const { data } = await requireSupabaseAdmin()
+        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
+      return (data ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+    });
+    const consentimientos = new Map<string, string>();
+    for (const row of filasConsentimiento) {
+      if (row.consentimiento_marketing_texto) consentimientos.set(row.id, row.consentimiento_marketing_texto);
+    }
+    const destinatarias = filtrarPorConsentimientoMarketing(porCanal, consentimientos, textoVigente);
 
     const apiKey = process.env.RESEND_API_KEY;
     const resend = apiKey && !apiKey.startsWith('re_XXXX') ? new Resend(apiKey) : null;
@@ -70,6 +94,8 @@ export const procesarEnvioCampana = inngest.createFunction(
             estudioNombre: studioNombre,
             colorPrimario: studio?.color_primario ?? null,
             logoUrl: studio?.logo_url ?? null,
+            // LSSI: toda comunicación comercial lleva enlace de baja.
+            unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(studioId, socio.id)}`,
           }));
           const r = await resendEmailProvider(resend).enviar({
             to: socio.email,

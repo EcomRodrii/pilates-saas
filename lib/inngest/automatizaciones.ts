@@ -12,6 +12,9 @@ import { twilioConfigurado } from '@/lib/twilio';
 import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
 import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
 import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
+import { firmarBajaMarketing } from '@/lib/marketing/unsubscribe-token';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
+import { appUrl } from '@/lib/emails/plantillas-server';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
@@ -309,7 +312,12 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog,
       detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else {
-    const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
+    const html = await render(AutomatizacionEmail({
+      socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre,
+      colorPrimario: studioColor, logoUrl: studioLogo,
+      // LSSI: toda comunicación comercial lleva enlace de baja.
+      unsubscribeUrl: `${appUrl()}/api/marketing/baja?token=${firmarBajaMarketing(opts.studioId, c.socio.id)}`,
+    }));
     // Mismo reintento ante fallos transitorios que en procesarCandidato (ver
     // resendEmailProvider).
     const r = await resendEmailProvider(resend!).enviar({
@@ -478,12 +486,33 @@ export const procesarEstudioAutomatizaciones = inngest.createFunction(
       });
     }
 
+    // Guard de consentimiento (art. 7.4 RGPD, docs/marketing-integrations-arquitectura.md
+    // §7): select TARGETED con el texto completo — data.socios (arriba) NO lo
+    // trae, mismo motivo que aceptacion_version (ver FilaSocioPanel). Filas
+    // crudas, no un Map: lo que devuelve un step.run se serializa como estado
+    // de Inngest y un Map se reconstruye como {} en el replay (mismo gotcha ya
+    // documentado para dbGetFeatureFlags) — el Map se construye fuera del step.
+    const filasConsentimiento = await step.run('fetch-consentimientos', async () => {
+      const { data: rows } = await requireSupabaseAdmin()
+        .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', studioId);
+      return (rows ?? []) as { id: string; consentimiento_marketing_texto: string | null }[];
+    });
+    const consentimientosMarketing = new Map<string, string>();
+    for (const row of filasConsentimiento) {
+      if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
+    }
+    const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
+
     // ── Automatizaciones de MARKETING (tipo Automatizacion, con triggers) ──────
     // Antes se creaban pero nada las ejecutaba. Mismo patrón: candidatas puras +
     // envío durable por candidata + contador `ejecutadas`. Comparte automation_logs
     // (ruleId = id de la automatización) para dedup.
     const mktCandidatos = computeAutomatizacionMktCandidatos(
-      { automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios, suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas },
+      {
+        automatizaciones: data.automatizaciones, automationLogs: data.automationLogs, socios: data.socios,
+        suscripciones: data.suscripciones, reservas: data.reservas, citas: data.citas,
+        consentimientosMarketing, textoConsentimientoVigente,
+      },
       now,
     );
     let mktEnviados = 0, mktFallidos = 0;

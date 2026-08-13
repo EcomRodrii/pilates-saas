@@ -1,5 +1,6 @@
 import type { Automatizacion, AutomationLog, Socio, Suscripcion, Reserva, Cita } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
+import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
 
 // Motor de las Automatizaciones de MARKETING (tipo `Automatizacion`, con triggers
 // de negocio). Antes la UI las creaba pero NINGÚN proceso las ejecutaba — fachada
@@ -62,10 +63,16 @@ export interface MktEngineInput {
   suscripciones: Suscripcion[];
   reservas: Reserva[];
   citas: Cita[];
+  // Consentimiento de marketing (art. 7.4 RGPD) — texto EXACTO que cada
+  // socia aceptó, keyed por socioId. Ausencia de entrada = sin consentimiento,
+  // nunca se le manda nada de este motor. Ver lib/marketing/consentimiento.ts
+  // y docs/marketing-integrations-arquitectura.md §7.
+  consentimientosMarketing: Map<string, string>;
+  textoConsentimientoVigente: string;
 }
 
 export function computeAutomatizacionMktCandidatos(
-  { automatizaciones, automationLogs, socios, suscripciones, reservas, citas }: MktEngineInput,
+  { automatizaciones, automationLogs, socios, suscripciones, reservas, citas, consentimientosMarketing, textoConsentimientoVigente }: MktEngineInput,
   now: Date,
 ): AutomatizacionMktCandidato[] {
   const candidatos: AutomatizacionMktCandidato[] = [];
@@ -113,6 +120,9 @@ export function computeAutomatizacionMktCandidatos(
     // para WhatsApp). NOTIFICACION no toca a la socia, no necesita contacto.
     if (canal === 'EMAIL' && !socio.email) return;
     if (canal === 'WHATSAPP' && !(socio.telefono && socio.telefono.trim())) return;
+    // NOTIFICACION es un aviso interno para el equipo, nunca toca a la socia
+    // — no necesita su consentimiento de marketing. EMAIL/WHATSAPP sí.
+    if (canal !== 'NOTIFICACION' && !tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
     if (yaEnviado(a.id, socio.id, DEDUP_DIAS[a.trigger] ?? 14)) return;
     // Dedup CRUZADO con AUSENCIA_DIAS (motor clásico): solo aplica a
     // INACTIVIDAD_30D (marcaInactividad=true) — ver

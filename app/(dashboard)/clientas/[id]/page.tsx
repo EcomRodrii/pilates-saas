@@ -28,6 +28,7 @@ import { ERROR_GENERICO } from '@/lib/errores';
 import { EstadoSuscripcion } from '@/components/suscripciones/estado-suscripcion';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 import {
   ArrowLeft, Phone, Mail, CreditCard, Calendar, Pencil, Trash2,
   AlertTriangle, Plus, Tag, MessageSquare, Pause, Play, X, Clock, Megaphone,
@@ -256,6 +257,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   const [showChangePlan, setShowChangePlan] = useState(false);
   const [showAddRecibo, setShowAddRecibo] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [confirmarConsentimientoMkt, setConfirmarConsentimientoMkt] = useState(false);
+  const [guardandoConsentimientoMkt, setGuardandoConsentimientoMkt] = useState(false);
   const [borrando, setBorrando] = useState(false);
   // Cerrojo síncrono anti-doble-baja: el estado `borrando` no frena un doble
   // clic en el mismo tick (se lee antes de re-renderizar); el ref sí.
@@ -1748,8 +1751,97 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
             )}
           </Card>
 
+          {/* Marketing consent — art. 7.4 RGPD: aparte del Contrato de arriba
+              a propósito, no vale empaquetarlo con la aceptación general. Ver
+              docs/marketing-integrations-arquitectura.md §7. */}
+          <Card>
+            <div className="flex items-center gap-2 mb-3">
+              <Megaphone size={14} className={socio.consentimientoMarketing ? 'text-success' : 'text-muted-foreground'} />
+              <SectionTitle>Marketing</SectionTitle>
+            </div>
+            {socio.consentimientoMarketing ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-success/10">
+                  <CheckCircle2 size={13} className="text-success shrink-0" />
+                  <span className="text-xs font-bold text-success">Consiente recibir marketing por email</span>
+                </div>
+                <div className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
+                  <Calendar size={11} className="shrink-0" />
+                  <span>{fecha(socio.consentimientoMarketing.fecha)}</span>
+                </div>
+                {gestionaClientas && (
+                  <button
+                    onClick={() => { void updateSocio(id, { consentimientoMarketing: undefined }).then(res => { if (!res.ok) setToast(res.error); }); }}
+                    className="text-[11px] font-medium text-muted-foreground hover:text-destructive underline underline-offset-2"
+                  >
+                    Retirar consentimiento
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-muted">
+                  <span className="text-xs font-bold text-muted-foreground">Sin consentimiento de marketing</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  No recibirá campañas ni automatizaciones de marketing hasta que dé su consentimiento explícito.
+                </p>
+                {gestionaClientas && (
+                  <button
+                    onClick={() => setConfirmarConsentimientoMkt(true)}
+                    className="text-[11px] font-medium text-foreground hover:text-success underline underline-offset-2"
+                  >
+                    Registrar consentimiento
+                  </button>
+                )}
+              </div>
+            )}
+          </Card>
+
         </div>
       </div>
+
+      {/* Confirmar consentimiento de marketing — recogido en el mostrador, no
+          desde el portal de la socia: el mismo matiz que ya distingue
+          aceptacionContrato.origen MOSTRADOR/PORTAL. */}
+      <Dialog open={confirmarConsentimientoMkt} onOpenChange={setConfirmarConsentimientoMkt}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-foreground">¿{socio.nombre} ha dado su consentimiento?</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mt-2">
+            Confirma solo si la clienta ha aceptado expresamente, en persona o por escrito, recibir marketing
+            por email. Podrá retirarlo en cualquier momento desde el enlace de baja de cualquier email.
+          </p>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setConfirmarConsentimientoMkt(false)}
+              className="flex-1 justify-center py-2.5 rounded-xl border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={guardandoConsentimientoMkt}
+              onClick={async () => {
+                setGuardandoConsentimientoMkt(true);
+                const res = await updateSocio(id, {
+                  consentimientoMarketing: {
+                    fecha: new Date().toISOString(),
+                    texto: textoConsentimientoMarketing({ nombre: studio?.nombre }),
+                    registradoPor: 'MOSTRADOR',
+                  },
+                });
+                setGuardandoConsentimientoMkt(false);
+                if (!res.ok) { setToast(res.error); return; }
+                setConfirmarConsentimientoMkt(false);
+              }}
+              className="flex-1 justify-center py-2.5 rounded-xl bg-brand text-brand-foreground text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              Sí, lo ha aceptado
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ═══════════════ MODALS ════════════════════════════════════════════════ */}
 

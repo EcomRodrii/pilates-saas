@@ -290,6 +290,53 @@ explícito — mismo patrón que ya usa `AceptacionContrato.versionTexto`
 para consentimiento de salud (comparar texto guardado vs texto actual en
 vez de un esquema de versiones paralelo).
 
+**Implementado (paso 5 del §8) — corrección sobre la propuesta original**:
+NO se usó `notification_preference` (`user_id uuid NOT NULL` — exige cuenta
+de `auth.users`; una campaña manda a `socio.email` directamente y muchas
+socias con ficha nunca reclaman cuenta). Mismo sitio que
+`consentimientoSalud` (art. 9 RGPD): tres columnas nuevas en `socios`
+(migración `20260813122718`) — `consentimiento_marketing_en`/`_por`
+(ligeras, en el select del panel) y `_texto` (el texto COMPLETO aceptado,
+EXCLUIDO del select del panel a propósito — mismo ahorro de payload que
+`aceptacion_version`, ver `FilaSocioPanel`). Texto propio en
+`lib/legal-textos.ts` (`textoConsentimientoMarketing`), separado a
+propósito de `textoLegalCompleto` — el art. 7.4 RGPD exige consentimiento
+específico, no empaquetado con el contrato general.
+
+`lib/marketing/consentimiento.ts`: `tieneConsentimientoMarketingVigente`
+(comparación EXACTA de texto, la que de verdad decide un envío — exige que
+el caller traiga `consentimiento_marketing_texto` con su propio select
+targeted, mismo criterio que ya usa `lib/inngest/penalizaciones.ts` para
+`AceptacionContrato`) y `tieneConsentimientoMarketingAlgunaVez`
+(aproximación por presencia, la única que puede usar la UI — el panel no
+trae el texto). El guard se aplicó en los dos sitios que de verdad envían:
+`lib/inngest/campanas.ts` y `lib/engines/marketing-automation-engine.ts`
+(`computeAutomatizacionMktCandidatos` gana `consentimientosMarketing`/
+`textoConsentimientoVigente`; NOTIFICACION queda exento, no toca a la
+socia). **Deliberadamente NO se tocó** `automation-engine.ts`/
+`procesarCandidato` (motor clásico) — es un sistema distinto, anterior a
+este Marketing Hub, y decidir si sus triggers (recordatorios, avisos de
+pago) necesitan el mismo consentimiento específico es una pregunta de
+producto/legal aparte, no una extensión mecánica de este paso.
+
+Baja sin login: `lib/marketing/unsubscribe-token.ts` (HMAC sobre
+studioId+socioId, reutiliza `OAUTH_STATE_SECRET` — SIN expiración a
+propósito, a diferencia del `state` de OAuth de 10 min: un enlace de baja
+dentro de un email tiene que seguir funcionando semanas después) +
+`GET /api/marketing/baja` (público, HTML directo, revoca las tres
+columnas). `AutomatizacionEmail` gana un `unsubscribeUrl` opcional (usa el
+slot `pie` ya existente de `EmailLayout`) — presente solo en campañas y
+automatizaciones de marketing, nunca en el resto de usos de esa plantilla.
+
+**Fuera de alcance, documentado a propósito**: captura de consentimiento
+solo desde el mostrador (`clientas/[id]/page.tsx`, `registradoPor:
+'MOSTRADOR'` fijo) — no hay autoservicio desde el portal de la socia
+todavía, sería una fase aparte. Opt-out de WhatsApp/SMS (palabra clave
+STOP vía Twilio) no construido — el guard de consentimiento SÍ cubre
+WHATSAPP en las automatizaciones de marketing (mismo texto que email,
+art. 7.4 no distingue canal), pero el mecanismo de baja soportado hoy es
+solo el enlace de email.
+
 ## 8. Orden de fases (reconciliado con el §7 del brief original y la
    auditoría — sin duplicar lo que ya existe)
 
@@ -302,8 +349,9 @@ vez de un esquema de versiones paralelo).
    contrato.
 4. ✅ Cola server-side de envío de campañas (§5) — prerequisito técnico de
    todo lo que sigue. Sin progreso en vivo (decisión de alcance, ver §5).
-5. Consentimiento RGPD específico de marketing (§7) — transversal, antes
-   de cualquier envío masivo real a producción.
+5. ✅ Consentimiento RGPD específico de marketing (§7) — transversal, antes
+   de cualquier envío masivo real a producción. Motor clásico
+   (`automation-engine.ts`) fuera de alcance a propósito.
 6. Ampliar segmentación con señales ya existentes; builder de condiciones
    solo si se justifica después (§4).
 7. `integraciones_marketing` + flujo OAuth genérico extendido a Klaviyo
