@@ -62,10 +62,11 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
-      // Feature #9 (ficha Lorari-vs-Tentare): la página existía desde el alta,
-      // pero sin ningún enlace de entrada era un callejón sin salida — nadie
-      // podía encontrarla sin conocer la URL de memoria.
-      { href: '/instructora/alta', label: 'Para instructoras sin estudio' },
+      // El enlace a /instructora/alta (Feature #9) se quitó de aquí: esa
+      // página está CONGELADA (ver app/instructora/alta/page.tsx) — la
+      // experiencia actual se considera de baja calidad y va a sustituirse
+      // por "Tentare Network", todavía en diseño. No devolver este enlace
+      // sin pedirlo expresamente.
     ],
   },
   {
