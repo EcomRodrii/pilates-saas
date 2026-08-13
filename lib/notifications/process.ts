@@ -13,6 +13,7 @@ import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
 import { CANALES } from './channels.ts';
 import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
+import * as Sentry from '@sentry/nextjs';
 import type {
   NotificationCategory, NotificationChannel, NotificationEvent, NotificationRow, Recipient,
 } from './types.ts';
@@ -33,15 +34,63 @@ export interface ResultadoProceso { creadas: number; deliveries: number; omitida
 export async function procesarEvento(admin: SupabaseClient, event: NotificationEvent): Promise<ResultadoProceso> {
   const { creadas, omitidas } = await crearInApp(admin, event);
   let deliveries = creadas.length; // el delivery INAPP ya lo escribió crearInApp
+  const fallos: FalloEnvio[] = [];
   for (const c of creadas) {
-    deliveries += await entregarCanales(admin, c.fila, c.destinatario, c.canalesExtra);
+    deliveries += await entregarCanales(admin, c.fila, c.destinatario, c.canalesExtra, fallos);
   }
+  avisarFallos('procesarEvento', event.studioId ?? null, fallos);
   return { creadas: creadas.length, deliveries, omitidas };
+}
+
+/** Un envío que el proveedor rechazó. Se acumulan para avisar UNA vez por tanda. */
+type FalloEnvio = { canal: string; error: string };
+
+/**
+ * Avisa a Sentry de que hubo entregas fallidas.
+ *
+ * ⚠️ Existe porque un `FAILED` se guardaba en `notification_delivery` y ahí se
+ * quedaba: nadie miraba esa tabla, así que si Resend caía, el dominio se
+ * bloqueaba o VAPID caducaba, las socias dejaban de recibir sus avisos y el
+ * sistema seguía diciendo que todo iba bien. Es el mismo hueco que #1006 cerró
+ * para WhatsApp, y se reporta igual: UN mensaje agregado con contadores, nunca
+ * uno por envío — un aviso a todo un estudio son cientos de entregas, y con un
+ * evento por cada una Sentry queda inservible justo el día que hay problema.
+ *
+ * `SKIPPED` NO cuenta: significa «este canal no aplica todavía» (sin push
+ * suscrito, sin email, canal no configurado), que es estado normal y no un
+ * fallo.
+ */
+function avisarFallos(origen: string, studioId: string | null, fallos: FalloEnvio[]): void {
+  if (fallos.length === 0) return;
+  Sentry.captureMessage('[notificaciones] entregas fallidas', {
+    level: 'warning',
+    tags: { area: 'notificaciones', tipo: 'entrega-fallida', origen },
+    extra: { studioId, ...resumenFallos(fallos) },
+  });
+}
+
+/**
+ * La parte con lógica, aparte para poder probarla: el `captureMessage` es
+ * pegamento y no se puede observar desde un test sin mockear el módulo entero.
+ */
+export function resumenFallos(fallos: FalloEnvio[]): {
+  total: number; porCanal: Record<string, number>; ejemplos: string[];
+} {
+  const porCanal: Record<string, number> = {};
+  for (const f of fallos) porCanal[f.canal] = (porCanal[f.canal] ?? 0) + 1;
+  return {
+    total: fallos.length,
+    porCanal,
+    // Una muestra, no la lista entera: con cientos de fallos el payload se
+    // vuelve ilegible y Sentry lo recorta por su cuenta de todos modos.
+    ejemplos: fallos.slice(0, 5).map(f => `${f.canal}: ${f.error}`),
+  };
 }
 
 // Envía los canales EXTERNOS de una notificación ya creada y registra su delivery.
 async function entregarCanales(
   admin: SupabaseClient, fila: NotificationRow, dest: Recipient, canales: NotificationChannel[],
+  fallos?: FalloEnvio[],
 ): Promise<number> {
   if (canales.length === 0) return 0;
   let n = 0;
@@ -61,6 +110,7 @@ async function entregarCanales(
       provider_id: res.providerId ?? null,
       sent_at: res.status === 'SENT' || res.status === 'DELIVERED' ? new Date().toISOString() : null,
     });
+    if (res.status === 'FAILED') fallos?.push({ canal: ch, error: res.error ?? 'sin detalle' });
     n++;
   }
   return n;
@@ -145,6 +195,7 @@ export async function entregarExternos(
   const prefs = new Map(prefFilas.map(p => [`${p.user_id}|${p.category}`, p]));
 
   let entregadas = 0, deliveries = 0;
+  const fallos: FalloEnvio[] = [];
   for (const noti of pendientes) {
     const regla = REGLAS[noti.event_type as string];
     const dest: Recipient = {
@@ -176,10 +227,11 @@ export async function entregarExternos(
         }
       : PREF_DEFECTO;
     const canales = canalesExtraDe(regla, pref, critica);
-    const n = await entregarCanales(admin, mapRow(noti), dest, canales);
+    const n = await entregarCanales(admin, mapRow(noti), dest, canales, fallos);
     if (n > 0) entregadas++;
     deliveries += n;
   }
+  avisarFallos('entregarExternos', (pendientes[0]?.studio_id as string | null) ?? null, fallos);
   return { entregadas, deliveries };
 }
 

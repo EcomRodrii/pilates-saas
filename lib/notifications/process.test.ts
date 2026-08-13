@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { entregarExternos } from './process.ts';
+import { entregarExternos, resumenFallos } from './process.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // `entregarExternos` no tenía NINGÚN test, y manda emails y push de verdad.
@@ -130,4 +130,37 @@ test('un evento que no está en el catálogo se ignora sin romper', async () => 
   const r = await entregarExternos(admin, ['n-1']);
   assert.equal(r.entregadas, 0);
   assert.equal(insertados.length, 0);
+});
+
+// ── Aviso de entregas fallidas ──────────────────────────────────────────────
+// Un `FAILED` se guardaba en `notification_delivery` y ahí moría: nadie mira esa
+// tabla, así que si Resend cae o VAPID caduca, las socias dejan de recibir sus
+// avisos y el sistema sigue diciendo que todo va bien. Mismo hueco que #1006
+// cerró para WhatsApp.
+
+test('el resumen agrupa por canal, que es lo que dice DÓNDE está el problema', () => {
+  const r = resumenFallos([
+    { canal: 'EMAIL', error: 'domain not verified' },
+    { canal: 'EMAIL', error: 'domain not verified' },
+    { canal: 'PUSH', error: 'subscription expired' },
+  ]);
+  assert.equal(r.total, 3);
+  assert.deepEqual(r.porCanal, { EMAIL: 2, PUSH: 1 });
+});
+
+test('⚠️ la muestra se corta en 5: un aviso a todo un estudio son cientos', () => {
+  // Sin el tope, el payload se vuelve ilegible justo el día que hay problema —
+  // y Sentry lo recorta igualmente, pero por donde le da la gana.
+  const muchos = Array.from({ length: 300 }, (_, i) => ({ canal: 'EMAIL', error: `fallo ${i}` }));
+  const r = resumenFallos(muchos);
+  assert.equal(r.total, 300);
+  assert.equal(r.ejemplos.length, 5);
+  assert.equal(r.ejemplos[0], 'EMAIL: fallo 0');
+});
+
+test('sin fallos el resumen queda vacío (y avisarFallos no manda nada)', () => {
+  const r = resumenFallos([]);
+  assert.equal(r.total, 0);
+  assert.deepEqual(r.porCanal, {});
+  assert.deepEqual(r.ejemplos, []);
 });
