@@ -1,14 +1,105 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { Button, Card, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
+import { Button, Card, EmptyState, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
 import { Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
-import { useActions } from "@/components/portal-tema/store/PortalStore";
+import { useActions, usePortal } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
-/** Bonos: el activo arriba y los planes debajo, uno seleccionable. */
+/**
+ * Bonos. Dos formas según el tema:
+ *
+ *   `plan`    — el bono activo arriba y los planes debajo (Oliva/Bloom/Noir).
+ *   `cartera` — «Mis bonos» con dos pestañas, Bonos e Historial (Tentada), y
+ *               el botón de comprar fijo abajo.
+ *
+ * ⚠️ La cartera lista TODOS los activos, ilimitados incluidos. `bonoDe` los
+ * descarta a propósito para la tarjeta del Inicio (no hay «quedan N» que
+ * enseñar), pero el efecto colateral era que una socia con plan mensual no
+ * veía ningún bono en ninguna pantalla.
+ */
 export function Passes({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  const { bonosTab } = usePortal();
+
+  if (vm.features.passes_style === "cartera") {
+    const enBonos = bonosTab === "bonos";
+    return (
+      <>
+        <Island />
+        <StatusBar />
+        <div className="canvas no-scrollbar">
+          <h1 className="screen-title">Mis bonos</h1>
+
+          <div className="subtabs" role="tablist">
+            <button
+              role="tab" aria-selected={enBonos}
+              className={"subtab " + (enBonos ? "is-active" : "")}
+              onClick={() => actions.setBonosTab("bonos")}
+            >Bonos</button>
+            <button
+              role="tab" aria-selected={!enBonos}
+              className={"subtab " + (!enBonos ? "is-active" : "")}
+              onClick={() => actions.setBonosTab("historial")}
+            >Historial</button>
+          </div>
+
+          <div className="scroller no-scrollbar">
+            {enBonos ? (
+              vm.wallet.length ? (
+                vm.wallet.map((b) => (
+                  <article className="bono" key={b.id}>
+                    <div className="bono__head">
+                      <p className="bono__name">{b.name}</p>
+                      {b.unlimited ? <span className="bono__badge">Activo</span> : null}
+                    </div>
+                    <p className="bono__sub">{b.subline}</p>
+                    {/* Sin barra en el ilimitado: no hay nada que agotar, y una
+                        barra al 100 % ahí no significa nada. */}
+                    {b.unlimited ? null : (
+                      <span className="bono__track">
+                        <span className="bono__fill" style={{ width: b.percent + "%" }}></span>
+                      </span>
+                    )}
+                    {b.footline ? <p className="bono__foot">{b.footline}</p> : null}
+                  </article>
+                ))
+              ) : (
+                <EmptyState
+                  title="Todavía no tienes bono"
+                  text="Compra uno y podrás reservar tus clases desde aquí."
+                  cta="Comprar bono"
+                  onAction={actions.goBuy}
+                />
+              )
+            ) : vm.purchases.length ? (
+              vm.purchases.map((c) => (
+                <article className="compra" key={c.id}>
+                  <div className="compra__body">
+                    <p className="compra__name">{c.concepto}</p>
+                    <p className="compra__when">{c.cuando}</p>
+                  </div>
+                  <p className="compra__importe">{c.importe}</p>
+                </article>
+              ))
+            ) : (
+              <EmptyState
+                title="Sin compras todavía"
+                text="Aquí verás lo que hayas pagado al estudio."
+              />
+            )}
+          </div>
+
+          {/* `loading` no es decoración: bloquea el botón mientras se pide la
+              sesión de pago, que es lo que impide que una doble pulsación abra
+              dos cobros. */}
+          <Button block size="lg" onClick={actions.goBuy}>Comprar bono</Button>
+          <div style={{ height: 8 }}></div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Island />

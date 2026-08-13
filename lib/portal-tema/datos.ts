@@ -9,7 +9,7 @@
 // horario la enseñaría en el día que no es. Mismo criterio que
 // `serie-horario.ts` y la migración 0105, que ya se comió ese bug.
 
-import type { Sesion, Reserva, TipoClase, Sala, Instructor, Socio, Suscripcion, PlanTarifa } from '../types.ts';
+import type { Sesion, Reserva, Recibo, TipoClase, Sala, Instructor, Socio, Suscripcion, PlanTarifa } from '../types.ts';
 import { TZ_ESTUDIO } from '../utils.ts';
 import { fechaLocalDe } from '../citas/slots.ts';
 // El aforo lo decide `plazasOcupadas` y solo ella. Contarlo aquí a mano sería
@@ -22,7 +22,8 @@ import { plazasOcupadas } from '../booking-logic.ts';
 // enseñar un objetivo que ya no existe.
 import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
 import type {
-  BonoPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal, ReservaPortal, SociaPortal, StudioClass,
+  BonoCartera, BonoPortal, CompraPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal,
+  ReservaPortal, SociaPortal, StudioClass,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -209,6 +210,61 @@ function etiquetasObjetivo(raw: unknown): string[] {
   return OBJETIVOS.filter((o) => ids.has(o.id)).map((o) => o.label);
 }
 
+/**
+ * TODOS sus bonos y planes activos, para «Mis bonos».
+ *
+ * ⚠️ A diferencia de `bonoDe`, aquí SÍ entran los ilimitados. `bonoDe` los
+ * descarta con razón —no tienen sesiones que contar y su tarjeta del Inicio es
+ * «quedan N clases»—, pero el efecto colateral era que una socia con plan
+ * mensual no veía NINGÚN bono en ninguna pantalla, teniéndolo activo.
+ *
+ * Ordenados: primero lo que se agota (una socia mira cuánto le queda), y los
+ * ilimitados después.
+ */
+export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz = TZ_ESTUDIO): BonoCartera[] {
+  return suscripciones
+    .filter((s) => s.estado === 'ACTIVA')
+    .map((s): BonoCartera => {
+      const plan = planes.find((p) => p.id === s.planId);
+      const ilimitado = s.sesionesRestantes === null;
+      const left = s.sesionesRestantes ?? 0;
+      const total = plan?.sesiones ?? left;
+      const fecha = fechaLarga(s.fechaFin, tz);
+      return {
+        id: s.id,
+        name: plan?.nombre ?? 'Bono',
+        unlimited: ilimitado,
+        left, total,
+        subline: ilimitado ? 'Clases ilimitadas' : `${left} ${left === 1 ? 'clase restante' : 'clases restantes'}`,
+        // Un bono CADUCA y un plan se RENUEVA: la misma fecha significa cosas
+        // distintas y decir «caduca» de una mensualidad asusta sin motivo.
+        footline: !fecha ? '' : ilimitado ? `Renovación el ${fecha}` : `Caduca el ${fecha}`,
+        // Sin sesiones no hay porcentaje: `left/0` sería NaN y una barra al
+        // 100 % en un ilimitado no significa nada.
+        percent: !ilimitado && total > 0 ? Math.round((left / total) * 100) : 0,
+      };
+    })
+    .sort((a, b) => Number(a.unlimited) - Number(b.unlimited));
+}
+
+/**
+ * Sus compras, de la más reciente a la más antigua.
+ *
+ * Solo las COBRADAS: un recibo pendiente o fallido no es una compra hecha, y
+ * listarlo en «Historial» le diría que pagó algo que el estudio no ha cobrado.
+ */
+export function comprasDe(recibos: Recibo[], tz = TZ_ESTUDIO): CompraPortal[] {
+  return recibos
+    .filter((r) => r.estado === 'COBRADO' && r.fechaCobro)
+    .sort((a, b) => (b.fechaCobro ?? '').localeCompare(a.fechaCobro ?? ''))
+    .map((r) => ({
+      id: r.id,
+      concepto: r.concepto,
+      cuando: `Comprado el ${fechaLarga(r.fechaCobro, tz)}`,
+      importe: `${r.importe.toFixed(2).replace('.', ',')} €`,
+    }));
+}
+
 /** La inicial que va en el avatar. Vacío si no hay nombre. */
 export function inicialDe(nombre: string): string {
   return nombre.trim().charAt(0).toUpperCase();
@@ -232,6 +288,8 @@ export interface FuenteDatosPortal {
    */
   reservasPropias?: Pick<Reserva, 'id' | 'sesionId' | 'estado' | 'posicionEspera'>[];
   suscripciones: Suscripcion[];
+  /** Los de la socia. `[]` = nadie identificado o sin compras. */
+  recibos?: Recibo[];
   planes: PlanTarifa[];
   /**
    * Nombre y año de apertura, para el cierre de pantalla que firma el
@@ -366,6 +424,8 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     filtros: filtrosDe(clases, f.tiposClase),
     planes: planesDe(f.planes),
     bono: bonoDe(f.suscripciones, f.planes, tz),
+    bonos: bonosDe(f.suscripciones, f.planes, tz),
+    compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
     reservadas: f.reservasPropias && reservadasDe(f.reservasPropias, clases),
   };

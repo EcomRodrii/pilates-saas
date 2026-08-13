@@ -39,6 +39,7 @@ import { Passes } from '@/components/portal-tema/screens/Passes';
 import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
 import { Centro } from '@/components/portal-tema/screens/Centro';
 import { Confirmed } from '@/components/portal-tema/screens/Confirmed';
+import { Buy } from '@/components/portal-tema/screens/Buy';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { crearCheckoutPlan } from '@/lib/api-client';
@@ -81,6 +82,7 @@ const PANTALLAS = {
   // Sin ruta propia, como el detalle: se llega reservando, y una URL de
   // «confirmada» compartida o recargada no tendría nada que confirmar.
   confirmada: Confirmed,
+  comprar: Buy,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -104,7 +106,7 @@ export function PortalTemaMarco() {
   const { session } = usePortalAuth();
   const {
     studio, sesiones, reservas, tiposClase, salas, instructores,
-    planesTarifa, suscripciones, socios, themeIdPublicado, cancelarReserva, addReserva,
+    planesTarifa, suscripciones, socios, recibos, themeIdPublicado, cancelarReserva, addReserva,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -149,7 +151,12 @@ export function PortalTemaMarco() {
     // Solo las SUYAS: el adaptador elige el bono al que le quedan menos
     // sesiones, y con las de todo el estudio elegiría el de otra persona.
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
-  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId,
+    // Los SUYOS, para el historial de «Mis bonos». Por la vía pública solo
+    // llegan los de quien mira (el servidor los acota por `socio_id`), pero se
+    // filtra igualmente: el panel carga los de todo el estudio por otra vía y
+    // este componente no puede depender de por cuál entró.
+    recibos: socioId ? recibos.filter((r) => r.socioId === socioId) : [],
+  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl,
        studio?.normasTexto]);

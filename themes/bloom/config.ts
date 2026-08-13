@@ -31,7 +31,9 @@ export const THEME: ThemeConfig = {
     "tab_set": "basico",
     // Filtros por tipo de clase. Las dos pestañas (Clases / Lista de espera)
     // son de Tentada.
-    "schedule_style": "chips"
+    "schedule_style": "chips",
+    // El bono activo y los planes debajo. La cartera con historial es de Tentada.
+    "passes_style": "plan"
   },
   "home_blocks": [
     "greeting",
