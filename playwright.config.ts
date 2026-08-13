@@ -42,6 +42,7 @@ const SPECS_WEBKIT = [
   '**/reservar-acoplar-widget.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
   '**/reservar-vista-mes.spec.ts',
+  '**/reservar-citas-movil.spec.ts',
 ];
 
 export default defineConfig({
