@@ -113,6 +113,12 @@ export interface ClassRowData {
    * `true` si el estudio asigna plaza en esa clase. Entonces el atajo de la
    * fila NO reserva: lleva al detalle, que es donde está la rejilla. Reservar
    * desde aquí dejaría a la socia sin máquina y sin haberlo decidido.
+   *
+   * ⚠️ El rótulo sigue siendo «Reservar», no «Elegir sitio». No es un engaño:
+   * es lo que hace la fila del portal de siempre, donde pulsar en la clase
+   * abre la hoja de reserva —con su rejilla— y se confirma allí. Cambiar la
+   * palabra habría enseñado dos verbos distintos para el mismo gesto según el
+   * estudio.
    */
   eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
@@ -208,7 +214,7 @@ export function ClassRowPlana({ row }: { row: ClassRowData }) {
             if (row.eligeSitio) return actions.openClass(row.id);
             actions.reserve(row.id);
           }}
-        >{row.eligeSitio ? "Elegir sitio" : "Reservar"}</span>
+        >Reservar</span>
       )}
     </button>
   );
