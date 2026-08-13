@@ -270,6 +270,8 @@ export interface FuenteDatosPortal {
    */
   spots?: Spot[];
   instructores: Instructor[];
+  /** Las secciones del Inicio que guardó la propietaria. Ver `bloquesInicio`. */
+  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean }[];
   socio: Socio | null;
   /**
    * Las reservas de ESTA socia (no las del estudio). `undefined` = nadie
@@ -585,6 +587,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     // bienvenida prefiere SU foto (`imagenBienvenidaUrl`) y solo entonces la
     // general; la portada al revés. Mismo criterio que ya usan las cuatro
     // vistas viejas del portal.
+    bloquesInicio: f.bloquesInicio,
     fotos: {
       portada: imagenDeEstudio('portada', [f.estudio?.fotoUrl, f.estudio?.imagenBienvenidaUrl]),
       vertical: imagenDeEstudio('vertical', [f.estudio?.imagenBienvenidaUrl, f.estudio?.fotoUrl]),

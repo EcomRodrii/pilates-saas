@@ -1,6 +1,6 @@
 "use client";
 
-import { BLOQUE_KIT_A_EDITOR } from "@/lib/portal-tema/equivalencias";
+import { BLOQUE_KIT_A_EDITOR, ordenDelInicio } from "@/lib/portal-tema/equivalencias";
 
 /**
  * El id con el que el EDITOR de Apariencia conoce a este bloque, o `undefined`
@@ -479,8 +479,15 @@ const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode>
 export function HomeBlocks({ vm }: { vm: ViewModel }) {
   return (
     <>
-      {vm.theme.home_blocks.map((name) => {
-        const Block = REGISTRY[name];
+      {/* ⚠️ El orden lo manda el ESTUDIO, no el tema — decisión del fundador
+          (2026-08-14). El `home_blocks` del tema es el DEFAULT: si la
+          propietaria no ha tocado nada, sale tal cual. Ver `ordenDelInicio`. */}
+      {ordenDelInicio(vm.theme.home_blocks, vm.bloquesInicio).map((name) => {
+        // `ordenDelInicio` devuelve `string`, no `HomeBlockName`: ya filtra
+        // por lo que el tema compone, pero el tipo no lo sabe. El `?? null` de
+        // abajo es la red de verdad — un nombre desconocido no pinta nada en
+        // vez de reventar la pantalla de la socia.
+        const Block = (REGISTRY as Record<string, ((p: { vm: ViewModel }) => React.ReactNode) | undefined>)[name];
         return Block ? <Block key={name} vm={vm} /> : null;
       })}
     </>

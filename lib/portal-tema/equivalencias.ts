@@ -55,3 +55,57 @@ export function elTemaIncluye(idEditor: string, homeBlocks: readonly string[]): 
   const kit = BLOQUE_EDITOR_A_KIT[idEditor];
   return kit !== undefined && homeBlocks.includes(kit);
 }
+
+/**
+ * El orden del Inicio que pinta el kit, decidido por el ESTUDIO.
+ *
+ * ⚠️ Hasta ahora lo decidía el tema y punto (`home_blocks` en su `config.ts`),
+ * así que el rail de Secciones enseñaba agarradera y ojo que no movían nada: la
+ * propietaria reordenaba y su portal se quedaba igual. Decisión del fundador
+ * (2026-08-14): manda el estudio, como en Shopify — el tema trae el orden por
+ * DEFECTO y ella lo cambia.
+ *
+ * Reglas, y las tres importan:
+ *
+ *  · **Sin bloques guardados, manda el tema.** Es el caso de los 13 estudios
+ *    hoy, así que nadie ve un cambio hasta que toca algo.
+ *  · **Un bloque oculto no se pinta**, que es la mitad más pedida de esto.
+ *  · **Lo que el estudio guarda pero el tema no sabe pintar se IGNORA**, no se
+ *    cuela como hueco: los 10 bloques del catálogo (`texto`, `galeria`…) no
+ *    tienen renderizador en el kit todavía. El rail los marca aparte — pintar
+ *    un hueco vacío sería peor que no pintar nada.
+ *  · **Lo que el tema compone y el estudio no guarda va al FINAL**, no se
+ *    pierde: si mañana un tema añade una sección, aparece en vez de
+ *    desaparecer por no estar en una lista guardada hace meses. Mismo criterio
+ *    que `aplicarLayout` con la home del panel.
+ */
+export function ordenDelInicio(
+  homeBlocks: readonly string[],
+  guardados: readonly { kind: string; sistemaId?: string; oculto?: boolean }[] | undefined,
+): string[] {
+  if (!guardados?.length) return [...homeBlocks];
+
+  const componeElTema = new Set(homeBlocks);
+  const pedidos: string[] = [];
+  const vistos = new Set<string>();
+  for (const b of guardados) {
+    if (b.kind !== 'sistema' || !b.sistemaId || b.oculto) continue;
+    const kit = BLOQUE_EDITOR_A_KIT[b.sistemaId];
+    if (!kit || !componeElTema.has(kit) || vistos.has(kit)) continue;
+    vistos.add(kit);
+    pedidos.push(kit);
+  }
+
+  // Los que el tema trae y el estudio no ha ordenado nunca, detrás y en el
+  // orden del tema. ⚠️ Salvo que los haya OCULTADO a propósito: eso sí lo dijo.
+  const ocultados = new Set(
+    guardados
+      .filter((b) => b.kind === 'sistema' && b.oculto && b.sistemaId)
+      .map((b) => BLOQUE_EDITOR_A_KIT[b.sistemaId as string])
+      .filter(Boolean),
+  );
+  for (const kit of homeBlocks) {
+    if (!vistos.has(kit) && !ocultados.has(kit)) pedidos.push(kit);
+  }
+  return pedidos;
+}
