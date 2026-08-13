@@ -284,10 +284,21 @@ a.centro__fact:hover { color: var(--brand); }
   border-radius: var(--radius-card);
 }
 .profe__body { flex: 1; min-width: 0; }
-.profe__name { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+/* ⚠️ `display: block` no es decoración. Los dos son `<span>` dentro de un
+ * `<button>`, y en línea el nombre y la bio salían PEGADOS
+ * («Marta GómezFundadora del estudio…») con el `margin-top` ignorado, que es
+ * lo que hacen los márgenes verticales sobre una caja en línea. */
+.profe__name { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink); }
 /* Sin bio no hay párrafo: `instructores.bio` es nullable de verdad y el
- * prototipo la inventaba por profesora. */
-.profe__bio { margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+ * prototipo la inventaba por profesora.
+ *
+ * En la lista va recortada a dos líneas — la bio es texto libre que escribe el
+ * estudio, y una larga de verdad convertía la fila en un bloque de seis
+ * renglones. Entera, en la hoja. */
+.profe__bio {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
+}
 
 /* ── Información del centro ─────────────────────────────────────────────── */
 .info-rows {
