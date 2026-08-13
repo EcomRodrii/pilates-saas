@@ -72,8 +72,15 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     variantes: resolveVariantes(o.variantes),
     barraClasica: o.barraClasica === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
+    // ⚠️ Se lee `themeId` —el nombre que trae un `ThemeConfig`— y no un campo
+    // aparte. La primera versión pedía `temaKit`, que el emisor tenía que
+    // rellenar a mano: dos de los tres no lo hacían, y como el receptor
+    // interpretaba su ausencia como «no es del kit», la vista previa de la
+    // biblioteca se quedó montando el portal viejo. Peor que no tener el
+    // campo: lo apagaba.
+    //
     // Entrada NO confiable, igual que el resto: solo pasa un id que exista de
     // verdad en el registro de temas.
-    temaKit: typeof o.temaKit === 'string' && esTemaPortal(o.temaKit) ? o.temaKit : null,
+    temaKit: typeof o.themeId === 'string' && esTemaPortal(o.themeId) ? o.themeId : null,
   };
 }

@@ -158,9 +158,7 @@ export function HomePreview({
           // del borrador con la forma del tema PUBLICADO: la cabecera seguía en
           // 'clasica' y los retos salían blancos aunque el borrador dijera otra
           // cosa. Lo aplica StudioProvider, que es donde vive `variantes`.
-          // `themeId` viaja como `temaKit`: es lo que decide si la vista
-          // previa monta el kit en React o el portal de siempre.
-          temaJs: resolveTemaJs({ ...temaBorrador, temaKit: temaBorrador.themeId }),
+          temaJs: resolveTemaJs(temaBorrador),
         },
         window.location.origin,
       );
