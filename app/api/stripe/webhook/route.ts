@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import Stripe from 'stripe';
 import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
@@ -128,6 +128,49 @@ export async function POST(req: NextRequest) {
   if (adminDedup && !await reclamarWebhookEvent(adminDedup, claveEvento, event.type)) {
     return NextResponse.json({ received: true, duplicate: true });
   }
+
+  // ⚠️ **Se responde 200 ANTES de procesar, y no es una optimización: es el
+  // arreglo de un fallo medido.** Este handler encadena varias llamadas a la
+  // API de Stripe antes de contestar, y a Stripe se le agotaba la espera:
+  // de seis cobros reales de `studio-1` (9-11 ago), solo DOS llegaron por
+  // webhook —en menos de dos segundos— y los otros CUATRO acabó entregándolos
+  // el conciliador, siempre en un múltiplo exacto de cinco minutos. Cruzando la
+  // hora del evento en Stripe con `recibos.entrega_aplicada_en` se ve sin
+  // ambigüedad, y los intentos de entrega del panel lo confirmaron: timeout.
+  //
+  // Lo que se responde rápido es SOLO lo barato: firma verificada (si no, 400)
+  // y reclamación de idempotencia (que sigue siendo síncrona a propósito — así
+  // una reentrega de Stripe se descarta aunque el trabajo anterior siga en
+  // vuelo).
+  //
+  // ⚠️ **Precio explícito de este cambio:** con el 200 ya enviado, un fallo
+  // posterior YA NO provoca reintento de Stripe. La red de seguridad pasa a ser
+  // solo `lib/inngest/conciliar-cobros.ts` — que es justo quien venía haciendo
+  // el trabajo en 4 de cada 6 casos, así que no se pierde cobertura real. Si
+  // algún día hiciera falta durabilidad de verdad aquí, la vía es encolar a
+  // Inngest, descartada ahora por cuota (~84 % del plan gratuito).
+  after(async () => {
+    try {
+      await procesarEvento(stripe, event, adminDedup, claveEvento);
+    } catch (e) {
+      // `after` corre fuera del ciclo de la petición: una excepción aquí no
+      // llega a ningún sitio si no se recoge a mano.
+      Sentry.captureException(e instanceof Error ? e : new Error('webhook stripe'), {
+        tags: { area: 'cobros', tipo: 'webhook-post-respuesta' },
+        extra: { eventId: event.id, eventType: event.type },
+      });
+    }
+  });
+  return NextResponse.json({ received: true });
+}
+
+/** Todo el trabajo pesado. Su valor de retorno se descarta: la respuesta ya se envió. */
+async function procesarEvento(
+  stripe: Stripe,
+  event: Stripe.Event,
+  adminDedup: ReturnType<typeof getSupabaseAdmin>,
+  claveEvento: string,
+): Promise<NextResponse> {
 
   // Esta es la fuente de verdad real del pago — el redirect al navegador
   // (success_url) solo actualiza la UI de forma optimista, pero si el
@@ -717,9 +760,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // M10: marcar el evento como procesado (solo se llega aquí si todos los
-  // handlers fueron OK; los caminos de error devuelven 5xx antes y NO marcan
-  // — la reclamación expira sola y un reintento de Stripe la retoma).
+  // M10: marcar el evento como procesado. Solo se llega aquí si todos los
+  // handlers fueron OK; los caminos de error salen antes y NO marcan, así que
+  // la reclamación expira sola y el evento puede volver a intentarse.
+  //
+  // ⚠️ Este comentario decía «y un reintento de Stripe la retoma». **Ya no**:
+  // desde que el 200 se envía antes de procesar, Stripe da la entrega por
+  // buena y no reintenta. Quien retoma el trabajo es el conciliador
+  // (`lib/inngest/conciliar-cobros.ts`), no Stripe.
   if (adminDedup) await marcarWebhookProcesado(adminDedup, claveEvento);
   return NextResponse.json({ received: true });
 }
