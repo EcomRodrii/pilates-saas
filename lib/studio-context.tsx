@@ -68,7 +68,22 @@ import { mensajeDeFalloAlGuardar, type ResultadoEscritura } from '@/lib/errores'
  * Un resultado que puede ser `{ ok: false }` obliga a quien llama a mirar.
  */
 export type ResultadoReserva =
-  | { ok: true; estado: EstadoReserva }
+  | {
+      ok: true;
+      estado: EstadoReserva;
+      /**
+       * El sitio que el servidor pudo darle, o `null`.
+       *
+       * ⚠️ `null` habiendo elegido uno NO es un detalle: significa que la
+       * reserva salió bien y la plaza NO. `asignarSpotReserva` devuelve `null`
+       * en tres casos legítimos —el sitio se ocupó en la carrera, está
+       * desactivado, o no es de esa sala— y hasta ahora ese dato llegaba al
+       * navegador y se tiraba: la socia leía «Reservada. Te esperamos», se
+       * presentaba esperando el reformer 3 y era de otra. Es el bug #500 otra
+       * vez, en pequeño.
+       */
+      spotAsignado?: string | null;
+    }
   | { ok: false; error: string };
 import { horarioConNuevaHora } from '@/lib/serie-horario';
 import { politicaPrivacidadPorDefecto, terminosServicioPorDefecto, type DatosEstudioLegal } from '@/lib/legal-textos';
@@ -2608,8 +2623,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // El estado lo decide la BD bloqueando la fila de la sesión, no la
       // estimación de arriba: con dos socias peleando por la última plaza, la
       // estimación puede decir CONFIRMADA y la BD LISTA_ESPERA.
-      const dato = (r.datos as { estado?: EstadoReserva } | null)?.estado;
-      return { ok: true, estado: dato ?? estado };
+      const datos = r.datos as { estado?: EstadoReserva; spotAsignado?: string | null } | null;
+      return { ok: true, estado: datos?.estado ?? estado, spotAsignado: datos?.spotAsignado ?? null };
     }
 
     const reservaId = `res-${uid()}`;
