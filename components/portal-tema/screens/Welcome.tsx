@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar , RESPALDO_VERTICAL } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -15,7 +15,7 @@ export function Welcome({ vm }: { vm: ViewModel }) {
 
   return (
     <div className="welcome">
-      <div className="welcome__media"><FotoTema nombre="portada.svg" /></div>
+      <div className="welcome__media"><FotoTema src={vm.fotos.vertical} respaldo={RESPALDO_VERTICAL} /></div>
       <div className="welcome__veil"></div>
 
       {f.welcome_curves ? (

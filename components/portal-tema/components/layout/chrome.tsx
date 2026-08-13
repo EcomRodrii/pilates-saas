@@ -3,22 +3,38 @@
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Status } from "@/components/portal-tema/components/ui/primitives";
 import { useActions, useCromoDemo } from "@/components/portal-tema/store/PortalStore";
-
-/** Ruta de las imágenes del tema. En Next viven en /public/media. */
-export const MEDIA = "/media/";
+import { alFallarImagen, IMAGENES_CLASE, IMAGENES_POR_DEFECTO } from "@/lib/imagenes-por-defecto";
 
 /**
- * Las fotos del tema, en un solo sitio.
+ * Una foto del portal.
  *
- * Hoy son los SVG marcador que entregó diseño y van con `<img>`: `next/image`
- * exige medidas y monta el optimizador para un placeholder decorativo. Cuando
- * entren las fotos reales del estudio hay que reconsiderarlo aquí — y solo
- * aquí, que es la razón de que esto sea un componente y no cinco `<img>`
- * sueltos con cinco disables iguales.
+ * Va con `<img>` crudo y no `next/image` por la misma decisión ya documentada
+ * en `public/por-defecto/README.md`: son fondos con `position:absolute` +
+ * `object-fit:cover`, donde el optimizador no aporta y sí obliga a medidas
+ * fijas. Sigue siendo UN componente para que ese razonamiento —y su disable—
+ * vivan en un solo sitio.
+ *
+ * ⚠️ `src` viene YA resuelto por la capa de datos (`DatosPortal.fotos`,
+ * `StudioClass.fotoUrl`). Aquí no se elige ninguna imagen: hasta 2026-08-13
+ * este componente montaba rutas a mano contra `/media/*.svg`, un segundo juego
+ * de marcadores en paralelo al de `lib/imagenes-por-defecto.ts`, y con él una
+ * bienvenida con foto CLARA bajo un velo que cuenta con una oscura.
+ *
+ * `respaldo` cubre la foto subida que desaparece de Storage: sin él queda el
+ * icono de imagen rota en el portal de la socia.
  */
-export function FotoTema({ nombre, alt = "" }: { nombre: string; alt?: string }) {
+/**
+ * A qué se cae una foto que no carga. Son las MISMAS de por defecto: si la que
+ * subió la propietaria desaparece de Storage, la socia ve lo que vería si
+ * nunca hubiera subido ninguna, no un icono roto.
+ */
+export const RESPALDO_ESTUDIO = IMAGENES_POR_DEFECTO.portada[0];
+export const RESPALDO_VERTICAL = IMAGENES_POR_DEFECTO.vertical[0];
+export const RESPALDO_CLASE = IMAGENES_CLASE.generica;
+
+export function FotoTema({ src, alt = "", respaldo }: { src: string; alt?: string; respaldo?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- ver comentario de arriba
-  return <img src={MEDIA + nombre} alt={alt} />;
+  return <img src={src} alt={alt} onError={respaldo ? alFallarImagen(respaldo) : undefined} />;
 }
 
 export function StatusBar({ over }: { over?: boolean }) {

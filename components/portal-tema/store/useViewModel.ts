@@ -1,5 +1,6 @@
 "use client";
 
+import { IMAGENES_CLASE } from "@/lib/imagenes-por-defecto";
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
@@ -112,8 +113,9 @@ export function useViewModel() {
       // fuera la clase: venía así del kit de diseño, donde la próxima clase
       // siempre era mañana. Con datos reales puede ser hoy o el sábado, así
       // que el día sale de `etiquetaDia` y "Hoy" de la fecha del estudio.
+      fotos: datos.fotos,
       next: next && {
-        id: next.id, name: next.name, teacher: next.teacher,
+        id: next.id, name: next.name, teacher: next.teacher, foto: next.fotoUrl,
         time: next.time, room: next.room, duration: next.duration,
         isToday: next.day === datos.hoy.num,
         day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
@@ -309,7 +311,7 @@ export function useViewModel() {
       // había una, así que la pantalla de detalle podía darla por hecha; con un
       // estudio real la semana puede venir vacía o la clase estar cancelada.
       detail: !cls ? null : {
-        id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial,
+        id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial, foto: cls.fotoUrl,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
         booked: booked && !enCola(state.classId),
@@ -340,6 +342,9 @@ export function useViewModel() {
 
       session: {
         name: exercise.name,
+        // Los ejercicios son del kit, no del estudio: no hay foto suya que
+        // enseñar. La genérica de clase es lo más cercano a la verdad.
+        foto: IMAGENES_CLASE.generica,
         step: "Ejercicio " + (state.exercise + 1) + " de " + EXERCISES.length,
         status: state.seconds === 0 ? "Completada" : state.running ? "En marcha" : "En pausa",
         clock: "00:" + String(state.seconds).padStart(2, "0"),

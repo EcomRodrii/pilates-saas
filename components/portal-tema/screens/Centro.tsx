@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar , RESPALDO_ESTUDIO } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -37,7 +37,7 @@ export function Centro({ vm }: { vm: ViewModel }) {
         </header>
 
         <div className="centro__photo">
-          <FotoTema nombre="portada.svg" />
+          <FotoTema src={vm.fotos.portada} respaldo={RESPALDO_ESTUDIO} />
         </div>
 
         <section>

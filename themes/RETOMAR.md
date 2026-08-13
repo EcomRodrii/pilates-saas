@@ -171,10 +171,22 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
 8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-9. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
-   neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
-   velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
-   ilegible aunque el CSS esté bien.
+9. ~~**Sustituir las imágenes marcador** de `public/media/*.svg`.~~ **HECHO**,
+   y no sustituyéndolas: **borrándolas**. El kit tenía un segundo juego de
+   marcadores en paralelo al que este repo ya usa —
+   `lib/imagenes-por-defecto.ts` + `public/por-defecto/`, con su README y su
+   criterio de encuadre por hueco— y mantener dos era el problema, no la falta
+   de fotos. `FotoTema` ya no monta rutas: recibe un `src` que resuelve la capa
+   de datos (`DatosPortal.fotos`, `StudioClass.fotoUrl`), así que **la socia ve
+   la foto de SU estudio** si la propietaria la subió, y la de por defecto si
+   no. Con `onError` a la de por defecto, que cubre la foto borrada de Storage.
+   ⚠️ De los 7 SVG, **4 no los usaba nadie** (`estudio`, `instructora-1/2/3`).
+   Y las caras siguen SIN foto por defecto a propósito — decisión ya
+   documentada en los dos README: una modelo de catálogo haciéndose pasar por
+   la instructora es peor que las iniciales.
+   El aviso de la foto oscura era real y está comprobado, no supuesto:
+   `estudio-vertical.webp` mide 62/255 de luminancia media en la banda del
+   titular (p90 = 65), y la bienvenida se miró en los CUATRO temas.
 
 ## Reglas del encargo que no se pueden saltar
 
