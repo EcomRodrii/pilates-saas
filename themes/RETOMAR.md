@@ -124,10 +124,14 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
      detalle y en «Nivel …»). Los datos de muestra ya traían texto humano, así
      que no se veía. Hay mapa a palabras — y es el quinto del repo con distinta
      redacción; unificarlos es un cambio aparte.
-   Lo que **falta** de esta pieza: la pantalla de **Calendario**, que sigue con
-   el mes de muestra fijado a "Septiembre 2026" — marcar días reales sobre una
-   rejilla inventada quedaría medio bien, que es peor que quedar claramente
-   falso.
+   ~~Lo que falta: la pantalla de **Calendario**.~~ **HECHA** (#1017):
+   `rejillaMesPortal` en `lib/portal-tema/datos.ts`, con el mes real en la zona
+   del estudio y las marcas casadas por **fecha completa** — nunca por
+   `StudioClass.day`, que es el día del MES y confunde el 13 de agosto con el 13
+   de septiembre. `ahoraISO` viaja con los datos para que la previsualización
+   siga siendo determinista. De paso se quitaron las dos flechas de mes, que no
+   tenían `onClick`: navegar de mes exige que `state.day` pase de número de día
+   a fecha completa, y eso toca el filtrado del horario — pasada aparte.
 5. **DECIDIDO: manda `PortalShell`, no `PortalApp`.** Las pantallas del kit se
    montan una por ruta de Next; se tiran el enrutador y la navegación por
    estado del kit. Motivo, medido: el portal actual tiene **19 rutas** y el kit
@@ -145,12 +149,25 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
-7. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
-   en `store/PortalStore.tsx` son `setTimeout`. Sustituir el cuerpo por la RPC
-   real **manteniendo el estado de carga**: no es decorativo — el botón pasa por
-   «Reservando…» con rueda antes de «Reservada», y de ahí dependen el bono, el
-   anillo y el marcado en el horario. Si la RPC responde en 80 ms, mantener un
-   **mínimo visible de ~400 ms**.
+7. ~~**Conectar las acciones de red.**~~ **HECHO lo que había que hacer, y las
+   dos que quedan NO deben conectarse.** Revisado el 2026-08-13:
+   - `reserve` → `alReservar` → `addReserva`, esperando la respuesta entera del
+     servidor (ese endpoint rechaza legítimamente en seis sitios; anunciarlo
+     antes es el #500).
+   - `cancel` → `alCancelar` → `cancelarReserva` (RPC transaccional).
+   - `checkout` → `alPagar` → Checkout **alojado** de Stripe.
+   Las tres las cablea `components/portal/portal-tema-marco.tsx`, y sin callback
+   —la previsualización de temas— se quedan con la maqueta del kit.
+   ⚠️ **`pay` y `authSubmit` siguen siendo `setTimeout` A PROPÓSITO.** Las
+   llaman `Checkout.tsx` y `Auth.tsx`, que son las pantallas de mentira del kit
+   y **no están en `RUTA_A_PANTALLA`**: el portal real solo enruta `inicio`,
+   `clases`, `reservas`, `bonos` y `centro`. `pay` no tiene a qué conectarse
+   —la vía de verdad ya es `checkout`— y la puerta real del portal es la de dos
+   pasos con enlace mágico, no la del kit.
+   ⚠️ **Esto es una condición del punto 5, no una tarea suya**: al montar más
+   pantallas, `Checkout` y `Auth` NO entran en el mapa de rutas. El día que
+   entren, una socia teclea número y CVC en nuestro propio DOM y lee «Pago
+   confirmado · bono activado» sin que se haya cobrado nada.
 8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
