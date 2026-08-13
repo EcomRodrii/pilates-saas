@@ -25,17 +25,19 @@
 html[data-theme="tentada"] {
   /* ── Marca ─────────────────────────────────────────────────────────── */
   --brand: #333B24;
-  --brand-hover: #4A5330;
+  /* Aclarado de la marca. Aproximación: sigue a `--brand` en vez de ser un
+   * hex suelto que se quedaría verde si el estudio cambia de color. */
+  --brand-hover: color-mix(in srgb, var(--brand) 88%, #FFFFFF);
   --on-brand: #F6F3EB;
   --support: #ECDFD2;
-  --support-soft: color-mix(in srgb, #ECDFD2 55%, #FFFFFF);
+  --support-soft: color-mix(in srgb, var(--support) 55%, var(--surface));
   /* Tentada no tiene tercer color, igual que Oliva: su carácter es el verde
    * profundo sobre crema y la serif. El "acento" es la marca otra vez — el
    * único color ajeno del prototipo es el arena del bloque "Pilates en casa",
    * que es superficie (`--support`), no acento. */
-  --accent: #333B24;
-  --accent-soft: color-mix(in srgb, #333B24 8%, #FFFFFF);
-  --accent-ink: #333B24;
+  --accent: var(--brand);
+  --accent-soft: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  --accent-ink: var(--brand);
 
   /* ── Superficies y texto ───────────────────────────────────────────── */
   --bg: #F6F3EB;
@@ -43,18 +45,18 @@ html[data-theme="tentada"] {
   --border: #E8E4D7;
   --ink: #22261B;
   --muted: #8A8C7E;
-  --card-hover-border: #CFCBBB;
-  --focus-ring: color-mix(in srgb, #333B24 22%, transparent);
+  --card-hover-border: color-mix(in srgb, var(--border) 72%, var(--muted));
+  --focus-ring: color-mix(in srgb, var(--brand) 22%, transparent);
 
   /* ── Semánticos ────────────────────────────────────────────────────── */
   --success: #3F6B4A;
   --warning: #8A6B22;
   --danger: #B4452F;
-  --dot: #333B24;
-  --fav: #333B24;
-  --done-bg: #ECDFD2;
-  --done-ink: #333B24;
-  --track: #EDEADD;
+  --dot: var(--brand);
+  --fav: var(--brand);
+  --done-bg: var(--support);
+  --done-ink: var(--brand);
+  --track: color-mix(in srgb, var(--border) 55%, var(--bg));
 
   /* ── Tipografía ────────────────────────────────────────────────────── */
   /* Cormorant Garamond en los titulares, Plus Jakarta Sans en todo lo demás.
@@ -129,37 +131,40 @@ html[data-theme="tentada"] {
 
   /* ── Componentes ───────────────────────────────────────────────────── */
   --chip-height: 34px;
-  --chip-bg: #FFFFFF;
-  --tab-bar-bg: #FFFFFF;
-  --tab-bar-border: 1px solid #EBE7DA;
-  --tab-active: #333B24;
-  --tab-idle: #9A9C8E;
+  --chip-bg: var(--surface);
+  --tab-bar-bg: var(--surface);
+  --tab-bar-border: 1px solid var(--border);
+  --tab-active: var(--brand);
+  --tab-idle: color-mix(in srgb, var(--muted) 80%, var(--bg));
   --bell-bg: transparent;
   --bell-border: none;
-  --photo-bg: #2A2E20;
-  --control-bg: #FFFFFF;
-  --control-border: 1px solid #E4E0D2;
+  /* El fondo que se ve mientras carga una foto, y el de la cabecera y la
+   * bienvenida. Oscurecido de la marca: con un hex suelto, un estudio de
+   * marca rosa tendría media app verde esperando a que cargue la imagen. */
+  --photo-bg: color-mix(in srgb, var(--brand) 85%, #000000);
+  --control-bg: var(--surface);
+  --control-border: 1px solid var(--border);
 
   /* ── Próxima clase ─────────────────────────────────────────────────── */
   /* En Tentada la próxima clase NO es una tarjeta con foto: es el billete
    * blanco con la perforación (`next_class_style: "ticket"`). Estos tokens
    * siguen declarados porque el mismo componente pinta las dos formas y la
    * variante `hero` tiene que seguir siendo legible si alguien la elige. */
-  --hero-bg: #FFFFFF;
+  --hero-bg: var(--surface);
   --hero-veil: linear-gradient(180deg,rgba(24,27,15,.58) 0%,rgba(24,27,15,.10) 46%,rgba(24,27,15,.66) 100%);
   --hero-ink: #FFFFFF;
   --hero-ink-soft: rgba(255,255,255,.78);
   --hero-ink-strong: rgba(255,255,255,.92);
-  --hero-cta-bg: #F6F3EB;
-  --hero-cta-ink: #333B24;
+  --hero-cta-bg: var(--bg);
+  --hero-cta-ink: var(--brand);
   --hero-arrow: inherit;
   --hero-arrow-opacity: 0.7;
 
   /* ── El billete de la próxima clase ────────────────────────────────── */
-  --ticket-bg: #FFFFFF;
-  --ticket-border: #EBE7DA;
+  --ticket-bg: var(--surface);
+  --ticket-border: var(--border);
   --ticket-shadow: 0 20px 44px -24px rgba(24,27,15,.42);
-  --ticket-perf: #DFDACA;
+  --ticket-perf: color-mix(in srgb, var(--border) 85%, var(--muted));
   /* Los dos semicírculos de la perforación son del color del LIENZO, no del
    * billete: es lo que da la ilusión del troquel. Si el bloque se moviera a un
    * fondo distinto, esto es lo único que hay que cambiar. */
@@ -167,13 +172,13 @@ html[data-theme="tentada"] {
 
   /* ── Cabecera con foto del Inicio ──────────────────────────────────── */
   --home-header-height: 318px;
-  --home-header-bg: #2A2E20;
+  --home-header-bg: var(--photo-bg);
   --home-header-veil: linear-gradient(180deg,rgba(24,27,15,.58) 0%,rgba(24,27,15,.18) 30%,rgba(24,27,15,.06) 52%,rgba(24,27,15,.38) 78%,rgba(24,27,15,.66) 100%);
   --home-header-ink: #FFFFFF;
   --home-header-ink-soft: rgba(255,255,255,.85);
 
   /* ── Bienvenida ────────────────────────────────────────────────────── */
-  --welcome-bg: #2A2E20;
+  --welcome-bg: var(--photo-bg);
   --welcome-veil: linear-gradient(180deg,rgba(24,27,17,.42) 0%,rgba(24,27,17,0) 32%,rgba(24,27,17,0) 46%,rgba(24,27,17,.82) 88%);
   --welcome-ink: #FFFFFF;
   --welcome-ink-soft: rgba(255,255,255,.82);
@@ -183,8 +188,8 @@ html[data-theme="tentada"] {
   --welcome-leading: 1.28;
   --size-welcome: 25px;
   --size-welcome-text: 13.5px;
-  --welcome-cta-bg: #F6F3EB;
-  --welcome-cta-ink: #22261B;
+  --welcome-cta-bg: var(--bg);
+  --welcome-cta-ink: var(--ink);
   --welcome-cta-height: 54px;
   --welcome-cta-justify: center;
   --welcome-cta-pad: 0 24px;

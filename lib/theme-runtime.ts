@@ -18,6 +18,8 @@
 
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
+// El vocabulario del kit de temas vive con los temas, no aquí.
+import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, type TemaPortalId } from '../themes/registro.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -287,6 +289,40 @@ function themeToVarMap(raw: unknown): Record<string, string> {
     // este token sigue centrando, que es lo que hacía.
     '--portal-foto-pos': POSICION_FOTO[t.fotoEncuadre] ?? POSICION_FOTO.centro,
   };
+}
+
+/**
+ * Los ajustes guardados, con los nombres de token del kit de temas en React.
+ *
+ * Devuelve `null` cuando el tema publicado NO es uno del kit (`classic`, o
+ * ninguno): ahí no hay tokens que pisar y emitir un bloque vacío sería ruido
+ * en el HTML de todas las socias.
+ *
+ * La traducción vive en `themes/registro.ts`, junto a los temas, y no aquí: es
+ * el vocabulario del kit, no el del portal de siempre. Ver el comentario de
+ * `ThemeStyle` para el porqué del selector.
+ */
+export function varsKitDelTema(raw: unknown): string | null {
+  const t = resolveTheme(raw);
+  const tema = TEMAS_PORTAL[t.themeId as TemaPortalId];
+  if (!tema) return null;
+  const vars = {
+    ...varsColorSobreTema({
+      primary: t.primary,
+      onPrimary: foregroundParaFondo(t.primary),
+      secondary: t.secondary,
+      accent: t.accent,
+      background: t.background,
+      text: t.text,
+      fontStack: FUENTES.find((f) => f.id === t.fontId)?.stack,
+      headingStack: varsTitularPortal(t)['--portal-heading-font'],
+      headingWeight: varsTitularPortal(t)['--portal-heading-weight'],
+    }),
+    ...varsRadioSobreTema(t.radioTema),
+    ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
+  };
+  const cuerpo = Object.entries(vars).map(([k, v]) => `${k}: ${v};`).join(' ');
+  return cuerpo ? `:root:root { ${cuerpo} }` : null;
 }
 
 /** CSS variables como objeto para inline `style` (cliente / preview en vivo). */

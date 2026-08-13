@@ -54,8 +54,46 @@ export function esTemaPortal(id: string | null | undefined): id is TemaPortalId 
 // que cambia. Lo que sí se retira son las `variantes`, porque su papel lo hacen
 // ahora los `features` de cada tema.
 //
-// Se emiten como custom properties EN LÍNEA sobre el contenedor del portal, así
-// que pisan al bloque `[data-theme]` por especificidad sin tocar su fichero.
+// ⚠️ Esto existía —`varsRadioSobreTema` y `varsEscalaSobreTema`— y NO lo
+// llamaba nadie: cero callers, comprobado. O sea que la propietaria cambiaba
+// los radios y el cuerpo de letra en Apariencia y el portal nuevo seguía igual.
+// Y faltaba lo más visible de todo, el COLOR. Ahora lo emite `ThemeStyle`
+// (`components/theme-style.tsx`) junto al tema del portal viejo, y entra
+// `varsColorSobreTema`.
+//
+// De paso: `varsRadioSobreTema` escribía `--radius-quick`, que no existe en
+// ningún tema. El token es `--radius-quick-link`.
+
+/**
+ * Los colores y la letra que la propietaria elige → los tokens del kit.
+ *
+ * Solo lo que el editor ofrece de verdad. Las superficies y los neutros
+ * (`--surface`, `--border`, `--muted`) se quedan los del tema: no hay control
+ * para ellos, e inventarlos aquí sería decidir por el tema.
+ *
+ * Con los ficheros de tema ya derivados de su propia paleta base (ver
+ * `themes/tentada/tokens.css`), pisar `--brand` arrastra los once sitios que
+ * antes repetían el verde a mano — la pestaña activa, el punto del horario,
+ * el corazón, la marca del billete. Sin esa derivación, esto recolorearía
+ * media pantalla y dejaría la otra media, que es peor que no tocar nada.
+ */
+export function varsColorSobreTema(c: {
+  primary?: string; onPrimary?: string; secondary?: string;
+  accent?: string; background?: string; text?: string;
+  fontStack?: string; headingStack?: string; headingWeight?: string;
+}): Record<string, string> {
+  const v: Record<string, string> = {};
+  if (c.primary) v['--brand'] = c.primary;
+  if (c.onPrimary) v['--on-brand'] = c.onPrimary;
+  if (c.secondary) v['--support'] = c.secondary;
+  if (c.accent) v['--accent'] = c.accent;
+  if (c.background) v['--bg'] = c.background;
+  if (c.text) v['--ink'] = c.text;
+  if (c.fontStack) v['--font-body'] = c.fontStack;
+  if (c.headingStack) v['--font-display'] = c.headingStack;
+  if (c.headingWeight) v['--weight-display'] = c.headingWeight;
+  return v;
+}
 
 /** `radioTema` (px) → los tokens de radio del tema. */
 export function varsRadioSobreTema(radio: {
@@ -66,7 +104,7 @@ export function varsRadioSobreTema(radio: {
   if (radio.card !== undefined) v['--radius-card'] = `${radio.card}px`;
   if (radio.boton !== undefined) v['--radius-button'] = `${radio.boton}px`;
   if (radio.chip !== undefined) v['--radius-chip'] = `${radio.chip}px`;
-  if (radio.acceso !== undefined) v['--radius-quick'] = `${radio.acceso}px`;
+  if (radio.acceso !== undefined) v['--radius-quick-link'] = `${radio.acceso}px`;
   return v;
 }
 
