@@ -36,6 +36,12 @@ export interface PerfilNetwork {
   creadoEn: string;
   actualizadoEn: string;
   ultimoAccesoEn: string | null;
+  // Paso 10 del wizard ("Tu perfil") — públicos, en la propia red_perfiles
+  // (a diferencia de PerfilIdentidadNetwork, que es privada por diseño).
+  idiomas: string[];
+  instagram: string | null;
+  linkedin: string | null;
+  web: string | null;
 }
 
 // Campos que la propia dueña puede editar desde /network/mi-perfil. `estado`
@@ -47,6 +53,7 @@ export type CambiosPerfilNetwork = Partial<
     | 'especialidades' | 'aniosExperiencia' | 'tarifaRango'
     | 'disponibilidadEstado' | 'disponibilidadHorarios' | 'tipoTrabajo'
     | 'emailContacto' | 'telefonoContacto'
+    | 'idiomas' | 'instagram' | 'linkedin' | 'web'
   >
 >;
 
@@ -153,3 +160,67 @@ export interface MensajeNetwork {
   creadoEn: string;
   leidoEn: string | null;
 }
+
+// Fase 2 (onboarding con verificación) — datos PRIVADOS de la persona
+// (DNI/pasaporte, dirección, fecha de nacimiento). Tabla aparte de
+// red_perfiles a propósito (ver la migración red_perfiles_identidad): esa
+// tabla da el row completo a cualquier authenticated cuando el perfil está
+// publicado, y esto nunca puede llegar ahí. Nunca pasa por
+// lib/network/publico.ts.
+export interface PerfilIdentidadNetwork {
+  perfilId: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  fechaNacimiento: string | null;
+  paisResidencia: string | null;
+  tipoDocumento: 'DNI' | 'NIE' | 'Pasaporte' | null;
+  numeroDocumento: string | null;
+  direccionCp: string | null;
+  direccionCiudad: string | null;
+  direccionProvincia: string | null;
+  direccionPais: string | null;
+  telefonoVerificadoEn: string | null;
+  emailVerificadoEn: string | null;
+}
+
+export type CambiosPerfilIdentidadNetwork = Partial<
+  Omit<PerfilIdentidadNetwork, 'perfilId' | 'telefonoVerificadoEn' | 'emailVerificadoEn'>
+>;
+
+export type EstadoVerificacionDocumento = 'pendiente' | 'en_revision' | 'verificado' | 'rechazado';
+
+// Verificación de identidad por documento (paso 02 del wizard) — una fila
+// "viva" (pendiente/en_revision) por perfil; tras un rechazo se inserta una
+// nueva, el historial no se sobrescribe (ver índice único parcial en la
+// migración). `documentoPath` es una ruta del bucket privado
+// red-documentos-identidad, nunca una URL — el documento solo lo puede leer
+// el equipo de Tentare, con una URL firmada generada server-side (Fase 3).
+export interface VerificacionIdentidadNetwork {
+  id: string;
+  perfilId: string;
+  estado: EstadoVerificacionDocumento;
+  motivoRechazo: string | null;
+  documentoPath: string;
+  creadoEn: string;
+  resueltoEn: string | null;
+}
+
+// Certificación/formación (paso 06 del wizard) — N filas por perfil, mismo
+// ciclo de estados que la verificación de identidad. "Formación verificada"
+// solo aparece en el perfil público cuando estado === 'verificado', nunca
+// solo por haberla subido (README: "una certificación no se marca verificada
+// solo por subirla").
+export interface CertificacionNetwork {
+  id: string;
+  perfilId: string;
+  nombre: string;
+  institucion: string;
+  anio: number | null;
+  duracion: string | null;
+  documentoPath: string;
+  estado: EstadoVerificacionDocumento;
+  motivoRechazo: string | null;
+  creadoEn: string;
+}
+
+export type NuevaCertificacionNetwork = Pick<CertificacionNetwork, 'nombre' | 'institucion' | 'anio' | 'duracion' | 'documentoPath'>;

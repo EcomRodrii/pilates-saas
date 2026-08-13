@@ -24,7 +24,8 @@ const SELECT_COLUMNAS = `
   id, auth_user_id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
-  estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en
+  estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en,
+  idiomas, instagram, linkedin, web
 `;
 
 // Barra mínima para aparecer en el buscador (Fase 4): con esto un estudio

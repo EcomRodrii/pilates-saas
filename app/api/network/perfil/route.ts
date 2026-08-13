@@ -19,7 +19,8 @@ const SELECT_COLUMNAS = `
   id, auth_user_id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
-  estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en
+  estado, destacado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en,
+  idiomas, instagram, linkedin, web
 `;
 
 export async function GET(req: NextRequest) {
@@ -92,6 +93,14 @@ function saneaCambios(body: Record<string, unknown>): { row: Record<string, unkn
   if ('emailContacto' in body) row.email_contacto = body.emailContacto == null || body.emailContacto === '' ? null : String(body.emailContacto).trim();
   if ('telefonoContacto' in body) row.telefono_contacto = body.telefonoContacto == null || body.telefonoContacto === '' ? null : String(body.telefonoContacto).trim();
   if ('fotoUrl' in body) row.foto_url = body.fotoUrl == null ? null : String(body.fotoUrl);
+  if ('idiomas' in body) {
+    const lista = Array.isArray(body.idiomas) ? body.idiomas : [];
+    if (!lista.every(v => typeof v === 'string')) return { row, error: 'Hay un idioma no válido.' };
+    row.idiomas = lista.map(v => String(v).trim()).filter(Boolean);
+  }
+  if ('instagram' in body) row.instagram = body.instagram == null || body.instagram === '' ? null : String(body.instagram).trim();
+  if ('linkedin' in body) row.linkedin = body.linkedin == null || body.linkedin === '' ? null : String(body.linkedin).trim();
+  if ('web' in body) row.web = body.web == null || body.web === '' ? null : String(body.web).trim();
 
   return { row };
 }

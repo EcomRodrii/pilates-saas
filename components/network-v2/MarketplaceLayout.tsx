@@ -62,8 +62,7 @@ export async function MarketplaceLayout({
                 <Link href="/network/instructoras" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white" style={{ background: NW_PRODUCTO }}>
                   Amplía tu búsqueda
                 </Link>
-                {/* TODO(PR2): /network/crear-perfil */}
-                <Link href="/network/unirse" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold" style={{ border: `1px solid ${NW_TINTA}`, color: NW_TINTA }}>
+                <Link href="/network/crear-perfil" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold" style={{ border: `1px solid ${NW_TINTA}`, color: NW_TINTA }}>
                   Crear perfil de instructora
                 </Link>
               </div>

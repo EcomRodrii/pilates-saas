@@ -105,10 +105,8 @@ export default async function NetworkLandingPage() {
           <p className="mt-3 text-[14px]" style={{ color: 'rgba(255,255,255,.72)' }}>
             Publica tu perfil, tu disponibilidad y tu experiencia. Gratis, sin comisión.
           </p>
-          {/* TODO(PR2): /network/crear-perfil (wizard de 12 pasos). De momento
-              apunta al alta que SÍ funciona, /network/unirse. */}
           <Link
-            href="/network/unirse"
+            href="/network/crear-perfil"
             className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold"
             style={{ background: '#F1ECE1', color: NW_VERDE_OSCURO }}
           >

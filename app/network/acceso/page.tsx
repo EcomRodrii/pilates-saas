@@ -73,9 +73,8 @@ export default function AccesoNetworkPage() {
             <div className="bg-white rounded-2xl p-6" style={{ border: `1px solid ${NW_BORDE}` }}>
               <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: NW_MUTED }}>Soy instructora</p>
               <p className="mt-1.5 text-[15px] font-bold" style={{ color: NW_TINTA }}>Quiero que los estudios me encuentren</p>
-              {/* TODO(PR2): /network/crear-perfil */}
               <Link
-                href="/network/unirse"
+                href="/network/crear-perfil"
                 className="inline-block mt-4 px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white"
                 style={{ background: NW_PRODUCTO }}
               >

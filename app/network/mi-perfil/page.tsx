@@ -113,7 +113,7 @@ export default function MiPerfilNetworkPage() {
   const nombreDefecto = (user?.user_metadata?.nombre as string | undefined) ?? '';
 
   useEffect(() => {
-    if (!cargandoSesion && !user) router.replace('/network/unirse');
+    if (!cargandoSesion && !user) router.replace('/network/acceso');
   }, [cargandoSesion, user, router]);
 
   const [cargando, setCargando] = useState(true);
@@ -135,18 +135,24 @@ export default function MiPerfilNetworkPage() {
   // recuento, para no duplicar esa pantalla dentro del resumen.
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<number | null>(null);
 
+  // Rediseño 2026-08: mi-perfil deja de ser el sitio del alta inicial (eso
+  // es /network/crear-perfil, el wizard de 12 pasos) — pasa a ser el panel
+  // de edición post-publicación. Sin perfil todavía, no hay nada que
+  // editar aquí: se manda al wizard en vez de enseñar un formulario vacío.
   useEffect(() => {
+    if (!user) return;
     let vivo = true;
     fetchMiPerfilNetwork().then(p => {
       if (!vivo) return;
-      if (p) { setPerfil(p); setForm(formDesdePerfil(p)); }
+      if (!p) { router.replace('/network/crear-perfil'); return; }
+      setPerfil(p); setForm(formDesdePerfil(p));
       setCargando(false);
     });
     fetchSolicitudesContactoNetwork().then(sols => {
       if (vivo) setSolicitudesPendientes(sols.filter(s => s.estado === 'pendiente').length);
     });
     return () => { vivo = false; };
-  }, []);
+  }, [user, router]);
 
   const { porcentaje, detalle } = calcularCompletitudPerfil(
     {
