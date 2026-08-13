@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico, filtroDesdeSearchParams } from '@/lib/network/publico';
-import { TarjetaInstructoraPublica } from '@/components/network-publico/tarjeta-instructora';
 import { FiltrosMarketplace } from '@/components/network-publico/filtros-marketplace';
+import { ResultadosMarketplace } from '@/components/network-publico/resultados-marketplace';
 
 // Marketplace público de Tentare Network — Server Component a propósito
 // (docs/NETWORK-AUDIT-2.md §11): sin esto, Google vería un div vacío que se
@@ -47,22 +47,7 @@ export default async function MarketplaceInstructorasPage({
 
       <FiltrosMarketplace />
 
-      {perfiles.length === 0 ? (
-        <div className="rounded-2xl border border-[#E7E7E0] bg-white p-10 text-center">
-          <p className="text-[14px] font-medium text-[#1A1A1A]">
-            {hayFiltrosActivos
-              ? 'Ninguna instructora coincide con estos filtros.'
-              : 'Todavía no hay instructoras disponibles en esta zona.'}
-          </p>
-          <p className="text-[13px] text-[#8E8E86] mt-1.5">
-            {hayFiltrosActivos ? 'Prueba a ampliar tu búsqueda.' : 'Sé de las primeras en unirte a Tentare Network.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {perfiles.map(perfil => <TarjetaInstructoraPublica key={perfil.id} perfil={perfil} />)}
-        </div>
-      )}
+      <ResultadosMarketplace perfiles={perfiles} hayFiltrosActivos={hayFiltrosActivos} />
     </div>
   );
 }
