@@ -9,7 +9,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso";
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -55,7 +55,13 @@ export interface PortalState {
    * y puede irse a quien esté en la cola— y un toque de más en una lista se la
    * llevaba por delante.
    */
-  hoja: { tipo: 'cancelar'; classId: string; reservaId?: string } | { tipo: 'profesor'; id: string } | null;
+  hoja:
+    | { tipo: 'cancelar'; classId: string; reservaId?: string }
+    | { tipo: 'profesor'; id: string }
+    | { tipo: 'espera'; classId: string }
+    | { tipo: 'bono'; bonoId: string }
+    | { tipo: 'pago' }
+    | null;
 }
 
 const STORAGE_KEY = "tentare-portal";
@@ -142,6 +148,7 @@ export interface PortalActions {
   cerrarHoja(): void;
   goPrefs(): void;
   goProgress(): void;
+  goInvitar(): void;
   logout(): void;
   guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
@@ -542,6 +549,7 @@ export function PortalProvider({
       // la segunda— y el kit todavía no las cubre.
       goPrefs: () => ir({ screen: "preferencias" }),
       goProgress: () => ir({ screen: "progreso" }),
+      goInvitar: () => ir({ screen: "invitar" }),
       // Cerrar sesión lo hace quien tiene la sesión, no el kit. Sin vía real
       // (la previsualización) vuelve a la bienvenida, como la demo.
       logout: () => { const f = alSalirRef.current; if (f) return f(); self.reset(); },
@@ -563,6 +571,9 @@ export function PortalProvider({
       },
 
       reserve: (id) => {
+        // Se llega también desde la hoja de lista de espera, que tiene que
+        // cerrarse al confirmar — como hace `cancel`.
+        set({ hoja: null });
         const s = stateRef.current;
         // La fila del horario reserva la SUYA, no la que quedara abierta antes.
         const classId = id ?? s.classId;

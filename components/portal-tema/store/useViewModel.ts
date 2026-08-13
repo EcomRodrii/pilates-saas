@@ -329,6 +329,9 @@ export function useViewModel() {
         // El id que hay que mandar para cancelar NO es el de la clase.
         reservaId: reservaPorClase.get(state.classId),
         waiting: enCola(state.classId),
+        // Sin plazas y sin reserva propia: el botón no reserva, apunta a la
+        // cola — y eso pasa por la hoja, como cancelar.
+        full: !booked && !enCola(state.classId) && !cls.seats,
         waitingLabel: porClase.get(state.classId)?.posicion
           ? "Estás en la lista de espera · " + porClase.get(state.classId)!.posicion + "ª posición. Te avisaremos si se libera una plaza."
           : "Estás en la lista de espera. Te avisaremos si se libera una plaza.",

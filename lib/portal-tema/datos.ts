@@ -28,7 +28,7 @@ import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
 import { queImparten } from '../equipo.ts';
 import type {
   BonoCartera, BonoPortal, CompraPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal,
-  PlazaPortal, ProfesorPortal, ReservaPortal, SociaPortal, StudioClass,
+  PlazaPortal, ProfesorPortal, ReservaPortal, SociaPortal, StudioClass, TarjetaPortal,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -160,7 +160,7 @@ function etiquetasObjetivo(raw: unknown): string[] {
  * Ordenados: primero lo que se agota (una socia mira cuánto le queda), y los
  * ilimitados después.
  */
-export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz = TZ_ESTUDIO): BonoCartera[] {
+export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tipos: TipoClase[] = [], tz = TZ_ESTUDIO): BonoCartera[] {
   return suscripciones
     .filter((s) => s.estado === 'ACTIVA')
     .map((s): BonoCartera => {
@@ -181,6 +181,7 @@ export function bonosDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz =
         // Sin sesiones no hay porcentaje: `left/0` sería NaN y una barra al
         // 100 % en un ilimitado no significa nada.
         percent: !ilimitado && total > 0 ? Math.round((left / total) * 100) : 0,
+        terminos: plan ? condicionesDe(plan, tipos) : [],
       };
     })
     .sort((a, b) => Number(a.unlimited) - Number(b.unlimited));
@@ -418,7 +419,7 @@ export function filtrosDe(clases: StudioClass[], tiposClase: TipoClase[]): Filtr
 }
 
 /** Los planes que el estudio vende hoy, en el orden en que los tiene. */
-export function planesDe(planes: PlanTarifa[]): PlanPortal[] {
+export function planesDe(planes: PlanTarifa[], tipos: TipoClase[] = []): PlanPortal[] {
   return planes.filter((p) => p.activo).map((p) => ({
     key: p.id,
     name: p.nombre,
@@ -427,8 +428,46 @@ export function planesDe(planes: PlanTarifa[]): PlanPortal[] {
     classes: p.sesiones ?? Number.MAX_SAFE_INTEGER,
     price: p.precio,
     badge: '',
-    perks: p.descripcion ? [p.descripcion] : [],
+    perks: condicionesDe(p, tipos),
   }));
+}
+
+/**
+ * Las condiciones de un plan, sacadas de su política REAL.
+ *
+ * El prototipo las trae escritas a mano («Caduca a los 3 meses», «Cancelación
+ * gratis hasta 6 h antes»). Aquí no se escriben: `validez_dias`,
+ * `limite_semanal` y los tipos de clase que cubre ya viven en `planes_tarifa`,
+ * y son justo lo que la socia necesita saber antes de pagar. Un plan sin
+ * ninguna restricción devuelve solo su descripción — o nada, y entonces la
+ * hoja de condiciones no se ofrece.
+ */
+export function condicionesDe(p: PlanTarifa, tipos: TipoClase[] = []): string[] {
+  const fuera: string[] = [];
+  if (p.descripcion) fuera.push(p.descripcion);
+  if (p.validezDias) {
+    fuera.push(`Caduca a los ${p.validezDias} días de comprarlo`);
+  }
+  if (p.limiteSemanal) {
+    fuera.push(
+      p.limiteSemanal === 1
+        ? 'Máximo una clase por semana'
+        : `Máximo ${p.limiteSemanal} clases por semana`,
+    );
+  }
+  // Lista vacía o ausente = cubre TODAS, que es como se han comportado
+  // siempre: no se anuncia una restricción que no existe.
+  const cubre = (p.tiposClaseIds ?? [])
+    .map((id) => tipos.find((t) => t.id === id)?.nombre)
+    .filter((n): n is string => !!n);
+  if (cubre.length) fuera.push(`Válido para ${listaEnTexto(cubre)}`);
+  return fuera;
+}
+
+/** «a, b y c» — el separador final en español es «y», no otra coma. */
+function listaEnTexto(partes: string[]): string {
+  if (partes.length <= 1) return partes[0] ?? '';
+  return `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
 }
 
 /**
@@ -452,6 +491,7 @@ export function sociaDe(socio: Socio | null): SociaPortal {
   const vacia: SociaPortal = {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   };
   if (!socio) return vacia;
   const nombre = `${socio.nombre} ${socio.apellidos}`.trim();
@@ -471,7 +511,40 @@ export function sociaDe(socio: Socio | null): SociaPortal {
     // sin mandato no domicilia nada.
     domiciliado: (socio as { metodoPagoPreferido?: string | null }).metodoPagoPreferido === 'SEPA'
       && !!(socio as { sepaMandateId?: string | null }).sepaMandateId,
+    tarjeta: tarjetaDe(socio),
   };
+}
+
+/**
+ * La tarjeta guardada, tal como la conoce el estudio.
+ *
+ * Sin `tarjetaUltimos4` no hay tarjeta que enseñar: el prototipo dibuja
+ * siempre una «Visa ···· 4242», y decirle a quien no tiene ninguna guardada
+ * que la tiene es peor que no decir nada.
+ *
+ * ⚠️ La caducidad es aparte y puede faltar aunque la tarjeta esté: `null` en
+ * `tarjeta_exp_*` significa «todavía no se le ha preguntado a Stripe», NO «no
+ * caduca» (ver `lib/billing/caducidad-tarjeta.ts`, que la rellena por goteo).
+ * Por eso `caduca` es opcional dentro de la tarjeta, y no motivo para
+ * esconderla entera.
+ */
+export function tarjetaDe(socio: Socio): TarjetaPortal | null {
+  const ultimos4 = socio.tarjetaUltimos4 ?? '';
+  if (!ultimos4) return null;
+  const mes = socio.tarjetaExpMes;
+  const anio = socio.tarjetaExpAnio;
+  return {
+    marca: nombreDeMarca(socio.tarjetaMarca ?? ''),
+    ultimos4,
+    caduca: mes && anio ? `${String(mes).padStart(2, '0')}/${String(anio).slice(-2)}` : '',
+  };
+}
+
+/** Stripe manda la marca en minúscula (`visa`, `mastercard`). */
+function nombreDeMarca(marca: string): string {
+  if (!marca) return 'Tarjeta';
+  if (marca.toLowerCase() === 'visa') return 'Visa';
+  return marca.charAt(0).toUpperCase() + marca.slice(1);
 }
 
 /** El adaptador completo. Es lo único que necesita llamar quien monta el portal. */
@@ -498,9 +571,9 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
-    planes: planesDe(f.planes),
+    planes: planesDe(f.planes, f.tiposClase),
     bono: bonoDe(f.suscripciones, f.planes, tz),
-    bonos: bonosDe(f.suscripciones, f.planes, tz),
+    bonos: bonosDe(f.suscripciones, f.planes, f.tiposClase, tz),
     compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
     profesores: profesoresDe(f.instructores),

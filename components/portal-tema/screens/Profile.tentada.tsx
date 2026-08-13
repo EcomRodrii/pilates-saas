@@ -59,9 +59,13 @@ export function ProfileTentada({ vm }: { vm: ViewModel }) {
             {fila("Mis datos", null, actions.goMisDatos)}
             {/* El estado SEPA se conserva del perfil de siempre: es lo que le
                 dice a la socia que su recibo está domiciliado. */}
-            {fila("Métodos de pago", p.metodoPago, actions.goPasses)}
+            {fila("Métodos de pago", p.metodoPago, () => actions.abrirHoja({ tipo: "pago" }))}
             {fila("Avisos", null, actions.goPrefs)}
             {fila("Privacidad", null, () => actions.goInfo("privacidad"))}
+            {/* El prototipo abre aquí una hoja con un código inventado. El
+                portal ya tiene la pantalla de invitación de verdad, con su
+                enlace personal y las amigas que ya se unieron. */}
+            {fila("Invitar a una amiga", null, actions.goInvitar)}
             {/* «Aspecto» solo cuando hay dónde guardarlo. No está en el
                 prototipo y sí en el portal de la socia: quitarlo habría sido
                 que el rediseño le costara un ajuste que ya usa. */}

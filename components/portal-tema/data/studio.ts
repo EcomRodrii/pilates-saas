@@ -142,6 +142,9 @@ export const MEMBER = {
   id: "", name: "Laura Ortega", short: "Laura", initial: "L",
   apellidos: "Ortega", email: "laura@correo.com", telefono: "+34 600 000 000",
   fechaNacimiento: "", direccion: "", domiciliado: false,
+  // La previsualización SÍ enseña una tarjeta: es lo que deja ver la hoja de
+  // métodos de pago con su forma real. No es de nadie — no hay socia aquí.
+  tarjeta: { marca: "Visa", ultimos4: "4242", caduca: "04/27" },
 };
 
 /**
@@ -202,9 +205,12 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // hasta ahora no se veía en ninguna pantalla.
   bonos: [
     { id: "b10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
-      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80 },
+      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80,
+      terminos: ["Caduca a los 90 días de comprarlo", "Máximo 3 clases por semana"] },
     { id: "plan", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
-      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0 },
+      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0,
+      // Sin condiciones: así se ve también el bono que NO ofrece «Ver detalles».
+      terminos: [] },
   ],
   compras: [
     { id: "r1", concepto: "Bono 10 clases", cuando: "Comprado el 12 de marzo", importe: "145,00 €" },

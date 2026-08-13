@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Spot } from '../types.ts';
@@ -260,7 +260,7 @@ test('sociaDe: nombre completo, nombre corto e inicial', () => {
     apellidos: 'Ortega', email: 'l@x.com',
     // ⚠️ Cadena vacía y NO null: estos seis alimentan un formulario, y un
     // `<input value={null}>` se vuelve NO controlado a mitad de escritura.
-    telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false, tarjeta: null,
   });
 });
 
@@ -268,11 +268,70 @@ test('sociaDe: sin socia (portal sin sesión) devuelve vacíos, no "undefined"',
   assert.deepEqual(sociaDe(null), {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   });
 });
 
 test('sociaDe: sin id no se puede guardar — la pantalla lo necesita para saberlo', () => {
   assert.equal(sociaDe(null).id, '');
+});
+
+test('sociaDe: la tarjeta guardada sale con su marca en mayúscula inicial y MM/AA', () => {
+  const socio = {
+    id: 's1', nombre: 'Laura', apellidos: '',
+    tarjetaMarca: 'visa', tarjetaUltimos4: '4242', tarjetaExpMes: 4, tarjetaExpAnio: 2027,
+  } as Socio;
+  assert.deepEqual(sociaDe(socio).tarjeta, { marca: 'Visa', ultimos4: '4242', caduca: '04/27' });
+});
+
+test('sociaDe: mes de un dígito va con cero — «4/27» no es una caducidad', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaUltimos4: '1111', tarjetaExpMes: 4, tarjetaExpAnio: 2031 } as Socio;
+  assert.equal(sociaDe(socio).tarjeta?.caduca, '04/31');
+});
+
+test('sociaDe: ⚠️ tarjeta sin caducidad todavía SÍ se enseña — `null` es «no se ha preguntado a Stripe», no «no caduca»', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaMarca: 'mastercard', tarjetaUltimos4: '4444' } as Socio;
+  assert.deepEqual(sociaDe(socio).tarjeta, { marca: 'Mastercard', ultimos4: '4444', caduca: '' });
+});
+
+test('sociaDe: sin últimos cuatro NO hay tarjeta — el prototipo dibuja una «Visa ···· 4242» a todo el mundo', () => {
+  const socio = { id: 's1', nombre: 'L', apellidos: '', tarjetaMarca: 'visa' } as Socio;
+  assert.equal(sociaDe(socio).tarjeta, null);
+});
+
+// ── Condiciones de un plan ──────────────────────────────────────────────────
+
+test('condicionesDe: sin ninguna restricción no inventa condiciones', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'Bono 10')), []);
+});
+
+test('condicionesDe: validez, tope semanal y tipos cubiertos, en ese orden', () => {
+  const salida = condicionesDe(
+    plan('p1', 'Bono 10', { descripcion: 'Diez clases a tu ritmo', validezDias: 90, limiteSemanal: 3, tiposClaseIds: ['t1', 't2'] }),
+    [tipo('t1', 'Reformer'), tipo('t2', 'Suelo')],
+  );
+  assert.deepEqual(salida, [
+    'Diez clases a tu ritmo',
+    'Caduca a los 90 días de comprarlo',
+    'Máximo 3 clases por semana',
+    'Válido para Reformer y Suelo',
+  ]);
+});
+
+test('condicionesDe: un tope de una clase se dice en singular', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'B', { limiteSemanal: 1 })), ['Máximo una clase por semana']);
+});
+
+test('condicionesDe: un tipo de clase que ya no existe no se anuncia', () => {
+  assert.deepEqual(condicionesDe(plan('p1', 'B', { tiposClaseIds: ['borrado'] }), []), []);
+});
+
+test('condicionesDe: tres tipos se separan con comas y una «y» final', () => {
+  const salida = condicionesDe(
+    plan('p1', 'B', { tiposClaseIds: ['t1', 't2', 't3'] }),
+    [tipo('t1', 'A'), tipo('t2', 'B'), tipo('t3', 'C')],
+  );
+  assert.deepEqual(salida, ['Válido para A, B y C']);
 });
 
 // ── Piezas sueltas ──────────────────────────────────────────────────────────
@@ -304,6 +363,7 @@ test('construirDatosPortal: un estudio vacío da datos vacíos pero válidos', (
   assert.deepEqual(datos.socia, {
     id: '', name: '', short: '', initial: '',
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+    tarjeta: null,
   });
 });
 

@@ -8,10 +8,11 @@
 // la barra que se ve es la del kit, que es parte del diseño (la píldora que
 // flota de Bloom, la barra oscura con el dorado de Noir).
 //
-// El kit cubre CUATRO rutas. El resto del portal (`/perfil`, `/progreso`,
-// `/compras`, `/preferencias`, `/notificaciones`, `/invitar`, `/instructores`,
-// `/videos`) se queda con el portal de siempre — decisión del fundador, el
-// portal se ve mezclado un tiempo.
+// El resto del portal (`/progreso`, `/compras`, `/preferencias`,
+// `/notificaciones`, `/invitar`, `/videos`) se queda con el portal de siempre
+// — decisión del fundador, el portal se ve mezclado un tiempo. Son destinos
+// navegables igualmente: el kit tiene que poder llevar ahí desde sus filas y
+// sus bloques, aunque no los pinte él.
 //
 // ⚠️ `/perfil` estuvo FUERA por una razón que ya no aplica, y conviene dejar
 // escrito por qué vuelve. Se sacó porque la `Profile` del kit era una maqueta:
@@ -73,6 +74,12 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   // Avisos y Progreso siguen siendo del portal de siempre: las dos tienen más
   // de lo que dibuja el prototipo (canales + push, recompensas + créditos).
   preferencias: 'preferencias', progreso: 'progreso',
+  // «Invitar a una amiga» es una fila del perfil en el prototipo y una HOJA
+  // con un código inventado («LAURA-2026»). Aquí no: el portal ya tiene una
+  // pantalla de invitación de verdad, con el enlace personal de la socia, las
+  // amigas que ya se han unido y los créditos que da la regla de recompensas
+  // del estudio. Un código que no canjea nada habría sido menos que eso.
+  invitar: 'invitar',
   // Sigue siendo un destino navegable aunque el kit ya no la pinte: la píldora
   // "Perfil" de la barra tiene que llevar al perfil de verdad, no a ningún
   // sitio.

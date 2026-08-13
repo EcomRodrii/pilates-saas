@@ -111,6 +111,12 @@ export interface BonoCartera {
   footline: string;
   subline: string;
   percent: number;
+  /**
+   * Las condiciones del plan que lo vendió (`condicionesDe`). Vacío = ese plan
+   * no tiene ninguna que contar, y entonces no se ofrece «Ver detalles»: un
+   * botón que abre una hoja en blanco es peor que no estar.
+   */
+  terminos: string[];
 }
 
 /** Una compra de la socia, para el historial. Sale de `recibos`. */
@@ -151,6 +157,16 @@ export interface SociaPortal {
   /** Tiene mandato SEPA vivo. Es lo que el perfil de siempre resume como
    *  «Domiciliado» en Métodos de pago. */
   domiciliado: boolean;
+  /** La tarjeta guardada. `null` = no hay ninguna, no una de relleno. */
+  tarjeta: TarjetaPortal | null;
+}
+
+export interface TarjetaPortal {
+  /** `Visa`, `Mastercard`… Nunca vacío: sin marca conocida, «Tarjeta». */
+  marca: string;
+  ultimos4: string;
+  /** `MM/AA`. Vacío = Stripe todavía no la ha dicho, NO «no caduca». */
+  caduca: string;
 }
 
 /**
