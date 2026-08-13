@@ -6,8 +6,10 @@ import {
   themeToCssText,
   validarContrasteTheme,
   presetAThemeConfig,
+  varsKitDelTema,
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
+import { varsRadioSobreTema } from '../themes/registro.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
@@ -177,4 +179,50 @@ test('themeToCssVars: --portal-foto-pos sale del encuadre elegido', () => {
   const sinToken = { ...DEFAULT_THEME } as Record<string, unknown>;
   delete sinToken.fotoEncuadre;
   assert.equal(pos(sinToken), 'center center');
+});
+
+
+// ── El puente al kit de temas en React ──────────────────────────────────────
+//
+// Contexto de por qué existen estos tests: los dos portales no comparten
+// vocabulario, y el fichero de cada tema declara sus tokens en
+// `html[data-theme="…"]`. Se midió en el navegador que inyectar
+// `:root{--brand:red}` NO movía nada — la propietaria cambiaba el color en
+// Apariencia, lo veía cambiar en la vista previa (que monta el portal viejo) y
+// sus socias seguían viendo el de fábrica.
+
+test('varsKitDelTema: un tema del kit sale con los nombres de token del kit', () => {
+  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#B03060', background: '#FFF5F8', text: '#221122' });
+  assert.ok(css);
+  assert.match(css, /--brand: #B03060;/);
+  assert.match(css, /--bg: #FFF5F8;/);
+  assert.match(css, /--ink: #221122;/);
+  // Y NO los del portal de siempre: ese bloque lo emite `themeToCssText`.
+  assert.doesNotMatch(css, /--portal-brand/);
+});
+
+test('⚠️ varsKitDelTema: el selector es `:root:root` — `:root` PIERDE contra `html[data-theme="…"]`', () => {
+  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada' });
+  assert.ok(css?.startsWith(':root:root {'));
+});
+
+test('varsKitDelTema: un tema que no es del kit no emite nada, ni un bloque vacío', () => {
+  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'classic' }), null);
+  assert.equal(varsKitDelTema({ ...DEFAULT_THEME, themeId: 'no-existe' }), null);
+});
+
+test('varsKitDelTema: el texto sobre la marca se deriva por contraste, no se pide', () => {
+  const claro = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#FFFFFF' });
+  const oscuro = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', primary: '#000000' });
+  assert.match(claro!, /--on-brand: #1[0-9A-Fa-f]{5}|--on-brand: #0/);
+  assert.match(oscuro!, /--on-brand: #[Ff]/);
+});
+
+test('⚠️ varsRadioSobreTema: el token es `--radius-quick-link`, no `--radius-quick`', () => {
+  // Escribía `--radius-quick`, que no existe en ningún tema: el radio de los
+  // accesos rápidos no habría hecho nada aunque alguien hubiera llamado a esto
+  // (y nadie lo llamaba).
+  const v = varsRadioSobreTema({ acceso: 12 });
+  assert.equal(v['--radius-quick-link'], '12px');
+  assert.equal(v['--radius-quick'], undefined);
 });

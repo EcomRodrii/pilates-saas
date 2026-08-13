@@ -32,13 +32,13 @@
 html[data-theme="noir"] {
   /* ── Marca ─────────────────────────────────────────────────────────── */
   --brand: #1E2B22;
-  --brand-hover: #36433A;
+  --brand-hover: color-mix(in srgb, var(--brand) 88%, #FFFFFF);
   --on-brand: #F6F5F0;
   --support: #A9B79B;
   --support-soft: color-mix(in srgb, #A9B79B 26%, #FFFFFF);
   --accent: #D9B166;
   --accent-soft: color-mix(in srgb, #D9B166 18%, #FFFFFF);
-  --accent-ink: #D9B166;
+  --accent-ink: var(--accent);
 
   /* ── Superficies y texto ───────────────────────────────────────────── */
   --bg: #F6F5F0;
@@ -53,11 +53,11 @@ html[data-theme="noir"] {
   --success: #2F6B4F;
   --warning: #8A6B22;
   --danger: #A33B3B;
-  --dot: #D9B166;
-  --fav: #D9B166;
+  --dot: var(--accent);
+  --fav: var(--accent);
   --done-bg: rgba(217,177,102,.18);
   --done-ink: #8A6B22;
-  --track: #E9E7DD;
+  --track: var(--border);
 
   /* ── Tipografía ────────────────────────────────────────────────────── */
   --font-display: var(--font-ui), system-ui, sans-serif;
@@ -112,30 +112,30 @@ html[data-theme="noir"] {
 
   /* ── Componentes ───────────────────────────────────────────────────── */
   --chip-height: 36px;
-  --chip-bg: #FFFFFF;
-  --tab-bar-bg: #1E2B22;
+  --chip-bg: var(--surface);
+  --tab-bar-bg: var(--brand);
   --tab-bar-border: none;
-  --tab-active: #D9B166;
+  --tab-active: var(--accent);
   --tab-idle: rgba(246,245,240,.5);
   --bell-bg: #FFFFFF;
   --bell-border: 1px solid #E9E7DD;
-  --photo-bg: #8E9C93;
-  --control-bg: #F6F5F0;
+  --photo-bg: color-mix(in srgb, var(--support) 88%, var(--ink));
+  --control-bg: var(--bg);
   --control-border: 1px solid #E9E7DD;
 
   /* ── Próxima clase ─────────────────────────────────────────────────── */
-  --hero-bg: #A9B79B;
+  --hero-bg: var(--support);
   --hero-veil: linear-gradient(96deg,#A9B79B 0%,#A9B79B 45%,rgba(169,183,155,.66) 62%,rgba(169,183,155,.04) 100%);
   --hero-ink: #1E2B22;
   --hero-ink-soft: rgba(30,43,34,.66);
   --hero-ink-strong: rgba(30,43,34,.86);
-  --hero-cta-bg: #1E2B22;
-  --hero-cta-ink: #F6F5F0;
+  --hero-cta-bg: var(--brand);
+  --hero-cta-ink: var(--on-brand);
   --hero-arrow: #D9B166;
   --hero-arrow-opacity: 1;
 
   /* ── Bienvenida ────────────────────────────────────────────────────── */
-  --welcome-bg: #16211A;
+  --welcome-bg: color-mix(in srgb, var(--brand) 92%, #000000);
   --welcome-veil: linear-gradient(180deg,rgba(22,33,26,.35) 0%,rgba(22,33,26,.55) 40%,rgba(22,33,26,.94) 76%,#16211A 100%);
   --welcome-ink: #FFFFFF;
   --welcome-ink-soft: rgba(255,255,255,.86);
@@ -145,7 +145,7 @@ html[data-theme="noir"] {
   --welcome-leading: 1.06;
   --size-welcome: 40px;
   --size-welcome-text: 15px;
-  --welcome-cta-bg: #D9B166;
+  --welcome-cta-bg: var(--accent);
   --welcome-cta-ink: #16211A;
   --welcome-cta-height: 62px;
   --welcome-cta-justify: center;

@@ -32,13 +32,13 @@
 html[data-theme="bloom"] {
   /* ── Marca ─────────────────────────────────────────────────────────── */
   --brand: #7C5CFC;
-  --brand-hover: #9474FF;
+  --brand-hover: color-mix(in srgb, var(--brand) 88%, #FFFFFF);
   --on-brand: #FFFFFF;
   --support: #EFEAFF;
   --support-soft: color-mix(in srgb, #EFEAFF 26%, #FFFFFF);
   --accent: #FF8FB1;
   --accent-soft: color-mix(in srgb, #FF8FB1 18%, #FFFFFF);
-  --accent-ink: #FF8FB1;
+  --accent-ink: var(--accent);
 
   /* ── Superficies y texto ───────────────────────────────────────────── */
   --bg: #FFFFFF;
@@ -53,11 +53,11 @@ html[data-theme="bloom"] {
   --success: #2F6B4F;
   --warning: #8A6B22;
   --danger: #A33B3B;
-  --dot: #7C5CFC;
-  --fav: #FF8FB1;
-  --done-bg: #EFEAFF;
-  --done-ink: #7C5CFC;
-  --track: #F0EDFB;
+  --dot: var(--brand);
+  --fav: var(--accent);
+  --done-bg: var(--support);
+  --done-ink: var(--brand);
+  --track: var(--border);
 
   /* ── Tipografía ────────────────────────────────────────────────────── */
   --font-display: var(--font-poppins), system-ui, sans-serif;
@@ -113,29 +113,29 @@ html[data-theme="bloom"] {
   /* ── Componentes ───────────────────────────────────────────────────── */
   --chip-height: 40px;
   --chip-bg: #F5F3FF;
-  --tab-bar-bg: #FFFFFF;
+  --tab-bar-bg: var(--surface);
   --tab-bar-border: none;
-  --tab-active: #7C5CFC;
-  --tab-idle: #6F6785;
+  --tab-active: var(--brand);
+  --tab-idle: var(--muted);
   --bell-bg: #F5F3FF;
   --bell-border: none;
-  --photo-bg: #E7DCEF;
+  --photo-bg: color-mix(in srgb, var(--brand) 16%, var(--surface));
   --control-bg: #F5F3FF;
   --control-border: none;
 
   /* ── Próxima clase ─────────────────────────────────────────────────── */
-  --hero-bg: #7C5CFC;
+  --hero-bg: var(--brand);
   --hero-veil: linear-gradient(96deg,#7C5CFC 0%,#7C5CFC 45%,rgba(124,92,252,.7) 62%,rgba(124,92,252,.05) 100%);
   --hero-ink: #FFFFFF;
   --hero-ink-soft: rgba(255,255,255,.74);
   --hero-ink-strong: rgba(255,255,255,.92);
-  --hero-cta-bg: #FFFFFF;
-  --hero-cta-ink: #7C5CFC;
+  --hero-cta-bg: var(--bg);
+  --hero-cta-ink: var(--brand);
   --hero-arrow: inherit;
   --hero-arrow-opacity: 0.7;
 
   /* ── Bienvenida ────────────────────────────────────────────────────── */
-  --welcome-bg: #FFC0D2;
+  --welcome-bg: color-mix(in srgb, var(--accent) 62%, var(--surface));
   --welcome-veil: linear-gradient(180deg,rgba(255,152,186,.5) 0%,rgba(255,176,198,.18) 42%,rgba(255,255,255,.78) 86%,#FFFFFF 100%);
   --welcome-ink: #1B1430;
   --welcome-ink-soft: #6F6785;
@@ -145,8 +145,8 @@ html[data-theme="bloom"] {
   --welcome-leading: 1.18;
   --size-welcome: 33px;
   --size-welcome-text: 14px;
-  --welcome-cta-bg: #FFFFFF;
-  --welcome-cta-ink: #1B1430;
+  --welcome-cta-bg: var(--bg);
+  --welcome-cta-ink: var(--ink);
   --welcome-cta-height: 68px;
   --welcome-cta-justify: space-between;
   --welcome-cta-pad: 0 10px 0 28px;
