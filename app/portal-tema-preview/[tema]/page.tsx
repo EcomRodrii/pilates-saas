@@ -43,7 +43,12 @@ async function datosDelEstudio(slug: string): Promise<{ datos: DatosPortal; nomb
     datos: construirDatosPortal({
       ahora: new Date(),
       sesiones: publico.sesiones,
-      reservas: publico.aforoReservas.map((r) => ({ sesionId: r.sesion_id, estado: r.estado as never })),
+      // `spot_id` viaja para saber qué plazas están cogidas. El catálogo
+      // público ya lo trae (va anonimizado: la plaza, no quién la ocupa).
+      reservas: publico.aforoReservas.map((r) => ({
+        sesionId: r.sesion_id, estado: r.estado as never, spotId: r.spot_id ?? null,
+      })),
+      spots: publico.spots,
       tiposClase: publico.tiposClase,
       salas: publico.salas,
       instructores: publico.instructores,
