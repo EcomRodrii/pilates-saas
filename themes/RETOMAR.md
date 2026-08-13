@@ -154,8 +154,12 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    - **La fila del horario de Tentada tenía un atajo «Reservar»** que salta el
      detalle. Reservar desde ahí en un estudio de reformer habría dejado a la
      socia sin máquina — justo lo que la puerta cerrada evitaba. Con plazas,
-     ese atajo pasa a decir «Elegir sitio» y lleva al detalle. Los otros tres
-     temas usan `ClassRow`, sin atajo, así que no tenían el agujero.
+     ese atajo lleva al detalle en vez de reservar. Los otros tres temas usan
+     `ClassRow`, sin atajo, así que no tenían el agujero. ⚠️ El rótulo sigue
+     siendo «Reservar» (decisión del fundador, 2026-08-13): es lo que hace la
+     fila del portal de siempre —pulsar abre la hoja y se confirma allí— y dos
+     verbos distintos para el mismo gesto según el estudio confunden más de lo
+     que aclaran.
    - **La rejilla NO puede llevar un número fijo de columnas.** Copié el 7 de
      la hoja de reserva de siempre y la sala real del piloto —8 plazas, 2×4—
      salió como 7 + 1 huérfana. Ahora las columnas salen del dato
