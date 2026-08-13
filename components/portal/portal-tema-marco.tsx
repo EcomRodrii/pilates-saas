@@ -255,11 +255,17 @@ export function PortalTemaMarco() {
       estado: (r.estado === 'LISTA_ESPERA' || r.estado === 'PENDIENTE_APROBACION'
         ? r.estado
         : 'CONFIRMADA') as 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION',
+      // ⚠️ Si eligió sitio y el servidor no pudo dárselo, se DICE. Ese dato
+      // llegaba al navegador y se tiraba: la socia leía «Reservada» y se
+      // presentaba esperando el reformer 3 que era de otra. La reserva es
+      // buena; lo que falló es la plaza, y son dos cosas distintas.
       mensaje: r.estado === 'LISTA_ESPERA'
         ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
         : r.estado === 'PENDIENTE_APROBACION'
           ? 'Reserva enviada: queda pendiente de aprobación.'
-          : 'Reservada. Te esperamos.',
+          : spotId && !r.spotAsignado
+            ? 'Reservada, pero el sitio que elegiste lo cogieron antes. Te lo asignamos al llegar.'
+            : 'Reservada. Te esperamos.',
     };
   }, [addReserva, socioId]);
 

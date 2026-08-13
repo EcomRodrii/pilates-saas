@@ -320,11 +320,16 @@ export function PortalClasesView({
     const r = await addReserva(reservando.id, socioId, spotId);
     if (!r.ok) return { ok: false, error: r.error };
     setAviso({
+      // ⚠️ Si eligió sitio y el servidor no pudo dárselo, se DICE. La reserva
+      // es buena; la plaza no, y son dos cosas distintas — sin esto se
+      // presentaba esperando el reformer que había elegido y era de otra.
       texto: r.estado === 'LISTA_ESPERA'
         ? 'La clase estaba completa: te hemos puesto en la lista de espera.'
         : r.estado === 'PENDIENTE_APROBACION'
           ? 'Reserva enviada: queda pendiente de aprobación.'
-          : 'Reservada. Te esperamos.',
+          : spotId && !r.spotAsignado
+            ? 'Reservada, pero el sitio que elegiste lo cogieron antes. Te lo asignamos al llegar.'
+            : 'Reservada. Te esperamos.',
       error: false,
     });
     return { ok: true, estado: r.estado };
