@@ -21,7 +21,7 @@ import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { uuidV4 } from '@/lib/utils';
 
-type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' };
+type CampoIntegracion = { key: string; label: string; placeholder: string; tipo?: 'text' | 'password' | 'checkbox' };
 
 type CatalogoIntegracion = {
   tipo: TipoIntegracion;
@@ -92,6 +92,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     campos: [
       { key: 'token', label: 'Token de acceso', placeholder: 'EAAxxxxxxxxxxxx...', tipo: 'password' },
       { key: 'phoneId', label: 'ID de número de teléfono', placeholder: '109xxxxxxxxxxx' },
+      { key: 'plantillaAprobada', label: 'Ya me aprobaron la plantilla "recordatorio_clase" en Meta', placeholder: '', tipo: 'checkbox' },
     ],
     instrucciones: [
       'Entra en developers.facebook.com/apps y crea (o abre) una app de tipo "Business".',
@@ -99,6 +100,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
       'En WhatsApp → Introducción, copia el "ID del número de teléfono".',
       'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema — no el token temporal de 24h de prueba).',
       'Pega aquí el token y el ID del número, y pulsa Guardar.',
+      'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24h desde el último mensaje de la clienta. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto "recordatorio_clase", categoría "Utilidad", idioma "Español" y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Meta suele aprobarla en minutos — cuando lo haga, marca la casilla de abajo.',
     ],
     docsUrl: 'https://developers.facebook.com/docs/whatsapp/cloud-api/get-started',
     probarUrl: '/api/integrations/whatsapp/probar',
@@ -453,7 +455,10 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
   };
 
   const guardar = (cat: CatalogoIntegracion) => {
-    const rellenos = cat.campos.some(c => (form[c.key] ?? '').trim() !== '');
+    // Un checkbox (p.ej. "plantilla aprobada") no cuenta como credencial: sin
+    // esto, marcarlo sin haber pegado token/phoneId activaría la integración
+    // como si estuviera conectada.
+    const rellenos = cat.campos.filter(c => c.tipo !== 'checkbox').some(c => (form[c.key] ?? '').trim() !== '');
     upsertIntegracion(cat.tipo, rellenos, form);
     setEditando(null);
     showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
@@ -704,7 +709,17 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     {cat.instrucciones.map((paso, i) => <li key={i}>{paso}</li>)}
                   </ol>
                 )}
-                {cat.campos.map(campo => (
+                {cat.campos.map(campo => campo.tipo === 'checkbox' ? (
+                  <label key={campo.key} htmlFor={`${uid}-${campo.key}`} className="flex items-center gap-2 text-[13px] text-foreground cursor-pointer">
+                    <input
+                      id={`${uid}-${campo.key}`}
+                      type="checkbox"
+                      checked={form[campo.key] === 'true'}
+                      onChange={e => setForm(p => ({ ...p, [campo.key]: e.target.checked ? 'true' : 'false' }))}
+                    />
+                    {campo.label}
+                  </label>
+                ) : (
                   <div key={campo.key}>
                     <label htmlFor={`${uid}-${campo.key}`} className={labelCls}>{campo.label}</label>
                     <input
