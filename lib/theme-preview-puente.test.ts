@@ -74,13 +74,23 @@ test('resolveTemaJs: `barraClasica`/`tabBarStyle` reales sí pasan', () => {
 // ── El tema del kit por el puente ───────────────────────────────────────────
 
 test('resolveTemaJs: lleva el tema del kit que se está editando', () => {
-  assert.equal(resolveTemaJs({ temaKit: 'tentada' })?.temaKit, 'tentada');
+  assert.equal(resolveTemaJs({ themeId: 'tentada' })?.temaKit, 'tentada');
+});
+
+test('⚠️ se lee `themeId` del propio ThemeConfig, no un campo que el emisor tenga que rellenar', () => {
+  // Así se rompió en producción: el campo se llamaba `temaKit` y dos de los
+  // tres emisores mandaban el `ThemeConfig` tal cual, sin renombrarlo. El
+  // receptor leía la ausencia como «no es del kit» y la vista previa de la
+  // biblioteca se quedaba montando el portal viejo — apagando justo lo que
+  // este campo venía a encender.
+  const config = { themeId: 'bloom', variantes: {}, barraClasica: false };
+  assert.equal(resolveTemaJs(config)?.temaKit, 'bloom');
 });
 
 test('⚠️ resolveTemaJs: un id que no existe NO pasa — es entrada de postMessage', () => {
-  assert.equal(resolveTemaJs({ temaKit: 'no-existe' })?.temaKit, null);
-  assert.equal(resolveTemaJs({ temaKit: 42 })?.temaKit, null);
-  assert.equal(resolveTemaJs({ temaKit: { id: 'tentada' } })?.temaKit, null);
+  assert.equal(resolveTemaJs({ themeId: 'no-existe' })?.temaKit, null);
+  assert.equal(resolveTemaJs({ themeId: 42 })?.temaKit, null);
+  assert.equal(resolveTemaJs({ themeId: { id: 'tentada' } })?.temaKit, null);
 });
 
 test('resolveTemaJs: un mensaje sin el campo deja el portal de siempre, no revienta', () => {
