@@ -165,6 +165,9 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
   // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
   // estudio; aquí es de muestra, como el resto de este objeto.
+  // Fecha de referencia de los datos de MUESTRA. Fija a propósito: la vista
+  // previa tiene que verse igual hoy que dentro de un mes.
+  ahoraISO: '2026-08-13T09:00:00.000Z',
   hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
   // De muestra, como el resto: en el portal real la calcula `rachaDe` con las
   // asistencias de la socia.

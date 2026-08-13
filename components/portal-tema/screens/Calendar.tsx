@@ -22,16 +22,19 @@ export function Calendar({ vm }: { vm: ViewModel }) {
         <Card className="calendar">
           <div className="calendar__head">
             <p className="calendar__month">{vm.calendar.month}</p>
-            <div className="calendar__nav">
-              <button className="icon-btn is-pressable" aria-label="Mes anterior"><Icon name="back" size={18} /></button>
-              <button className="icon-btn is-pressable" aria-label="Mes siguiente"><Icon name="forward" size={18} /></button>
-            </div>
+            {/* ⚠️ Aquí había dos flechas de mes anterior/siguiente SIN `onClick`:
+                no hacían nada ya antes de este cambio. Se quitan en vez de
+                dejarlas: con el mes de muestra el engaño era doble, pero con el
+                mes real una flecha muerta es una promesa incumplida a la vista.
+                Navegar de mes exige que `state.day` deje de ser un número de
+                día y pase a fecha completa —hoy el filtro del horario casa por
+                día del mes—, y eso es una pasada propia, no un `onClick`. */}
           </div>
           <div className="calendar__grid">
             {vm.calendar.dow.map((d, i) => <span className="calendar__dow" key={d + i}>{d}</span>)}
             {vm.calendar.cells.map((cell) => (
               <button
-                key={cell.key}
+                key={cell.fecha}
                 className={["calendar__cell", cell.outside ? "is-muted" : "", cell.today ? "is-today" : "", cell.selected ? "is-selected" : ""].filter(Boolean).join(" ")}
                 onClick={cell.outside ? undefined : () => actions.selectDay(cell.label)}
               >

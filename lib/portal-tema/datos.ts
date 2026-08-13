@@ -477,6 +477,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
   const clases = clasesDeLaSemana({ ...f, tz });
   return {
     clases,
+    ahoraISO: f.ahora.toISOString(),
     hoy: hoyDe(f.ahora, tz),
     racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
     estudio: f.estudio ?? {
@@ -524,3 +525,93 @@ export function reservadasDe(
 const VIVAS = new Set<Reserva['estado']>([
   'CONFIRMADA', 'ASISTIDA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION',
 ]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La rejilla del mes del Calendario.
+//
+// ⚠️ Antes esto vivía en `useViewModel` y era ENTERAMENTE de muestra: el mes
+// fijado a "Septiembre 2026", 30 días siempre, «hoy» clavado al 3 y las marcas
+// salidas de las clases de ejemplo. Se dejó así a propósito —marcar días reales
+// sobre una rejilla inventada queda medio bien, que es peor que quedar
+// claramente falso—, y este es el pase que faltaba (punto 4 de `RETOMAR.md`).
+//
+// Vive aquí y no en el componente porque es lógica de fechas, que en este repo
+// se prueba: la zona horaria del estudio y el reparto de semanas son justo
+// donde estos cálculos se rompen sin que se note.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CeldaMes {
+  /** La fecha completa 'YYYY-MM-DD'. Es la clave: el número de día se repite. */
+  fecha: string;
+  /** Número que se pinta en la celda. */
+  label: number;
+  /** De un mes vecino: relleno para cuadrar la semana. */
+  outside: boolean;
+  today: boolean;
+  selected: boolean;
+  /** Hay al menos una clase ese día. */
+  marked: boolean;
+}
+
+/**
+ * El mes que contiene `ahora`, en semanas completas de lunes a domingo.
+ *
+ * ⚠️ Las marcas se casan por FECHA COMPLETA, nunca por `StudioClass.day`. Ese
+ * campo es el día del MES, así que el 5 de septiembre y el 5 de agosto son
+ * indistinguibles — y al adaptador le llegan TODAS las sesiones del estudio.
+ * Es exactamente el fallo de «se colaban clases de otro mes» que ya apareció
+ * al pasarle datos reales al horario, y que los fixtures no vieron.
+ *
+ * `seleccionado` es un día del MES porque es lo que guarda el estado del kit
+ * (`state.day`). Solo se marca en celdas del propio mes: sin eso, el 1 de
+ * relleno del mes siguiente saldría seleccionado a la vez que el 1 de este.
+ */
+export function rejillaMesPortal(
+  ahora: Date,
+  clases: readonly StudioClass[],
+  seleccionado: number,
+  tz = TZ_ESTUDIO,
+): { month: string; dow: string[]; cells: CeldaMes[] } {
+  const hoyLocal = fechaLocalDe(ahora, tz);
+  const { anio, mes } = partes(hoyLocal);
+
+  // Mediodía UTC por el mismo motivo que `diasDeLaSemana`: a las 00:00 sumar
+  // días puede cruzar de fecha en el cambio de hora.
+  const primero = new Date(Date.UTC(anio, mes - 1, 1, 12));
+  const desplazamiento = (primero.getUTCDay() + 6) % 7; // 0 = lunes
+  const arranque = new Date(primero);
+  arranque.setUTCDate(arranque.getUTCDate() - desplazamiento);
+
+  const diasDelMes = new Date(Date.UTC(anio, mes, 0, 12)).getUTCDate();
+  // Semanas completas, y ni una de más: una fila entera del mes vecino se lee
+  // como «esa semana no hay nada», que es mentira — es que no existe.
+  const semanas = Math.ceil((desplazamiento + diasDelMes) / 7);
+
+  const conClase = new Set(
+    clases.map((c) => fechaLocalDe(new Date(c.startsAt), tz)),
+  );
+
+  const cells: CeldaMes[] = [];
+  for (let i = 0; i < semanas * 7; i++) {
+    const d = new Date(arranque);
+    d.setUTCDate(d.getUTCDate() + i);
+    const fecha = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    const outside = d.getUTCMonth() + 1 !== mes || d.getUTCFullYear() !== anio;
+    cells.push({
+      fecha,
+      label: d.getUTCDate(),
+      outside,
+      today: fecha === hoyLocal,
+      selected: !outside && d.getUTCDate() === seleccionado,
+      marked: conClase.has(fecha),
+    });
+  }
+
+  return {
+    // "Agosto 2026": en español el mes va en minúscula salvo al empezar frase,
+    // y aquí empieza el rótulo.
+    month: `${MESES[mes - 1][0].toUpperCase()}${MESES[mes - 1].slice(1)} ${anio}`,
+    dow: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
+    cells,
+  };
+}
