@@ -177,5 +177,17 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   filtros: [...FILTERS],
   planes: PLANS,
   bono: PASS,
+  // Dos, y uno ilimitado: el caso que `bonoDe` descarta a propósito y que
+  // hasta ahora no se veía en ninguna pantalla.
+  bonos: [
+    { id: "b10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
+      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80 },
+    { id: "plan", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
+      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0 },
+  ],
+  compras: [
+    { id: "r1", concepto: "Bono 10 clases", cuando: "Comprado el 12 de marzo", importe: "145,00 €" },
+    { id: "r2", concepto: "Plan Mensual", cuando: "Comprado el 1 de septiembre", importe: "189,00 €" },
+  ],
   socia: MEMBER,
 };

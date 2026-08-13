@@ -264,6 +264,11 @@ export function useViewModel() {
         seeds: Array.from({ length: Math.min(datos.bono.total, 12) }, (_, i) => i < passLeft),
         seedsFit: datos.bono.total > 0 && datos.bono.total <= 12,
       },
+      // Toda su cartera, no solo el bono que se está gastando: `bonoDe` deja
+      // fuera los ilimitados y una socia con plan mensual no veía ninguno.
+      wallet: datos.bonos,
+      purchases: datos.compras,
+
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
       metrics: [
         { value: idsReservados.length, label: "reservas" },

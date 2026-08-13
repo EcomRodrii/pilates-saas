@@ -50,7 +50,8 @@ export const THEME: ThemeConfig = {
     "next_class_style": "ticket",
     "week_strip_style": "bare",
     "tab_set": "centro",
-    "schedule_style": "tabs"
+    "schedule_style": "tabs",
+    "passes_style": "cartera"
   },
   "home_blocks": [
     "home-header",

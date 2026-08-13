@@ -9,7 +9,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada";
+  | "confirmada" | "comprar";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -43,6 +43,8 @@ export interface PortalState {
   ultimaReserva: { classId: string; estado: 'CONFIRMADA' | 'LISTA_ESPERA' | 'PENDIENTE_APROBACION' } | null;
   /** Pestaña abierta del horario: el día o la cola. Solo la usa `schedule_style: "tabs"`. */
   horarioTab: 'clases' | 'espera';
+  /** Pestaña abierta en «Mis bonos». Solo la usa `passes_style: "cartera"`. */
+  bonosTab: 'bonos' | 'historial';
 }
 
 const STORAGE_KEY = "tentare-portal";
@@ -69,6 +71,7 @@ const initialState = (): PortalState => ({
   authWorking: false,
   ultimaReserva: null,
   horarioTab: 'clases',
+  bonosTab: 'bonos',
 });
 
 type Action = { type: "patch"; patch: Partial<PortalState> } | { type: "reset" };
@@ -116,6 +119,8 @@ export interface PortalActions {
   selectDay(num: number): void;
   setFilter(key: string): void;
   setHorarioTab(tab: 'clases' | 'espera'): void;
+  setBonosTab(tab: 'bonos' | 'historial'): void;
+  goBuy(): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
   /** `reservaId` es lo que se manda al servidor; sin él solo se puede
@@ -451,6 +456,10 @@ export function PortalProvider({
       selectDay: (num) => ir({ day: Number(num), tab: "clases", screen: "clases" }),
       setFilter: (key) => set({ filter: key }),
       setHorarioTab: (horarioTab) => set({ horarioTab }),
+      setBonosTab: (bonosTab) => set({ bonosTab }),
+      // Elegir el bono es un paso propio en Tentada; en los otros temas la
+      // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
+      goBuy: () => ir({ screen: "comprar" }),
 
       reserve: (id) => {
         const s = stateRef.current;

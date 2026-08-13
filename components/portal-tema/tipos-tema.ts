@@ -36,6 +36,13 @@ export type TabSet = "basico" | "centro";
  */
 export type ScheduleStyle = "chips" | "tabs";
 
+/**
+ * Forma de la pantalla de bonos.
+ *   `plan`     — el bono activo arriba y los planes debajo (Oliva/Bloom/Noir).
+ *   `cartera`  — «Mis bonos» con dos pestañas, Bonos e Historial (Tentada).
+ */
+export type PassesStyle = "plan" | "cartera";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -68,6 +75,7 @@ export interface ThemeFeatures {
   week_strip_style: WeekStripStyle;
   tab_set: TabSet;
   schedule_style: ScheduleStyle;
+  passes_style: PassesStyle;
 }
 
 export interface PaletteEntry {

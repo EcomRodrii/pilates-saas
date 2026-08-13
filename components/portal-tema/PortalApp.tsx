@@ -19,6 +19,7 @@ import { Checkout } from "@/components/portal-tema/screens/Checkout";
 import { Profile } from "@/components/portal-tema/screens/Profile";
 import { Centro } from "@/components/portal-tema/screens/Centro";
 import { Confirmed } from "@/components/portal-tema/screens/Confirmed";
+import { Buy } from "@/components/portal-tema/screens/Buy";
 import { ClassDetail } from "@/components/portal-tema/screens/ClassDetail";
 import { GuidedSession } from "@/components/portal-tema/screens/GuidedSession";
 
@@ -35,6 +36,7 @@ const SCREENS = {
   perfil: Profile,
   centro: Centro,
   confirmada: Confirmed,
+  comprar: Buy,
   detalle: ClassDetail,
   sesion: GuidedSession,
 } as const;

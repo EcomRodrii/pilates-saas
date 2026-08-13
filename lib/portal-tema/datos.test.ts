@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  horaLocal, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
+  bonosDe, comprasDe, horaLocal, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -496,4 +496,82 @@ test('clasesDeLaSemana: un objetivo que ya no existe se descarta, no se pinta', 
     tiposClase: [tipo('t1', 'Reformer', { objetivos: ['fuerza', 'adelgazar-2019'] })],
   });
   assert.deepEqual(c.benefits, ['Mejorar fuerza']);
+});
+
+// ── La cartera completa, no solo el bono que se está gastando ──────────────
+
+const planBono = { id: 'p1', nombre: 'Bono 10 clases', sesiones: 10 };
+const planMes = { id: 'p2', nombre: 'Plan Mensual', sesiones: null };
+const sus = (o: Record<string, unknown>) => ({
+  id: 's1', studioId: 'st', socioId: 'so', planId: 'p1', estado: 'ACTIVA',
+  fechaInicio: '2026-08-01', fechaFin: '2026-11-01', sesionesRestantes: 8,
+  stripeSubscriptionId: null, ...o,
+} as never);
+
+test('bonosDe: ⚠️ el plan ILIMITADO también entra — `bonoDe` lo descarta y no se veía en ninguna pantalla', () => {
+  const out = bonosDe(
+    [sus({ id: 'a' }), sus({ id: 'b', planId: 'p2', sesionesRestantes: null })],
+    [planBono, planMes] as never,
+  );
+  assert.deepEqual(out.map((b) => b.name), ['Bono 10 clases', 'Plan Mensual']);
+  assert.equal(out[1].unlimited, true);
+});
+
+test('bonosDe: un bono CADUCA y un plan se RENUEVA — la misma fecha, dos frases', () => {
+  const [bono, plan] = bonosDe(
+    [sus({ id: 'a' }), sus({ id: 'b', planId: 'p2', sesionesRestantes: null })],
+    [planBono, planMes] as never,
+  );
+  assert.equal(bono.footline, 'Caduca el 1 de noviembre');
+  // Decir «caduca» de una mensualidad asusta sin motivo.
+  assert.equal(plan.footline, 'Renovación el 1 de noviembre');
+});
+
+test('bonosDe: el ilimitado no lleva porcentaje — no hay nada que agotar', () => {
+  const [plan] = bonosDe([sus({ planId: 'p2', sesionesRestantes: null })], [planMes] as never);
+  assert.equal(plan.percent, 0);
+  assert.equal(plan.subline, 'Clases ilimitadas');
+});
+
+test('bonosDe: primero lo que se agota, los ilimitados después', () => {
+  const out = bonosDe(
+    [sus({ id: 'a', planId: 'p2', sesionesRestantes: null }), sus({ id: 'b' })],
+    [planBono, planMes] as never,
+  );
+  assert.deepEqual(out.map((b) => b.unlimited), [false, true]);
+});
+
+test('bonosDe: las no activas quedan fuera', () => {
+  assert.deepEqual(bonosDe([sus({ estado: 'CANCELADA' })], [planBono] as never), []);
+});
+
+test('bonosDe: sin sesiones en el plan, el porcentaje no revienta en NaN', () => {
+  const [b] = bonosDe([sus({ sesionesRestantes: 0 })], [{ ...planBono, sesiones: 0 }] as never);
+  assert.equal(b.percent, 0);
+  assert.equal(Number.isNaN(b.percent), false);
+});
+
+// ── El historial: compras HECHAS, no intentadas ────────────────────────────
+
+const recibo = (o: Record<string, unknown>) => ({
+  id: 'r1', studioId: 'st', socioId: 'so', suscripcionId: null,
+  concepto: 'Bono 10 clases', importe: 145, estado: 'COBRADO',
+  fechaVencimiento: '2026-03-12', fechaCobro: '2026-03-12T10:00:00.000Z',
+  fechaDevolucion: null, intentosReintento: 0, ...o,
+} as never);
+
+test('comprasDe: solo las COBRADAS — un recibo pendiente no es una compra', () => {
+  // Listarlo diría que pagó algo que el estudio no ha cobrado.
+  const out = comprasDe([recibo({}), recibo({ id: 'r2', estado: 'PENDIENTE', fechaCobro: null })]);
+  assert.deepEqual(out.map((c) => c.id), ['r1']);
+});
+
+test('comprasDe: de la más reciente a la más antigua, con importe en euros', () => {
+  const out = comprasDe([
+    recibo({ id: 'viejo', fechaCobro: '2026-01-05T10:00:00.000Z' }),
+    recibo({ id: 'nuevo', fechaCobro: '2026-06-05T10:00:00.000Z', importe: 18 }),
+  ]);
+  assert.deepEqual(out.map((c) => c.id), ['nuevo', 'viejo']);
+  assert.equal(out[0].importe, '18,00 €');
+  assert.equal(out[0].cuando, 'Comprado el 5 de junio');
 });

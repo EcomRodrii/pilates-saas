@@ -71,6 +71,36 @@ export interface BonoPortal {
   expires: string;
 }
 
+/**
+ * Un bono o plan de la cartera de la socia, tal y como lo lista «Mis bonos».
+ *
+ * ⚠️ Distinto de `BonoPortal`, que es UNO —el que se está consumiendo— y sirve
+ * para la tarjeta del Inicio. Aquí están TODOS los activos, incluidos los
+ * ilimitados, que `bonoDe` descarta a propósito (no tienen sesiones que
+ * contar) y que hasta ahora no se veían en ninguna pantalla.
+ */
+export interface BonoCartera {
+  id: string;
+  name: string;
+  /** Plan sin sesiones que contar. Entonces no hay barra ni «quedan N». */
+  unlimited: boolean;
+  left: number;
+  total: number;
+  /** «Caduca el 12 de junio» o «Renovación el 1 de junio», ya redactado. */
+  footline: string;
+  subline: string;
+  percent: number;
+}
+
+/** Una compra de la socia, para el historial. Sale de `recibos`. */
+export interface CompraPortal {
+  id: string;
+  concepto: string;
+  /** «Comprado el 12 de marzo», ya redactado. */
+  cuando: string;
+  importe: string;
+}
+
 export interface SociaPortal {
   name: string;
   short: string;
@@ -141,6 +171,10 @@ export interface DatosPortal {
   filtros: FiltroPortal[];
   planes: PlanPortal[];
   bono: BonoPortal;
+  /** Todos sus bonos y planes activos. `bono` es solo el que se consume. */
+  bonos: BonoCartera[];
+  /** Sus compras cobradas, de la más reciente a la más antigua. */
+  compras: CompraPortal[];
   socia: SociaPortal;
   /**
    * Las reservas VIVAS de la socia.
