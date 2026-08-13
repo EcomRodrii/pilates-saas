@@ -133,3 +133,24 @@
   color: var(--surface);
   font-weight: 600;
 }
+
+
+/* ── La tira de días de Reservas (Tentada) ───────────────────────────────────
+ * Cajas de 44×56 con el día activo macizo, en vez del círculo del Inicio. El
+ * punto de «hay clase» sobra aquí: la lista de debajo YA es la respuesta. */
+.week--boxed .day {
+  width: 44px; height: 56px;
+  border-radius: 14px;
+  gap: 3px;
+  transition: background .2s ease;
+}
+.week--boxed .day:hover { background: var(--track); }
+.week--boxed .day__label { font-size: 10px; font-weight: 600; color: var(--muted); }
+.week--boxed .day__num {
+  width: auto; height: auto; background: none;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+}
+.week--boxed .day__dot { display: none; }
+.week--boxed .day.is-active { background: var(--brand); }
+.week--boxed .day.is-active .day__label { color: var(--on-brand); opacity: .8; }
+.week--boxed .day.is-active .day__num { color: var(--on-brand); font-weight: 700; }

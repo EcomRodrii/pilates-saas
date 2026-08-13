@@ -8,6 +8,7 @@ import { veredictoPagina, nombreCookieAcceso } from '@/lib/publico/acceso-pagina
 import { PaginaOculta } from '@/components/publico/pagina-oculta';
 import { ThemeStyle } from '@/components/theme-style';
 import { ThemePreviewListener } from '@/components/theme/theme-preview-listener';
+import { urlMonograma } from '@/lib/monograma-estudio';
 
 // Metadata server-rendered (I-9): título/descripción/Open Graph con el nombre y
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
@@ -54,7 +55,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // porque los únicos enlaces que salen de aquí van al portal de la socia, que
     // también está fuera del índice.
     robots: { index: false, follow: false },
-    ...(theme.faviconUrl ? { icons: { icon: theme.faviconUrl } } : {}),
+    // Sin favicon propio entra el monograma (inicial + color de marca): antes
+    // caía al favicon RAÍZ, que es el de Tentare — la pestaña del navegador de
+    // esta página enseñaba la marca de otro negocio.
+    icons: { icon: theme.faviconUrl || urlMonograma(studio.nombre, studio.colorPrimario, 192) },
   };
 }
 

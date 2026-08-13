@@ -124,3 +124,77 @@
 }
 .tooltip-wrap:hover .tooltip,
 .tooltip-wrap:focus-within .tooltip { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── Las hojas inferiores (Tentada) ────────────────────────────────────────
+ *
+ * Un solo cascarón para las siete del prototipo: velo, panel que sube y asa.
+ * Se pintan al final del árbol de la pantalla, así que tapan también la barra.
+ */
+.hoja { position: absolute; inset: 0; z-index: 100; }
+.hoja__velo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: rgba(24,27,17,.45);
+  animation: theme-fade .2s ease;
+  cursor: pointer;
+}
+.hoja__panel {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  border-radius: 28px 28px 0 0;
+  padding: 10px 22px 34px;
+  animation: theme-sheet-up .3s cubic-bezier(.2,.9,.3,1);
+}
+.hoja__asa {
+  display: block;
+  width: 40px; height: 4px; margin: 0 auto 18px;
+  border-radius: 99px;
+  background: var(--card-hover-border);
+}
+.hoja__titulo { font-size: 17px; font-weight: 800; color: var(--ink); }
+.hoja__texto { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+.hoja__profe { display: flex; align-items: center; gap: 14px; }
+/* El botón destructivo: contorno y no relleno. Un rojo macizo del ancho de la
+ * pantalla pesa más que «Mantener reserva», y la que conserva la plaza es la
+ * opción segura. */
+.hoja__peligro {
+  margin-top: 20px;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--border));
+}
+.hoja__peligro:hover { background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+
+/* Las condiciones del bono: una lista con su marca de verificación, como el
+   prototipo. `list-style: none` porque el tick ya hace de viñeta. */
+.hoja__terminos { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+.hoja__termino { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.hoja__tick {
+  flex: none; width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+  color: var(--brand);
+}
+
+/* Métodos de pago: una fila por medio guardado (tarjeta, domiciliación). */
+.hoja__medio {
+  margin-top: 14px; display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 14px 15px;
+}
+.hoja__marca {
+  flex: none; width: 38px; height: 26px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--brand) 8%, var(--bg));
+  font-size: 9px; font-weight: 800; letter-spacing: .02em; color: var(--muted);
+}
+.hoja__medio-txt { flex: 1; min-width: 0; }
+.hoja__medio-nombre { font-size: 13px; font-weight: 700; color: var(--ink); }
+.hoja__medio-pie { margin-top: 2px; font-size: 11px; color: var(--muted); }
+
+/* «Ver detalles» dentro de la tarjeta de un bono. Va discreto: la información
+   principal de la tarjeta son las clases que le quedan, no este botón. */
+.bono__detalles {
+  margin-top: 13px; width: 100%; height: 42px; border: none; border-radius: 12px;
+  background: var(--brand); color: var(--on-brand);
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+}

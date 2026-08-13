@@ -1,9 +1,15 @@
 import type { Metadata } from 'next';
 import { LEGAL, PROVEEDORES } from '@/lib/legal-info';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/privacidad';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Política de privacidad · Tentare',
-  description: 'Cómo Tentare trata los datos personales conforme al RGPD y la LOPDGDD.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
+  openGraph: { type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 export default function Privacidad() {

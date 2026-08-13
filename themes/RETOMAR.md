@@ -124,10 +124,14 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
      detalle y en «Nivel …»). Los datos de muestra ya traían texto humano, así
      que no se veía. Hay mapa a palabras — y es el quinto del repo con distinta
      redacción; unificarlos es un cambio aparte.
-   Lo que **falta** de esta pieza: la pantalla de **Calendario**, que sigue con
-   el mes de muestra fijado a "Septiembre 2026" — marcar días reales sobre una
-   rejilla inventada quedaría medio bien, que es peor que quedar claramente
-   falso.
+   ~~Lo que falta: la pantalla de **Calendario**.~~ **HECHA** (#1017):
+   `rejillaMesPortal` en `lib/portal-tema/datos.ts`, con el mes real en la zona
+   del estudio y las marcas casadas por **fecha completa** — nunca por
+   `StudioClass.day`, que es el día del MES y confunde el 13 de agosto con el 13
+   de septiembre. `ahoraISO` viaja con los datos para que la previsualización
+   siga siendo determinista. De paso se quitaron las dos flechas de mes, que no
+   tenían `onClick`: navegar de mes exige que `state.day` pase de número de día
+   a fecha completa, y eso toca el filtrado del horario — pasada aparte.
 5. **DECIDIDO: manda `PortalShell`, no `PortalApp`.** Las pantallas del kit se
    montan una por ruta de Next; se tiran el enrutador y la navegación por
    estado del kit. Motivo, medido: el portal actual tiene **19 rutas** y el kit
@@ -141,23 +145,90 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    ~~Costura de navegación~~ **HECHA**: las doce acciones que navegaban pasan
    por `ir()`, y `PortalProvider` acepta `navegar`/`pantalla`. Por defecto
    sigue siendo el estado, así que la previsualización se comporta igual.
+   ~~Selector de plaza~~ **HECHO**, y con él **la puerta de Clases ya está
+   abierta**: `PortalShell` no mira `spots`. La rejilla vive en `ClassDetail`
+   (`.plazas`), el `spotId` viaja hasta `addReserva` —la MISMA vía que la hoja
+   de siempre— y elegir es OPCIONAL, igual que allí: obligar aquí sería una
+   regla nueva, y esto era para no perder funcionalidad, no para cambiarla.
+   ⚠️ Tres cosas que solo salieron al mirarlo, ninguna visible con `tsc`:
+   - **La fila del horario de Tentada tenía un atajo «Reservar»** que salta el
+     detalle. Reservar desde ahí en un estudio de reformer habría dejado a la
+     socia sin máquina — justo lo que la puerta cerrada evitaba. Con plazas,
+     ese atajo lleva al detalle en vez de reservar. Los otros tres temas usan
+     `ClassRow`, sin atajo, así que no tenían el agujero. ⚠️ El rótulo sigue
+     siendo «Reservar» (decisión del fundador, 2026-08-13): es lo que hace la
+     fila del portal de siempre —pulsar abre la hoja y se confirma allí— y dos
+     verbos distintos para el mismo gesto según el estudio confunden más de lo
+     que aclaran.
+   - **La rejilla NO puede llevar un número fijo de columnas.** Copié el 7 de
+     la hoja de reserva de siempre y la sala real del piloto —8 plazas, 2×4—
+     salió como 7 + 1 huérfana. Ahora las columnas salen del dato
+     (`columnasDeSala`), contando columnas DISTINTAS: en producción los
+     índices van desde 0, así que ni `max` ni `max+1` acertaban.
+   - **La plaza elegida tiene que soltarse al cambiar de clase.** Sin eso, la
+     1 elegida en la clase de las 10 viaja a la de las 18, donde puede estar
+     cogida, y el servidor la rechaza con un mensaje que no explica nada.
+   Cubierto por `e2e/portal-tema-elegir-plaza.spec.ts` (4 casos, incluido que
+   una clase SIN plazas no pinta ninguna rejilla — vacío es «este estudio no
+   asigna sitio», no «sala llena»).
 6. **Flag por estudio, CON FECHA DE SALIDA.** Se activa en un estudio piloto;
    pasada una semana sin incidencias se activa en el resto **y se retira el
    portal viejo en el mismo PR**. Un flag sin fecha se queda para siempre y se
    acaban manteniendo dos portales.
-7. **Conectar las acciones de red.** `reserve`, `cancel`, `pay` y `authSubmit`
-   en `store/PortalStore.tsx` son `setTimeout`. Sustituir el cuerpo por la RPC
-   real **manteniendo el estado de carga**: no es decorativo — el botón pasa por
-   «Reservando…» con rueda antes de «Reservada», y de ahí dependen el bono, el
-   anillo y el marcado en el horario. Si la RPC responde en 80 ms, mantener un
-   **mínimo visible de ~400 ms**.
+   ~~La fecha.~~ **PUESTA Y COMPROBADA**: `FECHA_SALIDA_PORTAL_REACT` en
+   `lib/portal-tema/caducidad.ts` (**2026-10-15**), con un test que pone la
+   suite roja ese día y dice qué borrar. El flag ya existía —
+   `studios.portal_react`, migr `20260807120000` — y su comentario decía
+   literalmente «ESTA COLUMNA TIENE FECHA DE CADUCIDAD»... **sin ninguna
+   fecha**, igual que `portal-shell.tsx` avisaba de «no dejar que eche raíces»
+   sin decir hasta cuándo. Las dos eran intención, no plazo: nada fallaba
+   nunca por incumplirlas.
+   **El piloto sigue sin empezar**: 0 de 13 estudios con la bandera encendida
+   (comprobado en prod el 2026-08-13). Encenderla en un estudio real cambia lo
+   que ven sus socias, así que es decisión de producto — y antes conviene
+   cerrar el selector de plaza del punto 5, que hoy deja la pantalla de Clases
+   fuera del kit en los estudios de reformer.
+7. ~~**Conectar las acciones de red.**~~ **HECHO lo que había que hacer, y las
+   dos que quedan NO deben conectarse.** Revisado el 2026-08-13:
+   - `reserve` → `alReservar` → `addReserva`, esperando la respuesta entera del
+     servidor (ese endpoint rechaza legítimamente en seis sitios; anunciarlo
+     antes es el #500).
+   - `cancel` → `alCancelar` → `cancelarReserva` (RPC transaccional).
+   - `checkout` → `alPagar` → Checkout **alojado** de Stripe.
+   Las tres las cablea `components/portal/portal-tema-marco.tsx`, y sin callback
+   —la previsualización de temas— se quedan con la maqueta del kit.
+   ⚠️ **`pay` y `authSubmit` siguen siendo `setTimeout` A PROPÓSITO.** Las
+   llaman `Checkout.tsx` y `Auth.tsx`, que son las pantallas de mentira del kit
+   y **no están en `RUTA_A_PANTALLA`**: el portal real solo enruta `inicio`,
+   `clases`, `reservas`, `bonos` y `centro`. `pay` no tiene a qué conectarse
+   —la vía de verdad ya es `checkout`— y la puerta real del portal es la de dos
+   pasos con enlace mágico, no la del kit.
+   ⚠️ **Esto es una condición del punto 5, no una tarea suya**: al montar más
+   pantallas, `Checkout` y `Auth` NO entran en el mapa de rutas. El día que
+   entren, una socia teclea número y CVC en nuestro propio DOM y lee «Pago
+   confirmado · bono activado» sin que se haya cobrado nada.
 8. **Retirar las cuatro vistas viejas**: `portal-home-view.tsx`,
    `portal-clases-view.tsx`, `portal-bonos-view.tsx`, `bloque-home-render.tsx`.
    **NO se retira** la capa de datos ni `PortalShell`.
-9. **Sustituir las imágenes marcador** de `public/media/*.svg`. ⚠️ No son
-   neutras: el diseño de la bienvenida cuenta con una foto OSCURA debajo del
-   velo para que el titular blanco se lea. Un marcador claro deja esa pantalla
-   ilegible aunque el CSS esté bien.
+   Ya no lo bloquea nada del punto 5 —Clases está abierta para todos—, pero
+   sigue esperando a que el piloto pase su semana: mientras el kit sirva a un
+   solo estudio, las vistas viejas son el portal de los otros doce.
+9. ~~**Sustituir las imágenes marcador** de `public/media/*.svg`.~~ **HECHO**,
+   y no sustituyéndolas: **borrándolas**. El kit tenía un segundo juego de
+   marcadores en paralelo al que este repo ya usa —
+   `lib/imagenes-por-defecto.ts` + `public/por-defecto/`, con su README y su
+   criterio de encuadre por hueco— y mantener dos era el problema, no la falta
+   de fotos. `FotoTema` ya no monta rutas: recibe un `src` que resuelve la capa
+   de datos (`DatosPortal.fotos`, `StudioClass.fotoUrl`), así que **la socia ve
+   la foto de SU estudio** si la propietaria la subió, y la de por defecto si
+   no. Con `onError` a la de por defecto, que cubre la foto borrada de Storage.
+   ⚠️ De los 7 SVG, **4 no los usaba nadie** (`estudio`, `instructora-1/2/3`).
+   Y las caras siguen SIN foto por defecto a propósito — decisión ya
+   documentada en los dos README: una modelo de catálogo haciéndose pasar por
+   la instructora es peor que las iniciales.
+   El aviso de la foto oscura era real y está comprobado, no supuesto:
+   `estudio-vertical.webp` mide 62/255 de luminancia media en la banda del
+   titular (p90 = 65), y la bienvenida se miró en los CUATRO temas.
 
 ## Reglas del encargo que no se pueden saltar
 

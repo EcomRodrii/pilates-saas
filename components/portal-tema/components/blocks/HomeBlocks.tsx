@@ -2,7 +2,7 @@
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Card, EmptyState, SectionHead, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
-import { DayStrip, FotoTema } from "@/components/portal-tema/components/layout/chrome";
+import { DayStrip, FotoTema , RESPALDO_CLASE, RESPALDO_ESTUDIO } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { HomeBlockName } from "@/components/portal-tema/tipos-tema";
@@ -39,7 +39,7 @@ function HomeHeader({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   return (
     <header className="home-header">
-      <span className="home-header__photo"><FotoTema nombre="portada.svg" /></span>
+      <span className="home-header__photo"><FotoTema src={vm.fotos.portada} respaldo={RESPALDO_ESTUDIO} /></span>
       <span className="home-header__veil"></span>
       <div className="home-header__top">
         <p className="home-header__date">{vm.greeting.today}</p>
@@ -105,7 +105,7 @@ function NextClass({ vm }: { vm: ViewModel }) {
       <SectionTitle>{vm.nextHeading}</SectionTitle>
       {vm.next ? (
         <button className="hero is-pressable" onClick={() => actions.openClass(vm.next!.id)}>
-          <span className="hero__photo"><FotoTema nombre="clase.svg" /></span>
+          <span className="hero__photo"><FotoTema src={vm.next!.foto} respaldo={RESPALDO_CLASE} /></span>
           <span className="hero__veil"></span>
           <span className="hero__body">
             {vm.features.hero_badge ? (
@@ -209,18 +209,18 @@ function BookingsList({ vm }: { vm: ViewModel }) {
     <section>
       <SectionHead title="Mis reservas" action="Ver todas" onAction={actions.goBookings} />
       {vm.bookings.length ? (
-        <div className="booking-list">
+        <div className="home-bookings">
           {vm.bookings.map((b) => (
-            <button key={b.id} className="booking is-pressable" onClick={() => actions.openClass(b.id)}>
-              <span className="booking__day">
-                <span className="booking__num">{b.dayNum}</span>
-                <span className="booking__dow">{b.day}</span>
+            <button key={b.id} className="home-booking is-pressable" onClick={() => actions.openClass(b.id)}>
+              <span className="home-booking__day">
+                <span className="home-booking__num">{b.dayNum}</span>
+                <span className="home-booking__dow">{b.day}</span>
               </span>
-              <span className="booking__body">
-                <span className="booking__name">{b.name}</span>
-                <span className="booking__meta">{b.meta}</span>
+              <span className="home-booking__body">
+                <span className="home-booking__name">{b.name}</span>
+                <span className="home-booking__meta">{b.meta}</span>
               </span>
-              <span className="booking__time">{b.time}</span>
+              <span className="home-booking__time">{b.time}</span>
             </button>
           ))}
         </div>
@@ -239,7 +239,9 @@ function BookingsList({ vm }: { vm: ViewModel }) {
 /**
  * La racha (Tentada): «6 semanas seguidas — tu mejor racha».
  *
- * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `rachaDe`, y por eso
+ * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `calcularRacha`
+ * (`lib/engines/streak-engine.ts`) — la MISMA que alimenta los logros, para
+ * que el Inicio no pueda decir 6 semanas y su insignia 5 —, y por eso
  * puede no pintarse: sin dos semanas seguidas asistiendo no hay racha, y una
  * píldora que anuncia una racha que no existe es peor que no tenerla. El
  * «— tu mejor racha» tampoco es decorativo: solo se escribe cuando lo es.

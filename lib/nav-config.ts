@@ -6,7 +6,7 @@ import {
   Settings, BarChart2,
   Clock, MessageCircle, Megaphone, Play,
   Bot, Package, Store, Inbox,
-  UserCog, Users2, Compass, Replace,
+  UserCog, Users2, Compass, Replace, Network,
   Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
   Calculator, Notebook, DownloadCloud,
 } from 'lucide-react';
@@ -84,6 +84,12 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/equipo', label: 'Equipo', icon: UserCog },
+      // Buscador de candidatas de Tentare Network — herramienta de
+      // contratación de la propietaria/manager/recepción, NO donde una
+      // instructora gestiona su propio perfil (eso se mudó fuera del panel,
+      // a app/network/mi-perfil — cuenta independiente, sin studio_id). Por
+      // eso ya no está en PERMITIDO_INSTRUCTOR (lib/permisos-reglas.ts).
+      { href: '/network', label: 'Buscar instructoras', icon: Network },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },

@@ -156,6 +156,7 @@ export async function POST(req: NextRequest) {
     slug: slugEstudio,
     esCompraDePlan: !!body.planId && !body.reciboId,
     reciboId: body.reciboId,
+    planId: body.planId,
   });
 
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).

@@ -274,3 +274,122 @@ a.centro__fact:hover { color: var(--brand); }
   color: var(--brand);
   display: grid; place-items: center;
 }
+
+/* ── Profesores ─────────────────────────────────────────────────────────── */
+.profe {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 14px 15px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.profe__body { flex: 1; min-width: 0; }
+/* ⚠️ `display: block` no es decoración. Los dos son `<span>` dentro de un
+ * `<button>`, y en línea el nombre y la bio salían PEGADOS
+ * («Marta GómezFundadora del estudio…») con el `margin-top` ignorado, que es
+ * lo que hacen los márgenes verticales sobre una caja en línea. */
+.profe__name { display: block; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+/* Sin bio no hay párrafo: `instructores.bio` es nullable de verdad y el
+ * prototipo la inventaba por profesora.
+ *
+ * En la lista va recortada a dos líneas — la bio es texto libre que escribe el
+ * estudio, y una larga de verdad convertía la fila en un bloque de seis
+ * renglones. Entera, en la hoja. */
+.profe__bio {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin-top: 5px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
+}
+
+/* ── Información del centro ─────────────────────────────────────────────── */
+.info-rows {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.info-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.info-row:last-child { border-bottom: 0; }
+.info-row__key { flex: none; font-size: 13px; font-weight: 600; color: var(--ink); }
+.info-row__val { font-size: 13px; color: var(--muted); text-align: right; }
+
+.info-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.info-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.55; color: var(--ink); }
+.info-list__tick {
+  flex: none; margin-top: 1px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft); color: var(--brand);
+  display: grid; place-items: center;
+}
+.info-para { font-size: 13px; line-height: 1.65; color: var(--muted); text-wrap: pretty; }
+
+/* ── Mi perfil (Tentada) ─────────────────────────────────────────────────────
+ *
+ * Cabecera de marca a sangre con las esquinas de abajo redondeadas, como el
+ * diseño. `canvas--flush` quita el padding lateral del lienzo para que la
+ * cabecera llegue al borde; el resto lo devuelve `.perfil__body`. */
+.canvas--flush { padding-left: 0; padding-right: 0; }
+
+.perfil__head {
+  background: var(--brand);
+  color: var(--on-brand);
+  padding: 62px 20px 30px;
+  border-radius: 0 0 30px 30px;
+}
+.perfil__head-top { display: flex; align-items: center; justify-content: space-between; }
+.perfil__head-title { font-size: 20px; font-weight: 700; color: var(--on-brand); }
+.perfil__head .icon-btn--glass {
+  background: color-mix(in srgb, var(--on-brand) 12%, transparent);
+  border: 0; color: var(--on-brand);
+}
+.perfil__head .icon-btn--glass:hover { background: color-mix(in srgb, var(--on-brand) 22%, transparent); }
+
+.perfil__id { display: flex; flex-direction: column; align-items: center; margin-top: 14px; }
+.perfil__avatar {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--on-brand) 35%, transparent);
+  background: color-mix(in srgb, var(--on-brand) 14%, transparent);
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 34px; color: var(--on-brand);
+}
+.perfil__name { margin-top: 12px; font-size: 19px; font-weight: 700; color: var(--on-brand); }
+/* Email y teléfono se callan si faltan: una línea vacía bajo el nombre se lee
+ * como un dato que se ha perdido. */
+.perfil__meta { margin-top: 3px; font-size: 12px; color: color-mix(in srgb, var(--on-brand) 75%, transparent); }
+
+.perfil__body { padding: 18px 20px 0; display: flex; flex-direction: column; gap: 12px; }
+.perfil__group {
+  margin-top: 8px; padding-left: 4px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted);
+}
+.perfil__rows {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.perfil__row {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background .2s ease;
+}
+.perfil__row:last-child { border-bottom: 0; }
+.perfil__row:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 3%, var(--surface)); }
+.perfil__row:disabled { cursor: default; }
+.perfil__row-label { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.perfil__row-side { display: flex; align-items: center; gap: 8px; }
+.perfil__row-val { font-size: 12.5px; color: var(--muted); }
+.perfil__row .icon { color: var(--card-hover-border); }
+
+.perfil__salir { margin-top: 6px; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 22%, var(--border)); }
+.perfil__salir:hover { background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.perfil__pie { text-align: center; font-size: 10.5px; color: var(--card-hover-border); margin-top: 14px; }

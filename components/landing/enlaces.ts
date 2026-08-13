@@ -34,6 +34,15 @@ export const NAV_V5: EnlaceNav[] = [
 ];
 
 /**
+ * Único enlace del menú que NO es una ancla de esta página: Tentare Network
+ * es un producto público aparte (alta independiente, sin estudio detrás —
+ * ver app/network/unirse), así que su sitio es el menú de la landing, no una
+ * sección de /funcionalidades. Sustituye al hueco que /instructora/alta dejó
+ * en PIE_V5 (ver comentario ahí) — mismo criterio, destino nuevo.
+ */
+export const NAV_NETWORK: EnlaceNav = { href: '/network/unirse', label: 'Tentare Network' };
+
+/**
  * Salidas de cada sección hacia el árbol real. Esto es lo que el diseño no
  * tenía: sin estos enlaces, /funcionalidades y /precios quedan huérfanas desde
  * la página que más tráfico recibe.
@@ -43,11 +52,9 @@ export const SALIDAS = {
   sustituciones: { href: '/funcionalidades/sustituciones', label: 'Cómo funcionan las sustituciones' },
   precio: { href: '/precios', label: 'Ver los planes en detalle' },
   comparativa: { href: '/comparativa', label: 'Comparar con otras plataformas' },
-  // ⚠️ Apunta a /comparativa y NO a /soluciones/cambiar-de-software: esa página
-  // se planificó (P1) pero nunca se publicó, y enlazar a un 404 desde la home
-  // es peor que no enlazar. Si algún día se escribe, este es el sitio que hay
-  // que cambiar — el test de enlaces internos lo cazaría igualmente.
-  cambiarse: { href: '/comparativa', label: 'Comparar antes de cambiarte' },
+  // Antes apuntaba a /comparativa como paso intermedio — /soluciones/cambiar-de-software
+  // se publicó el 2026-08-13 y es el destino real de "quien ya usa otro software".
+  cambiarse: { href: '/soluciones/cambiar-de-software', label: 'Cómo es cambiarte a Tentare' },
   app: { href: '/funcionalidades/app-para-alumnas', label: 'La app de tus alumnas' },
   widget: { href: '/funcionalidades/reservas-online', label: 'Reservas en tu web' },
   clientas: { href: '/funcionalidades/ficha-de-clienta', label: 'La ficha de cada alumna' },
@@ -62,6 +69,9 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
+      // El enlace a /instructora/alta (Feature #9) se quitó de aquí porque esa
+      // experiencia se sustituyó por Tentare Network — este es su sitio ahora.
+      NAV_NETWORK,
     ],
   },
   {
@@ -71,6 +81,10 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
       { href: '/funcionalidades/cobros-recurrentes', label: 'Cobros' },
       { href: '/funcionalidades/facturacion', label: 'Facturación' },
+      // Solo 4 de las 15 caben sin que la columna se desborde — el resto se
+      // alcanza en un clic desde aquí. Antes esta columna era el único techo
+      // de las 11 restantes desde el pie global (docs/SEO-AI-MASTERPLAN.md §19).
+      { href: '/funcionalidades', label: 'Ver las 15 →' },
     ],
   },
   {

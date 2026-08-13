@@ -1,8 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
+import { columnasDeSala } from "@/lib/portal-tema/datos";
 import { ICON_PATHS, Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button, Divider, EmptyState, Pill } from "@/components/portal-tema/components/ui/primitives";
-import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar , RESPALDO_CLASE } from "@/components/portal-tema/components/layout/chrome";
 import { useActions, useEsDemo } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -67,7 +70,7 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
     <>
       {bleed ? (
         <div className="detail-photo">
-          <div className="detail-photo__media"><FotoTema nombre="clase.svg" /></div>
+          <div className="detail-photo__media"><FotoTema src={d.foto} respaldo={RESPALDO_CLASE} /></div>
           <div className="detail-photo__veil"></div>
           <StatusBar over />
           <div className="detail-top">
@@ -96,7 +99,7 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
             <FavouriteButton fav={d.fav} size={21} />
           </div>
           <div className="detail-photo detail-photo--card">
-            <div className="detail-photo__media"><FotoTema nombre="clase.svg" /></div>
+            <div className="detail-photo__media"><FotoTema src={d.foto} respaldo={RESPALDO_CLASE} /></div>
           </div>
         </>
       )}
@@ -120,6 +123,67 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
         <p className="detail__label">Sobre la clase</p>
         <p className="detail__body">{d.description}</p>
 
+        {/* De `tipos_clase.objetivos` (lista FIJA, compartida con la página
+            pública). Sin objetivos marcados no se pinta: el prototipo traía
+            tres beneficios escritos a mano por clase y aquí no hay dónde
+            escribirlos — inventarlos sería el «Compatibilidad 87 %» otra vez. */}
+        {d.benefits.length ? (
+          <>
+            <p className="detail__label" style={{ marginTop: 20 }}>Beneficios</p>
+            <ul className="benefits">
+              {d.benefits.map((b) => (
+                <li key={b}>
+                  <span className="benefits__tick"><Icon name="check" size={11} stroke={2.2} /></span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+
+        {/* Elegir sitio. Solo en los estudios que lo asignan (reformers,
+            camillas): donde no, `plazas` viene vacío y aquí no se pinta nada.
+            ⚠️ Vacío NO significa «sala llena».
+
+            Elegir es OPCIONAL, igual que en la hoja de reserva de siempre: se
+            puede confirmar sin plaza y el estudio la asigna en mostrador.
+            Obligarla aquí sería una regla nueva que el portal viejo no tiene, y
+            este cambio es para no perder funcionalidad, no para cambiarla. */}
+        {d.plazas.length ? (
+          <>
+            <p className="detail__label" style={{ marginTop: 20 }}>Elige tu sitio</p>
+            <div
+              className="plazas"
+              role="group"
+              aria-label="Plazas de la sala"
+              style={{ "--plazas-cols": columnasDeSala(d.plazas) } as CSSProperties}
+            >
+              {d.plazas.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={"plaza" + (p.ocupada ? " plaza--ocupada" : "") + (d.plazaElegida === p.id ? " plaza--elegida" : "")}
+                  disabled={p.ocupada}
+                  aria-pressed={d.plazaElegida === p.id}
+                  aria-label={`Plaza ${p.nombre}${p.ocupada ? " (ocupada)" : ""}`}
+                  onClick={() => actions.elegirPlaza(p.id)}
+                >
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+            <p className="detail__seats plazas__nota">
+              {d.plazaElegida
+                ? "Puedes tocar tu sitio otra vez para soltarlo."
+                : "Si no eliges, te lo asignan al llegar."}
+            </p>
+          </>
+        ) : null}
+
+        {/* Estar en la cola no es tener plaza, y el detalle tiene que decirlo
+            antes de que la socia lea el botón. */}
+        {d.waiting ? <p className="detail__espera">{d.waitingLabel}</p> : null}
+
         {bleed ? (
           <div className="facts">
             {d.facts.map((fact) => (
@@ -131,7 +195,18 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
           </div>
         ) : null}
 
-        <Button block size="lg" variant={d.booked ? "done" : "primary"} loading={d.loading} onClick={actions.reserve}>
+        {/* Reservar va directo; CANCELAR pasa por la hoja —es irreversible, la
+            plaza se libera y puede irse a quien esté en la cola— y APUNTARSE A
+            LA COLA también: no es la plaza que venía a buscar, y hasta ahora se
+            hacía de un toque desde el mismo botón que reserva. */}
+        <Button
+          block size="lg" variant={d.booked ? "done" : "primary"} loading={d.loading}
+          onClick={() => (d.booked
+            ? actions.abrirHoja({ tipo: 'cancelar', classId: d.id, reservaId: d.reservaId })
+            : d.full
+              ? actions.abrirHoja({ tipo: 'espera', classId: d.id })
+              : actions.reserve())}
+        >
           {d.confirmed ? (
             <svg className="icon animate-pop" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -176,6 +176,30 @@ export async function eliminarImagenBienvenida(studioId: string): Promise<{ ok: 
   return { ok: true };
 }
 
+// Foto de perfil de Tentare Network — mismo bucket público, prefijo propio.
+// A diferencia de `subirFotoInstructor`, la autorización del path es por
+// dueño (`red_perfiles.auth_user_id = auth.uid()`), no por estudio: un
+// perfil de Network puede no pertenecer a ningún estudio Tentare
+// (avatars_path_autorizado, rama `network-%`).
+export async function subirFotoPerfilNetwork(perfilId: string, file: File): Promise<{ url: string } | { error: string }> {
+  const path = `network-${perfilId}`;
+  const img = await redimensionarImagen(file, LADO_AVATAR);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, img, { upsert: true, contentType: img.type });
+
+  if (uploadError) return { error: uploadError.message };
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return { url: `${data.publicUrl}?v=${Date.now()}` };
+}
+
+export async function eliminarFotoPerfilNetwork(perfilId: string): Promise<{ ok: true } | { error: string }> {
+  const { error } = await supabase.storage.from(BUCKET).remove([`network-${perfilId}`]);
+  if (error) return { error: error.message };
+  return { ok: true };
+}
+
 /**
  * Cualquier imagen que se sube DESDE el editor de apariencia: la foto de un
  * banner, la de una tarjeta, la de una galería…

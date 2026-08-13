@@ -10,7 +10,8 @@
  * con tests) no tenga que importar nada de `components/`.
  */
 
-import type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
+import { imagenDeClase, IMAGENES_POR_DEFECTO } from "@/lib/imagenes-por-defecto";
+import type { DatosPortal, PlazaPortal, StudioClass } from "@/lib/portal-tema/tipos";
 
 export type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
 
@@ -24,19 +25,40 @@ export const DAYS = [
   { key: "dom", label: "DOM", num: 9 },
 ] as const;
 
+
+/**
+ * Una sala de reformers para la muestra: 8 plazas en dos filas de 4.
+ *
+ * Está aquí y no vacío para que la rejilla de «Elige tu sitio» se VEA al mirar
+ * temas — es la mitad de los estudios de Pilates y, sin esto, la pantalla que
+ * más decisiones tiene encima no aparecería nunca en la previsualización.
+ * Las de suelo se quedan sin plazas a propósito: ahí no se asigna sitio, y así
+ * la muestra enseña los dos casos.
+ */
+const salaReformer = (ocupadas: readonly number[]): PlazaPortal[] =>
+  Array.from({ length: 8 }, (_, i) => ({
+    id: `sp${i + 1}`,
+    nombre: String(i + 1),
+    // Desde 0, como en producción (`spots` del estudio piloto: fila 0-1,
+    // columna 0-3). Ver `columnasDeSala`.
+    fila: i < 4 ? 0 : 1,
+    columna: i % 4,
+    ocupada: ocupadas.includes(i + 1),
+  }));
+
 export const CLASSES: StudioClass[] = [
-  { id: "c1", name: "Pilates Reformer", type: "reformer", day: 4, time: "18:00", end: "19:00", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3,
-    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración." },
-  { id: "c2", name: "Pilates de suelo", type: "suelo", day: 4, time: "10:00", end: "10:50", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6,
-    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna." },
-  { id: "c3", name: "Reformer fuerza", type: "reformer", day: 5, time: "09:00", end: "09:50", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12,
-    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación." },
-  { id: "c4", name: "Pilates prenatal", type: "prenatal", day: 5, time: "11:30", end: "12:15", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4,
-    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar." },
-  { id: "c5", name: "Reformer suave", type: "reformer", day: 6, time: "19:00", end: "19:50", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0,
-    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer." },
-  { id: "c6", name: "Abdomen y espalda", type: "suelo", day: 7, time: "08:00", end: "08:40", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5,
-    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día." },
+  { id: "c1", name: "Pilates Reformer", fotoUrl: imagenDeClase({ nombre: "Pilates Reformer" }), type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: salaReformer([2, 3, 5, 6, 8]),
+    description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"], cancelHoras: 6 },
+  { id: "c2", name: "Pilates de suelo", fotoUrl: imagenDeClase({ nombre: "Pilates de suelo" }), type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
+    description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"], cancelHoras: 6 },
+  { id: "c3", name: "Reformer fuerza", fotoUrl: imagenDeClase({ nombre: "Reformer fuerza" }), type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: salaReformer([4]),
+    description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"], cancelHoras: 6 },
+  { id: "c4", name: "Pilates prenatal", fotoUrl: imagenDeClase({ nombre: "Pilates prenatal" }), type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
+    description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"], cancelHoras: 6 },
+  { id: "c5", name: "Reformer suave", fotoUrl: imagenDeClase({ nombre: "Reformer suave" }), type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: salaReformer([1, 2, 3, 4, 5, 6, 7, 8]),
+    description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"], cancelHoras: 6 },
+  { id: "c6", name: "Abdomen y espalda", fotoUrl: imagenDeClase({ nombre: "Abdomen y espalda" }), type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
+    description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"], cancelHoras: 6 },
 ];
 
 export const FILTERS = [
@@ -135,7 +157,16 @@ export const FAQ = [
 ];
 
 export const PASS = { name: "Bono 10 clases", total: 10, expires: "30 de septiembre" };
-export const MEMBER = { name: "Laura Ortega", short: "Laura", initial: "L" };
+export const MEMBER = {
+  // `id` vacío a propósito: en la previsualización no hay socia, y sin id el
+  // formulario de «Mis datos» no guarda nada — lo dice en pantalla.
+  id: "", name: "Laura Ortega", short: "Laura", initial: "L",
+  apellidos: "Ortega", email: "laura@correo.com", telefono: "+34 600 000 000",
+  fechaNacimiento: "", direccion: "", domiciliado: false,
+  // La previsualización SÍ enseña una tarjeta: es lo que deja ver la hoja de
+  // métodos de pago con su forma real. No es de nadie — no hay socia aquí.
+  tarjeta: { marca: "Visa", ultimos4: "4242", caduca: "04/27" },
+};
 
 /**
  * ⚠️ Devuelve `null` y no "la primera clase" como hacía la versión de muestra.
@@ -155,27 +186,62 @@ export const plural = (n: number, one: string, many: string) => n + " " + (n ===
 
 /** Lo que ve la previsualización de temas: no hay estudio del que tirar. */
 export const DATOS_DE_MUESTRA: DatosPortal = {
+  // La previsualización no tiene estudio, así que enseña las de por defecto:
+  // exactamente lo que ve una socia cuya propietaria aún no ha subido ninguna.
+  fotos: { portada: IMAGENES_POR_DEFECTO.portada[0], vertical: IMAGENES_POR_DEFECTO.vertical[0] },
   clases: CLASSES,
   // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
   // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
   // estudio; aquí es de muestra, como el resto de este objeto.
+  // Fecha de referencia de los datos de MUESTRA. Fija a propósito: la vista
+  // previa tiene que verse igual hoy que dentro de un mes.
+  ahoraISO: '2026-08-13T09:00:00.000Z',
   hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
-  // De muestra, como el resto: en el portal real la calcula `rachaDe` con las
-  // asistencias de la socia.
+  // De muestra, como el resto: en el portal real viene de `calcularRacha`
+  // (`lib/engines/streak-engine.ts`), la misma que alimenta los logros.
   racha: { semanas: 6, esMejor: true },
   estudio: {
     nombre: "Estudio Tentada", anioFundacion: 2019,
     direccion: "Carrer de la Pau, 12", ciudad: "Barcelona", codigoPostal: "08001",
-    telefono: "+34 600 123 456", email: "hola@estudiotentada.com", fotoUrl: null,
+    telefono: "+34 600 123 456", email: "hola@estudiotentada.com",
+    fotoUrl: null, imagenBienvenidaUrl: null,
     normas: [
       "Llega 5 minutos antes: las clases empiezan puntuales.",
       "Calcetines antideslizantes obligatorios en todas las salas.",
       "Cancela con 6 h de antelación para recuperar tu clase.",
     ],
+    horario: [
+      { dia: "Lunes", cuando: "8:00 – 21:00" }, { dia: "Martes", cuando: "8:00 – 21:00" },
+      { dia: "Miércoles", cuando: "8:00 – 21:00" }, { dia: "Jueves", cuando: "8:00 – 21:00" },
+      { dia: "Viernes", cuando: "8:00 – 21:00" }, { dia: "Sábado", cuando: "9:00 – 14:00" },
+      { dia: "Domingo", cuando: "Cerrado" },
+    ],
+    privacidad: "Tus datos pertenecen a tu estudio y solo se usan para gestionar tus reservas, bonos y comunicaciones de clase.",
   },
   dias: [...DAYS],
   filtros: [...FILTERS],
   planes: PLANS,
   bono: PASS,
+  // Dos, y uno ilimitado: el caso que `bonoDe` descarta a propósito y que
+  // hasta ahora no se veía en ninguna pantalla.
+  bonos: [
+    { id: "b10", planKey: "bono10", name: "Bono 10 clases", unlimited: false, left: 8, total: 10,
+      subline: "8 clases restantes", footline: "Caduca el 30 de septiembre", percent: 80,
+      terminos: ["Caduca a los 90 días de comprarlo", "Máximo 3 clases por semana"] },
+    { id: "plan", planKey: "mensual", name: "Plan Mensual", unlimited: true, left: 0, total: 0,
+      subline: "Clases ilimitadas", footline: "Renovación el 1 de octubre", percent: 0,
+      // Sin condiciones: así se ve también el bono que NO ofrece «Ver detalles».
+      terminos: [] },
+  ],
+  compras: [
+    { id: "r1", concepto: "Bono 10 clases", cuando: "Comprado el 12 de marzo", importe: "145,00 €" },
+    { id: "r2", concepto: "Plan Mensual", cuando: "Comprado el 1 de septiembre", importe: "189,00 €" },
+  ],
   socia: MEMBER,
+  profesores: [
+    { id: "i1", nombre: "Marta Gómez", inicial: "M", bio: "Fundadora del estudio. Más de diez años enseñando método clásico y contemporáneo." },
+    { id: "i2", nombre: "Emma Ruiz", inicial: "E", bio: "Formada en método clásico. Precisión técnica y muy buen ritmo." },
+    // Sin bio: la ficha no pinta un párrafo vacío ni texto de relleno.
+    { id: "i3", nombre: "Nuria Peña", inicial: "N", bio: "" },
+  ],
 };

@@ -20,6 +20,7 @@ export const PERMISOS = [
   'users.create',
   'users.delete',
   'content.write',
+  'network.moderate',
   'admin.full',
 ] as const;
 
@@ -40,6 +41,7 @@ export const PERMISO_ETIQUETA: Record<Permiso, string> = {
   'users.create':   'Dar de alta usuarios internos',
   'users.delete':   'Dar de baja usuarios internos',
   'content.write':  'Publicar el changelog de Actualizaciones',
+  'network.moderate': 'Moderar perfiles, verificaciones y reportes de Tentare Network',
   'admin.full':     'Todos los permisos, presentes y futuros',
 };
 
@@ -49,6 +51,7 @@ export const PERMISOS_POR_AREA: Array<{ area: string; permisos: Permiso[] }> = [
   { area: 'Facturación', permisos: ['billing.read', 'billing.refund', 'plans.update'] },
   { area: 'Crecimiento', permisos: ['marketing.send', 'crm.update'] },
   { area: 'Contenido',  permisos: ['content.write'] },
+  { area: 'Network',    permisos: ['network.moderate'] },
   { area: 'Plataforma',  permisos: ['logs.read', 'users.create', 'users.delete', 'admin.full'] },
 ];
 

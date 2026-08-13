@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-bsport';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs bsport: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y sustitución de instructoras — Tentare frente a bsport, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-bsport') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs bsport',
     description: 'Precio, permanencia, Veri*factu y sustitución de instructoras — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-bsport'),
+    url: urlDe(PATH),
   },
 };
 
@@ -44,6 +47,7 @@ export default function TentareVsBsportPage() {
       h1={<>Tentare frente a bsport.</>}
       intro={<>bsport es una de las plataformas europeas más usadas por estudios de fitness boutique. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, hay diferencias que se notan cada mes: la factura, la permanencia y el precio.</>}
       rows={ROWS}
+      veredicto={<>Si lo que buscas es la parte fiscal española resuelta de fábrica, un precio que no cambia según a quién le preguntes y no firmar un año por adelantado, Tentare encaja mejor. Si ya dependes de integraciones concretas que bsport lleva más tiempo puliendo — pasarela propia, pantallas de sala, agenda externa — o necesitas una app de tienda ya mismo, bsport sigue siendo hoy la opción más madura en esos puntos.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de bsport a mediados de 2026 (pro.bsport.io). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
@@ -92,10 +93,24 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // vacíos falsos ("Sin recibos", "No hay resultados") en cada carga en frío.
   // `studio !== null` es la señal fiable (no `dataLoaded`, que se pone true antes
   // con el fetch temprano de sesión sin resolver, como explica el bloque de rol).
-  // I3: el login redirige las altas sin estudio a /crear-estudio, así que quien
-  // llega aquí tiene estudio y `studio` acaba cargando; por eso gatear sobre
-  // `studio === null` no deja a nadie en un skeleton perpetuo.
+  // I3 (desactualizado, ver docs/NETWORK-AUDIT-2.md §2): se asumía que
+  // `/login` solo dejaba llegar aquí a cuentas con estudio — falso para una
+  // cuenta de Tentare Network sin studio_id, que se quedaba en un skeleton
+  // perpetuo (`studio` nunca deja de ser `null`). El origen ya se corrigió
+  // (`/api/auth/destino-post-login`), pero esta pantalla necesita su PROPIA
+  // red de seguridad: un enlace viejo, un bookmark o un `?destino=`
+  // manipulado pueden seguir aterrizando aquí sin estudio.
   const cargandoDatos = !!session && (studio === null || billingBloqueado !== false);
+  // `&& studio === null` en el uso de abajo, no un reset síncrono aquí: así
+  // el flag se invalida solo en cuanto `studio` resuelve, sin un segundo
+  // setState en el cuerpo del efecto (react-hooks/set-state-in-effect).
+  const [estudioTardaDemasiado, setEstudioTardaDemasiado] = useState(false);
+  useEffect(() => {
+    if (!session || studio !== null) return;
+    const t = setTimeout(() => setEstudioTardaDemasiado(true), 6000);
+    return () => clearTimeout(t);
+  }, [session, studio]);
+  const estudioNuncaResuelve = estudioTardaDemasiado && studio === null;
   useEffect(() => {
     if (!loading && session && rolResuelto && !autorizado) router.replace('/dashboard');
   }, [loading, session, rolResuelto, autorizado, router]);
@@ -112,6 +127,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <main className="lg:pl-[var(--sidebar-w)] min-h-dvh">
             <div className="pt-14 lg:pt-2 pb-20 lg:pb-0 max-w-[1320px] mx-auto px-4 lg:px-6 py-6 lg:py-6">
               <PanelSkeleton />
+            </div>
+          </main>
+        </PanelThemeProvider>
+      </PanelPrivacyProvider>
+    );
+  }
+
+  // Nunca un skeleton para siempre: si a los 6 s la cuenta sigue sin estudio,
+  // no es una carga lenta — es una cuenta que no pertenece a este panel (p.
+  // ej. una de Tentare Network sin studio_id). Salida explícita, no un
+  // callejón sin salida.
+  if (estudioNuncaResuelve) {
+    return (
+      <PanelPrivacyProvider>
+        <PanelThemeProvider className="min-h-dvh bg-background">
+          <main className="min-h-dvh flex items-center justify-center px-4">
+            <div className="max-w-sm text-center space-y-3">
+              <p className="text-[14px] text-foreground font-medium">Esta cuenta no tiene ningún estudio de Tentare.</p>
+              <p className="text-[13px] text-muted-foreground">
+                Si te has registrado para Tentare Network, tu perfil está en otro sitio.
+              </p>
+              <Link href="/network/mi-perfil" className="inline-block px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium">
+                Ir a mi perfil de Network
+              </Link>
             </div>
           </main>
         </PanelThemeProvider>

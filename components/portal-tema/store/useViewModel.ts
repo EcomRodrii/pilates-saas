@@ -1,38 +1,15 @@
 "use client";
 
+import { IMAGENES_CLASE } from "@/lib/imagenes-por-defecto";
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
-  CHALLENGES, CLASSES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
+  CHALLENGES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
-import { usePortal, useDatos, type PortalState } from "./PortalStore";
+import { rejillaMesPortal } from "@/lib/portal-tema/datos";
+import { usePortal, useDatos } from "./PortalStore";
 import { useTema } from "./TemaContext";
-
-/**
- * Rejilla del mes: cinco semanas desde el lunes anterior al día 1.
- *
- * ⚠️ Sigue siendo de MUESTRA a propósito, y por eso importa `CLASSES` y no los
- * datos reales: el mes está fijado a "Septiembre 2026" y a 30 días. Marcar los
- * días con clase de verdad sobre una rejilla inventada quedaría medio bien y
- * eso es peor que quedar claramente falso — se ve real y no lo es. La pantalla
- * de Calendario necesita su propia pasada; hasta entonces, no se toca.
- */
-function buildCalendar(state: PortalState) {
-  const cells = [];
-  for (let i = -2; i <= 32; i++) {
-    const outside = i < 1 || i > 30;
-    cells.push({
-      key: i,
-      label: outside ? (i < 1 ? 30 + i : i - 30) : i,
-      outside,
-      today: i === 3,
-      selected: i === state.day,
-      marked: CLASSES.some((c) => c.day === i),
-    });
-  }
-  return { month: "Septiembre 2026", dow: ["L", "M", "X", "J", "V", "S", "D"], cells };
-}
 
 const money = (n: number) => n.toFixed(2).replace(".", ",") + " €";
 
@@ -61,10 +38,20 @@ export function useViewModel() {
     const reservadas = datos.reservadas;
     const idsReservados = reservadas ? reservadas.map((r) => r.classId) : state.booked;
     const reservaPorClase = new Map((reservadas ?? []).map((r) => [r.classId, r.reservaId]));
+    // ⚠️ Tener plaza y estar en la cola no son lo mismo. Sin esto el portal
+    // pintaba «Reservada» en las dos, y el detalle ofrecía «Cancelar reserva»
+    // a quien solo estaba apuntada a la lista.
+    const porClase = new Map((reservadas ?? []).map((r) => [r.classId, r]));
+    const enCola = (id: string) => porClase.get(id)?.estado === "LISTA_ESPERA";
     const booked = idsReservados.includes(state.classId);
     const fav = state.favourites.includes(state.classId);
     const next = idsReservados.length ? buscarClase(datos, idsReservados[0]) : null;
-    const dayList = datos.clases.filter((c) => c.day === state.day && (state.filter === "todas" || c.type === state.filter));
+    // Ordenadas por hora. `clasesDeLaSemana` ya las devuelve así, pero la lista
+    // tiene que salir en orden venga de donde venga — con los datos de muestra
+    // salía 18:00 antes que 10:00, igual que pasó en el horario del Inicio.
+    const dayList = datos.clases
+      .filter((c) => c.day === state.day && (state.filter === "todas" || c.type === state.filter))
+      .sort((a, b) => a.time.localeCompare(b.time));
     const done = idsReservados.length;
     const goal = 4;
     const exercise = EXERCISES[state.exercise];
@@ -126,8 +113,9 @@ export function useViewModel() {
       // fuera la clase: venía así del kit de diseño, donde la próxima clase
       // siempre era mañana. Con datos reales puede ser hoy o el sábado, así
       // que el día sale de `etiquetaDia` y "Hoy" de la fecha del estudio.
+      fotos: datos.fotos,
       next: next && {
-        id: next.id, name: next.name, teacher: next.teacher,
+        id: next.id, name: next.name, teacher: next.teacher, foto: next.fotoUrl,
         time: next.time, room: next.room, duration: next.duration,
         isToday: next.day === datos.hoy.num,
         day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
@@ -158,9 +146,10 @@ export function useViewModel() {
         cta: state.challenges.includes(c.key) ? "Apuntada ✓" : "Apuntarme",
       })),
 
-      // La racha real (`rachaDe`). `null` = no hay ninguna que enseñar; el
-      // bloque no se pinta en vez de anunciar «0 semanas».
-      streak: datos.racha,
+      // La racha real, de `calcularRacha`. `null` o menos de dos semanas = no
+      // hay ninguna que enseñar, y el bloque no se pinta en vez de anunciar
+      // «0 semanas»: una semana suelta no es una racha.
+      streak: datos.racha && datos.racha.semanas >= 2 ? datos.racha : null,
       weekMonth: datos.hoy.mes,
 
       // El acceso a los vídeos para casa. El texto es del producto, no del
@@ -193,12 +182,41 @@ export function useViewModel() {
         return {
           id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
           meta: c.room + " · " + c.level,
-          booked: isBooked,
-          status: isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
+          // Sin el nivel: la fila de Tentada ya escribe «con {teacher} · {room}»
+          // y repetir «Intermedio» ahí la parte en tres líneas.
+          room: c.room,
+          booked: isBooked && !enCola(c.id),
+          waiting: enCola(c.id),
+          position: porClase.get(c.id)?.posicion ?? null,
+          full: !isBooked && c.seats === 0,
+          // ⚠️ En un estudio que asigna sitio, el atajo «Reservar» de la fila
+          // reservaría SIN plaza: no hay dónde elegirla ahí. Con esto lleva al
+          // detalle, que es donde está la rejilla — un toque más, pero sin
+          // perder la máquina, que es justo lo que la fila vieja no perdía.
+          eligeSitio: c.plazas.length > 0,
+          status: enCola(c.id)
+            ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
+            : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
           statusTone: (isBooked ? "booked" : c.seats ? "free" : "full") as "booked" | "free" | "full",
         };
       }),
       classCount: plural(dayList.length, "clase", "clases"),
+
+      // La cola de la socia, para la pestaña «Lista de espera». Sale de sus
+      // reservas reales (`estado === 'LISTA_ESPERA'`), no de una lista aparte.
+      waitlist: (reservadas ?? []).flatMap((r) => {
+        if (r.estado !== "LISTA_ESPERA") return [];
+        const c = buscarClase(datos, r.classId);
+        if (!c) return [];
+        return [{
+          id: c.id, name: c.name, time: c.time,
+          reservaId: r.reservaId,
+          dateLine: (c.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, c.day)) + " · " + c.time,
+          meta: "con " + c.teacher + " · " + c.room,
+          position: r.posicion,
+          positionLabel: r.posicion ? r.posicion + "ª posición" : "En la cola",
+        }];
+      }),
 
       // Una reserva cuya clase ya no está (cancelada, o de otra semana) se cae
       // de la lista en vez de pintarse a medias.
@@ -230,6 +248,74 @@ export function useViewModel() {
         seeds: Array.from({ length: Math.min(datos.bono.total, 12) }, (_, i) => i < passLeft),
         seedsFit: datos.bono.total > 0 && datos.bono.total <= 12,
       },
+      teachers: datos.profesores,
+
+      // El aviso de la hoja de cancelar, redactado con la ventana REAL de esta
+      // clase. El prototipo escribe «Es gratis hasta 6 horas antes»; ese 6 es
+      // suyo. Si el estudio no fija ninguna ventana no se promete nada — y
+      // «gratis» solo se dice cuando de verdad lo es.
+      cancelSheet: {
+        aviso: cls?.cancelHoras
+          ? `Es gratis hasta ${cls.cancelHoras} ${cls.cancelHoras === 1 ? "hora" : "horas"} antes de la clase.`
+          : "Consulta con el estudio su política de cancelación.",
+      },
+
+      // Su perfil. Los SEIS campos que edita, no los tres del prototipo: los
+      // otros tres ya existen en el perfil que usa hoy y quitárselos sería que
+      // el rediseño le costara dónde escribir su dirección.
+      profile: {
+        ...datos.socia,
+        name: datos.socia.name || cfg.member_name,
+        initial: datos.socia.initial || cfg.member_initial,
+        estudio: datos.estudio.nombre || cfg.studio,
+        // El estado SEPA que ya enseña el perfil de siempre. `null` = no está
+        // domiciliada, y entonces la fila va sin coletilla en vez de con un
+        // «No domiciliado» que nadie ha pedido saber.
+        metodoPago: datos.socia.domiciliado ? "Domiciliado" : null,
+      },
+
+      // Las cuatro secciones de «Información del centro», ya resueltas: la
+      // pantalla solo coloca. Cada una se calla si su fuente está vacía —
+      // horario sin configurar, normas sin escribir— en vez de pintar un
+      // bloque en blanco.
+      info: (() => {
+        const e = datos.estudio;
+        const vacio = { filas: [] as { clave: string; valor: string }[], lista: [] as string[], parrafos: [] as string[] };
+        if (state.infoKey === "horario") {
+          return {
+            ...vacio, titulo: "Horario del centro",
+            filas: e.horario.map((h) => ({ clave: h.dia, valor: h.cuando })),
+            vacio: "El estudio todavía no ha publicado su horario de apertura.",
+          };
+        }
+        if (state.infoKey === "normas") {
+          return { ...vacio, titulo: "Normas del centro", lista: e.normas,
+            vacio: "El estudio todavía no ha escrito sus normas." };
+        }
+        if (state.infoKey === "contacto") {
+          return {
+            ...vacio, titulo: "Contacto",
+            filas: [
+              e.telefono ? { clave: "Teléfono", valor: e.telefono } : null,
+              e.email ? { clave: "Email", valor: e.email } : null,
+              e.direccion ? { clave: "Dirección", valor: [e.direccion, e.codigoPostal, e.ciudad].filter(Boolean).join(", ") } : null,
+            ].filter((x): x is { clave: string; valor: string } => x !== null),
+            vacio: "El estudio todavía no ha publicado sus datos de contacto.",
+          };
+        }
+        return {
+          ...vacio, titulo: "Privacidad",
+          // Un texto largo: se parte por párrafos en blanco, como está escrito.
+          parrafos: (e.privacidad ?? "").split(/\n{2,}/).map((p) => p.trim()).filter(Boolean),
+          vacio: "El estudio todavía no ha publicado su política de privacidad.",
+        };
+      })(),
+
+      // Toda su cartera, no solo el bono que se está gastando: `bonoDe` deja
+      // fuera los ilimitados y una socia con plan mensual no veía ninguno.
+      wallet: datos.bonos,
+      purchases: datos.compras,
+
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
       metrics: [
         { value: idsReservados.length, label: "reservas" },
@@ -241,10 +327,28 @@ export function useViewModel() {
       // había una, así que la pantalla de detalle podía darla por hecha; con un
       // estudio real la semana puede venir vacía o la clase estar cancelada.
       detail: !cls ? null : {
-        id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial,
+        id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial, foto: cls.fotoUrl,
+        // Las plazas de la sala. Vacío = este estudio NO asigna sitio (la
+        // mayoría), y entonces el detalle no pinta ninguna rejilla — que no es
+        // lo mismo que «la sala está llena».
+        plazas: cls.plazas,
+        plazaElegida: state.spotElegido,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
-        booked, fav,
+        booked: booked && !enCola(state.classId),
+        // El id que hay que mandar para cancelar NO es el de la clase.
+        reservaId: reservaPorClase.get(state.classId),
+        waiting: enCola(state.classId),
+        // Sin plazas y sin reserva propia: el botón no reserva, apunta a la
+        // cola — y eso pasa por la hoja, como cancelar.
+        full: !booked && !enCola(state.classId) && !cls.seats,
+        waitingLabel: porClase.get(state.classId)?.posicion
+          ? "Estás en la lista de espera · " + porClase.get(state.classId)!.posicion + "ª posición. Te avisaremos si se libera una plaza."
+          : "Estás en la lista de espera. Te avisaremos si se libera una plaza.",
+        // De `tipos_clase.objetivos`, resueltos a etiquetas por el adaptador.
+        // Vacío = el estudio no marcó ninguno y la sección no se pinta.
+        benefits: cls.benefits,
+        fav,
         cta: state.loading ? "Reservando…" : booked ? "Reservada" : cls.seats ? "Reservar mi plaza" : "Apuntarme a la espera",
         seats: booked ? "Tienes tu plaza guardada" : cls.seats ? "Quedan " + cls.seats + " plazas" : "Sin plazas · lista de espera abierta",
         loading: state.loading,
@@ -264,6 +368,9 @@ export function useViewModel() {
 
       session: {
         name: exercise.name,
+        // Los ejercicios son del kit, no del estudio: no hay foto suya que
+        // enseñar. La genérica de clase es lo más cercano a la verdad.
+        foto: IMAGENES_CLASE.generica,
         step: "Ejercicio " + (state.exercise + 1) + " de " + EXERCISES.length,
         status: state.seconds === 0 ? "Completada" : state.running ? "En marcha" : "En pausa",
         clock: "00:" + String(state.seconds).padStart(2, "0"),
@@ -289,7 +396,10 @@ export function useViewModel() {
         stroke: state.tab === t.key ? 2.2 : 1.7,
         showLabel: f.tab_bar_style !== "floating" || state.tab === t.key,
       })),
-      showTabBar: (["inicio", "clases", "calendario", "reservas", "perfil", "bonos", "centro"] as string[]).includes(state.screen),
+      // `confirmada` lleva barra, como en el diseño: sin ella la socia se queda
+      // sin más salida que el botón, y el detalle (que sí es una pantalla
+      // "dentro de") tiene su propia flecha de atrás.
+      showTabBar: (["inicio", "clases", "calendario", "reservas", "perfil", "bonos", "centro", "confirmada"] as string[]).includes(state.screen),
       tabBarFloating: f.tab_bar_style === "floating",
 
       welcome: cfg.welcome,
@@ -304,8 +414,41 @@ export function useViewModel() {
         cta: state.paying ? "Procesando pago…" : "Pagar " + money((plan?.price ?? 0) + vat),
       },
 
+      // ⚠️ El desenlace REAL de la última reserva. El prototipo daba por hecho
+      // que reservar sale bien; el servidor devuelve tres finales distintos, y
+      // decirle «¡confirmada!» a quien quedó tercera en la cola es el bug #500
+      // otra vez.
+      confirmation: (() => {
+        const u = state.ultimaReserva;
+        if (!u) return null;
+        const c = buscarClase(datos, u.classId);
+        if (!c) return null;
+        const copia = {
+          CONFIRMADA: { title: "¡Reserva confirmada!", text: "Te esperamos en tu clase.", icon: "check" as IconName },
+          LISTA_ESPERA: { title: "Estás en la lista de espera", text: "Te avisamos en cuanto se libere una plaza.", icon: "clock" as IconName },
+          PENDIENTE_APROBACION: { title: "Reserva enviada", text: "El estudio tiene que aprobarla. Te avisamos en cuanto lo haga.", icon: "info" as IconName },
+        }[u.estado];
+        return {
+          ...copia,
+          estado: u.estado,
+          kicker: u.estado === "CONFIRMADA" ? "Reserva confirmada" : "Tu solicitud",
+          name: c.name, teacher: c.teacher, room: c.room, duration: c.duration,
+          when: (c.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, c.day)) + " · " + c.time,
+          // Para el `.ics`: el instante real, no la hora de pared.
+          ics: {
+            id: c.id, inicio: c.startsAt, fin: c.endsAt, titulo: c.name,
+            instructora: c.teacher, sala: c.room,
+            estudioNombre: datos.estudio.nombre || cfg.studio,
+            estudioDireccion: [datos.estudio.direccion, datos.estudio.ciudad].filter(Boolean).join(", "),
+          },
+        };
+      })(),
+
       auth: { working: state.authWorking },
-      calendar: buildCalendar(state),
+      // La rejilla sale de la capa de datos (probada), no de aquí: es lógica
+      // de fechas y zona horaria. `ahoraISO` viaja con los datos para que la
+      // vista previa siga siendo determinista.
+      calendar: rejillaMesPortal(new Date(datos.ahoraISO), datos.clases, state.day),
       icons: ICON_PATHS,
       toast: state.toast,
       toastId: state.toastId,

@@ -8,7 +8,7 @@ import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
+import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -465,9 +465,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes,
+      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -498,6 +498,18 @@ export async function fetchPublicStudioData(
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
         admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+        // El horario de apertura del estudio (`studio_horario`, migr
+        // 20260804213940), para «Información del centro» del portal.
+        //
+        // Va en el grupo EXCLUSIVO del portal y dentro del caché a propósito:
+        // son 7 filas que cambian cada varios meses, y este bloque corre en
+        // cada visita — el widget embebido (`liviano`) no lo pide porque no
+        // enseña horarios de apertura.
+        //
+        // ⚠️ Y sale de aquí, NO de una columna de `studios`: la tabla ya
+        // existía con su RLS y su pestaña en el panel. Un texto de horario en
+        // `studios` habría sido una segunda fuente del mismo dato.
+        admin.from('studio_horario').select('*').eq('studio_id', studioId).order('dia_semana', { ascending: true }),
       ]);
 
     const retoConteos = (retoParticipRes?.data ?? []).reduce<Record<string, number>>((acc, r) => {
@@ -514,6 +526,13 @@ export async function fetchPublicStudioData(
       salas: (salasRes.data ?? []).map(mapSala),
       instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
       spots: (spotsRes.data ?? []).map(mapSpot),
+      // El horario de apertura, para «Información del centro». Vacío en el
+      // modo `liviano` (el widget no lo pide) — misma forma del objeto, como
+      // el resto de campos exclusivos del portal.
+      horarioSemana: (horarioRes?.data ?? []).map((r) => {
+        const f = r as { dia_semana: number; abierto: boolean; hora_apertura: string | null; hora_cierre: string | null };
+        return { diaSemana: f.dia_semana, abierto: f.abierto, horaApertura: f.hora_apertura, horaCierre: f.hora_cierre };
+      }),
       planesTarifa: planesConTiposPub,
       videosOnDemand: (videosRes?.data ?? []).map(mapVideoOnDemand),
       rewardRules: (rewardRulesRes?.data ?? []).map(mapRewardRule),
@@ -1097,7 +1116,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     .lt('inicio', hastaISO);
   if (error) throw new Error(error.message);
   const sesiones = sesionesRaw ?? [];
-  if (sesiones.length === 0) return { sesiones: 0, enviados: 0, fallidos: 0, sinEmail: 0 };
+  if (sesiones.length === 0) return { sesiones: 0, enviados: 0, fallidos: 0, sinEmail: 0, enviadosWhatsapp: 0, fallidosWhatsapp: 0 };
 
   const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter(Boolean) as string[])];
   const sesionIds = sesiones.map(s => s.id as string);
@@ -1116,11 +1135,20 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     admin.from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studioIds),
   ]);
   const reservas = reservasR ?? [];
-  const whatsappPorStudio = new Map<string, WhatsAppCredenciales>();
+  const whatsappPorStudio = new Map<string, WhatsAppCredenciales & { plantillaAprobada: boolean }>();
   for (const row of whatsappR ?? []) {
     if (!row.activo) continue;
     const config = (row.config as Record<string, string>) ?? {};
-    if (config.token && config.phoneId) whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId });
+    if (config.token && config.phoneId) {
+      // `plantillaAprobada` es opt-in por estudio (checkbox en Configuración →
+      // Integraciones): sin ella se manda `type: 'text'` como siempre, que
+      // Meta solo entrega dentro de la ventana de 24h desde el último mensaje
+      // de la socia — con ella, se usa la plantilla HSM que Meta permite
+      // fuera de esa ventana. No forzar plantilla a estudios que no la han
+      // registrado: eso rompería TODOS sus recordatorios, no solo los que
+      // caen fuera de la ventana.
+      whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId, plantillaAprobada: config.plantillaAprobada === 'true' });
+    }
   }
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
@@ -1205,8 +1233,14 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 
       const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
       if (quiereWhatsapp && whatsapp && socia.telefono) {
-        const texto = `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`;
-        const res = await enviarWhatsAppTexto(whatsapp, socia.telefono, texto);
+        const res = whatsapp.plantillaAprobada
+          ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
+              datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
+            ])
+          : await enviarWhatsAppTexto(
+              whatsapp, socia.telefono,
+              `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
+            );
         if (res.ok) enviadosWhatsapp++;
         else fallidosWhatsapp++;
       }

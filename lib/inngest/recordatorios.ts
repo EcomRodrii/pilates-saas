@@ -8,6 +8,7 @@
 // estudio lento (p.ej. muchas socias sin email, WhatsApp caído) retrasa el aviso
 // de los demás. Con el fan-out cada estudio es un job aislado con reintentos
 // propios y concurrencia acotada — hallazgo M-5 de la auditoría 2026-07-29.
+import * as Sentry from '@sentry/nextjs';
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from './estudios.ts';
@@ -51,6 +52,19 @@ export const procesarRecordatoriosEstudio = inngest.createFunction(
   async ({ event, step }) => {
     const { studioId, desdeISO, hastaISO } = event.data as { studioId: string; desdeISO: string; hastaISO: string };
 
-    return step.run('enviar', () => enviarRecordatoriosClasesProximas(studioId, desdeISO, hastaISO));
+    const resultado = await step.run('enviar', () => enviarRecordatoriosClasesProximas(studioId, desdeISO, hastaISO));
+
+    // Antes esto se perdía en silencio: el worker terminaba "OK" (sin lanzar
+    // excepción) aunque TODOS los envíos de WhatsApp de este estudio hubieran
+    // fallado — solo se veía mirando a mano el payload del run en Inngest.
+    if (resultado.fallidosWhatsapp > 0) {
+      Sentry.captureMessage('[recordatorios] fallo al enviar recordatorio por WhatsApp', {
+        level: 'warning',
+        tags: { area: 'recordatorios', tipo: 'whatsapp-fallido' },
+        extra: { studioId, enviadosWhatsapp: resultado.enviadosWhatsapp, fallidosWhatsapp: resultado.fallidosWhatsapp },
+      });
+    }
+
+    return resultado;
   },
 );

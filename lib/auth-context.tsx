@@ -25,7 +25,8 @@ type AuthContextType = {
     password: string,
     metadata?: Record<string, unknown>,
     captchaToken?: string,
-  ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+    redirectPath?: string,
+  ) => Promise<{ error: string | null; needsConfirmation: boolean; yaRegistrado: boolean }>;
   signOut: () => Promise<void>;
   updateProfile: (datos: { nombre: string; apellidos: string }) => Promise<{ error: string | null }>;
   updateEmail: (nuevoEmail: string) => Promise<{ error: string | null; pendiente: boolean }>;
@@ -96,14 +97,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
-  async function signUp(email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string) {
+  async function signUp(
+    email: string, password: string, metadata?: Record<string, unknown>, captchaToken?: string, redirectPath = '/login',
+  ) {
     // emailRedirectTo es OBLIGATORIO aquí. Sin él, el enlace de verificación
     // devuelve a la RAÍZ del sitio, y la vinculación de la ficha de instructora
     // (dbReclamarAccesoEquipo) solo se ejecuta en /login → la cuenta quedaba
     // creada y verificada pero SIN vincular: el panel decía "no registrada" y
     // la instructora entraba a una pantalla en blanco, sin estudio asociado.
     // Le pasó a Rosi y a María Soler, y hubo que vincularlas a mano.
-    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined;
+    // redirectPath por defecto sigue siendo /login (staff de estudio); el alta
+    // de Tentare Network pasa '/network/mi-perfil' porque esa cuenta no tiene
+    // ficha de instructora que vincular — /login no sabría qué hacer con ella.
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : undefined;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -114,8 +120,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     if (captchaToken) captchaGastado();
-    if (error) return { error: mensajeDeError(error), needsConfirmation: false };
-    return { error: null, needsConfirmation: !data.session };
+    if (error) return { error: mensajeDeError(error), needsConfirmation: false, yaRegistrado: false };
+    // Cuando el email ya tiene una cuenta CONFIRMADA, gotrue no devuelve un
+    // error (por diseño, para no dejar enumerar qué emails están registrados):
+    // responde 200 con un `user` fantasma e `identities: []`, sin sesión y sin
+    // mandar ningún correo. Sin este chequeo, `needsConfirmation` salía `true`
+    // igual que en un alta real — la pantalla decía "revisa tu email" y nunca
+    // se había enviado nada. Pasó de verdad probando el alta de instructora
+    // freelance con un email que ya era propietaria de otro estudio.
+    const yaRegistrado = !data.session && Array.isArray(data.user?.identities) && data.user.identities.length === 0;
+    return { error: null, needsConfirmation: !data.session && !yaRegistrado, yaRegistrado };
   }
 
   async function signOut() {

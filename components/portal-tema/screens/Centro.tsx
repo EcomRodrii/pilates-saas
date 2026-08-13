@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { FotoTema, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { FotoTema, StatusBar , RESPALDO_ESTUDIO } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -37,7 +37,7 @@ export function Centro({ vm }: { vm: ViewModel }) {
         </header>
 
         <div className="centro__photo">
-          <FotoTema nombre="portada.svg" />
+          <FotoTema src={vm.fotos.portada} respaldo={RESPALDO_ESTUDIO} />
         </div>
 
         <section>
@@ -64,25 +64,21 @@ export function Centro({ vm }: { vm: ViewModel }) {
           </div>
         </section>
 
-        {c.normas.length ? (
-          <section>
-            <p className="section-title">Normas del centro</p>
-            <ul className="centro__normas">
-              {c.normas.map((n, i) => (
-                <li key={i}>
-                  <span className="centro__tick"><Icon name="check" size={11} stroke={2.2} /></span>
-                  <span>{n}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
+        {/* Las cuatro filas del diseño. Ya no falta ninguna: el horario sale
+            de `studio_horario` y las normas de `studios.normas_texto`. */}
         <div className="centro__rows">
-          <button className="centro__row is-pressable" onClick={actions.goTeachers}>
-            <span>Profesores</span>
-            <Icon name="forward" size={15} stroke={1.6} />
-          </button>
+          {[
+            { label: "Horario del centro", go: () => actions.goInfo("horario") },
+            { label: "Profesores", go: actions.goTeachers },
+            { label: "Normas del centro", go: () => actions.goInfo("normas") },
+            { label: "Contacto", go: () => actions.goInfo("contacto") },
+            { label: "Privacidad", go: () => actions.goInfo("privacidad") },
+          ].map((r) => (
+            <button key={r.label} className="centro__row is-pressable" onClick={r.go}>
+              <span>{r.label}</span>
+              <Icon name="forward" size={15} stroke={1.6} />
+            </button>
+          ))}
         </div>
         <div style={{ height: 8 }}></div>
       </div>

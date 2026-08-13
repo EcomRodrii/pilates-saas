@@ -9,6 +9,16 @@ export interface RachaInfo {
   // Clave estable de la semana actual (lunes en formato ISO) — útil como
   // ref_id para no otorgar dos veces los créditos de "semana completa".
   claveSemanaActual: string;
+  /**
+   * `semanas` es su mejor marca histórica.
+   *
+   * Lo pide el Inicio del tema Tentada, que escribe «— tu mejor racha» y NO
+   * puede escribirlo siempre: es una afirmación comprobable. Vive aquí y no en
+   * un cálculo aparte porque la racha ya tenía dueño — este motor, que es
+   * además el que alimenta los logros. Dos fuentes de la misma cifra dejarían
+   * el Inicio diciendo 6 semanas y su insignia diciendo 5.
+   */
+  esMejor: boolean;
 }
 
 function lunesDe(d: Date): Date {
@@ -37,7 +47,7 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
   const unaSemanaMs = 7 * 86400000;
 
   if (asistidas.length === 0) {
-    return { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: claveActual };
+    return { semanas: 0, enRiesgo: false, diasParaPerder: null, claveSemanaActual: claveActual, esMejor: false };
   }
 
   const semanasConClase = new Set(asistidas.map(d => claveSemana(lunesDe(d))));
@@ -60,10 +70,24 @@ export function calcularRacha(reservas: Reserva[], sesiones: Sesion[], now: Date
     diasParaPerder = Math.max(0, Math.ceil((finDeSemana.getTime() - now.getTime()) / 86400000));
   }
 
+  // ¿Es su mejor marca? Se recorre el historial ordenado contando tramos
+  // seguidos. Las claves son 'YYYY-MM-DD', así que ordenan bien como texto.
+  const todas = [...semanasConClase].sort();
+  const previaDe = (clave: string) =>
+    claveSemana(new Date(new Date(clave + 'T12:00:00Z').getTime() - unaSemanaMs));
+  let mejor = 0, tramo = 0, previa: string | null = null;
+  for (const semana of todas) {
+    tramo = previa !== null && previaDe(semana) === previa ? tramo + 1 : 1;
+    if (tramo > mejor) mejor = tramo;
+    previa = semana;
+  }
+
   return {
-    semanas: estaSemanaTieneClase ? racha : racha,
+    // `estaSemanaTieneClase ? racha : racha` — las dos ramas eran idénticas.
+    semanas: racha,
     enRiesgo,
     diasParaPerder,
     claveSemanaActual: claveActual,
+    esMejor: racha > 0 && racha >= mejor,
   };
 }

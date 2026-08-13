@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import { CompetitorPage, type ComparativaRow, type HonestyCard } from '@/components/comparativa/CompetitorPage';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+const PATH = '/comparativa/tentare-vs-mindbody';
+const pagina = paginaDe(PATH)!;
 
 export const metadata: Metadata = {
-  title: 'Tentare vs Mindbody: comparativa para estudios de Pilates en España',
-  description: 'Precio, permanencia, facturación Veri*factu, dónde se alojan tus datos y comisión por captar clientas — Tentare frente a Mindbody, punto por punto.',
-  alternates: { canonical: urlDe('/comparativa/tentare-vs-mindbody') },
+  title: pagina.titulo,
+  description: pagina.descripcion,
+  alternates: { canonical: urlDe(PATH) },
   openGraph: {
     type: 'website',
     title: 'Tentare vs Mindbody',
     description: 'Precio, permanencia, Veri*factu y dónde viven tus datos — comparados punto por punto.',
-    url: urlDe('/comparativa/tentare-vs-mindbody'),
+    url: urlDe(PATH),
   },
 };
 
@@ -43,6 +46,7 @@ export default function TentareVsMindbodyPage() {
       h1={<>Tentare frente a Mindbody.</>}
       intro={<>Mindbody es la suite estadounidense más veterana del sector fitness. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, la diferencia se nota en el precio, la permanencia y en dónde acaban tus datos.</>}
       rows={ROWS}
+      veredicto={<>Para un estudio de pilates en España que no quiere depender de comisiones ni de un contrato con datos alojados fuera de la UE, Tentare cubre lo esencial sin la complejidad de una suite pensada originalmente para cadenas grandes de EE. UU. Si ya usas el marketplace de consumo de Mindbody para captar clientas nuevas, perder esa vía de descubrimiento es el coste real de cambiar de software.</>}
       honestyIntro="No somos mejores en todo — y te lo contamos abajo, sin rodeos."
       honesty={HONESTY}
       footnote="Basado en información pública de Mindbody a mediados de 2026 (mindbodyonline.com). Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."

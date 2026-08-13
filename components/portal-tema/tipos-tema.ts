@@ -29,6 +29,28 @@ export type WeekStripStyle = "card" | "bare";
  */
 export type TabSet = "basico" | "centro";
 
+/**
+ * Forma de la pantalla de horario.
+ *   `chips` — «Clases», contador y filtros por tipo (Oliva/Bloom/Noir).
+ *   `tabs`  — «Reservas» con dos pestañas, Clases y Lista de espera (Tentada).
+ */
+export type ScheduleStyle = "chips" | "tabs";
+
+/**
+ * Forma de la pantalla de bonos.
+ *   `plan`     — el bono activo arriba y los planes debajo (Oliva/Bloom/Noir).
+ *   `cartera`  — «Mis bonos» con dos pestañas, Bonos e Historial (Tentada).
+ */
+export type PassesStyle = "plan" | "cartera";
+
+/**
+ * Forma de «Mi perfil».
+ *   `card`   — la maqueta del kit (Oliva/Bloom/Noir).
+ *   `header` — cabecera verde y filas, con «Aspecto» y el estado SEPA
+ *              conservados del perfil de siempre (Tentada).
+ */
+export type ProfileStyle = "card" | "header";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -60,6 +82,9 @@ export interface ThemeFeatures {
   next_class_style: NextClassStyle;
   week_strip_style: WeekStripStyle;
   tab_set: TabSet;
+  schedule_style: ScheduleStyle;
+  passes_style: PassesStyle;
+  profile_style: ProfileStyle;
 }
 
 export interface PaletteEntry {

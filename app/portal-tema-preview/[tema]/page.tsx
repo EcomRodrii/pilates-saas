@@ -43,7 +43,12 @@ async function datosDelEstudio(slug: string): Promise<{ datos: DatosPortal; nomb
     datos: construirDatosPortal({
       ahora: new Date(),
       sesiones: publico.sesiones,
-      reservas: publico.aforoReservas.map((r) => ({ sesionId: r.sesion_id, estado: r.estado as never })),
+      // `spot_id` viaja para saber qué plazas están cogidas. El catálogo
+      // público ya lo trae (va anonimizado: la plaza, no quién la ocupa).
+      reservas: publico.aforoReservas.map((r) => ({
+        sesionId: r.sesion_id, estado: r.estado as never, spotId: r.spot_id ?? null,
+      })),
+      spots: publico.spots,
       tiposClase: publico.tiposClase,
       salas: publico.salas,
       instructores: publico.instructores,
@@ -61,7 +66,7 @@ export default async function Page({
   params, searchParams,
 }: {
   params: Promise<{ tema: string }>;
-  searchParams: Promise<{ estudio?: string }>;
+  searchParams: Promise<{ estudio?: string; compra?: string; plan?: string }>;
 }) {
   if (process.env.VERCEL_ENV === 'production') notFound();
 
@@ -69,7 +74,7 @@ export default async function Page({
   if (!esTemaPortal(tema)) notFound();
   const config = TEMAS_PORTAL[tema];
 
-  const { estudio } = await searchParams;
+  const { estudio, compra, plan } = await searchParams;
   const real = estudio ? await datosDelEstudio(estudio) : null;
 
   const enlace = (id: string) => `/portal-tema-preview/${id}${estudio ? `?estudio=${encodeURIComponent(estudio)}` : ''}`;
@@ -94,7 +99,13 @@ export default async function Page({
           ))}
         </div>
       </div>
-      <PortalApp tema={config} datos={real?.datos} />
+      {/* `?compra=ok&plan=<id>` enseña la vuelta de Stripe. Sin esto esa
+          pantalla no se puede mirar sin pagar de verdad. */}
+      <PortalApp
+        tema={config}
+        datos={real?.datos}
+        compra={compra === 'ok' || compra === 'cancelada' ? { estado: compra, planId: plan ?? null } : null}
+      />
     </main>
   );
 }

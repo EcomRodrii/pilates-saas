@@ -878,7 +878,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const liviano = (pathname ?? '').startsWith('/reservar/');
     cargarDatosPublicos(publicSlug, { liviano }).then(pub => {
       if (!pub || pub.error) { setDataLoaded(true); return; }
-      setStudio(pub.studio ?? null);
+      // El horario de apertura viaja aparte (sale de `studio_horario`, no de
+      // una columna de `studios`) y se pega aquí para que el portal lo lea
+      // donde ya lo espera: `studio.horarioSemana`, la misma forma que usa el
+      // panel. Dos sitios distintos para el mismo dato es como se acaba con el
+      // panel diciendo una cosa y el portal otra.
+      setStudio(pub.studio ? { ...pub.studio, horarioSemana: pub.horarioSemana ?? [] } : null);
       setPlanMasElegidoId((pub as { planMasElegidoId?: string | null }).planMasElegidoId ?? null);
       setSustitucionesConfirmadas((pub as { sustitucionesConfirmadas?: SustitucionConfirmadaPublica[] }).sustitucionesConfirmadas ?? []);
       // El portal muestra a la clienta la política/términos del estudio y quedan con
