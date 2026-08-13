@@ -325,7 +325,6 @@ export function varsKitMap(raw: unknown): Record<string, string> {
       primary: t.primary,
       onPrimary: foregroundParaFondo(t.primary),
       secondary: t.secondary,
-      accent: t.accent,
       background: t.background,
       text: t.text,
       fontStack: FUENTES.find((f) => f.id === t.fontId)?.stack,
