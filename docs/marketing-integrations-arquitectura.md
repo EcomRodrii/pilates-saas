@@ -3,11 +3,13 @@
 Fecha: 2026-08-13. Depende de
 [`docs/marketing-integrations-audit.md`](./marketing-integrations-audit.md)
 — léelo primero, aquí no se repiten las citas de archivo/línea salvo que
-aporten algo nuevo. Esto es **solo diseño**: ningún código de producto se
-ha tocado, `MARKETING_MODULE_ENABLED` sigue en `false`. La decisión de si
-se reactiva el módulo existente o se rehace queda pendiente y expresamente
-fuera de este documento — lo que sigue es válido en cualquiera de los dos
-casos, porque describe la forma final, no el punto de partida.
+aporten algo nuevo. `MARKETING_MODULE_ENABLED` sigue en `false` — nada de
+lo implementado hasta ahora (pasos 2 y 3 del §8) depende de esa decisión ni
+cambia UI visible del módulo de marketing en sí, son refactors/formalización
+sobre código que ya corría. La decisión de si se reactiva el módulo
+existente o se rehace queda pendiente y expresamente fuera de este
+documento — lo que sigue es válido en cualquiera de los dos casos, porque
+describe la forma final, no el punto de partida.
 
 ## Principio rector
 
@@ -62,6 +64,23 @@ interface IntegracionMarketing {
   manejarWebhook(payload: unknown, firma: string): Promise<void>
 }
 ```
+
+**Implementado (paso 3 del §8)**: `EmailProvider`/`SmsProvider` viven en
+`lib/marketing/providers/tipos.ts`, con `resendEmailProvider()`
+(`email-resend.ts`) y `twilioSmsProvider` (`sms-twilio.ts`) como
+implementaciones — delegación fina sobre `conReintentoResend`/
+`remitentePorMarca`/`enviarMensajeTwilio`, sin lógica nueva. Corrección
+sobre el plan original: no se envolvió `lib/emails/send-server.ts` (ese
+archivo es un helper de emails TRANSACCIONALES con plantillas fijas
+—promoción/cancelación/recordatorio/reserva—, no el sitio real donde el
+motor de automatizaciones manda su HTML genérico); el patrón real a
+envolver era el que estaba **duplicado inline** en `procesarCandidato` y
+`procesarCandidatoMkt` (`lib/inngest/automatizaciones.ts`), que ahora
+llaman al provider en vez de a Resend/Twilio directo. `IntegracionMarketing`
+queda sin implementar — es del paso 7 (Klaviyo), no de este.
+Deliberadamente NO se migraron los otros 25+ call sites de Resend/Twilio
+del repo (soporte, onboarding, valoraciones, notificaciones...): son
+dominios de negocio distintos del Marketing Engine, fuera de alcance.
 
 Estas interfaces son contratos TypeScript, no un framework de plugins —
 coherente con "no over-engineer", el repo no necesita un registro dinámico
@@ -238,9 +257,9 @@ vez de un esquema de versiones paralelo).
 
 1. **Decisión pendiente**: reactivar módulo existente vs rehacer (bloquea
    todo lo demás, fuera de este documento).
-2. Resolver solape de motores de automatización (§2) — refactor puro,
-   sin UI nueva.
-3. Formalizar `EmailProvider`/`SmsProvider` como interfaces sobre el
+2. ✅ Resolver solape de motores de automatización (§2) — refactor puro,
+   sin UI nueva. PR #1015.
+3. ✅ Formalizar `EmailProvider`/`SmsProvider` como interfaces sobre el
    código ya existente (§1) — sin cambiar comportamiento, solo el
    contrato.
 4. Cola server-side de envío de campañas (§5) — prerequisito técnico de

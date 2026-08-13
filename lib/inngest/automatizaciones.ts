@@ -8,11 +8,11 @@ import { computeAutomationCandidatos, type AutomationCandidato } from '@/lib/eng
 import { computeAutomatizacionMktCandidatos, type AutomatizacionMktCandidato } from '@/lib/engines/marketing-automation-engine';
 import { AutomatizacionEmail } from '@/lib/emails/automatizacion-template';
 import { RECOMENDACION_SYSTEM_PROMPT, buildRecomendacionUserPrompt, type RecomendacionInput } from '@/lib/ai/recomendacion-prompt';
-import { enviarMensajeTwilio, twilioConfigurado } from '@/lib/twilio';
+import { twilioConfigurado } from '@/lib/twilio';
 import { MARCA_INACTIVIDAD } from '@/lib/engines/senales-inactividad';
-import { conReintentoResend } from '@/lib/emails/resend-reintentos';
+import { resendEmailProvider } from '@/lib/marketing/providers/email-resend';
+import { twilioSmsProvider } from '@/lib/marketing/providers/sms-twilio';
 import { esDominioReservado } from '@/lib/emails/dominios-reservados';
-import { remitentePorMarca } from '../emails/remitente.ts';
 import type { AutomationLog, ResultadoLog } from '@/lib/types';
 import Anthropic from '@anthropic-ai/sdk';
 import * as Sentry from '@sentry/nextjs';
@@ -171,7 +171,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       // fallo real, no algo que debamos disfrazar reintentando por email.
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no disponible (sin teléfono o sin Twilio configurado)', mensajeCliente: c.mensajeCliente };
     } else {
-      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
+      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: c.mensajeCliente });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}.`, mensajeCliente: c.mensajeCliente }
         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio', mensajeCliente: c.mensajeCliente };
@@ -200,22 +200,19 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
       logoUrl: studioLogo,
     }));
     // Un 429 (u otro fallo transitorio de Resend) no debe perderse como
-    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts.
-    const { error } = await conReintentoResend(() =>
-      resend!.emails.send(
-        {
-          from: remitentePorMarca(studioNombre || 'Tentare'),
-          to: [email],
-          subject: c.titulo,
-          html,
-        },
-        // Idempotency-Key: si el step se reintenta tras enviar pero antes de
-        // memoizar, Resend reconoce la clave y NO reenvía el email.
-        { idempotencyKey: base.id }
-      )
-    );
-    if (error) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message, mensajeCliente: c.mensajeCliente };
+    // FALLIDO permanente — ver lib/emails/resend-reintentos.ts (dentro de
+    // resendEmailProvider).
+    const r = await resendEmailProvider(resend!).enviar({
+      to: email,
+      subject: c.titulo,
+      html,
+      studioNombre,
+      // Idempotency-Key: si el step se reintenta tras enviar pero antes de
+      // memoizar, Resend reconoce la clave y NO reenvía el email.
+      idempotencyKey: base.id,
+    });
+    if (!r.ok) {
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend', mensajeCliente: c.mensajeCliente };
     } else {
       log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.titulo}"`, mensajeCliente: c.mensajeCliente };
     }
@@ -298,7 +295,7 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
     if (!twilioConfigurado('WHATSAPP')) {
       log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'WhatsApp no configurado (faltan credenciales Twilio)' };
     } else {
-      const r = await enviarMensajeTwilio({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
+      const r = await twilioSmsProvider.enviar({ canal: 'WHATSAPP', to: c.socio.telefono, cuerpo: `${c.asunto}\n\n${c.mensaje}` });
       log = r.ok
         ? { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `WhatsApp enviado a ${c.socio.telefono}: "${c.asunto}"` }
         : { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Twilio' };
@@ -313,15 +310,13 @@ export async function procesarCandidatoMkt(c: AutomatizacionMktCandidato, opts: 
       detalle: `${c.socio.nombre} tiene un email de ejemplo (${c.socio.email}), no una dirección real. Corrígelo en su ficha para que reciba los avisos.` };
   } else {
     const html = await render(AutomatizacionEmail({ socioNombre: c.socio.nombre, titulo: c.asunto, mensaje: c.mensaje, estudioNombre: opts.studioNombre, colorPrimario: studioColor, logoUrl: studioLogo }));
-    // Mismo reintento ante fallos transitorios que en procesarCandidato.
-    const { error } = await conReintentoResend(() =>
-      resend!.emails.send(
-        { from: remitentePorMarca(opts.studioNombre || 'Tentare'), to: [c.socio.email], subject: c.asunto, html },
-        { idempotencyKey: base.id },
-      )
-    );
-    log = error
-      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: error.message }
+    // Mismo reintento ante fallos transitorios que en procesarCandidato (ver
+    // resendEmailProvider).
+    const r = await resendEmailProvider(resend!).enviar({
+      to: c.socio.email, subject: c.asunto, html, studioNombre: opts.studioNombre, idempotencyKey: base.id,
+    });
+    log = !r.ok
+      ? { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: r.error ?? 'Error al enviar por Resend' }
       : { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `Email enviado a ${c.socio.email}: "${c.asunto}"` };
   }
 
