@@ -40,6 +40,46 @@ export async function enviarWhatsAppTexto(
   }
 }
 
+// Plantilla HSM usada para el recordatorio de clase — un mensaje iniciado por
+// el negocio (lo dispara un cron, no una respuesta a la clienta), así que
+// Meta lo rechaza como `type: 'text'` fuera de la ventana de 24h desde el
+// último mensaje entrante de la socia (error 131047). Cada estudio tiene que
+// registrar esta plantilla EXACTA en su propia cuenta de Meta y esperar su
+// aprobación — ver instrucciones en components/configuracion/tab-integraciones.tsx.
+export const PLANTILLA_RECORDATORIO = { nombre: 'recordatorio_clase', idioma: 'es' } as const;
+
+/** Envía un mensaje por plantilla HSM pre-aprobada por Meta (fuera de la ventana de 24h). */
+export async function enviarWhatsAppPlantilla(
+  creds: WhatsAppCredenciales,
+  to: string,
+  plantilla: { nombre: string; idioma: string },
+  parametros: string[],
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const destino = to.replace(/[^\d]/g, '');
+  if (!destino) return { ok: false, error: 'Número de destino inválido' };
+  try {
+    const res = await fetchExterno(`https://graph.facebook.com/${API_VERSION}/${creds.phoneId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${creds.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: destino,
+        type: 'template',
+        template: {
+          name: plantilla.nombre,
+          language: { code: plantilla.idioma },
+          components: [{ type: 'body', parameters: parametros.map(texto => ({ type: 'text', text: texto })) }],
+        },
+      }),
+    });
+    const data = (await res.json().catch(() => null)) as { messages?: { id: string }[]; error?: { message?: string } } | null;
+    if (!res.ok) return { ok: false, error: data?.error?.message ?? `WhatsApp API ${res.status}` };
+    return { ok: true, id: data?.messages?.[0]?.id ?? '' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 /** Comprobación de conexión: valida credenciales consultando el número. */
 export async function probarWhatsApp(creds: WhatsAppCredenciales): Promise<{ ok: true } | { ok: false; error: string }> {
   try {

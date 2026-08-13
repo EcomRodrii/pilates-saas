@@ -8,7 +8,7 @@ import { mapLimit } from '@/lib/concurrency';
 import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { enviarWhatsAppTexto, type WhatsAppCredenciales } from '@/lib/whatsapp';
+import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -1097,7 +1097,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     .lt('inicio', hastaISO);
   if (error) throw new Error(error.message);
   const sesiones = sesionesRaw ?? [];
-  if (sesiones.length === 0) return { sesiones: 0, enviados: 0, fallidos: 0, sinEmail: 0 };
+  if (sesiones.length === 0) return { sesiones: 0, enviados: 0, fallidos: 0, sinEmail: 0, enviadosWhatsapp: 0, fallidosWhatsapp: 0 };
 
   const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter(Boolean) as string[])];
   const sesionIds = sesiones.map(s => s.id as string);
@@ -1116,11 +1116,20 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     admin.from('integraciones').select('studio_id, activo, config').eq('tipo', 'WHATSAPP').in('studio_id', studioIds),
   ]);
   const reservas = reservasR ?? [];
-  const whatsappPorStudio = new Map<string, WhatsAppCredenciales>();
+  const whatsappPorStudio = new Map<string, WhatsAppCredenciales & { plantillaAprobada: boolean }>();
   for (const row of whatsappR ?? []) {
     if (!row.activo) continue;
     const config = (row.config as Record<string, string>) ?? {};
-    if (config.token && config.phoneId) whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId });
+    if (config.token && config.phoneId) {
+      // `plantillaAprobada` es opt-in por estudio (checkbox en Configuración →
+      // Integraciones): sin ella se manda `type: 'text'` como siempre, que
+      // Meta solo entrega dentro de la ventana de 24h desde el último mensaje
+      // de la socia — con ella, se usa la plantilla HSM que Meta permite
+      // fuera de esa ventana. No forzar plantilla a estudios que no la han
+      // registrado: eso rompería TODOS sus recordatorios, no solo los que
+      // caen fuera de la ventana.
+      whatsappPorStudio.set(row.studio_id as string, { token: config.token, phoneId: config.phoneId, plantillaAprobada: config.plantillaAprobada === 'true' });
+    }
   }
 
   // 3) Socias implicadas (1 query) y mapas de lookup.
@@ -1205,8 +1214,14 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 
       const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
       if (quiereWhatsapp && whatsapp && socia.telefono) {
-        const texto = `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`;
-        const res = await enviarWhatsAppTexto(whatsapp, socia.telefono, texto);
+        const res = whatsapp.plantillaAprobada
+          ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
+              datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
+            ])
+          : await enviarWhatsAppTexto(
+              whatsapp, socia.telefono,
+              `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
+            );
         if (res.ok) enviadosWhatsapp++;
         else fallidosWhatsapp++;
       }
