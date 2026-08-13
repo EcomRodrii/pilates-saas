@@ -140,8 +140,8 @@ export default function ChecklistSoftwarePage() {
 
         <RelatedLinks
           items={[
-            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#4E9E7F', title: 'Cómo cubrir una baja de instructora sin hacer una llamada' },
-            { href: '/recursos/estudios-pilates-de-exito', category: 'Rentabilidad', categoryColor: '#3E7C86', title: 'Qué puedes aprender de los estudios de pilates que más crecen' },
+            { href: '/soluciones/cambiar-de-software', category: 'Cambiarte de software', categoryColor: '#4E9E7F', title: 'Cambiarte a Tentare sin perder nada' },
+            { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#3E7C86', title: 'Cómo cubrir una baja de instructora sin hacer una llamada' },
           ]}
         />
       </ArticleShell>

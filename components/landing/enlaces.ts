@@ -43,11 +43,9 @@ export const SALIDAS = {
   sustituciones: { href: '/funcionalidades/sustituciones', label: 'Cómo funcionan las sustituciones' },
   precio: { href: '/precios', label: 'Ver los planes en detalle' },
   comparativa: { href: '/comparativa', label: 'Comparar con otras plataformas' },
-  // ⚠️ Apunta a /comparativa y NO a /soluciones/cambiar-de-software: esa página
-  // se planificó (P1) pero nunca se publicó, y enlazar a un 404 desde la home
-  // es peor que no enlazar. Si algún día se escribe, este es el sitio que hay
-  // que cambiar — el test de enlaces internos lo cazaría igualmente.
-  cambiarse: { href: '/comparativa', label: 'Comparar antes de cambiarte' },
+  // Antes apuntaba a /comparativa como paso intermedio — /soluciones/cambiar-de-software
+  // se publicó el 2026-08-13 y es el destino real de "quien ya usa otro software".
+  cambiarse: { href: '/soluciones/cambiar-de-software', label: 'Cómo es cambiarte a Tentare' },
   app: { href: '/funcionalidades/app-para-alumnas', label: 'La app de tus alumnas' },
   widget: { href: '/funcionalidades/reservas-online', label: 'Reservas en tu web' },
   clientas: { href: '/funcionalidades/ficha-de-clienta', label: 'La ficha de cada alumna' },

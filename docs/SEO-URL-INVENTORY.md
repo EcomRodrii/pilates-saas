@@ -105,7 +105,7 @@ y `§14` (no repetir el debate sin releer ese documento):
 
 | Página propuesta | Estado | Motivo |
 |---|---|---|
-| `/soluciones` (hub) + `/soluciones/cambiar-de-software` | **Pospuesta, sin fecha** (P1 del plan previo) | Migración/cambio de proveedor — intención transaccional real, conecta con `/migracion` (código real: importadores CSV, acta y rollback). Ver §7 de este documento. |
+| `/soluciones/cambiar-de-software` | **Publicada (2026-08-13)**, sin hub `/soluciones` | Migración/cambio de proveedor — intención transaccional real, conecta con `/migracion` (código real: 6 tipos de dato, revisión antes de ejecutar, deshacer con un clic) y con `/api/public/migracion-concierge` (endpoint que ya existía sin ningún formulario que lo llamara — esta página le puso el primero). Sin hub `/soluciones` porque una sola página no justifica uno; queda enlazada por `relacionadas` de las 7 comparativas en vez de por jerarquía de hub. |
 | `/soluciones/estudio-de-yoga` | **Pospuesta, sin fecha** (P1) | Mercado adyacente real (`DISCIPLINAS` incluye yoga en el código) pero riesgo alto de leerse como doorway si no se escribe con contenido específico de yoga |
 | `/soluciones/centro-multidisciplinar` | **Pospuesta, sin fecha** (P2) | Diluye el posicionamiento vertical que es el foso de Tentare |
 | `/soluciones/estudio-nuevo` | **Pospuesta, sin fecha** (P2) | Público con intención pero sin presupuesto — mejor como guía en `/recursos` |

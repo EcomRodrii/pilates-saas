@@ -374,8 +374,24 @@ export const PAGINAS: PaginaSeo[] = [
     etiqueta: `Tentare vs ${nombre}`,
     prioridad: 0.7,
     changeFrequency: 'monthly',
-    relacionadas: [...relacionadasFuncionalidad, '/precios'],
+    // /precios sigue alcanzable desde el footer de estas páginas — aquí el
+    // hueco lo gana /soluciones/cambiar-de-software: quien termina de leer
+    // "Tentare vs X" está decidiendo si (y cómo) cambiarse, no mirando precio.
+    relacionadas: [...relacionadasFuncionalidad, '/soluciones/cambiar-de-software'],
   })),
+  {
+    path: '/soluciones/cambiar-de-software',
+    titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
+    descripcion:
+      'Migración de clientas, bonos, clases, reservas, citas y pagos históricos, revisada antes de tocar nada y reversible con un clic. Lo haces tú o te lo hacemos nosotros en 48h.',
+    grupo: 'soluciones',
+    etiqueta: 'Cambiarte de software',
+    resumen: 'Cambiarte sin perder tus datos — lo haces tú o te lo hacemos nosotros.',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: '2026-08-13',
+    relacionadas: ['/comparativa', '/precios', '/recursos/checklist-elegir-software-estudio'],
+  },
   {
     path: '/recursos',
     titulo: 'Centro de Recursos — Guías para tu estudio de Pilates | Tentare',

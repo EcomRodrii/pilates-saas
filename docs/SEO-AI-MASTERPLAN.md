@@ -460,7 +460,7 @@ criterio de cada una para que sea auditable/discutible, no una cifra opaca.
 | Corregir tabla del hub `/comparativa` para incluir los 7 competidores, no solo 3 | Medio | Bajo | Bajo | Ninguna | P1 |
 | Contenido original de propietarias reales | Alto (diferencial único) | Alto | **Alto si se usa la fuente existente (RGPD/privacidad, §15)** | Investigación nueva con consentimiento explícito, no las grabaciones actuales | P3, no viable con lo que hay hoy |
 | Pedir reseñas reales a clientas existentes | Medio-alto | Medio (operativo) | Bajo | Perfiles G2/Capterra creados primero | P2 |
-| `/soluciones/cambiar-de-software` | Medio | Alto | Medio (canibaliza con `/comparativa` si no se delimita bien) | Ninguna | P2 |
+| `/soluciones/cambiar-de-software` | Medio | Alto | — | Ninguna | **Hecho (2026-08-13)** |
 | `/sobre-tentare` (E-E-A-T) | Bajo-medio | Medio | Bajo | Ninguna | P2 |
 | Árbol en inglés | — | Muy alto | Alto (ICP no coincide) | Decisión de negocio | P3, no recomendado por ahora |
 | Páginas programáticas / por ciudad | — | — | Alto (doorway) | — | **No recomendado** |
@@ -485,10 +485,14 @@ navegación).
 
 ## 30. P2 — crecimiento
 
-`/soluciones/cambiar-de-software` (con delimitación clara frente a
-`/comparativa` para no canibalizar); `/sobre-tentare`; pedir reseñas activas;
-2-3 guías nuevas condicionadas a qué tema resulta más buscado una vez haya
-datos reales de tráfico.
+~~`/soluciones/cambiar-de-software`~~ — **hecho (2026-08-13)**: delimitada
+frente a `/comparativa` por intención (esta habla del PROCESO de cambiarse —
+qué se lleva, cómo funciona, qué no se lleva solo — no de features ni precio
+frente a un competidor concreto, que sigue siendo terreno de `/comparativa`).
+De paso se le puso interfaz al endpoint `/api/public/migracion-concierge`,
+que ya existía desde antes sin ningún formulario que lo llamara. Quedan:
+`/sobre-tentare`; pedir reseñas activas; 2-3 guías nuevas condicionadas a qué
+tema resulta más buscado una vez haya datos reales de tráfico.
 
 ## 31. P3 — experimentos
 
@@ -616,9 +620,9 @@ declarada y solape de H2 medido). No se encontró ninguna duplicación nueva.
 
 ## PÁGINAS NUEVAS QUE REALMENTE FALTAN
 
-Ninguna con urgencia P0. `/soluciones/cambiar-de-software` y `/sobre-tentare`
-son candidatas P2 ya evaluadas y documentadas, sin fecha. Un informe de
-contenido original con voz real de propietarias sigue siendo una idea con
+Ninguna con urgencia P0. `/soluciones/cambiar-de-software` se publicó el
+2026-08-13 (§30). Queda `/sobre-tentare`, candidata P2 sin fecha. Un informe
+de contenido original con voz real de propietarias sigue siendo una idea con
 potencial, pero no es una página "que falte" en este momento — depende de una
 investigación nueva con consentimiento que todavía no existe (§15), así que
 no se lista como pendiente de esta fase.
@@ -644,7 +648,7 @@ no se lista como pendiente de esta fase.
 | 15 | cómo reducir cancelaciones pilates | Problem-aware | `/recursos/reducir-cancelaciones-ultima-hora` | misma | P1 |
 | 16 | cómo subir ocupación clases valle | Problem-aware | `/recursos/ocupacion-clases-valle` | misma | P1 |
 | 17 | software para cadena de centros pilates | Commercial | `/funcionalidades/multi-centro` | misma | P2 |
-| 18 | cambiar de software de gestión gimnasio | Transactional | ninguna | `/soluciones/cambiar-de-software` (condicional) | P2 |
+| 18 | cambiar de software de gestión gimnasio | Transactional | `/soluciones/cambiar-de-software` | misma (publicada 2026-08-13) | Hecho |
 | 19 | qué software cumple VeriFactu | Commercial Investigation, AI-answerable | `/funcionalidades/facturacion` | misma | P0 |
 | 20 | software para estudios de pilates españa | Commercial Investigation | `/`, `/funcionalidades/facturacion` | consolidar en ambas, no crear página nueva | P1 |
 
