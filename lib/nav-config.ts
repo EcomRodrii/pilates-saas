@@ -31,8 +31,17 @@ const allSections: NavSection[] = [
   { items: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
   { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
   {
-    label: 'Contenido',
+    // Contenido (redes) y Marketing (campañas/automatizaciones/Klaviyo) eran
+    // dos secciones separadas — Contenido aquí arriba, Marketing suelto
+    // dentro de "Estudio", lejos de lo que en realidad es la misma promesa
+    // de producto ("el Marketing Hub"). Una sola sección: /marketing
+    // primero (el motor real de envíos), después las pantallas de
+    // contenido de redes, que ya se enlazan entre sí (una campaña puede
+    // llevar publicaciones asociadas, ver leerPublicacionesContenido en
+    // app/(dashboard)/marketing/page.tsx).
+    label: 'Marketing',
     items: [
+      { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/contenido', label: 'Panel de contenido', icon: Sparkles },
       { href: '/contenido/calendario', label: 'Calendario de contenido', icon: CalendarDays },
       { href: '/contenido/biblioteca', label: 'Biblioteca', icon: Library },
@@ -75,7 +84,6 @@ const allSections: NavSection[] = [
     label: 'Estudio',
     items: [
       { href: '/equipo', label: 'Equipo', icon: UserCog },
-      { href: '/marketing', label: 'Marketing', icon: Megaphone },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },
@@ -90,14 +98,17 @@ const allSections: NavSection[] = [
   },
 ];
 
-// Interruptor temporal: oculta el módulo Contenido (/contenido/*) y el módulo
-// Marketing del estudio (/marketing) del menú. El código sigue en el repo; para
-// reactivar, poner MARKETING_MODULE_ENABLED a true en lib/feature-flags.ts.
-const OCULTOS_MARKETING = ['/marketing', '/ondemand'];
+// Interruptor temporal: oculta la sección "Marketing" (contenido de redes +
+// campañas/automatizaciones/Klaviyo, ahora una sola sección — ver arriba)
+// del menú. El código sigue en el repo; para reactivar, poner
+// MARKETING_MODULE_ENABLED a true en lib/feature-flags.ts. /ondemand queda
+// aparte a propósito: lo congela lib/frozen-features.ts (feature-freeze PMF),
+// no este flag — filtrarlo aquí también es defensivo, no la fuente de verdad.
+const OCULTOS_MARKETING = ['/ondemand'];
 const conMarketing: NavSection[] = MARKETING_MODULE_ENABLED
   ? allSections
   : allSections
-      .filter((s) => s.label !== 'Contenido')
+      .filter((s) => s.label !== 'Marketing')
       .map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
 
 // Feature-freeze PMF: saca los módulos congelados (/pos, /comunidad, /ondemand)
