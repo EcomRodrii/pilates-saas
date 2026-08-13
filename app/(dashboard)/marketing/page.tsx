@@ -801,7 +801,7 @@ export default function MarketingPage() {
         ))}
         {/* No es una pestaña de este componente: /contenido es su propia
             página (con su propio hub de accesos a calendario/biblioteca/
-            ideas/métricas/guiones/carruseles, ver ACCESOS en
+            ideas/métricas, ver ACCESOS en
             app/(dashboard)/contenido/page.tsx). Vive aquí al lado para que
             siga alcanzable en un clic ahora que el sidebar solo tiene un
             enlace "Marketing" — ver lib/nav-config.ts. */}

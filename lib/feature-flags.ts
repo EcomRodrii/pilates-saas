@@ -12,7 +12,7 @@
 // de marketing, MANTENIENDO EL CÓDIGO (menú + rutas redirigen) tanto en el
 // panel de gestión (staff) como en la app del cliente (portal de socios):
 //   · Módulo Contenido            → /contenido/* (panel, calendario, biblioteca,
-//                                    ideas, métricas, guiones IA, carruseles IA)
+//                                    ideas, métricas)
 //   · Módulo Marketing del estudio → /marketing (incl. mejoras de Fase 7)
 //
 // NOTA: la Oferta digital (on-demand) sigue sin depender de este flag. Se

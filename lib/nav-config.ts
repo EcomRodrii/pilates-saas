@@ -33,7 +33,7 @@ const allSections: NavSection[] = [
     // Contenido (redes) y Marketing (campañas/automatizaciones/Klaviyo) eran
     // dos promesas de producto separadas en el menú. Ya no es una sección con
     // 8 entradas — un solo enlace, /marketing, con las pantallas de contenido
-    // (calendario/biblioteca/ideas/métricas/guiones/carruseles) alcanzables
+    // (calendario/biblioteca/ideas/métricas) alcanzables
     // en un clic desde ahí mismo (pestaña "Contenido" dentro de la página,
     // que enlaza al hub /contenido, que a su vez enlaza al resto — ver
     // ACCESOS en app/(dashboard)/contenido/page.tsx). Antes eran 8 items de
