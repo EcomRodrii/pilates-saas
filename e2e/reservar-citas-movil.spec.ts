@@ -15,6 +15,12 @@ const SOCIO_ID = 'socio-e2e-citas';
 const AHORA = '2026-08-12T08:00:00';
 const HUECO_INICIO = '2026-08-12T11:00:00';
 const HUECO_FIN = '2026-08-12T11:50:00';
+// La UI pinta el hueco con `horaEstudio()` (lib/utils.ts), que fija
+// `timeZone: 'Europe/Madrid'` — nunca la del runner de CI. `toLocaleTimeString`
+// sin ese `timeZone` explícito usa la del MÁQUINA que ejecuta el test: en local
+// (a menudo ya en hora de Madrid) coincidía por casualidad, y en CI (UTC) no —
+// mismo tipo de bug que ya documenta este repo sobre franjas horarias.
+const HORA_HUECO = new Date(HUECO_INICIO).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 
 function fixture() {
   return {
@@ -72,7 +78,7 @@ test('en móvil: elegir servicio, instructora y hueco reserva la cita de verdad'
   await page.goto(`/reservar/${SLUG}?tab=citas`);
   await page.getByText('Evaluación inicial').click();
   await page.getByRole('button', { name: /Ana/ }).click();
-  await page.getByRole('button', { name: new RegExp(new Date(HUECO_INICIO).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })) }).click();
+  await page.getByRole('button', { name: HORA_HUECO }).click();
 
   await expect(page.getByRole('button', { name: 'Confirmar cita' })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Confirmar cita' }).click();
@@ -95,7 +101,7 @@ test('en móvil: un hueco que ya no está disponible se rechaza con el motivo re
   await page.goto(`/reservar/${SLUG}?tab=citas`);
   await page.getByText('Evaluación inicial').click();
   await page.getByRole('button', { name: /Ana/ }).click();
-  await page.getByRole('button', { name: new RegExp(new Date(HUECO_INICIO).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })) }).click();
+  await page.getByRole('button', { name: HORA_HUECO }).click();
   await page.getByRole('button', { name: 'Confirmar cita' }).click();
 
   await expect(page.getByText('Ese hueco ya no está disponible')).toBeVisible({ timeout: 15_000 });
