@@ -23,7 +23,21 @@ export type Audiencia =
   // Staff de mostrador: la dueña + las recepcionistas activas. Si el estudio no
   // tiene recepción, resuelve solo a la dueña (comportamiento previo intacto).
   | 'mostrador'
-  | 'mostrador-y-socia';
+  | 'mostrador-y-socia'
+  // Tentare Network (Fase 7): quien decide sobre el equipo, SIN recepción —
+  // verificar una experiencia es una decisión de gerencia, no de mostrador
+  // (mismo criterio que ya separa `puede_gestionar_equipo()` de `puedeVerFinanzas`
+  // en lib/permisos-reglas.ts).
+  | 'gerencia'
+  // Tentare Network: la profesional dueña de un perfil de Network, resuelta
+  // por `data.authUserId` — no tiene rol dentro del `studioId` del evento (ese
+  // studioId es el del ESTUDIO que resolvió la verificación, no uno al que
+  // ella pertenezca).
+  | 'red-profesional'
+  // Tentare Network (Fase 9): quien ENVIÓ una solicitud de contacto, resuelta
+  // por `data.solicitanteAuthUserId` — nunca toda la gerencia, el mensaje
+  // lleva datos de contacto privados.
+  | 'red-solicitante-contacto';
 
 export interface ReglaEvento {
   category: NotificationCategory;
@@ -137,6 +151,16 @@ export const EVENTOS = {
   // día por estudio (reforzado por el UNIQUE(studio_id,fecha) de
   // decision_mensajes_dia) — nunca se dispara si el día es de silencio.
   DECISION_MENSAJE_DIA: 'decision.mensaje_dia',
+  // Tentare Network, Fase 7 (docs/NETWORK-IMPLEMENTATION-PLAN.md §4/§10).
+  // Una profesional pide a un estudio que confirme una experiencia laboral.
+  RED_VERIFICACION_SOLICITADA: 'red.verificacion_solicitada',
+  RED_EXPERIENCIA_CONFIRMADA: 'red.experiencia_confirmada',
+  RED_EXPERIENCIA_RECHAZADA: 'red.experiencia_rechazada',
+  // Fase 9: un estudio contacta a una profesional. El email de aceptación es
+  // el ÚNICO sitio donde se revela email/teléfono de contacto — nunca en un
+  // listado (ver comentario en la migración de red_solicitudes_contacto).
+  RED_CONTACTO_SOLICITADO: 'red.contacto_solicitado',
+  RED_CONTACTO_ACEPTADO: 'red.contacto_aceptado',
 } as const;
 
 // Reglas por evento. La 1ª tanda cableada de la Fase 1 cubre los 3 roles.
@@ -226,6 +250,18 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // misma promesa. Sin EMAIL: el mensaje es del día, no algo para revisar
   // luego en la bandeja.
   [EVENTOS.DECISION_MENSAJE_DIA]: { category: 'decisiones', priority: 'ALTA', canales: ['PUSH'], audiencia: 'propietaria' },
+  // Tentare Network, Fase 7. MEDIA (no ALTA): accionable pero sin urgencia de
+  // reloj, a diferencia de INSTRUCTORA_BAJA (una clase se queda sin cubrir HOY).
+  [EVENTOS.RED_VERIFICACION_SOLICITADA]: { category: 'red', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'gerencia' },
+  [EVENTOS.RED_EXPERIENCIA_CONFIRMADA]:  { category: 'red', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'red-profesional' },
+  // BAJA + sin EMAIL a propósito: un rechazo no es un fallo del sistema que
+  // amerite una bandeja de entrada, es información que ya se ve al abrir
+  // /network/mi-perfil (mismo criterio que CLASE_CREADA_POR_INSTRUCTOR).
+  [EVENTOS.RED_EXPERIENCIA_RECHAZADA]:   { category: 'red', priority: 'BAJA',  canales: ['PUSH'], audiencia: 'red-profesional' },
+  [EVENTOS.RED_CONTACTO_SOLICITADO]: { category: 'red', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'red-profesional' },
+  // ALTA (no MEDIA): a diferencia de una verificación, aquí hay una persona
+  // al otro lado esperando una respuesta concreta para poder escribirle.
+  [EVENTOS.RED_CONTACTO_ACEPTADO]:   { category: 'red', priority: 'ALTA',  canales: ['PUSH', 'EMAIL'], audiencia: 'red-solicitante-contacto' },
 };
 
 // Qué roles recibe cada audiencia. Se deriva de recipients.ts, pero declarado
@@ -242,6 +278,14 @@ export const ROLES_POR_AUDIENCIA: Record<Audiencia, NotificationRole[]> = {
   // deba enterarse de una lista de espera o de una baja.
   'mostrador': ['PROPIETARIO', 'RECEPCION', 'MANAGER'],
   'mostrador-y-socia': ['PROPIETARIO', 'RECEPCION', 'MANAGER', 'SOCIA'],
+  'gerencia': ['PROPIETARIO', 'MANAGER'],
+  // No es un rol DENTRO del estudio del evento — ver el comentario de
+  // 'red-profesional' en el tipo `Audiencia` de arriba. Se declara INSTRUCTOR
+  // porque es el rol más parecido que existe hoy en `NotificationRole`, y es
+  // lo que determina en qué categoría de sus preferencias cae este aviso.
+  'red-profesional': ['INSTRUCTOR'],
+  // Quien haya enviado la solicitud puede ser cualquier rol de staff.
+  'red-solicitante-contacto': ['PROPIETARIO', 'MANAGER', 'RECEPCION', 'INSTRUCTOR'],
 };
 
 // Canales que este rol puede llegar a recibir en esta categoría, según lo que
@@ -554,6 +598,54 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: '{motivo}',
     deepLink: () => `/centro-de-control`,
   },
+  // ── Tentare Network (Fase 7) ──
+  [`${EVENTOS.RED_VERIFICACION_SOLICITADA}#PROPIETARIO`]: {
+    title: 'Solicitud de verificación en Network',
+    body: '{profesional} indica que trabajó en tu estudio y pide que lo confirmes.',
+    deepLink: () => `/equipo/verificaciones-network`,
+  },
+  [`${EVENTOS.RED_VERIFICACION_SOLICITADA}#MANAGER`]: {
+    title: 'Solicitud de verificación en Network',
+    body: '{profesional} indica que trabajó en tu estudio y pide que lo confirmes.',
+    deepLink: () => `/equipo/verificaciones-network`,
+  },
+  [`${EVENTOS.RED_EXPERIENCIA_CONFIRMADA}#INSTRUCTOR`]: {
+    title: 'Experiencia verificada',
+    body: '{estudio} ha confirmado tu experiencia en Tentare Network.',
+    deepLink: () => `/network/mi-perfil`,
+  },
+  [`${EVENTOS.RED_EXPERIENCIA_RECHAZADA}#INSTRUCTOR`]: {
+    title: 'Experiencia no confirmada',
+    body: '{estudio} no ha podido confirmar tu experiencia en Tentare Network.',
+    deepLink: () => `/network/mi-perfil`,
+  },
+  [`${EVENTOS.RED_CONTACTO_SOLICITADO}#INSTRUCTOR`]: {
+    title: 'Un estudio quiere contactar contigo',
+    body: '{estudio} te ha encontrado en Tentare Network y quiere hablar contigo.',
+    deepLink: () => `/network/solicitudes`,
+  },
+  // El único sitio de todo Network donde el cuerpo lleva datos de contacto
+  // privados — por diseño (§6 del plan): la aceptación es la única puerta.
+  [`${EVENTOS.RED_CONTACTO_ACEPTADO}#PROPIETARIO`]: {
+    title: '{profesional} ha aceptado tu solicitud',
+    body: 'Puedes escribirle a {emailContacto}{telefonoTexto}.',
+    deepLink: () => `/network`,
+  },
+  [`${EVENTOS.RED_CONTACTO_ACEPTADO}#MANAGER`]: {
+    title: '{profesional} ha aceptado tu solicitud',
+    body: 'Puedes escribirle a {emailContacto}{telefonoTexto}.',
+    deepLink: () => `/network`,
+  },
+  [`${EVENTOS.RED_CONTACTO_ACEPTADO}#RECEPCION`]: {
+    title: '{profesional} ha aceptado tu solicitud',
+    body: 'Puedes escribirle a {emailContacto}{telefonoTexto}.',
+    deepLink: () => `/network`,
+  },
+  [`${EVENTOS.RED_CONTACTO_ACEPTADO}#INSTRUCTOR`]: {
+    title: '{profesional} ha aceptado tu solicitud',
+    body: 'Puedes escribirle a {emailContacto}{telefonoTexto}.',
+    deepLink: () => `/network`,
+  },
 };
 
 // Interpola {clave} desde los datos del evento.
@@ -574,17 +666,19 @@ export const CATEGORIA_ETIQUETA: Record<NotificationCategory, string> = {
   marketing: 'Novedades y promociones',
   sistema: 'Sistema',
   decisiones: 'Centro de Control',
+  red: 'Tentare Network',
 };
 
 // Categorías que cada rol puede configurar en sus preferencias.
 export const CATEGORIAS_POR_ROL: Record<NotificationRole, NotificationCategory[]> = {
-  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema', 'decisiones'],
-  INSTRUCTOR: ['clases', 'sustituciones'],
+  PROPIETARIO: ['reservas', 'clases', 'sustituciones', 'pagos', 'sistema', 'decisiones', 'red'],
+  INSTRUCTOR: ['clases', 'sustituciones', 'red'],
   // Recepción = mostrador: lo operativo que gestiona (reservas nuevas, cobros
-  // fallidos). No configura marketing/informes/sistema (fuera de su rol).
+  // fallidos). No configura marketing/informes/sistema (fuera de su rol) — ni
+  // Network: verificar experiencias es decisión de gerencia, no de mostrador.
   RECEPCION: ['reservas', 'pagos'],
   // El manager lleva la sede pero no el dinero: lo operativo y las sustituciones
   // (es quien las resuelve), sin la categoría de pagos.
-  MANAGER: ['reservas', 'clases', 'sustituciones'],
+  MANAGER: ['reservas', 'clases', 'sustituciones', 'red'],
   SOCIA: ['reservas', 'clases', 'pagos', 'marketing'],
 };

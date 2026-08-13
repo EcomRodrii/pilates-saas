@@ -159,3 +159,33 @@ export const publicarVersionChangelog = (id: string) =>
 
 export const borrarVersionChangelog = (id: string) =>
   pedir<{ ok: true }>(`/changelog/${id}`, { method: 'DELETE' });
+
+// Moderación de Tentare Network — docs/NETWORK-IMPLEMENTATION-PLAN.md §10.
+export interface PerfilNetworkInterno {
+  id: string; nombre: string; ciudad: string | null; estado: string;
+  creado_en: string; actualizado_en: string; ultimo_acceso_en: string | null;
+}
+export const fetchPerfilesNetworkInterno = (params: { q?: string; estado?: string } = {}) => {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.estado) qs.set('estado', params.estado);
+  return pedir<{ perfiles: PerfilNetworkInterno[] }>(`/network/perfiles?${qs.toString()}`);
+};
+export const cambiarEstadoPerfilNetworkInterno = (id: string, estado: string) =>
+  pedir<{ ok: true }>('/network/perfiles', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
+
+export interface VerificacionNetworkInterna {
+  id: string; estado: string; solicitadoEn: string; resueltoEn: string | null;
+  estudioNombre: string; profesionalNombre: string;
+}
+export const fetchVerificacionesNetworkInterno = (estado: string) =>
+  pedir<{ verificaciones: VerificacionNetworkInterna[] }>(`/network/verificaciones?estado=${encodeURIComponent(estado)}`);
+
+export interface ReporteNetworkInterno {
+  id: string; motivo: string; detalle: string | null; estado: string;
+  creadoEn: string; revisadoEn: string | null; perfilId: string | null; perfilNombre: string;
+}
+export const fetchReportesNetworkInterno = (estado: string) =>
+  pedir<{ reportes: ReporteNetworkInterno[] }>(`/network/reportes?estado=${encodeURIComponent(estado)}`);
+export const resolverReporteNetworkInterno = (id: string, estado: 'revisado' | 'resuelto') =>
+  pedir<{ ok: true }>('/network/reportes', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
