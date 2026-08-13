@@ -9,7 +9,7 @@
 // horario la enseñaría en el día que no es. Mismo criterio que
 // `serie-horario.ts` y la migración 0105, que ya se comió ese bug.
 
-import type { Sesion, Reserva, Recibo, TipoClase, Sala, Instructor, Socio, Suscripcion, PlanTarifa } from '../types.ts';
+import type { Sesion, Reserva, Recibo, TipoClase, Sala, Instructor, Socio, Suscripcion, PlanTarifa, Spot } from '../types.ts';
 import { TZ_ESTUDIO } from '../utils.ts';
 import { fechaLocalDe } from '../citas/slots.ts';
 // El aforo lo decide `plazasOcupadas` y solo ella. Contarlo aquí a mano sería
@@ -27,7 +27,7 @@ import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
 import { queImparten } from '../equipo.ts';
 import type {
   BonoCartera, BonoPortal, CompraPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal,
-  ProfesorPortal, ReservaPortal, SociaPortal, StudioClass,
+  PlazaPortal, ProfesorPortal, ReservaPortal, SociaPortal, StudioClass,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -316,12 +316,22 @@ export function inicialDe(nombre: string): string {
 export interface FuenteDatosPortal {
   ahora: Date;
   sesiones: Sesion[];
-  // Solo se miran `sesionId` y `estado` (ver `plazasOcupadas`). El camino
-  // público trae una fila recortada a propósito, para no sacar PII de nadie
-  // que no sea quien mira; pedir la `Reserva` entera obligaría a castear.
-  reservas: Pick<Reserva, 'sesionId' | 'estado'>[];
+  // Se miran `sesionId` y `estado` (ver `plazasOcupadas`), y `spotId` para
+  // saber qué plazas están cogidas. El camino público trae una fila recortada
+  // a propósito, para no sacar PII de nadie que no sea quien mira; pedir la
+  // `Reserva` entera obligaría a castear.
+  //
+  // ⚠️ `spotId` es opcional porque la mayoría de estudios NO asigna plaza: en
+  // ellos la fila viene sin él y `plazasDeSesion` devuelve una lista vacía,
+  // que es la señal de «esta clase no se elige sitio».
+  reservas: Pick<Reserva, 'sesionId' | 'estado' | 'spotId'>[];
   tiposClase: TipoClase[];
   salas: Sala[];
+  /**
+   * Las plazas físicas del estudio (reformers, camillas…). `[]` o ausente =
+   * el estudio no asigna sitio, que es el caso de la mayoría.
+   */
+  spots?: Spot[];
   instructores: Instructor[];
   socio: Socio | null;
   /**
@@ -352,6 +362,51 @@ export interface FuenteDatosPortal {
  * `PENDIENTE_APROBACION` no ocupan aforo (decisión de producto ya cerrada,
  * Fase 2a) pero `ASISTIDA` sí.
  */
+/**
+ * Las plazas de la sala de una sesión, con cuál está cogida.
+ *
+ * ⚠️ Devolver `[]` NO es «no quedan plazas»: es «este estudio no asigna
+ * sitio». Son cosas distintas y la pantalla las pinta distinto — una lista
+ * vacía significa reservar sin elegir, como hasta ahora. La mayoría de
+ * estudios no tiene `spots`.
+ *
+ * ⚠️ Solo cuentan como cogidas las reservas que OCUPAN aforo. `LISTA_ESPERA`
+ * y `PENDIENTE_APROBACION` no ocupan (decisión de producto de la Fase 2a), así
+ * que su `spotId` —si lo llevan— no puede bloquear una plaza real: quien está
+ * en lista de espera todavía no tiene sitio.
+ *
+ * El orden es el mismo que usa la hoja de reserva de siempre (fila, columna y
+ * número) para que la socia vea la sala igual en las dos pantallas mientras
+ * convivan.
+ */
+export function plazasDeSesion(
+  sesion: Pick<Sesion, 'id' | 'salaId'>,
+  spots: readonly Spot[] | undefined,
+  reservas: readonly Pick<Reserva, 'sesionId' | 'estado' | 'spotId'>[],
+): PlazaPortal[] {
+  const deLaSala = (spots ?? []).filter((sp) => sp.salaId === sesion.salaId);
+  if (deLaSala.length === 0) return [];
+
+  const cogidas = new Set(
+    reservas
+      .filter((r) => r.sesionId === sesion.id && OCUPAN_PLAZA.has(r.estado) && r.spotId)
+      .map((r) => r.spotId as string),
+  );
+
+  return [...deLaSala]
+    .sort((a, b) => a.fila - b.fila || a.columna - b.columna || a.numero - b.numero)
+    .map((sp) => ({
+      id: sp.id,
+      nombre: sp.nombre || String(sp.numero),
+      fila: sp.fila,
+      columna: sp.columna,
+      ocupada: cogidas.has(sp.id),
+    }));
+}
+
+/** Los estados que de verdad ocupan una plaza. Ver `plazasDeSesion`. */
+const OCUPAN_PLAZA = new Set<Reserva['estado']>(['CONFIRMADA', 'ASISTIDA']);
+
 export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
   const tz = f.tz ?? TZ_ESTUDIO;
   // ⚠️ El filtro va por FECHA completa ('2026-08-05'), no por día del mes.
@@ -395,6 +450,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         teacher: nombreInstructor,
         initial: inicialDe(nombreInstructor),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),
+        plazas: plazasDeSesion(s, f.spots, f.reservas),
         description: tipo?.descripcion ?? '',
         benefits: etiquetasObjetivo(tipo?.objetivos),
       };
