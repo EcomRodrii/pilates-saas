@@ -7,7 +7,6 @@ import {
   Clock, MessageCircle, Megaphone, Play,
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace, Network,
-  Sparkles, CalendarDays, Library, Lightbulb, LineChart, ScrollText, GalleryHorizontalEnd,
   Calculator, Notebook, DownloadCloud,
 } from 'lucide-react';
 // Relativos y con extensión: `npm test` corre `node --test
@@ -32,24 +31,14 @@ const allSections: NavSection[] = [
   { items: [{ href: '/automatizaciones', label: 'Automatizaciones IA', icon: Bot }] },
   {
     // Contenido (redes) y Marketing (campañas/automatizaciones/Klaviyo) eran
-    // dos secciones separadas — Contenido aquí arriba, Marketing suelto
-    // dentro de "Estudio", lejos de lo que en realidad es la misma promesa
-    // de producto ("el Marketing Hub"). Una sola sección: /marketing
-    // primero (el motor real de envíos), después las pantallas de
-    // contenido de redes, que ya se enlazan entre sí (una campaña puede
-    // llevar publicaciones asociadas, ver leerPublicacionesContenido en
-    // app/(dashboard)/marketing/page.tsx).
-    label: 'Marketing',
-    items: [
-      { href: '/marketing', label: 'Marketing', icon: Megaphone },
-      { href: '/contenido', label: 'Panel de contenido', icon: Sparkles },
-      { href: '/contenido/calendario', label: 'Calendario de contenido', icon: CalendarDays },
-      { href: '/contenido/biblioteca', label: 'Biblioteca', icon: Library },
-      { href: '/contenido/ideas', label: 'Ideas', icon: Lightbulb },
-      { href: '/contenido/metricas', label: 'Métricas de redes', icon: LineChart },
-      { href: '/contenido/guiones', label: 'Guiones IA', icon: ScrollText },
-      { href: '/contenido/carruseles', label: 'Carruseles IA', icon: GalleryHorizontalEnd },
-    ],
+    // dos promesas de producto separadas en el menú. Ya no es una sección con
+    // 8 entradas — un solo enlace, /marketing, con las pantallas de contenido
+    // (calendario/biblioteca/ideas/métricas/guiones/carruseles) alcanzables
+    // en un clic desde ahí mismo (pestaña "Contenido" dentro de la página,
+    // que enlaza al hub /contenido, que a su vez enlaza al resto — ver
+    // ACCESOS en app/(dashboard)/contenido/page.tsx). Antes eran 8 items de
+    // sidebar para una sola promesa de producto.
+    items: [{ href: '/marketing', label: 'Marketing', icon: Megaphone }],
   },
   {
     label: 'Clases',
@@ -104,17 +93,17 @@ const allSections: NavSection[] = [
   },
 ];
 
-// Interruptor temporal: oculta la sección "Marketing" (contenido de redes +
-// campañas/automatizaciones/Klaviyo, ahora una sola sección — ver arriba)
-// del menú. El código sigue en el repo; para reactivar, poner
-// MARKETING_MODULE_ENABLED a true en lib/feature-flags.ts. /ondemand queda
-// aparte a propósito: lo congela lib/frozen-features.ts (feature-freeze PMF),
-// no este flag — filtrarlo aquí también es defensivo, no la fuente de verdad.
-const OCULTOS_MARKETING = ['/ondemand'];
+// Interruptor temporal: oculta /marketing (contenido de redes +
+// campañas/automatizaciones/Klaviyo, alcanzables todas desde ese único
+// enlace — ver arriba) del menú. El código sigue en el repo; para
+// reactivar, poner MARKETING_MODULE_ENABLED a true en
+// lib/feature-flags.ts. /ondemand queda aparte a propósito: lo congela
+// lib/frozen-features.ts (feature-freeze PMF), no este flag — filtrarlo
+// aquí también es defensivo, no la fuente de verdad.
+const OCULTOS_MARKETING = ['/marketing', '/ondemand'];
 const conMarketing: NavSection[] = MARKETING_MODULE_ENABLED
   ? allSections
   : allSections
-      .filter((s) => s.label !== 'Marketing')
       .map((s) => ({ ...s, items: s.items.filter((i) => !OCULTOS_MARKETING.includes(i.href)) }));
 
 // Feature-freeze PMF: saca los módulos congelados (/pos, /comunidad, /ondemand)
