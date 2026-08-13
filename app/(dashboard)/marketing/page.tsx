@@ -699,9 +699,9 @@ export default function MarketingPage() {
     setShowCampanaModal(false)
   }
 
-  function handleAddCodigo() {
+  async function handleAddCodigo() {
     if (!newCodigo.codigo.trim() || !newCodigo.valor) return
-    addCodigoDescuento({
+    const res = await addCodigoDescuento({
       codigo: newCodigo.codigo.toUpperCase(),
       descripcion: newCodigo.descripcion,
       tipo: newCodigo.tipo,
@@ -712,6 +712,7 @@ export default function MarketingPage() {
       minImporte: newCodigo.minImporte ? parseFloat(newCodigo.minImporte) : null,
       soloNuevas: newCodigo.soloNuevas,
     })
+    if (!res.ok) { window.alert(res.error); return }
     setNewCodigo({ codigo: '', descripcion: '', tipo: 'PORCENTAJE', valor: '', usosMaximos: '', expira: '', minImporte: '', soloNuevas: false })
     setShowCodigoModal(false)
   }
@@ -1258,6 +1259,17 @@ export default function MarketingPage() {
             </button>
           </div>
 
+          {/* El único canje real hoy es manual, en el mostrador (Caja) —
+              ningún checkout público (reserva, alta, Stripe) aplica todavía
+              un código. Sin este aviso, "Utilización"/"Código top" en 0
+              parece que el código no funciona, cuando en realidad es que
+              nadie lo ha canjeado aún ahí. */}
+          {codigos.length > 0 && totalUsos === 0 && (
+            <p className="text-[12px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
+              Los códigos se canjean desde Caja, en el mostrador — todavía ningún checkout online los aplica automáticamente.
+            </p>
+          )}
+
           {codigos.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">Sin códigos</div>
           ) : (
@@ -1311,14 +1323,14 @@ export default function MarketingPage() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => toggleCodigoDescuento(cod.id)}
+                              onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }}
                               className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                               title={cod.activo ? 'Desactivar' : 'Activar'}
                             >
                               {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                             </button>
                             <button
-                              onClick={() => deleteCodigoDescuento(cod.id)}
+                              onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }}
                               className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                               title="Eliminar"
                             >
@@ -1342,10 +1354,10 @@ export default function MarketingPage() {
                         <CopyButton text={cod.codigo} />
                       </div>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => toggleCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title={cod.activo ? 'Desactivar' : 'Activar'}>
+                        <button onClick={async () => { const res = await toggleCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title={cod.activo ? 'Desactivar' : 'Activar'}>
                           {cod.activo ? <ToggleRight className="w-4 h-4 text-success" /> : <ToggleLeft className="w-4 h-4" />}
                         </button>
-                        <button onClick={() => deleteCodigoDescuento(cod.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" title="Eliminar">
+                        <button onClick={async () => { const res = await deleteCodigoDescuento(cod.id); if (!res.ok) window.alert(res.error) }} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" title="Eliminar">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>

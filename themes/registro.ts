@@ -71,6 +71,14 @@ export function esTemaPortal(id: string | null | undefined): id is TemaPortalId 
  * (`--surface`, `--border`, `--muted`) se quedan los del tema: no hay control
  * para ellos, e inventarlos aquí sería decidir por el tema.
  *
+ * ⚠️ El ACENTO tampoco se traduce, y esto costó verlo en producción. La misma
+ * palabra significa cosas distintas en los dos vocabularios: en el panel y en
+ * el portal viejo `--accent` es un FONDO pálido (`bg: 'var(--accent)'` en las
+ * píldoras del dashboard), y en el kit es TINTA — el dorado de Noir, el rosa
+ * de Bloom. Traducir uno por otro metía el crema `#F0EDE1` de Tentada donde el
+ * tema pone su verde. Si algún día el editor ofrece un acento de tinta, será
+ * un control nuevo, no este.
+ *
  * Con los ficheros de tema ya derivados de su propia paleta base (ver
  * `themes/tentada/tokens.css`), pisar `--brand` arrastra los once sitios que
  * antes repetían el verde a mano — la pestaña activa, el punto del horario,
@@ -79,14 +87,13 @@ export function esTemaPortal(id: string | null | undefined): id is TemaPortalId 
  */
 export function varsColorSobreTema(c: {
   primary?: string; onPrimary?: string; secondary?: string;
-  accent?: string; background?: string; text?: string;
+  background?: string; text?: string;
   fontStack?: string; headingStack?: string; headingWeight?: string;
 }): Record<string, string> {
   const v: Record<string, string> = {};
   if (c.primary) v['--brand'] = c.primary;
   if (c.onPrimary) v['--on-brand'] = c.onPrimary;
   if (c.secondary) v['--support'] = c.secondary;
-  if (c.accent) v['--accent'] = c.accent;
   if (c.background) v['--bg'] = c.background;
   if (c.text) v['--ink'] = c.text;
   if (c.fontStack) v['--font-body'] = c.fontStack;
@@ -128,7 +135,13 @@ export function varsEscalaSobreTema(
     tituloPantalla: 'screen-title',
     tituloHero: 'hero-title',
     bienvenida: 'welcome',
-    numeroBono: 'pass-number',
+    saludo: 'greeting',
+    // ⚠️ `numeroBono` NO entra, y por poco no se ve: el «60» del editor es el
+    // numerazo del saldo en el portal viejo, y el `pass-number` del kit son
+    // 18px (el nombre del bono). El cociente salía 3.33 y, como el factor es
+    // un PROMEDIO, inflaba TODA la escala un 47 % — medido en el HTML que
+    // servía producción: el saludo de Tentada salía a 64.5px en vez de a 44.
+    // Un paso que no corresponde de verdad envenena el promedio entero.
   };
   // El factor sale de los pasos que la propietaria SÍ ha tocado, promediados.
   // Uno solo para todos: si cada paso llevara el suyo, la escala dejaría de

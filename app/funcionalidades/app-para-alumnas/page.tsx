@@ -36,6 +36,10 @@ const FAQ = [
     q: '¿Aparece Tentare por algún lado?',
     a: 'No en lo que ve tu alumna. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio. La app de marca está incluida a partir del plan Estudio.',
   },
+  {
+    q: '¿Puede gestionar su plaza fija ella sola?',
+    a: 'Sí. Si un día no puede venir, la deja en pausa o cancela esa sesión concreta desde su portal, y si le corresponde recuperación, se genera sola — sin que tengas que dársela de baja tú ni que te escriba para avisarte.',
+  },
 ];
 
 export default function AppAlumnasPage() {
@@ -70,8 +74,10 @@ export default function AppAlumnasPage() {
         />
         <p>
           Además de consultar, puede actuar: cancelar dentro de plazo, apuntarse a la lista de espera de una clase llena,
-          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Las reglas que se aplican en cada caso son
-          las que tú configuras en <Link href="/funcionalidades/reservas-online">reservas</Link> y en{' '}
+          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Si tiene plaza fija cada semana, también la
+          gestiona ella sola — pausarla, retomarla o recuperar la sesión que le corresponde — sin escribirte para
+          avisarte. Las reglas que se aplican en cada caso son las que tú configuras en{' '}
+          <Link href="/funcionalidades/reservas-online">reservas</Link> y en{' '}
           <Link href="/funcionalidades/cancelaciones-y-politicas">cancelaciones</Link>.
         </p>
         <p>

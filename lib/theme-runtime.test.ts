@@ -226,3 +226,37 @@ test('⚠️ varsRadioSobreTema: el token es `--radius-quick-link`, no `--radius
   assert.equal(v['--radius-quick-link'], '12px');
   assert.equal(v['--radius-quick'], undefined);
 });
+
+
+// ── Los dos fallos que se vieron en el HTML de PRODUCCIÓN, no aquí ──────────
+//
+// El puente se mergeó con los dos dentro y estuvo sirviéndolos. Salieron al
+// mirar lo que `www.tentare.app/portal/tentare/home` devolvía de verdad —
+// ninguna de estas dos cosas la habría cazado un test que no existía.
+
+test('⚠️ el ACENTO no se traduce: en el panel es un fondo pálido y en el kit es tinta', () => {
+  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'tentada', accent: '#F0EDE1' });
+  // Producción servía `--accent: #F0EDE1` —el crema del editor— donde el tema
+  // pone su verde. En Noir habría metido ese crema donde va el dorado.
+  assert.doesNotMatch(css!, /--accent:/);
+});
+
+test('⚠️ sin desviación real, la escala NO se toca — un paso mal mapeado inflaba TODO', () => {
+  // `numeroBono` (60px, el numerazo del saldo del portal viejo) se comparaba
+  // con `pass-number` del kit (18px): cociente 3.33 que, promediado con los
+  // demás, subía toda la escala un 47 %. El saludo de Tentada salía a 64.5px
+  // en vez de a 44 en el HTML que servía producción.
+  const css = varsKitDelTema({
+    ...DEFAULT_THEME, themeId: 'tentada',
+    escalaTexto: { seccion: 20, tituloPantalla: 26, saludo: 44, tituloHero: 25, bienvenida: 25, numeroBono: 60 },
+  });
+  assert.doesNotMatch(css ?? '', /--size-/);
+});
+
+test('la escala SÍ se toca cuando la propietaria la mueve de verdad', () => {
+  const css = varsKitDelTema({
+    ...DEFAULT_THEME, themeId: 'tentada',
+    escalaTexto: { seccion: 30, tituloPantalla: 39, saludo: 66, tituloHero: 37.5, bienvenida: 37.5 },
+  });
+  assert.match(css!, /--size-greeting: 66px;/);
+});

@@ -6,7 +6,7 @@ import { NavPublico } from './NavPublico';
 import { PieNetwork } from './PieNetwork';
 import { FiltrosSidebar, ChipsActivos } from './FiltrosSidebar';
 import { HojaFiltrosMovil } from './HojaFiltrosMovil';
-import { TarjetaInstructora } from './TarjetaInstructora';
+import { ResultadosInstructoras } from './ResultadosInstructoras';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO } from './tokens';
 
 // Layout compartido del marketplace (1b) — usado por /network/instructoras
@@ -69,14 +69,7 @@ export async function MarketplaceLayout({
               </div>
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-end mb-4">
-                <p className="text-[12.5px] font-medium" style={{ color: NW_MUTED }}>Ordenar: Relevancia</p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {perfiles.map(p => <TarjetaInstructora key={p.id} perfil={p} />)}
-              </div>
-            </>
+            <ResultadosInstructoras perfiles={perfiles} />
           )}
         </div>
       </div>

@@ -17,7 +17,7 @@ const DISPONIBILIDAD_ETIQUETA: Partial<Record<PerfilNetworkPublico['disponibilid
   buscando_trabajo: 'Freelance',
 };
 
-export function TarjetaInstructora({ perfil }: { perfil: PerfilNetworkPublico }) {
+export function TarjetaInstructora({ perfil, distanciaKm }: { perfil: PerfilNetworkPublico; distanciaKm?: number | null }) {
   const disponibilidadTexto = DISPONIBILIDAD_ETIQUETA[perfil.disponibilidadEstado];
   return (
     <Link
@@ -63,6 +63,7 @@ export function TarjetaInstructora({ perfil }: { perfil: PerfilNetworkPublico })
         {perfil.ciudad && (
           <p className="text-[12.5px]" style={{ color: '#808A7E' }}>
             {perfil.zona ? `${perfil.zona} · ` : ''}{perfil.especialidades.slice(0, 3).map(e => ESPECIALIDAD_LABEL[e]).join(', ') || perfil.ciudad}
+            {distanciaKm != null && <span style={{ color: NW_TINTA, fontWeight: 600 }}> · a {distanciaKm} km</span>}
           </p>
         )}
         <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: `1px solid ${NW_BORDE}` }}>

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { SlidersHorizontal, Loader2, Heart, MessageCircle } from 'lucide-react';
+import { SlidersHorizontal, Loader2, Heart, MessageCircle, MapPin } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
 import { buscarPerfilesNetwork } from '@/lib/api-client';
+import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
 import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -25,6 +26,7 @@ export default function NetworkBuscadorPage() {
   const [resultados, setResultados] = useState<PerfilNetworkPublico[]>([]);
   const [cargando, setCargando] = useState(true);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  const { estado: estadoCercaDeMi, posicion, activar: activarCercaDeMi } = useCercaDeMi();
 
   useEffect(() => {
     let vivo = true;
@@ -45,6 +47,10 @@ export default function NetworkBuscadorPage() {
     filtro.ciudad || filtro.especialidades.length || filtro.disponibilidad.length
     || filtro.horarios.length || filtro.tipoTrabajo.length || filtro.experienciaMinima != null,
   );
+
+  const resultadosOrdenados = posicion
+    ? ordenarPorCercania(resultados, p => distanciaDePerfil(p.ciudad, posicion))
+    : resultados.map(item => ({ item, distanciaKm: null as number | null }));
 
   return (
     <div className="space-y-6">
@@ -69,14 +75,27 @@ export default function NetworkBuscadorPage() {
         )}
       />
 
-      <div className="md:hidden">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="md:hidden flex-1">
+          <button
+            onClick={() => setFiltrosAbiertos(true)}
+            className="w-full px-4 py-2.5 rounded-lg bg-card border border-border text-[13px] font-medium text-foreground flex items-center justify-center gap-2"
+          >
+            <SlidersHorizontal size={14} />
+            Filtros{hayFiltrosActivos ? ' (activos)' : ''}
+          </button>
+        </div>
         <button
-          onClick={() => setFiltrosAbiertos(true)}
-          className="w-full px-4 py-2.5 rounded-lg bg-card border border-border text-[13px] font-medium text-foreground flex items-center justify-center gap-2"
+          onClick={activarCercaDeMi}
+          disabled={estadoCercaDeMi === 'pidiendo' || estadoCercaDeMi === 'activo'}
+          className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-70"
         >
-          <SlidersHorizontal size={14} />
-          Filtros{hayFiltrosActivos ? ' (activos)' : ''}
+          {estadoCercaDeMi === 'pidiendo' ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+          {estadoCercaDeMi === 'activo' ? 'Ordenado por cercanía' : 'Cerca de mí'}
         </button>
+        {estadoCercaDeMi === 'denegado' && (
+          <p className="text-[11px] text-muted-foreground">No hemos podido acceder a tu ubicación.</p>
+        )}
       </div>
 
       <div className="flex gap-6">
@@ -98,7 +117,9 @@ export default function NetworkBuscadorPage() {
               </p>
             </div>
           ) : (
-            resultados.map(perfil => <TarjetaResultadoNetwork key={perfil.id} perfil={perfil} />)
+            resultadosOrdenados.map(({ item: perfil, distanciaKm }) => (
+              <TarjetaResultadoNetwork key={perfil.id} perfil={perfil} distanciaKm={distanciaKm} />
+            ))
           )}
         </div>
       </div>
