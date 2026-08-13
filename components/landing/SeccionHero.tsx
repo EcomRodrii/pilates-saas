@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { NAV_V5 } from './enlaces';
+import { NAV_V5, NAV_NETWORK } from './enlaces';
 
 // Nav + primer viewport.
 //
@@ -51,6 +51,7 @@ export function SeccionHero() {
             <a key={l.href} href={l.href}>{l.label}</a>
           ))}
           <Link href="/recursos">Recursos</Link>
+          <Link href={NAV_NETWORK.href}>{NAV_NETWORK.label}</Link>
         </div>
         <div className="v5-nav-acciones">
           <Link href="/login" className="v5-nav-entrar">Entrar</Link>
@@ -79,6 +80,7 @@ export function SeccionHero() {
               <a key={l.href} href={l.href} onClick={() => setMenuAbierto(false)}>{l.label}</a>
             ))}
             <Link href="/recursos" onClick={() => setMenuAbierto(false)}>Recursos</Link>
+            <Link href={NAV_NETWORK.href} onClick={() => setMenuAbierto(false)}>{NAV_NETWORK.label}</Link>
           </nav>
           <div className="v5-menu-pie">
             <Link href="/login" onClick={() => setMenuAbierto(false)} className="v5-menu-entrar">Entrar</Link>

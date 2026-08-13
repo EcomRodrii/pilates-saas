@@ -34,6 +34,15 @@ export const NAV_V5: EnlaceNav[] = [
 ];
 
 /**
+ * Único enlace del menú que NO es una ancla de esta página: Tentare Network
+ * es un producto público aparte (alta independiente, sin estudio detrás —
+ * ver app/network/unirse), así que su sitio es el menú de la landing, no una
+ * sección de /funcionalidades. Sustituye al hueco que /instructora/alta dejó
+ * en PIE_V5 (ver comentario ahí) — mismo criterio, destino nuevo.
+ */
+export const NAV_NETWORK: EnlaceNav = { href: '/network/unirse', label: 'Tentare Network' };
+
+/**
  * Salidas de cada sección hacia el árbol real. Esto es lo que el diseño no
  * tenía: sin estos enlaces, /funcionalidades y /precios quedan huérfanas desde
  * la página que más tráfico recibe.
@@ -60,11 +69,9 @@ export const PIE_V5: { titulo: string; enlaces: EnlaceNav[] }[] = [
       { href: '/precios', label: 'Precios' },
       { href: '/comparativa', label: 'Comparativa' },
       { href: '/seguridad', label: 'Seguridad' },
-      // El enlace a /instructora/alta (Feature #9) se quitó de aquí: esa
-      // página está CONGELADA (ver app/instructora/alta/page.tsx) — la
-      // experiencia actual se considera de baja calidad y va a sustituirse
-      // por "Tentare Network", todavía en diseño. No devolver este enlace
-      // sin pedirlo expresamente.
+      // El enlace a /instructora/alta (Feature #9) se quitó de aquí porque esa
+      // experiencia se sustituyó por Tentare Network — este es su sitio ahora.
+      NAV_NETWORK,
     ],
   },
   {
