@@ -10,7 +10,8 @@ import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import { ListaBadgesNetwork } from '@/components/network/lista-badges';
 import { useAuth } from '@/lib/auth-context';
-import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork } from '@/lib/api-client';
+import Link from 'next/link';
+import { fetchMiPerfilNetwork, guardarPerfilNetwork, cambiarEstadoPerfilNetwork, fetchSolicitudesContactoNetwork } from '@/lib/api-client';
 import { subirFotoPerfilNetwork, validarFotoPerfil } from '@/lib/portal-storage';
 import { calcularCompletitudPerfil, type DetalleCompletitud } from '@/lib/network/completitud';
 import {
@@ -83,6 +84,13 @@ function formDesdePerfil(p: PerfilNetwork): FormState {
   };
 }
 
+function saludoDelMomento(): string {
+  const hora = new Date().getHours();
+  if (hora < 12) return 'Buenos días';
+  if (hora < 20) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
 type ClavePaso = 'basicos' | 'especialidades' | 'experiencia' | 'trabajo' | 'disponibilidad' | 'tarifa' | 'contacto' | 'vista_previa';
 
 // `clave` en `DetalleCompletitud` cuando el paso cuenta para el %; `null` si
@@ -122,6 +130,10 @@ export default function MiPerfilNetworkPage() {
   const tieneExperiencia = experiencias.length > 0;
   const [paso, setPaso] = useState(0);
   const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
+  // "Oportunidades" (brief §18): cuántos estudios han escrito y siguen sin
+  // respuesta — mismo dato que ya pinta /network/solicitudes, aquí solo el
+  // recuento, para no duplicar esa pantalla dentro del resumen.
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState<number | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -129,6 +141,9 @@ export default function MiPerfilNetworkPage() {
       if (!vivo) return;
       if (p) { setPerfil(p); setForm(formDesdePerfil(p)); }
       setCargando(false);
+    });
+    fetchSolicitudesContactoNetwork().then(sols => {
+      if (vivo) setSolicitudesPendientes(sols.filter(s => s.estado === 'pendiente').length);
     });
     return () => { vivo = false; };
   }, []);
@@ -452,6 +467,35 @@ export default function MiPerfilNetworkPage() {
 
       {idPaso === 'vista_previa' && (
         <div className="space-y-5">
+          {perfil && (
+            <div className={`${cardCls} p-6`}>
+              <p className="text-[16px] font-semibold text-foreground mb-3">
+                {saludoDelMomento()}, {form.nombre.split(' ')[0] || 'de nuevo'} 👋
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <Link
+                  href="/network/solicitudes"
+                  className="rounded-xl border border-border p-3.5 hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-[20px] font-semibold text-foreground">
+                    {solicitudesPendientes ?? <Loader2 size={16} className="animate-spin inline text-muted-foreground" />}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {solicitudesPendientes === 1 ? 'solicitud sin responder' : 'solicitudes sin responder'}
+                  </p>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPaso(PASOS.findIndex(p => p.id === 'disponibilidad'))}
+                  className="rounded-xl border border-border p-3.5 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <p className="text-[13px] font-medium text-foreground">{DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>
+                  <p className="text-[12px] text-muted-foreground">Actualizar disponibilidad</p>
+                </button>
+              </div>
+            </div>
+          )}
+
           {perfil && (
             <div className={`${cardCls} p-6`}>
               <div className="flex items-start justify-between gap-4">
