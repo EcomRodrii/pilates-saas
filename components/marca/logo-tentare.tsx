@@ -22,7 +22,7 @@ export type FormatoMarca = 'isotipo' | 'horizontal' | 'vertical';
 export type TintaMarca = 'auto' | 'color' | 'negativo' | 'tinta' | 'blanco';
 /** Solo los productos con uso real hoy. Añadir uno es copiar su trazado de
  *  docs/marca/productos/<producto>/ a `trazados.ts`; el resto ya es genérico. */
-export type ProductoMarca = 'core' | 'manager';
+export type ProductoMarca = 'core' | 'manager' | 'network';
 /** Las tres del kit que tienen uso real. Las otras siete siguen en
  *  docs/marca/animaciones/tentare-motion.css, sin enganchar. */
 export type AnimacionMarca = 'construccion' | 'cargando' | 'barrido';
@@ -48,7 +48,7 @@ const TINTA: Record<Exclude<TintaMarca, 'auto'>, React.CSSProperties> = {
 };
 
 /** Regla 1 del kit: un producto nunca redibuja la marca, solo tiñe su disco. */
-const DISCO_PRODUCTO: Record<ProductoMarca, string> = { core: '#4C9CB0', manager: '#B4537E' };
+const DISCO_PRODUCTO: Record<ProductoMarca, string> = { core: '#4C9CB0', manager: '#B4537E', network: '#4F8A5B' };
 
 /** Regla 4: a una tinta el disco pierde su color, así que ahí el producto se
  *  distingue por el nombre y no por el disco. */

@@ -26,7 +26,7 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
       <header className="border-b border-[#E7E7E0] bg-white">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/network/unirse" className="flex items-center">
-            <LogoTentare formato="horizontal" alto={22} />
+            <LogoTentare formato="horizontal" producto="network" titulo="Tentare Network" alto={26} />
           </Link>
           {user && (
             <button
