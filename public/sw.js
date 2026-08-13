@@ -8,11 +8,13 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Tentare';
   const options = {
     body: data.body || '',
-    // El icono era SIEMPRE el genérico de Tentare. Si el estudio tiene su
-    // propio logo subido (Configuración → Apariencia), el servidor lo manda
-    // en el payload y se usa aquí; si no, cae al genérico. El badge (icono
-    // pequeño de Android, normalmente lo enmascara el propio sistema) se
-    // queda con el genérico a propósito — no aporta nada personalizarlo ahí.
+    // El icono era SIEMPRE el genérico de Tentare. El servidor manda ya
+    // siempre uno propio del estudio (su logo si lo subió, si no un monograma
+    // con su inicial y su color de marca — lib/monograma-estudio.ts): este
+    // fallback a `/icon-192.png` solo cubre un payload viejo o incompleto, no
+    // el camino normal. El badge (icono pequeño de Android, normalmente lo
+    // enmascara el propio sistema) se queda con el genérico a propósito — no
+    // aporta nada personalizarlo ahí.
     icon: data.icon || '/icon-192.png',
     badge: '/icon-192.png',
     tag: data.tag || undefined,

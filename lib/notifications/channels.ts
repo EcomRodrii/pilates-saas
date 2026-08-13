@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { LEGAL } from '../legal-info.ts';
 import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } from './types.ts';
 import { remitentePorMarca } from '../emails/remitente.ts';
+import { urlMonograma } from '../monograma-estudio.ts';
 
 export interface ResultadoCanal {
   status: DeliveryStatus;
@@ -58,16 +59,17 @@ const push: Canal = {
     // El icono mostraba SIEMPRE el logo genérico de Tentare (hardcodeado en
     // public/sw.js), aunque cada estudio ya puede subir el suyo desde
     // Apariencia (mismo studio.logoUrl que usa el manifest del portal y los
-    // emails). Se manda en el payload; si no hay logo, el service worker cae
-    // al icono genérico — mismo criterio que el resto de superficies con
-    // marca del estudio.
-    const { data: st } = await admin.from('studios').select('logo_url').eq('id', notificacion.studioId).maybeSingle();
+    // emails). Se manda en el payload, y con logo no cambia nada; sin logo ya
+    // no cae al genérico de Tentare — cae al monograma del propio estudio
+    // (inicial + su color de marca), mismo criterio que el manifest de la PWA.
+    const { data: st } = await admin.from('studios').select('logo_url, nombre, color_primario').eq('id', notificacion.studioId).maybeSingle();
+    const logoUrl = st?.logo_url as string | null;
     const webpush = (await import('web-push')).default;
     webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:soporte@tentare.app', publicKey, privateKey);
     const payload = JSON.stringify({
       title: notificacion.title, body: notificacion.body,
       url: notificacion.deepLink || '/', tag: notificacion.eventType,
-      icon: (st?.logo_url as string | null) || undefined,
+      icon: logoUrl || urlMonograma(st?.nombre as string | undefined, st?.color_primario as string | undefined, 192),
     });
 
     let enviados = 0;
