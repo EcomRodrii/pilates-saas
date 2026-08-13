@@ -13,14 +13,19 @@
 // `/videos`) se queda con el portal de siempre — decisión del fundador, el
 // portal se ve mezclado un tiempo.
 //
-// ⚠️ `/perfil` estuvo aquí y se ha SACADO. La pantalla `Profile` del kit es
-// todavía una maqueta: su tabla de "Historial" son tres filas inventadas a
-// mano (una de ellas "No asistida"), sus interruptores de avisos solo escriben
-// en el estado local del navegador, y no tiene foto, correo, usuario ni
-// contraseña. Mientras cubriera la ruta, montarla dejaba a la socia sin la
-// mitad de su perfil Y enseñándole un historial falso. Un diseño nuevo no
-// puede costar funcionalidad: hasta que `Profile` lea datos de verdad, esta
-// ruta la sirve el portal completo de siempre.
+// ⚠️ `/perfil` estuvo FUERA por una razón que ya no aplica, y conviene dejar
+// escrito por qué vuelve. Se sacó porque la `Profile` del kit era una maqueta:
+// historial inventado, interruptores que solo escribían en el navegador, sin
+// correo ni datos de la socia. La forma de Tentada (`profile_style: "header"`)
+// sí lee datos reales, guarda por `updateSocio` esperando la respuesta del
+// servidor, y CONSERVA lo que el prototipo no dibuja pero la socia ya tenía:
+// «Aspecto» día/noche y el estado SEPA de Métodos de pago.
+//
+// Lo que sigue fuera, y no por descuido: `/preferencias` y `/progreso`. Las
+// dos tienen MÁS de lo que dibuja el prototipo —control por canal y activación
+// de push la primera; recompensas, canjes e historial de créditos la segunda—
+// y el kit todavía no las cubre. Montar ahí el diseño le quitaría eso a la
+// socia, que es exactamente lo que este comentario lleva evitando.
 //
 // ⚠️ TEMPORAL, con fecha de caducidad: vive detrás de `studios.portal_react`
 // y desaparece —con el portal viejo— cuando termine el despliegue por fases.
@@ -38,12 +43,15 @@ import { Bookings } from '@/components/portal-tema/screens/Bookings';
 import { Passes } from '@/components/portal-tema/screens/Passes';
 import { ClassDetail } from '@/components/portal-tema/screens/ClassDetail';
 import { Centro } from '@/components/portal-tema/screens/Centro';
+import { Profile } from '@/components/portal-tema/screens/Profile';
 import { Confirmed } from '@/components/portal-tema/screens/Confirmed';
 import { Buy } from '@/components/portal-tema/screens/Buy';
 import { Teachers } from '@/components/portal-tema/screens/Teachers';
 import { Info } from '@/components/portal-tema/screens/Info';
+import { MyData } from '@/components/portal-tema/screens/MyData';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
+import { useModo } from '@/lib/portal-modo';
 import { crearCheckoutPlan } from '@/lib/api-client';
 import { construirDatosPortal, diaDelMesHoy, horarioDe } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
@@ -56,10 +64,14 @@ const RUTA_A_PANTALLA: Record<string, ScreenId> = {
   reservas: 'reservas',
   bonos: 'bonos',
   centro: 'centro',
+  perfil: 'perfil',
 };
 
 const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   inicio: 'home', clases: 'clases', reservas: 'reservas', bonos: 'bonos', centro: 'centro',
+  // Avisos y Progreso siguen siendo del portal de siempre: las dos tienen más
+  // de lo que dibuja el prototipo (canales + push, recompensas + créditos).
+  preferencias: 'preferencias', progreso: 'progreso',
   // Sigue siendo un destino navegable aunque el kit ya no la pinte: la píldora
   // "Perfil" de la barra tiene que llevar al perfil de verdad, no a ningún
   // sitio.
@@ -89,6 +101,8 @@ const PANTALLAS = {
   comprar: Buy,
   instructores: Teachers,
   info: Info,
+  misdatos: MyData,
+  perfil: Profile,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -109,10 +123,14 @@ export function pantallaDeRuta(pathname: string, slug: string): keyof typeof PAN
 export function PortalTemaMarco() {
   const router = useRouter();
   const pathname = usePathname() ?? '';
-  const { session } = usePortalAuth();
+  const { session, logout } = usePortalAuth();
+  // El interruptor día/noche del portal de siempre. Se pasa al kit tal cual.
+  const { noche, toggle } = useModo();
+  const aspecto = useMemo(() => ({ noche, toggle }), [noche, toggle]);
   const {
     studio, sesiones, reservas, tiposClase, salas, instructores,
-    planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado, cancelarReserva, addReserva,
+    planesTarifa, suscripciones, socios, recibos, studioConfig, themeIdPublicado,
+    cancelarReserva, addReserva, updateSocio,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -236,6 +254,31 @@ export function PortalTemaMarco() {
     };
   }, [addReserva, socioId]);
 
+  // Guardar sus datos: la MISMA vía que el perfil de siempre (`updateSocio`),
+  // esperando la respuesta del servidor antes de decir nada.
+  const alGuardarDatos = useCallback(async (campos: {
+    nombre: string; apellidos: string; email: string;
+    telefono: string; fechaNacimiento: string; direccion: string;
+  }): Promise<string | null> => {
+    if (!socioId) return 'Entra en tu cuenta para guardar tus datos.';
+    const r = await updateSocio(socioId, {
+      nombre: campos.nombre.trim(),
+      apellidos: campos.apellidos.trim(),
+      email: campos.email.trim(),
+      // Vacío se guarda como NULL, no como cadena vacía: es lo que distingue
+      // «no lo ha puesto» de «lo ha borrado», y lo que ya hace el perfil viejo.
+      telefono: campos.telefono.trim() || null,
+      fechaNacimiento: campos.fechaNacimiento || null,
+      direccion: campos.direccion.trim() || null,
+    } as Parameters<typeof updateSocio>[1]);
+    return r.ok ? null : r.error;
+  }, [socioId, updateSocio]);
+
+  const alSalir = useCallback(() => {
+    logout();
+    router.replace(`/portal/${slug}/login`);
+  }, [logout, router, slug]);
+
   const alCancelar: AlCancelarPortal = useCallback(async (reservaId) => {
     // `cancelarReserva` del contexto: la MISMA vía que el portal de siempre
     // (RPC transaccional, promociona la lista de espera, devuelve bono según
@@ -256,6 +299,12 @@ export function PortalTemaMarco() {
         alPagar={alPagar}
         alCancelar={alCancelar}
         alReservar={alReservar}
+        alGuardarDatos={alGuardarDatos}
+        alSalir={alSalir}
+        // El día/noche del portal de siempre (`lib/portal-modo`), tal cual: el
+        // kit no lo conoce, solo lo pinta. Sin esto la fila «Aspecto» no se
+        // pinta, que es lo correcto en la previsualización.
+        aspecto={aspecto}
         pantallasDeRuta={PANTALLAS_DE_RUTA}
         pantalla={pantalla}
         // El día de HOY en la semana del estudio, no el 4 de la demo.

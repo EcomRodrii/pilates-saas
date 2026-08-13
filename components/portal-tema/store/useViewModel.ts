@@ -266,6 +266,20 @@ export function useViewModel() {
       },
       teachers: datos.profesores,
 
+      // Su perfil. Los SEIS campos que edita, no los tres del prototipo: los
+      // otros tres ya existen en el perfil que usa hoy y quitárselos sería que
+      // el rediseño le costara dónde escribir su dirección.
+      profile: {
+        ...datos.socia,
+        name: datos.socia.name || cfg.member_name,
+        initial: datos.socia.initial || cfg.member_initial,
+        estudio: datos.estudio.nombre || cfg.studio,
+        // El estado SEPA que ya enseña el perfil de siempre. `null` = no está
+        // domiciliada, y entonces la fila va sin coletilla en vez de con un
+        // «No domiciliado» que nadie ha pedido saber.
+        metodoPago: datos.socia.domiciliado ? "Domiciliado" : null,
+      },
+
       // Las cuatro secciones de «Información del centro», ya resueltas: la
       // pantalla solo coloca. Cada una se calla si su fuente está vacía —
       // horario sin configurar, normas sin escribir— en vez de pintar un

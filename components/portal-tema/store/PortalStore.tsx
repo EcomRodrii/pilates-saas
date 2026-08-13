@@ -9,7 +9,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info";
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -125,6 +125,11 @@ export interface PortalActions {
   setBonosTab(tab: 'bonos' | 'historial'): void;
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
+  goMisDatos(): void;
+  goPrefs(): void;
+  goProgress(): void;
+  logout(): void;
+  guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
   /** `reservaId` es lo que se manda al servidor; sin él solo se puede
@@ -207,6 +212,18 @@ export function useEsDemo(): boolean {
 }
 
 /**
+ * El interruptor día/noche, si quien monta el portal lo enchufa.
+ *
+ * `null` = no hay dónde guardarlo (la previsualización), y entonces la fila
+ * «Aspecto» no se pinta. En el portal real sí, porque la socia ya la tiene.
+ */
+const AspectoCtx = createContext<AspectoPortal | null>(null);
+
+export function useAspecto(): AspectoPortal | null {
+  return useContext(AspectoCtx);
+}
+
+/**
  * Arranca el cobro real de un plan. Devuelve `null` si ya va camino de Stripe
  * (la pestaña se va) o el mensaje de error si no se pudo ni empezar.
  */
@@ -217,6 +234,26 @@ export type AlPagarPortal = (planId: string) => Promise<string | null>;
  * el mensaje de error si no — nunca se avisa de éxito sin esa confirmación.
  */
 export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
+
+/**
+ * Guarda los datos de la socia. Devuelve `null` si el servidor lo confirmó, o
+ * el mensaje de error si no — nunca se avisa de «Guardado» sin esa respuesta.
+ */
+export type AlGuardarDatosPortal = (datos: {
+  nombre: string; apellidos: string; email: string;
+  telefono: string; fechaNacimiento: string; direccion: string;
+}) => Promise<string | null>;
+
+/**
+ * El interruptor día/noche del portal (`lib/portal-modo`).
+ *
+ * ⚠️ Entra por prop y no lo lee el kit: es del portal de siempre, con su
+ * `localStorage` y sus tokens, y el kit no debe conocerlo. Que sea opcional es
+ * lo que hace que la fila «Aspecto» NO se pinte en la previsualización —donde
+ * no hay dónde guardarlo— y SÍ en el portal real, que es donde la socia ya la
+ * tiene hoy. Quitarla habría sido que el rediseño le costara un ajuste.
+ */
+export interface AspectoPortal { noche: boolean; toggle: () => void }
 
 /**
  * Reserva de verdad.
@@ -253,6 +290,9 @@ export function PortalProvider({
   alPagar,
   alCancelar,
   alReservar,
+  alGuardarDatos,
+  alSalir,
+  aspecto,
   pantalla,
   pantallasDeRuta,
   diaPorDefecto,
@@ -278,6 +318,10 @@ export function PortalProvider({
   alCancelar?: AlCancelarPortal;
   /** Sin esto, "Reservar mi plaza" es un `setTimeout`. */
   alReservar?: AlReservarPortal;
+  alGuardarDatos?: AlGuardarDatosPortal;
+  /** Sin esto, «Cerrar sesión» solo reinicia la maqueta. */
+  alSalir?: () => void;
+  aspecto?: AspectoPortal;
   /** La pantalla que manda desde fuera. Con `navegar` por rutas, el estado
    *  interno nunca cambia de pantalla: la dice la ruta. */
   pantalla?: ScreenId;
@@ -356,6 +400,16 @@ export function PortalProvider({
   useEffect(() => {
     alCancelarRef.current = alCancelar;
   }, [alCancelar]);
+
+  const alSalirRef = useRef(alSalir);
+  useEffect(() => {
+    alSalirRef.current = alSalir;
+  }, [alSalir]);
+
+  const alGuardarDatosRef = useRef(alGuardarDatos);
+  useEffect(() => {
+    alGuardarDatosRef.current = alGuardarDatos;
+  }, [alGuardarDatos]);
 
   const alReservarRef = useRef(alReservar);
   useEffect(() => {
@@ -465,6 +519,32 @@ export function PortalProvider({
       // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
       goBuy: () => ir({ screen: "comprar" }),
       goInfo: (infoKey) => { set({ infoKey }); ir({ screen: "info" }); },
+      goMisDatos: () => ir({ screen: "misdatos" }),
+      // Avisos y Progreso son RUTAS del portal de siempre (`/preferencias`,
+      // `/progreso`) y ahí se quedan: las dos tienen más de lo que dibuja el
+      // prototipo —control por canal y push la primera, recompensas y créditos
+      // la segunda— y el kit todavía no las cubre.
+      goPrefs: () => ir({ screen: "preferencias" }),
+      goProgress: () => ir({ screen: "progreso" }),
+      // Cerrar sesión lo hace quien tiene la sesión, no el kit. Sin vía real
+      // (la previsualización) vuelve a la bienvenida, como la demo.
+      logout: () => { const f = alSalirRef.current; if (f) return f(); self.reset(); },
+      guardarDatos: (campos) => {
+        const guardar = alGuardarDatosRef.current;
+        // Sin vía real esto es la previsualización: se dice, en vez de fingir
+        // un «Guardado» que no guarda nada.
+        if (!guardar) return notify("Vista previa: esto no se guarda de verdad");
+        if (stateRef.current.loading) return;
+        set({ loading: true });
+        guardar(campos).then((error: string | null) => {
+          set({ loading: false });
+          // Nada de escritura optimista: el aviso sale con lo que respondió el
+          // servidor, y solo se vuelve atrás si dijo que sí.
+          if (error) return notify(error);
+          notify("Datos guardados");
+          self.back();
+        });
+      },
 
       reserve: (id) => {
         const s = stateRef.current;
@@ -658,11 +738,13 @@ export function PortalProvider({
   return (
     <DemoCtx.Provider value={esDemo}>
     <CromoDemoCtx.Provider value={cromoDemo}>
+    <AspectoCtx.Provider value={aspecto ?? null}>
     <DatosCtx.Provider value={datos}>
       <StateCtx.Provider value={estado}>
         <ActionsCtx.Provider value={actions}>{children}</ActionsCtx.Provider>
       </StateCtx.Provider>
     </DatosCtx.Provider>
+    </AspectoCtx.Provider>
     </CromoDemoCtx.Provider>
     </DemoCtx.Provider>
   );

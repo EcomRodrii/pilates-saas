@@ -5,6 +5,7 @@ import { Island, StatusBar } from "@/components/portal-tema/components/layout/ch
 import { useCountUp } from "@/components/portal-tema/hooks/motion";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
+import { ProfileTentada } from "@/components/portal-tema/screens/Profile.tentada";
 
 function Metric({ value, label }: { value: number; label: string }) {
   const shown = useCountUp(value);
@@ -18,6 +19,13 @@ function Metric({ value, label }: { value: number; label: string }) {
 
 /** Perfil: bono, avisos y cifras del mes. */
 export function Profile({ vm }: { vm: ViewModel }) {
+  // Tentada trae su propia forma (cabecera verde y filas), y con «Aspecto» y
+  // el estado SEPA que el prototipo no tiene pero el perfil de la socia sí.
+  if (vm.features.profile_style === "header") return <ProfileTentada vm={vm} />;
+  return <ProfileKit vm={vm} />;
+}
+
+function ProfileKit({ vm }: { vm: ViewModel }) {
   const actions = useActions();
   return (
     <>

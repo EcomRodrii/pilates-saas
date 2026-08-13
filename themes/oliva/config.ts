@@ -33,7 +33,8 @@ export const THEME: ThemeConfig = {
     // son de Tentada.
     "schedule_style": "chips",
     // El bono activo y los planes debajo. La cartera con historial es de Tentada.
-    "passes_style": "plan"
+    "passes_style": "plan",
+    "profile_style": "card"
   },
   "home_blocks": [
     "greeting",

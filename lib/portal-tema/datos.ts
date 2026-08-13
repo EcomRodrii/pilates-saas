@@ -446,9 +446,29 @@ export function bonoDe(suscripciones: Suscripcion[], planes: PlanTarifa[], tz = 
 }
 
 export function sociaDe(socio: Socio | null): SociaPortal {
-  if (!socio) return { name: '', short: '', initial: '' };
+  const vacia: SociaPortal = {
+    id: '', name: '', short: '', initial: '',
+    apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
+  };
+  if (!socio) return vacia;
   const nombre = `${socio.nombre} ${socio.apellidos}`.trim();
-  return { name: nombre, short: socio.nombre, initial: inicialDe(socio.nombre) };
+  return {
+    id: socio.id,
+    name: nombre,
+    short: socio.nombre,
+    initial: inicialDe(socio.nombre),
+    apellidos: socio.apellidos ?? '',
+    email: socio.email ?? '',
+    // Cadena vacía y no `null`: estos seis alimentan un formulario, y un
+    // `<input value={null}>` lo vuelve NO controlado a mitad de escritura.
+    telefono: socio.telefono ?? '',
+    fechaNacimiento: (socio as { fechaNacimiento?: string | null }).fechaNacimiento ?? '',
+    direccion: (socio as { direccion?: string | null }).direccion ?? '',
+    // Las DOS condiciones, igual que `PortalPerfilView`: el método preferido
+    // sin mandato no domicilia nada.
+    domiciliado: (socio as { metodoPagoPreferido?: string | null }).metodoPagoPreferido === 'SEPA'
+      && !!(socio as { sepaMandateId?: string | null }).sepaMandateId,
+  };
 }
 
 /** El adaptador completo. Es lo único que necesita llamar quien monta el portal. */

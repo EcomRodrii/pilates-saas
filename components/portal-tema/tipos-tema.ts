@@ -43,6 +43,14 @@ export type ScheduleStyle = "chips" | "tabs";
  */
 export type PassesStyle = "plan" | "cartera";
 
+/**
+ * Forma de «Mi perfil».
+ *   `card`   — la maqueta del kit (Oliva/Bloom/Noir).
+ *   `header` — cabecera verde y filas, con «Aspecto» y el estado SEPA
+ *              conservados del perfil de siempre (Tentada).
+ */
+export type ProfileStyle = "card" | "header";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -76,6 +84,7 @@ export interface ThemeFeatures {
   tab_set: TabSet;
   schedule_style: ScheduleStyle;
   passes_style: PassesStyle;
+  profile_style: ProfileStyle;
 }
 
 export interface PaletteEntry {

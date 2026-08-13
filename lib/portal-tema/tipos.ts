@@ -111,9 +111,25 @@ export interface ProfesorPortal {
 }
 
 export interface SociaPortal {
+  /** `id` vacío = nadie identificado (la previsualización). Sin él no se guarda. */
+  id: string;
   name: string;
   short: string;
   initial: string;
+  /**
+   * Los campos que la socia edita en «Mis datos». Son SEIS y no los tres del
+   * prototipo: los otros tres ya existen en el portal de siempre
+   * (`PortalPerfilView`) y quitárselos sería que el rediseño le costara sitio
+   * donde escribir su dirección.
+   */
+  apellidos: string;
+  email: string;
+  telefono: string;
+  fechaNacimiento: string;
+  direccion: string;
+  /** Tiene mandato SEPA vivo. Es lo que el perfil de siempre resume como
+   *  «Domiciliado» en Métodos de pago. */
+  domiciliado: boolean;
 }
 
 /**
