@@ -113,12 +113,12 @@ export function useViewModel() {
           const full = !mine && c.seats === 0;
           return {
             id: c.id, time: c.time, name: c.name,
-            meta: c.teacher + " · " + c.room,
+            meta: "con " + c.teacher + " · " + c.room,
             // Tres estados y no un booleano: "mía", "completa" y "libre" se
             // pintan distinto y el orden de precedencia importa — una clase
             // completa que YA es mía se lee como mía.
             tone: (mine ? "mine" : full ? "full" : "free") as "mine" | "full" | "free",
-            tag: mine ? "TU CLASE" : full ? "COMPLETA" : "RESERVAR",
+            tag: mine ? "TU CLASE ✓" : full ? "COMPLETA" : "RESERVAR",
           };
         }),
 
@@ -133,7 +133,11 @@ export function useViewModel() {
         day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
         meta: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + ", " + next.time + " · " + next.room,
       },
-      nextHeading: next ? (cfg.id === "noir" ? "Tu próxima clase" : "Próxima clase") : "Tu semana",
+      // «Tu» delante en Noir y Tentada, y en Tentada NO es un matiz: es el
+      // rótulo impreso en el billete, y el diseño lo escribe entero.
+      nextHeading: next
+        ? (cfg.id === "noir" || cfg.id === "tentada" ? "Tu próxima clase" : "Próxima clase")
+        : "Tu semana",
 
       progress: {
         done, goal,
@@ -153,6 +157,26 @@ export function useViewModel() {
         joined: state.challenges.includes(c.key),
         cta: state.challenges.includes(c.key) ? "Apuntada ✓" : "Apuntarme",
       })),
+
+      // La racha real (`rachaDe`). `null` = no hay ninguna que enseñar; el
+      // bloque no se pinta en vez de anunciar «0 semanas».
+      streak: datos.racha,
+      weekMonth: datos.hoy.mes,
+
+      // El acceso a los vídeos para casa. El texto es del producto, no del
+      // estudio: no hay campo donde la propietaria lo escriba, así que no se
+      // finge que lo haya.
+      videosCta: { title: "Pilates en casa", text: "Sesiones cortas para los días sin estudio" },
+
+      // El cierre firmado. Sin cita del tema no hay bloque, y sin año de
+      // apertura la firma va sin año — nunca con uno inventado.
+      closing: cfg.closing_quote
+        ? {
+            quote: cfg.closing_quote,
+            sign: [datos.estudio.nombre || cfg.studio, datos.estudio.anioFundacion ? `desde ${datos.estudio.anioFundacion}` : null]
+              .filter(Boolean).join(" · "),
+          }
+        : null,
 
       quickLinks: QUICK_LINKS.map((q) => ({ label: q.label, action: q.action, icon: q.icon as IconName })),
       quickLinksHeading: cfg.id === "oliva" ? "Mis accesos rápidos" : "Accesos rápidos",

@@ -14,6 +14,14 @@ export type DetailStyle = "card" | "bleed";
  */
 export type NextClassStyle = "hero" | "ticket";
 
+/**
+ * Forma del resumen de la semana.
+ *   `card` — dentro de una tarjeta, con «Ver agenda» (Oliva/Bloom/Noir).
+ *   `bare` — la fila de siete días a pelo sobre el lienzo, con el mes en
+ *            cursiva a la derecha (Tentada).
+ */
+export type WeekStripStyle = "card" | "bare";
+
 export type HomeBlockName =
   | "greeting"
   | "home-header"
@@ -22,6 +30,9 @@ export type HomeBlockName =
   | "today-timeline"
   | "pass-card"
   | "bookings-list"
+  | "streak-pill"
+  | "videos-cta"
+  | "studio-quote"
   | "challenges"
   | "weekly-progress"
   | "quick-links"
@@ -40,6 +51,7 @@ export interface ThemeFeatures {
   tab_icon_fill: boolean;
   detail_style: DetailStyle;
   next_class_style: NextClassStyle;
+  week_strip_style: WeekStripStyle;
 }
 
 export interface PaletteEntry {
@@ -78,6 +90,12 @@ export interface ThemeConfig {
    * estudio: sin ella el bloque simplemente no la pinta.
    */
   greeting_note?: string;
+  /**
+   * La cita con la que el Inicio cierra. Es COPY del tema, no del estudio: el
+   * bloque la firma con el nombre real y el año de apertura, que sí son datos.
+   * Sin ella el bloque no se pinta.
+   */
+  closing_quote?: string;
   welcome: { line1: string; line2: string; text: string; cta: string };
   fonts: { families: string[]; display: string; body: string };
   designSystem: {

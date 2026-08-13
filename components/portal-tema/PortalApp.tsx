@@ -37,7 +37,9 @@ const SCREENS = {
 
 function Portal() {
   const vm = useViewModel();
-  const Screen = SCREENS[vm.screen] ?? Home;
+  // `vm.screen` incluye destinos que son RUTA del portal pero no pantalla del
+  // kit (`videos`): ahí cae al Inicio en vez de dejar la maqueta en blanco.
+  const Screen = SCREENS[vm.screen as keyof typeof SCREENS] ?? Home;
 
   return (
     <>

@@ -88,7 +88,15 @@ export interface DatosPortal {
    * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
    * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.
    */
-  hoy: { num: number; largo: string };
+  hoy: { num: number; largo: string; mes: string };
+  /**
+   * Semanas seguidas asistiendo, y si es su mejor marca. `null` = no hay
+   * racha que enseñar (menos de dos seguidas, o nadie identificado). Ver
+   * `rachaDe` — el prototipo la traía como texto fijo y aquí se calcula.
+   */
+  racha: { semanas: number; esMejor: boolean } | null;
+  /** Quién firma la pantalla. `anioFundacion` null = el pie va sin año. */
+  estudio: { nombre: string; anioFundacion: number | null };
   dias: DiaPortal[];
   filtros: FiltroPortal[];
   planes: PlanPortal[];

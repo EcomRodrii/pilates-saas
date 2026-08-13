@@ -8,7 +8,7 @@ import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
 export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil"
-  | "bonos" | "checkout" | "detalle" | "sesion";
+  | "bonos" | "checkout" | "detalle" | "sesion" | "videos";
 
 export type TabId = "inicio" | "clases" | "reservas" | "perfil";
 
@@ -89,6 +89,7 @@ export interface PortalActions {
   goSchedule(): void;
   goBookings(): void;
   goPasses(): void;
+  goVideos(): void;
   goProfile(): void;
   goto(screen: ScreenId): void;
   openClass(id?: string): void;
@@ -388,6 +389,11 @@ export function PortalProvider({
       // no como `goto("bonos")` suelto para que los bloques no tengan que
       // saber cómo se llama la pantalla.
       goPasses: () => ir({ screen: "bonos" }),
+      // Vídeos es RUTA del portal (`/portal/<slug>/videos`, la sirve el portal
+      // de siempre) pero el kit no tiene pantalla propia: en la
+      // previsualización el `SCREENS[...] ?? Home` la deja en el Inicio, que
+      // es lo honesto — no hay nada de vídeos que enseñar ahí.
+      goVideos: () => ir({ screen: "videos" }),
       goProfile: () => ir({ tab: "perfil", screen: "perfil" }),
       goto: (screen) => ir({ screen }),
       openClass: (id) => ir({ screen: "detalle", classId: id || stateRef.current.classId }),

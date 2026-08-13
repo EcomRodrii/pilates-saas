@@ -101,13 +101,94 @@ export function diaDelMesHoy(ahora: Date, tz = TZ_ESTUDIO): number {
  * lado y la etiqueta por otro es lo que deja la cabecera diciendo «miércoles»
  * mientras el horario marca el jueves las noches de cambio de hora.
  */
-export function hoyDe(ahora: Date, tz = TZ_ESTUDIO): { num: number; largo: string } {
+export function hoyDe(ahora: Date, tz = TZ_ESTUDIO): { num: number; largo: string; mes: string } {
   const local = fechaLocalDe(ahora, tz);
   const { anio, mes, dia } = partes(local);
   // Mediodía UTC, mismo motivo que en `diasDeLaSemana`: a las 00:00 el
   // desplazamiento de zona puede cruzar de día.
   const idx = new Date(Date.UTC(anio, mes - 1, dia, 12)).getUTCDay();
-  return { num: dia, largo: `${NOMBRE_DIA[idx]}, ${dia} de ${MESES[mes - 1]}` };
+  return { num: dia, largo: `${NOMBRE_DIA[idx]}, ${dia} de ${MESES[mes - 1]}`, mes: MESES[mes - 1] };
+}
+
+/** El lunes de la semana que contiene esa fecha local, como 'YYYY-MM-DD'.
+ *  Es la clave con la que se agrupan las semanas de la racha. */
+function lunesDe(fechaLocal: string): string {
+  const { anio, mes, dia } = partes(fechaLocal);
+  // Mediodía UTC, mismo motivo que en `diasDeLaSemana`.
+  const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** La semana anterior a una clave de `lunesDe`. */
+function semanaAnterior(lunes: string): string {
+  const { anio, mes, dia } = partes(lunes);
+  const d = new Date(Date.UTC(anio, mes - 1, dia, 12));
+  d.setUTCDate(d.getUTCDate() - 7);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Semanas seguidas en las que la socia ha ASISTIDO al menos a una clase.
+ *
+ * El prototipo pintaba «6 semanas seguidas — tu mejor racha» como texto fijo.
+ * Esto lo calcula, y por eso tiene tres reglas que un número inventado no
+ * necesita:
+ *
+ *  1. **Cuenta `ASISTIDA`, no `CONFIRMADA`.** Reservar no es venir. Una racha
+ *     construida sobre reservas se rompería sola en cuanto alguien reserva y
+ *     no aparece — y le habríamos dicho que la tenía.
+ *  2. **La semana en curso no rompe la racha.** Es lunes por la mañana: nadie
+ *     ha asistido a nada todavía. Si contara como semana en blanco, la racha
+ *     se pondría a cero cada lunes y volvería el martes. Se cuenta si ya tiene
+ *     una clase; si no, se empieza a contar desde la semana pasada.
+ *  3. **«Tu mejor racha» solo se dice cuando LO ES.** Es una afirmación
+ *     comprobable, así que se comprueba contra el resto de su historial en
+ *     vez de escribirla siempre.
+ *
+ * `null` = no hay racha que enseñar (menos de dos semanas seguidas). Una
+ * semana suelta no es una racha, y anunciarla como tal es ruido.
+ */
+export function rachaDe(
+  reservas: Pick<Reserva, 'sesionId' | 'estado'>[] | undefined,
+  sesiones: Pick<Sesion, 'id' | 'inicio'>[],
+  ahora: Date,
+  tz = TZ_ESTUDIO,
+): { semanas: number; esMejor: boolean } | null {
+  if (!reservas?.length) return null;
+  const inicioPorSesion = new Map(sesiones.map((s) => [s.id, s.inicio]));
+
+  const conAsistencia = new Set<string>();
+  for (const r of reservas) {
+    if (r.estado !== 'ASISTIDA') continue;
+    const inicio = inicioPorSesion.get(r.sesionId);
+    if (!inicio) continue;
+    conAsistencia.add(lunesDe(fechaLocalDe(new Date(inicio), tz)));
+  }
+  if (conAsistencia.size === 0) return null;
+
+  // ── La racha actual ──────────────────────────────────────────────────────
+  const estaSemana = lunesDe(fechaLocalDe(ahora, tz));
+  let cursor = conAsistencia.has(estaSemana) ? estaSemana : semanaAnterior(estaSemana);
+  let semanas = 0;
+  while (conAsistencia.has(cursor)) {
+    semanas++;
+    cursor = semanaAnterior(cursor);
+  }
+  if (semanas < 2) return null;
+
+  // ── ¿Es la mejor? ────────────────────────────────────────────────────────
+  // Se recorre el historial ordenado contando tramos seguidos. Con `Set` no
+  // hay orden garantizado, de ahí el `sort` — las claves son 'YYYY-MM-DD', así
+  // que ordenan bien como texto.
+  const todas = [...conAsistencia].sort();
+  let mejor = 0, tramo = 0, previa: string | null = null;
+  for (const s of todas) {
+    tramo = previa !== null && semanaAnterior(s) === previa ? tramo + 1 : 1;
+    if (tramo > mejor) mejor = tramo;
+    previa = s;
+  }
+  return { semanas, esMejor: semanas >= mejor };
 }
 
 /** "30 de septiembre". Vacío si no hay fecha — el portal no enseña un guion. */
@@ -141,6 +222,13 @@ export interface FuenteDatosPortal {
   reservasPropias?: Pick<Reserva, 'id' | 'sesionId' | 'estado'>[];
   suscripciones: Suscripcion[];
   planes: PlanTarifa[];
+  /**
+   * Nombre y año de apertura, para el cierre de pantalla que firma el
+   * estudio. `anioFundacion` es opcional de verdad: `studios.anio_fundacion`
+   * es nullable y NO es `creadoEn` (el alta en Tentare, migr 0134) — sin él
+   * el pie se pinta sin año en vez de inventarse uno.
+   */
+  estudio?: { nombre: string; anioFundacion: number | null };
   tz?: string;
 }
 
@@ -255,6 +343,8 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
   return {
     clases,
     hoy: hoyDe(f.ahora, tz),
+    racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
+    estudio: f.estudio ?? { nombre: '', anioFundacion: null },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
     planes: planesDe(f.planes),

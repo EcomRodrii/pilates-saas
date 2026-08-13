@@ -17,11 +17,13 @@
  *     (`today-timeline`), el bono con una semilla por sesión (`pass-card`) y
  *     las reservas de la socia (`bookings-list`).
  *
- * ⚠️ Lo que del prototipo NO está aquí, a propósito: la racha («6 semanas
- * seguidas — tu mejor racha») y la cita de cierre con el año de fundación. Las
- * dos son texto inventado del prototipo sin dato detrás en este repo, y
- * pintarle a una socia una racha que nadie calcula es exactamente el patrón
- * que ya costó quitar el «Compatibilidad 87 %» de sustituciones.
+ * ⚠️ La racha y el pie firmado SÍ están, pero CALCULADOS, no copiados. En el
+ * prototipo «6 semanas seguidas — tu mejor racha» y «DESDE 2019» son texto
+ * fijo; aquí la racha sale de `rachaDe()` (semanas seguidas con al menos una
+ * ASISTIDA) y el año de `studios.anio_fundacion`. Los dos bloques se callan
+ * cuando no hay dato: sin dos semanas seguidas no hay píldora, y sin año la
+ * firma va sin año. Pintar una racha que nadie calcula es el patrón que ya
+ * costó quitar el «Compatibilidad 87 %» de sustituciones.
  */
 import type { ThemeConfig } from "../../components/portal-tema/tipos-tema";
 
@@ -45,20 +47,24 @@ export const THEME: ThemeConfig = {
     "tab_bar_style": "classic",
     "tab_icon_fill": false,
     "detail_style": "card",
-    "next_class_style": "ticket"
+    "next_class_style": "ticket",
+    "week_strip_style": "bare"
   },
   "home_blocks": [
     "home-header",
     "next-class",
+    "streak-pill",
     "today-timeline",
     "pass-card",
     "week-strip",
     "bookings-list",
-    "studio-banner"
+    "videos-cta",
+    "studio-quote"
   ],
   "member_name": "Laura Gómez",
   "member_initial": "L",
   "greeting_note": "hoy toca cuidarte",
+  "closing_quote": "Respira. Estás justo donde tienes que estar.",
   "welcome": {
     "line1": "Tu espacio",
     "line2": "para sentirte bien",

@@ -224,7 +224,11 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 62px 22px 30px;
+  /* ⚠️ Los 56px de abajo NO son decorativos: el billete monta 42px sobre la
+   * cabecera, así que con menos aire le come la nota en cursiva. Con 56
+   * quedan 14 libres, que es lo que deja el diseño. Si alguien toca el
+   * solape, este número va con él. */
+  padding: 62px 22px 56px;
   background: var(--home-header-bg, var(--brand));
   overflow: hidden;
 }
@@ -280,7 +284,13 @@
   box-shadow: var(--ticket-shadow, var(--shadow-card));
   transition: box-shadow .24s ease, transform .12s ease;
 }
-.home-header + .ticket { margin-top: -42px; position: relative; z-index: 2; }
+/* ⚠️ `-42px` a secas daba -20 reales: `.canvas` es flex con `gap`, y el hueco
+ * entre hermanos se SUMA al margen negativo. El solape se mide contra el borde
+ * de la cabecera, así que hay que descontar el gap explícitamente. */
+.home-header + .ticket {
+  margin-top: calc(-42px - var(--canvas-gap));
+  position: relative; z-index: 2;
+}
 .ticket:hover { box-shadow: var(--shadow-float); }
 .ticket__top, .ticket__foot { display: block; padding: 15px 18px 13px; }
 .ticket__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -426,4 +436,74 @@
   flex: none;
   font-size: 13.5px; font-weight: 700; color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── La racha (Tentada) ──────────────────────────────────────────────────
+ *
+ * Píldora ancha y de bajo contraste a propósito: es un reconocimiento, no una
+ * acción. El bloque solo se pinta cuando hay racha de verdad (ver `rachaDe`),
+ * así que aquí no hay estado "vacío" que estilar.
+ */
+.streak {
+  width: 100%;
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  transition: background .2s ease;
+}
+.streak:hover { background: color-mix(in srgb, var(--brand) 13%, var(--surface)); }
+.streak__mark { flex: none; color: var(--brand); font-size: 13px; line-height: 1; }
+.streak__text {
+  flex: 1; min-width: 0;
+  font-family: var(--font-display); font-style: italic;
+  font-size: 15px; color: var(--brand);
+}
+.streak__chevron { flex: none; color: var(--brand); }
+
+/* ── Vídeos para casa (Tentada) ──────────────────────────────────────────── */
+.videos-cta {
+  width: 100%;
+  display: flex; align-items: center; gap: 13px;
+  padding: 16px 18px;
+  border-radius: var(--radius-card);
+  background: var(--support);
+  transition: filter .2s ease;
+}
+.videos-cta:hover { filter: brightness(.97); }
+.videos-cta__play {
+  flex: none;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.8);
+  display: grid; place-items: center;
+  color: var(--ink);
+}
+.videos-cta__body { flex: 1; min-width: 0; }
+.videos-cta__title { display: block; font-size: 13px; font-weight: 700; color: var(--ink); }
+.videos-cta__text { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.videos-cta__chevron { flex: none; color: var(--ink); }
+
+/* ── El cierre firmado (Tentada) ─────────────────────────────────────────── */
+.closing {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.closing__quote {
+  font-family: var(--font-display); font-style: italic;
+  font-size: 16px; line-height: 1.5; color: var(--muted);
+  text-wrap: pretty;
+}
+.closing__sign {
+  margin-top: 9px;
+  font-size: 9px; font-weight: 700; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--card-hover-border);
+}
+
+/* ── Tu semana, a pelo (Tentada) ─────────────────────────────────────────── */
+.week-bare__month {
+  font-family: var(--font-display); font-style: italic;
+  font-size: 14px; color: var(--muted);
 }

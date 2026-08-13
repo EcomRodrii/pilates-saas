@@ -60,6 +60,9 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   perfil: 'perfil',
   // El kit tiene calendario propio; aquí la agenda es la de Clases.
   calendario: 'clases',
+  // La sirve el portal de siempre, pero es una ruta de verdad: el bloque
+  // «Pilates en casa» del Inicio tiene que llevar ahí.
+  videos: 'videos',
 };
 
 /**
@@ -113,6 +116,10 @@ export function PortalTemaMarco() {
     ahora: new Date(),
     sesiones, reservas, tiposClase, salas, instructores,
     planes: planesTarifa,
+    // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
+    // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
+    // sin año en vez de inventarse uno.
+    estudio: { nombre: studio?.nombre ?? '', anioFundacion: studio?.anioFundacion ?? null },
     socio: socia,
     // Las SUYAS, con su id de reserva. Sin esto la pantalla de Reservas usaba
     // la lista de demostración del kit —que arranca vacía— y la socia no veía
@@ -121,7 +128,8 @@ export function PortalTemaMarco() {
     // Solo las SUYAS: el adaptador elige el bono al que le quedan menos
     // sesiones, y con las de todo el estudio elegiría el de otra persona.
     suscripciones: suscripciones.filter((s) => s.socioId === socioId),
-  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId]);
+  }), [sesiones, reservas, tiposClase, salas, instructores, planesTarifa, suscripciones, socia, socioId,
+       studio?.nombre, studio?.anioFundacion]);
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];

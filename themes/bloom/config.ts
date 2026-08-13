@@ -24,7 +24,9 @@ export const THEME: ThemeConfig = {
     "detail_style": "bleed",
     // La tarjeta con foto y velo de siempre. El billete troquelado es de
     // Tentada (ver `NextClassStyle` en tipos-tema.ts).
-    "next_class_style": "hero"
+    "next_class_style": "hero",
+    // La tarjeta «Esta semana» de siempre. La fila desnuda es de Tentada.
+    "week_strip_style": "card"
   },
   "home_blocks": [
     "greeting",

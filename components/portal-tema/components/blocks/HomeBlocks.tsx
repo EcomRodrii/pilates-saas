@@ -6,6 +6,7 @@ import { DayStrip, FotoTema } from "@/components/portal-tema/components/layout/c
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import type { HomeBlockName } from "@/components/portal-tema/tipos-tema";
+import { PORTAL_VIDEOS_CONGELADO } from "@/lib/frozen-features";
 
 /** Cabecera del inicio: saludo, avatar y campana con aviso. */
 function Greeting({ vm }: { vm: ViewModel }) {
@@ -235,6 +236,74 @@ function BookingsList({ vm }: { vm: ViewModel }) {
   );
 }
 
+/**
+ * La racha (Tentada): «6 semanas seguidas — tu mejor racha».
+ *
+ * ⚠️ El prototipo la traía como texto fijo. Aquí sale de `rachaDe`, y por eso
+ * puede no pintarse: sin dos semanas seguidas asistiendo no hay racha, y una
+ * píldora que anuncia una racha que no existe es peor que no tenerla. El
+ * «— tu mejor racha» tampoco es decorativo: solo se escribe cuando lo es.
+ */
+function StreakPill({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (!vm.streak) return null;
+  return (
+    <button className="streak is-pressable" onClick={actions.goProfile}>
+      <span className="streak__mark">✦</span>
+      <span className="streak__text">
+        {vm.streak.semanas} semanas seguidas{vm.streak.esMejor ? " — tu mejor racha" : ""}
+      </span>
+      <Icon name="forward" size={13} stroke={1.7} className="streak__chevron" />
+    </button>
+  );
+}
+
+/**
+ * El acceso a los vídeos para casa (Tentada): la tarjeta arena con el play.
+ *
+ * ⚠️ No se pinta con VOD congelado, y esto NO es una precaución teórica:
+ * `app/portal/[slug]/videos/page.tsx` hace `router.replace(.../home)` mientras
+ * `PORTAL_VIDEOS_CONGELADO` sea `true`. Sin esta guardia el bloque es un
+ * callejón sin salida — la socia lo toca y rebota al Inicio sin explicación.
+ * Se oculta también en la previsualización a propósito: enseñarle a la
+ * propietaria un bloque que su portal no va a tener es justo lo que este repo
+ * lleva pagando caro.
+ */
+function VideosCta({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  if (PORTAL_VIDEOS_CONGELADO) return null;
+  return (
+    <button className="videos-cta is-pressable" onClick={actions.goVideos}>
+      <span className="videos-cta__play">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true"><path d="M4.6 2.8v8.4l6.4-4.2z"></path></svg>
+      </span>
+      <span className="videos-cta__body">
+        <span className="videos-cta__title">{vm.videosCta.title}</span>
+        <span className="videos-cta__text">{vm.videosCta.text}</span>
+      </span>
+      <Icon name="forward" size={13} stroke={1.7} className="videos-cta__chevron" />
+    </button>
+  );
+}
+
+/**
+ * El cierre del Inicio (Tentada): la cita del tema, firmada por el estudio.
+ *
+ * ⚠️ El año NO se inventa. `studios.anio_fundacion` es nullable y no es la
+ * fecha de alta en Tentare: sin él la firma va sin año, no con el que le
+ * tocara. Es lo mismo que hace el prototipo con «DESDE 2019», salvo que allí
+ * el 2019 estaba escrito a mano.
+ */
+function StudioQuote({ vm }: { vm: ViewModel }) {
+  if (!vm.closing) return null;
+  return (
+    <div className="closing">
+      <p className="closing__quote">«{vm.closing.quote}»</p>
+      <p className="closing__sign">{vm.closing.sign}</p>
+    </div>
+  );
+}
+
 /** Progreso semanal (Noir). El anillo sale de las reservas reales. */
 function WeeklyProgress({ vm }: { vm: ViewModel }) {
   return (
@@ -319,9 +388,24 @@ function QuickLinks({ vm }: { vm: ViewModel }) {
   );
 }
 
-/** Resumen de la semana (Oliva): siete días, con punto si hay clase. */
+/**
+ * Resumen de la semana. Dos formas y los MISMOS siete días: Oliva/Bloom/Noir
+ * lo meten en una tarjeta con «Ver agenda»; Tentada lo deja a pelo sobre el
+ * lienzo con el mes en cursiva a la derecha.
+ */
 function WeekStrip({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  if (vm.features.week_strip_style === "bare") {
+    return (
+      <section className="week-bare">
+        <div className="section-head">
+          <p className="section-title">Tu semana</p>
+          <p className="week-bare__month">{vm.weekMonth}</p>
+        </div>
+        <DayStrip week={vm.week} />
+      </section>
+    );
+  }
   return (
     <Card className="week-card">
       <SectionHead title="Esta semana" action="Ver agenda" onAction={actions.goSchedule} />
@@ -362,6 +446,9 @@ const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode>
   "today-timeline": TodayTimeline,
   "pass-card": PassCard,
   "bookings-list": BookingsList,
+  "streak-pill": StreakPill,
+  "videos-cta": VideosCta,
+  "studio-quote": StudioQuote,
   "weekly-progress": WeeklyProgress,
   challenges: Challenges,
   "quick-links": QuickLinks,
