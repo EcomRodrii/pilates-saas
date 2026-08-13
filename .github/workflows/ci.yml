@@ -165,29 +165,39 @@ jobs:
   # Este era el 89% del tiempo de CI (1308s de 1473s) porque corría contra
   # `next dev`: cada ruta se compilaba bajo demanda dentro del propio test.
   #
-  # 12 -> 6 shards al pasar el repo a PRIVADO. El reparto se eligió en su día
-  # para bajar el WALL CLOCK, que es lo único que costaba en un repo público:
-  # allí Actions es gratis e ilimitado, así que 12 runners en paralelo salían
-  # igual de baratos que 1. En privado se factura por MINUTO DE RUNNER, y ahí el
-  # sharding no reparte el coste: lo multiplica, porque cada shard paga otra vez
-  # el checkout, el setup de node, la restauración de cachés y la descarga del
-  # artefacto del build. Esa parte fija se paga tantas veces como shards haya, y
-  # los tests en sí tardan lo mismo repartidos entre 6 que entre 12.
+  # 12 shards. Estuvieron en 6 una temporada, bajados "ahora que el repo es
+  # PRIVADO" — pero el repo es PÚBLICO, y en público los minutos de Actions son
+  # gratis e ilimitados. Aquella decisión pagaba wall clock por ahorrar unos
+  # minutos que no se facturan; el propio comentario dejaba dicho que si el repo
+  # volvía a ser público había que subirlo otra vez. Comprobado antes de tocar:
+  # `gh repo view --json visibility` dice PUBLIC.
   #
-  # El intercambio es explícito: se paga con wall clock (el shard más lento pasa
-  # a durar aproximadamente el doble) a cambio de la mitad de sobrecarga fija por
-  # run. Si algún día el repo vuelve a ser público, o el reloj de pared vuelve a
-  # ser lo que duele, subir el número otra vez es cambiar dos sitios: esta lista
-  # y el `--shard=N/6` de abajo.
+  # Medido con 6 shards (camino crítico = build + shard más lento):
+  #   build 116s + shard más lento 398s = 514s
+  # y el reparto salía muy desigual: 159s el más rápido, 398s el más lento —
+  # 2,5x. Playwright reparte por número de TESTS, y el número de tests no es el
+  # tiempo. Doblar los shards no arregla esa desigualdad, pero PARTE POR DOS su
+  # efecto absoluto, que es lo que se nota en el reloj.
+  #
+  # Se descartó la otra sospecha antes de dar por buena esta: las esperas fijas
+  # (`waitForTimeout`) suman 21s en TODA la suite, así que el desequilibrio es
+  # trabajo real de los tests, no tiempo muerto que se pudiera recortar.
+  #
+  # De la parte fija por shard (39s medidos: checkout, node, cachés, artefacto,
+  # y 23s de dependencias de sistema de los navegadores) se paga una copia por
+  # shard. En un repo público eso no cuesta dinero, solo runners en paralelo.
+  #
+  # Si el repo pasa a privado de verdad, esta decisión se invierte: son dos
+  # sitios, esta lista y el `--shard=N/12` de abajo.
   # ---------------------------------------------------------------------------
   e2e:
-    name: E2E ${{ matrix.shard }}/6
+    name: E2E ${{ matrix.shard }}/12
     needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - uses: actions/checkout@v4
 
@@ -266,7 +276,7 @@ jobs:
         # `next start` en vez de `next dev` (ver playwright.config.ts).
         env:
           E2E_USA_BUILD: '1'
-        run: npx playwright test --shard=${{ matrix.shard }}/6 --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
 
       - name: Subir reporte parcial si falla
         if: failure()
