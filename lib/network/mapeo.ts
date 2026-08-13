@@ -7,6 +7,7 @@ import type {
 export interface FilaRedPerfil {
   id: string;
   auth_user_id: string;
+  slug: string | null;
   nombre: string;
   foto_url: string | null;
   ciudad: string | null;
@@ -38,6 +39,7 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
   return {
     id: f.id,
     authUserId: f.auth_user_id,
+    slug: f.slug,
     nombre: f.nombre,
     fotoUrl: f.foto_url,
     ciudad: f.ciudad,
@@ -105,6 +107,7 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
 export function mapFilaAPerfilPublico(f: FilaRedPerfilPublica, experienciaVerificada: boolean): PerfilNetworkPublico {
   return {
     id: f.id,
+    slug: f.slug,
     experienciaVerificada,
     nombre: f.nombre,
     fotoUrl: f.foto_url,

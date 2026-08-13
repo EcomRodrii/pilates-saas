@@ -16,7 +16,7 @@ import {
 // estudio o en ninguno) puede tener un perfil de Network.
 
 const SELECT_COLUMNAS = `
-  id, auth_user_id, nombre, foto_url, ciudad, zona, radio_km, descripcion,
+  id, auth_user_id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
   especialidades, anios_experiencia, tarifa_rango, disponibilidad_estado,
   disponibilidad_horarios, tipo_trabajo, email_contacto, telefono_contacto,
   estado, identidad_verificada_en, creado_en, actualizado_en, ultimo_acceso_en

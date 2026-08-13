@@ -9,6 +9,9 @@ import type {
 export interface PerfilNetwork {
   id: string;
   authUserId: string;
+  // Se genera al publicar (lib/network/slug.ts), null en draft/hidden/
+  // suspended — /network/instructoras/[slug] no existe hasta entonces.
+  slug: string | null;
   nombre: string;
   fotoUrl: string | null;
   ciudad: string | null;

@@ -9,6 +9,7 @@ const FILTRO_VACIO: FiltroBusquedaNetwork = {
 
 function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): PerfilNetworkPublico {
   return {
+    slug: null,
     nombre: 'Test', fotoUrl: null, ciudad: null, zona: null, radioKm: null, descripcion: null,
     especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
