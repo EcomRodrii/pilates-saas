@@ -12,6 +12,7 @@ import {
   fetchVerificacionesNetworkInterno, type VerificacionNetworkInterna,
   fetchReportesNetworkInterno, resolverReporteNetworkInterno, type ReporteNetworkInterno,
   fetchResenasNetworkInterno, moderarResenaNetworkInterno, type ResenaNetworkInterna,
+  fetchAnaliticaNetworkInterno, type AnaliticaNetwork,
 } from '@/lib/interno/client';
 
 const cuando = (iso: string) =>
@@ -396,7 +397,107 @@ function TabResenas() {
   );
 }
 
-const PESTANAS = ['Perfiles', 'Verificaciones', 'Reportes', 'Reseñas'] as const;
+// Misma tarjeta que app/interno/page.tsx (no exportada desde ahí, es un
+// componente de página) — mismo principio: ningún número sin procedencia.
+function Tarjeta({ titulo, valor, pie }: { titulo: string; valor: string; pie?: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card px-3.5 py-3 sm:px-4 sm:py-3.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{titulo}</p>
+      <p className="mt-1 text-[22px] sm:text-[26px] font-bold tabular-nums leading-none text-foreground">{valor}</p>
+      {pie && <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">{pie}</p>}
+    </div>
+  );
+}
+
+function TabAnalitica() {
+  const [a, setA] = useState<AnaliticaNetwork | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAnaliticaNetworkInterno().then(setA).catch((e: unknown) => setError(e instanceof Error ? e.message : 'Error'));
+  }, []);
+
+  if (error) return <p className="text-[13.5px] text-muted-foreground">{error}</p>;
+  if (!a) return <p className="text-[13px] text-muted-foreground">Cargando…</p>;
+
+  const maxAltas = Math.max(1, ...a.altasPorMes.map(m => m.altas));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Perfiles</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Tarjeta
+            titulo="Publicados" valor={String(a.perfiles.publicados)}
+            pie={`${a.perfiles.total} en total · ${a.perfiles.borradores} en borrador · ${a.perfiles.suspendidos} suspendidos.`} />
+          <Tarjeta titulo="Altas (30 días)" valor={String(a.perfiles.altasUltimos30d)} />
+          <Tarjeta
+            titulo="Activos (30 días)" valor={String(a.perfiles.activosUltimos30d)}
+            pie="Con acceso registrado en los últimos 30 días." />
+          <Tarjeta titulo="Ocultos" valor={String(a.perfiles.ocultos)} pie="Ocultados por su propia dueña." />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Solicitudes de contacto</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Tarjeta titulo="Total" valor={String(a.solicitudes.total)} />
+          <Tarjeta titulo="Pendientes" valor={String(a.solicitudes.pendientes)} />
+          <Tarjeta
+            titulo="Tasa de aceptación"
+            valor={a.solicitudes.tasaAceptacion != null ? `${a.solicitudes.tasaAceptacion}%` : '—'}
+            pie={a.solicitudes.tasaAceptacion != null
+              ? `${a.solicitudes.aceptadas} aceptadas de ${a.solicitudes.aceptadas + a.solicitudes.rechazadas} resueltas.`
+              : 'Todavía no hay ninguna solicitud resuelta.'} />
+          <Tarjeta titulo="Rechazadas" valor={String(a.solicitudes.rechazadas)} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Reseñas</h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Tarjeta
+            titulo="Promedio general"
+            valor={a.resenas.promedioGeneral != null ? `${a.resenas.promedioGeneral} ★` : '—'}
+            pie={a.resenas.promedioGeneral != null ? `Sobre ${a.resenas.publicadas} reseña(s) publicada(s).` : 'Sin reseñas publicadas todavía.'} />
+          <Tarjeta titulo="Pendientes de moderar" valor={String(a.resenas.pendientes)} />
+          <Tarjeta titulo="Total" valor={String(a.resenas.total)} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-[12px] font-bold uppercase tracking-wide text-muted-foreground mb-2.5">Altas de perfil por mes</h2>
+        <div className="rounded-2xl border border-border bg-card p-4">
+          {a.altasPorMes.length === 0 ? (
+            <p className="text-[13px] text-muted-foreground">Todavía no hay altas que dibujar.</p>
+          ) : (
+            <div className="flex items-end gap-2 h-32">
+              {a.altasPorMes.map(m => (
+                <div key={m.mes} className="flex-1 h-full flex flex-col items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{m.altas}</span>
+                  <div className="w-full flex-1 flex items-end">
+                    <div className="w-full rounded-t bg-brand/80" style={{ height: `${(m.altas / maxAltas) * 100}%` }} />
+                  </div>
+                  <span className="text-[10.5px] text-muted-foreground truncate w-full text-center">{m.mes}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-border bg-muted/30 px-4 py-3.5">
+        <p className="text-[12.5px] font-bold text-foreground">Lo que aquí no se puede saber (todavía)</p>
+        <ul className="mt-1.5 text-[12.5px] text-muted-foreground leading-relaxed list-disc pl-4">
+          <li><strong>Conversión perfil→contratación:</strong> una solicitud aceptada no implica que el estudio haya llegado a contratar a la profesional, solo que se reveló el contacto.</li>
+          <li><strong>Uso de mensajería y &quot;cerca de mí&quot;:</strong> no se guarda un evento por cada mensaje enviado ni por cada búsqueda con geolocalización.</li>
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+const PESTANAS = ['Perfiles', 'Verificaciones', 'Reportes', 'Reseñas', 'Analítica'] as const;
 
 export default function ModeracionNetworkInterna() {
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]>('Perfiles');
@@ -428,6 +529,7 @@ export default function ModeracionNetworkInterna() {
       {pestana === 'Verificaciones' && <TabVerificaciones />}
       {pestana === 'Reportes' && <TabReportes />}
       {pestana === 'Reseñas' && <TabResenas />}
+      {pestana === 'Analítica' && <TabAnalitica />}
     </div>
   );
 }

@@ -200,3 +200,14 @@ export const fetchResenasNetworkInterno = (estado: string) =>
   pedir<{ resenas: ResenaNetworkInterna[] }>(`/network/resenas?estado=${encodeURIComponent(estado)}`);
 export const moderarResenaNetworkInterno = (id: string, estado: 'publicada' | 'oculta') =>
   pedir<{ ok: true }>('/network/resenas', { method: 'PATCH', body: JSON.stringify({ id, estado }) });
+
+export interface AnaliticaNetwork {
+  perfiles: {
+    total: number; publicados: number; borradores: number; suspendidos: number; ocultos: number;
+    altasUltimos30d: number; activosUltimos30d: number;
+  };
+  solicitudes: { total: number; pendientes: number; aceptadas: number; rechazadas: number; tasaAceptacion: number | null };
+  resenas: { total: number; publicadas: number; pendientes: number; promedioGeneral: number | null };
+  altasPorMes: Array<{ mes: string; altas: number }>;
+}
+export const fetchAnaliticaNetworkInterno = () => pedir<AnaliticaNetwork>('/network/analitica');
