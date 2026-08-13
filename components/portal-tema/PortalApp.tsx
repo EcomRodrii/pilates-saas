@@ -20,6 +20,8 @@ import { Profile } from "@/components/portal-tema/screens/Profile";
 import { Centro } from "@/components/portal-tema/screens/Centro";
 import { Confirmed } from "@/components/portal-tema/screens/Confirmed";
 import { Buy } from "@/components/portal-tema/screens/Buy";
+import { Teachers } from "@/components/portal-tema/screens/Teachers";
+import { Info } from "@/components/portal-tema/screens/Info";
 import { ClassDetail } from "@/components/portal-tema/screens/ClassDetail";
 import { GuidedSession } from "@/components/portal-tema/screens/GuidedSession";
 
@@ -37,6 +39,8 @@ const SCREENS = {
   centro: Centro,
   confirmada: Confirmed,
   comprar: Buy,
+  instructores: Teachers,
+  info: Info,
   detalle: ClassDetail,
   sesion: GuidedSession,
 } as const;

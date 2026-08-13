@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, horaLocal, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
+  bonosDe, comprasDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, rachaDe, reservadasDe, semanaDe, sociaDe,
 } from './datos.ts';
 import type { StudioClass } from './tipos.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -574,4 +574,43 @@ test('comprasDe: de la más reciente a la más antigua, con importe en euros', (
   assert.deepEqual(out.map((c) => c.id), ['nuevo', 'viejo']);
   assert.equal(out[0].importe, '18,00 €');
   assert.equal(out[0].cuando, 'Comprado el 5 de junio');
+});
+
+// ── El horario de apertura ─────────────────────────────────────────────────
+
+const dia = (d: number, o: Record<string, unknown> = {}) => ({
+  diaSemana: d, abierto: true, horaApertura: '08:00:00', horaCierre: '21:00:00', ...o,
+});
+
+test('horarioDe: ⚠️ se lee de LUNES a domingo, aunque la BD use 0=domingo', () => {
+  // `dia_semana` usa EXTRACT(DOW) (0=domingo), igual que lib/sustituciones.
+  // Sin reordenar aquí, el domingo sale el primero — y cada pantalla acabaría
+  // resolviéndolo a su manera.
+  const out = horarioDe([0, 1, 2, 3, 4, 5, 6].map((d) => dia(d)));
+  assert.deepEqual(out.map((x) => x.dia),
+    ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']);
+});
+
+test('horarioDe: los segundos se recortan — nadie lee 08:00:00', () => {
+  assert.equal(horarioDe([dia(1)])[0].cuando, '08:00 – 21:00');
+});
+
+test('horarioDe: un día cerrado lo dice, no enseña un guion', () => {
+  assert.equal(horarioDe([dia(0, { abierto: false })])[0].cuando, 'Cerrado');
+});
+
+test('horarioDe: abierto pero sin horas puestas cuenta como cerrado, no como «– »', () => {
+  const [d] = horarioDe([dia(1, { horaApertura: null, horaCierre: null })]);
+  assert.equal(d.cuando, 'Cerrado');
+});
+
+test('horarioDe: sin horario configurado devuelve vacío — la sección no se pinta', () => {
+  assert.deepEqual(horarioDe(undefined), []);
+  assert.deepEqual(horarioDe([]), []);
+});
+
+test('horarioDe: un día que falta en la BD no inventa una fila', () => {
+  // Un estudio puede tener solo cinco filas. Rellenar los dos que faltan con
+  // «Cerrado» sería afirmar algo que nadie ha dicho.
+  assert.deepEqual(horarioDe([dia(1), dia(2)]).map((x) => x.dia), ['Lunes', 'Martes']);
 });

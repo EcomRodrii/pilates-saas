@@ -101,6 +101,15 @@ export interface CompraPortal {
   importe: string;
 }
 
+/** Una profesora del estudio, tal y como la pinta el portal. */
+export interface ProfesorPortal {
+  id: string;
+  nombre: string;
+  inicial: string;
+  /** Bio pública (`instructores.bio`). Vacía = no se pinta nada, no un hueco. */
+  bio: string;
+}
+
 export interface SociaPortal {
   name: string;
   short: string;
@@ -166,6 +175,14 @@ export interface DatosPortal {
      * = la propietaria no las ha escrito, y la pantalla no pinta la sección.
      */
     normas: string[];
+    /**
+     * El horario de apertura, ya redactado: «Lunes» / «8:00 – 21:00» o
+     * «Cerrado». Vacío = el estudio no lo ha rellenado, y la pantalla no pinta
+     * la sección en vez de siete filas vacías.
+     */
+    horario: { dia: string; cuando: string }[];
+    /** El texto legal que la propietaria escribe. `null` = no lo ha escrito. */
+    privacidad: string | null;
   };
   dias: DiaPortal[];
   filtros: FiltroPortal[];
@@ -176,6 +193,8 @@ export interface DatosPortal {
   /** Sus compras cobradas, de la más reciente a la más antigua. */
   compras: CompraPortal[];
   socia: SociaPortal;
+  /** Quien da clase, activas y que imparten. Mismo criterio que `/instructores`. */
+  profesores: ProfesorPortal[];
   /**
    * Las reservas VIVAS de la socia.
    *

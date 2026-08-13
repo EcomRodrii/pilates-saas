@@ -9,7 +9,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar";
+  | "confirmada" | "comprar" | "info";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
 // barra de cinco de Tentada; los otros temas no las usan como pestaña, y una
@@ -45,6 +45,8 @@ export interface PortalState {
   horarioTab: 'clases' | 'espera';
   /** Pestaña abierta en «Mis bonos». Solo la usa `passes_style: "cartera"`. */
   bonosTab: 'bonos' | 'historial';
+  /** Qué sección abre «Información del centro». */
+  infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
 }
 
 const STORAGE_KEY = "tentare-portal";
@@ -72,6 +74,7 @@ const initialState = (): PortalState => ({
   ultimaReserva: null,
   horarioTab: 'clases',
   bonosTab: 'bonos',
+  infoKey: 'horario',
 });
 
 type Action = { type: "patch"; patch: Partial<PortalState> } | { type: "reset" };
@@ -121,6 +124,7 @@ export interface PortalActions {
   setHorarioTab(tab: 'clases' | 'espera'): void;
   setBonosTab(tab: 'bonos' | 'historial'): void;
   goBuy(): void;
+  goInfo(key: PortalState['infoKey']): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
   /** `reservaId` es lo que se manda al servidor; sin él solo se puede
@@ -460,6 +464,7 @@ export function PortalProvider({
       // Elegir el bono es un paso propio en Tentada; en los otros temas la
       // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
       goBuy: () => ir({ screen: "comprar" }),
+      goInfo: (infoKey) => { set({ infoKey }); ir({ screen: "info" }); },
 
       reserve: (id) => {
         const s = stateRef.current;

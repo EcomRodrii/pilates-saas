@@ -21,9 +21,13 @@ import { plazasOcupadas } from '../booking-logic.ts';
 // id de una versión anterior, `resolverObjetivos` lo descarta en vez de
 // enseñar un objetivo que ya no existe.
 import { OBJETIVOS, resolverObjetivos } from '../reservar/objetivos.ts';
+// Quién sale en «Profesores» lo decide `queImparten`, la MISMA función que usa
+// `/portal/[slug]/instructores`. Con un filtro propio, las dos pantallas
+// acabarían enseñando listas distintas del mismo equipo.
+import { queImparten } from '../equipo.ts';
 import type {
   BonoCartera, BonoPortal, CompraPortal, DatosPortal, DiaPortal, FiltroPortal, PlanPortal,
-  ReservaPortal, SociaPortal, StudioClass,
+  ProfesorPortal, ReservaPortal, SociaPortal, StudioClass,
 } from './tipos.ts';
 
 const ETIQUETA_DIA = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
@@ -265,6 +269,45 @@ export function comprasDe(recibos: Recibo[], tz = TZ_ESTUDIO): CompraPortal[] {
     }));
 }
 
+/** Los días de la semana, en el orden en que se leen (lunes primero). */
+const DIA_LARGO = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+/**
+ * El horario de apertura, en palabras.
+ *
+ * ⚠️ `dia_semana` usa 0=domingo (EXTRACT(DOW), igual que
+ * `lib/sustituciones/franjas.ts`), pero una semana se LEE de lunes a domingo.
+ * Reordenar aquí y no al pintar evita que cada pantalla lo resuelva a su
+ * manera — que es como el domingo acaba el primero en una y el último en otra.
+ *
+ * Las horas llegan como 'HH:MM:SS' y se recortan a 'HH:MM': los segundos de
+ * una hora de apertura no le dicen nada a nadie.
+ */
+export function horarioDe(dias: { diaSemana: number; abierto: boolean; horaApertura: string | null; horaCierre: string | null }[] | undefined): { dia: string; cuando: string }[] {
+  if (!dias?.length) return [];
+  const hhmm = (h: string | null) => (h ?? '').slice(0, 5);
+  return [1, 2, 3, 4, 5, 6, 0].flatMap((dow) => {
+    const d = dias.find((x) => x.diaSemana === dow);
+    if (!d) return [];
+    return [{
+      dia: DIA_LARGO[dow],
+      cuando: d.abierto && d.horaApertura && d.horaCierre ? `${hhmm(d.horaApertura)} – ${hhmm(d.horaCierre)}` : 'Cerrado',
+    }];
+  });
+}
+
+/** Las profesoras que salen en el portal. */
+export function profesoresDe(instructores: Instructor[]): ProfesorPortal[] {
+  return queImparten(instructores).map((i) => ({
+    id: i.id,
+    nombre: i.nombre,
+    inicial: inicialDe(i.nombre),
+    // `bio` es nullable de verdad: sin ella la ficha no pinta un párrafo
+    // vacío ni un texto de relleno.
+    bio: (i.bio ?? '').trim(),
+  }));
+}
+
 /** La inicial que va en el avatar. Vacío si no hay nombre. */
 export function inicialDe(nombre: string): string {
   return nombre.trim().charAt(0).toUpperCase();
@@ -418,7 +461,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     racha: rachaDe(f.reservasPropias, f.sesiones, f.ahora, tz),
     estudio: f.estudio ?? {
       nombre: '', anioFundacion: null, direccion: '', ciudad: '',
-      codigoPostal: '', telefono: '', email: '', fotoUrl: null, normas: [],
+      codigoPostal: '', telefono: '', email: '', fotoUrl: null, normas: [], horario: [], privacidad: null,
     },
     dias: semanaDe(f.ahora, tz),
     filtros: filtrosDe(clases, f.tiposClase),
@@ -427,6 +470,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     bonos: bonosDe(f.suscripciones, f.planes, tz),
     compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
+    profesores: profesoresDe(f.instructores),
     reservadas: f.reservasPropias && reservadasDe(f.reservasPropias, clases),
   };
 }
