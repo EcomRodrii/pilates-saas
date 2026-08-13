@@ -31,10 +31,7 @@ export function NavPublico() {
             Iniciar sesión
           </Link>
           <Link
-            // TODO(PR2): /network/crear-perfil (wizard de 12 pasos). De
-            // momento apunta al alta que SÍ funciona (/network/unirse) para
-            // no dejar un enlace roto entre el merge de PR1 y el de PR2.
-            href="/network/unirse"
+            href="/network/crear-perfil"
             className="px-[22px] py-[11px] rounded-full text-[13.5px] font-bold text-white transition-all hover:brightness-110"
             style={{ background: NW_PRODUCTO }}
           >

@@ -2,6 +2,7 @@
 // que el resto del repo (p.ej. mapInstructorPublico en supabase-data-admin).
 import type {
   PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
+  PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -28,6 +29,10 @@ export interface FilaRedPerfil {
   creado_en: string;
   actualizado_en: string;
   ultimo_acceso_en: string | null;
+  idiomas: string[];
+  instagram: string | null;
+  linkedin: string | null;
+  web: string | null;
 }
 
 // Subconjunto público: el endpoint de búsqueda ni siquiera consulta
@@ -61,6 +66,10 @@ export function mapFilaAPerfil(f: FilaRedPerfil): PerfilNetwork {
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
     ultimoAccesoEn: f.ultimo_acceso_en,
+    idiomas: f.idiomas,
+    instagram: f.instagram,
+    linkedin: f.linkedin,
+    web: f.web,
   };
 }
 
@@ -132,5 +141,95 @@ export function mapFilaAPerfilPublico(
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
     ultimoAccesoEn: f.ultimo_acceso_en,
+    idiomas: f.idiomas,
+    instagram: f.instagram,
+    linkedin: f.linkedin,
+    web: f.web,
+  };
+}
+
+// ── Fase 2: verificación de identidad y certificaciones ──────────────────
+
+export interface FilaRedPerfilIdentidad {
+  perfil_id: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  fecha_nacimiento: string | null;
+  pais_residencia: string | null;
+  tipo_documento: string | null;
+  numero_documento: string | null;
+  direccion_cp: string | null;
+  direccion_ciudad: string | null;
+  direccion_provincia: string | null;
+  direccion_pais: string | null;
+  telefono_verificado_en: string | null;
+  email_verificado_en: string | null;
+}
+
+export function mapFilaAPerfilIdentidad(f: FilaRedPerfilIdentidad): PerfilIdentidadNetwork {
+  return {
+    perfilId: f.perfil_id,
+    apellido1: f.apellido1,
+    apellido2: f.apellido2,
+    fechaNacimiento: f.fecha_nacimiento,
+    paisResidencia: f.pais_residencia,
+    tipoDocumento: f.tipo_documento as PerfilIdentidadNetwork['tipoDocumento'],
+    numeroDocumento: f.numero_documento,
+    direccionCp: f.direccion_cp,
+    direccionCiudad: f.direccion_ciudad,
+    direccionProvincia: f.direccion_provincia,
+    direccionPais: f.direccion_pais,
+    telefonoVerificadoEn: f.telefono_verificado_en,
+    emailVerificadoEn: f.email_verificado_en,
+  };
+}
+
+export interface FilaRedVerificacionIdentidad {
+  id: string;
+  perfil_id: string;
+  estado: string;
+  motivo_rechazo: string | null;
+  documento_path: string;
+  creado_en: string;
+  resuelto_en: string | null;
+}
+
+export function mapFilaAVerificacionIdentidad(f: FilaRedVerificacionIdentidad): VerificacionIdentidadNetwork {
+  return {
+    id: f.id,
+    perfilId: f.perfil_id,
+    estado: f.estado as VerificacionIdentidadNetwork['estado'],
+    motivoRechazo: f.motivo_rechazo,
+    documentoPath: f.documento_path,
+    creadoEn: f.creado_en,
+    resueltoEn: f.resuelto_en,
+  };
+}
+
+export interface FilaRedCertificacion {
+  id: string;
+  perfil_id: string;
+  nombre: string;
+  institucion: string;
+  anio: number | null;
+  duracion: string | null;
+  documento_path: string;
+  estado: string;
+  motivo_rechazo: string | null;
+  creado_en: string;
+}
+
+export function mapFilaACertificacion(f: FilaRedCertificacion): CertificacionNetwork {
+  return {
+    id: f.id,
+    perfilId: f.perfil_id,
+    nombre: f.nombre,
+    institucion: f.institucion,
+    anio: f.anio,
+    duracion: f.duracion,
+    documentoPath: f.documento_path,
+    estado: f.estado as CertificacionNetwork['estado'],
+    motivoRechazo: f.motivo_rechazo,
+    creadoEn: f.creado_en,
   };
 }

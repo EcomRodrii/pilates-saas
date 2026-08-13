@@ -15,6 +15,8 @@ import type {
   PerfilNetwork, PerfilNetworkPublico, CambiosPerfilNetwork, FiltroBusquedaNetwork,
   ExperienciaNetwork, ExperienciaNetworkPublica, NuevaExperienciaNetwork, BadgesNetwork,
   MensajeNetwork,
+  PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
+  CertificacionNetwork, NuevaCertificacionNetwork,
 } from '@/lib/network/tipos';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
@@ -2054,6 +2056,106 @@ export async function eliminarExperienciaNetwork(id: string): Promise<{ ok: bool
     return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
   } catch {
     return { ok: false, error: 'No se pudo eliminar la experiencia' };
+  }
+}
+
+// Fase 2 (wizard): datos privados de identidad (paso 02).
+export async function fetchPerfilIdentidadNetwork(): Promise<PerfilIdentidadNetwork | null> {
+  try {
+    const res = await fetch('/api/network/perfil/identidad', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { identidad: PerfilIdentidadNetwork | null };
+    return data.identidad ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function guardarPerfilIdentidadNetwork(
+  cambios: CambiosPerfilIdentidadNetwork,
+): Promise<{ ok: true; identidad: PerfilIdentidadNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/perfil/identidad', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cambios),
+    });
+    const data = (await res.json().catch(() => ({}))) as { identidad?: PerfilIdentidadNetwork; error?: string };
+    if (!res.ok || !data.identidad) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, identidad: data.identidad };
+  } catch {
+    return { ok: false, error: 'No se pudieron guardar tus datos' };
+  }
+}
+
+export async function fetchVerificacionIdentidadNetwork(): Promise<VerificacionIdentidadNetwork | null> {
+  try {
+    const res = await fetch('/api/network/perfil/verificacion-identidad', { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { verificacion: VerificacionIdentidadNetwork | null };
+    return data.verificacion ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function enviarVerificacionIdentidadNetwork(
+  documentoPath: string,
+): Promise<{ ok: true; verificacion: VerificacionIdentidadNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/perfil/verificacion-identidad', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ documentoPath }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { verificacion?: VerificacionIdentidadNetwork; error?: string };
+    if (!res.ok || !data.verificacion) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, verificacion: data.verificacion };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar tu documento' };
+  }
+}
+
+// Fase 2 (wizard): certificaciones/formación (paso 06).
+export async function fetchCertificacionesNetwork(): Promise<CertificacionNetwork[]> {
+  try {
+    const res = await fetch('/api/network/certificaciones', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { certificaciones?: CertificacionNetwork[] };
+    return data.certificaciones ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearCertificacionNetwork(
+  nueva: NuevaCertificacionNetwork,
+): Promise<{ ok: true; certificacion: CertificacionNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/certificaciones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(nueva),
+    });
+    const data = (await res.json().catch(() => ({}))) as { certificacion?: CertificacionNetwork; error?: string };
+    if (!res.ok || !data.certificacion) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, certificacion: data.certificacion };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la certificación' };
+  }
+}
+
+export async function eliminarCertificacionNetwork(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/certificaciones', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ id }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo eliminar la certificación' };
   }
 }
 
