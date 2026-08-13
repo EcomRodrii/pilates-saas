@@ -69,7 +69,14 @@ const ANCHO_PIEZA = 572; // 2× de los 266 px a los que se muestra
 const TAMANOS_ICO = [16, 32, 48];
 
 function prepara(svg, viewBox, soloClase) {
-  let s = svg.replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`).replace(/\s(width|height)="[^"]*"/g, '');
+  // OJO: el width/height a quitar es el de la etiqueta <svg> raíz, no el de
+  // cualquier elemento del dibujo — un regex global sobre todo el string
+  // también se comía el width/height del <rect> de fondo de los iconos de
+  // app (icono-app/*.svg), que sin ellos mide 0×0 y desaparece: el icono
+  // salía con la T en blanco pero sin la placa de color detrás.
+  let s = svg.replace(/^<svg\b[^>]*>/, (etiqueta) => etiqueta
+    .replace(/viewBox="[^"]*"/, `viewBox="${viewBox}"`)
+    .replace(/\s(width|height)="[^"]*"/g, ''));
   if (soloClase) {
     s = s.replace(/<path class="(t-[\w-]+)"/g, (m, c) => (c === soloClase ? m : `<path class="${c}" visibility="hidden"`));
   }
