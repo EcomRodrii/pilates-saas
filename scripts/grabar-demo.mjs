@@ -221,12 +221,20 @@ async function main() {
   }
   filtro = filtro.replace(/;$/, '');
 
+  // ⚠️ Sin "-pix_fmt yuv420p" aquí, ffmpeg negocia el formato de MÁS fidelidad
+  // que xfade y libx264 tengan en común — salía "High 4:4:4 Predictive"
+  // (yuv444p) aunque cada recorte de arriba ya fuera yuv420p. Ese perfil no lo
+  // decodifica por hardware ni iOS ni la mayoría de Android: el vídeo se
+  // reproducía (el <video> creía estar en marcha) pero cada fotograma salía
+  // en negro. En Chromium de escritorio pasaba desapercibido porque ahí sí
+  // hay decodificador de software para 4:4:4.
   const mp4 = path.join(DESTINO, 'demo.mp4');
   execFileSync('ffmpeg', ['-y', ...entradas, '-filter_complex', filtro, '-map', etiqueta,
-    '-c:v', 'libx264', '-crf', '24', '-preset', 'slow', '-movflags', '+faststart', '-an', mp4], { stdio: 'inherit' });
+    '-c:v', 'libx264', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+    '-crf', '24', '-preset', 'slow', '-movflags', '+faststart', '-an', mp4], { stdio: 'inherit' });
 
   const webm = path.join(DESTINO, 'demo.webm');
-  execFileSync('ffmpeg', ['-y', '-i', mp4, '-c:v', 'libvpx-vp9', '-crf', '36', '-b:v', '0',
+  execFileSync('ffmpeg', ['-y', '-i', mp4, '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuv420p', '-crf', '36', '-b:v', '0',
     '-row-mt', '1', '-an', webm], { stdio: 'ignore' });
 
   // Póster: primer fotograma, para que no se vea un hueco mientras carga.
