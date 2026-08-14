@@ -24,12 +24,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { socioId?: string; texto?: string } | null;
-  if (!body?.socioId || !body?.texto?.trim()) {
+  const body = await req.json().catch(() => null) as { socioId?: string; socio_id?: string; texto?: string } | null;
+  const socioId = body?.socioId ?? body?.socio_id;
+  if (!socioId || !body?.texto?.trim()) {
     return NextResponse.json({ error: 'invalid_request', detalle: 'socioId y texto son obligatorios' }, { status: 400 });
   }
 
-  const resultado = await crearNotaInternaAdmin(admin, { studioId: ctx.studioId, socioId: body.socioId, texto: body.texto.trim() });
+  const resultado = await crearNotaInternaAdmin(admin, { studioId: ctx.studioId, socioId, texto: body.texto.trim() });
 
   const statusCode = 'error' in resultado ? 400 : 201;
   auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: 'notas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/notas', statusCode, ip: clientIp(req) });
