@@ -74,14 +74,30 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     }).catch(() => { setError('No se ha podido cargar el estudio.'); setCargando(false); });
   }, [slug, baseUrl]);
 
-  useEffect(() => { recargar(); }, [recargar]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga inicial del catálogo público del estudio, sistema externo (fetch).
+    recargar();
+  }, [recargar]);
+
+  // `Date.now()` es impuro — no puede llamarse dentro del cuerpo de un
+  // `useMemo` (regla de pureza de React Compiler) ni siquiera en un
+  // inicializador perezoso de `useState` (también se ejecuta durante el
+  // render). Mismo patrón que `now`/`FECHA_PLACEHOLDER_SSR` en
+  // app/reservar/[slug]/page.tsx: placeholder fijo al render inicial, valor
+  // real fijado en un efecto tras montar. A diferencia de esa página no hace
+  // falta que se actualice sola (sin reloj en pantalla) — un valor por carga basta.
+  const [nowMs, setNowMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Guarda de hidratación: Date.now() no puede llamarse en render. El segundo render es el objetivo.
+    setNowMs(Date.now());
+  }, []);
 
   const slots = useMemo<ReservaSlot[]>(() => construirSlots({
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
     reservas: datos.reservas, spots: datos.spots, sustitucionesConfirmadas: datos.sustitucionesConfirmadas,
     suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socia,
-    nowMs: Date.now(), filtros,
-  }), [datos, socia, filtros]);
+    nowMs, filtros,
+  }), [datos, socia, filtros, nowMs]);
 
   const onReservar = useCallback(async (slot: ReservaSlot, spotId: string | null): Promise<ResultadoReserva> => {
     if (!socia?.socioId) return { ok: false, error: 'Inicia sesión para reservar.' };
