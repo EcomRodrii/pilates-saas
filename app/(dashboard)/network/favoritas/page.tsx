@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
 import { fetchFavoritosNetwork } from '@/lib/api-client';
@@ -23,10 +23,6 @@ export default function FavoritasNetworkPage() {
 
   return (
     <div className="space-y-5 max-w-2xl">
-      <Link href="/network/buscar" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver al buscador
-      </Link>
-
       <PageHeader title="Mis favoritas" description="Instructoras que has guardado para volver a verlas." />
 
       {!perfiles ? (

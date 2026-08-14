@@ -37,7 +37,26 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
   if (error) return errorInterno('network:perfil:GET', error, 'No se ha podido cargar tu perfil.');
 
-  return NextResponse.json({ perfil: data ? mapFilaAPerfil(data as unknown as FilaRedPerfil) : null });
+  // Dato para /network/inicio (Fase 2, panel de la instructora): cuántos
+  // estudios distintos la tienen en favoritos. Cero tracking nuevo — cada
+  // vez que un estudio marca favorita ya se escribe en red_favoritos
+  // (20260813180035); esto es solo un `count(distinct studio_id)` sobre lo
+  // que ya existía. Deliberadamente NO se añaden "vistas de perfil" ni
+  // "oportunidades compatibles" aquí: no hay ningún dato real detrás de eso
+  // todavía (ver nota de tentare-arquitecto en la ronda que introdujo esto).
+  let estudiosQueTeGuardaron = 0;
+  if (data) {
+    const { count } = await admin
+      .from('red_favoritos')
+      .select('studio_id', { count: 'exact', head: true })
+      .eq('perfil_id', (data as { id: string }).id);
+    estudiosQueTeGuardaron = count ?? 0;
+  }
+
+  return NextResponse.json({
+    perfil: data ? mapFilaAPerfil(data as unknown as FilaRedPerfil) : null,
+    estudiosQueTeGuardaron,
+  });
 }
 
 // Campos aceptados desde el formulario de /network/mi-perfil. `estado`

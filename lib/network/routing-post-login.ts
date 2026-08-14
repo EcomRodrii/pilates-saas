@@ -7,9 +7,11 @@
 // "qué hago con la respuesta" vive aquí.
 export function resolverDestinoPostLogin(tieneEstudio: boolean, estadoPerfilNetwork: string | null): string {
   if (tieneEstudio) return '/dashboard';
-  // 'en_revision' va a mi-perfil, no a reanudar: el wizard ya se terminó,
-  // solo falta que el equipo de Tentare lo apruebe — reanudar es para el
-  // onboarding a MEDIAS, no para "completo, esperando revisión".
+  // 'en_revision' va a inicio, no a reanudar: el wizard ya se terminó, solo
+  // falta que el equipo de Tentare lo apruebe — reanudar es para el
+  // onboarding a MEDIAS, no para "completo, esperando revisión". Antes
+  // aterrizaba en mi-perfil directamente; con el nav de Fase 2
+  // (app/network/layout.tsx), inicio es la home real del autoservicio.
   return estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision'
-    ? '/network/mi-perfil' : '/network/reanudar';
+    ? '/network/inicio' : '/network/reanudar';
 }

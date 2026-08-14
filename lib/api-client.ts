@@ -1940,6 +1940,20 @@ export async function fetchMiPerfilNetwork(): Promise<PerfilNetwork | null> {
   }
 }
 
+// Mismo endpoint que fetchMiPerfilNetwork, pero sin descartar el dato
+// derivado que solo necesita /network/inicio — se mantiene aparte para no
+// tocar la forma que ya esperan el resto de callers de fetchMiPerfilNetwork.
+export async function fetchResumenInicioNetwork(): Promise<{ perfil: PerfilNetwork | null; estudiosQueTeGuardaron: number }> {
+  try {
+    const res = await fetch('/api/network/perfil', { headers: await authHeader() });
+    if (!res.ok) return { perfil: null, estudiosQueTeGuardaron: 0 };
+    const data = (await res.json()) as { perfil: PerfilNetwork | null; estudiosQueTeGuardaron?: number };
+    return { perfil: data.perfil ?? null, estudiosQueTeGuardaron: data.estudiosQueTeGuardaron ?? 0 };
+  } catch {
+    return { perfil: null, estudiosQueTeGuardaron: 0 };
+  }
+}
+
 export async function guardarPerfilNetwork(
   cambios: CambiosPerfilNetwork,
 ): Promise<{ ok: true; perfil: PerfilNetwork } | { ok: false; error: string }> {

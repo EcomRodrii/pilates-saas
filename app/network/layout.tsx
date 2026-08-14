@@ -26,8 +26,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
+import { cn } from '@/lib/utils';
 
-const RUTAS_AUTOSERVICIO = ['/network/mi-perfil', '/network/solicitudes', '/network/mis-mensajes'];
+// Secciones del autoservicio (Fase 2, punto 15 del brief: "no solo Mi
+// perfil, sino Network con un Inicio"). Deja hueco a propósito: el día que
+// existan Oportunidades/Mis candidaturas/Mis contrataciones, se añaden a
+// este mismo array — ni el layout ni RUTAS_AUTOSERVICIO cambian de forma.
+const SUBNAV = [
+  { href: '/network/inicio', label: 'Inicio' },
+  { href: '/network/mi-perfil', label: 'Mi perfil' },
+  { href: '/network/mis-mensajes', label: 'Mensajes' },
+  { href: '/network/solicitudes', label: 'Solicitudes' },
+];
+const RUTAS_AUTOSERVICIO = SUBNAV.map(s => s.href);
 
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
@@ -39,7 +50,7 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
     <div className="min-h-dvh" style={{ background: '#EEEEE8' }}>
       <header className="border-b border-[#E7E7E0] bg-white">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/network/unirse" className="flex items-center">
+          <Link href="/network/inicio" className="flex items-center">
             <LogoTentare formato="horizontal" producto="network" titulo="Tentare Network" alto={26} />
           </Link>
           {user && (
@@ -51,6 +62,27 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
             </button>
           )}
         </div>
+        <nav className="max-w-2xl mx-auto px-4 pb-3 -mt-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 min-w-max">
+            {SUBNAV.map(({ href, label }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    'inline-flex items-center rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors',
+                    active
+                      ? 'bg-[#1A1A1A] text-white'
+                      : 'bg-transparent border border-[#E7E7E0] text-[#6C6C64] hover:text-[#1A1A1A] hover:border-[#C9C9BE]',
+                  )}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </header>
       <main className="max-w-2xl mx-auto px-4 py-8">{children}</main>
     </div>
