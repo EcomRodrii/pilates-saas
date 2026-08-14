@@ -23,6 +23,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useThemeEditor } from './theme-editor';
 import { useStudio } from '@/lib/studio-context';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
+import { ImportarTemaZip } from './importar-tema-zip';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
 import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -373,6 +374,12 @@ export function ThemeLibrary() {
           Tu logo y el contenido de tus pantallas no se tocan.
         </p>
       </section>
+
+      {/* Primera versión del importador de ZIP: analiza, sube y enseña el
+          resultado fiel. Todavía no lo deja instalar como tema activo — eso
+          es la siguiente pieza (el Theme Schema apuntando a un
+          `theme_imports.id` en vez de a un tema del kit). */}
+      <ImportarTemaZip />
     </div>
   );
 }
