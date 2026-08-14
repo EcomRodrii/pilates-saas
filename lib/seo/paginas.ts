@@ -555,6 +555,9 @@ export function urlDe(path: string): string {
 export const PREFIJOS_NO_INDEXABLES = [
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno',
+  // Pantalla de consentimiento OAuth para apps de terceros (Zapier) — interrupción
+  // puntual dentro de una sesión autenticada, no contenido público.
+  '/oauth',
   // Alta de cuenta freelance (feature #9) — mismo criterio que /crear-estudio.
   '/instructora',
   // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable

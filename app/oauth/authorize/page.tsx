@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
@@ -16,7 +16,18 @@ type EstadoConsentimiento =
   | { paso: 'error'; mensaje: string }
   | { paso: 'listo'; enviando: boolean; cliente: { nombre: string; descripcion: string | null; logoUrl: string | null }; estudioNombre: string; scopes: { scope: string; descripcion: string }[] };
 
+// useSearchParams() exige un límite de Suspense alrededor (si no, Next
+// desactiva la generación estática de toda la página en build) — el
+// contenido real vive en el componente de dentro.
 export default function OAuthAuthorizePage() {
+  return (
+    <Suspense fallback={null}>
+      <OAuthAuthorizeContenido />
+    </Suspense>
+  );
+}
+
+function OAuthAuthorizeContenido() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
