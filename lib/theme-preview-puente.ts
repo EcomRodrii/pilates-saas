@@ -65,6 +65,11 @@ export interface TemaJs {
  * distinto de "pisa con los valores por defecto" — un mensaje viejo sin el
  * campo no debe borrar la forma del tema publicado.
  */
+/** Un id del kit, o `null`. Acepta cualquiera de los dos nombres del puente. */
+function idDeTema(valor: unknown): TemaPortalId | null {
+  return typeof valor === 'string' && esTemaPortal(valor) ? valor : null;
+}
+
 export function resolveTemaJs(raw: unknown): TemaJs | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -72,15 +77,21 @@ export function resolveTemaJs(raw: unknown): TemaJs | null {
     variantes: resolveVariantes(o.variantes),
     barraClasica: o.barraClasica === true,
     tabBarStyle: o.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica',
-    // ⚠️ Se lee `themeId` —el nombre que trae un `ThemeConfig`— y no un campo
-    // aparte. La primera versión pedía `temaKit`, que el emisor tenía que
-    // rellenar a mano: dos de los tres no lo hacían, y como el receptor
-    // interpretaba su ausencia como «no es del kit», la vista previa de la
-    // biblioteca se quedó montando el portal viejo. Peor que no tener el
-    // campo: lo apagaba.
+    // ⚠️ Se aceptan LOS DOS nombres, y no es por comodidad: esta función corre
+    // en los dos extremos del puente (lo dice la cabecera). El emisor se la
+    // aplica al `ThemeConfig`, donde el campo se llama `themeId`, y devuelve
+    // ya un `TemaJs`, donde se llama `temaKit`. El receptor se la aplica a ESE
+    // resultado. O sea que tiene que ser IDEMPOTENTE — leer solo uno de los
+    // dos rompe el viaje de vuelta.
+    //
+    // Las dos versiones anteriores fallaron justo por ahí: la primera pedía
+    // `temaKit` y dos de los tres emisores mandaban el `ThemeConfig` crudo
+    // (sin él); la segunda pasó a leer `themeId` y entonces se rompió el lado
+    // receptor, que recibe lo ya normalizado. Ninguna se vio en local: los
+    // tests probaban un extremo cada vez, nunca la ida y la vuelta.
     //
     // Entrada NO confiable, igual que el resto: solo pasa un id que exista de
     // verdad en el registro de temas.
-    temaKit: typeof o.themeId === 'string' && esTemaPortal(o.themeId) ? o.themeId : null,
+    temaKit: idDeTema(o.themeId) ?? idDeTema(o.temaKit),
   };
 }

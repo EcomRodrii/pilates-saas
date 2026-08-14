@@ -77,6 +77,19 @@ test('resolveTemaJs: lleva el tema del kit que se está editando', () => {
   assert.equal(resolveTemaJs({ themeId: 'tentada' })?.temaKit, 'tentada');
 });
 
+test('⚠️ IDA Y VUELTA: `resolveTemaJs` corre en los DOS extremos, así que tiene que ser idempotente', () => {
+  // El test que faltaba, y que habría cazado los dos intentos anteriores. El
+  // emisor aplica la función al `ThemeConfig` (campo `themeId`) y manda el
+  // resultado; el receptor se la aplica a ESO (campo `temaKit`). Leer un solo
+  // nombre rompe siempre uno de los dos lados — y cada arreglo rompía el otro.
+  const config = { themeId: 'tentada', variantes: {}, barraClasica: false };
+  const emitido = resolveTemaJs(config);
+  const recibido = resolveTemaJs(emitido);
+  assert.equal(emitido?.temaKit, 'tentada');
+  assert.equal(recibido?.temaKit, 'tentada', 'la vuelta perdió el tema');
+  assert.deepEqual(recibido, emitido, 'aplicarla dos veces tiene que dar lo mismo');
+});
+
 test('⚠️ se lee `themeId` del propio ThemeConfig, no un campo que el emisor tenga que rellenar', () => {
   // Así se rompió en producción: el campo se llamaba `temaKit` y dos de los
   // tres emisores mandaban el `ThemeConfig` tal cual, sin renombrarlo. El
