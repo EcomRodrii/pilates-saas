@@ -11,6 +11,7 @@ import {
   BellRing,
   Mail,
   Megaphone,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -168,6 +169,16 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
     color: '#000000',
     bg: '#F5F5F5',
     categoria: 'Marketing',
+    campos: [],
+  },
+  {
+    tipo: 'ZAPIER',
+    nombre: 'Zapier',
+    descripcion: 'Conecta Tentare con miles de apps: crea reservas, sincroniza clientas o avisa por Slack cuando pasa algo en tu estudio. La conexión se autoriza desde Zapier, no desde aquí.',
+    Icon: Zap,
+    color: '#FF4A00',
+    bg: '#FFF1EB',
+    categoria: 'Automatización',
     campos: [],
   },
   {
@@ -516,6 +527,41 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
+  // Zapier: al revés que el resto — Tentare es el SERVIDOR OAuth, así que la
+  // conexión la inicia Zapier (o quien construye el Zap), nunca un botón de
+  // aquí. Esta tarjeta solo refleja el estado (GET /api/oauth/consentimientos,
+  // lib/oauth-server.ts) y permite revocar el acceso.
+  const [zapierConsentimiento, setZapierConsentimiento] = useState<{ scopes: string[]; otorgadoEn: string } | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      const headers = await authHeader();
+      const res = await fetch('/api/oauth/consentimientos', { headers });
+      if (!res.ok || cancelado) { if (!cancelado) setZapierConsentimiento(null); return; }
+      const data = await res.json();
+      const zapier = (data.apps ?? []).find((a: { clienteId: string }) => a.clienteId === 'zapier');
+      if (!cancelado) setZapierConsentimiento(zapier ? { scopes: zapier.scopes, otorgadoEn: zapier.otorgadoEn } : null);
+    })();
+    return () => { cancelado = true; };
+  }, []);
+  const zapierConectado = !!zapierConsentimiento;
+  const [revocandoZapier, setRevocandoZapier] = useState(false);
+  const revocarZapier = async () => {
+    setRevocandoZapier(true);
+    try {
+      const res = await fetch('/api/oauth/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ clienteId: 'zapier' }),
+      });
+      if (!res.ok) { showToast('No se pudo revocar el acceso'); return; }
+      setZapierConsentimiento(null);
+      showToast('Acceso de Zapier revocado');
+    } finally {
+      setRevocandoZapier(false);
+    }
+  };
+
   const abrirConfig = (cat: CatalogoIntegracion) => {
     const actual = getIntegracion(cat.tipo);
     setForm(actual?.config ?? {});
@@ -637,7 +683,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
-          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : !!intg?.activo;
+          const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
               <div className="flex items-start gap-3">
@@ -740,6 +786,17 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     <button type="button" onClick={conectarKlaviyo} className={cn(btnPrimary, 'no-underline')}>Conectar con Klaviyo</button>
                   ) : (
                     <NoDisponibleTodavia variable="NEXT_PUBLIC_KLAVIYO_CLIENT_ID" />
+                  )
+                ) : cat.tipo === 'ZAPIER' ? (
+                  zapierConectado ? (
+                    <button onClick={revocarZapier} disabled={revocandoZapier} className={cn(btnSecondary, revocandoZapier && 'opacity-50')}>
+                      {revocandoZapier ? 'Revocando…' : 'Revocar acceso'}
+                    </button>
+                  ) : (
+                    <a href="https://zapier.com/apps/tentare/integrations" target="_blank" rel="noopener noreferrer"
+                      className={cn(btnPrimary, 'no-underline')}>
+                      Ir a Zapier <ExternalLink size={12} />
+                    </a>
                   )
                 ) : (
                   <>
