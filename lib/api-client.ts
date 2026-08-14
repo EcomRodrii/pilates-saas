@@ -14,7 +14,7 @@ import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
   PerfilNetwork, PerfilNetworkPublico, CambiosPerfilNetwork, FiltroBusquedaNetwork,
   ExperienciaNetwork, ExperienciaNetworkPublica, NuevaExperienciaNetwork, BadgesNetwork,
-  MensajeNetwork,
+  MensajeNetwork, FormalizacionNetwork,
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
 } from '@/lib/network/tipos';
@@ -2338,13 +2338,13 @@ export async function resolverSolicitudContactoNetwork(
 // solicitud de contacto aceptada.
 export async function elegibilidadResenaNetwork(
   perfilId: string,
-): Promise<{ elegible: boolean; yaResenado: boolean }> {
+): Promise<{ elegible: boolean; yaResenado: boolean; faltaClaseCompletada: boolean }> {
   try {
     const res = await fetch(`/api/network/resenas?perfilId=${encodeURIComponent(perfilId)}`, { headers: await authHeader() });
-    if (!res.ok) return { elegible: false, yaResenado: false };
-    return (await res.json()) as { elegible: boolean; yaResenado: boolean };
+    if (!res.ok) return { elegible: false, yaResenado: false, faltaClaseCompletada: false };
+    return (await res.json()) as { elegible: boolean; yaResenado: boolean; faltaClaseCompletada: boolean };
   } catch {
-    return { elegible: false, yaResenado: false };
+    return { elegible: false, yaResenado: false, faltaClaseCompletada: false };
   }
 }
 
@@ -2412,5 +2412,38 @@ export async function fetchHilosMensajesNetwork(): Promise<HiloNetwork[]> {
     return data.hilos ?? [];
   } catch {
     return [];
+  }
+}
+
+// Formalizar contratación (siguiente fase) — doble confirmación sobre un
+// hilo ya aceptado. `miLado` viene del servidor (nunca se decide en el
+// cliente) para que la UI sepa qué marca es "la mía" sin duplicar la
+// resolución de participante que ya hace la API.
+export async function fetchFormalizacionNetwork(
+  solicitudId: string,
+): Promise<{ formalizacion: FormalizacionNetwork | null; miLado: 'estudio' | 'instructora' } | null> {
+  try {
+    const res = await fetch(`/api/network/formalizacion?solicitudId=${encodeURIComponent(solicitudId)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    return (await res.json()) as { formalizacion: FormalizacionNetwork | null; miLado: 'estudio' | 'instructora' };
+  } catch {
+    return null;
+  }
+}
+
+export async function proponerOConfirmarFormalizacionNetwork(
+  solicitudId: string, tipoContrato?: 'temporal' | 'indefinido',
+): Promise<{ ok: true; formalizacion: FormalizacionNetwork; miLado: 'estudio' | 'instructora' } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/formalizacion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ solicitudId, tipoContrato }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { formalizacion?: FormalizacionNetwork; miLado?: 'estudio' | 'instructora'; error?: string };
+    if (!res.ok || !data.formalizacion || !data.miLado) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, formalizacion: data.formalizacion, miLado: data.miLado };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar la propuesta' };
   }
 }

@@ -32,7 +32,7 @@ export async function MarketplaceLayout({
       <div className="max-w-[1240px] mx-auto px-6 pt-10 pb-4">
         <h1 className="text-[38px] font-extrabold tracking-tight">
           Instructoras de Pilates{tituloCiudad ? (
-            <> en <em className="font-normal not-italic" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>{tituloCiudad}</em></>
+            <> en <span style={{ color: NW_PRODUCTO }}>{tituloCiudad}</span></>
           ) : null}
         </h1>
         <p className="mt-2 text-[15px]" style={{ color: NW_MUTED }}>
@@ -52,7 +52,7 @@ export async function MarketplaceLayout({
           <ChipsActivos />
           {perfiles.length === 0 ? (
             <div className="rounded-[22px] p-10 text-center" style={{ background: NW_SAND_2 }}>
-              <p className="text-[25px]" style={{ fontFamily: 'var(--font-display)' }}>
+              <p className="text-[22px] font-extrabold">
                 ¿Buscas en otra zona? Todavía estamos construyendo la network allí.
               </p>
               <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>

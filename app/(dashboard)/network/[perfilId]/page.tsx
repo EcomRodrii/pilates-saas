@@ -43,6 +43,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   const [cambiandoFavorito, setCambiandoFavorito] = useState(false);
   const [elegibleResena, setElegibleResena] = useState(false);
   const [yaResenado, setYaResenado] = useState(false);
+  const [faltaClaseCompletada, setFaltaClaseCompletada] = useState(false);
   const [modalResenaAbierto, setModalResenaAbierto] = useState(false);
   const [puntuacionResena, setPuntuacionResena] = useState(5);
   const [comentarioResena, setComentarioResena] = useState('');
@@ -69,6 +70,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       if (!vivo) return;
       setElegibleResena(r.elegible);
       setYaResenado(r.yaResenado);
+      setFaltaClaseCompletada(r.faltaClaseCompletada);
     });
     fetchHilosMensajesNetwork().then(hilos => {
       if (!vivo) return;
@@ -277,17 +279,24 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
         </div>
       </DashboardSheet>
 
-      {(elegibleResena || yaResenado) && (
+      {(elegibleResena || yaResenado || faltaClaseCompletada) && (
         <div className={`${cardCls} p-5`}>
           {yaResenado ? (
             <p className="text-[12.5px] text-muted-foreground flex items-center gap-1.5">
               <Check size={13} className="text-success" /> Ya has dejado una reseña sobre {perfil.nombre.split(' ')[0]}.
             </p>
+          ) : faltaClaseCompletada ? (
+            // Aceptó el contacto, pero todavía no ha impartido ninguna clase
+            // para este estudio — causa distinta de "aún no aceptasteis
+            // contacto" (ese caso ni siquiera pinta esta tarjeta).
+            <p className="text-[12.5px] text-muted-foreground">
+              Podrás reseñar a {perfil.nombre.split(' ')[0]} en cuanto haya impartido al menos una clase para tu estudio.
+            </p>
           ) : (
             <>
               <h3 className="text-[13px] font-semibold text-foreground mb-1">¿Cómo fue tu experiencia?</h3>
               <p className="text-[12px] text-muted-foreground mb-3">
-                Habéis tenido contacto aceptado — tu reseña ayuda a otros estudios.
+                Ya ha impartido clases contigo — tu reseña ayuda a otros estudios.
               </p>
               <button
                 onClick={() => setModalResenaAbierto(true)}

@@ -10,25 +10,33 @@ import { test, expect } from '@playwright/test';
 // Es un Server Component puro (docs/NETWORK-AUDIT-2.md §11): resuelve sus
 // datos con getSupabaseAdmin() DENTRO del proceso del servidor Next, no con
 // fetch() del navegador — page.route (nivel navegador) no puede interceptar
-// esa llamada. Sin una semilla server-side dedicada (el patrón que ya usa
-// lib/studio-seo.ts con E2E_TEST=1, que esta ronda no añade para Network),
-// el entorno de CI —con credenciales de Supabase dummy— siempre resuelve un
-// listado vacío. Por eso esta suite cubre lo que SÍ es determinista sin
-// datos reales: que la pantalla no se cae, que los filtros son interactivos,
-// y que un perfil inexistente da 404 real, no una pantalla en blanco.
+// esa llamada.
+//
+// ⚠️ HISTORIAL (2026-08-14): esta suite cubría solo lo determinista sin datos
+// reales, porque el entorno de CI (Supabase dummy) siempre resolvía un
+// listado VACÍO — y ese vacío dejó pasar un build de producción roto tres
+// veces seguidas: `TarjetaInstructora` pasaba un handler de servidor a un
+// `<Link>` de cliente, y como el `.map()` sobre los resultados nunca se
+// ejecutaba en CI (siempre `[]`), el error solo aparecía en Vercel con datos
+// reales. Cerrado sembrando `buscarPerfilesPublico` con `E2E_TEST=1`
+// (`lib/network/publico.ts`, mismo patrón que `lib/studio-seo.ts`) — ahora el
+// listado SÍ tiene resultados también en CI, y el `.map()` que rompió el
+// build se ejercita en cada pasada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('Marketplace público (sin sesión)', () => {
-  test('carga sin datos sembrados y no miente sobre resultados que no tiene', async ({ page }) => {
+  test('con perfiles sembrados, lista tarjetas reales — no un listado vacío', async ({ page }) => {
     await page.goto('/network/instructoras');
 
     await expect(page.getByRole('heading', { name: 'Instructoras de Pilates' })).toBeVisible({ timeout: 30_000 });
-    // Sin perfiles de verdad en este entorno: el vacío se dice, nunca "0
-    // instructoras" ni una tarjeta fantasma. "Cerca de mí"
-    // (components/network-v2/ResultadosInstructoras.tsx) solo se pinta
-    // dentro de la rama CON resultados — sin datos sembrados no hay forma
-    // de comprobar ese botón desde aquí, no se prueba en este spec.
-    await expect(page.getByText(/Todavía estamos construyendo la network allí/i)).toBeVisible();
+    // Los dos perfiles de la semilla (PERFILES_SEED_E2E), por nombre — no por
+    // cantidad: contar tarjetas sería frágil si la semilla crece.
+    await expect(page.getByText('Marta Gómez')).toBeVisible();
+    await expect(page.getByText('Sofía Ruiz')).toBeVisible();
+    // La tarjeta es un <Link>: si el prerender se rompiera otra vez (el
+    // incidente real), esta pantalla no llegaría a cargar y las dos
+    // aserciones de arriba ya habrían fallado.
+    await expect(page.getByRole('link', { name: /Marta Gómez/ })).toHaveAttribute('href', '/network/instructoras/marta-gomez-e2e');
   });
 
   test('los filtros de especialidad cambian la URL sin recargar la página entera', async ({ page }) => {
@@ -58,11 +66,19 @@ test.describe('Marketplace público (sin sesión)', () => {
     // la propia URL.
     await page.getByText('Reformer', { exact: true }).click();
     await expect(page).toHaveURL(/especialidades=reformer/, { timeout: 45_000 });
+    // Con la semilla, filtrar por Reformer de verdad reduce el listado: solo
+    // Marta Gómez lo tiene entre sus especialidades. Antes de la semilla esto
+    // no se podía comprobar — el filtro cambiaba la URL sobre un vacío.
+    await expect(page.getByText('Marta Gómez')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Sofía Ruiz')).not.toBeVisible();
   });
 
   test('un perfil que no existe da un 404 real, no una pantalla vacía', async ({ page }) => {
     // notFound() delega en app/not-found.tsx (global, en español) — el texto
     // "Perfil no encontrado" solo vive en el <title>, nunca en el cuerpo.
+    // ⚠️ La semilla NO cubre esta ruta (obtenerPerfilPublicoPorSlug consulta
+    // Supabase directo, sin gate de E2E_TEST): un slug real de la semilla
+    // ('marta-gomez-e2e') seguiría dando 404 aquí. Fuera de esta ronda.
     const respuesta = await page.goto('/network/instructoras/este-slug-no-existe-nunca');
     expect(respuesta?.status()).toBe(404);
     await expect(page.getByRole('heading', { name: 'Esta página no existe.' })).toBeVisible();

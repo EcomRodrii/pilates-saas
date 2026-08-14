@@ -166,6 +166,20 @@ export interface MensajeNetwork {
   leidoEn: string | null;
 }
 
+// Formalizar contratación (siguiente fase) — doble confirmación sobre el
+// hilo YA aceptado. `estado='confirmada'` solo cuando el alta real en
+// `instructores` se ejecutó; con las dos marcas rellenas pero `estado`
+// todavía `'pendiente'`, la UI debe leerlo como "confirmado por las 2
+// partes, falta que alguien con permiso de equipo lo complete" — no como un
+// error ni como "aún no ha confirmado nadie".
+export interface FormalizacionNetwork {
+  id: string;
+  tipoContrato: 'temporal' | 'indefinido';
+  estudioConfirmadoEn: string | null;
+  instructoraConfirmadaEn: string | null;
+  estado: 'pendiente' | 'confirmada' | 'cancelada';
+}
+
 // Fase 2 (onboarding con verificación) — datos PRIVADOS de la persona
 // (DNI/pasaporte, dirección, fecha de nacimiento). Tabla aparte de
 // red_perfiles a propósito (ver la migración red_perfiles_identidad): esa
