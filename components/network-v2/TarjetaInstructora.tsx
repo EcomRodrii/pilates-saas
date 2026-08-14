@@ -1,3 +1,21 @@
+'use client';
+
+// ⚠️ Cliente por los `onMouseEnter`/`onMouseLeave` de la tarjeta.
+//
+// Sin esta línea el build de PRODUCCIÓN se cae entero, no solo esta pantalla:
+// `app/network/page.tsx` es un componente de SERVIDOR y prerenderiza esta
+// tarjeta, y pasar un handler desde el servidor a un componente de cliente
+// (`<Link>`) es un error de export —«Event handlers cannot be passed to Client
+// Component props»— que aborta la generación estática y deja el despliegue en
+// rojo. Estuvo tres despliegues seguidos bloqueando TODO lo que se mergeaba
+// detrás.
+//
+// ⚠️ Y NO lo caza el CI: allí el build pasa. Solo aparece en el `next build` de
+// Vercel, al prerenderizar `/network`.
+//
+// Alternativa mejor si alguien retoma esta pantalla: el hover del borde con
+// CSS (`:hover`) en vez de con JS, y esto vuelve a ser servidor — es una página
+// pública y de marketing, donde mandar JS por un cambio de color no se paga.
 import Link from 'next/link';
 import { BadgeCheck, Star } from 'lucide-react';
 import { FotoInstructora } from './FotoInstructora';
