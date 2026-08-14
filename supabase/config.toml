@@ -337,6 +337,17 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+[auth.external.google]
+# "Continuar con Google" (docs/GOOGLE-OAUTH.md). Deshabilitado en local por
+# defecto — el proyecto remoto se activa desde el Dashboard de Supabase
+# (Authentication → Providers → Google), no desde este fichero. Se declara
+# aquí solo para quien quiera probar el flujo con `supabase start` local.
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+
 [auth.external.apple]
 enabled = false
 client_id = ""
