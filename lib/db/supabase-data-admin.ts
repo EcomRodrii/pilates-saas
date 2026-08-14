@@ -1339,6 +1339,30 @@ function registrarIntentoFallido(admin: SupabaseClient, params: {
   });
 }
 
+// Fase 2 "Growth Widget": evento anónimo del funnel del widget público
+// (ver lib/reservar/eventos.ts para el catálogo de tipos y el helper de
+// cliente). Mismo criterio fire-and-forget que registrarIntentoFallido —
+// un fallo AQUÍ nunca debe tumbar ni ensuciar la respuesta del endpoint
+// público que lo llama.
+export function registrarEventoWidget(admin: SupabaseClient, params: {
+  studioId: string; sessionId: string; tipo: string; sesionClaseId?: string | null; origen?: string | null;
+}): void {
+  void admin.from('widget_eventos').insert({
+    id: `evt-${uid()}`,
+    studio_id: params.studioId,
+    session_id: params.sessionId,
+    tipo: params.tipo,
+    sesion_clase_id: params.sesionClaseId ?? null,
+    origen: params.origen ?? null,
+  }).then(({ error }) => {
+    // FK inválida (studio_id/sesion_id inexistentes desde un cliente con
+    // datos corruptos) no es un fallo del sistema — no genera ruido en Sentry.
+    if (error && error.code !== '23503') {
+      capturarExcepcion(new Error(`registrarEventoWidget: ${error.message}`), { tags: { area: 'analitica-widget' } });
+    }
+  });
+}
+
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
