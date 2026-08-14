@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Check, X } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
+import { Toast, useToast } from '@/components/ui/toast';
 import {
   fetchVacanteNetwork, cambiarEstadoVacanteNetwork,
   fetchCandidaturasVacanteNetwork, cambiarEstadoCandidaturaNetwork, toggleFavoritoNetwork,
@@ -22,6 +23,7 @@ const ESTADO_LABEL: Record<EstadoCandidatura, string> = {
 
 export default function VacanteDetalleNetworkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const [vacante, setVacante] = useState<VacanteNetwork | null>(null);
   const [candidaturas, setCandidaturas] = useState<CandidaturaNetwork[] | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -43,7 +45,14 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
     const res = await cambiarEstadoVacanteNetwork(id, estado);
     setCambiandoEstado(false);
     if (!res.ok) { setErrorEstado(res.error); return; }
-    setVacante(res.vacante);
+    // El PATCH ya devuelve la fila actualizada, pero se relee del servidor
+    // como red de seguridad — el bug real que esto cierra: el guardado
+    // funcionaba de verdad (confirmado en la BD) pero la pantalla se
+    // quedaba mostrando "Borrador" sin ningún aviso, indistinguible de un
+    // fallo real. Mismo patrón que el botón "Guardar cambios" de
+    // /network/mi-perfil (paso 8): la acción silenciosa se lee como rota.
+    setVacante(await fetchVacanteNetwork(id) ?? res.vacante);
+    showToast(estado === 'published' ? 'Vacante publicada' : 'Vacante cerrada');
   }
 
   async function accionar(candidaturaId: string, estado: EstadoCandidatura) {
@@ -51,7 +60,10 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
       setAccionando(candidaturaId);
       const res = await cambiarEstadoCandidaturaNetwork(candidaturaId, estado);
       setAccionando(null);
-      if (res.ok) setCandidaturas(await fetchCandidaturasVacanteNetwork(id));
+      if (res.ok) {
+        setCandidaturas(await fetchCandidaturasVacanteNetwork(id));
+        showToast(`Candidatura → ${ESTADO_LABEL[estado].toLowerCase()}`);
+      }
     }
   }
 
@@ -177,6 +189,8 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
           })}
         </div>
       )}
+
+      {toastMsg && <Toast message={toastMsg} onDismiss={dismissToast} />}
     </div>
   );
 }
