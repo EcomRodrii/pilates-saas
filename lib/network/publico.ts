@@ -65,9 +65,87 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
   };
 }
 
+/**
+ * Semilla E2E (2026-08-14, incidente de despliegue): esta consulta corre en
+ * el SERVIDOR, así que `page.route` (nivel navegador) no la intercepta — y
+ * con el env dummy de CI (`https://example.supabase.co`, ver ci.yml) la
+ * consulta real siempre falla y `buscarPerfilesPublico` devuelve `[]`.
+ *
+ * Eso no era solo un hueco de cobertura: **dejó pasar un build de producción
+ * roto tres veces seguidas.** `TarjetaInstructora` pasaba un `onMouseEnter`
+ * de servidor a un `<Link>` de cliente — error de export que revienta el
+ * prerender de `/network` — y como `destacadas` siempre estaba vacío en CI,
+ * ese `.map()` nunca llegaba a ejecutarse ahí. Pasaba el build, fallaba en
+ * Vercel con datos reales. Mismo patrón que `getStudioSeo`
+ * (`lib/studio-seo.ts`): con `E2E_TEST=1` se siembran perfiles de verdad EN
+ * VEZ de consultar Supabase, nunca en producción (la env no existe allí).
+ *
+ * ⚠️ Y como `E2E_TEST=1` está declarado a nivel de WORKFLOW en `ci.yml`, no
+ * solo en el job de e2e, esto también siembra el job "Build de producción":
+ * el `npm run build` de CI ejercita ahora el mismo `.map()` que rompió tres
+ * despliegues, con datos reales — así que la próxima vez que algo similar
+ * pase, el build de CI se cae ANTES de mergear, no después.
+ *
+ * Dos perfiles a propósito, no uno: cubren las ramas que `TarjetaInstructora`
+ * pinta distinto — verificada/sin verificar, con reseñas/sin ninguna, tarifa
+ * fija/"a consultar" — que con un único perfil sintético quedarían sin tocar.
+ */
+// Exportada solo para el test unitario de `perfilCoincideFiltro` — nada del
+// código de producción la importa desde fuera de este fichero.
+export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
+  {
+    id: 'perfil-e2e-1', slug: 'marta-gomez-e2e', nombre: 'Marta Gómez',
+    fotoUrl: null, ciudad: 'Madrid', zona: 'Salamanca', radioKm: 10,
+    descripcion: 'Instructora de reformer con más de 8 años de experiencia.',
+    especialidades: ['reformer', 'mat'], aniosExperiencia: 8, tarifaRango: '25-30',
+    disponibilidadEstado: 'disponible', disponibilidadHorarios: ['mananas', 'tardes'],
+    tipoTrabajo: ['freelance', 'sustituciones'],
+    estado: 'published', destacado: true, identidadVerificadaEn: '2026-01-15T10:00:00.000Z',
+    creadoEn: '2026-01-01T00:00:00.000Z', actualizadoEn: '2026-08-01T00:00:00.000Z', ultimoAccesoEn: null,
+    idiomas: ['es', 'en'], instagram: null, linkedin: null, web: null,
+    experienciaVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
+  },
+  {
+    id: 'perfil-e2e-2', slug: 'sofia-ruiz-e2e', nombre: 'Sofía Ruiz',
+    fotoUrl: null, ciudad: 'Barcelona', zona: null, radioKm: null,
+    descripcion: 'Profesora de yoga y HIIT, disponible para clases puntuales.',
+    especialidades: ['yoga', 'hiit'], aniosExperiencia: 3, tarifaRango: null,
+    disponibilidadEstado: 'buscando_trabajo', disponibilidadHorarios: ['noches', 'fines_semana'],
+    tipoTrabajo: ['clases_puntuales'],
+    estado: 'published', destacado: false, identidadVerificadaEn: null,
+    creadoEn: '2026-03-01T00:00:00.000Z', actualizadoEn: '2026-07-15T00:00:00.000Z', ultimoAccesoEn: null,
+    idiomas: ['es'], instagram: null, linkedin: null, web: null,
+    experienciaVerificada: false, resumenResenas: { promedio: null, total: 0 },
+  },
+];
+
+/**
+ * Los mismos filtros que el `query` de abajo aplica en Postgres
+ * (`.eq`/`.overlaps`/`.in`/`.gte`), pero en memoria: la semilla no pasa por
+ * Supabase, así que nada los aplicaba y el filtro de especialidad de la URL
+ * no hacía nada — `ordenarResultadosNetwork` solo ORDENA, no filtra. Lo cazó
+ * el propio e2e (`network-marketplace-publico.spec.ts`) al comprobar que
+ * filtrar por Reformer deja fuera a quien no lo tiene.
+ */
+export function perfilCoincideFiltro(p: PerfilNetworkPublico, filtro: FiltroBusquedaNetwork): boolean {
+  if (filtro.ciudad && !(p.ciudad ?? '').toLowerCase().includes(filtro.ciudad.toLowerCase())) return false;
+  if (filtro.especialidades.length && !p.especialidades.some(e => filtro.especialidades.includes(e))) return false;
+  if (filtro.disponibilidad.length && !filtro.disponibilidad.includes(p.disponibilidadEstado)) return false;
+  if (filtro.horarios.length && !p.disponibilidadHorarios.some(h => filtro.horarios.includes(h))) return false;
+  if (filtro.tipoTrabajo.length && !p.tipoTrabajo.some(t => filtro.tipoTrabajo.includes(t))) return false;
+  if (filtro.experienciaMinima != null && (p.aniosExperiencia == null || p.aniosExperiencia < filtro.experienciaMinima)) return false;
+  if (filtro.tarifaRango.length && (p.tarifaRango == null || !filtro.tarifaRango.includes(p.tarifaRango))) return false;
+  return true;
+}
+
 export async function buscarPerfilesPublico(
   admin: SupabaseClient, filtro: FiltroBusquedaNetwork,
 ): Promise<{ perfiles: PerfilNetworkPublico[] } | { error: unknown }> {
+  if (process.env.E2E_TEST === '1') {
+    const filtrados = PERFILES_SEED_E2E.filter(p => perfilCoincideFiltro(p, filtro));
+    return { perfiles: ordenarResultadosNetwork(filtrados, filtro) };
+  }
+
   // order() antes de limit(): sin un orden explícito el recorte a
   // LIMITE_RESULTADOS no es determinista (Postgres no garantiza el orden de
   // un SELECT sin ORDER BY).
