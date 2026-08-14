@@ -21,6 +21,10 @@ const eslintConfig = defineConfig([
     // page.tsx), vuelven a entrar en el lint solos.
     "**/*.frozen.tsx",
     "**/*.frozen.ts",
+    // Generado por scripts/build-widget-bundle.mjs (esbuild, minificado) —
+    // no es código fuente, es exactamente lo mismo que `.next/**` de arriba
+    // pero para el bundle embebible.
+    "public/widget.js",
   ]),
   {
     // `no-unused-vars` sin opciones marca como deuda dos idiomas que este repo

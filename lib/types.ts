@@ -54,6 +54,13 @@ export interface Studio {
    * a mano y ninguno tiene por qué saber de esto.
    */
   portalReact?: boolean;
+  /**
+   * Lista blanca de orígenes (https://ejemplo.com, sin ruta) autorizados a
+   * incrustar el bundle embebible (Modo B, script+div sin iframe) — ver
+   * lib/cors-widget.ts. `[]`/undefined = el bundle no funcionará en ningún
+   * dominio todavía (el iframe sigue funcionando igual, no depende de esto).
+   */
+  widgetDominiosAutorizados?: string[];
   logoUrl: string | null;
   // Tipo de IVA general del estudio (%). El precio del recibo es IVA incluido;
   // este tipo solo cambia el desglose base/cuota de la factura, no el total.

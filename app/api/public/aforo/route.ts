@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchAforoPublico } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 
 // Aforo en vivo de las clases próximas. Existe para que el tic de 5s del portal
 // (REFRESCO_ACTIVO_MS) deje de pedir /api/public/studio-data, que devuelve el
@@ -22,24 +23,28 @@ import { errorInterno } from '@/lib/errores-servidor';
 // la caché compartida ANTES: serviría los datos de una socia a otra. Es el
 // mismo motivo por el que /api/theme y /api/layout no se cachean (son de
 // sesión y por estudio).
+export async function OPTIONS(req: NextRequest) {
+  return respuestaPreflightWidget(req);
+}
+
 export async function GET(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-aforo', { max: 120, windowSeconds: 60 });
   if (limited) return limited;
 
   const slug = req.nextUrl.searchParams.get('slug')?.trim();
   if (!slug) {
-    return NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Falta el slug del estudio' }, { status: 400 }));
   }
 
   try {
     const data = await fetchAforoPublico(slug);
     if (!data) {
-      return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 }));
     }
-    return NextResponse.json(data, {
+    return conCorsWidget(req, NextResponse.json(data, {
       headers: { 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10' },
-    });
+    }));
   } catch (err) {
-    return errorInterno('public/aforo:GET', err, 'No se ha podido actualizar el aforo.');
+    return conCorsWidget(req, errorInterno('public/aforo:GET', err, 'No se ha podido actualizar el aforo.'));
   }
 }

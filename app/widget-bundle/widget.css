@@ -1,0 +1,24 @@
+/* Hoja del bundle embebible. <ReservaCalendario> es 100% inline-styled (ver
+   su comentario de cabecera) — la única clase de Tailwind que usa en la
+   práctica es `animate-spin` para el spinner del botón de enviar, así que no
+   hace falta arrastrar Tailwind/PostCSS enteros a este build por una
+   animación. Si un día el árbol de components/reserva/** empieza a usar
+   className= de verdad, esto necesita convertirse en un paso de PostCSS. */
+:host {
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  color-scheme: light;
+}
+:host *, :host *::before, :host *::after {
+  box-sizing: border-box;
+}
+:host {
+  font-family: var(--font-ui, 'Instrument Sans'), system-ui, sans-serif;
+}
+@keyframes animate-spin-kf {
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: animate-spin-kf 1s linear infinite;
+}

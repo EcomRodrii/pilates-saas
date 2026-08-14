@@ -1,0 +1,110 @@
+// Punto de entrada del bundle embebible (Modo B, script+div sin iframe).
+// Se compila aparte con esbuild (scripts/build-widget-bundle.mjs) a
+// public/widget.js — NUNCA pasa por `next build`, así que aquí no hay Server
+// Components, ni imports de rutas de API de servidor, ni nada que dependa del
+// runtime de Next fuera del navegador.
+//
+// El estudio lo incrusta así en su propia web (dominio real: urlDe('/widget.js')
+// en lib/seo/paginas.ts, servido desde el mismo origen que /reservar):
+//   <div data-tentare-booking data-studio="mi-estudio"></div>
+//   <script src=".../widget.js" async></script>
+// `data-tentare-booking` (no un id fijo) porque un estudio puede querer más
+// de un widget en la misma página (p. ej. una landing con dos secciones).
+//
+// Aislamiento de estilos: Shadow DOM (no CSS Modules/prefijos) — es lo único
+// que garantiza que el CSS del estudio no toque el widget y viceversa, sin
+// tener que auditar cada regla `!important` del lado del estudio. El bundle
+// se compila con la MISMA hoja de Tailwind que <ReservaCalendario> ya usa
+// (postcss.widget.config.mjs, alcance recortado a components/reserva/**), y
+// esa hoja se inyecta como <style> DENTRO del shadow root, nunca en el
+// <head> del documento anfitrión.
+import { createRoot } from 'react-dom/client';
+import { StrictMode, useEffect, useRef } from 'react';
+import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
+import { MODO_TOKENS } from '@/lib/portal-modo';
+import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
+import { trackEventoWidget } from '@/lib/reservar/eventos';
+import widgetCss from './widget.css';
+
+// Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
+// eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
+// mucho mayor que "un calendario embebido". Personalización de color mínima
+// vía `data-color` (ver abajo) es lo que sí pide el brief ("colores del
+// estudio"); tipografía/fondo/textos quedan fuera de este primer bundle.
+const TEMA = MODO_TOKENS.dia;
+
+// Origen de Tentare, capturado del propio <script src="https://.../widget.js">
+// que está ejecutando este módulo — SÍNCRONO, a nivel de módulo: `document.
+// currentScript` solo es fiable durante la ejecución inicial de un script
+// clásico (incluido `async`), nunca dentro de un callback posterior (p. ej.
+// un listener de DOMContentLoaded). Todas las rutas /api/public/... de este
+// bundle son relativas por convención en el resto del repo porque las páginas
+// que las llaman ya viven en tentare.app — aquí NO es así: el DOM anfitrión es
+// la web del estudio, así que una ruta relativa resolvería contra SU origen.
+const ORIGEN_TENTARE = (() => {
+  try {
+    const src = (document.currentScript as HTMLScriptElement | null)?.src;
+    return src ? new URL(src).origin : window.location.origin;
+  } catch {
+    return window.location.origin;
+  }
+})();
+
+function WidgetApp({ slug }: { slug: string }) {
+  const { slots, cargando, error, studioId, onReservar, onCancelar } = useDatosWidget(slug, ORIGEN_TENTARE);
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (!studioId || trackedRef.current) return;
+    trackedRef.current = true;
+    trackEventoWidget(studioId, 'widget_loaded', { baseUrl: ORIGEN_TENTARE });
+    trackEventoWidget(studioId, 'widget_viewed', { baseUrl: ORIGEN_TENTARE });
+  }, [studioId]);
+
+  if (error) {
+    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>{error}</div>;
+  }
+  if (cargando) {
+    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>Cargando clases…</div>;
+  }
+  return (
+    <ReservaCalendario
+      t={TEMA}
+      slots={slots}
+      onReservar={onReservar}
+      onCancelar={onCancelar}
+      vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
+    />
+  );
+}
+
+function montarUno(host: HTMLElement) {
+  const slug = host.dataset.studio?.trim();
+  if (!slug) {
+    console.error('[tentare-widget] Falta data-studio en el contenedor.');
+    return;
+  }
+  const color = host.dataset.color?.trim();
+  const shadow = host.attachShadow({ mode: 'open' });
+  const style = document.createElement('style');
+  style.textContent = widgetCss;
+  shadow.appendChild(style);
+  const raiz = document.createElement('div');
+  raiz.style.setProperty('--portal-brand', color || '#343825');
+  raiz.style.setProperty('--portal-brand-foreground', '#D9C29E');
+  raiz.style.setProperty('--success', '#2F6B4F');
+  raiz.style.setProperty('--warning', '#8F6215');
+  raiz.style.setProperty('--destructive', '#A8442A');
+  shadow.appendChild(raiz);
+  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} /></StrictMode>);
+}
+
+function iniciar() {
+  const hosts = document.querySelectorAll<HTMLElement>('[data-tentare-booking]');
+  hosts.forEach(montarUno);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', iniciar);
+} else {
+  iniciar();
+}

@@ -266,10 +266,23 @@ export async function fetchHomePreviewToken(): Promise<{ token: string; slug: st
 // nunca lee vídeos/recompensas/niveles/logros/retos/contenido de portal — solo
 // el portal instalable (app/portal/[slug]) los usa. Sin esta señal el servidor
 // no puede distinguir quién llama al mismo endpoint compartido.
-export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean }) {
+export async function cargarDatosPublicos(slug: string, opts?: { liviano?: boolean; baseUrl?: string }) {
   // La identidad de la socia va en el JWT (Bearer), no en el body: el servidor
   // deriva sus datos del token. Sin sesión → solo catálogo público.
-  const res = await fetch('/api/public/studio-data', {
+  //
+  // `baseUrl` (opcional, `''` de forma que la ruta sigue siendo relativa por
+  // defecto — el comportamiento de siempre para /reservar y el portal): el
+  // bundle embebible (Modo B) corre en el DOM de la web del estudio, así que
+  // una ruta relativa resolvería contra SU origen, no el de Tentare. Ver
+  // lib/widget/usar-datos-widget.ts, que es el único caller que lo pasa.
+  //
+  // Con `baseUrl` (llamada cross-origin) el slug va TAMBIÉN en la URL
+  // (?slug=): el preflight CORS (lib/cors-widget.ts) no puede leer el body
+  // JSON, así que resuelve la lista blanca del estudio desde la query string.
+  const url = opts?.baseUrl
+    ? `${opts.baseUrl}/api/public/studio-data?slug=${encodeURIComponent(slug)}`
+    : '/api/public/studio-data';
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
     body: JSON.stringify({ slug, liviano: opts?.liviano ?? false }),

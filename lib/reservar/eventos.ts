@@ -48,11 +48,19 @@ export function sessionIdWidget(): string {
 export function trackEventoWidget(
   studioId: string | null | undefined,
   tipo: TipoEventoWidget,
-  extra?: { sesionClaseId?: string | null; origen?: string | null },
+  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string },
 ): void {
   if (typeof window === 'undefined' || !studioId) return;
   try {
-    void fetch('/api/public/evento', {
+    // `baseUrl` (por defecto '', ruta relativa de siempre): el bundle
+    // embebible (Modo B) llama desde el DOM de la web del estudio, donde una
+    // ruta relativa resolvería contra SU origen — necesita el de Tentare.
+    // Con `baseUrl` (cross-origin) el studioId va TAMBIÉN en la URL: el
+    // preflight CORS no puede leer el body JSON.
+    const url = extra?.baseUrl
+      ? `${extra.baseUrl}/api/public/evento?studioId=${encodeURIComponent(studioId)}`
+      : '/api/public/evento';
+    void fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       keepalive: true,

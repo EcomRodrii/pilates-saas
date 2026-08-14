@@ -3,11 +3,18 @@ import { registrarSociaPublica, actualizarSociaPublica, socioAutenticado } from 
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 
 // Operaciones de la propia socia desde el portal/reserva. SEGURIDAD: todas
 // exigen sesión real de socia (JWT de Supabase Auth); la identidad se deriva del
 // token, no del body. `registrar` es el alta de un walk-in ya autenticado por
 // magic link: se crea su ficha vinculada a su usuario de auth.
+//
+// CORS: el bundle embebible manda ?studioId= en la URL (además del body).
+export async function OPTIONS(req: NextRequest) {
+  return respuestaPreflightWidget(req);
+}
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'public-socio', { max: 20, windowSeconds: 60 });
   if (limited) return limited;
@@ -24,17 +31,17 @@ export async function POST(req: NextRequest) {
     cambios?: Record<string, unknown>;
   } | null;
 
-  if (!body?.studioId) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+  if (!body?.studioId) return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
 
   const user = await verificarUsuarioSupabase(req);
-  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  if (!user) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
 
   try {
     // Alta de walk-in: autenticado por magic link pero aún sin ficha de socia.
     // El email lo pone el JWT (no el body) y se vincula auth_user_id.
     if (body.accion === 'registrar') {
       if (!body.id || !body.nombre) {
-        return NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 });
+        return conCorsWidget(req, NextResponse.json({ error: 'Faltan datos de la socia' }, { status: 400 }));
       }
 
       // El tope de socias del plan lo comprueba `registrarSociaPublica`, pegado
@@ -49,23 +56,23 @@ export async function POST(req: NextRequest) {
       if ('error' in r) {
         // 403 para el tope de plan (lo distingue el portal), 400 para el resto.
         const status = 'code' in r && r.code === 'LIMITE_SOCIAS' ? 403 : 400;
-        return NextResponse.json(r, { status });
+        return conCorsWidget(req, NextResponse.json(r, { status }));
       }
-      return NextResponse.json(r);
+      return conCorsWidget(req, NextResponse.json(r));
     }
 
     // Acciones sobre una socia ya existente: su id sale del token, no del body.
     const socioId = await socioAutenticado(user.userId, body.studioId);
-    if (!socioId) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    if (!socioId) return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 401 }));
     const common = { studioId: body.studioId, socioId, email: user.email, cambios: body.cambios ?? {} };
 
     if (body.accion === 'actualizar') {
       const r = await actualizarSociaPublica(common);
-      if ('error' in r) return NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 });
-      return NextResponse.json(r);
+      if ('error' in r) return conCorsWidget(req, NextResponse.json({ error: r.error }, { status: r.error === 'No autorizado' ? 401 : 400 }));
+      return conCorsWidget(req, NextResponse.json(r));
     }
-    return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Acción no válida' }, { status: 400 }));
   } catch (err) {
-    return errorInterno('public/socio:POST', err, 'No se ha podido procesar la operación.');
+    return conCorsWidget(req, errorInterno('public/socio:POST', err, 'No se ha podido procesar la operación.'));
   }
 }
