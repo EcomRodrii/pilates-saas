@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { GoogleIcon } from '@/components/auth/google-icon';
 import { NW } from './data';
 
 // Sección final: es aquí donde se decide todo, así que lleva el peso visual
@@ -13,14 +14,22 @@ import { NW } from './data';
 
 export function SeccionRegistro() {
   const uid = useId();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
+
+  async function conectarConGoogle() {
+    setError(''); setInfo('');
+    setConectandoGoogle(true);
+    const { error } = await signInWithGoogle();
+    if (error) { setError(error); setConectandoGoogle(false); }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,6 +68,12 @@ export function SeccionRegistro() {
         </div>
 
         <div className="nw-reg-card">
+          <button type="button" disabled={conectandoGoogle} onClick={() => void conectarConGoogle()} className="nw-reg-google">
+            <GoogleIcon />
+            {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
+          </button>
+          <div className="nw-reg-sep"><span /><em>o</em><span /></div>
+
           <form onSubmit={handleSubmit} className="nw-reg-form">
             <div>
               <label htmlFor={`${uid}-nombre`}>Tu nombre</label>
@@ -96,6 +111,14 @@ export function SeccionRegistro() {
         .nw-reg-copy p { font-size: 15.5px; line-height: 1.6; color: rgba(255,255,255,.72); margin: 0; max-width: 44ch; }
 
         .nw-reg-card { background: #fff; border-radius: 20px; padding: 28px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.5); }
+        .nw-reg-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+          padding: 10px; border-radius: 12px; border: 1px solid #E7E7E0; font-size: 13.5px; font-weight: 600;
+          color: #3A3A34; background: #fff; transition: background-color .2s, opacity .2s; }
+        .nw-reg-google:hover { background: #FAFAF7; }
+        .nw-reg-google:disabled { opacity: .6; }
+        .nw-reg-sep { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+        .nw-reg-sep span { flex: 1; height: 1px; background: #E7E7E0; }
+        .nw-reg-sep em { font-style: normal; font-size: 11px; font-weight: 500; color: #A8A89F; }
         .nw-reg-form { display: flex; flex-direction: column; gap: 16px; }
         .nw-reg-form label { display: block; font-size: 13px; font-weight: 600; color: #3A3A34; margin-bottom: 6px; }
         .nw-reg-form input { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1px solid #E7E7E0;
