@@ -121,7 +121,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               </span>
             )}
             <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
-            <p className="mt-2 text-[24px]" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>
+            <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
               Instructora de Pilates{perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
             <div className="mt-3 flex items-center gap-4 flex-wrap text-[13.5px]" style={{ color: NW_MUTED }}>
@@ -245,7 +245,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
           {/* Aside sticky — oculto en móvil, sustituido por la barra fija de abajo. */}
           <aside className="hidden lg:block self-start sticky top-24">
             <div className="bg-white rounded-[22px] p-6" style={{ border: `1px solid ${NW_BORDE}` }}>
-              <p className="text-[20px]" style={{ fontFamily: 'var(--font-display)' }}>
+              <p className="text-[17px] font-extrabold">
                 ¿Quieres contactar con {perfil.nombre.split(' ')[0]}?
               </p>
               <div className="mt-4">

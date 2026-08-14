@@ -65,8 +65,7 @@ export default function AccesoNetworkPage() {
             <LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo />
           </Link>
           <h1 className="text-[34px] font-extrabold leading-[1.05] tracking-tight" style={{ color: NW_TINTA }}>
-            ¿Cómo entras en{' '}
-            <em className="font-normal not-italic" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>Tentare</em>?
+            ¿Cómo entras en <span style={{ color: NW_PRODUCTO }}>Tentare</span>?
           </h1>
 
           <div className="mt-8 space-y-4">

@@ -622,7 +622,7 @@ export default function MiPerfilNetworkPage() {
           </button>
         ) : (
           <button
-            onClick={guardar}
+            onClick={async () => { if (await guardar()) showToast('Cambios guardados'); }}
             disabled={guardando}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
           >
