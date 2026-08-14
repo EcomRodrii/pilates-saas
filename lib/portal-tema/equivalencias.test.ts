@@ -50,13 +50,18 @@ test('elTemaIncluye responde por TEMA, no por existencia', () => {
 });
 
 test('lo que no tiene equivalente no se inventa', () => {
+  // ⚠️ Este test decía que los cinco del kit no tenían equivalente. Dejó de ser
+  // verdad el 2026-08-14, cuando se les dio ficha en el editor para poder
+  // ordenarlos y ocultarlos — y falló, que es exactamente lo que tenía que
+  // hacer. Lo que sigue sin tenerlo son los dos saludos del kit.
+  assert.equal(BLOQUE_KIT_A_EDITOR.greeting, undefined);
+  assert.equal(BLOQUE_KIT_A_EDITOR.headline, undefined);
+
   // `studio-quote` es la cita del TEMA; `contenidoEstudio` es lo que escribe
-  // la propietaria. Se parecen y no son lo mismo.
+  // la propietaria. Se parecen y no son lo mismo: cada una con su ficha.
   assert.equal(BLOQUE_EDITOR_A_KIT.contenidoEstudio, 'studio-banner');
-  assert.equal(BLOQUE_KIT_A_EDITOR['studio-quote'], undefined);
-  for (const kit of ['streak-pill', 'pass-card', 'bookings-list', 'videos-cta']) {
-    assert.equal(BLOQUE_KIT_A_EDITOR[kit], undefined, kit);
-  }
+  assert.equal(BLOQUE_EDITOR_A_KIT.citaEstudio, 'studio-quote');
+
   assert.equal(elTemaIncluye('invitarAmiga', TEMAS_PORTAL.tentada.home_blocks), false);
 });
 

@@ -86,7 +86,18 @@ test.describe('Armazón del portal del kit', () => {
     // la hora falsa pintada en la cara de la socia.
     await expect(page.getByText('9:41')).toBeHidden();
 
-    const alto = await page.locator('.status-bar').evaluate((n) => n.getBoundingClientRect().height);
-    expect(alto, 'el hueco de la safe-area no debe desaparecer, solo su contenido').toBeGreaterThan(0);
+    // ⚠️ `expect.poll` y no un `evaluate` suelto: medido el 2026-08-14, ese
+    // `getBoundingClientRect()` daba 0 en 2 de cada 4 pasadas con el MISMO
+    // código — se lee como un fallo del cambio que llevaras entre manos y no
+    // lo es (me costó dos merges y un rerun de CI). La barra existe desde el
+    // primer render, pero su alto sale de la hoja del tema y se mide antes de
+    // que el layout asiente. Reintentar es lo correcto: lo que se afirma es
+    // «el hueco NO desaparece», no «está ahí en el primer fotograma».
+    await expect
+      .poll(
+        () => page.locator('.status-bar').evaluate((n) => n.getBoundingClientRect().height),
+        { message: 'el hueco de la safe-area no debe desaparecer, solo su contenido' },
+      )
+      .toBeGreaterThan(0);
   });
 });

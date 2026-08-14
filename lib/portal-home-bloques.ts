@@ -45,6 +45,11 @@ export const BLOQUES_SISTEMA_IDS = [
   // esos temas: se añaden al FINAL de BLOQUES_SISTEMA_POR_PANTALLA.home, así
   // que no cambian el orden por defecto de nadie que ya tenga bloques guardados.
   'tiraSemana', 'progresoSemanal', 'retos',
+  // Solo del KIT (`components/portal-tema/`): el tema Tentada los pinta y hasta
+  // ahora el rail no los listaba, así que eran secciones visibles para la socia
+  // e inmovibles para la propietaria. Van OCULTOS por defecto como los tres de
+  // arriba — un estudio sin el kit no los ve.
+  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
 ] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
@@ -56,7 +61,7 @@ export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 // abajo) — un estudio que no instale Oliva/Noir/Bloom ni los active a mano
 // no los ve.
 export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
-  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos'],
+  home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos', 'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
 };
@@ -792,6 +797,40 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
     id: 'sistema', sistemaId: 'invitarAmiga', nombre: 'Invita a una amiga',
     icono: 'UserPlus', origen: 'sistema', estilizable: false, campos: CAMPOS_INVITAR_AMIGA,
   },
+  // ── Solo del kit ─────────────────────────────────────────────────────────
+  // Cinco secciones que `components/portal-tema/` pinta y el editor no
+  // conocía. Sin ficha aquí no salían en el rail: la socia las veía y la
+  // propietaria no podía ni moverlas ni apagarlas.
+  //
+  // ⚠️ `campos: []` a propósito. Su contenido no lo escribe ella —son datos
+  // suyos: su racha, su bono, sus reservas— así que un panel de edición aquí
+  // prometería algo que no hay. Se listan para ORDENAR y OCULTAR, que es lo
+  // que sí se puede hacer con ellas.
+  racha: {
+    id: 'sistema', sistemaId: 'racha', nombre: 'Tu racha',
+    descripcion: 'Las semanas seguidas que lleva viniendo.',
+    icono: 'Flame', origen: 'sistema', estilizable: false, campos: [],
+  },
+  tarjetaBono: {
+    id: 'sistema', sistemaId: 'tarjetaBono', nombre: 'Tu bono',
+    descripcion: 'Las clases que le quedan y cuándo caduca.',
+    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
+  },
+  misReservas: {
+    id: 'sistema', sistemaId: 'misReservas', nombre: 'Tus próximas reservas',
+    descripcion: 'La lista de lo que tiene reservado.',
+    icono: 'ListChecks', origen: 'sistema', estilizable: false, campos: [],
+  },
+  videosEnCasa: {
+    id: 'sistema', sistemaId: 'videosEnCasa', nombre: 'Pilates en casa',
+    descripcion: 'Invitación a las sesiones en vídeo.',
+    icono: 'Play', origen: 'sistema', estilizable: false, campos: [],
+  },
+  citaEstudio: {
+    id: 'sistema', sistemaId: 'citaEstudio', nombre: 'Cierre del Inicio',
+    descripcion: 'La frase del tema, firmada por el estudio.',
+    icono: 'Quote', origen: 'sistema', estilizable: false, campos: [],
+  },
   contenidoEstudio: {
     id: 'sistema', sistemaId: 'contenidoEstudio',
     nombre: 'Contenido del estudio',
@@ -893,7 +932,14 @@ export function getBlockCatalogEntry(kind: string): BlockCatalogEntry | undefine
 
 // Ocultos por defecto: los que ningún estudio ve hasta que instala el tema
 // que los pide (lib/theme-definitions.ts, bloquesHome) o los activa a mano.
-const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>(['tiraSemana', 'progresoSemanal', 'retos']);
+const SISTEMA_OCULTO_POR_DEFECTO = new Set<BloqueSistemaId>([
+  'tiraSemana', 'progresoSemanal', 'retos',
+  // ⚠️ Los cinco del kit, ocultos por el MISMO motivo: un estudio con el
+  // portal de siempre no tiene quien los pinte, y listarlos encendidos
+  // prometería secciones que su socia no va a ver. El tema que los compone
+  // manda igual (`ordenDelInicio` respeta lo que él trae si ella no ordenó).
+  'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
+]);
 
 function bloqueSistema(sistemaId: BloqueSistemaId): BloqueHome {
   return SISTEMA_OCULTO_POR_DEFECTO.has(sistemaId)
