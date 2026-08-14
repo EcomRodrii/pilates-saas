@@ -360,12 +360,23 @@ export default function ReservarPage() {
   // para siempre en visitas futuras.
   const bannerQuizKey = `tentare-discovery-oculto-${slug}`;
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee sessionStorage (no disponible en SSR) tras montar; el segundo render es el objetivo.
-    setBannerQuizVisible(sessionStorage.getItem(bannerQuizKey) !== '1');
+    // Esta página se embebe por <iframe> en la web de cada estudio (modo
+    // widget). Un `sandbox` sin `allow-same-origin` —config habitual, no un
+    // caso raro— hace que LEER `sessionStorage` lance `SecurityError` en vez
+    // de devolver null: sin el try/catch, esta línea reventaba el efecto y
+    // rompía el widget entero para esos estudios (visto en Sentry,
+    // JAVASCRIPT-NEXTJS-1C). `bannerQuizVisible` se queda en `null` —el
+    // banner simplemente no aparece—, mismo criterio que ya usan
+    // `sede-activa.tsx` y `lib/equipo/invitacion-pendiente.ts` para el mismo
+    // problema.
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee sessionStorage (no disponible en SSR) tras montar; el segundo render es el objetivo.
+      setBannerQuizVisible(sessionStorage.getItem(bannerQuizKey) !== '1');
+    } catch { /* iframe sandboxed, modo privado */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   function descartarQuizBanner() {
-    sessionStorage.setItem(bannerQuizKey, '1');
+    try { sessionStorage.setItem(bannerQuizKey, '1'); } catch { /* ídem */ }
     setBannerQuizVisible(false);
   }
   // Solo los niveles que ESTE estudio ofrece de verdad — nunca mostrar
