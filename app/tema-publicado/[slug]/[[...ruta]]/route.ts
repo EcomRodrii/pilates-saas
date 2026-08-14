@@ -50,7 +50,7 @@ export async function GET(
   // pregunta que esta ruta puede responder.
   const { data: fila } = await admin
     .from('theme_imports')
-    .select('studio_id, storage_prefix, entry_html, estado, manifest')
+    .select('studio_id, storage_prefix, entry_html, estado, manifest, rutas_editadas')
     .eq('studio_id', estudio.id)
     .eq('publicado', true)
     .maybeSingle<FilaTemaImportado>();

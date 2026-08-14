@@ -28,6 +28,9 @@ export interface FilaTemaImportado {
   entry_html: string | null;
   estado: string;
   manifest: ImportedThemeManifest;
+  /** Ficheros con una versión editada a mano (ver `lib/theme-import/editar.ts`)
+   *  — se leen de `storage_prefix + 'editado/' + ruta` en vez del original. */
+  rutas_editadas?: string[] | null;
 }
 
 /**
@@ -54,7 +57,14 @@ export async function servirFicheroTema(
   const existe = manifest.ficheros.some((f) => f.ruta === ruta);
   if (!existe) return new NextResponse('No encontrado', { status: 404 });
 
-  const bytes = await descargarObjetoR2(`${fila.storage_prefix}${ruta}`);
+  // Editado-si-existe, original si no: publicar/servir nunca "congela" una
+  // copia aparte — resuelve la versión vigente en el momento de la petición,
+  // así que guardar una edición se refleja al instante en TODO lo que sirve
+  // este helper (vista previa del editor Y origen público), sin un tercer
+  // estado "publicado pero desactualizado".
+  const esEditado = fila.rutas_editadas?.includes(ruta) ?? false;
+  const clave = esEditado ? `${fila.storage_prefix}editado/${ruta}` : `${fila.storage_prefix}${ruta}`;
+  const bytes = await descargarObjetoR2(clave);
   if (!bytes) return new NextResponse('No encontrado', { status: 404 });
 
   const tipo = contentTypeDe(ruta);
@@ -75,6 +85,30 @@ export async function servirFicheroTema(
   return new NextResponse(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
     headers: { 'Content-Type': tipo, 'Cache-Control': 'private, max-age=1200' },
   });
+}
+
+/**
+ * El texto FUENTE de un fichero HTML/CSS — sin `reescribirHtml`/
+ * `reescribirCss` ni `enlazarDatosReales`. Para el editor de código: editar
+ * el HTML ya reescrito (URLs absolutas de R2, nombre del estudio ya
+ * enlazado) contaminaría lo guardado — la próxima vez que cambie el nombre
+ * del estudio, el fichero editado se quedaría con el nombre VIEJO grabado a
+ * fuego en el texto. Sí respeta `rutas_editadas` (reabrir el editor enseña
+ * tu último guardado, no el original si ya lo editaste).
+ */
+export async function contenidoFuenteDeFichero(
+  fila: FilaTemaImportado,
+  ruta: string,
+): Promise<{ contenido: string; clase: 'html' | 'css' } | null> {
+  const fichero = fila.manifest.ficheros.find((f) => f.ruta === ruta);
+  if (!fichero || (fichero.clase !== 'html' && fichero.clase !== 'css')) return null;
+
+  const esEditado = fila.rutas_editadas?.includes(ruta) ?? false;
+  const clave = esEditado ? `${fila.storage_prefix}editado/${ruta}` : `${fila.storage_prefix}${ruta}`;
+  const bytes = await descargarObjetoR2(clave);
+  if (!bytes) return null;
+
+  return { contenido: new TextDecoder().decode(bytes), clase: fichero.clase };
 }
 
 // «TEMA ORIGINAL + TENTARE DATA → THEME RENDERER» (punto 12 del encargo): el

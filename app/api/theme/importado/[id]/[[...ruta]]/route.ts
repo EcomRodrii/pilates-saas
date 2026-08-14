@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { borrarPrefijoR2 } from '@/lib/r2';
-import { servirFicheroTema, type FilaTemaImportado } from '@/lib/theme-import/servir';
+import { borrarPrefijoR2, subirObjetoR2 } from '@/lib/r2';
+import { servirFicheroTema, contenidoFuenteDeFichero, type FilaTemaImportado } from '@/lib/theme-import/servir';
+import { resolverPreviewEnVivo } from '@/lib/theme-import/preview-en-vivo';
+import { contentTypeDe } from '@/lib/theme-import/content-type';
 import { verificarTokenPreviewHome } from '@/lib/theme/home-preview-token';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
+import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
+
+/** Límite de tamaño de un fichero editado a mano — el importador de ZIP
+ *  tampoco tenía uno explícito hasta ahora; este es el primero, no un hueco
+ *  reabierto. 2 MB es sobrado para HTML/CSS escrito por una persona. */
+const LIMITE_FICHERO_EDITADO_BYTES = 2 * 1024 * 1024;
 
 export const runtime = 'nodejs';
 
@@ -46,7 +54,7 @@ export async function GET(
 
   const { data: fila } = await admin
     .from('theme_imports')
-    .select('studio_id, storage_prefix, entry_html, estado, manifest')
+    .select('studio_id, storage_prefix, entry_html, estado, manifest, rutas_editadas')
     .eq('id', id)
     .maybeSingle<FilaTemaImportado>();
   if (!fila || fila.studio_id !== verificado.studioId) {
@@ -54,6 +62,17 @@ export async function GET(
   }
 
   const rutaPedida = ruta && ruta.length > 0 ? ruta.join('/') : null;
+
+  // `?crudo=1` — el texto FUENTE de un fichero HTML/CSS, para el editor de
+  // código. Sin esto, "editar" partiría del HTML ya reescrito (URLs
+  // absolutas, nombre del estudio ya enlazado) y lo guardaría contaminado.
+  if (req.nextUrl.searchParams.get('crudo') === '1') {
+    if (!rutaPedida) return NextResponse.json({ error: 'Falta la ruta del fichero' }, { status: 400 });
+    const fuente = await contenidoFuenteDeFichero(fila, rutaPedida);
+    if (!fuente) return NextResponse.json({ error: 'No encontrado o no es HTML/CSS' }, { status: 404 });
+    return NextResponse.json(fuente);
+  }
+
   return servirFicheroTema(
     admin, fila, rutaPedida,
     (rutaResuelta) => `/api/theme/importado/${id}/${rutaResuelta}?t=${encodeURIComponent(token!)}`,
@@ -166,4 +185,106 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   await borrarPrefijoR2(fila.storage_prefix).catch(() => {});
   return NextResponse.json({ ok: true });
+}
+
+// PUT /api/theme/importado/[id]/<ruta> — guarda una edición de un fichero
+// HTML/CSS del tema. Body: { contenido: string }.
+//
+// Nunca sobrescribe el original: sube a `storage_prefix + 'editado/' +
+// ruta` (`lib/theme-import/servir.ts` ya sabe leer de ahí si
+// `rutas_editadas` lo incluye) y añade `ruta` a esa lista. Solo HTML/CSS —
+// el usuario pidió explícitamente "editor de código real (HTML/CSS)", no un
+// editor de JS/imágenes/config del tema.
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string; ruta?: string[] }> }) {
+  const auth = await autorizarEscritura(req);
+  if (!auth.ok) return auth.res;
+
+  const { id, ruta } = await params;
+  if (!ruta || ruta.length === 0) {
+    return NextResponse.json({ error: 'Falta la ruta del fichero a guardar' }, { status: 400 });
+  }
+  const rutaPedida = ruta.join('/');
+
+  const body = await req.json().catch(() => null);
+  const contenido = body?.contenido;
+  if (typeof contenido !== 'string') {
+    return NextResponse.json({ error: 'Falta el contenido' }, { status: 400 });
+  }
+  const bytes = new TextEncoder().encode(contenido);
+  if (bytes.length > LIMITE_FICHERO_EDITADO_BYTES) {
+    return NextResponse.json({ error: 'El fichero supera el límite de 2 MB' }, { status: 413 });
+  }
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servicio no disponible' }, { status: 503 });
+
+  const { data: fila } = await admin
+    .from('theme_imports')
+    .select('studio_id, storage_prefix, manifest, rutas_editadas')
+    .eq('id', id)
+    .maybeSingle();
+  if (!fila || fila.studio_id !== auth.studioId) {
+    return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+  }
+
+  const manifest = fila.manifest as ImportedThemeManifest;
+  const fichero = manifest.ficheros.find((f) => f.ruta === rutaPedida);
+  if (!fichero || (fichero.clase !== 'html' && fichero.clase !== 'css')) {
+    return NextResponse.json({ error: 'Solo se puede editar HTML o CSS del tema.' }, { status: 400 });
+  }
+
+  try {
+    await subirObjetoR2(`${fila.storage_prefix}editado/${rutaPedida}`, bytes, contentTypeDe(rutaPedida));
+  } catch (e) {
+    return errorInterno('theme:importado:guardar-fichero', e, 'No se ha podido guardar el fichero.');
+  }
+
+  const rutasEditadas: string[] = fila.rutas_editadas ?? [];
+  if (!rutasEditadas.includes(rutaPedida)) {
+    const { error } = await admin
+      .from('theme_imports')
+      .update({ rutas_editadas: [...rutasEditadas, rutaPedida] })
+      .eq('id', id);
+    if (error) return errorInterno('theme:importado:guardar-fichero:marcar', error, 'El fichero se subió pero no se pudo registrar.');
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+// POST /api/theme/importado/[id] — vista previa EN VIVO, sin persistir.
+// Body: { ruta: string, contenido: string, token: string }.
+//
+// `token` es el MISMO token de preview que ya usa el `GET` — aquí no
+// autentica la petición (esta ya lo está, por sesión de staff normal), solo
+// se reutiliza para construir las URLs de assets (imágenes/fuentes) que
+// referencia la página, para no inventar un segundo mecanismo de firma.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; ruta?: string[] }> }) {
+  const auth = await autorizarEscritura(req);
+  if (!auth.ok) return auth.res;
+
+  const { id } = await params;
+  const body = await req.json().catch(() => null);
+  const ruta = body?.ruta;
+  const contenido = body?.contenido;
+  const token = body?.token;
+  if (typeof ruta !== 'string' || typeof contenido !== 'string' || typeof token !== 'string') {
+    return NextResponse.json({ error: 'Faltan datos de la vista previa' }, { status: 400 });
+  }
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'Servicio no disponible' }, { status: 503 });
+
+  const { data: fila } = await admin
+    .from('theme_imports')
+    .select('studio_id, storage_prefix, entry_html, estado, manifest, rutas_editadas')
+    .eq('id', id)
+    .maybeSingle<FilaTemaImportado>();
+  if (!fila || fila.studio_id !== auth.studioId) {
+    return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+  }
+
+  return resolverPreviewEnVivo(
+    admin, fila, { ruta, contenido },
+    (rutaResuelta) => `/api/theme/importado/${id}/${rutaResuelta}?t=${encodeURIComponent(token)}`,
+  );
 }

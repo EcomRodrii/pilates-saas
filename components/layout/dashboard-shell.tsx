@@ -185,7 +185,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // dentro de los providers (auth/tema/privacidad ya resueltos arriba) — solo
   // se salta Sidebar/Topbar y el `max-w-[1320px]` pensado para contenido de
   // panel normal, que aquí solo recortaría las 3 columnas del editor.
-  if (pathname === '/configuracion/apariencia/editor') {
+  if (pathname === '/configuracion/apariencia/editor' || pathname.startsWith('/configuracion/apariencia/editor-zip/')) {
     return (
       <PanelPrivacyProvider>
         <PanelThemeProvider className="min-h-dvh bg-background">
