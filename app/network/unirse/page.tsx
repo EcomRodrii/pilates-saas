@@ -42,7 +42,7 @@ export default function UnirseNetworkPage() {
   // su perfil, no a pedirle que lea la landing otra vez. Misma fila
   // red_perfiles por auth_user_id si algún día también es staff.
   useEffect(() => {
-    if (!loading && user) router.replace('/network/mi-perfil');
+    if (!loading && user) router.replace('/network/inicio');
   }, [loading, user, router]);
 
   if (loading || user) return null;

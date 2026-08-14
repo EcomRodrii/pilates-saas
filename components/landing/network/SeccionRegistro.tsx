@@ -34,7 +34,7 @@ export function SeccionRegistro() {
       email, password,
       { nombre: nombre.trim() },
       token || undefined,
-      '/network/mi-perfil',
+      '/network/inicio',
     );
     if (error) { setError(error); setSubmitting(false); return; }
     if (yaRegistrado) {
@@ -47,7 +47,7 @@ export function SeccionRegistro() {
       setSubmitting(false);
       return;
     }
-    window.location.href = '/network/mi-perfil';
+    window.location.href = '/network/inicio';
   }
 
   return (

@@ -81,7 +81,12 @@ const allSections: NavSection[] = [
       // /network/buscar y no /network: esa URL literal la ocupa ahora la
       // landing PÚBLICA de Network (app/network/page.tsx, rediseño 2026-08) —
       // no puede haber dos páginas en la misma ruta.
-      { href: '/network/buscar', label: 'Buscar instructoras', icon: Network },
+      // Label "Tentare Network" (no "Buscar instructoras"): desde Fase 2
+      // esta ruta abre una sección con su propio sub-nav
+      // (app/(dashboard)/network/layout.tsx: Buscar/Favoritas/Mensajes), no
+      // una sola pantalla — el sidebar general solo necesita apuntar a la
+      // entrada, la separación real la da ese sub-nav.
+      { href: '/network/buscar', label: 'Tentare Network', icon: Network },
       { href: '/ondemand', label: 'Oferta digital', icon: Play },
       { href: '/informes', label: 'Informes', icon: BarChart2 },
       { href: '/cierre', label: 'Cierre de año', icon: Calculator },

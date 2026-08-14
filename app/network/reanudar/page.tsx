@@ -37,7 +37,7 @@ export default function ReanudarNetworkPage() {
       // enlace guardado viejo) se manda a donde sí toca en vez de enseñar
       // una pantalla que no aplica.
       if (!p) { router.replace('/network/crear-perfil'); return; }
-      if (p.estado === 'published' || p.estado === 'en_revision') { router.replace('/network/mi-perfil'); return; }
+      if (p.estado === 'published' || p.estado === 'en_revision') { router.replace('/network/inicio'); return; }
       setPerfil(p);
       setCargando(false);
     });

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { SlidersHorizontal, Loader2, Heart, MessageCircle, MapPin } from 'lucide-react';
+import { SlidersHorizontal, Loader2, MapPin } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
@@ -57,22 +56,6 @@ export default function NetworkBuscadorPage() {
       <PageHeader
         title="Buscar instructoras"
         description="Encuentra profesionales de Pilates de Tentare Network disponibles para tu estudio."
-        actions={(
-          <div className="flex items-center gap-2">
-            <Link
-              href="/network/mensajes"
-              className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
-            >
-              <MessageCircle size={13} /> Mensajes
-            </Link>
-            <Link
-              href="/network/favoritas"
-              className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
-            >
-              <Heart size={13} /> Mis favoritas
-            </Link>
-          </div>
-        )}
       />
 
       <div className="flex items-center gap-2 flex-wrap">
