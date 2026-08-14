@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, MessageCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { Toast, useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth-context';
@@ -117,6 +117,18 @@ export default function SolicitudesNetworkPage() {
                     <X size={13} /> Rechazar
                   </button>
                 </div>
+              )}
+              {/* Sin esto, "Aceptada" era una palabra suelta — nada en esta
+                  pantalla llevaba a la conversación de verdad, había que
+                  saber que existe /network/mis-mensajes y buscar ahí el
+                  hilo correcto. Un clic, directo a esa conversación. */}
+              {s.estado === 'aceptada' && (
+                <Link
+                  href={`/network/mis-mensajes?hilo=${s.id}`}
+                  className="inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium"
+                >
+                  <MessageCircle size={13} /> Enviar mensaje
+                </Link>
               )}
             </div>
           ))}

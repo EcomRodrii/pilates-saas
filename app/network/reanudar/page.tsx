@@ -31,13 +31,13 @@ export default function ReanudarNetworkPage() {
     let vivo = true;
     fetchMiPerfilNetwork().then(p => {
       if (!vivo) return;
-      // Sin perfil todavía, o ya publicado: esta pantalla no le pertenece —
-      // el propio destino-post-login no debería haber mandado aquí a
-      // ninguna de las dos, pero por si acaso (carrera, enlace guardado
-      // viejo) se manda a donde sí toca en vez de enseñar una pantalla que
-      // no aplica.
+      // Sin perfil todavía, o ya completo (publicado o en revisión): esta
+      // pantalla no le pertenece — el propio destino-post-login no debería
+      // haber mandado aquí a ninguna de las dos, pero por si acaso (carrera,
+      // enlace guardado viejo) se manda a donde sí toca en vez de enseñar
+      // una pantalla que no aplica.
       if (!p) { router.replace('/network/crear-perfil'); return; }
-      if (p.estado === 'published') { router.replace('/network/mi-perfil'); return; }
+      if (p.estado === 'published' || p.estado === 'en_revision') { router.replace('/network/mi-perfil'); return; }
       setPerfil(p);
       setCargando(false);
     });

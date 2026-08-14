@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico } from '@/lib/network/publico';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
@@ -56,16 +57,29 @@ export default async function NetworkLandingPage() {
             <BuscadorHero />
           </div>
         </div>
-        <div className="relative">
-          <FotoInstructora fotoUrl={destacadas[0]?.fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} />
-          <div
-            className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
-            style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
-          >
-            <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white" style={{ background: NW_PRODUCTO }}>✓</span>
-            {perfiles.length > 0 ? `${perfiles.length} perfiles verificados` : 'Perfiles verificados'}
+        {destacadas[0]?.fotoUrl ? (
+          <div className="relative">
+            <FotoInstructora fotoUrl={destacadas[0].fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} />
+            <div
+              className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
+              style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
+            >
+              <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white" style={{ background: NW_PRODUCTO }}>✓</span>
+              {perfiles.length} perfiles verificados
+            </div>
           </div>
-        </div>
+        ) : (
+          // Sin ninguna instructora destacada todavía (red nueva, sin
+          // fotos que mostrar): un panel de marca sólido, nunca el
+          // placeholder rayado de FotoInstructora — ese comunica "foto
+          // rota" a tamaño de tarjeta, y aquí ocupa media pantalla.
+          <div
+            className="hidden lg:flex items-center justify-center rounded-[26px]"
+            style={{ aspectRatio: '1 / 1.08', background: NW_VERDE_OSCURO }}
+          >
+            <LogoTentare formato="isotipo" tinta="blanco" alto={72} decorativo />
+          </div>
+        )}
       </section>
 
       {destacadas.length > 0 && (

@@ -26,7 +26,12 @@ export interface PerfilNetwork {
   tipoTrabajo: TipoTrabajoNetwork[];
   emailContacto: string | null;
   telefonoContacto: string | null;
-  estado: 'draft' | 'published' | 'hidden' | 'suspended';
+  // 'en_revision': el wizard está completo y la instructora lo ha enviado,
+  // pero todavía no es 'published' — eso lo decide el equipo de Tentare
+  // desde /interno/network (evitar spam/perfiles falsos, feedback directo
+  // del fundador). Nunca lo pone el dueño directamente: ni la API ni la
+  // RLS (migración red_perfiles_en_revision) se lo permiten.
+  estado: 'draft' | 'en_revision' | 'published' | 'hidden' | 'suspended';
   // Solo el equipo de Tentare lo escribe (app/interno/network) — nunca desde
   // /network/mi-perfil. Empuja al principio del ranking (lib/network/
   // ranking.ts), no es un badge de confianza (esos son hechos verificables,

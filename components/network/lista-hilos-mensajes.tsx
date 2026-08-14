@@ -14,15 +14,31 @@ const cuando = (iso: string) => new Date(iso).toLocaleString('es-ES', { day: 'nu
 // (app/(dashboard)/network/mensajes) y el lado instructora (app/network/
 // mensajes): la API de hilos ya resuelve quién pregunta, aquí solo hace
 // falta pintar la lista y abrir el hilo elegido en un DashboardSheet.
-export function ListaHilosMensajes({ vacioTexto }: { vacioTexto: string }) {
+export function ListaHilosMensajes({
+  vacioTexto, abrirSolicitudId,
+}: {
+  vacioTexto: string;
+  /** Si viene de "Enviar mensaje" en una solicitud recién aceptada (solicitudes/
+   *  page.tsx), abre ESE hilo directamente en vez de dejar que se busque en
+   *  la lista — antes había que saber que "Mensajes" existía como pantalla
+   *  aparte y encontrar la conversación a mano; ahora un solo clic. */
+  abrirSolicitudId?: string | null;
+}) {
   const [hilos, setHilos] = useState<HiloNetwork[] | null>(null);
   const [abierto, setAbierto] = useState<HiloNetwork | null>(null);
 
   useEffect(() => {
     let vivo = true;
-    fetchHilosMensajesNetwork().then(h => { if (vivo) setHilos(h); });
+    fetchHilosMensajesNetwork().then(h => {
+      if (!vivo) return;
+      setHilos(h);
+      if (abrirSolicitudId) {
+        const hilo = h.find(x => x.solicitudId === abrirSolicitudId);
+        if (hilo) setAbierto(hilo);
+      }
+    });
     return () => { vivo = false; };
-  }, []);
+  }, [abrirSolicitudId]);
 
   if (!hilos) {
     return (

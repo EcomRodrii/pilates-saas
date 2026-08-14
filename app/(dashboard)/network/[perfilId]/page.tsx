@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Loader2, Send, Check, Flag, Heart, Star, MessageCircle } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
@@ -10,6 +10,7 @@ import {
   fetchPerfilNetworkPublico, contactarPerfilNetwork, reportarPerfilNetwork,
   fetchFavoritosNetwork, toggleFavoritoNetwork,
   elegibilidadResenaNetwork, enviarResenaNetwork,
+  fetchHilosMensajesNetwork,
 } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import {
@@ -47,6 +48,12 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
   const [comentarioResena, setComentarioResena] = useState('');
   const [enviandoResena, setEnviandoResena] = useState(false);
   const [errorResena, setErrorResena] = useState('');
+  // Solicitud ya aceptada con esta persona → hay un hilo de verdad, no solo
+  // el flag local `enviado` (que se olvida en cuanto se recarga la
+  // página: antes, volver a esta ficha después de que ella aceptara seguía
+  // enseñando "Contactar" como si nada, sin ningún camino hacia la
+  // conversación real).
+  const [solicitudIdAceptada, setSolicitudIdAceptada] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -62,6 +69,11 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       if (!vivo) return;
       setElegibleResena(r.elegible);
       setYaResenado(r.yaResenado);
+    });
+    fetchHilosMensajesNetwork().then(hilos => {
+      if (!vivo) return;
+      const hilo = hilos.find(h => h.perfilId === perfilId);
+      if (hilo) setSolicitudIdAceptada(hilo.solicitudId);
     });
     return () => { vivo = false; };
   }, [perfilId]);
@@ -198,7 +210,14 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
       )}
 
       <div className="flex items-center gap-2">
-        {enviado ? (
+        {solicitudIdAceptada ? (
+          <Link
+            href={`/network/mensajes?hilo=${solicitudIdAceptada}`}
+            className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 hover:brightness-95 transition-colors"
+          >
+            <MessageCircle size={13} /> Enviar mensaje
+          </Link>
+        ) : enviado ? (
           <p className="text-[12px] text-success flex items-center gap-1.5">
             <Check size={13} /> Solicitud enviada. Te avisaremos si {perfil.nombre.split(' ')[0]} la acepta.
           </p>

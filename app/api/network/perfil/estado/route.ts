@@ -3,7 +3,6 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { mapFilaAPerfil, type FilaRedPerfil } from '@/lib/network/mapeo';
-import { slugBase, slugConSufijo } from '@/lib/network/slug';
 
 // Tentare Network, Fase 3 (publicación) — docs/NETWORK-IMPLEMENTATION-PLAN.md.
 //
@@ -11,14 +10,17 @@ import { slugBase, slugConSufijo } from '@/lib/network/slug';
 // tiene una regla de negocio propia (validación mínima para publicar) que no
 // debe colarse en cada guardado de un campo suelto del formulario.
 //
-// 'suspended' NUNCA es un valor aceptado aquí — es exclusivo de moderación
-// (Fase 10, vía service-role) y además la RLS (20260813112713) ya lo cierra
-// por dos lados: un perfil suspendido no admite ningún UPDATE del dueño (así
-// que ni siquiera llegaría a pasar por aquí si el admin client respetara RLS),
-// y el dueño nunca puede escribir 'suspended'. Este 403 explícito es
-// solo para dar un mensaje claro — la cerradura real ya está en la BD.
+// 'published' y 'suspended' NUNCA son valores aceptados aquí. 'suspended' ya
+// era exclusivo de moderación; 'published' se les unió tras feedback directo
+// del fundador (evitar spam/perfiles falsos — un perfil completo ya no
+// "se publica solo", pasa por /interno/network primero). La RLS
+// (red_perfiles_en_revision) cierra esto por los dos lados: el dueño no
+// puede escribir ninguno de los dos ni aunque llame a Supabase REST
+// directamente con su propio JWT, saltándose esta API por completo. Este
+// 403/400 explícito es solo para dar un mensaje claro — la cerradura real
+// ya está en la BD.
 
-const ESTADOS_ACEPTADOS = new Set(['draft', 'published', 'hidden']);
+const ESTADOS_ACEPTADOS = new Set(['draft', 'en_revision', 'hidden']);
 
 const SELECT_COLUMNAS = `
   id, auth_user_id, slug, nombre, foto_url, ciudad, zona, radio_km, descripcion,
@@ -71,34 +73,19 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  if (estado === 'published') {
+  if (estado === 'en_revision') {
     const motivo = motivoNoPublicable(perfil as FilaRedPerfil);
     if (motivo) return errorPeticion(motivo);
   }
 
-  // Slug: se genera una sola vez, al primer publicar — nunca se regenera en
-  // publicaciones posteriores (ocultar → volver a publicar), para que un
-  // enlace ya compartido/indexado no se rompa si cambia el nombre o la
-  // ciudad más tarde. Colisión resuelta con sufijo numérico, acotado: pasado
-  // el límite (perfiles con nombre+ciudad idénticos, caso extremo) se cae al
-  // propio id, que siempre es único.
-  let slug = perfil.slug as string | null;
-  if (estado === 'published' && !slug) {
-    const base = slugBase(perfil.nombre as string, perfil.ciudad as string | null);
-    slug = base;
-    for (let intento = 1; intento <= 20; intento++) {
-      const candidato = slugConSufijo(base, intento);
-      const { data: choque } = await admin.from('red_perfiles').select('id').eq('slug', candidato).maybeSingle();
-      if (!choque) { slug = candidato; break; }
-      slug = null;
-    }
-    if (!slug) slug = perfil.id as string;
-  }
+  // El slug (para /network/instructoras/[slug]) ya NO se genera aquí: solo
+  // hace falta cuando el perfil de verdad se vuelve público, y eso ahora lo
+  // decide moderación (app/api/interno/network/perfiles), no este endpoint.
 
   const ahora = new Date().toISOString();
   const { data, error } = await admin
     .from('red_perfiles')
-    .update({ estado, slug, actualizado_en: ahora, ultimo_acceso_en: ahora })
+    .update({ estado, actualizado_en: ahora, ultimo_acceso_en: ahora })
     .eq('id', perfil.id)
     .select(SELECT_COLUMNAS)
     .single();

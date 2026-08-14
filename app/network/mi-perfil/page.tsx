@@ -177,7 +177,7 @@ export default function MiPerfilNetworkPage() {
   // punto de partida — de ahí el guard `pasoInicialElegido` y los disables.
   useEffect(() => {
     if (cargando || pasoInicialElegido) return;
-    if (perfil?.estado === 'published') {
+    if (perfil?.estado === 'published' || perfil?.estado === 'en_revision') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPaso(PASOS.length - 1);
       setPasoInicialElegido(true);
@@ -219,14 +219,14 @@ export default function MiPerfilNetworkPage() {
     setPaso(p => Math.min(p + 1, PASOS.length - 1));
   }
 
-  async function cambiarEstado(estado: 'published' | 'hidden') {
+  async function cambiarEstado(estado: 'en_revision' | 'hidden') {
     setErrorEstado('');
     setCambiandoEstado(true);
     const res = await cambiarEstadoPerfilNetwork(estado);
     setCambiandoEstado(false);
     if (!res.ok) { setErrorEstado(res.error); return; }
     setPerfil(res.perfil);
-    showToast(estado === 'published' ? 'Perfil publicado' : 'Perfil oculto');
+    showToast(estado === 'en_revision' ? 'Enviado a revisión' : 'Perfil oculto');
   }
 
   async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -509,24 +509,29 @@ export default function MiPerfilNetworkPage() {
                   <span
                     className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mb-1.5"
                     style={{
-                      backgroundColor: perfil.estado === 'published' ? '#EAF6EE' : '#F1F2EA',
-                      color: perfil.estado === 'published' ? '#276749' : '#5A6142',
+                      backgroundColor: perfil.estado === 'published' ? '#EAF6EE' : perfil.estado === 'en_revision' ? '#FBF3DE' : '#F1F2EA',
+                      color: perfil.estado === 'published' ? '#276749' : perfil.estado === 'en_revision' ? '#8A6A25' : '#5A6142',
                     }}
                   >
-                    {perfil.estado === 'published' ? 'Publicado' : perfil.estado === 'suspended' ? 'Suspendido' : 'Borrador'}
+                    {perfil.estado === 'published' ? 'Publicado'
+                      : perfil.estado === 'suspended' ? 'Suspendido'
+                        : perfil.estado === 'en_revision' ? 'En revisión'
+                          : 'Borrador'}
                   </span>
                   <p className="text-[13px] text-muted-foreground">
                     {perfil.estado === 'published'
                       ? 'Tu perfil es visible para los estudios que buscan en Tentare Network.'
                       : perfil.estado === 'suspended'
                         ? 'Tu perfil ha sido suspendido por moderación.'
-                        : 'Tu perfil todavía no es visible para ningún estudio.'}
+                        : perfil.estado === 'en_revision'
+                          ? 'El equipo de Tentare lo está revisando antes de publicarlo — normalmente en menos de 48 h.'
+                          : 'Tu perfil todavía no es visible para ningún estudio.'}
                   </p>
                   {errorEstado && <p className="text-[12px] text-destructive mt-1.5">{errorEstado}</p>}
                 </div>
-                {perfil.estado !== 'suspended' && (
+                {(perfil.estado === 'draft' || perfil.estado === 'published') && (
                   <button
-                    onClick={() => cambiarEstado(perfil.estado === 'published' ? 'hidden' : 'published')}
+                    onClick={() => cambiarEstado(perfil.estado === 'published' ? 'hidden' : 'en_revision')}
                     disabled={cambiandoEstado}
                     className={cn(
                       'shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60',
@@ -542,7 +547,17 @@ export default function MiPerfilNetworkPage() {
                     ) : (
                       <Eye size={13} />
                     )}
-                    {perfil.estado === 'published' ? 'Ocultar perfil' : 'Publicar perfil'}
+                    {perfil.estado === 'published' ? 'Ocultar perfil' : 'Enviar a revisión'}
+                  </button>
+                )}
+                {perfil.estado === 'hidden' && (
+                  <button
+                    onClick={() => cambiarEstado('en_revision')}
+                    disabled={cambiandoEstado}
+                    className="shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60 bg-brand text-brand-foreground hover:brightness-95"
+                  >
+                    {cambiandoEstado ? <Loader2 size={13} className="animate-spin" /> : <Eye size={13} />}
+                    Enviar a revisión
                   </button>
                 )}
                 {perfil.estado === 'suspended' && <ShieldAlert size={18} className="text-destructive shrink-0 mt-0.5" />}
