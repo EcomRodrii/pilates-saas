@@ -301,7 +301,19 @@ export function EditorZip({ id }: { id: string }) {
         </Button>
       </header>
 
-      <div className="flex-1 min-h-0 grid grid-cols-[200px_1fr_420px]">
+      {/* ⚠️ `min-w-0` aquí, no solo en la columna del medio: un item flex (esta
+          grid es `flex-1` dentro de la columna de arriba) por defecto no se
+          encoge por debajo del ancho INTRÍNSECO de su contenido — y el HTML
+          crudo de un tema Design trae líneas larguísimas sin envolver
+          (`<link href="https://fonts.googleapis.com/css2?family=...">`) que
+          CodeMirror no envuelve por diseño. Sin este `min-w-0` en el propio
+          contenedor de la grid, ese ancho se propagaba a la PÁGINA entera —
+          la vista previa de 420px seguía ahí, solo que empujada fuera de la
+          pantalla, y solo se veía haciendo scroll horizontal de toda la
+          página (medido: parecía "no hay vista previa"/"no se puede
+          editar"). `min-w-0` en cada nivel de la cadena, no solo en el hijo
+          que ya lo tenía. */}
+      <div className="flex-1 min-h-0 min-w-0 grid grid-cols-[200px_1fr_420px]">
         <aside className="border-r border-border overflow-y-auto p-2 space-y-0.5">
           {editables.map((f) => (
             <button
