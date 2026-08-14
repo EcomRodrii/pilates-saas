@@ -14,14 +14,16 @@
 //     `progresoSemanal`, `retos`) no están en TODOS los temas del kit: cada
 //     tema elige su composición. Por eso la pregunta útil no es «¿existe?»
 //     sino «¿lo incluye ESTE tema?» — `elTemaIncluye`.
-//   · Cinco del kit (`streak-pill`, `pass-card`, `bookings-list`,
-//     `videos-cta`, `studio-quote`) no tienen ninguna sección equivalente en
-//     el editor. No se inventa una: seleccionarlos no llevaría a ningún sitio.
-//     ⚠️ `studio-quote` es la CITA del tema, firmada por el estudio, y se
-//     parece a `contenidoEstudio` sin serlo: esa sección del editor es
-//     «Mensaje destacado y banners», lo que escribe la propietaria, y eso en
-//     el kit es `studio-banner`. Casarlos habría hecho que tocar su banner
-//     resaltara una cita que ella no escribe.
+//   · Los cinco que solo pintaba el kit (`streak-pill`, `pass-card`,
+//     `bookings-list`, `videos-cta`, `studio-quote`) YA tienen ficha en el
+//     editor desde el 2026-08-14, así que se listan, se ordenan y se ocultan.
+//     Sus fichas van con `campos: []`: su contenido no lo escribe la
+//     propietaria —son datos de la socia— y un panel de edición ahí prometería
+//     algo que no hay.
+//     ⚠️ `studio-quote` (`citaEstudio`) es la CITA del tema y se parece a
+//     `contenidoEstudio` sin serlo: esa otra es «Mensaje destacado y banners»,
+//     lo que ella escribe, y en el kit es `studio-banner`. Casarlas habría
+//     hecho que tocar su banner resaltara una cita que no es suya.
 //
 // Y lo de fondo, que esta tabla no arregla: **con el kit, el orden del Inicio
 // lo decide el TEMA** (`home_blocks`), no el estudio. Reordenar u ocultar
@@ -37,6 +39,13 @@ export const BLOQUE_EDITOR_A_KIT: Readonly<Record<string, string>> = {
   accesosRapidos: 'quick-links',
   progresoSemanal: 'weekly-progress',
   retos: 'challenges',
+  // Los cinco que solo existen en el kit (fichas de editor añadidas el
+  // 2026-08-14 para que se puedan ordenar y ocultar).
+  racha: 'streak-pill',
+  tarjetaBono: 'pass-card',
+  misReservas: 'bookings-list',
+  videosEnCasa: 'videos-cta',
+  citaEstudio: 'studio-quote',
 };
 
 /** kit → editor. Lo que no está aquí no es seleccionable desde el editor. */

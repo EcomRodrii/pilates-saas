@@ -26,7 +26,12 @@ test('DEFAULT_BLOQUES_POR_PANTALLA.home: tiraSemana/progresoSemanal/retos existe
   const ocultos = DEFAULT_BLOQUES_POR_PANTALLA.home
     .filter((b) => b.oculto)
     .map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal', 'retos']);
+  // Los cinco del kit (2026-08-14) se suman a la lista de ocultos por el mismo
+  // motivo: un estudio con el portal de siempre no tiene quien los pinte.
+  assert.deepEqual(ocultos, [
+    'tiraSemana', 'progresoSemanal', 'retos',
+    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
+  ]);
 });
 
 test('DEFAULT_BLOQUES_POR_PANTALLA: Clases y Bonos tienen un único bloque sistema', () => {
@@ -44,7 +49,10 @@ test('resolveBloquesPantalla: Home sin nada guardado y sin legacy → default de
 test('resolveBloquesPantalla: Home, tiraSemana/progresoSemanal/retos llegan OCULTOS incluso sin legacy', () => {
   const r = resolveBloquesPantalla(null, 'home', { orden: [], ocultos: [] });
   const ocultos = r.publicado.filter((b) => b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
-  assert.deepEqual(ocultos, ['tiraSemana', 'progresoSemanal', 'retos']);
+  assert.deepEqual(ocultos, [
+    'tiraSemana', 'progresoSemanal', 'retos',
+    'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
+  ]);
 });
 
 test('resolveBloquesPantalla: Home sintetiza desde portalHome legacy (Fase 2) — mismo orden/ocultos, sin migrar datos', () => {
@@ -299,6 +307,13 @@ test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan
     tiraSemana: 'Tira de la semana',
     progresoSemanal: 'Progreso semanal',
     retos: 'Retos',
+    // ⚠️ Los cinco del kit se AÑADEN; ninguna etiqueta de las de arriba cambia,
+    // que es lo que este oráculo protege (hay e2e buscando esos textos).
+    racha: 'Tu racha',
+    tarjetaBono: 'Tu bono',
+    misReservas: 'Tus próximas reservas',
+    videosEnCasa: 'Pilates en casa',
+    citaEstudio: 'Cierre del Inicio',
   });
 });
 
