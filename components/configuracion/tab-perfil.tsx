@@ -19,7 +19,7 @@ const ROL_LABEL: Record<string, { label: string; bg: string; text: string }> = {
 
 export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const { studio, updateAvatarAdmin, updateStudio, instructores, updateInstructor, sesiones } = useStudio();
-  const { user, updateProfile, updateEmail, updatePassword } = useAuth();
+  const { user, updateProfile, updateEmail, updatePassword, linkGoogle, unlinkGoogle } = useAuth();
   // Cambiar la contraseña reautentica por detrás, y eso es una llamada de auth
   // más: con Turnstile activo en el proyecto, sin token la rechaza gotrue.
   const { widget: captcha, pedirToken } = useCaptcha();
@@ -55,6 +55,38 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
   const [passwordForm, setPasswordForm] = useState({ actual: '', nueva: '', confirmar: '' });
   const [cambiandoPassword, setCambiandoPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<{ error: boolean; texto: string } | null>(null);
+
+  // Fase 16 — Métodos de acceso. Se lee de user.identities (fuente nativa de
+  // Supabase, no un booleano propio) para que nunca se desincronice de lo que
+  // gotrue realmente tiene vinculado.
+  const identidades = user?.identities ?? [];
+  const tieneGoogle = identidades.some(i => i.provider === 'google');
+  const tieneEmail = identidades.some(i => i.provider === 'email');
+  // Desvincular deja al usuario sin ese método: solo se ofrece si queda al
+  // menos otro (mismo requisito que ya impone gotrue del lado servidor —
+  // esto es solo para no enseñar un botón que unlinkGoogle acabaría
+  // rechazando).
+  const puedeDesconectarGoogle = tieneGoogle && identidades.length > 1;
+  const [conectandoAcceso, setConectandoAcceso] = useState(false);
+  const [accesoMsg, setAccesoMsg] = useState<{ error: boolean; texto: string } | null>(null);
+
+  async function conectarGoogle() {
+    setAccesoMsg(null);
+    setConectandoAcceso(true);
+    const { error } = await linkGoogle();
+    // En el caso feliz esta pestaña navega a Google y no vuelve a este punto;
+    // solo llegamos aquí si gotrue rechazó antes de redirigir.
+    if (error) { setAccesoMsg({ error: true, texto: error }); setConectandoAcceso(false); }
+  }
+
+  async function desconectarGoogle() {
+    setAccesoMsg(null);
+    setConectandoAcceso(true);
+    const { error } = await unlinkGoogle();
+    setConectandoAcceso(false);
+    if (error) { setAccesoMsg({ error: true, texto: error }); return; }
+    setAccesoMsg({ error: false, texto: 'Google desconectado.' });
+  }
 
   // Tarifa por hora: dato salarial, solo la propia instructora la ve (y solo
   // la suya — el servidor filtra por rol, no confiamos en el cliente).
@@ -362,6 +394,78 @@ export function TabPerfil({ showToast }: { showToast: (m: string) => void }) {
           </>
         )}
       </div>
+
+      <div className={cn(cardCls, 'p-6')}>
+        <h3 className="text-[14px] font-semibold text-foreground mb-1">Métodos de acceso</h3>
+        <p className="text-[12px] text-muted-foreground mb-4">
+          Cómo puedes entrar en tu cuenta. Puedes tener varios a la vez.
+        </p>
+
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-[#E7E7E0]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#F1F2EA] flex items-center justify-center text-[13px]">✉️</div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Email y contraseña</p>
+                <p className="text-[11px] text-muted-foreground">{user?.email}</p>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-success">
+              {tieneEmail ? 'Conectado' : 'No configurado'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between px-3.5 py-3 rounded-xl border border-[#E7E7E0]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#F1F2EA] flex items-center justify-center">
+                <GoogleIconPequeno />
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-foreground">Google</p>
+                {tieneGoogle && <p className="text-[11px] text-muted-foreground">Conectado</p>}
+              </div>
+            </div>
+            {tieneGoogle ? (
+              puedeDesconectarGoogle ? (
+                <button
+                  onClick={() => void desconectarGoogle()}
+                  disabled={conectandoAcceso}
+                  className="text-[11.5px] font-medium text-destructive hover:underline disabled:opacity-60"
+                >
+                  {conectandoAcceso ? 'Un momento…' : 'Desconectar'}
+                </button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground" title="Añade otro método antes de desconectar este">
+                  Conectado
+                </span>
+              )
+            ) : (
+              <button
+                onClick={() => void conectarGoogle()}
+                disabled={conectandoAcceso}
+                className="px-3 py-1.5 rounded-lg bg-card border border-border text-[11.5px] font-medium hover:bg-background transition-colors disabled:opacity-60"
+              >
+                {conectandoAcceso ? 'Conectando…' : 'Conectar Google'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {accesoMsg && (
+          <p className={cn('text-[11px] mt-3', accesoMsg.error ? 'text-destructive' : 'text-success')}>{accesoMsg.texto}</p>
+        )}
+      </div>
     </div>
+  );
+}
+
+function GoogleIconPequeno() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 18 18" aria-hidden="true">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.87 2.69-6.62Z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18Z" />
+      <path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33Z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58Z" />
+    </svg>
   );
 }

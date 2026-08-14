@@ -34,6 +34,9 @@ type AuthContextType = {
   recuperarPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   establecerPassword: (nueva: string) => Promise<{ error: string | null }>;
   reenviarConfirmacion: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: (redirectPath?: string) => Promise<{ error: string | null }>;
+  linkGoogle: () => Promise<{ error: string | null }>;
+  unlinkGoogle: () => Promise<{ error: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -84,6 +87,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return 'Ya hay una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña».';
     }
     if (m.includes('password')) return 'La contraseña debe tener al menos 8 caracteres.';
+    // Fase 9/10: este Google ya es la identidad de OTRA cuenta de Tentare —
+    // el caso que linkIdentity rechaza en vez de fusionar en silencio.
+    if (m.includes('identity is already linked') || m.includes('already linked to another user')) {
+      return 'Esta cuenta de Google ya está conectada a otra cuenta de Tentare.';
+    }
+    if (m.includes('manual linking is disabled')) {
+      return 'Conectar cuentas no está disponible ahora mismo. Prueba de nuevo en unos minutos.';
+    }
+    if (m.includes('unlink_identity_not_allowed') || m.includes('single identity')) {
+      return 'No puedes desconectar tu único método de acceso — añade otro antes de quitar este.';
+    }
+    if (m.includes('provider is not enabled') || m.includes('unsupported provider')) {
+      return 'Iniciar sesión con Google no está disponible ahora mismo.';
+    }
     return error.message;
   }
 
@@ -130,6 +147,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // freelance con un email que ya era propietaria de otro estudio.
     const yaRegistrado = !data.session && Array.isArray(data.user?.identities) && data.user.identities.length === 0;
     return { error: null, needsConfirmation: !data.session && !yaRegistrado, yaRegistrado };
+  }
+
+  // Botón único reutilizado en /login (entrar y crear) — Google es solo OTRO
+  // proveedor de la misma auth.users, nunca un sistema paralelo. Sin
+  // captchaToken a propósito: el "humano" aquí lo verifica Google en su
+  // propia pantalla de consentimiento, y signInWithOAuth no acepta ese
+  // parámetro (gotrue no lo exige en este flujo).
+  //
+  // redirectPath tiene que resolver a una de las dos rutas de
+  // RUTAS_RETORNO_AUTH_STAFF (lib/db/supabase.ts) — hoy solo /login lee el
+  // fragmento de vuelta, así que un valor distinto dejaría la sesión sin
+  // detectar. Se deja el parámetro por si algún día /clave-nueva también
+  // ofrece Google, pero el caller por defecto usa /login.
+  async function signInWithGoogle(redirectPath = '/login') {
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        ...(redirectTo ? { redirectTo } : {}),
+        // Solo lo mínimo que gotrue recomienda para autenticar — Tentare no
+        // llama a ninguna API de Google, así que no hay motivo para pedir
+        // más scope del que el propio proveedor ya exige por defecto.
+        scopes: 'openid email profile',
+      },
+    });
+    // signInWithOAuth navega fuera de la pestaña si todo va bien: solo
+    // llegamos aquí cuando gotrue rechaza la petición ANTES del redirect
+    // (proveedor no configurado, rate limit...). Cancelar el popup o que el
+    // usuario cierre la pestaña no pasa por aquí — eso vuelve a /login sin
+    // sesión y sin error, que ya es el estado inicial de la pantalla.
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
+  // Vincular Google a la cuenta YA AUTENTICADA (Fase 9 — Seguridad/Cuenta).
+  // linkIdentity es la API nativa de Supabase para esto: nunca busca por
+  // email ni toca auth.users a mano desde el cliente. Requiere sesión activa
+  // — si gotrue detecta que ese Google ya pertenece a OTRA cuenta devuelve
+  // un error explícito (mensajeDeError lo traduce), no un merge silencioso.
+  async function linkGoogle() {
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/mi-perfil` : undefined;
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      ...(redirectTo ? { options: { redirectTo } } : {}),
+    });
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
+  // Desvincular Google. Supabase exige que queden al menos DOS identidades
+  // para poder desvincular una — si esta es la única, gotrue lo rechaza solo
+  // (unlink_identity_not_allowed) y ese es el comportamiento que queremos:
+  // nunca dejar a alguien sin forma de volver a entrar.
+  async function unlinkGoogle() {
+    const { data, error: listError } = await supabase.auth.getUserIdentities();
+    if (listError) return { error: mensajeDeError(listError) };
+    const identidadGoogle = data?.identities.find(i => i.provider === 'google');
+    if (!identidadGoogle) return { error: 'No hay una cuenta de Google conectada.' };
+    const { error } = await supabase.auth.unlinkIdentity(identidadGoogle);
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
   }
 
   async function signOut() {
@@ -260,6 +338,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session, user: session?.user ?? null, loading,
     signIn, signUp, signOut, updateProfile, updateEmail, updatePassword,
     recuperarPassword, establecerPassword, reenviarConfirmacion,
+    signInWithGoogle, linkGoogle, unlinkGoogle,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [session, loading]);
 
