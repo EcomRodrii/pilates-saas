@@ -258,7 +258,7 @@ export default function CrearPerfilNetworkPage() {
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
         <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso 1 de 12</p>
         <h1 className="text-[30px] font-extrabold" style={{ color: NW_TINTA }}>
-          Tu <em className="font-normal not-italic" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>cuenta</em>
+          Tu <span style={{ color: NW_PRODUCTO }}>cuenta</span>
         </h1>
         <p className="mt-2 text-[14px] mb-6" style={{ color: NW_MUTED }}>Crea tu cuenta gratis. Es el primer paso para publicar tu perfil.</p>
         <form onSubmit={crearCuenta} className="space-y-4 max-w-sm">
@@ -344,7 +344,7 @@ export default function CrearPerfilNetworkPage() {
           <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso {String(pasoActual.n).padStart(2, '0')} de 12</p>
           <h1 className="text-[30px] sm:text-[34px] font-extrabold mb-6" style={{ color: NW_TINTA }}>
             {pasoActual.titulo.split(' ').map((palabra, i, arr) => i === arr.length - 1
-              ? <em key={i} className="font-normal not-italic" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>{palabra}</em>
+              ? <span key={i} style={{ color: NW_PRODUCTO }}>{palabra}</span>
               : `${palabra} `)}
           </h1>
 
@@ -514,7 +514,7 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 11 && perfil && (perfil.estado === 'en_revision' || perfil.estado === 'published') ? (
             <div className="text-center py-8">
-              <p className="text-[22px]" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>
+              <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>
                 {perfil.estado === 'published' ? 'Tu perfil ya está publicado.' : 'Tu perfil está en revisión.'}
               </p>
               {perfil.estado === 'en_revision' && (
@@ -532,7 +532,7 @@ export default function CrearPerfilNetworkPage() {
             </div>
           ) : paso === 11 && perfil && (
             <div className="text-center py-8">
-              <p className="text-[22px]" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>Tu perfil está listo.</p>
+              <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>Tu perfil está listo.</p>
               <p className="mt-2 text-[14px] max-w-sm mx-auto" style={{ color: NW_MUTED }}>
                 Lo revisa el equipo de Tentare antes de publicarlo — así evitamos perfiles falsos o spam en la network.
               </p>
@@ -701,7 +701,7 @@ function PasoRevisar({
 }) {
   return (
     <div className="text-center">
-      <p className="text-[22px] mb-1" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>
+      <p className="text-[20px] font-extrabold mb-1" style={{ color: NW_TINTA }}>
         Así verán tu perfil <em style={{ color: NW_PRODUCTO }}>los estudios</em>
       </p>
       <p className="text-[13px] mb-6" style={{ color: NW_MUTED }}>Tus datos privados —documento, dirección, teléfono— no aparecen.</p>
@@ -714,7 +714,7 @@ function PasoRevisar({
             : <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={18} color={NW_MUTED} /></div>}
           <div>
             <p className="text-[15px] font-extrabold" style={{ color: NW_TINTA }}>{perfil.nombre}</p>
-            <p className="text-[13px]" style={{ fontFamily: 'var(--font-display)', color: NW_PRODUCTO }}>Instructora de Pilates</p>
+            <p className="text-[13px] font-bold" style={{ color: NW_PRODUCTO }}>Instructora de Pilates</p>
           </div>
         </div>
         <p className="text-[12.5px] mt-3" style={{ color: NW_MUTED_2 }}>{form.ciudad || 'Ciudad'} · {form.aniosExperiencia || '0'} años · {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>

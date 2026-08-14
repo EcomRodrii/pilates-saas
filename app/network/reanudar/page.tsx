@@ -56,8 +56,8 @@ export default function ReanudarNetworkPage() {
       <div className="max-w-[560px] w-full text-center">
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
 
-        <p className="text-[28px] sm:text-[32px]" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>
-          Hola de nuevo, <em style={{ color: NW_PRODUCTO }}>{nombrePila}</em>
+        <p className="text-[26px] sm:text-[30px] font-extrabold" style={{ color: NW_TINTA }}>
+          Hola de nuevo, <span style={{ color: NW_PRODUCTO }}>{nombrePila}</span>
         </p>
         <p className="mt-3 text-[14px]" style={{ color: NW_MUTED }}>
           Al entrar te llevamos a tu sitio: como todavía no has publicado tu perfil de Network, seguimos justo donde lo dejaste.
