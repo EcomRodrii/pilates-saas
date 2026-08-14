@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -18,6 +18,14 @@ import { ListaHilosMensajes } from '@/components/network/lista-hilos-mensajes';
 export default function MensajesNetworkPage() {
   const router = useRouter();
   const { user, loading: cargandoSesion } = useAuth();
+  const [hiloDesdeQuery, setHiloDesdeQuery] = useState<string | null>(null);
+
+  // Se lee de window.location y no con useSearchParams para no suspender el
+  // árbol (mismo motivo que en el resto de pantallas del panel).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHiloDesdeQuery(new URLSearchParams(window.location.search).get('hilo'));
+  }, []);
 
   useEffect(() => {
     if (!cargandoSesion && !user) router.replace('/network/unirse');
@@ -34,7 +42,9 @@ export default function MensajesNetworkPage() {
         description="Conversaciones con estudios que han aceptado tu contacto."
       />
 
-      {cargandoSesion || !user ? null : <ListaHilosMensajes vacioTexto="Todavía no tienes ninguna conversación." />}
+      {cargandoSesion || !user ? null : (
+        <ListaHilosMensajes vacioTexto="Todavía no tienes ninguna conversación." abrirSolicitudId={hiloDesdeQuery} />
+      )}
     </div>
   );
 }

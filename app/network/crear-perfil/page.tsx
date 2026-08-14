@@ -19,7 +19,6 @@
 // (formación) son de verdad nuevos — necesitan el modelo de documentos que
 // no existía antes de esta fase.
 import { useEffect, useId, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Check, Loader2, Camera, Upload, X, Clock3, ShieldCheck, Lock, ChevronLeft, ChevronRight,
@@ -108,7 +107,6 @@ function identidadDesdeApi(i: PerfilIdentidadNetwork): IdentidadForm {
 
 export default function CrearPerfilNetworkPage() {
   const uid = useId();
-  const router = useRouter();
   const { user, loading: cargandoSesion, signUp } = useAuth();
 
   // ── Paso 01: cuenta (sin sesión todavía) ──────────────────────────────
@@ -514,22 +512,43 @@ export default function CrearPerfilNetworkPage() {
             <PasoRevisar perfil={perfil} form={form} verificacion={verificacion} onEditar={setPaso} />
           )}
 
-          {paso === 11 && perfil && (
+          {paso === 11 && perfil && (perfil.estado === 'en_revision' || perfil.estado === 'published') ? (
+            <div className="text-center py-8">
+              <p className="text-[22px]" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>
+                {perfil.estado === 'published' ? 'Tu perfil ya está publicado.' : 'Tu perfil está en revisión.'}
+              </p>
+              {perfil.estado === 'en_revision' && (
+                <p className="mt-2 text-[14px] max-w-sm mx-auto" style={{ color: NW_MUTED }}>
+                  El equipo de Tentare lo revisa antes de que aparezca en la network — normalmente en menos de 48 h.
+                </p>
+              )}
+              <Link
+                href="/network/mi-perfil"
+                className="inline-block mt-6 px-8 py-3.5 rounded-full text-[15px] font-bold text-white"
+                style={{ background: NW_PRODUCTO }}
+              >
+                Ir a mi perfil
+              </Link>
+            </div>
+          ) : paso === 11 && perfil && (
             <div className="text-center py-8">
               <p className="text-[22px]" style={{ fontFamily: 'var(--font-display)', color: NW_TINTA }}>Tu perfil está listo.</p>
+              <p className="mt-2 text-[14px] max-w-sm mx-auto" style={{ color: NW_MUTED }}>
+                Lo revisa el equipo de Tentare antes de publicarlo — así evitamos perfiles falsos o spam en la network.
+              </p>
               <button
                 type="button" disabled={publicando}
                 onClick={async () => {
                   setPublicando(true);
-                  const res = await cambiarEstadoPerfilNetwork('published');
+                  const res = await cambiarEstadoPerfilNetwork('en_revision');
                   setPublicando(false);
                   if (!res.ok) { setError(res.error); return; }
-                  router.push('/network/mi-perfil');
+                  setPerfil(res.perfil);
                 }}
                 className="mt-6 px-8 py-3.5 rounded-full text-[15px] font-bold text-white disabled:opacity-60"
                 style={{ background: NW_PRODUCTO }}
               >
-                {publicando ? 'Publicando…' : 'Publicar mi perfil'}
+                {publicando ? 'Enviando…' : 'Enviar a revisión'}
               </button>
             </div>
           )}

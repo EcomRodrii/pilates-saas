@@ -119,9 +119,20 @@ export async function buscarPerfilesPublico(
   return { perfiles: ordenarResultadosNetwork(perfiles, filtro) };
 }
 
+// Subconjunto público de CertificacionNetwork — nunca `documentoPath` (ruta
+// del bucket privado) ni `motivoRechazo` (solo le importa a la propia
+// dueña, ver /network/crear-perfil). Solo se listan las 'verificado': una
+// certificación no se enseña como logro solo por haberla subido (README).
+export interface CertificacionNetworkPublica {
+  nombre: string;
+  institucion: string;
+  anio: number | null;
+}
+
 export interface DetallePerfilPublico {
   perfil: PerfilNetworkPublico;
   experiencias: ExperienciaNetworkPublica[];
+  certificaciones: CertificacionNetworkPublica[];
   badges: BadgesNetwork;
   resenas: ResenaNetwork[];
 }
@@ -143,12 +154,15 @@ async function detallePerfilDesdeFila(
   // `auth_user_id` se pide APARTE (nunca en SELECT_COLUMNAS_PUBLICAS) solo
   // para resolver si el email de la cuenta está confirmado — un único
   // perfil, un único lookup, no el N+1 que sería hacerlo en un listado.
-  const [{ data: filaAuth }, { count: referenciasConfirmadas }, { data: resenasData }] = await Promise.all([
+  const [{ data: filaAuth }, { count: referenciasConfirmadas }, { data: resenasData }, { data: certificacionesData }] = await Promise.all([
     admin.from('red_perfiles').select('auth_user_id').eq('id', id).maybeSingle(),
     admin.from('red_referencias').select('id', { count: 'exact', head: true }).eq('perfil_id', id).eq('estado', 'confirmada'),
     admin.from('red_resenas').select('id, puntuacion, comentario, creado_en, studios ( nombre )')
       .eq('perfil_id', id).eq('estado', 'publicada').order('creado_en', { ascending: false }),
+    admin.from('red_certificaciones').select('nombre, institucion, anio')
+      .eq('perfil_id', id).eq('estado', 'verificado').order('anio', { ascending: false }),
   ]);
+  const certificaciones: CertificacionNetworkPublica[] = (certificacionesData ?? []) as CertificacionNetworkPublica[];
   const { data: userData } = filaAuth?.auth_user_id
     ? await admin.auth.admin.getUserById(filaAuth.auth_user_id as string)
     : { data: { user: null } };
@@ -175,6 +189,7 @@ async function detallePerfilDesdeFila(
   return {
     perfil: mapFilaAPerfilPublico(filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion))),
     experiencias,
+    certificaciones,
     badges,
     resenas,
   };

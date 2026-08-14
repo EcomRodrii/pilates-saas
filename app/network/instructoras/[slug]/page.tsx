@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BadgeCheck, Star, MapPin } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { obtenerPerfilPublicoPorSlug } from '@/lib/network/publico';
 import { NavPublico } from '@/components/network-v2/NavPublico';
@@ -22,12 +22,15 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, N
 // con aside de contacto sticky, en vez de la lista de tarjetas apiladas
 // anterior.
 //
-// La sección "Formación" del mock (certificaciones con estado verificado/
-// pendiente/rechazado) NO se pinta todavía: ese modelo de datos
-// (red_certificaciones) es trabajo del PR de onboarding+verificación, no de
-// este — mejor omitirla que fabricar un estado que no existe. Lo mismo con
-// la tabla semanal día-a-día: el dato real de hoy son franjas agregadas
-// (mañanas/tardes/noches/fines de semana), no un calendario por día.
+// "Formación": certificaciones con estado 'verificado' únicamente — una
+// certificación no se enseña como logro solo por haberla subido (mismo
+// criterio que "Perfil verificado" arriba). lib/network/publico.ts ya
+// filtra por estado y nunca expone documentoPath aquí.
+//
+// La tabla semanal día-a-día sigue sin pintarse: el dato real de hoy son
+// franjas agregadas (mañanas/tardes/noches/fines de semana), no un
+// calendario por día — fabricar esa vista sería inventar un dato que no
+// existe.
 
 async function cargar(slug: string) {
   const admin = getSupabaseAdmin();
@@ -80,7 +83,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
   const detalle = await cargar(slug);
   if (!detalle) notFound();
 
-  const { perfil, experiencias, badges, resenas } = detalle;
+  const { perfil, experiencias, certificaciones, badges, resenas } = detalle;
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -180,6 +183,22 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                         </div>
                         <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{rangoAnios(exp.fechaInicio, exp.fechaFin)}</p>
                         {exp.descripcion && <p className="text-[13.5px] mt-1" style={{ color: NW_MUTED }}>{exp.descripcion}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Seccion>
+            )}
+
+            {certificaciones.length > 0 && (
+              <Seccion titulo="Formación">
+                <div className="space-y-3">
+                  {certificaciones.map((c, i) => (
+                    <div key={`${c.nombre}-${i}`} className="flex items-start gap-3">
+                      <div className="shrink-0 mt-0.5" style={{ color: NW_PRODUCTO }}><GraduationCap size={16} /></div>
+                      <div>
+                        <p className="text-[14px] font-bold" style={{ color: NW_TINTA }}>{c.nombre}</p>
+                        <p className="text-[13px]" style={{ color: NW_MUTED_2 }}>{c.institucion}{c.anio ? ` · ${c.anio}` : ''}</p>
                       </div>
                     </div>
                   ))}

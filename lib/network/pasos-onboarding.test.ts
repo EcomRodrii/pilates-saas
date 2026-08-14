@@ -24,6 +24,10 @@ test('perfil publicado, aterriza en el último paso (revisar/publicar)', () => {
   assert.equal(pasoIncompletoDe(perfil({ estado: 'published' })), PASOS_ONBOARDING.length - 1);
 });
 
+test('perfil en revisión (wizard completo, esperando aprobación), también el último paso', () => {
+  assert.equal(pasoIncompletoDe(perfil({ estado: 'en_revision' })), PASOS_ONBOARDING.length - 1);
+});
+
 test('sin ciudad todavía, aterriza en el paso "Dónde estás"', () => {
   const idx = pasoIncompletoDe(perfil({ ciudad: null }));
   assert.equal(PASOS_ONBOARDING[idx].titulo, 'Dónde estás');

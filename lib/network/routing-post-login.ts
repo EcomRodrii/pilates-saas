@@ -7,5 +7,9 @@
 // "qué hago con la respuesta" vive aquí.
 export function resolverDestinoPostLogin(tieneEstudio: boolean, estadoPerfilNetwork: string | null): string {
   if (tieneEstudio) return '/dashboard';
-  return estadoPerfilNetwork === 'published' ? '/network/mi-perfil' : '/network/reanudar';
+  // 'en_revision' va a mi-perfil, no a reanudar: el wizard ya se terminó,
+  // solo falta que el equipo de Tentare lo apruebe — reanudar es para el
+  // onboarding a MEDIAS, no para "completo, esperando revisión".
+  return estadoPerfilNetwork === 'published' || estadoPerfilNetwork === 'en_revision'
+    ? '/network/mi-perfil' : '/network/reanudar';
 }

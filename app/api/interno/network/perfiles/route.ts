@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { exigirPermiso } from '@/lib/interno/auth';
+import { slugBase, slugConSufijo } from '@/lib/network/slug';
 
 export const runtime = 'nodejs';
 
@@ -32,11 +33,14 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ perfiles: data ?? [] });
 }
 
-const ESTADOS_VALIDOS = new Set(['draft', 'published', 'hidden', 'suspended']);
+const ESTADOS_VALIDOS = new Set(['draft', 'en_revision', 'published', 'hidden', 'suspended']);
 
-// La moderación puede poner CUALQUIER estado, incluido `suspended` — la RLS
-// (20260813112713) bloquea justo esto para el dueño del perfil, no para
-// service-role. Restaurar es el mismo endpoint con estado='published'.
+// La moderación puede poner CUALQUIER estado, incluido `published` y
+// `suspended` — la RLS (red_perfiles_en_revision, antes 20260813112713)
+// bloquea justo estos dos para el dueño del perfil, no para service-role.
+// Restaurar es el mismo endpoint con estado='published'. "Aprobar" desde la
+// cola de revisión (estado='en_revision' → 'published') es el mismo botón,
+// sin acción aparte: no hay dos formas de publicar un perfil.
 //
 // `destacado` es un campo aparte, no un estado más: una decisión editorial
 // del equipo de Tentare (empuja al principio del ranking, lib/network/
@@ -61,6 +65,26 @@ export async function PATCH(req: NextRequest) {
   const cambios: Record<string, unknown> = { actualizado_en: new Date().toISOString() };
   if (estado !== undefined) cambios.estado = estado;
   if (destacado !== undefined) cambios.destacado = destacado;
+
+  // Slug: se genera una sola vez, la primera vez que un perfil se vuelve
+  // 'published' de verdad (nunca desde el endpoint del dueño — ver el
+  // comentario de app/api/network/perfil/estado/route.ts) — nunca se
+  // regenera después, para que un enlace ya compartido/indexado no se
+  // rompa si cambia el nombre o la ciudad más tarde.
+  if (estado === 'published') {
+    const { data: fila } = await db.from('red_perfiles').select('nombre, ciudad, slug').eq('id', id).maybeSingle();
+    if (fila && !fila.slug) {
+      const base = slugBase(fila.nombre as string, fila.ciudad as string | null);
+      let slug: string | null = base;
+      for (let intento = 1; intento <= 20; intento++) {
+        const candidato = slugConSufijo(base, intento);
+        const { data: choque } = await db.from('red_perfiles').select('id').eq('slug', candidato).maybeSingle();
+        if (!choque) { slug = candidato; break; }
+        slug = null;
+      }
+      cambios.slug = slug ?? id;
+    }
+  }
 
   const { error } = await db.from('red_perfiles').update(cambios).eq('id', id);
   if (error) return NextResponse.json({ error: 'No se ha podido actualizar el perfil.' }, { status: 500 });

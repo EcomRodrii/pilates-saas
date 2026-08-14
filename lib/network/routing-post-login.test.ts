@@ -8,8 +8,9 @@ test('con estudio real, siempre al dashboard — nunca al panel equivocado', () 
   assert.equal(resolverDestinoPostLogin(true, 'draft'), '/dashboard');
 });
 
-test('sin estudio, perfil de Network publicado → mi-perfil (el panel)', () => {
+test('sin estudio, perfil de Network publicado o en revisión → mi-perfil (el panel)', () => {
   assert.equal(resolverDestinoPostLogin(false, 'published'), '/network/mi-perfil');
+  assert.equal(resolverDestinoPostLogin(false, 'en_revision'), '/network/mi-perfil');
 });
 
 test('sin estudio, sin perfil o con el onboarding a medias → reanudar, nunca el dashboard', () => {

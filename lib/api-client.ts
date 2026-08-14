@@ -1957,12 +1957,14 @@ export async function guardarPerfilNetwork(
   }
 }
 
-// Fase 3: publicar/ocultar. Endpoint aparte de guardarPerfilNetwork porque
-// lleva su propia validación mínima (nombre + ciudad + especialidad) — ver
-// app/api/network/perfil/estado/route.ts. Nunca acepta 'suspended': eso es
-// exclusivo de moderación.
+// Fase 3: enviar a revisión/ocultar. Endpoint aparte de guardarPerfilNetwork
+// porque lleva su propia validación mínima (nombre + ciudad + especialidad)
+// — ver app/api/network/perfil/estado/route.ts. Nunca acepta 'published' ni
+// 'suspended': el primero pasó a ser exclusivo de moderación (feedback del
+// fundador — evitar spam, revisión manual antes de aparecer en la network),
+// el segundo ya lo era.
 export async function cambiarEstadoPerfilNetwork(
-  estado: 'draft' | 'published' | 'hidden',
+  estado: 'draft' | 'en_revision' | 'hidden',
 ): Promise<{ ok: true; perfil: PerfilNetwork } | { ok: false; error: string }> {
   try {
     const res = await fetch('/api/network/perfil/estado', {
@@ -2394,6 +2396,7 @@ export async function enviarMensajeNetwork(
 
 export interface HiloNetwork {
   solicitudId: string;
+  perfilId: string | null;
   nombre: string;
   fotoUrl: string | null;
   ultimoMensaje: string | null;

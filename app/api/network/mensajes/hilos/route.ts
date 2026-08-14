@@ -10,6 +10,11 @@ import { errorInterno } from '@/lib/errores-servidor';
 // estudio — nunca las dos cosas a la vez para una misma cuenta.
 export interface HiloNetwork {
   solicitudId: string;
+  // Solo relleno del lado estudio (para que la ficha de una instructora,
+  // app/(dashboard)/network/[perfilId], pueda encontrar "¿ya tengo un hilo
+  // con ESTA persona?" sin traerse la lista entera a mano). Del lado
+  // instructora siempre null: ella ya sabe qué perfil es el suyo.
+  perfilId: string | null;
   nombre: string;
   fotoUrl: string | null;
   ultimoMensaje: string | null;
@@ -23,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const usuario = await verificarUsuarioSupabase(req);
   const solicitudesIds: string[] = [];
-  const nombrePorSolicitud = new Map<string, { nombre: string; fotoUrl: string | null }>();
+  const infoPorSolicitud = new Map<string, { nombre: string; fotoUrl: string | null; perfilId: string | null }>();
   let miUserId: string | null = null;
 
   if (usuario) {
@@ -37,7 +42,7 @@ export async function GET(req: NextRequest) {
       type Fila = { id: string; studios: { nombre: string | null } | null };
       for (const f of (data ?? []) as unknown as Fila[]) {
         solicitudesIds.push(f.id);
-        nombrePorSolicitud.set(f.id, { nombre: f.studios?.nombre ?? 'Un estudio', fotoUrl: null });
+        infoPorSolicitud.set(f.id, { nombre: f.studios?.nombre ?? 'Un estudio', fotoUrl: null, perfilId: null });
       }
       miUserId = usuario.userId;
     }
@@ -46,13 +51,13 @@ export async function GET(req: NextRequest) {
     if (!sesionStaff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     const { data, error } = await admin
       .from('red_solicitudes_contacto')
-      .select('id, red_perfiles ( nombre, foto_url )')
+      .select('id, perfil_id, red_perfiles ( nombre, foto_url )')
       .eq('studio_id', sesionStaff.studioId).eq('estado', 'aceptada');
     if (error) return errorInterno('network:mensajes:hilos:GET', error, 'No se han podido cargar los mensajes.');
-    type Fila = { id: string; red_perfiles: { nombre: string | null; foto_url: string | null } | null };
+    type Fila = { id: string; perfil_id: string; red_perfiles: { nombre: string | null; foto_url: string | null } | null };
     for (const f of (data ?? []) as unknown as Fila[]) {
       solicitudesIds.push(f.id);
-      nombrePorSolicitud.set(f.id, { nombre: f.red_perfiles?.nombre ?? 'Perfil eliminado', fotoUrl: f.red_perfiles?.foto_url ?? null });
+      infoPorSolicitud.set(f.id, { nombre: f.red_perfiles?.nombre ?? 'Perfil eliminado', fotoUrl: f.red_perfiles?.foto_url ?? null, perfilId: f.perfil_id });
     }
     miUserId = sesionStaff.userId;
   }
@@ -70,9 +75,10 @@ export async function GET(req: NextRequest) {
     const propios = (mensajes ?? []).filter(m => m.solicitud_id === id);
     const ultimo = propios.at(-1) ?? null;
     const noLeidos = propios.filter(m => m.remitente !== miUserId && !m.leido_en).length;
-    const info = nombrePorSolicitud.get(id)!;
+    const info = infoPorSolicitud.get(id)!;
     return {
       solicitudId: id,
+      perfilId: info.perfilId,
       nombre: info.nombre,
       fotoUrl: info.fotoUrl,
       ultimoMensaje: ultimo?.cuerpo ?? null,

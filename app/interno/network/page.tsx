@@ -30,14 +30,17 @@ const cuando = (iso: string) =>
   new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 const ESTADO_PERFIL_LABEL: Record<string, string> = {
-  draft: 'Borrador', published: 'Publicado', hidden: 'Oculto', suspended: 'Suspendido',
+  draft: 'Borrador', en_revision: 'En revisión', published: 'Publicado', hidden: 'Oculto', suspended: 'Suspendido',
 };
 
 function TabPerfiles() {
   const [perfiles, setPerfiles] = useState<PerfilNetworkInterno[] | null>(null);
   const [q, setQ] = useState('');
   const qRef = useRef('');
-  const [estado, setEstado] = useState('');
+  // 'en_revision' por defecto, no "todos los estados" — la cola de
+  // revisión es lo primero que hay que ver al entrar aquí (feedback del
+  // fundador: un perfil completo ya no se publica solo).
+  const [estado, setEstado] = useState('en_revision');
   const [error, setError] = useState<string | null>(null);
   const [accionandoId, setAccionandoId] = useState<string | null>(null);
 
@@ -121,7 +124,25 @@ function TabPerfiles() {
                   <td className="px-4 py-2 text-muted-foreground">{cuando(p.creado_en)}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center gap-2">
-                      {p.estado !== 'suspended' && (
+                      {p.estado === 'en_revision' && (
+                        <>
+                          <button
+                            disabled={accionandoId === p.id}
+                            onClick={() => cambiarEstado(p.id, 'published')}
+                            className="text-success underline disabled:opacity-50 font-medium"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            disabled={accionandoId === p.id}
+                            onClick={() => cambiarEstado(p.id, 'draft')}
+                            className="text-foreground underline disabled:opacity-50"
+                          >
+                            Devolver a borrador
+                          </button>
+                        </>
+                      )}
+                      {p.estado !== 'suspended' && p.estado !== 'en_revision' && (
                         <button
                           disabled={accionandoId === p.id}
                           onClick={() => cambiarEstado(p.id, 'suspended')}
