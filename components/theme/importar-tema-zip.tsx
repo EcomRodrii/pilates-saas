@@ -7,18 +7,18 @@
 // Un ZIP con .tsx/.jsx sin compilar, o que dependa de Next/Vite, se marca
 // INCOMPATIBLE con el motivo exacto — nunca una aproximación silenciosa.
 //
-// «Publicar» aquí es un estado INTERNO del panel — marca cuál de los ZIPs
-// subidos es «el elegido» — NO lo hace visible para ninguna socia real. No
-// existe hoy ninguna ruta que sirva un tema importado fuera de este iframe en
-// sandbox (decisión de seguridad explícita, ver el comentario en
-// `app/api/theme/importado/[id]/[[...ruta]]/route.ts`). Cada tema subido
-// empieza como "borrador" — no hace falta ninguna acción para eso, es el
-// estado por defecto hasta que se publica.
+// «Publicar» marca cuál de los ZIPs subidos es «el elegido», y lo hace
+// visible de verdad en `imports.tentare.app/<slug>` — un origen APARTE de
+// `tentare.app`, no el iframe en sandbox de esta pantalla (ver el comentario
+// de seguridad en `app/tema-publicado/[slug]/[[...ruta]]/route.ts` para el
+// porqué de un origen distinto en vez de reabrir el sandbox). Cada tema
+// subido empieza como "borrador" — no hace falta ninguna acción para eso, es
+// el estado por defecto hasta que se publica.
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { authHeader } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -35,7 +35,12 @@ interface TemaImportado {
   creado_en: string;
 }
 
-export function ImportarTemaZip() {
+/** El host público de temas importados (`imports.tentare.app`), o `null` si
+ *  no está configurado en este entorno — sin él no hay enlace que ofrecer,
+ *  aunque el tema esté publicado (Vercel/DNS es un paso manual, ver el PR). */
+const HOST_PUBLICADO = process.env.NEXT_PUBLIC_IMPORTS_HOST || null;
+
+export function ImportarTemaZip({ slug }: { slug: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [temas, setTemas] = useState<TemaImportado[] | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -200,6 +205,15 @@ export function ImportarTemaZip() {
                     >
                       Publicar
                     </Button>
+                  ) : null}
+                  {tema.publicado && HOST_PUBLICADO && slug ? (
+                    <a
+                      href={`https://${HOST_PUBLICADO}/${slug}`} target="_blank" rel="noreferrer"
+                      className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                    >
+                      <ExternalLink className="size-4" />
+                      Ver publicado
+                    </a>
                   ) : null}
                   {tema.publicado ? (
                     <Button

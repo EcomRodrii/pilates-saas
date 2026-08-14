@@ -376,12 +376,11 @@ export function ThemeLibrary() {
       </section>
 
       {/* El importador de ZIP: analiza, sube, enseña el resultado fiel, y deja
-          publicar/borrar entre los ZIPs subidos — pero «publicar» ahí es un
-          estado interno del panel, NO instala el tema para las socias reales:
-          eso exige resolver antes el mismo origen/sandbox que protege el
-          iframe de vista previa (ver el comentario de seguridad en
-          `app/api/theme/importado/[id]/[[...ruta]]/route.ts`). */}
-      <ImportarTemaZip />
+          publicar/borrar entre los ZIPs subidos. Publicar SÍ hace el tema
+          visible de verdad, en el origen dedicado `imports.tentare.app` (ver
+          `app/tema-publicado/[slug]/[[...ruta]]/route.ts`) — nunca bajo
+          `tentare.app`, que es el origen de confianza del panel. */}
+      <ImportarTemaZip slug={hook.studio?.slug ?? null} />
     </div>
   );
 }
