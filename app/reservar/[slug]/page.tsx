@@ -31,6 +31,7 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
+import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
@@ -333,6 +334,16 @@ export default function ReservarPage() {
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Fase 2 "Growth Widget": primer evento del funnel. `studio?.id` llega tras
+  // resolver el catálogo público — sin ref, cada refresco del catálogo
+  // (recargarPublico) dispararía el evento otra vez.
+  const widgetLoadedRef = useRef(false);
+  useEffect(() => {
+    if (widgetLoadedRef.current || !studio?.id) return;
+    widgetLoadedRef.current = true;
+    trackEventoWidget(studio.id, 'widget_loaded', { origen: searchParams.get('ref') });
+  }, [studio?.id, searchParams]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
   // Filtros del discovery quiz (ver components/reserva/discovery-quiz.tsx) —
@@ -854,6 +865,9 @@ export default function ReservarPage() {
   }
 
   function openBooking(sesionId: string) {
+    // sesionId vacío = acceso genérico (botón "Acceder" de la cabecera), no
+    // la selección de una clase concreta.
+    if (sesionId) trackEventoWidget(studio?.id, 'class_selected', { sesionClaseId: sesionId });
     setBookingSesionId(sesionId);
     setTerminosAceptados(false);
     setEnlaceEnviado(false);
@@ -907,6 +921,10 @@ export default function ReservarPage() {
       const r = await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
       if ('error' in r) { setLoginError(r.error); return; }
       setEnlaceEnviado(true);
+      // lead_completed queda para cuando de verdad entra por el enlace (fuera
+      // de esta pestaña/sesión, no se puede medir aquí) — este evento solo
+      // marca que se pidió, que es exactamente el hueco que no se medía antes.
+      trackEventoWidget(studio?.id, 'lead_started', { sesionClaseId: bookingSesionId || null });
     } finally {
       setEnviandoEnlace(false);
     }
@@ -992,6 +1010,7 @@ export default function ReservarPage() {
     const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId, sesion.inicio);
     if (gate) { setGateError(gate); return; }
 
+    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: bookingSesionId });
     setGateError('');
     confirmandoRef.current = true;
     setConfirmando(true);
@@ -1022,6 +1041,7 @@ export default function ReservarPage() {
       // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
       // la clienta se iba convencida de tener plaza.
       if (!r.ok) { setGateError(r.error); return; }
+      trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: bookingSesionId });
       if (r.estado === 'LISTA_ESPERA') {
         // Posición estimada: nº de personas ya en espera + 1 (I-11).
         const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
@@ -1045,6 +1065,7 @@ export default function ReservarPage() {
   //    elegido en la hoja se propaga a ese flujo (openBooking lo resetea primero,
   //    por eso se fija después).
   function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): ResultadoReserva | void | Promise<ResultadoReserva | void> {
+    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: slot.id });
     if (!autenticado || !socia) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
@@ -1058,7 +1079,15 @@ export default function ReservarPage() {
       if (spotId) setSelectedSpot(spotId);
       return;
     }
-    return addReserva(slot.id, socia.socioId, spotId);
+    // Camino rápido (ya autenticada, con ficha y gate OK): no pasa por
+    // handleConfirm, así que booking_completed se dispara aquí — sin alterar
+    // lo que se devuelve a quien llama (la hoja del calendario lo necesita
+    // para pintar confirmación/lista de espera in situ).
+    const resultado = addReserva(slot.id, socia.socioId, spotId);
+    void resultado.then(r => {
+      if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id });
+    }).catch(() => {});
+    return resultado;
   }
 
   async function handleContratarPlan(plan: PlanTarifa) {
@@ -1096,6 +1125,9 @@ export default function ReservarPage() {
         // `window.top` es la ventana de nivel superior real tanto si el
         // widget está embebido como si no (entonces top === window, mismo
         // efecto de siempre en /reservar/[slug] visitado directo).
+        // Antes de navegar fuera: booking_completed se mide en Stripe (importe
+        // real), esto solo marca que la visitante LLEGÓ a intentar pagar.
+        trackEventoWidget(studio?.id, 'checkout_started', { origen: searchParams.get('ref') });
         (window.top ?? window).location.href = data.url;
       } else {
         setStripeError(data.error ?? 'Error al procesar el pago');

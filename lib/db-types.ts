@@ -269,6 +269,7 @@ export interface RowInstructores {
   avatar: string | null;
   foto_url: string | null;
   bio: string | null;
+  tipo_contrato: string | null;
 }
 
 export interface RowIntegracionCredenciales {
@@ -278,7 +279,7 @@ export interface RowIntegracionCredenciales {
   refresh_token: string | null;
   expires_at: string | null;
   actualizado_en: string | null;
-  metadata: unknown | null;
+  metadata: any | null;
 }
 
 export interface RowIntegraciones {
@@ -588,12 +589,10 @@ export interface RowStudios {
   direccion: string | null;
   ciudad: string | null;
   codigo_postal: string | null;
-  normas_texto?: string | null;
   email: string | null;
   telefono: string | null;
   color_primario: string | null;
   plan: string | null;
-  tipo_cuenta: string;
   creado_en: string | null;
   owner_auth_user_id: string | null;
   slug: string | null;
@@ -601,7 +600,6 @@ export interface RowStudios {
   avatar_admin: string | null;
   tema_portal: string | null;
   google_calendar_email: string | null;
-  klaviyo_account_name: string | null;
   cancelacion_ventana_horas: number | null;
   cancelacion_devolver_bono_tardia: boolean | null;
   reserva_exigir_plan: boolean | null;
@@ -676,6 +674,9 @@ export interface RowStudios {
   reembolso_solo_sin_usar: boolean | null;
   pagina_publica_oculta: boolean | null;
   pagina_publica_clave_hash: string | null;
+  tipo_cuenta: string | null;
+  normas_texto: string | null;
+  klaviyo_account_name: string | null;
 }
 
 export interface RowSuscripciones {
@@ -708,6 +709,9 @@ export interface RowTiposClase {
   penalizacion_importe_eur: number | null;
   lista_espera_plazo_aceptacion_minutos: number | null;
   minimo_asistentes_por_clase: number | null;
+  // migr 20260811134019. `text[] not null default '{}'` — pero se declara
+  // nullable aquí porque una fila leída con un `select` que no la pida llega
+  // sin ella, y el mapper ya lo tolera.
   objetivos: string[] | null;
 }
 
@@ -913,28 +917,6 @@ export interface RowCamposPersonalizados {
   orden: number;
   activo: boolean;
   creado_en: string | null;
-}
-
-export interface RowPlantillasCuestionarioSalud {
-  id: string;
-  studio_id: string;
-  pregunta: string;
-  tipo_respuesta: string;
-  opciones: string[] | null;
-  orden: number;
-  activo: boolean;
-  creado_en: string | null;
-}
-
-export interface RowRespuestasCuestionarioSalud {
-  id: string;
-  studio_id: string;
-  socio_id: string;
-  pregunta_id: string;
-  respuesta: string | null;
-  creado_por: string | null;
-  creado_en: string | null;
-  actualizado_en: string | null;
 }
 
 export interface RowPlantillasEmail {
@@ -1611,4 +1593,261 @@ export interface RowResumenSemanalEnvios {
   studio_id: string;
   semana_lunes: string;
   enviado_en: string;
+}
+
+export interface RowPlantillasCuestionarioSalud {
+  id: string;
+  studio_id: string;
+  pregunta: string;
+  tipo_respuesta: string;
+  opciones: string[];
+  orden: number;
+  activo: boolean;
+  creado_en: string;
+}
+
+export interface RowRespuestasCuestionarioSalud {
+  id: string;
+  studio_id: string;
+  socio_id: string;
+  pregunta_id: string;
+  respuesta: string | null;
+  creado_por: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowRedPerfiles {
+  id: string;
+  auth_user_id: string;
+  nombre: string;
+  foto_url: string | null;
+  ciudad: string | null;
+  zona: string | null;
+  radio_km: number | null;
+  descripcion: string | null;
+  especialidades: string[];
+  anios_experiencia: number | null;
+  tarifa_rango: string | null;
+  disponibilidad_estado: string;
+  disponibilidad_horarios: string[];
+  tipo_trabajo: string[];
+  email_contacto: string | null;
+  telefono_contacto: string | null;
+  estado: string;
+  identidad_verificada_en: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  ultimo_acceso_en: string | null;
+  slug: string | null;
+  destacado: boolean | null;
+  idiomas: string[] | null;
+  instagram: string | null;
+  linkedin: string | null;
+  web: string | null;
+}
+
+export interface RowRedExperiencias {
+  id: string;
+  perfil_id: string;
+  studio_id: string | null;
+  nombre_estudio: string;
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  especialidades: string[];
+  descripcion: string | null;
+  estado_verificacion: string;
+  creado_en: string;
+}
+
+export interface RowRedVerificacionesExperiencia {
+  id: string;
+  experiencia_id: string;
+  studio_id: string;
+  solicitado_por: string;
+  solicitado_en: string;
+  resuelto_en: string | null;
+  resuelto_por: string | null;
+  estado: string;
+}
+
+export interface RowRedReferencias {
+  id: string;
+  perfil_id: string;
+  nombre_referente: string;
+  email_referente: string;
+  relacion: string | null;
+  token: string;
+  token_expira_en: string;
+  solicitado_en: string;
+  resuelto_en: string | null;
+  estado: string;
+}
+
+export interface RowRedSolicitudesContacto {
+  id: string;
+  perfil_id: string;
+  studio_id: string;
+  solicitado_por: string;
+  mensaje: string | null;
+  estado: string;
+  creado_en: string;
+  resuelto_en: string | null;
+}
+
+export interface RowRedReportes {
+  id: string;
+  perfil_id: string;
+  reportado_por: string | null;
+  motivo: string;
+  detalle: string | null;
+  estado: string;
+  creado_en: string;
+  revisado_en: string | null;
+  revisado_por: string | null;
+}
+
+export interface RowRedFavoritos {
+  id: string;
+  studio_id: string;
+  perfil_id: string;
+  creado_por: string;
+  creado_en: string;
+}
+
+export interface RowRedResenas {
+  id: string;
+  perfil_id: string;
+  studio_id: string;
+  solicitud_id: string;
+  autor: string;
+  puntuacion: number;
+  comentario: string | null;
+  estado: string;
+  creado_en: string;
+  moderado_en: string | null;
+  moderado_por: string | null;
+}
+
+export interface RowRedMensajes {
+  id: string;
+  solicitud_id: string;
+  remitente: string;
+  cuerpo: string;
+  creado_en: string;
+  leido_en: string | null;
+}
+
+export interface RowRedPerfilesIdentidad {
+  perfil_id: string;
+  apellido1: string | null;
+  apellido2: string | null;
+  fecha_nacimiento: string | null;
+  pais_residencia: string | null;
+  tipo_documento: string | null;
+  numero_documento: string | null;
+  direccion_cp: string | null;
+  direccion_ciudad: string | null;
+  direccion_provincia: string | null;
+  direccion_pais: string | null;
+  telefono_verificado_en: string | null;
+  email_verificado_en: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowRedVerificacionesIdentidad {
+  id: string;
+  perfil_id: string;
+  estado: string;
+  motivo_rechazo: string | null;
+  documento_path: string;
+  creado_en: string;
+  resuelto_en: string | null;
+  resuelto_por: string | null;
+}
+
+export interface RowRedCertificaciones {
+  id: string;
+  perfil_id: string;
+  nombre: string;
+  institucion: string;
+  anio: number | null;
+  duracion: string | null;
+  documento_path: string;
+  estado: string;
+  motivo_rechazo: string | null;
+  creado_en: string;
+  resuelto_en: string | null;
+  resuelto_por: string | null;
+}
+
+export interface RowRedFormalizaciones {
+  id: string;
+  solicitud_id: string;
+  propuesto_por: string;
+  tipo_contrato: string;
+  estudio_confirmado_en: string | null;
+  instructora_confirmada_en: string | null;
+  estado: string;
+  instructor_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowThemeImports {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  manifest: any;
+  storage_prefix: string;
+  entry_html: string | null;
+  estado: string;
+  detalle: string | null;
+  creado_en: string;
+  creado_por: string | null;
+  publicado: boolean | null;
+  publicado_en: string | null;
+  rutas_editadas: string[] | null;
+}
+
+export interface RowRedVacantes {
+  id: string;
+  studio_id: string;
+  publicado_por: string;
+  titulo: string;
+  especialidades: string[];
+  horarios: string[];
+  tipo_trabajo: string;
+  tarifa_rango: string;
+  requisitos: string | null;
+  descripcion: string;
+  estado: string;
+  creado_en: string;
+  actualizado_en: string;
+  cerrado_en: string | null;
+}
+
+export interface RowRedCandidaturas {
+  id: string;
+  vacante_id: string;
+  perfil_id: string;
+  studio_id: string;
+  mensaje: string | null;
+  notas_estudio: string | null;
+  estado: string;
+  solicitud_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  resuelto_en: string | null;
+}
+
+export interface RowWidgetEventos {
+  id: string;
+  studio_id: string;
+  session_id: string;
+  tipo: string;
+  sesion_clase_id: string | null;
+  origen: string | null;
+  creado_en: string;
 }
