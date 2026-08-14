@@ -238,7 +238,7 @@ export interface MandatoSEPA {
 // ─── Integraciones por negocio ───────────────────────────────────────────────
 export type TipoIntegracion =
   | 'STRIPE' | 'RESEND' | 'GOOGLE_CALENDAR' | 'GMAIL' | 'WHATSAPP' | 'EXCEL'
-  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO';
+  | 'ZOOM' | 'KISI' | 'MAILCHIMP' | 'KLAVIYO' | 'ZAPIER';
 
 export interface Integracion {
   id: string;
