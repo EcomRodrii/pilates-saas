@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Send } from 'lucide-react';
-import { fetchMensajesNetwork, enviarMensajeNetwork } from '@/lib/api-client';
-import type { MensajeNetwork } from '@/lib/network/tipos';
+import { Loader2, Send, Handshake, Check } from 'lucide-react';
+import {
+  fetchMensajesNetwork, enviarMensajeNetwork,
+  fetchFormalizacionNetwork, proponerOConfirmarFormalizacionNetwork,
+} from '@/lib/api-client';
+import type { MensajeNetwork, FormalizacionNetwork } from '@/lib/network/tipos';
 import { cn } from '@/lib/utils';
 
 const hora = (iso: string) => new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const TIPO_CONTRATO_LABEL = { temporal: 'temporal', indefinido: 'indefinido' } as const;
 
 // Hilo de mensajería (brief §9) — el mismo componente sirve para el lado
 // estudio y el lado instructora: la API resuelve quién es "yo"
@@ -21,6 +25,14 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
   const [error, setError] = useState('');
   const finRef = useRef<HTMLDivElement>(null);
 
+  const [formalizacion, setFormalizacion] = useState<FormalizacionNetwork | null>(null);
+  const [miLado, setMiLado] = useState<'estudio' | 'instructora' | null>(null);
+  const [cargandoFormalizacion, setCargandoFormalizacion] = useState(true);
+  const [proponiendo, setProponiendo] = useState(false);
+  const [tipoElegido, setTipoElegido] = useState<'temporal' | 'indefinido'>('indefinido');
+  const [enviandoFormalizacion, setEnviandoFormalizacion] = useState(false);
+  const [errorFormalizacion, setErrorFormalizacion] = useState('');
+
   useEffect(() => {
     let vivo = true;
     async function cargar() {
@@ -29,6 +41,23 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
     }
     void cargar();
     const id = setInterval(cargar, 5000);
+    return () => { vivo = false; clearInterval(id); };
+  }, [solicitudId]);
+
+  useEffect(() => {
+    let vivo = true;
+    async function cargarFormalizacion() {
+      const r = await fetchFormalizacionNetwork(solicitudId);
+      if (!vivo) return;
+      setFormalizacion(r?.formalizacion ?? null);
+      setMiLado(r?.miLado ?? null);
+      setCargandoFormalizacion(false);
+    }
+    void cargarFormalizacion();
+    // Mismo polling que los mensajes: si la otra parte confirma, o si quien
+    // completa el alta es la propietaria abriendo el hilo más tarde, se
+    // refleja aquí sin recargar la página.
+    const id = setInterval(cargarFormalizacion, 5000);
     return () => { vivo = false; clearInterval(id); };
   }, [solicitudId]);
 
@@ -47,8 +76,42 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
     setMensajes(await fetchMensajesNetwork(solicitudId));
   }
 
+  async function enviarPropuesta() {
+    setEnviandoFormalizacion(true); setErrorFormalizacion('');
+    const res = await proponerOConfirmarFormalizacionNetwork(solicitudId, tipoElegido);
+    setEnviandoFormalizacion(false);
+    if (!res.ok) { setErrorFormalizacion(res.error); return; }
+    setFormalizacion(res.formalizacion);
+    setMiLado(res.miLado);
+    setProponiendo(false);
+  }
+
+  async function confirmar() {
+    setEnviandoFormalizacion(true); setErrorFormalizacion('');
+    const res = await proponerOConfirmarFormalizacionNetwork(solicitudId);
+    setEnviandoFormalizacion(false);
+    if (!res.ok) { setErrorFormalizacion(res.error); return; }
+    setFormalizacion(res.formalizacion);
+    setMiLado(res.miLado);
+  }
+
   return (
-    <div className="flex flex-col h-[420px]">
+    <div className="flex flex-col h-[480px]">
+      {!cargandoFormalizacion && (
+        <TarjetaFormalizacion
+          formalizacion={formalizacion}
+          miLado={miLado}
+          proponiendo={proponiendo}
+          setProponiendo={setProponiendo}
+          tipoElegido={tipoElegido}
+          setTipoElegido={setTipoElegido}
+          enviando={enviandoFormalizacion}
+          error={errorFormalizacion}
+          onProponer={enviarPropuesta}
+          onConfirmar={confirmar}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {!mensajes ? (
           <div className="flex items-center justify-center h-full">
@@ -89,6 +152,115 @@ export function HiloMensajes({ solicitudId }: { solicitudId: string }) {
           className="p-2 rounded-lg bg-brand text-brand-foreground disabled:opacity-50"
         >
           {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Formalizar contratación (siguiente fase) — "las 2 aceptan" antes de que
+// aparezca en el equipo. Vive encima del hilo porque es donde ya se
+// negocian clases/horario/tarifa; un botón suelto en otra pantalla habría
+// desconectado la propuesta de la conversación que la justifica.
+function TarjetaFormalizacion({
+  formalizacion, miLado, proponiendo, setProponiendo, tipoElegido, setTipoElegido,
+  enviando, error, onProponer, onConfirmar,
+}: {
+  formalizacion: FormalizacionNetwork | null;
+  miLado: 'estudio' | 'instructora' | null;
+  proponiendo: boolean;
+  setProponiendo: (v: boolean) => void;
+  tipoElegido: 'temporal' | 'indefinido';
+  setTipoElegido: (v: 'temporal' | 'indefinido') => void;
+  enviando: boolean;
+  error: string;
+  onProponer: () => void;
+  onConfirmar: () => void;
+}) {
+  if (formalizacion?.estado === 'confirmada') {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-emerald-50 text-emerald-800 text-[12.5px]">
+        <Check size={14} className="shrink-0" />
+        Ya formáis equipo — contrato {TIPO_CONTRATO_LABEL[formalizacion.tipoContrato]}.
+      </div>
+    );
+  }
+
+  if (formalizacion && formalizacion.estado === 'pendiente') {
+    const miMarca = miLado === 'estudio' ? formalizacion.estudioConfirmadoEn : formalizacion.instructoraConfirmadaEn;
+    const otraMarca = miLado === 'estudio' ? formalizacion.instructoraConfirmadaEn : formalizacion.estudioConfirmadoEn;
+
+    if (miMarca && otraMarca) {
+      return (
+        <div className="px-4 py-2.5 border-b border-border bg-muted text-[12.5px] text-muted-foreground">
+          Las dos partes habéis confirmado ({TIPO_CONTRATO_LABEL[formalizacion.tipoContrato]}). Completando el alta…
+        </div>
+      );
+    }
+    if (miMarca && !otraMarca) {
+      return (
+        <div className="px-4 py-2.5 border-b border-border bg-muted text-[12.5px] text-muted-foreground">
+          Propuesta enviada ({TIPO_CONTRATO_LABEL[formalizacion.tipoContrato]}). Esperando confirmación.
+        </div>
+      );
+    }
+    return (
+      <div className="px-4 py-2.5 border-b border-border bg-amber-50 space-y-2">
+        <p className="text-[12.5px] text-amber-900">
+          {miLado === 'estudio'
+            ? <>La instructora propone que la contrates como <strong>{TIPO_CONTRATO_LABEL[formalizacion.tipoContrato]}</strong>.</>
+            : <>El estudio propone contratarte como <strong>{TIPO_CONTRATO_LABEL[formalizacion.tipoContrato]}</strong>.</>}{' '}
+          ¿Confirmas?
+        </p>
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
+        <button
+          onClick={onConfirmar}
+          disabled={enviando}
+          className="px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium disabled:opacity-60"
+        >
+          {enviando ? 'Confirmando…' : 'Confirmar'}
+        </button>
+      </div>
+    );
+  }
+
+  if (!proponiendo) {
+    return (
+      <div className="px-4 py-2 border-b border-border">
+        <button
+          onClick={() => setProponiendo(true)}
+          className="flex items-center gap-1.5 text-[12.5px] font-medium text-brand hover:underline"
+        >
+          <Handshake size={14} /> Formalizar contratación
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-3 border-b border-border bg-muted space-y-2">
+      <p className="text-[12.5px] font-medium text-foreground">Proponer contratación</p>
+      <div className="flex items-center gap-3 text-[12.5px]">
+        <label className="flex items-center gap-1.5">
+          <input type="radio" checked={tipoElegido === 'temporal'} onChange={() => setTipoElegido('temporal')} />
+          Temporal
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="radio" checked={tipoElegido === 'indefinido'} onChange={() => setTipoElegido('indefinido')} />
+          Indefinido
+        </label>
+      </div>
+      {error && <p className="text-[11px] text-destructive">{error}</p>}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onProponer}
+          disabled={enviando}
+          className="px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium disabled:opacity-60"
+        >
+          {enviando ? 'Enviando…' : 'Enviar propuesta'}
+        </button>
+        <button onClick={() => setProponiendo(false)} className="text-[12px] text-muted-foreground">
+          Cancelar
         </button>
       </div>
     </div>
