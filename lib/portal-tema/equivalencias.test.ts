@@ -116,3 +116,28 @@ test('un id repetido no duplica la sección', () => {
   const r = ordenDelInicio(TEMA, [sis('cabecera'), sis('cabecera')]);
   assert.equal(r.filter((x) => x === 'home-header').length, 1);
 });
+
+// ── `fijo` gana a `oculto` ───────────────────────────────────────────────────
+//
+// Medido en producción (cadena de `tentare`, 2026-08-14): `cabecera` llegaba
+// con `{ fijo: true, oculto: true }` a la vez — combinación real, no un dato
+// corrupto. En el portal de siempre es inofensiva (el editor pinta los
+// bloques `fijo` siempre, sin mirar su `oculto`: «no se mueven ni se
+// ocultan», `portal-bloques-editor.tsx`). `ordenDelInicio` era el PRIMER
+// sitio que sí miraba ese `oculto`, y le borraba a Tentada su cabecera con
+// foto con datos que en el portal viejo nunca tuvieron ese efecto.
+
+test('⚠️ un bloque `fijo` se pinta aunque venga `oculto` — el caso real de producción', () => {
+  const r = ordenDelInicio(TEMA, [{ kind: 'sistema', sistemaId: 'cabecera', oculto: true, fijo: true }]);
+  assert.ok(r.includes('home-header'), 'la cabecera fija no debería desaparecer por un oculto heredado');
+});
+
+test('sin `fijo`, `oculto` sigue ocultando — no se ha desactivado la regla', () => {
+  const r = ordenDelInicio(TEMA, [sis('cabecera', true)]);
+  assert.ok(!r.includes('home-header'));
+});
+
+test('un `fijo` oculto no se cuela DOS veces (una por fijo, otra al final por no-ocultado)', () => {
+  const r = ordenDelInicio(TEMA, [{ kind: 'sistema', sistemaId: 'cabecera', oculto: true, fijo: true }]);
+  assert.equal(r.filter((x) => x === 'home-header').length, 1);
+});
