@@ -31,21 +31,31 @@ export async function GET(req: NextRequest) {
   const infoPorSolicitud = new Map<string, { nombre: string; fotoUrl: string | null; perfilId: string | null }>();
   let miUserId: string | null = null;
 
+  // `verificarUsuarioSupabase` valida CUALQUIER JWT (staff incluido, no solo
+  // instructoras con perfil propio) — así que "usuario truthy" nunca basta
+  // para decidir el lado. Bug real que esto corrige: una propietaria sin
+  // perfil de Network propio (el caso normal) validaba como `usuario`, no
+  // tenía fila en `red_perfiles`, y el código nunca llegaba a probar el lado
+  // staff — su bandeja de mensajes salía vacía siempre, aunque tuviera
+  // solicitudes aceptadas de verdad.
+  let perfil: { id: string } | null = null;
   if (usuario) {
-    const { data: perfil } = await admin.from('red_perfiles').select('id').eq('auth_user_id', usuario.userId).maybeSingle();
-    if (perfil) {
-      const { data, error } = await admin
-        .from('red_solicitudes_contacto')
-        .select('id, studios ( nombre )')
-        .eq('perfil_id', perfil.id).eq('estado', 'aceptada');
-      if (error) return errorInterno('network:mensajes:hilos:GET', error, 'No se han podido cargar los mensajes.');
-      type Fila = { id: string; studios: { nombre: string | null } | null };
-      for (const f of (data ?? []) as unknown as Fila[]) {
-        solicitudesIds.push(f.id);
-        infoPorSolicitud.set(f.id, { nombre: f.studios?.nombre ?? 'Un estudio', fotoUrl: null, perfilId: null });
-      }
-      miUserId = usuario.userId;
+    const { data } = await admin.from('red_perfiles').select('id').eq('auth_user_id', usuario.userId).maybeSingle();
+    perfil = data;
+  }
+
+  if (perfil) {
+    const { data, error } = await admin
+      .from('red_solicitudes_contacto')
+      .select('id, studios ( nombre )')
+      .eq('perfil_id', perfil.id).eq('estado', 'aceptada');
+    if (error) return errorInterno('network:mensajes:hilos:GET', error, 'No se han podido cargar los mensajes.');
+    type Fila = { id: string; studios: { nombre: string | null } | null };
+    for (const f of (data ?? []) as unknown as Fila[]) {
+      solicitudesIds.push(f.id);
+      infoPorSolicitud.set(f.id, { nombre: f.studios?.nombre ?? 'Un estudio', fotoUrl: null, perfilId: null });
     }
+    miUserId = usuario!.userId;
   } else {
     const sesionStaff = await verificarSesionStaff(req);
     if (!sesionStaff) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
