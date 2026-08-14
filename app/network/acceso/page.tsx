@@ -15,19 +15,35 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { authHeader } from '@/lib/api-client';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { GoogleIcon } from '@/components/auth/google-icon';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_BORDE } from '@/components/network-v2/tokens';
 
 export default function AccesoNetworkPage() {
   const uid = useId();
-  const { signIn, session, user, loading } = useAuth();
+  const { signIn, signInWithGoogle, session, user, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
   const yaResuelto = useRef(false);
+
+  // A diferencia de /login, esta pantalla NUNCA recibe la vuelta de Google
+  // directamente: signInWithGoogle() vuelve siempre a /login (su
+  // redirectPath por defecto — la única ruta que activa detectSessionInUrl,
+  // ver lib/db/supabase.ts), así que un fallo del lado de Google (cancelado,
+  // callback caído) se ve y se explica ahí, no aquí. Aquí solo hace falta
+  // capturar el error síncrono que gotrue puede devolver ANTES de redirigir
+  // (provider mal configurado, rate limit).
+  async function conectarConGoogle() {
+    setError('');
+    setConectandoGoogle(true);
+    const { error } = await signInWithGoogle();
+    if (error) { setError(error); setConectandoGoogle(false); }
+  }
 
   // Misma cola de resolución que /login: destino-post-login es la única
   // fuente de verdad de a dónde pertenece esta cuenta (estudio real →
@@ -103,7 +119,25 @@ export default function AccesoNetworkPage() {
       <div id="login" className="p-10 lg:p-16 flex flex-col justify-center scroll-mt-6">
         <div className="max-w-[380px] mx-auto w-full">
           <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>¿Ya tienes cuenta?</p>
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+
+          <button
+            type="button"
+            disabled={conectandoGoogle}
+            onClick={() => void conectarConGoogle()}
+            className="w-full mt-6 flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[13.5px] font-semibold hover:bg-black/[.02] transition-colors disabled:opacity-60"
+            style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+          >
+            <GoogleIcon />
+            {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
+          </button>
+
+          <div className="flex items-center gap-3 my-4">
+            <div className="h-px flex-1" style={{ background: NW_BORDE }} />
+            <span className="text-[11px] font-medium" style={{ color: NW_MUTED }}>o</span>
+            <div className="h-px flex-1" style={{ background: NW_BORDE }} />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor={`${uid}-email`} className="block text-[13px] font-semibold mb-1.5" style={{ color: NW_TINTA }}>Email</label>
               <input
