@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { descargarObjetoR2 } from '@/lib/r2';
 import { contentTypeDe } from '@/lib/theme-import/content-type';
 import { reescribirHtml, reescribirCss } from '@/lib/theme-import/reescribir-rutas';
+import { enlazarPropsDeclarados, enlazarFotosDeSlots } from '@/lib/theme-import/enlazar-datos';
+import { imagenDeEstudio } from '@/lib/imagenes-por-defecto';
 import { verificarTokenPreviewHome } from '@/lib/theme/home-preview-token';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
 
@@ -75,7 +77,8 @@ export async function GET(
       : undefined;
 
   if (tipo.startsWith('text/html')) {
-    const html = reescribirHtml(new TextDecoder().decode(bytes), rutaPedida, esRelativoDeRuta);
+    let html = reescribirHtml(new TextDecoder().decode(bytes), rutaPedida, esRelativoDeRuta);
+    html = await enlazarDatosReales(admin, fila.studio_id, html);
     return new NextResponse(html, { headers: { 'Content-Type': tipo } });
   }
   if (tipo.startsWith('text/css')) {
@@ -86,5 +89,41 @@ export async function GET(
   // el punto 8 del encargo ("no reemplazar assets, no cambiar dimensiones").
   return new NextResponse(new Blob([bytes as Uint8Array<ArrayBuffer>]), {
     headers: { 'Content-Type': tipo, 'Cache-Control': 'private, max-age=1200' },
+  });
+}
+
+// «TEMA ORIGINAL + TENTARE DATA → THEME RENDERER» (punto 12 del encargo): el
+// nombre/color/fotos del estudio real, enlazados en cada petición sobre el
+// HTML tal cual vino del ZIP — ver `lib/theme-import/enlazar-datos.ts` para
+// el porqué exacto de qué se enlaza y qué NO (la lista de clases del tema,
+// bloqueada por el sandbox del iframe sin `allow-same-origin`, decisión
+// explícita de seguridad, no un olvido).
+async function enlazarDatosReales(
+  admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
+  studioId: string,
+  html: string,
+): Promise<string> {
+  const { data: estudio } = await admin
+    .from('studios')
+    .select('nombre, color_primario, foto_url, imagen_bienvenida_url')
+    .eq('id', studioId)
+    .maybeSingle();
+  if (!estudio) return html;
+
+  const propias = [estudio.imagen_bienvenida_url, estudio.foto_url] as (string | null | undefined)[];
+  const conDatos = enlazarPropsDeclarados(html, {
+    studioName: estudio.nombre ?? undefined,
+    brand: estudio.color_primario ?? undefined,
+  });
+  return enlazarFotosDeSlots(conDatos, {
+    // Huecos distintos por slot: da variedad al fallback de stock cuando el
+    // estudio no ha subido foto propia, sin fingir que son fotos distintas
+    // cuando sí la ha subido (`imagenDeEstudio` prioriza siempre la propia).
+    welcomeHero: imagenDeEstudio('portada', propias, studioId),
+    homeHero: imagenDeEstudio('banner', propias, studioId),
+    centroFachada: imagenDeEstudio('banda', propias, studioId),
+    // `avatarPerfil` se deja SIN enlazar a propósito: este render no tiene
+    // sesión de socia (es la vista previa del editor, no el portal real), así
+    // que no hay ninguna foto de perfil real que poner.
   });
 }
