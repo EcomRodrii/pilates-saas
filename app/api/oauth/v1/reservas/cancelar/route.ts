@@ -26,13 +26,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { reservaId?: string } | null;
-  if (!body?.reservaId) return NextResponse.json({ error: 'invalid_request', detalle: 'reservaId es obligatorio' }, { status: 400 });
+  const body = await req.json().catch(() => null) as { reservaId?: string; reserva_id?: string } | null;
+  const reservaId = body?.reservaId ?? body?.reserva_id;
+  if (!reservaId) return NextResponse.json({ error: 'invalid_request', detalle: 'reservaId es obligatorio' }, { status: 400 });
 
   // La reserva trae el socio_id — se resuelve aquí para no exigirle a Zapier
   // que sepa de quién es, y de paso confirma que pertenece a este estudio.
   const { data: reserva } = await admin
-    .from('reservas').select('socio_id').eq('id', body.reservaId).eq('studio_id', ctx.studioId).maybeSingle();
+    .from('reservas').select('socio_id').eq('id', reservaId).eq('studio_id', ctx.studioId).maybeSingle();
   if (!reserva?.socio_id) {
     auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: 'reservas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/reservas/cancelar', statusCode: 404, ip: clientIp(req) });
     return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 });
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   if (!socio) return NextResponse.json({ error: 'Clienta no encontrada' }, { status: 404 });
 
   const resultado = await cancelarReservaPublica({
-    studioId: ctx.studioId, reservaId: body.reservaId, socioId: reserva.socio_id, email: socio.email,
+    studioId: ctx.studioId, reservaId, socioId: reserva.socio_id, email: socio.email,
   });
 
   const statusCode = 'error' in resultado ? 400 : 200;

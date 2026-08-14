@@ -66,20 +66,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { socioId?: string; sesionId?: string; spotId?: string } | null;
-  if (!body?.socioId || !body?.sesionId) {
+  const body = await req.json().catch(() => null) as {
+    socioId?: string; sesionId?: string; spotId?: string;
+    socio_id?: string; sesion_id?: string; spot_id?: string;
+  } | null;
+  const socioId = body?.socioId ?? body?.socio_id;
+  const sesionId = body?.sesionId ?? body?.sesion_id;
+  const spotId = body?.spotId ?? body?.spot_id;
+  if (!socioId || !sesionId) {
     return NextResponse.json({ error: 'invalid_request', detalle: 'socioId y sesionId son obligatorios' }, { status: 400 });
   }
 
   const { data: socio } = await admin
-    .from('socios').select('email').eq('id', body.socioId).eq('studio_id', ctx.studioId).is('borrado_en', null).maybeSingle();
+    .from('socios').select('email').eq('id', socioId).eq('studio_id', ctx.studioId).is('borrado_en', null).maybeSingle();
   if (!socio) {
     auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: 'reservas:escribir', metodo: 'POST', ruta: '/api/oauth/v1/reservas', statusCode: 404, ip: clientIp(req) });
     return NextResponse.json({ error: 'Clienta no encontrada' }, { status: 404 });
   }
 
   const resultado = await crearReservaPublica({
-    studioId: ctx.studioId, sesionId: body.sesionId, socioId: body.socioId, email: socio.email, spotId: body.spotId,
+    studioId: ctx.studioId, sesionId, socioId, email: socio.email, spotId,
   });
 
   const statusCode = 'error' in resultado ? 400 : 201;

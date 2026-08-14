@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { titulo?: string; descripcion?: string; socioId?: string } | null;
+  const body = await req.json().catch(() => null) as { titulo?: string; descripcion?: string; socioId?: string; socio_id?: string } | null;
   if (!body?.titulo?.trim()) {
     return NextResponse.json({ error: 'invalid_request', detalle: 'titulo es obligatorio' }, { status: 400 });
   }
 
   const resultado = await crearTareaAdmin(admin, {
     studioId: ctx.studioId, titulo: body.titulo.trim(), descripcion: body.descripcion ?? null,
-    socioId: body.socioId ?? null, origen: 'API',
+    socioId: body.socioId ?? body.socio_id ?? null, origen: 'API',
   });
 
   const statusCode = 'error' in resultado ? 400 : 201;
