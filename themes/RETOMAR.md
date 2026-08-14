@@ -230,6 +230,52 @@ Lo que **sí** se retira son las `variantes`: su papel lo hacen ahora los
    `estudio-vertical.webp` mide 62/255 de luminancia media en la banda del
    titular (p90 = 65), y la bienvenida se miró en los CUATRO temas.
 
+## Con el kit, el orden del Inicio lo manda el ESTUDIO (2026-08-14)
+
+Decisión del fundador, tomada al descubrir que el rail de Secciones enseñaba
+agarradera y ojo **que no movían nada**: con el kit encendido el orden salía de
+`themes/<tema>/config.ts` y `studio_layout.bloques` se ignoraba entero.
+
+⚠️ Y de paso una corrección que estaba escrita al revés en dos sitios: **«el
+tema manda, como en Shopify» es falso**. En Shopify el tema trae el orden por
+DEFECTO y la tienda lo cambia — que era además el encargo explícito del Theme
+Builder.
+
+Fuente de verdad: `ordenDelInicio` (`lib/portal-tema/equivalencias.ts`), con
+cuatro reglas y un test por regla:
+
+1. **Sin bloques guardados manda el tema** — el caso de los 13 estudios el día
+   del despliegue, así que salió como no-op.
+2. **Oculto no se pinta**, y ocultar GANA a la regla 3. Sin eso, apagas una
+   sección y reaparece por detrás.
+3. **Lo que el tema compone y el estudio nunca ordenó va al final**, no se
+   pierde: un tema que añade una sección la enseña en vez de tragársela por no
+   estar en una lista guardada hace meses. Mismo criterio que `aplicarLayout`.
+4. **Lo que el kit no sabe pintar se ignora**, no deja hueco.
+
+⚠️ **Dos vocabularios, una pantalla.** El editor nombra las secciones con los
+ids del sistema viejo (`cabecera`, `proximaClase`…) y el kit con los suyos
+(`home-header`, `next-class`…). La tabla que los cruza es
+`BLOQUE_EDITOR_A_KIT`, y su test se cruza contra los `home_blocks` REALES de
+los cuatro temas — un nombre mal escrito ahí no falla en ningún otro sitio.
+
+### Lo que falta para el modelo entero
+
+Los **10 bloques del catálogo** (`texto`, `galeria`, `video`, `faq`,
+`testimonios`, `cta`, `banner`, `contenedor`…) **no tienen renderizador en el
+kit**: `REGISTRY` (`components/portal-tema/components/blocks/HomeBlocks.tsx`)
+solo trae módulos de producto. Añadir uno desde el rail **no aparece**.
+
+No es una regresión —el kit ignoraba `studio_layout` entero desde el principio—
+pero ahora que reordenar y ocultar SÍ funcionan, chirría más: el rail deja
+añadir algo que no se va a ver. Cerrarlo es portar esos renderizadores al kit,
+y es trabajo de otro tamaño.
+
+⚠️ Relacionado y sin resolver: **ningún tema compone `studio-banner`**, así que
+«Contenido del estudio» —el mensaje y los banners que escribe la propietaria—
+no tiene sitio en el kit. Hoy no cuesta nada (cero banners en los 13 estudios,
+comprobado el 2026-08-13) y hay un test que caerá el día que un tema lo componga.
+
 ## Reglas del encargo que no se pueden saltar
 
 - El dorado de Noir **nunca rellena** (como fondo con texto claro da 1,9:1).
