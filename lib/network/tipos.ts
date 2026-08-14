@@ -243,3 +243,56 @@ export interface CertificacionNetwork {
 }
 
 export type NuevaCertificacionNetwork = Pick<CertificacionNetwork, 'nombre' | 'institucion' | 'anio' | 'duracion' | 'documentoPath'>;
+
+// Vacantes + candidaturas (Fase 2, "marketplace bidireccional") — un
+// estudio publica "Buscamos instructora", una instructora aplica. Sin
+// ciudad propia: se lee de studios.ciudad (ver migración).
+export interface VacanteNetwork {
+  id: string;
+  studioId: string;
+  titulo: string;
+  especialidades: EspecialidadNetwork[];
+  horarios: HorarioNetwork[];
+  tipoTrabajo: TipoTrabajoNetwork;
+  tarifaRango: TarifaRangoNetwork;
+  requisitos: string | null;
+  descripcion: string | null;
+  estado: 'draft' | 'published' | 'closed';
+  creadoEn: string;
+  actualizadoEn: string;
+  cerradoEn: string | null;
+  // Solo relleno en el marketplace público / detalle público — el nombre y
+  // ciudad del estudio que publica, para no obligar a otro fetch aparte.
+  estudioNombre: string | null;
+  estudioCiudad: string | null;
+  // Solo relleno en "Mis vacantes" (lado estudio): cuántas candidaturas
+  // tiene, sin columna contadora nueva — se calcula en la query.
+  totalCandidaturas: number | null;
+}
+
+export type NuevaVacanteNetwork = Pick<
+  VacanteNetwork, 'titulo' | 'especialidades' | 'horarios' | 'tipoTrabajo' | 'tarifaRango' | 'requisitos' | 'descripcion'
+>;
+export type CambiosVacanteNetwork = Partial<NuevaVacanteNetwork>;
+
+export type EstadoCandidatura = 'recibida' | 'contactada' | 'entrevista' | 'propuesta' | 'aceptada' | 'rechazada' | 'retirada';
+
+export interface CandidaturaNetwork {
+  id: string;
+  vacanteId: string;
+  perfilId: string;
+  mensaje: string | null;
+  // Solo visible para el estudio — nunca se manda a la instructora.
+  notasEstudio: string | null;
+  estado: EstadoCandidatura;
+  solicitudId: string | null;
+  creadoEn: string;
+  actualizadoEn: string;
+  resueltoEn: string | null;
+  // Solo relleno del lado estudio (lista de candidaturas de una vacante).
+  perfilNombre: string | null;
+  perfilFotoUrl: string | null;
+  // Solo relleno del lado instructora (mis candidaturas).
+  vacanteTitulo: string | null;
+  estudioNombre: string | null;
+}

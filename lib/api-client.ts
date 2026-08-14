@@ -17,6 +17,7 @@ import type {
   MensajeNetwork, FormalizacionNetwork,
   PerfilIdentidadNetwork, CambiosPerfilIdentidadNetwork, VerificacionIdentidadNetwork,
   CertificacionNetwork, NuevaCertificacionNetwork,
+  VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
 } from '@/lib/network/tipos';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
@@ -2459,5 +2460,165 @@ export async function proponerOConfirmarFormalizacionNetwork(
     return { ok: true, formalizacion: data.formalizacion, miLado: data.miLado };
   } catch {
     return { ok: false, error: 'No se pudo enviar la propuesta' };
+  }
+}
+
+// ── Vacantes + candidaturas (Fase 2, marketplace bidireccional) ─────────────
+
+export async function fetchMisVacantesNetwork(): Promise<VacanteNetwork[]> {
+  try {
+    const res = await fetch('/api/network/vacantes', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { vacantes?: VacanteNetwork[] };
+    return data.vacantes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function crearVacanteNetwork(
+  nueva: NuevaVacanteNetwork,
+): Promise<{ ok: true; vacante: VacanteNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/network/vacantes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(nueva),
+    });
+    const data = (await res.json().catch(() => ({}))) as { vacante?: VacanteNetwork; error?: string };
+    if (!res.ok || !data.vacante) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, vacante: data.vacante };
+  } catch {
+    return { ok: false, error: 'No se pudo crear la vacante' };
+  }
+}
+
+export async function editarVacanteNetwork(
+  id: string, cambios: CambiosVacanteNetwork,
+): Promise<{ ok: true; vacante: VacanteNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/network/vacantes/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cambios),
+    });
+    const data = (await res.json().catch(() => ({}))) as { vacante?: VacanteNetwork; error?: string };
+    if (!res.ok || !data.vacante) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, vacante: data.vacante };
+  } catch {
+    return { ok: false, error: 'No se pudo guardar la vacante' };
+  }
+}
+
+export async function cambiarEstadoVacanteNetwork(
+  id: string, estado: 'published' | 'closed',
+): Promise<{ ok: true; vacante: VacanteNetwork } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/network/vacantes/${encodeURIComponent(id)}/estado`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ estado }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { vacante?: VacanteNetwork; error?: string };
+    if (!res.ok || !data.vacante) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, vacante: data.vacante };
+  } catch {
+    return { ok: false, error: 'No se pudo cambiar el estado de la vacante' };
+  }
+}
+
+export async function fetchVacantesPublicadasNetwork(
+  filtro: { especialidad?: string; tipoTrabajo?: string; ciudad?: string } = {},
+): Promise<VacanteNetwork[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filtro.especialidad) params.set('especialidad', filtro.especialidad);
+    if (filtro.tipoTrabajo) params.set('tipoTrabajo', filtro.tipoTrabajo);
+    if (filtro.ciudad) params.set('ciudad', filtro.ciudad);
+    const res = await fetch(`/api/network/vacantes/publicadas?${params.toString()}`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { vacantes?: VacanteNetwork[] };
+    return data.vacantes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchVacanteNetwork(id: string): Promise<VacanteNetwork | null> {
+  try {
+    const res = await fetch(`/api/network/vacantes/${encodeURIComponent(id)}`, { headers: await authHeader() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { vacante?: VacanteNetwork | null };
+    return data.vacante ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchCandidaturasVacanteNetwork(vacanteId: string): Promise<CandidaturaNetwork[]> {
+  try {
+    const res = await fetch(`/api/network/vacantes/${encodeURIComponent(vacanteId)}/candidaturas`, { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { candidaturas?: CandidaturaNetwork[] };
+    return data.candidaturas ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function aplicarVacanteNetwork(
+  vacanteId: string, mensaje: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch('/api/network/candidaturas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ vacanteId, mensaje }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo enviar tu candidatura' };
+  }
+}
+
+export async function cambiarEstadoCandidaturaNetwork(
+  id: string, estado: 'contactada' | 'entrevista' | 'propuesta' | 'aceptada' | 'rechazada', notasEstudio?: string,
+): Promise<{ ok: true; solicitudId: string | null } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/network/candidaturas/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ estado, notasEstudio }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; solicitudId?: string | null; error?: string };
+    if (!res.ok || !data.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true, solicitudId: data.solicitudId ?? null };
+  } catch {
+    return { ok: false, error: 'No se pudo cambiar el estado de la candidatura' };
+  }
+}
+
+export async function retirarCandidaturaNetwork(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/network/candidaturas/${encodeURIComponent(id)}/retirar`, {
+      method: 'POST',
+      headers: await authHeader(),
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return res.ok ? { ok: true } : { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  } catch {
+    return { ok: false, error: 'No se pudo retirar la candidatura' };
+  }
+}
+
+export async function fetchMisCandidaturasNetwork(): Promise<CandidaturaNetwork[]> {
+  try {
+    const res = await fetch('/api/network/mis-candidaturas', { headers: await authHeader() });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { candidaturas?: CandidaturaNetwork[] };
+    return data.candidaturas ?? [];
+  } catch {
+    return [];
   }
 }

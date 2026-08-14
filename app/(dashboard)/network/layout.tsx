@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Heart, MessageCircle } from 'lucide-react';
+import { Search, Heart, MessageCircle, Briefcase } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Sub-nav de Tentare Network dentro del panel (Fase 2, punto 16 del brief:
@@ -12,11 +12,11 @@ import { cn } from '@/lib/utils';
 // (topbar, sidebar general, auth guard, puedeVer() siguen igual). La
 // separación visual la da esta barra, no un chrome nuevo.
 //
-// Solo lo que ya funciona hoy: Buscar instructoras, Favoritas, Mensajes.
-// Deja hueco a propósito — el día que existan Mis candidatas/Mis vacantes/
-// Candidaturas, se añaden a este mismo array.
+// Deja hueco a propósito — el día que exista "Mis candidatas" (shortlists),
+// se añade a este mismo array.
 const SUBNAV = [
   { href: '/network/buscar', label: 'Buscar instructoras', icon: Search },
+  { href: '/network/vacantes', label: 'Vacantes', icon: Briefcase },
   { href: '/network/favoritas', label: 'Favoritas', icon: Heart },
   { href: '/network/mensajes', label: 'Mensajes', icon: MessageCircle },
 ];
