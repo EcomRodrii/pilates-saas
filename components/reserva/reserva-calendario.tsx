@@ -470,6 +470,9 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         </div>
         <div style={{ fontSize: 11.5, color: t.muted, marginTop: 8 }}>
           {NIVEL_LABEL[slot.nivel]}{slot.salaNombre ? ` · ${slot.salaNombre}` : ''} · {slot.aforoMaximo} plazas
+          {/* Antes el precio solo se veía al abrir el detalle — para comparar
+              clases hay que abrir cada una. null = cubierta por plan, no "gratis". */}
+          {slot.precio != null && ` · ${slot.precio} €`}
         </div>
       </div>
 
@@ -616,12 +619,28 @@ function BookingSheet({
           <p style={{ fontSize: 13.5, color: t.muted2, lineHeight: 1.5 }}>{slot.descripcion}</p>
         )}
 
-        {/* Selector de sitio */}
+        {/* Selector de sitio. Con aforo grande (8+ plazas) la rejilla ocupa
+            varias pantallas de scroll antes del botón "Reservar" — el atajo
+            deja reservar sin bajar hasta el final para quien no quiere elegir. */}
         {mostrarSpots && (
           <div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: t.ink, marginBottom: 4 }}>
-              Elige tu sitio <span style={{ color: t.muted, fontWeight: 600 }}>(opcional)</span>
-            </p>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: t.ink }}>
+                Elige tu sitio <span style={{ color: t.muted, fontWeight: 600 }}>(opcional)</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => { onSelectSpot(null); onReservar(); }}
+                disabled={enviando}
+                style={{
+                  fontSize: 11.5, fontWeight: 700, color: 'var(--portal-brand)', background: 'none', border: 'none',
+                  padding: 0, cursor: enviando ? 'default' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3,
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}
+              >
+                Reservar sin elegir →
+              </button>
+            </div>
             <SpotPicker t={t} spots={slot.spots} ocupados={ocupados} selected={selectedSpot} onSelect={onSelectSpot} />
           </div>
         )}
