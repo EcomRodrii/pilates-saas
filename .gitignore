@@ -20,6 +20,10 @@
 # production
 /build
 
+# bundle embebible (scripts/build-widget-bundle.mjs, encadenado antes de
+# `next build` — ver package.json) — generado, no código fuente.
+/public/widget.js
+
 # misc
 .DS_Store
 *.pem

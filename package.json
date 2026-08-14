@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:widget && next build",
+    "build:widget": "node scripts/build-widget-bundle.mjs",
     "start": "next start",
     "lint": "eslint",
     "email": "email dev --dir emails --port 3010",
@@ -54,6 +55,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "react-email": "^6.9.2",

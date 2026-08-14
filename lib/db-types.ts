@@ -677,6 +677,7 @@ export interface RowStudios {
   tipo_cuenta: string | null;
   normas_texto: string | null;
   klaviyo_account_name: string | null;
+  widget_dominios_autorizados: string[] | null;
 }
 
 export interface RowSuscripciones {
@@ -1840,6 +1841,72 @@ export interface RowRedCandidaturas {
   creado_en: string;
   actualizado_en: string;
   resuelto_en: string | null;
+}
+
+export interface RowOauthClientes {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  client_secret_hash: string;
+  redirect_uris: string[];
+  es_confidencial: boolean;
+  logo_url: string | null;
+  activo: boolean;
+  creado_en: string;
+}
+
+export interface RowOauthConsentimientos {
+  id: string;
+  studio_id: string;
+  cliente_id: string;
+  otorgado_por: string;
+  scopes: string[];
+  otorgado_en: string;
+  revocado_en: string | null;
+}
+
+export interface RowOauthCodigosAutorizacion {
+  codigo: string;
+  studio_id: string;
+  cliente_id: string;
+  auth_user_id: string;
+  scopes: string[];
+  redirect_uri: string;
+  code_challenge: string;
+  code_challenge_method: string;
+  cadena_id: string;
+  expira_en: string;
+  usado_en: string | null;
+  creado_en: string;
+}
+
+export interface RowOauthTokens {
+  id: string;
+  studio_id: string;
+  cliente_id: string;
+  auth_user_id: string;
+  scopes: string[];
+  access_token_hash: string;
+  refresh_token_hash: string;
+  access_token_expira_en: string;
+  refresh_token_expira_en: string;
+  cadena_id: string;
+  revocado_en: string | null;
+  reemplazado_por: string | null;
+  creado_en: string;
+}
+
+export interface RowOauthAuditoriaAccesos {
+  id: number;
+  token_id: string | null;
+  studio_id: string;
+  cliente_id: string;
+  scope_usado: string | null;
+  metodo: string;
+  ruta: string;
+  status_code: number;
+  ip: string | null;
+  creado_en: string;
 }
 
 export interface RowWidgetEventos {
