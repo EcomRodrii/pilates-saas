@@ -38,7 +38,10 @@ function OAuthAuthorizeContenido() {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      router.replace(`/login?next=${encodeURIComponent(`/oauth/authorize?${qs}`)}`);
+      // `destino=`, no `next=` — /login solo honra ese nombre de parámetro,
+      // y solo para los prefijos de su propia whitelist anti-open-redirect
+      // (/interno y /oauth/authorize). Ver app/login/page.tsx.
+      router.replace(`/login?destino=${encodeURIComponent(`/oauth/authorize?${qs}`)}`);
       return;
     }
     let cancelado = false;

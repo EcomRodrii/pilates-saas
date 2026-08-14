@@ -133,11 +133,14 @@ export default function LoginPage() {
       // resolution against the now-final state.
       //
       // `?destino=` lo usa el panel interno para volver donde estabas tras
-      // cambiar de cuenta. Se acota a rutas /interno a propósito: aceptar
-      // cualquier destino convertiría el login en un redirector abierto que
-      // se puede usar para phishing con nuestro propio dominio.
+      // cambiar de cuenta, y la pantalla de consentimiento OAuth
+      // (app/oauth/authorize/page.tsx) para volver ahí tras el login. Se
+      // acota a esos dos prefijos a propósito: aceptar cualquier destino
+      // convertiría el login en un redirector abierto que se puede usar
+      // para phishing con nuestro propio dominio.
       const destino = new URLSearchParams(window.location.search).get('destino');
-      const seguro = destino === '/interno' || destino?.startsWith('/interno/');
+      const seguro = destino === '/interno' || destino?.startsWith('/interno/')
+        || destino === '/oauth/authorize' || destino?.startsWith('/oauth/authorize?');
       if (seguro) { window.location.href = destino!; return; }
 
       // Antes esto era un `/dashboard` fijo, sin mirar si la cuenta tiene
