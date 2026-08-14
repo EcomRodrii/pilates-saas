@@ -229,7 +229,7 @@ export interface DatosPortal {
    * ocultas), para que el kit las respete en vez de imponer las del tema.
    * Ausente o vacío = manda el tema. Ver `ordenDelInicio`.
    */
-  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean }[];
+  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean; fijo?: boolean }[];
   /**
    * El instante desde el que se calcula todo lo que depende de «ahora», en ISO.
    *

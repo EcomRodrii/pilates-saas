@@ -271,7 +271,7 @@ export interface FuenteDatosPortal {
   spots?: Spot[];
   instructores: Instructor[];
   /** Las secciones del Inicio que guardó la propietaria. Ver `bloquesInicio`. */
-  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean }[];
+  bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean; fijo?: boolean }[];
   socio: Socio | null;
   /**
    * Las reservas de ESTA socia (no las del estudio). `undefined` = nadie

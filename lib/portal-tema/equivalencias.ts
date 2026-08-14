@@ -90,15 +90,27 @@ export function elTemaIncluye(idEditor: string, homeBlocks: readonly string[]): 
  */
 export function ordenDelInicio(
   homeBlocks: readonly string[],
-  guardados: readonly { kind: string; sistemaId?: string; oculto?: boolean }[] | undefined,
+  guardados: readonly { kind: string; sistemaId?: string; oculto?: boolean; fijo?: boolean }[] | undefined,
 ): string[] {
   if (!guardados?.length) return [...homeBlocks];
 
+  // ⚠️ `fijo` gana a `oculto`. Medido en producción (cadena de `tentare`,
+  // 2026-08-14): `cabecera` llegaba con las DOS marcas a la vez —
+  // `{ fijo: true, oculto: true }`— y esa combinación es real, no un dato
+  // corrupto. En el portal de siempre es inofensiva: el editor separa los
+  // bloques `fijo` de la lista arrastrable y los pinta SIEMPRE («el saludo y
+  // la tarjeta grande... no se mueven ni se ocultan», `portal-bloques-editor.
+  // tsx`), así que su `oculto` nunca se ha mirado — probablemente quedó de
+  // antes de que ese bloque se volviera fijo. `ordenDelInicio` es el PRIMER
+  // sitio que sí lo mira, y le borraba a Tentada su cabecera con foto — la
+  // pieza que más la distingue del resto — con datos que en el portal viejo
+  // nunca tuvieron ese efecto.
   const componeElTema = new Set(homeBlocks);
   const pedidos: string[] = [];
   const vistos = new Set<string>();
   for (const b of guardados) {
-    if (b.kind !== 'sistema' || !b.sistemaId || b.oculto) continue;
+    if (b.kind !== 'sistema' || !b.sistemaId) continue;
+    if (b.oculto && !b.fijo) continue;
     const kit = BLOQUE_EDITOR_A_KIT[b.sistemaId];
     if (!kit || !componeElTema.has(kit) || vistos.has(kit)) continue;
     vistos.add(kit);
@@ -107,9 +119,10 @@ export function ordenDelInicio(
 
   // Los que el tema trae y el estudio no ha ordenado nunca, detrás y en el
   // orden del tema. ⚠️ Salvo que los haya OCULTADO a propósito: eso sí lo dijo.
+  // Los `fijo` no entran aquí aunque tengan `oculto`, por el mismo motivo.
   const ocultados = new Set(
     guardados
-      .filter((b) => b.kind === 'sistema' && b.oculto && b.sistemaId)
+      .filter((b) => b.kind === 'sistema' && b.oculto && !b.fijo && b.sistemaId)
       .map((b) => BLOQUE_EDITOR_A_KIT[b.sistemaId as string])
       .filter(Boolean),
   );

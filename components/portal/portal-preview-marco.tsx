@@ -22,9 +22,10 @@ import { useStudio } from '@/lib/studio-context';
 import { altura } from '@/lib/portal-design';
 import { NAV_DISPONIBLES, navItemsVisibles } from '@/lib/portal-nav';
 import { PortalNav } from './portal-nav';
+import { esTemaPortal } from '@/themes/registro';
 
 export function PortalPreviewMarco({ slug, children }: { slug: string; children: React.ReactNode }) {
-  const { navPortal, barraClasica, variantes } = useStudio();
+  const { navPortal, barraClasica, variantes, themeIdPublicado } = useStudio();
   const pathname = usePathname() ?? '';
   const NAV = navItemsVisibles(navPortal, NAV_DISPONIBLES);
   // La bienvenida es ANTERIOR al acceso: ahí todavía no hay menú, igual que en
@@ -38,6 +39,16 @@ export function PortalPreviewMarco({ slug, children }: { slug: string; children:
   const activo = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal-preview/${slug}/${seg}`));
 
   if (esBienvenida) {
+    return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
+  }
+
+  // ⚠️ Un tema del kit YA monta su propia barra —la píldora que flota de
+  // Bloom, la oscura de Noir, las cinco pestañas de Tentada— con sus propios
+  // ejes de forma. Envolverlo con `PortalNav`, la barra del portal de siempre,
+  // pintaba las DOS apiladas. Medido en `/portal-preview/tentare`: dos `nav`
+  // en el DOM, uno encima de otro, en las seis pantallas. Mismo criterio que
+  // `useVistaPreviaKit`: aquí se enseña el TEMA, no se decide el despliegue.
+  if (esTemaPortal(themeIdPublicado)) {
     return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;
   }
 
