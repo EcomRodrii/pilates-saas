@@ -203,6 +203,16 @@ export function rolesQuePuedeAsignar(rol: Rol): Rol[] {
   return [];
 }
 
+// Conectar/revocar una app de terceros (OAuth, p.ej. Zapier) para el estudio
+// entero. Mismo criterio que puedeGestionarEquipo: es una decisión de negocio
+// de la sede, no algo que competa a RECEPCION/INSTRUCTOR. Barrera de UI; la
+// cerradura real está en que /api/oauth/authorize y /api/oauth/revoke
+// comprueban este mismo criterio en servidor (las tablas oauth_* no tienen
+// política RLS para authenticated — ver lib/oauth-server.ts).
+export function puedeGestionarAppsOAuth(rol: Rol): boolean {
+  return rol === 'PROPIETARIO' || rol === 'MANAGER';
+}
+
 // Arquitectura de marca: el panel es una sola app role-gateada, pero se
 // percibe como dos productos — Tentare Core para instructoras, Tentare
 // Manager para propietaria/manager/recepción. Fuente de verdad única del
