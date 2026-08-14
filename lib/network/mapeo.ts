@@ -3,6 +3,7 @@
 import type {
   PerfilNetwork, PerfilNetworkPublico, ExperienciaNetwork, ExperienciaNetworkPublica, ResumenResenas,
   PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork,
+  VacanteNetwork, CandidaturaNetwork,
 } from './tipos.ts';
 
 export interface FilaRedPerfil {
@@ -231,5 +232,81 @@ export function mapFilaACertificacion(f: FilaRedCertificacion): CertificacionNet
     estado: f.estado as CertificacionNetwork['estado'],
     motivoRechazo: f.motivo_rechazo,
     creadoEn: f.creado_en,
+  };
+}
+
+// ── Fase 2: vacantes y candidaturas ───────────────────────────────────────
+
+export interface FilaRedVacante {
+  id: string;
+  studio_id: string;
+  titulo: string;
+  especialidades: string[];
+  horarios: string[];
+  tipo_trabajo: string;
+  tarifa_rango: string;
+  requisitos: string | null;
+  descripcion: string;
+  estado: string;
+  creado_en: string;
+  actualizado_en: string;
+  cerrado_en: string | null;
+}
+
+export function mapFilaAVacante(
+  f: FilaRedVacante, extra: { estudioNombre?: string | null; estudioCiudad?: string | null; totalCandidaturas?: number | null } = {},
+): VacanteNetwork {
+  return {
+    id: f.id,
+    studioId: f.studio_id,
+    titulo: f.titulo,
+    especialidades: f.especialidades as VacanteNetwork['especialidades'],
+    horarios: f.horarios as VacanteNetwork['horarios'],
+    tipoTrabajo: f.tipo_trabajo as VacanteNetwork['tipoTrabajo'],
+    tarifaRango: f.tarifa_rango as VacanteNetwork['tarifaRango'],
+    requisitos: f.requisitos,
+    descripcion: f.descripcion,
+    estado: f.estado as VacanteNetwork['estado'],
+    creadoEn: f.creado_en,
+    actualizadoEn: f.actualizado_en,
+    cerradoEn: f.cerrado_en,
+    estudioNombre: extra.estudioNombre ?? null,
+    estudioCiudad: extra.estudioCiudad ?? null,
+    totalCandidaturas: extra.totalCandidaturas ?? null,
+  };
+}
+
+export interface FilaRedCandidatura {
+  id: string;
+  vacante_id: string;
+  perfil_id: string;
+  mensaje: string | null;
+  notas_estudio: string | null;
+  estado: string;
+  solicitud_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  resuelto_en: string | null;
+}
+
+export function mapFilaACandidatura(
+  f: FilaRedCandidatura,
+  extra: { perfilNombre?: string | null; perfilFotoUrl?: string | null; vacanteTitulo?: string | null; estudioNombre?: string | null; ocultarNotasEstudio?: boolean } = {},
+): CandidaturaNetwork {
+  return {
+    id: f.id,
+    vacanteId: f.vacante_id,
+    perfilId: f.perfil_id,
+    mensaje: f.mensaje,
+    notasEstudio: extra.ocultarNotasEstudio ? null : f.notas_estudio,
+    estado: f.estado as CandidaturaNetwork['estado'],
+    solicitudId: f.solicitud_id,
+    creadoEn: f.creado_en,
+    actualizadoEn: f.actualizado_en,
+    resueltoEn: f.resuelto_en,
+    perfilNombre: extra.perfilNombre ?? null,
+    perfilFotoUrl: extra.perfilFotoUrl ?? null,
+    vacanteTitulo: extra.vacanteTitulo ?? null,
+    estudioNombre: extra.estudioNombre ?? null,
   };
 }

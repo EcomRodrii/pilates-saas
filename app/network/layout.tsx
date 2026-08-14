@@ -30,21 +30,31 @@ import { cn } from '@/lib/utils';
 
 // Secciones del autoservicio (Fase 2, punto 15 del brief: "no solo Mi
 // perfil, sino Network con un Inicio"). Deja hueco a propósito: el día que
-// existan Oportunidades/Mis candidaturas/Mis contrataciones, se añaden a
-// este mismo array — ni el layout ni RUTAS_AUTOSERVICIO cambian de forma.
+// exista Mis contrataciones, se añade a este mismo array — ni el layout ni
+// RUTAS_AUTOSERVICIO cambian de forma.
+//
+// Coincidencia por prefijo (no exacta): Oportunidades/Mis candidaturas
+// tienen páginas de detalle (/network/oportunidades/[id]) que deben seguir
+// dentro del autoservicio (header + subnav), a diferencia de las fichas de
+// detalle del lado estudio, que ocultan su subnav por completo.
 const SUBNAV = [
   { href: '/network/inicio', label: 'Inicio' },
   { href: '/network/mi-perfil', label: 'Mi perfil' },
+  { href: '/network/oportunidades', label: 'Oportunidades' },
+  { href: '/network/mis-candidaturas', label: 'Mis candidaturas' },
   { href: '/network/mis-mensajes', label: 'Mensajes' },
   { href: '/network/solicitudes', label: 'Solicitudes' },
 ];
-const RUTAS_AUTOSERVICIO = SUBNAV.map(s => s.href);
+
+function coincide(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
 
-  if (!RUTAS_AUTOSERVICIO.includes(pathname ?? '')) return <>{children}</>;
+  if (!SUBNAV.some(s => coincide(pathname ?? '', s.href))) return <>{children}</>;
 
   return (
     <div className="min-h-dvh" style={{ background: '#EEEEE8' }}>
@@ -65,7 +75,7 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
         <nav className="max-w-2xl mx-auto px-4 pb-3 -mt-1 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1.5 min-w-max">
             {SUBNAV.map(({ href, label }) => {
-              const active = pathname === href;
+              const active = coincide(pathname ?? '', href);
               return (
                 <Link
                   key={href}
