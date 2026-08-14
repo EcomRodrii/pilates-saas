@@ -16,7 +16,8 @@
 // el estado por defecto hasta que se publica.
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2, Pencil } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -190,6 +191,15 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                   ) : null}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {tema.estado === 'listo' ? (
+                    <Link
+                      href={`/configuracion/apariencia/editor-zip/${tema.id}`}
+                      className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                    >
+                      <Pencil className="size-4" />
+                      Editar código
+                    </Link>
+                  ) : null}
                   {tema.estado === 'listo' ? (
                     <Button
                       variant="ghost" size="sm" onClick={() => void alternarPreview(tema.id)}
