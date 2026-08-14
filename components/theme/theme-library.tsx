@@ -375,10 +375,12 @@ export function ThemeLibrary() {
         </p>
       </section>
 
-      {/* Primera versión del importador de ZIP: analiza, sube y enseña el
-          resultado fiel. Todavía no lo deja instalar como tema activo — eso
-          es la siguiente pieza (el Theme Schema apuntando a un
-          `theme_imports.id` en vez de a un tema del kit). */}
+      {/* El importador de ZIP: analiza, sube, enseña el resultado fiel, y deja
+          publicar/borrar entre los ZIPs subidos — pero «publicar» ahí es un
+          estado interno del panel, NO instala el tema para las socias reales:
+          eso exige resolver antes el mismo origen/sandbox que protege el
+          iframe de vista previa (ver el comentario de seguridad en
+          `app/api/theme/importado/[id]/[[...ruta]]/route.ts`). */}
       <ImportarTemaZip />
     </div>
   );
