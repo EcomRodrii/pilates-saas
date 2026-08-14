@@ -8,10 +8,14 @@
 // `contenidoFuenteDeFichero` en `lib/theme-import/servir.ts` sobre por qué).
 // Guardar sube a R2 bajo `editado/<ruta>` (`PUT`) y NUNCA toca el original.
 //
-// La vista previa de la derecha es EN VIVO (debounce ~500 ms) pero no
-// persiste nada — ver `lib/theme-import/preview-en-vivo.ts` para el alcance
-// exacto (HTML se renderiza tal cual escribes; CSS se añade como capa sobre
-// el HTML de entrada ya guardado, por cascada, no por sustitución exacta).
+// La vista previa de la derecha es EN VIVO (debounce corto, ~150 ms — solo
+// para no lanzar una petición por cada tecla) pero no persiste nada — ver
+// `lib/theme-import/preview-en-vivo.ts` para el alcance exacto (HTML se
+// renderiza tal cual escribes; CSS se añade como capa sobre el HTML de
+// entrada ya guardado, por cascada, no por sustitución exacta). El marco
+// (móvil/tablet/ancho completo + zoom) es el MISMO `MarcoDispositivo` que ya
+// usa el editor de temas normal — mismo comportamiento, mismo componente, no
+// una segunda implementación del mismo encogido/escalado.
 //
 // Solo HTML/CSS: el usuario pidió explícitamente "editor de código real
 // (HTML/CSS)", no un editor de JS/imágenes/config del tema — mismo límite
@@ -19,12 +23,17 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Save, AlertTriangle, CheckCircle2, FileCode, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft, Save, AlertTriangle, CheckCircle2, FileCode, Loader2,
+  Smartphone, Tablet, Monitor, ZoomIn, ZoomOut, type LucideIcon,
+} from 'lucide-react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { Button } from '@/components/ui/button';
+import { MarcoDispositivo } from './marco-dispositivo';
+import { DISPOSITIVOS, DISPOSITIVO_IDS, type DispositivoId } from '@/lib/theme/dispositivos';
 import { authHeader, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
@@ -37,7 +46,16 @@ interface TemaImportado {
 }
 
 const RUTA_APARIENCIA = '/configuracion/apariencia';
-const RETRASO_PREVIEW_MS = 500;
+// Corto a propósito: sigue siendo un debounce (una petición al servidor por
+// pulsación sería ruido de red inútil), pero por debajo del umbral en el que
+// un humano percibe retraso — se pidió explícitamente que se sintiera "en
+// vivo" como el editor de temas normal, cuyo preview es un re-render local
+// sin red de por medio.
+const RETRASO_PREVIEW_MS = 150;
+
+const ICONO_DISPOSITIVO: Record<DispositivoId, LucideIcon> = {
+  movil: Smartphone, tablet: Tablet, completo: Monitor,
+};
 
 export function EditorZip({ id }: { id: string }) {
   const [tema, setTema] = useState<TemaImportado | null>(null);
@@ -49,6 +67,8 @@ export function EditorZip({ id }: { id: string }) {
   const [guardando, setGuardando] = useState(false);
   const [guardadoOk, setGuardadoOk] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dispositivo, setDispositivo] = useState<DispositivoId>('movil');
+  const [zoom, setZoom] = useState(1);
 
   const contenedorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -241,6 +261,40 @@ export function EditorZip({ id }: { id: string }) {
             <CheckCircle2 className="size-3.5" />Guardado
           </div>
         ) : null}
+
+        <div className="flex items-center gap-0.5 rounded-lg border border-border p-1" role="group" aria-label="Dispositivo">
+          {DISPOSITIVO_IDS.map((idDispositivo) => {
+            const Icono = ICONO_DISPOSITIVO[idDispositivo];
+            return (
+              <button
+                key={idDispositivo} type="button" onClick={() => setDispositivo(idDispositivo)}
+                aria-pressed={dispositivo === idDispositivo}
+                title={DISPOSITIVOS[idDispositivo].etiqueta} aria-label={DISPOSITIVOS[idDispositivo].etiqueta}
+                className={`p-1.5 rounded-md ${dispositivo === idDispositivo ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <Icono size={15} />
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button" onClick={() => setZoom((z) => Math.max(0.75, z - 0.1))} aria-label="Alejar"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40"
+            disabled={zoom <= 0.75}
+          >
+            <ZoomOut size={15} />
+          </button>
+          <span className="text-[12px] font-semibold text-foreground w-10 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button" onClick={() => setZoom((z) => Math.min(1.25, z + 0.1))} aria-label="Acercar"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40"
+            disabled={zoom >= 1.25}
+          >
+            <ZoomIn size={15} />
+          </button>
+        </div>
+
         <Button size="sm" disabled={guardando || !rutaActual} onClick={() => void guardar()}>
           {guardando ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
           Guardar
@@ -274,12 +328,17 @@ export function EditorZip({ id }: { id: string }) {
           <div ref={contenedorRef} className="h-full [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono [&_.cm-scroller]:text-[13px]" />
         </div>
 
-        <div className="border-l border-border bg-muted/30">
+        <div
+          data-preview-hueco
+          className="border-l border-border bg-muted/30 overflow-auto p-4 flex items-start justify-center"
+        >
           {previewHtml ? (
-            <iframe
-              srcDoc={previewHtml} sandbox="allow-scripts" title="Vista previa en vivo"
-              style={{ width: '100%', height: '100%', border: 0 }}
-            />
+            <MarcoDispositivo dispositivo={dispositivo} zoom={zoom}>
+              <iframe
+                srcDoc={previewHtml} sandbox="allow-scripts" title="Vista previa en vivo"
+                style={{ width: '100%', height: '100%', border: 0 }}
+              />
+            </MarcoDispositivo>
           ) : (
             <div className="h-full flex items-center justify-center text-[12.5px] text-muted-foreground">
               Vista previa
