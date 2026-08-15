@@ -4,10 +4,13 @@ import { borrarPrefijoR2, subirObjetoR2 } from '@/lib/r2';
 import { servirFicheroTema, contenidoFuenteDeFichero, type FilaTemaImportado } from '@/lib/theme-import/servir';
 import { resolverPreviewEnVivo } from '@/lib/theme-import/preview-en-vivo';
 import { contentTypeDe } from '@/lib/theme-import/content-type';
+import { extraerColorDeclarado } from '@/lib/theme-import/extraer-tema';
 import { verificarTokenPreviewHome } from '@/lib/theme/home-preview-token';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
+import { guardarBorradorTheme, getThemeBorrador } from '@/lib/theme-data';
+import { instalarTema } from '@/lib/theme-schema';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
 
 /** Límite de tamaño de un fichero editado a mano — el importador de ZIP
@@ -99,7 +102,7 @@ async function autorizarEscritura(req: NextRequest): Promise<
   return { ok: true, studioId: sesion.studioId };
 }
 
-// PATCH /api/theme/importado/[id] — body { accion: 'publicar' | 'despublicar' }.
+// PATCH /api/theme/importado/[id] — body { accion: 'publicar' | 'despublicar' | 'extraer' }.
 //
 // «Publicar» marca cuál de los ZIP subidos es «el elegido» (a lo más uno por
 // estudio, ver el índice único de la migración) — y desde que existe el
@@ -107,6 +110,15 @@ async function autorizarEscritura(req: NextRequest): Promise<
 // cualquier visitante de `imports.tentare.app/<slug>`. El panel
 // (`tentare.app`) nunca sirve el HTML del ZIP fuera del iframe en sandbox de
 // esta misma ruta — el aislamiento lo da el origen distinto, no el panel.
+//
+// «Extraer» es la vía real para lo que de verdad se pidió — un tema NATIVO,
+// visualmente editable y publicable como "Tu tema" — sin reabrir el
+// aislamiento de origen del ZIP (ver el comentario de seguridad de
+// `app/tema-publicado/[slug]/[[...ruta]]/route.ts`): lee el color de marca
+// DECLARADO por el diseño (`extraerColorDeclarado`, del HTML fuente sin
+// enlazar) e instala un tema nativo nuevo con ese color, en el MISMO camino
+// que "Usar" en la Biblioteca (`instalarTema` + `guardarBorradorTheme`) —
+// borrador, nunca publicado solo. El ZIP en sí se queda intacto, sandboxed.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; ruta?: string[] }> }) {
   const auth = await autorizarEscritura(req);
   if (!auth.ok) return auth.res;
@@ -114,7 +126,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json().catch(() => null);
   const accion = body?.accion;
-  if (accion !== 'publicar' && accion !== 'despublicar') {
+  if (accion !== 'publicar' && accion !== 'despublicar' && accion !== 'extraer') {
     return NextResponse.json({ error: 'Acción no reconocida' }, { status: 400 });
   }
 
@@ -123,11 +135,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { data: fila } = await admin
     .from('theme_imports')
-    .select('studio_id, estado')
+    .select('studio_id, estado, entry_html, manifest, rutas_editadas')
     .eq('id', id)
-    .maybeSingle();
+    .maybeSingle<FilaTemaImportado>();
   if (!fila || fila.studio_id !== auth.studioId) {
     return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+  }
+
+  if (accion === 'extraer') {
+    if (fila.estado !== 'listo' || !fila.entry_html) {
+      return NextResponse.json({ error: 'Este tema no se pudo importar en modo estático.' }, { status: 409 });
+    }
+    const fuente = await contenidoFuenteDeFichero(fila, fila.entry_html);
+    const color = fuente ? extraerColorDeclarado(fuente.contenido) : null;
+    if (!color) {
+      return NextResponse.json({ error: 'Este tema no declara un color de marca extraíble.' }, { status: 422 });
+    }
+    const draftActual = await getThemeBorrador(auth.studioId);
+    const nuevo = instalarTema(draftActual, { primary: color }, { themeId: 'importado', themeVersion: 1 });
+    await guardarBorradorTheme(auth.studioId, nuevo);
+    return NextResponse.json({ ok: true, primary: color });
   }
 
   if (accion === 'publicar') {
