@@ -17,7 +17,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2, Pencil } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2, Pencil, Wand2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -42,6 +43,7 @@ interface TemaImportado {
 const HOST_PUBLICADO = process.env.NEXT_PUBLIC_IMPORTS_HOST || null;
 
 export function ImportarTemaZip({ slug }: { slug: string | null }) {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [temas, setTemas] = useState<TemaImportado[] | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -116,6 +118,31 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
     } catch (e) {
       setError(mensajeSeguro(e, ERROR_RED));
     } finally {
+      setTrabajando(null);
+    }
+  }
+
+  // «Extraer a tema nativo»: lee el color de marca declarado en el diseño e
+  // instala un tema NATIVO nuevo con ese color (borrador) — el camino real a
+  // lo que se pidió (edición visual, publicable como "Tu tema"), sin reabrir
+  // el aislamiento de origen del ZIP. Ver el comentario de la ruta PATCH.
+  async function extraer(id: string) {
+    setTrabajando(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/theme/importado/${id}`, {
+        method: 'PATCH',
+        headers: { ...(await authHeader()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'extraer' }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(body?.error ?? 'No se ha podido extraer un tema de este ZIP.');
+        return;
+      }
+      router.push('/configuracion/apariencia/editor');
+    } catch (e) {
+      setError(mensajeSeguro(e, ERROR_RED));
       setTrabajando(null);
     }
   }
@@ -206,6 +233,16 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                     >
                       {previewId === tema.id ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       {previewId === tema.id ? 'Ocultar' : 'Ver'}
+                    </Button>
+                  ) : null}
+                  {tema.estado === 'listo' ? (
+                    <Button
+                      variant="ghost" size="sm" disabled={trabajando === tema.id}
+                      onClick={() => void extraer(tema.id)}
+                      title="Crea un tema nativo nuevo con el color de marca de este diseño, editable visualmente y publicable como Tu tema"
+                    >
+                      <Wand2 className="size-4" />
+                      Extraer a tema nativo
                     </Button>
                   ) : null}
                   {tema.estado === 'listo' && !tema.publicado ? (
