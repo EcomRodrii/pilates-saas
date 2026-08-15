@@ -4,7 +4,7 @@ import { borrarPrefijoR2, subirObjetoR2 } from '@/lib/r2';
 import { servirFicheroTema, contenidoFuenteDeFichero, type FilaTemaImportado } from '@/lib/theme-import/servir';
 import { resolverPreviewEnVivo } from '@/lib/theme-import/preview-en-vivo';
 import { contentTypeDe } from '@/lib/theme-import/content-type';
-import { extraerColorDeMarca } from '@/lib/theme-import/extraer-tema';
+import { extraerContenidoDeMarca } from '@/lib/theme-import/extraer-tema';
 import { verificarTokenPreviewHome } from '@/lib/theme/home-preview-token';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
@@ -114,13 +114,21 @@ async function autorizarEscritura(req: NextRequest): Promise<
 // «Extraer» es la vía real para lo que de verdad se pidió — un tema NATIVO,
 // visualmente editable y publicable como "Tu tema" — sin reabrir el
 // aislamiento de origen del ZIP (ver el comentario de seguridad de
-// `app/tema-publicado/[slug]/[[...ruta]]/route.ts`): lee el color de marca
-// del diseño (`extraerColorDeMarca`, del HTML fuente sin enlazar — tres
-// heurísticas en cascada, NUNCA null) e instala un tema nativo nuevo con ese
-// color, en el MISMO camino que "Usar" en la Biblioteca (`instalarTema` +
-// `guardarBorradorTheme`) — borrador, nunca publicado solo. El ZIP en sí se
-// queda intacto, sandboxed. Automático de verdad: no hay ZIP que lo bloquee
-// con un error, en el peor caso instala con el verde de fábrica.
+// `app/tema-publicado/[slug]/[[...ruta]]/route.ts`): lee TODO lo que se
+// pueda leer con confianza del diseño (`extraerContenidoDeMarca`, del HTML
+// fuente sin enlazar — colores, texto e imagen de portada, NUNCA lanza) e
+// instala un tema nativo nuevo con ello, en el MISMO camino que "Usar" en la
+// Biblioteca (`instalarTema` + `guardarBorradorTheme`) — borrador, nunca
+// publicado solo. El ZIP en sí se queda intacto, sandboxed. Automático de
+// verdad: no hay ZIP que lo bloquee con un error — en el peor caso instala
+// con el verde de fábrica y los textos de siempre.
+//
+// La imagen de portada es la ÚNICA pieza que NO va al borrador del tema: es
+// `studios.foto_url` (la misma que usa /reservar como hero, ver
+// `imagenDeEstudio` en esa página), y solo se rellena si el estudio no tenía
+// ya una — nunca pisa una foto real que la propietaria haya subido. Solo se
+// considera una URL EXTERNA (http/https) declarada en el diseño; las que
+// apuntan dentro del propio ZIP no tienen URL pública fuera de su sandbox.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; ruta?: string[] }> }) {
   const auth = await autorizarEscritura(req);
   if (!auth.ok) return auth.res;
@@ -149,11 +157,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Este tema no se pudo importar en modo estático.' }, { status: 409 });
     }
     const fuente = await contenidoFuenteDeFichero(fila, fila.entry_html);
-    const color = fuente ? extraerColorDeMarca(fuente.contenido) : extraerColorDeMarca('');
+    const contenido = extraerContenidoDeMarca(fuente ? fuente.contenido : '');
+
     const draftActual = await getThemeBorrador(auth.studioId);
-    const nuevo = instalarTema(draftActual, { primary: color }, { themeId: 'importado', themeVersion: 1 });
+    const nuevo = instalarTema(draftActual, {
+      primary: contenido.primary,
+      ...(contenido.secondary ? { secondary: contenido.secondary } : {}),
+      reservarTitular: contenido.reservarTitular,
+      reservarSubtitulo: contenido.reservarSubtitulo,
+      reservarCta: contenido.reservarCta,
+      reservarSobreTitulo: contenido.reservarSobreTitulo,
+      reservarSobreTexto: contenido.reservarSobreTexto,
+    }, { themeId: 'importado', themeVersion: 1 });
     await guardarBorradorTheme(auth.studioId, nuevo);
-    return NextResponse.json({ ok: true, primary: color });
+
+    // La foto de portada, solo si el estudio no tenía ya una — ver el
+    // comentario de arriba.
+    if (contenido.imagenUrl) {
+      const { data: estudioActual } = await admin.from('studios').select('foto_url').eq('id', auth.studioId).maybeSingle();
+      if (estudioActual && !(estudioActual as { foto_url: string | null }).foto_url) {
+        await admin.from('studios').update({ foto_url: contenido.imagenUrl }).eq('id', auth.studioId);
+      }
+    }
+
+    return NextResponse.json({ ok: true, primary: contenido.primary });
   }
 
   if (accion === 'publicar') {
