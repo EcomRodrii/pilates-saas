@@ -17,7 +17,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CompraPlan {
-  /** id de la sesión de checkout: base de los ids, garantiza idempotencia. */
+  /**
+   * Id de origen del cobro: base de los ids, garantiza idempotencia.
+   *
+   * Casi siempre el id de una sesión de Checkout (`cs_…`, Modo A). Desde la
+   * Fase 3 del checkout embebido (Modo B, sin Checkout Session) también puede
+   * ser el id de un PaymentIntent directo (`pi_…`) — ver `idsDe()` abajo. El
+   * nombre del campo se deja tal cual a propósito (no `idOrigen`): cambiar la
+   * firma pública tocaría los dos callers (webhook y conciliador) sin ganar
+   * nada, el comentario ya deja claro que ya no es SOLO una sesión.
+   */
   sessionId: string;
   studioId: string;
   planId: string;
@@ -73,9 +82,20 @@ const YA_EXISTIA = '23505';
 // recibo BUSCAR sin volver a inventarse la regla: si el id se calculara en dos
 // sitios, el día que cambie aquí el conciliador dejaría de ver lo ya entregado
 // y lo entregaría otra vez.
+//
+// Acepta `cs_` (Checkout Session, Modo A — el conciliador SOLO genera este
+// prefijo, lista sesiones de Stripe) y `pi_` (PaymentIntent, checkout
+// embebido Modo B — Fase 3). El sufijo se recorta DESPUÉS de quitar el
+// prefijo `cs_`/`pi_`, así que dos ids reales de Stripe con el mismo resto
+// aleatorio (24 caracteres tras el prefijo, espacio de colisión astronómico
+// — riesgo #2 de docs/checkout-embebido-diseno.md §9, verificado en vivo con
+// execute_sql+ROLLBACK usando ids sintéticos de cada prefijo: producen
+// `rec-web-…` distintos sin chocar por PK) chocarían igual que ya podían
+// chocar dos sesiones `cs_` entre sí — no es un riesgo nuevo que introduzca
+// `pi_`, es el mismo que ya asumía el diseño original.
 export function idsDe(sessionId: string) {
-  // Sufijo corto y estable: los ids de sesión de Stripe son largos.
-  const base = sessionId.replace(/^cs_(test_|live_)?/, '').slice(0, 24);
+  // Sufijo corto y estable: los ids de sesión/PaymentIntent de Stripe son largos.
+  const base = sessionId.replace(/^(cs|pi)_(test_|live_)?/, '').slice(0, 24);
   return {
     suscripcionId: `sus-web-${base}`,
     reciboId: `rec-web-${base}`,

@@ -21,7 +21,7 @@ type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 // así que los tres consumidores lo seguían descartando y la compra continuaba
 // siendo invisible a reembolsos y disputas — exactamente el agujero que ese
 // cambio decía cerrar. Al añadir un origen nuevo, añadirlo también aquí.
-const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web']);
+const ORIGENES_CON_RECIBO = new Set(['sepa_recibo', 'tarjeta_recibo', 'plan_web', 'plan_web_embebido']);
 
 // Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
 //
@@ -485,6 +485,103 @@ async function procesarEvento(
 
       // R4: señal de GMV del cobro presencial (datáfono o Bizum).
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: origenPos === 'pos_bizum' ? 'bizum' : 'terminal' } });
+    }
+
+    // Fase 3 — checkout embebido en el widget (Modo B): compra de un PLAN vía
+    // PaymentIntent DIRECTO (sin Checkout Session), confirmada dentro del
+    // propio Shadow Root con Stripe Elements. Misma forma que SEPA/POS arriba
+    // (una rama más sobre pi.metadata?.origen), no un manejador nuevo. Diseño
+    // completo: docs/checkout-embebido-diseno.md §5.
+    if (pi.metadata?.origen === 'plan_web_embebido') {
+      const admin = getSupabaseAdmin();
+      if (!admin) {
+        console.error('[stripe webhook] service role no configurada (checkout embebido)');
+        return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+      }
+      // El tenant se resuelve desde la CUENTA que firma, no desde la metadata
+      // — mismo criterio que checkout.session.completed (ver webhook-tenant.ts).
+      const studioDeCuenta = await studioDeCuentaConnect(admin, event.account);
+      if (!tenantAutorizado(studioDeCuenta, pi.metadata.studioId)) {
+        Sentry.captureMessage('[stripe webhook] checkout embebido: la cuenta Connect no corresponde al estudio de la metadata', {
+          level: 'error',
+          extra: { paymentIntentId: pi.id, eventAccount: event.account, studioIdMetadata: pi.metadata.studioId, studioDeCuenta },
+        });
+        return NextResponse.json({ error: 'Cuenta Connect no autorizada para este estudio' }, { status: 403 });
+      }
+      const studioId = studioDeCuenta as string;
+      const planId = pi.metadata.planId;
+      if (!planId) {
+        Sentry.captureMessage('[stripe webhook] checkout embebido sin planId en metadata', {
+          level: 'error', extra: { paymentIntentId: pi.id, studioId },
+        });
+        return NextResponse.json({ error: 'Metadata incompleta' }, { status: 400 });
+      }
+
+      // Un fallo aquí devuelve 5xx para que Stripe REINTENTE — el dinero ya
+      // está cobrado, así que no entregarlo no puede quedarse en un log.
+      // Mismo criterio que la rama planId de checkout.session.completed.
+      const { entregarPlanComprado } = await import('@/lib/billing/entregar-plan-comprado');
+      const entrega = await entregarPlanComprado(admin, {
+        sessionId: pi.id,
+        studioId,
+        planId,
+        socioId: pi.metadata.socioId ?? null,
+        email: pi.metadata.socioEmail ?? null,
+        nombre: pi.metadata.socioNombre ?? null,
+        // Lo cobrado DE VERDAD, no el precio de catálogo releído ahora.
+        importeCobradoCentimos: pi.amount_received ?? pi.amount ?? null,
+        // El cargo real, para poder devolverlo después desde el panel sin
+        // buscarlo a mano en Stripe.
+        paymentIntentId: pi.id,
+        origenLead: pi.metadata.origenLead ?? null,
+      });
+      if (!entrega.ok) {
+        Sentry.captureMessage('[stripe webhook] checkout embebido: cobrado pero NO entregado', {
+          level: 'error',
+          extra: { planId, studioId, paymentIntentId: pi.id, motivo: entrega.motivo, detalle: entrega.detalle },
+        });
+        // 'sin-socia'/'plan-no-encontrado' no se arreglan reintentando: se
+        // responde 200 para no encolar reintentos eternos, y queda en Sentry
+        // como cobro pendiente de resolver a mano — mismo criterio que arriba.
+        if (entrega.motivo === 'sin-socia' || entrega.motivo === 'plan-no-encontrado') {
+          return NextResponse.json({ received: true, entregado: false, motivo: entrega.motivo });
+        }
+        return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
+      }
+
+      // Guardado de tarjeta (§6 del diseño): con PaymentIntent directo, el
+      // propio evento YA ES el PaymentIntent — a diferencia de
+      // checkout.session.completed no hace falta expandir/recuperar nada.
+      // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
+      // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
+      // tarjeta (payment_method_types:['card'] fijo).
+      if (typeof pi.customer === 'string' && typeof pi.payment_method === 'string') {
+        const piPmTypes = (pi.payment_method_types ?? []) as string[];
+        const esTarjetaReutilizable = piPmTypes.includes('card') && pi.setup_future_usage === 'off_session';
+        if (esTarjetaReutilizable) {
+          const { error } = await admin.from('socios')
+            .update({ stripe_customer_id: pi.customer, stripe_payment_method_id: pi.payment_method })
+            .eq('id', entrega.socioId).eq('studio_id', studioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar el método de pago' }, { status: 500 });
+          }
+          // Y CUÁNDO caduca (Fase 3 del Brain). Best-effort a propósito, igual
+          // que en checkout.session.completed: el método de pago —lo que
+          // importa— ya está guardado.
+          await guardarCaducidadTarjeta(admin, stripe, {
+            socioId: entrega.socioId, studioId, paymentMethodId: pi.payment_method, stripeAccount: event.account,
+          });
+        }
+      }
+
+      const { emitirPagoRealizado } = await import('@/lib/notifications/emit');
+      await emitirPagoRealizado(admin, { studioId, reciboId: entrega.reciboId });
+      const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
+      await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
+
+      // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
+      capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'checkout' } });
     }
 
     // Fase 1 · PR-4 — cobro SEPA CONFIRMADO (asíncrono): el adeudo domiciliado

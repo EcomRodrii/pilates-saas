@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { entregarPlanComprado, type CompraPlan } from './entregar-plan-comprado.ts';
+import { entregarPlanComprado, idsDe, type CompraPlan } from './entregar-plan-comprado.ts';
 
 // El botón "Contratar" del enlace público mandaba a Stripe con metadata.planId y
 // el webhook NUNCA leía ese campo: se cobraba y no se entregaba nada. Estos
@@ -53,6 +53,22 @@ const COMPRA: CompraPlan = {
   paymentIntentId: 'pi_test_abc123',
   origenLead: null,
 };
+
+// Fase 3 — checkout embebido: idsDe() amplió su regex para aceptar también
+// PaymentIntent (`pi_…`), no solo Checkout Session (`cs_…`, Modo A). Este test
+// fija que ambos prefijos siguen derivando ids DISTINTOS entre sí para el
+// mismo sufijo de Stripe, y que `cs_` sigue produciendo exactamente lo mismo
+// que antes de tocar el regex (el conciliador depende de esta regla).
+test('idsDe() acepta cs_ y pi_ sin cambiar lo que ya derivaba de cs_', () => {
+  const deSesion = idsDe('cs_test_a1B2c3D4e5F6g7H8i9J0k1L2');
+  const dePaymentIntent = idsDe('pi_test_a1B2c3D4e5F6g7H8i9J0k1L2');
+
+  assert.equal(deSesion.reciboId, 'rec-web-a1B2c3D4e5F6g7H8i9J0k1L2', 'cs_ sigue derivando igual que siempre');
+  assert.equal(dePaymentIntent.reciboId, 'rec-web-a1B2c3D4e5F6g7H8i9J0k1L2', 'pi_ deriva del mismo sufijo si el sufijo coincide');
+  // Con sufijos distintos (el caso real: Stripe genera aleatorio), los ids no chocan.
+  const otroPi = idsDe('pi_test_z9Y8x7W6v5U4t3S2r1Q0p9O8');
+  assert.notEqual(dePaymentIntent.reciboId, otroPi.reciboId);
+});
 
 test('el recibo registra lo COBRADO, no el precio del plan releído ahora', async () => {
   // Entre abrir el checkout y llegar el webhook, el estudio puede subir el
