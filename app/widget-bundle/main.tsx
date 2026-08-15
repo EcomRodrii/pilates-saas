@@ -26,6 +26,7 @@ import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
 import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta';
+import { ListaPlanes } from '@/components/checkout-widget/lista-planes';
 import widgetCss from './widget.css';
 
 // Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
@@ -34,6 +35,12 @@ import widgetCss from './widget.css';
 // vía `data-color` (ver abajo) es lo que sí pide el brief ("colores del
 // estudio"); tipografía/fondo/textos quedan fuera de este primer bundle.
 const TEMA = MODO_TOKENS.dia;
+
+// Fase 3 (Booking Engine — checkout embebido): opcional a propósito, mismo
+// criterio que TURNSTILE_SITE_KEY en formulario-acceso.tsx — sin ella,
+// <ListaPlanes> se queda sin renderizar el paso de pago (el resto del
+// widget sigue funcionando).
+const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 // Origen de Tentare, capturado del propio <script src="https://.../widget.js">
 // que está ejecutando este módulo — SÍNCRONO, a nivel de módulo: `document.
@@ -57,7 +64,7 @@ function WidgetApp({ slug }: { slug: string }) {
     slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
-    onActualizarPerfil, logout,
+    stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
   } = useDatosWidget(slug, ORIGEN_TENTARE);
   const trackedRef = useRef(false);
   useEffect(() => {
@@ -75,8 +82,25 @@ function WidgetApp({ slug }: { slug: string }) {
   // mirar horarios.
   const [accesoAbierto, setAccesoAbierto] = useState(false);
   const [cuentaAbierta, setCuentaAbierta] = useState(false);
+  const [planesAbiertos, setPlanesAbiertos] = useState(false);
   const walkInSinFicha = autenticado && !socia;
   const mostrarFormulario = walkInSinFicha || accesoAbierto;
+
+  // 3DS forzado a salir (poco común, ver checkout-embebido.tsx): vuelve a la
+  // MISMA página del estudio con este marcador — se lee una vez al montar y
+  // se limpia de la URL para que un refresh no repita el aviso.
+  const [avisoPago, setAvisoPago] = useState<'retorno' | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tentare_pago') !== 'retorno') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee la URL una vez al montar, no un dato derivado de un render anterior.
+    setAvisoPago('retorno');
+    params.delete('tentare_pago');
+    const limpia = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', limpia);
+  }, []);
+
+  const hayPlanesActivos = planesTarifa.some(p => p.activo);
 
   if (error) {
     return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>{error}</div>;
@@ -86,7 +110,18 @@ function WidgetApp({ slug }: { slug: string }) {
   }
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+      {avisoPago === 'retorno' && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: TEMA.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <span>Si has confirmado el pago con tu banco, en unos segundos verás el plan activo en Mi cuenta.</span>
+          <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: TEMA.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+        {hayPlanesActivos && (
+          <button type="button" onClick={() => setPlanesAbiertos(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            Planes
+          </button>
+        )}
         {socia ? (
           <button type="button" onClick={() => setCuentaAbierta(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
             Mi cuenta
@@ -112,6 +147,17 @@ function WidgetApp({ slug }: { slug: string }) {
             onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
             onActualizarPerfil={onActualizarPerfil}
             onLogout={() => { setCuentaAbierta(false); logout(); }}
+          />
+        </HojaCuentaWidget>
+      )}
+      {planesAbiertos && (
+        <HojaCuentaWidget t={TEMA} onClose={() => setPlanesAbiertos(false)}>
+          <ListaPlanes
+            t={TEMA} planes={planesTarifa} socioId={socia?.socioId ?? null}
+            publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
+            onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
+            onCerrar={() => setPlanesAbiertos(false)} onComprado={recargar}
+            onIniciarSesion={() => { setPlanesAbiertos(false); setAccesoAbierto(true); }}
           />
         </HojaCuentaWidget>
       )}
