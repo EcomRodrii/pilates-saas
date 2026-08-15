@@ -24,6 +24,7 @@ export interface EstadoFiltros {
   instructor: string;
   nivel: string;
   horario: string;
+  sala: string;
 }
 
 const HORARIOS: OpcionFiltro[] = [
@@ -53,12 +54,14 @@ export function RailFiltros({
   const instructores = opcionesDe(clases, (c) => c.instructorNombre);
   const niveles = opcionesDe(clases, (c) => c.nivel, etiquetaNivel);
   const horarios = opcionesDe(clases, horarioDe, (v) => HORARIOS.find((h) => h.valor === v)?.etiqueta ?? v);
+  const salas = opcionesDe(clases, (c) => c.salaNombre);
 
   const campos = ([
     { campo: 'tipo', label: 'Tipo de clase', opciones: tipos },
     { campo: 'instructor', label: 'Instructora', opciones: instructores },
     { campo: 'nivel', label: 'Nivel', opciones: niveles },
     { campo: 'horario', label: 'Horario', opciones: horarios },
+    { campo: 'sala', label: 'Sala', opciones: salas },
   ] as const satisfies readonly { campo: keyof EstadoFiltros; label: string; opciones: OpcionFiltro[] }[])
     .filter(({ opciones }) => vaLaPena(opciones));
 
