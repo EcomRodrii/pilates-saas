@@ -72,20 +72,26 @@ export function resolveLayout(raw: unknown): LayoutConfigShape {
     ? (obj.menuPosition as MenuPosicion)
     : 'lateral';
   const portalHome = resolveOrdenVis(obj.portalHome);
+  const reservar = resolveOrdenVis(obj.reservar);
   const bloquesRaw = obj.bloques && typeof obj.bloques === 'object' ? (obj.bloques as Record<string, unknown>) : {};
   const bloques = Object.fromEntries(
     PANTALLA_IDS.map((id) => [
       id,
       // `home` legacy: antes de esta fase se guardaba suelto en `homeBloques`,
       // no dentro de `bloques.home` — se sigue leyendo por compatibilidad.
-      resolveBloquesPantalla(id === 'home' ? (bloquesRaw.home ?? obj.homeBloques) : bloquesRaw[id], id, id === 'home' ? portalHome : undefined),
+      resolveBloquesPantalla(
+        id === 'home' ? (bloquesRaw.home ?? obj.homeBloques) : bloquesRaw[id],
+        id,
+        id === 'home' ? portalHome : undefined,
+        id === 'reservar' ? reservar : undefined,
+      ),
     ]),
   ) as BloquesPorPantallaShape;
   return {
     orden, ocultos, menuPosition,
     home: resolveOrdenVis(obj.home),
     portalHome,
-    reservar: resolveOrdenVis(obj.reservar),
+    reservar,
     bloques,
   };
 }

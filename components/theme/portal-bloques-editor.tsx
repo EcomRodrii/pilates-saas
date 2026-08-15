@@ -33,7 +33,7 @@ import {
   BLOCK_CATALOG, DEFAULT_BLOQUES_POR_PANTALLA, BLOQUE_SISTEMA_LABEL, PANTALLA_IDS, getBlockCatalogEntry,
   getDefinicionBloque, CAMPOS_ESTILO, DEFINICIONES_CATALOGO,
   type BloqueHome, type PantallaId, type EstiloBloque,
-  esBloqueFijo, admiteHijo, type BloqueHijo, type BloqueTipoCatalogo,
+  esBloqueFijo, esBloqueOcultable, admiteHijo, type BloqueHijo, type BloqueTipoCatalogo,
 } from '@/lib/portal-home-bloques';
 import { CamposForm } from '@/components/theme/inspector/campos-form';
 import { desdeArray, aArray, duplicar as duplicarEnDoc } from '@/lib/theme/documento';
@@ -92,6 +92,7 @@ const DESCRIPCION_PANTALLA: Record<PantallaId, string> = {
   home: 'El saludo y tu próxima clase se mantienen siempre arriba.',
   clases: 'El calendario de clases se mantiene siempre visible; los bloques que añadas van antes o después.',
   bonos: 'Tu bono y accesos rápidos se mantienen siempre visibles; los bloques que añadas van antes o después.',
+  reservar: 'La portada y el horario se mantienen siempre en su sitio; los bloques que añadas van antes o después.',
 };
 
 export function labelDe(b: BloqueHome): string {
@@ -613,18 +614,34 @@ export function BloquesSeccionesList({
     <div className="space-y-3">
       {fijos.length > 0 && (
         <div className="space-y-1">
-          {fijos.map((b) => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => onSeleccionar(b.id)}
-              className={`w-full flex items-center gap-2 rounded-xl border p-2.5 text-left ${seleccionId === b.id ? 'border-brand bg-brand/5' : 'border-border'}`}
-            >
-              {iconoDe(b)}
-              <span className="text-[12.5px] font-medium text-foreground flex-1">{labelDe(b)}</span>
-              <span className="text-[10.5px] text-muted-foreground/70">siempre arriba</span>
-            </button>
-          ))}
+          {fijos.map((b) => {
+            // La mayoría de fijos ni se mueven ni se ocultan ("el saludo y la
+            // tarjeta grande", sin ojo ni asa: mentirían). Portada de
+            // /reservar es la excepción — se puede quitar para quien incrusta
+            // el widget en una web con su propia cabecera — así que ESTA fila
+            // sí lleva ojo, sin agarradera de arrastre (sigue siendo fija).
+            const ocultable = esBloqueOcultable(b);
+            return (
+              <div
+                key={b.id}
+                className={`w-full flex items-center gap-2 rounded-xl border p-2.5 ${seleccionId === b.id ? 'border-brand bg-brand/5' : 'border-border'}`}
+              >
+                {iconoDe(b)}
+                <button type="button" onClick={() => onSeleccionar(b.id)} className="flex-1 text-left min-w-0">
+                  <span className={`text-[12.5px] font-medium truncate ${b.oculto ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
+                    {labelDe(b)}
+                  </span>
+                </button>
+                {ocultable ? (
+                  <button onClick={() => hook.toggle(pantalla, b.id)} title={b.oculto ? 'Mostrar' : 'Ocultar'} className="text-muted-foreground hover:text-foreground" aria-label={b.oculto ? `Mostrar ${labelDe(b)}` : `Ocultar ${labelDe(b)}`}>
+                    {b.oculto ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                ) : (
+                  <span className="text-[10.5px] text-muted-foreground/70">siempre arriba</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -661,6 +678,11 @@ export function BloquesSeccionesList({
         </SortableContext>
       </DndContext>
 
+      {/* /reservar ya sabe pintar el catálogo — components/reservar/
+          bloque-reservar-render.tsx, su propio render con el lenguaje visual
+          de esa página (lib/reservar-publico-tokens.ts), montado en
+          app/reservar/[slug]/page.tsx. Mismo botón que el resto de
+          pantallas. */}
       <div className="relative">
         <button
           onClick={() => setPicker((v) => !v)}
