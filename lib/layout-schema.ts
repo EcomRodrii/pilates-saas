@@ -65,12 +65,19 @@ const bloquesShapeSchema = z
 // (a diferencia del resto de este esquema, que se aplica en vivo — ver
 // comentario en migración 0020): aquí sí hay contenido editorial real
 // (texto, imagen, preguntas) que un cambio a medias no debe publicar solo.
-// Objeto de claves fijas (no z.record): las tres pantallas del portal que
+// Objeto de claves fijas (no z.record): las cuatro pantallas del portal que
 // tienen constructor de bloques hoy son una lista cerrada y conocida, igual
 // que el resto de este esquema `.strict()` — dar de alta una pantalla nueva
 // es añadir una clave aquí, no abrir el esquema a cualquier string.
+//
+// `reservar` entró en la Fase 1 de la generalización a esa pantalla: por
+// ahora nada escribe aquí todavía (el editor de /reservar sigue guardando en
+// `reservar.orden/ocultos`, más abajo) — `resolveBloquesPantalla` lo sintetiza
+// en caliente desde ahí. Existe para que la lectura y el guardado
+// (`getBloquesBorrador`/`publicarBloques`, ya genéricos por `PantallaId`) no
+// necesiten ningún cambio el día que el editor empiece a escribir aquí.
 const bloquesPorPantallaSchema = z
-  .object({ home: bloquesShapeSchema, clases: bloquesShapeSchema, bonos: bloquesShapeSchema })
+  .object({ home: bloquesShapeSchema, clases: bloquesShapeSchema, bonos: bloquesShapeSchema, reservar: bloquesShapeSchema })
   .default(DEFAULT_BLOQUES_SHAPE);
 
 export const layoutConfigSchema = z

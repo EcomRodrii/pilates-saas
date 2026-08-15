@@ -35,8 +35,13 @@ const BLOQUES_CLASES_DEFAULT = [{ id: 'sistema-listadoClases', kind: 'sistema', 
 const BLOQUES_BONOS_DEFAULT = [{ id: 'sistema-listadoBonos', kind: 'sistema', sistemaId: 'listadoBonos' }];
 
 async function montar(page: Page, opts: { bloquesHomeGuardar?: unknown[] } = {}) {
-  const putsPorPantalla: Record<string, unknown[][]> = { home: [], clases: [], bonos: [] };
-  const publicadasPorPantalla: Record<string, number> = { home: 0, clases: 0, bonos: 0 };
+  // Las CUATRO pantallas con constructor de bloques (PANTALLA_IDS: home,
+  // clases, bonos, reservar desde la Fase 1 de su generalización a
+  // /reservar) — "Publicar" las guarda y publica juntas, así que el mock
+  // tiene que saber responder a las cuatro aunque este fichero no compruebe
+  // nada de reservar en particular.
+  const putsPorPantalla: Record<string, unknown[][]> = { home: [], clases: [], bonos: [], reservar: [] };
+  const publicadasPorPantalla: Record<string, number> = { home: 0, clases: 0, bonos: 0, reservar: 0 };
   let temaPublicaciones = 0;
 
   await page.addInitScript(([key, uid]) => {
@@ -66,6 +71,10 @@ async function montar(page: Page, opts: { bloquesHomeGuardar?: unknown[] } = {})
     home: opts.bloquesHomeGuardar ?? BLOQUES_HOME_DEFAULT,
     clases: BLOQUES_CLASES_DEFAULT,
     bonos: BLOQUES_BONOS_DEFAULT,
+    reservar: [
+      { id: 'sistema-reservarPortada', kind: 'sistema', sistemaId: 'reservarPortada', fijo: true, fijoOcultable: true },
+      { id: 'sistema-reservarHorario', kind: 'sistema', sistemaId: 'reservarHorario', fijo: true },
+    ],
   };
   await page.route('**/api/portal-bloques**', route => {
     const url = new URL(route.request().url());

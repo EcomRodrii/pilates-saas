@@ -58,7 +58,7 @@ async function montar(page: Page, themeGuardado: Record<string, unknown> = {}) {
     // El editor carga las tres pantallas de una sola vez; con la forma de una
     // sola se quedaba sin bloques.
     if (new URL(route.request().url()).searchParams.get('pantalla') === 'todas') {
-      return json(route, { home: [], clases: [], bonos: [] });
+      return json(route, { home: [], clases: [], bonos: [], reservar: [] });
     }
     return json(route, []);
   });

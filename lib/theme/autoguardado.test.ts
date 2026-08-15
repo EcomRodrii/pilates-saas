@@ -9,7 +9,7 @@ import type { BloqueHome } from '../portal-home-bloques.ts';
 const b = (id: string): BloqueHome => ({ id, kind: 'texto', config: { titulo: '', texto: id } });
 
 function base(): PorPantalla {
-  return { home: [b('h')], clases: [b('c')], bonos: [b('n')] };
+  return { home: [b('h')], clases: [b('c')], bonos: [b('n')], reservar: [b('r')] };
 }
 
 test('sin cambios, no hay nada que guardar', () => {
@@ -27,7 +27,7 @@ test('detecta SOLO las pantallas que cambiaron', () => {
 
 test('varias a la vez, en el orden de siempre', () => {
   const antes = base();
-  const despues = { home: [b('otro')], clases: antes.clases, bonos: [] };
+  const despues = { home: [b('otro')], clases: antes.clases, bonos: [], reservar: antes.reservar };
   assert.deepEqual(pantallasCambiadas(antes, despues), ['home', 'bonos']);
 });
 

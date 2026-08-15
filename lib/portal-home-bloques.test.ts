@@ -8,7 +8,7 @@ import {
   REGISTRO_BLOQUES, DEFINICIONES_CATALOGO, getDefinicionBloque, definicionDe,
   resolverBloque, resolverBloques,
   BLOQUE_SISTEMA_LABEL, BLOQUES_SISTEMA_IDS, BLOQUES_SISTEMA_POR_PANTALLA, PANTALLA_IDS,
-  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo } from './portal-home-bloques.ts';
+  type BloqueHome, type BloqueHijo, type FaqConfig, CAMPOS_ESTILO, CAMPOS_ESTILO_BANNER, CAMPOS_CONTENEDOR, conFijos, esBloqueFijo, esBloqueOcultable } from './portal-home-bloques.ts';
 import { defaultsDe, resolverConfig, type CampoSchema } from './theme/campos.ts';
 
 test('DEFAULT_BLOQUES_POR_PANTALLA.home: los fijos delante y los 4 de siempre detrás, en orden', () => {
@@ -102,6 +102,53 @@ test('resolveBloquesPantalla: Clases respeta lo guardado (banner añadido antes 
   };
   const r = resolveBloquesPantalla(guardado, 'clases');
   assert.deepEqual(r.publicado.map((b) => b.kind), ['banner', 'sistema']);
+});
+
+// ── /reservar (Fase 1 de su generalización a bloques) ───────────────────────
+// El widget que el estudio incrusta en su web. Portada y Horario son las
+// ANCLADAS de lib/reservar/secciones.ts — deben llegar `fijo` y en ese orden
+// pase lo que pase; Horario además nunca puede llegar oculto, ni aunque el
+// legado diga lo contrario (SECCIONES_SIEMPRE_VISIBLES).
+
+test('DEFAULT_BLOQUES_POR_PANTALLA.reservar: las 6 secciones de siempre, en su orden, Portada y Horario fijas', () => {
+  const ids = DEFAULT_BLOQUES_POR_PANTALLA.reservar.map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(ids, ['reservarPortada', 'reservarHorario', 'reservarBonos', 'reservarSobre', 'reservarCifras', 'reservarContacto']);
+  const [portada, horario] = DEFAULT_BLOQUES_POR_PANTALLA.reservar;
+  assert.equal(esBloqueFijo(portada), true);
+  assert.equal(esBloqueFijo(horario), true);
+  assert.equal(DEFAULT_BLOQUES_POR_PANTALLA.reservar.every((b) => !b.oculto), true);
+});
+
+test('resolveBloquesPantalla: Reservar sin nada guardado y sin legado → cero cambio visual (mismo orden que ordenarSecciones)', () => {
+  const r = resolveBloquesPantalla(null, 'reservar', undefined, { orden: [], ocultos: [] });
+  const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  assert.deepEqual(visibles, ['reservarPortada', 'reservarHorario', 'reservarBonos', 'reservarSobre', 'reservarCifras', 'reservarContacto']);
+  assert.deepEqual(r.draft, r.publicado);
+});
+
+test('resolveBloquesPantalla: Reservar sintetiza el orden/ocultos guardado por el editor de siempre', () => {
+  const r = resolveBloquesPantalla(null, 'reservar', undefined, { orden: ['contacto', 'cifras'], ocultos: ['sobre'] });
+  const visibles = r.publicado.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? b.sistemaId : b.kind));
+  // Ancladas SIEMPRE delante, en su sitio — el orden guardado solo mueve las
+  // movibles entre sí.
+  assert.deepEqual(visibles, ['reservarPortada', 'reservarHorario', 'reservarContacto', 'reservarCifras', 'reservarBonos']);
+  const sobre = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarSobre');
+  assert.equal(sobre?.oculto, true);
+});
+
+test('resolveBloquesPantalla: Reservar, Horario nunca llega oculto aunque el legado lo pida (SECCIONES_SIEMPRE_VISIBLES)', () => {
+  const r = resolveBloquesPantalla(null, 'reservar', undefined, { orden: [], ocultos: ['horario', 'portada'] });
+  const horario = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarHorario');
+  const portada = r.publicado.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarPortada');
+  assert.equal(horario?.oculto, undefined, 'horario no se puede ocultar, ni desde el legado');
+  // Portada SÍ se puede ocultar — es lo que pide quien incrusta el widget en
+  // una web con su propia cabecera (ver secciones.ts). Anclada ≠ obligatoria.
+  assert.equal(portada?.oculto, true);
+});
+
+test('resolveBloquesPantalla: Reservar sin legado (undefined) cae al mismo default', () => {
+  const r = resolveBloquesPantalla(null, 'reservar');
+  assert.deepEqual(r.publicado, DEFAULT_BLOQUES_POR_PANTALLA.reservar);
 });
 
 test('bloquesVisibles: filtra los ocultos', () => {
@@ -314,6 +361,15 @@ test('BLOQUE_SISTEMA_LABEL derivado no cambia ni una coma — hay e2e que buscan
     misReservas: 'Tus próximas reservas',
     videosEnCasa: 'Pilates en casa',
     citaEstudio: 'Cierre del Inicio',
+    // /reservar (Fase 1 de su generalización a bloques): mismos nombres que
+    // ya usa lib/reservar/secciones.ts, literales — no derivados de ahí, para
+    // que este oráculo detecte una divergencia futura entre los dos sitios.
+    reservarPortada: 'Portada',
+    reservarHorario: 'Horario y reservas',
+    reservarBonos: 'Bonos y membresías',
+    reservarSobre: 'Sobre nosotros',
+    reservarCifras: 'Cifras del estudio',
+    reservarContacto: 'Contacto y pie',
   });
 });
 
@@ -877,6 +933,46 @@ test('los defaults traen ya la marca — misma forma que lo que devuelve la lect
     ['cabecera', 'proximaClase'],
   );
   assert.deepEqual(DEFAULT_BLOQUES_POR_PANTALLA.clases.filter(esBloqueFijo), []);
+});
+
+// ── "fijo pero ocultable" (unificación del editor de /reservar) ────────────
+test('esBloqueOcultable: un no-fijo siempre es ocultable', () => {
+  assert.equal(esBloqueOcultable({ id: 'x', kind: 'texto', config: { titulo: '', texto: '' } }), true);
+});
+
+test('esBloqueOcultable: Portada de reservar es fija Y ocultable a la vez', () => {
+  const portada = DEFAULT_BLOQUES_POR_PANTALLA.reservar.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarPortada')!;
+  assert.equal(esBloqueFijo(portada), true);
+  assert.equal(esBloqueOcultable(portada), true);
+});
+
+test('esBloqueOcultable: Horario de reservar es fijo y NUNCA ocultable', () => {
+  const horario = DEFAULT_BLOQUES_POR_PANTALLA.reservar.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarHorario')!;
+  assert.equal(esBloqueFijo(horario), true);
+  assert.equal(esBloqueOcultable(horario), false);
+});
+
+test('esBloqueOcultable: los fijos de Home (cabecera/próxima clase) siguen sin ojo', () => {
+  // El comportamiento de siempre no cambia con esta extensión: solo se abre
+  // la puerta a un caso concreto (Portada), no a los fijos en general.
+  for (const b of DEFAULT_BLOQUES_POR_PANTALLA.home.filter(esBloqueFijo)) {
+    assert.equal(esBloqueOcultable(b), false, `${(b as { sistemaId: string }).sistemaId} no debería ser ocultable`);
+  }
+});
+
+test('conFijos: materializa fijoOcultable en un fijo que se estaba creando desde cero', () => {
+  const r = conFijos([], 'reservar');
+  const portada = r.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarPortada')!;
+  const horario = r.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarHorario')!;
+  assert.equal(esBloqueOcultable(portada), true);
+  assert.equal(esBloqueOcultable(horario), false);
+});
+
+test('conFijos: un borrador guardado antes de que fijoOcultable existiera lo recupera', () => {
+  const viejo: BloqueHome[] = [{ id: 'sistema-reservarPortada', kind: 'sistema', sistemaId: 'reservarPortada', fijo: true }];
+  const r = conFijos(viejo, 'reservar');
+  const portada = r.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarPortada')!;
+  assert.equal(esBloqueOcultable(portada), true);
 });
 
 // ── Etapa 4b: el lector acepta las dos formas ──────────────────────────────

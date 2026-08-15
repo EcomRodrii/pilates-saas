@@ -1,19 +1,27 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { resolveTheme } from '../lib/theme-schema.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Reordenar las secciones de la página pública de reservas (`/reservar/<slug>`)
-// desde el rail del editor de Apariencia.
+// /reservar dentro del editor a pantalla completa, UNIFICADA con el mismo
+// constructor de bloques que ya usan Inicio/Clases/Bonos
+// (theme-editor-fullscreen.tsx, components/theme/portal-bloques-editor.tsx) —
+// ya no tiene su propio editor a medida (reservar-editor.tsx quedó reducido
+// al esquema del lienzo central, ReservarEsquema). Mismo patrón de mock que
+// e2e/apariencia-inicio-portal.spec.ts.
 //
-// Lo que aquí se comprueba de verdad es que el orden ELEGIDO es el orden
-// GUARDADO: el resto de la cadena (que lo guardado llega a la página) ya vive
-// en `lib/reservar/secciones.test.ts`, que es puro y no necesita navegador. Lo
-// que un unitario no puede ver es si el arrastre llega al cuerpo del PUT.
+// Lo que sigue siendo propio de /reservar, y lo que este fichero comprueba:
+//  · Portada y Horario son FIJAS (sin asa de arrastre) — vienen del catálogo,
+//    no se ordenan a mano.
+//  · Horario, además, NUNCA se puede ocultar — su fila no lleva ojo.
+//  · Portada SÍ se puede ocultar — es lo que pide quien incrusta el widget en
+//    una web con su propia cabecera. Fija Y ocultable a la vez, el caso que
+//    justificó `fijoOcultable`.
+//  · "Añadir bloque" SÍ se ofrece — components/reservar/bloque-reservar-render.tsx
+//    es el render de catálogo propio de /reservar (su lenguaje visual, no el
+//    del portal), montado en app/reservar/[slug]/page.tsx.
 //
-// Y las dos reglas que más importan, que son DISTINTAS entre sí:
-//  · el horario no se mueve NI se oculta — su fila no tiene ni asa ni ojo;
-//  · la portada no se mueve pero SÍ se oculta — tiene ojo y no tiene asa.
-// Se comprueba que los controles no existen, no solo que "no funcionan".
+// El resto (reordenar las movibles, publicar, deshacer, el resto de tipos de
+// bloque) ya lo cubre apariencia-inicio-portal.spec.ts sobre Inicio: no se
+// repite aquí.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -24,8 +32,27 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, reservar = { orden: [] as string[], ocultos: [] as string[] }) {
-  const puts: Record<string, unknown>[] = [];
+const BLOQUES_HOME_DEFAULT = [
+  { id: 'sistema-estaSemana', kind: 'sistema', sistemaId: 'estaSemana' },
+  { id: 'sistema-accesosRapidos', kind: 'sistema', sistemaId: 'accesosRapidos' },
+  { id: 'sistema-invitarAmiga', kind: 'sistema', sistemaId: 'invitarAmiga' },
+  { id: 'sistema-contenidoEstudio', kind: 'sistema', sistemaId: 'contenidoEstudio' },
+];
+const BLOQUES_CLASES_DEFAULT = [{ id: 'sistema-listadoClases', kind: 'sistema', sistemaId: 'listadoClases' }];
+const BLOQUES_BONOS_DEFAULT = [{ id: 'sistema-listadoBonos', kind: 'sistema', sistemaId: 'listadoBonos' }];
+const BLOQUES_RESERVAR_DEFAULT = [
+  { id: 'sistema-reservarPortada', kind: 'sistema', sistemaId: 'reservarPortada', fijo: true, fijoOcultable: true },
+  { id: 'sistema-reservarHorario', kind: 'sistema', sistemaId: 'reservarHorario', fijo: true },
+  { id: 'sistema-reservarBonos', kind: 'sistema', sistemaId: 'reservarBonos' },
+  { id: 'sistema-reservarSobre', kind: 'sistema', sistemaId: 'reservarSobre' },
+  { id: 'sistema-reservarCifras', kind: 'sistema', sistemaId: 'reservarCifras' },
+  { id: 'sistema-reservarContacto', kind: 'sistema', sistemaId: 'reservarContacto' },
+];
+
+async function montar(page: Page, opts: { bloquesReservar?: unknown[] } = {}) {
+  const putsPorPantalla: Record<string, unknown[][]> = { home: [], clases: [], bonos: [], reservar: [] };
+  const publicadasPorPantalla: Record<string, number> = { home: 0, clases: 0, bonos: 0, reservar: 0 };
+
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -39,24 +66,30 @@ async function montar(page: Page, reservar = { orden: [] as string[], ocultos: [
   }, [STORAGE_KEY, AUTH_UID] as const);
 
   await page.route('**/api/**', route => json(route, {}));
-  await page.route('**/api/layout**', route => {
-    if (route.request().method() === 'PUT') {
-      puts.push(route.request().postDataJSON() as Record<string, unknown>);
-      return json(route, {});
-    }
-    return json(route, {
-      orden: [], ocultos: [], menuPosition: 'lateral',
-      home: { orden: [], ocultos: [] }, reservar,
-    });
-  });
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));
   await page.route('**/api/billing/status**', route => json(route, { bloqueado: false, activo: true, plan: 'BASE', configurado: true }));
-  await page.route('**/api/theme**', route => json(route, resolveTheme({ primary: '#6D28D9', secondary: '#7C3AED' })));
+  await page.route('**/api/layout**', route => json(route, {
+    orden: [], ocultos: [], menuPosition: 'lateral',
+    home: { orden: [], ocultos: [] }, portalHome: { orden: [], ocultos: [] }, reservar: { orden: [], ocultos: [] },
+  }));
+  await page.route('**/api/theme**', route => json(route, { primary: '#6D28D9', secondary: '#7C3AED' }));
+
+  const bloques: Record<string, unknown[]> = {
+    home: BLOQUES_HOME_DEFAULT, clases: BLOQUES_CLASES_DEFAULT, bonos: BLOQUES_BONOS_DEFAULT,
+    reservar: opts.bloquesReservar ?? BLOQUES_RESERVAR_DEFAULT,
+  };
   await page.route('**/api/portal-bloques**', route => {
-    if (new URL(route.request().url()).searchParams.get('pantalla') === 'todas') {
-      return json(route, { home: [], clases: [], bonos: [] });
+    const url = new URL(route.request().url());
+    const pantalla = url.searchParams.get('pantalla') ?? 'home';
+    if (pantalla === 'todas') return json(route, bloques);
+    if (url.pathname.endsWith('/publish')) { publicadasPorPantalla[pantalla]++; return json(route, bloques[pantalla]); }
+    if (route.request().method() === 'PUT') {
+      const body = route.request().postDataJSON() as unknown[];
+      putsPorPantalla[pantalla].push(body);
+      bloques[pantalla] = body;
+      return json(route, body);
     }
-    return json(route, []);
+    return json(route, bloques[pantalla]);
   });
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -64,120 +97,113 @@ async function montar(page: Page, reservar = { orden: [] as string[], ocultos: [
   await page.route('**/rest/v1/rpc/current_studio_id', route => json(route, STUDIO_ID));
 
   await page.goto('/configuracion/apariencia/editor');
-  // Dos clics porque son dos cosas distintas, aquí y en todas las filas del
-  // rail: el nombre SELECCIONA la página (es lo que hace aparecer el lienzo y
-  // el botón de guardar en la barra) y el chevron DESPLIEGA su lista.
-  await page.getByRole('button', { name: 'Secciones de la página', exact: true }).click();
-  await page.getByLabel('Desplegar Secciones de la página').click();
-  return { puts };
+  // "Página pública de reservas" no llega desplegada por defecto (solo Inicio
+  // lo está) — hay que abrirla, como cualquier otro grupo del rail.
+  await page.getByRole('button', { name: 'Desplegar Secciones de la página' }).click();
+  return { putsPorPantalla, publicadasPorPantalla };
 }
 
-test.describe('Página pública de reservas — orden de secciones', () => {
-  test('el orden por defecto es el de la página, con el horario en su sitio', async ({ page }) => {
+async function publicar(page: Page) {
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click();
+}
+
+test.describe('Editor a pantalla completa — /reservar unificada con el constructor de bloques', () => {
+  test('las 6 secciones de siempre, con sus nombres', async ({ page }) => {
     await montar(page);
-    await expect(page.getByLabel('Reordenar Cifras del estudio')).toBeVisible();
-
-    // El esquema del lienzo enseña el orden completo, fijas incluidas.
-    const esquema = page.getByText('Tu página de reservas').locator('..');
-    await expect(esquema.getByText('Portada', { exact: true })).toBeVisible();
-    await expect(esquema.getByText('Horario y reservas', { exact: true })).toBeVisible();
-    await expect(esquema.getByText('Cifras del estudio', { exact: true })).toBeVisible();
-    await expect(esquema.getByText('Contacto y pie', { exact: true })).toBeVisible();
-  });
-
-  test('⚠️ el horario no ofrece ni arrastrar ni ocultar', async ({ page }) => {
-    await montar(page);
-    // Las movibles sí tienen asa; el horario, ninguno de los dos controles.
-    await expect(page.getByLabel('Reordenar Cifras del estudio')).toBeVisible();
-    await expect(page.getByLabel('Reordenar Horario y reservas')).toHaveCount(0);
-    await expect(page.getByLabel('Ocultar Horario y reservas')).toHaveCount(0);
-  });
-
-  test('⚠️ la portada no ofrece arrastrar, pero SÍ ocultar', async ({ page }) => {
-    // Los dos permisos son distintos y confundirlos costaría justo lo que más
-    // se pide: quitar la portada porque la web del estudio ya tiene cabecera.
-    const { puts } = await montar(page);
-    await expect(page.getByLabel('Reordenar Portada')).toHaveCount(0);
-    await page.getByLabel('Ocultar Portada').click();
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    const enviado = puts[0].reservar as { orden: string[]; ocultos: string[] };
-    expect(enviado.ocultos).toEqual(['portada']);
-    // Y no se cuela en `orden`: no es reordenable.
-    expect(enviado.orden).not.toContain('portada');
-  });
-
-  test('ocultar una sección y guardar manda ese id en `ocultos`', async ({ page }) => {
-    const { puts } = await montar(page);
-    await page.getByLabel('Ocultar Cifras del estudio').click();
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-
-    expect(puts).toHaveLength(1);
-    const enviado = puts[0].reservar as { orden: string[]; ocultos: string[] };
-    expect(enviado.ocultos).toEqual(['cifras']);
-    // Lo anclado nunca viaja en `orden` — no es reordenable, así que guardarlo
-    // solo daría trabajo a `ordenarSecciones` para volver a descartarlo.
-    expect(enviado.orden).not.toContain('horario');
-    expect(enviado.orden).not.toContain('portada');
-  });
-
-  test('arrastrar las cifras al final cambia el orden que se guarda', async ({ page }) => {
-    const { puts } = await montar(page);
-    // A mano y no con `dragTo`: el PointerSensor de dnd-kit exige 5 px de
-    // movimiento para activarse y luego lee cada `pointermove`, así que un
-    // salto único de origen a destino no levanta nada.
-    // ⚠️ Traerlas a la vista ANTES de medir. Este grupo es el penúltimo de un
-    // rail largo, así que las filas movibles nacen por debajo del borde;
-    // `boundingBox()` devuelve coordenadas igualmente y el ratón acababa
-    // moviéndose fuera de la ventana — el arrastre no fallaba, no llegaba a
-    // empezar, y el test parecía decir que reordenar no funciona.
-    await page.getByLabel('Reordenar Contacto y pie').scrollIntoViewIfNeeded();
-    const a = (await page.getByLabel('Reordenar Cifras del estudio').boundingBox())!;
-    const b = (await page.getByLabel('Reordenar Contacto y pie').boundingBox())!;
-    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
-    await page.mouse.down();
-    // Se pasa de largo a propósito: dnd-kit intercambia al cruzar el CENTRO de
-    // la fila de destino, y quedarse justo en su asa se queda corto — con dos
-    // filas movibles adyacentes, «casi» no mueve nada.
-    const destino = b.y + b.height * 1.5;
-    for (let i = 1; i <= 10; i++) {
-      await page.mouse.move(a.x + a.width / 2, a.y + ((destino - a.y) * i) / 10);
+    for (const label of ['Portada', 'Horario y reservas', 'Bonos y membresías', 'Sobre nosotros', 'Cifras del estudio', 'Contacto y pie']) {
+      await expect(page.getByText(label, { exact: true })).toBeVisible({ timeout: 30_000 });
     }
-    await page.mouse.up();
-
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    // Solo viajan las MOVIBLES: ni el horario ni la portada, que van ancladas.
-    // Las que no se han tocado conservan su sitio relativo.
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['bonos', 'sobre', 'contacto', 'cifras']);
   });
 
-  test('un orden ya guardado se lee y se vuelve a guardar igual', async ({ page }) => {
-    // Lo guardado solo conoce dos de las cuatro movibles; «sobre» y «bonos» se
-    // añadieron al catálogo después. Se releen al final —la regla de siempre— y
-    // se vuelve a guardar así, ya completo: leer no puede perder una sección, y
-    // tampoco colar una nueva por delante de lo que el estudio ya colocó.
-    const { puts } = await montar(page, { orden: ['contacto', 'cifras'], ocultos: [] });
-    await page.getByRole('button', { name: 'Guardar cambios' }).click();
-    await expect(page.getByText(/Ya se ve así en tu página de reservas/)).toBeVisible();
-    expect((puts[0].reservar as { orden: string[] }).orden).toEqual(['contacto', 'cifras', 'bonos', 'sobre']);
+  test('⚠️ Horario no ofrece ni arrastrar ni ocultar', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Horario y reservas', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Reordenar Horario y reservas' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Ocultar Horario y reservas|Mostrar Horario y reservas/ })).toHaveCount(0);
   });
-});
 
-// ── «Sobre nosotros»: el panel donde se escribe ─────────────────────────────
-// Categoría propia en «Ajustes del tema», y no un campo más en la de la
-// portada: la portada son textos que adornan una página que ya existe, y esto
-// es una SECCIÓN que no existe hasta que se escribe. Se comprueba aquí porque
-// la regla de producto («vacío = no se ve») solo se entiende si el panel lo
-// dice, y un panel que no lo dijera pasaría todos los tests de la página.
-test('la categoría «Sobre nosotros» existe y avisa de que sin texto no se ve', async ({ page }) => {
-  await montar(page);
-  await page.getByRole('tab', { name: 'Ajustes del tema' }).click();
-  await page.getByRole('button', { name: 'Sobre nosotros', exact: true }).click();
-  await expect(page.getByText(/si dejas el texto vacío, no se ve/i)).toBeVisible();
-  await page.getByPlaceholder(/Cuenta quién sois/).fill('Somos tres instructoras.');
-  // El contador de caracteres es lo que confirma que el campo está enganchado
-  // al borrador y no es un textarea suelto.
-  await expect(page.getByText('24/600')).toBeVisible();
+  test('⚠️ Portada no ofrece arrastrar, pero SÍ ocultar — fija y ocultable a la vez', async ({ page }) => {
+    const { putsPorPantalla } = await montar(page);
+    await expect(page.getByText('Portada', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Reordenar Portada' })).toHaveCount(0);
+
+    const ocultar = page.getByRole('button', { name: 'Ocultar Portada' });
+    await expect(ocultar).toBeVisible();
+    await ocultar.click();
+    await expect(page.getByRole('button', { name: 'Mostrar Portada' })).toBeVisible();
+
+    await expect(page.locator('[data-estado-guardado]')).toHaveText(/Guardado/, { timeout: 15_000 });
+    const guardado = putsPorPantalla.reservar.at(-1) as Array<{ sistemaId?: string; oculto?: boolean }>;
+    const portada = guardado.find((b) => b.sistemaId === 'reservarPortada');
+    expect(portada?.oculto).toBe(true);
+  });
+
+  test('ocultar y publicar manda el borrador de reservar y lo publica junto al resto', async ({ page }) => {
+    const { putsPorPantalla, publicadasPorPantalla } = await montar(page);
+    await expect(page.getByText('Sobre nosotros', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Ocultar Sobre nosotros' }).click();
+    await expect(page.getByRole('button', { name: 'Mostrar Sobre nosotros' })).toBeVisible();
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques/publish') && r.url().includes('pantalla=reservar')),
+      publicar(page),
+    ]);
+
+    expect(publicadasPorPantalla.reservar).toBe(1);
+    expect(publicadasPorPantalla.home).toBe(1);
+    const guardado = putsPorPantalla.reservar.at(-1) as Array<{ sistemaId?: string; oculto?: boolean }>;
+    expect(guardado.find((b) => b.sistemaId === 'reservarSobre')?.oculto).toBe(true);
+    await expect(page.getByText('¡Publicado!')).toBeVisible();
+  });
+
+  test('las movibles (Bonos/Sobre/Cifras/Contacto) sí se pueden reordenar y ocultar', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Bonos y membresías', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Reordenar Bonos y membresías' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ocultar Bonos y membresías' })).toBeVisible();
+  });
+
+  test('añadir un bloque de texto, configurarlo y publicar manda el borrador y publica reservar', async ({ page }) => {
+    const { putsPorPantalla, publicadasPorPantalla } = await montar(page);
+    await expect(page.getByText('Contacto y pie', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+    // Dos "Añadir bloque" en la página (Inicio, que llega desplegado por
+    // defecto, y Reservar) — se acota al de DESPUÉS de "Contacto y pie" para
+    // no ambigüedad con el de Inicio.
+    const filas = page.getByRole('button', { name: 'Añadir bloque' });
+    await expect(filas).toHaveCount(2);
+    await filas.nth(1).click();
+    await page.getByRole('button', { name: /^Texto/ }).click();
+    await page.locator('textarea').first().fill('Clases de Pilates para todos los niveles');
+
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/portal-bloques/publish') && r.url().includes('pantalla=reservar')),
+      publicar(page),
+    ]);
+
+    expect(publicadasPorPantalla.reservar).toBe(1);
+    const guardado = putsPorPantalla.reservar.at(-1) as Array<{ kind: string }>;
+    expect(guardado.some((b) => b.kind === 'texto')).toBe(true);
+    await expect(page.getByText('¡Publicado!')).toBeVisible();
+  });
+
+  test('un bloque de sistema sin campos dice que solo se puede reordenar u ocultar', async ({ page }) => {
+    await montar(page);
+    await expect(page.getByText('Bonos y membresías', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Bonos y membresías', exact: true }).click();
+    await expect(page.getByText(/solo puedes reordenarlo u ocultarlo/)).toBeVisible();
+  });
+
+  test('el esquema central enseña las 6 secciones, con Portada y Horario marcadas como fijas', async ({ page }) => {
+    await montar(page);
+    // El esquema es el lienzo cuando "reservar" está operativo — desplegar el
+    // grupo (montar() ya lo hizo) no selecciona la pantalla por sí solo; hay
+    // que clicar su nombre.
+    await page.getByRole('button', { name: 'Secciones de la página', exact: true }).click();
+    await expect(page.getByText('Tu página de reservas', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Va siempre, y en su sitio.')).toBeVisible();
+    await expect(page.getByText('No cambia de sitio; se puede ocultar.')).toBeVisible();
+  });
 });

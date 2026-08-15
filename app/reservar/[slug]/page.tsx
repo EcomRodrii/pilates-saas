@@ -23,7 +23,8 @@ import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
-import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
+import { seccionReservarDeSistemaId } from '@/lib/portal-home-bloques';
+import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
@@ -258,7 +259,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, ordenReservar,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -1210,9 +1211,13 @@ export default function ReservarPage() {
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
-  // Lo decide el estudio desde el editor de Apariencia. La resolución sale de
-  // `ordenarSecciones`, la MISMA función que pinta el rail del editor: aquí no
-  // se vuelve a decidir nada, así que el rail no puede prometer un orden que
+  // Lo decide el estudio desde el editor de Apariencia (Theme Builder
+  // unificado, components/theme/portal-bloques-editor.tsx con
+  // pantalla="reservar" — Fase 2 de la generalización de /reservar al motor
+  // de bloques, mismo constructor que ya usan Inicio, Clases y Bonos):
+  // `bloquesReservar` llega YA resuelto y publicado (fetchPublicStudioData,
+  // igual que homeBloques/bloquesClases/bloquesBonos) — esta página no
+  // vuelve a decidir nada, así que el rail no puede prometer un orden que
   // esta página no cumpla.
   //
   // ⚠️ Se reordena con `order` de CSS sobre un contenedor flex, **sin mover el
@@ -1224,8 +1229,22 @@ export default function ReservarPage() {
   // El precio, que es real y conviene tener escrito: el orden de tabulación y
   // el de un lector de pantalla siguen el DOM, no lo que se ve. Solo afecta a
   // quien reordene de verdad — sin tocar nada, los dos órdenes coinciden.
-  const posicionSeccion = new Map(ordenarSecciones(ordenReservar).map((s, i) => [s.id, i]));
+  const posicionSeccion = new Map(
+    bloquesReservar.map((b, i) => [b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : b.id, i]),
+  );
   const orden = (id: string) => posicionSeccion.get(id) ?? 0;
+  const seccionesVisibles = new Set(
+    bloquesReservar.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : '')),
+  );
+  const seccionVisible = (id: string) => seccionesVisibles.has(id);
+  // Los bloques del CATÁLOGO (banner/texto/cta/faq/galería/vídeo/testimonios/
+  // contenedor) que el estudio haya añadido — las 6 secciones de siempre son
+  // `sistema` y ya se pintan por su cuenta, JSX fijo, más abajo; estos son
+  // contenido nuevo, del mismo tipo que ya se puede añadir en Inicio/Clases/
+  // Bonos. Se intercalan con la MISMA técnica de `order` que las de siempre.
+  const bloquesCatalogo = bloquesReservar.filter(
+    (b): b is Exclude<typeof b, { kind: 'sistema' }> => b.kind !== 'sistema' && !b.oculto,
+  );
 
   return (
     <>
@@ -1326,7 +1345,7 @@ export default function ReservarPage() {
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
             tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
-        {!embedMode && seccionVisible('portada', ordenReservar) && (
+        {!embedMode && seccionVisible('portada') && (
         <div
           style={{
             position: 'relative',
@@ -1923,7 +1942,7 @@ export default function ReservarPage() {
           mismo de siempre (activo y precio > 0, que además es requisito del
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
-      {seccionVisible('bonos', ordenReservar) && planesContratables.length > 0 && (
+      {seccionVisible('bonos') && planesContratables.length > 0 && (
         <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
@@ -1995,7 +2014,7 @@ export default function ReservarPage() {
           criterio que la bio de instructora (#946).
 
           El título solo no basta: un encabezado sobre nada es peor que nada. */}
-      {seccionVisible('sobre', ordenReservar) && textosReservar.sobreTexto && (
+      {seccionVisible('sobre') && textosReservar.sobreTexto && (
         <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
             {textosReservar.sobreTitulo && (
@@ -2015,7 +2034,7 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {seccionVisible('cifras', ordenReservar) && mereceBanda(cifras) && (
+      {seccionVisible('cifras') && mereceBanda(cifras) && (
         <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (
@@ -2028,10 +2047,18 @@ export default function ReservarPage() {
         </div>
       )}
 
+      {/* Bloques del catálogo añadidos desde el editor — cada uno en su propia
+          posición de `order`, entre las 6 secciones de siempre. */}
+      {bloquesCatalogo.map((b) => (
+        <div key={b.id} style={{ order: orden(b.id) }}>
+          <BloqueReservarRender bloque={b} slug={slug} />
+        </div>
+      ))}
+
       {/* `ocultarPie` solo puede venir en modo incrustado (ver `apariencia`),
           así que la página suelta conserva su pie con los legales pase lo que
           pase. Ahí es el único sitio donde vive esa información. */}
-      {!apariencia.ocultarPie && seccionVisible('contacto', ordenReservar) && (
+      {!apariencia.ocultarPie && seccionVisible('contacto') && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si
