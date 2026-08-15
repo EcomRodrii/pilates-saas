@@ -167,10 +167,20 @@ export default function CrearPerfilNetworkPage() {
 
   // Reanudación (2f simplificada, dentro del propio wizard): aterriza en el
   // primer paso incompleto, publicado → última. Se decide UNA vez.
+  //
+  // pasoIncompletoDe(null) devuelve 0 ("Tu cuenta") porque para el flujo de
+  // email/password ese valor nunca se usa tal cual — crearCuenta() salta a
+  // mano a setPaso(1) justo después de crear la cuenta. Pero quien llega
+  // aquí YA CON SESIÓN sin haber pasado por crearCuenta() (alta con Google,
+  // que vuelve de /login con user ya puesto) sí podía quedarse en paso 0 —
+  // y el cuerpo autenticado del wizard no tiene ningún bloque para
+  // paso === 0 (todos empiezan en 1), así que se veía "Paso 1 de 12" en
+  // blanco. Con sesión activa el paso "Tu cuenta" ya está hecho por
+  // definición, así que el mínimo real aquí es 1.
   useEffect(() => {
     if (cargando || pasoInicialElegido || !user) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPaso(pasoIncompletoDe(perfil));
+    setPaso(Math.max(1, pasoIncompletoDe(perfil)));
     setPasoInicialElegido(true);
   }, [cargando, pasoInicialElegido, user, perfil]);
 
