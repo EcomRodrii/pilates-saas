@@ -28,9 +28,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_request', detalle: 'titulo es obligatorio' }, { status: 400 });
   }
 
+  // Zapier envía "" (no lo omite) para un campo de texto opcional dejado en
+  // blanco — sin normalizar, socio_id: '' viola la FK contra socios.
+  const socioId = (body.socioId ?? body.socio_id ?? '').trim() || null;
+
   const resultado = await crearTareaAdmin(admin, {
     studioId: ctx.studioId, titulo: body.titulo.trim(), descripcion: body.descripcion ?? null,
-    socioId: body.socioId ?? body.socio_id ?? null, origen: 'API',
+    socioId, origen: 'API',
   });
 
   const statusCode = 'error' in resultado ? 400 : 201;
