@@ -22,7 +22,7 @@ interface Fotograma {
   /** Estado de la candidata principal (Julia). */
   c1: string;
   c1fg: string;
-  /** Estado de la segunda candidata (Meri). */
+  /** Estado de la segunda candidata (Juana). */
   c2: string;
   c2fg: string;
   /** Pie de la tarjeta: lo que el sistema está haciendo ahora mismo. */
@@ -64,7 +64,7 @@ const FOTOGRAMAS: Fotograma[] = [
 const REGISTRO: [string, string][] = [
   ['16:42', 'Marta avisa de que no puede dar la clase'],
   ['16:43', 'Se calculan las candidatas que pueden darla'],
-  ['16:43', 'Email a Julia y a Meri'],
+  ['16:43', 'Email a Julia y a Juana'],
   ['18:40', 'Recordatorio automático a quien no ha contestado'],
   ['19:05', 'Julia acepta · esperando tu visto bueno'],
   ['19:06', 'Calendario y horas actualizados'],
@@ -123,9 +123,9 @@ export function SeccionSustituciones() {
                   <span className="v5-cand-e" style={{ color: f.c1fg }}>{f.c1}</span>
                 </div>
                 <div className="v5-cand" style={{ borderColor: 'transparent' }}>
-                  <span className="v5-ini">M</span>
+                  <span className="v5-ini">J</span>
                   <span className="v5-cand-n">
-                    <strong>Meri</strong>
+                    <strong>Juana</strong>
                     <span className="v5-cand-s"> · ★ 4,9 · disponible ese día</span>
                   </span>
                   <span className="v5-cand-e" style={{ color: f.c2fg }}>{f.c2}</span>
