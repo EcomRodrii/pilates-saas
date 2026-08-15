@@ -6,6 +6,7 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
+import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 
 // Inicia un pago con Stripe Checkout sobre la cuenta conectada del estudio
 // (direct charge: el importe va a la cuenta del estudio; la plataforma recauda
@@ -19,13 +20,24 @@ import { parsearOrigenPago, urlsDeRetorno } from '@/lib/billing/origen-pago';
 // diseño (una socia paga desde /reservar sin sesión de staff), por eso la
 // defensa correcta es validar el importe en el servidor, no exigir login de
 // staff. Se comprueba además que el recibo/plan pertenezca al `studioId`.
+//
+// CORS (Fase 3 Booking Engine): el fallback de Bizum del checkout embebido
+// (Modo B, `components/checkout-widget/checkout-embebido.tsx`) llama a este
+// MISMO endpoint desde el dominio del estudio — con `?studioId=` en la URL
+// para que el preflight resuelva la lista blanca. `conCorsWidget` no añade
+// cabeceras si el Origin no coincide con `widget_dominios_autorizados`, y no
+// afecta a las llamadas same-origin ya existentes de Modo A.
+export async function OPTIONS(req: NextRequest) {
+  return respuestaPreflightWidget(req);
+}
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'stripe-checkout', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
 
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key || key.startsWith('sk_test_XXXX')) {
-    return NextResponse.json({ error: 'Stripe no configurado. Añade STRIPE_SECRET_KEY en .env.local' }, { status: 503 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Stripe no configurado. Añade STRIPE_SECRET_KEY en .env.local' }, { status: 503 }));
   }
   // La otra puerta por la que entra dinero (la socia paga desde el portal o un
   // enlace). Mismo guardia que el cobro automático: con el `.env.local` de
@@ -33,12 +45,12 @@ export async function POST(req: NextRequest) {
   // de verdad. Ver lib/billing/modo-stripe.ts.
   const modo = comprobarModoStripe();
   if (!modo.puedeCobrar) {
-    return NextResponse.json({ error: modo.motivo }, { status: 503 });
+    return conCorsWidget(req, NextResponse.json({ error: modo.motivo }, { status: 503 }));
   }
 
   const admin = getSupabaseAdmin();
   if (!admin) {
-    return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }));
   }
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
@@ -63,7 +75,7 @@ export async function POST(req: NextRequest) {
   } | null;
 
   if (!body?.studioId) {
-    return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Falta el estudio' }, { status: 400 }));
   }
 
   // El importe y el concepto se resuelven contra la BD, validando pertenencia
@@ -82,13 +94,13 @@ export async function POST(req: NextRequest) {
       .eq('id', body.reciboId)
       .maybeSingle();
     if (error || !recibo) {
-      return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 }));
     }
     if (recibo.studio_id !== body.studioId) {
-      return NextResponse.json({ error: 'Ese recibo no pertenece a este estudio' }, { status: 403 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Ese recibo no pertenece a este estudio' }, { status: 403 }));
     }
     if (recibo.estado !== 'PENDIENTE') {
-      return NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Este recibo ya no está pendiente de cobro' }, { status: 409 }));
     }
     importe = Number(recibo.importe);
     concepto = recibo.concepto;
@@ -101,13 +113,13 @@ export async function POST(req: NextRequest) {
       .eq('id', body.planId)
       .maybeSingle();
     if (error || !plan) {
-      return NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 }));
     }
     if (plan.studio_id !== body.studioId) {
-      return NextResponse.json({ error: 'Ese plan no pertenece a este estudio' }, { status: 403 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Ese plan no pertenece a este estudio' }, { status: 403 }));
     }
     if (!plan.activo) {
-      return NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 });
+      return conCorsWidget(req, NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 }));
     }
     // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO
     // no se cobra a quien no se ha registrado — sin ficha no hay contrato
@@ -119,21 +131,21 @@ export async function POST(req: NextRequest) {
         .eq('id', body.studioId)
         .maybeSingle();
       if ((cfg?.compra_publica_modo ?? 'EXIGIR_REGISTRO') === 'EXIGIR_REGISTRO') {
-        return NextResponse.json(
+        return conCorsWidget(req, NextResponse.json(
           { error: 'Regístrate antes de comprar: te pedimos el email y aceptar las condiciones.', necesitaRegistro: true },
           { status: 409 },
-        );
+        ));
       }
     }
     importe = Number(plan.precio);
     concepto = plan.nombre;
     metadata.planId = body.planId;
   } else {
-    return NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Falta el recibo o el plan a cobrar' }, { status: 400 }));
   }
 
   if (!(importe > 0)) {
-    return NextResponse.json({ error: 'Importe no válido' }, { status: 409 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
   }
   if (socioId) metadata.socioId = socioId;
   // Stripe exige valores de metadata como string no vacío.
@@ -145,7 +157,7 @@ export async function POST(req: NextRequest) {
     .eq('id', body.studioId)
     .single();
   if (!studio?.stripe_account_id) {
-    return NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 });
+    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3001';
@@ -207,8 +219,8 @@ export async function POST(req: NextRequest) {
       locale: 'es',
     }, { stripeAccount: studio.stripe_account_id });
 
-    return NextResponse.json({ url: session.url });
+    return conCorsWidget(req, NextResponse.json({ url: session.url }));
   } catch (err) {
-    return errorInterno('stripe/checkout:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.');
+    return conCorsWidget(req, errorInterno('stripe/checkout:POST', err, 'No se pudo iniciar el cobro. Inténtalo de nuevo más tarde.'));
   }
 }

@@ -25,6 +25,8 @@
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.9",
     "@sentry/nextjs": "^10.64.0",
+    "@stripe/react-stripe-js": "^6.8.1",
+    "@stripe/stripe-js": "^9.13.0",
     "@supabase/supabase-js": "^2.110.0",
     "aws4fetch": "^1.0.20",
     "class-variance-authority": "^0.7.1",

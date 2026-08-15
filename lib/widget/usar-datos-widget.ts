@@ -42,12 +42,16 @@ interface DatosCrudos {
   // por `liviano`) — antes se tiraban a la basura, ver docs/account-widget-diseno.md §0.
   misReservas: Reserva[];
   socio: Socio | null;
+  // Fase 3 (Booking Engine — checkout embebido): necesaria en el CLIENTE para
+  // `loadStripe(pk, {stripeAccount})` — ver comentario de `studioPublico()`
+  // en lib/db/supabase-data-admin.ts.
+  stripeAccountId: string | null;
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
-  politicaPrivacidad: '', terminosServicio: '', misReservas: [], socio: null,
+  politicaPrivacidad: '', terminosServicio: '', misReservas: [], socio: null, stripeAccountId: null,
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -86,6 +90,7 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         terminosServicio: pub.studio?.terminosServicio ?? '',
         misReservas: pub.socia?.reservas ?? [],
         socio: pub.socia?.socio ?? null,
+        stripeAccountId: pub.studio?.stripeAccountId ?? null,
       });
       setError(null);
       setCargando(false);
@@ -164,12 +169,42 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     refrescarSesion();
   }, [refrescarSesion]);
 
+  // Fase 3 (Booking Engine — checkout embebido): crea el PaymentIntent que
+  // <CheckoutEmbebido> confirma dentro del Shadow Root. Requiere sesión —
+  // igual que EXIGIR_REGISTRO ya exige en el servidor, el botón de compra en
+  // <ListaPlanes> se gatea con `socia` antes de llegar aquí.
+  const crearCheckoutEmbebido = useCallback(async (plan: PlanTarifa) => {
+    if (!socia?.socioId) return { ok: false as const, error: 'Inicia sesión para comprar.' };
+    return postPublicoWidget(`${baseUrl}/api/public/checkout-embebido`, {
+      studioId: datos.studioId, planId: plan.id, socioId: socia.socioId, socioEmail: socia.email,
+    }, { studioId: datos.studioId });
+  }, [socia, datos.studioId, baseUrl]);
+
+  // Bizum: fuera del Payment Element a propósito (§4 del diseño, redirect
+  // avisado) — reutiliza /api/stripe/checkout tal cual, ahora CORS-aware.
+  const comprarConBizum = useCallback(async (plan: PlanTarifa) => {
+    if (!socia?.socioId) return;
+    const r = await postPublicoWidget(`${baseUrl}/api/stripe/checkout`, {
+      studioId: datos.studioId, planId: plan.id, socioId: socia.socioId, socioEmail: socia.email, bizum: true,
+    }, { studioId: datos.studioId });
+    const url = (r.datos as { url?: string } | null)?.url;
+    if (r.ok && url) {
+      // Igual que Modo A: escapa de cualquier contenedor hacia la ventana de
+      // nivel superior real (aquí normalmente ya es `window`, Modo B no suele
+      // vivir en un iframe, pero el criterio es el mismo por si acaso).
+      (window.top ?? window).location.href = url;
+    }
+    return r;
+  }, [socia, datos.studioId, baseUrl]);
+
   return {
     slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
     sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
     misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
+    stripeAccountId: datos.stripeAccountId,
     onReservar, onCancelar, onAceptarOferta, onActualizarPerfil, logout, recargar,
+    crearCheckoutEmbebido, comprarConBizum,
   };
 }

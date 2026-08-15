@@ -298,6 +298,13 @@ function studioPublico(r: RowStudios) {
     // botón seguía abriendo el pase aunque el estudio lo hubiera desactivado
     // — verificado en vivo con una socia de prueba antes de darlo por bueno.
     requiereCheckinQr: (r as { requiere_checkin_qr?: boolean | null }).requiere_checkin_qr ?? true,
+    // Fase 3 (Booking Engine): el checkout embebido monta Stripe Elements con
+    // `loadStripe(pk, {stripeAccount})` — necesita saber la cuenta Connect en
+    // el CLIENTE antes de crear el PaymentIntent. No es un secreto (un
+    // `acct_...` no autentica nada por sí solo, Stripe.js lo expone así en
+    // cualquier integración de Connect), pero SIN esta línea el checkout
+    // embebido se rompería en silencio con `stripeAccountId: undefined`.
+    stripeAccountId: r.stripe_account_id ?? null,
   };
 }
 

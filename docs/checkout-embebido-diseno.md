@@ -258,8 +258,66 @@ distintos (`cs_` vs `pi_`), así que nunca colisionan entre sí.
 
 Concreto, no genérico:
 
-1. **Spike de Shadow Root + CSP de terceros (§2)** — antes de escribir una
-   sola línea de `<Elements>`. Sin esto, todo lo demás es papel.
+1. **Spike de Shadow Root + CSP de terceros (§2) — resuelto como análisis de
+   escritorio, NO verificado empíricamente.** Este entorno de desarrollo no
+   tiene ninguna credencial de Stripe configurada (`.env.local` sin
+   `STRIPE_SECRET_KEY` ni clave publicable), así que no se pudo montar un
+   `<PaymentElement>` real en un navegador — pedirle al usuario su clave de
+   test para esto se descartó explícitamente. Lo que sigue es una revisión
+   contra la documentación pública de Stripe y el comportamiento conocido del
+   DOM, con el mismo criterio de honestidad que el resto de este repo aplica
+   a hallazgos sin poder probarlos end-to-end (ver `.claude/tentare-os.md`,
+   "Fase 3 dinero — construida, NO probada con un cobro real"): **se
+   implementa igualmente, pero queda marcado como pendiente de un smoke test
+   real antes de activarlo para un estudio de verdad.**
+
+   - **Montaje dentro de Shadow DOM: riesgo BAJO.** Stripe.js soporta montar
+     Elements dentro de un shadow root desde hace varias versiones (lo piden
+     y lo documentan ellos mismos) — un `<iframe>` como hijo de un nodo
+     dentro de un shadow root es DOM estándar, no hay ninguna restricción de
+     la especificación que lo prohíba. El propio diseño ya acierta en el
+     motivo de por qué hace falta `appearance` en vez de CSS heredado (§2):
+     el contenido del iframe de Stripe es un DOCUMENTO separado, así que ni
+     las custom properties (`--portal-brand`) ni ninguna otra regla CSS del
+     shadow root cruzan hacia dentro — eso es aislamiento por diseño (PCI-DSS
+     lo exige), no un efecto secundario del Shadow DOM de Tentare.
+   - **CSP: riesgo MEDIO-ALTO, pero NO es un riesgo específico de Shadow
+     DOM** — es el mismo riesgo que ya existe hoy para `widget.js` en sí
+     mismo y para Turnstile dentro del formulario de acceso (Fase 2): la CSP
+     que importa es la del DOMINIO DEL ESTUDIO (que Tentare no controla), no
+     la de Tentare. Si esa web tiene una CSP restrictiva sin
+     `script-src https://js.stripe.com`, `frame-src https://js.stripe.com
+     https://hooks.stripe.com` y `connect-src https://api.stripe.com`
+     (además de `https://m.stripe.com`/`https://q.stripe.com` para telemetría
+     antifraude, que Stripe tolera bloqueados sin romper el pago pero con
+     avisos en consola), el script ni siquiera carga o el iframe no se crea
+     — el fallo es silencioso para la clienta pero visible en la consola.
+     Mitigación: documentar el mismo requisito que ya existe para
+     `widget_dominios_autorizados` (dominio del estudio en la lista blanca de
+     Tentare) — aquí es al revés, orígenes de Stripe en la lista blanca DEL
+     ESTUDIO. Se añade a la documentación de instalación del widget cuando se
+     implemente, no bloquea el código.
+   - **Modal de 3DS y z-index (§3): riesgo BAJO.** Documentado que Stripe.js
+     no inyecta el iframe de 3DS como hijo del nodo de montaje — lo añade
+     directamente a `document.body`, con un z-index deliberadamente altísimo
+     (en la práctica, el máximo entero de 32 bits) para evitar exactamente
+     este tipo de conflicto con CSS de terceros. El caso límite real —un
+     ancestro del propio Stripe con `transform`/`filter`/`will-change` que
+     cree un nuevo contexto de apilamiento y rompa `position: fixed` respecto
+     al viewport— es un problema del sitio anfitrión, no de Tentare, y ya
+     aplica igual a Turnstile (documentado en `.claude/tentare-os.md`, sin
+     que haya sido nunca un bloqueante real).
+
+   **Conclusión de la revisión**: los dos riesgos que el diseño marcaba como
+   bloqueantes (montaje en Shadow DOM, z-index del modal 3DS) resultan de
+   riesgo bajo por diseño de la propia librería de Stripe. El riesgo real
+   que queda —CSP del estudio anfitrión— es de la misma categoría que ya
+   vive en este repo sin bloquear ningún lanzamiento (widget.js, Turnstile):
+   se documenta, no se resuelve en código. **Se procede a implementar con
+   esta base — recomendado un smoke test real (clave `pk_test_`/`sk_test_`
+   propias, ver `docs/STRIPE-MODO-TEST.md`) antes de ofrecer esto a un
+   estudio real**, mismo criterio que el resto de fases de dinero de este
+   repo.
 2. **`execute_sql`+`ROLLBACK` sobre `idsDe()` con el regex ampliado**: probar
    con un `sessionId` real tipo `cs_test_...` y un `paymentIntentId` real tipo
    `pi_test_...` que ambos produzcan slugs distintos y sin colisión — el

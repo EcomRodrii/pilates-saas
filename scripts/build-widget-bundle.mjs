@@ -39,6 +39,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // proyecto si está activado, así que no es un agujero de seguridad, solo una
 // UX peor (el error de Supabase en vez de un mensaje amable).
 const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
+// Fase 3 (checkout embebido): opcional a propósito, mismo criterio que
+// Turnstile arriba — sin ella, <CheckoutEmbebido> no monta Stripe Elements y
+// cae al aviso "compra no disponible ahora mismo" en vez de romper el resto
+// del widget (calendario/reservas siguen funcionando).
+const STRIPE_PUBLISHABLE_KEY = leerEnvLocal('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
 
 await esbuild.build({
   entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
@@ -58,6 +63,7 @@ await esbuild.build({
     'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(SUPABASE_URL),
     'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(SUPABASE_ANON_KEY),
     'process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY': JSON.stringify(TURNSTILE_SITE_KEY),
+    'process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY': JSON.stringify(STRIPE_PUBLISHABLE_KEY),
   },
   logLevel: 'info',
 });
