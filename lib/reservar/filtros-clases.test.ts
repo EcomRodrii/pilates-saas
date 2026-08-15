@@ -58,3 +58,8 @@ test('los días cuentan como UN filtro, por muchos que se marquen', () => {
   assert.equal(cuantosFiltros({ ...SIN_FILTROS, dias: [1, 2, 3] }), 1);
   assert.equal(cuantosFiltros({ ...SIN_FILTROS, tipo: 'reformer', nivel: 'TODOS', dias: [1, 2] }), 3);
 });
+
+test('el filtro de sala cuenta como cualquier otro (Fase 1 Booking Engine)', () => {
+  assert.equal(cuantosFiltros({ ...SIN_FILTROS, sala: 'Sala 2' }), 1);
+  assert.equal(opcionesDe([{ salaNombre: 'Sala 1' }, { salaNombre: 'Sala 2' }, { salaNombre: 'Sala 1' }], (c) => c.salaNombre)[0].valor, 'Sala 1');
+});

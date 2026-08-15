@@ -9,6 +9,7 @@ export interface ClaseFiltrable {
   tipoClaseId?: string | null;
   nivel?: string | null;
   instructorNombre?: string | null;
+  salaNombre?: string | null;
 }
 
 export interface OpcionFiltro {
@@ -50,10 +51,11 @@ export interface FiltrosActivos {
   nivel: string;
   horario: string;
   instructor: string;
+  sala: string;
   dias: readonly number[];
 }
 
-export const SIN_FILTROS: FiltrosActivos = { tipo: '', nivel: '', horario: '', instructor: '', dias: [] };
+export const SIN_FILTROS: FiltrosActivos = { tipo: '', nivel: '', horario: '', instructor: '', sala: '', dias: [] };
 
 /**
  * Cuántos filtros hay puestos. Los días cuentan como UNO por muchos que se
@@ -61,7 +63,7 @@ export const SIN_FILTROS: FiltrosActivos = { tipo: '', nivel: '', horario: '', i
  * martes» pareciera el doble de restrictivo que «lunes».
  */
 export function cuantosFiltros(f: FiltrosActivos): number {
-  return [f.tipo, f.nivel, f.horario, f.instructor].filter(Boolean).length + (f.dias.length > 0 ? 1 : 0);
+  return [f.tipo, f.nivel, f.horario, f.instructor, f.sala].filter(Boolean).length + (f.dias.length > 0 ? 1 : 0);
 }
 
 /**

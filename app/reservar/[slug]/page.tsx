@@ -356,6 +356,13 @@ export default function ReservarPage() {
   // Filtrar por instructora faltaba, y es de las tres formas en que se elige
   // cuando ya conoces el estudio (con quién, qué día, a qué hora).
   const [filtroInstructor, setFiltroInstructor] = useState('');
+  // Filtrar por sala: el dato (`slot.salaNombre`) ya viajaba en el payload
+  // para pintarse en la fila — faltaba solo la UI (Fase 1 del Booking Engine).
+  const [filtroSala, setFiltroSala] = useState('');
+  // Buscar por texto libre (Fase 1): nombre de clase o de instructora, sobre
+  // los mismos slots ya cargados — sin fetch nuevo, comparación directa como
+  // el resto de filtros de esta página.
+  const [busqueda, setBusqueda] = useState('');
   // Objetivo del asistente. No está en el rail a propósito: el rail filtra por
   // hechos de la clase (tipo, quién, nivel, hora); el objetivo es una pregunta
   // sobre la clienta, y solo tiene sentido dentro del asistente que la hace.
@@ -413,7 +420,7 @@ export default function ReservarPage() {
     }
     return porInstructor;
   }, [sesiones, tiposClase]);
-  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroObjetivo !== '';
+  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroSala !== '' || busqueda !== '' || filtroObjetivo !== '';
   function reiniciarFiltrosQuiz() {
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
     setQuizCompletado(false);
@@ -621,6 +628,7 @@ export default function ReservarPage() {
       tipoClaseId: s.tipoClaseId,
       nivel: s.tipo?.nivel ?? 'TODOS',
       instructorNombre: s.instructor?.nombre ?? null,
+      salaNombre: s.sala?.nombre ?? null,
       horario: horarioDeSesion(s.inicio),
     })), [sesionesRich, nowMs]);
 
@@ -730,6 +738,12 @@ export default function ReservarPage() {
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
+      .filter(s => {
+        if (!busqueda) return true;
+        const q = busqueda.toLowerCase();
+        return (s.tipo?.nombre ?? '').toLowerCase().includes(q) || (s.instructor?.nombre ?? '').toLowerCase().includes(q);
+      })
       .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtroObjetivo))
       .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
       .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
@@ -760,7 +774,7 @@ export default function ReservarPage() {
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1504,7 +1518,25 @@ export default function ReservarPage() {
                   cazó CI, con los tests de reserva entrando por las pestañas de
                   día—. Cambiar por dónde se reserva es una decisión de producto
                   aparte, no un efecto colateral de añadir una vista. */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
+              {/* Buscar por texto libre (Fase 1 del Booking Engine) — nombre de
+                  clase o de instructora. Separado del rail de filtros: es una
+                  entrada de texto, no una elección entre opciones cerradas. */}
+              <div style={{ marginTop: 20, position: 'relative', maxWidth: 360 }}>
+                <input
+                  type="search"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar clase o instructora…"
+                  aria-label="Buscar clase o instructora"
+                  style={{
+                    width: '100%', fontSize: 13, padding: '10px 14px', borderRadius: R.pill,
+                    border: '1px solid var(--portal-line)', background: 'var(--portal-surface)',
+                    color: 'var(--portal-ink)',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 4, marginTop: 12, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
                 {([['lista', 'Lista'], ['mes', 'Mes'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
                   <button
                     key={id}
@@ -1583,18 +1615,19 @@ export default function ReservarPage() {
               <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
                 <RailFiltros
                   clases={slotsParaFiltros}
-                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario }}
+                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
                   onCambiar={(campo, valor) => {
                     if (campo === 'tipo') setFiltroTipo(valor);
                     else if (campo === 'instructor') setFiltroInstructor(valor);
                     else if (campo === 'nivel') setFiltroNivel(valor);
+                    else if (campo === 'sala') setFiltroSala(valor);
                     else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
                   }}
                   onLimpiar={() => {
                     setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
-                    setFiltroHorario(''); setFiltroDias([]);
+                    setFiltroHorario(''); setFiltroDias([]); setFiltroSala('');
                   }}
-                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, dias: filtroDias })}
+                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, sala: filtroSala, dias: filtroDias })}
                   nResultados={slots.length}
                   etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
                   etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
