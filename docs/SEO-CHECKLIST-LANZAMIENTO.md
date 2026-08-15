@@ -27,12 +27,14 @@ Todo lo publicado esta sesión está en `main` vía [PR #1016](https://github.co
 - [x] Footer: 5 de 8 usos de `SiteFooter` no enlazaban a `/funcionalidades` ni `/precios` — corregido en los 5.
 - [x] `/soluciones/cambiar-de-software` publicada, con interfaz nueva para el endpoint `/api/public/migracion-concierge` que antes no tenía ninguna.
 - [x] `tsc --noEmit`, `eslint` y los 15 tests de `lib/seo/paginas.test.ts` en verde en cada commit.
+- [x] **Google Search Console conectado** (2026-08-14, confirmado por el fundador) — cierra el mayor cuello de botella de este checklist: a partir de ahora hay datos reales de indexación, no solo suposiciones. Se indexaron manualmente las páginas que faltaban.
+- [x] **Triage de un informe de auditoría externo (herramienta genérica tipo "website grader", 2026-08-14)**: la mayoría de sus quejas (título/descripción duplicados, sin H1) eran sobre páginas correctamente bloqueadas en `robots.txt` (`/login`, `/crear-estudio`, `/network/acceso`, `/network/crear-perfil`) — la herramienta no respeta `robots.txt` al rastrear, así que Google nunca las ve. Hallazgo real y corregido: la foto de perfil en `/network/crear-perfil` llevaba `alt=""` (como decorativa) sin `width`/`height` — corregido con `alt={perfil.nombre}` y dimensiones reales, mismo patrón que ya usaba `ProfileAvatar` en otro sitio del código. Pendiente de tu decisión, sin tocar: recortar ~30 descripciones/títulos que superan el límite práctico de Google (~155/~60 caracteres) aunque cumplan el límite más permisivo (200/80) que exige el test de este repo.
+- [x] **Descubierto durante esta sesión: "Tentare Network"** — un marketplace de instructoras (`/network`, `/network/instructoras` y variantes por ciudad) se construyó y desplegó en `main` por otra sesión en paralelo mientras se hacía este trabajo. Ya tiene su propio mecanismo de indexación (`EXCEPCIONES_INDEXABLES` en `lib/seo/paginas.ts` — bloquea `/network/` entero salvo `/network/instructoras`) y sus propias páginas públicas indexables. **No cubierto por los 5 documentos de la auditoría original** (se escribieron antes de que existiera) — si quieres una auditoría SEO dedicada a Network (keywords, contenido, comparativa con marketplaces de instructoras de la competencia), es trabajo nuevo, no una extensión de lo ya hecho.
 
 ## ⬜ Listo para ejecutar, pero requiere una acción tuya (no puedo hacerlo yo)
 
 - [ ] **Crear los perfiles de empresa en G2 y Capterra.** Todo el texto está listo para copiar/pegar en [`docs/SEO-G2-CAPTERRA-PERFIL.md`](SEO-G2-CAPTERRA-PERFIL.md) — proceso, tagline, descripción, checklist de funcionalidades, tabla de precios. Falta: crear la cuenta (requiere email corporativo), decidir si publicas como autónomo o esperas a una S.L. (marcado ahí como `⚠️ TU DATO`), y capturas de pantalla reales (mínimo 3-5 en Capterra) — sin credenciales de sesión de prueba en este entorno no las puedo generar.
-- [ ] **Conectar Google Search Console.** Sin esto, todo lo que este trabajo asume sobre indexación real (`site:tentare.app`, posiciones, qué ve Google de verdad) sigue siendo UNKNOWN — las herramientas de esta sesión no pueden verificarlo. Es gratis y son 5 minutos: verificar la propiedad `www.tentare.app`, enviar `https://www.tentare.app/sitemap.xml`.
-- [ ] **Verificar el `<head>` real de la home con las herramientas de Search Console o `curl -s https://www.tentare.app/ | grep -A2 'og:description'`.** La herramienta de fetch de esta sesión convierte HTML a markdown y puede perder `<meta>`/`<script type="application/ld+json">` sin que eso signifique que faltan — quedó marcado UNKNOWN en `SEO-URL-INVENTORY.md §5` y sigue sin cerrar.
+- [ ] **Verificar el `<head>` real de la home con las herramientas de Search Console o `curl -s https://www.tentare.app/ | grep -A2 'og:description'`.** La herramienta de fetch de esta sesión convierte HTML a markdown y puede perder `<meta>`/`<script type="application/ld+json">` sin que eso signifique que faltan — quedó marcado UNKNOWN en `SEO-URL-INVENTORY.md §5` y sigue sin cerrar. Con Search Console ya conectado, esto se puede verificar directamente ahí (Inspección de URLs).
 - [ ] **`/sobre-tentare`**: bloqueada esperando que me pases quién eres, por qué construiste Tentare y qué quieres mostrar — ver mi pregunta de antes. Sin esto no se construye (evita fabricar una narrativa de fundador).
 
 ## 🔒 Deliberadamente fuera de esta fase (no son huecos, son decisiones)
@@ -44,10 +46,10 @@ Todo lo publicado esta sesión está en `main` vía [PR #1016](https://github.co
 
 ## Antes de decir "el contenido está listo para lanzar"
 
-1. Los 4 primeros ítems de la sección "requiere una acción tuya" son el
-   verdadero cuello de botella — sin Search Console conectado, cualquier
-   afirmación sobre "cómo está posicionando Tentare" seguirá siendo una
-   suposición, no un dato.
+1. ~~Sin Search Console conectado, cualquier afirmación sobre "cómo está
+   posicionando Tentare" seguirá siendo una suposición~~ — **resuelto**, ya
+   conectado. Los pendientes que quedan (G2/Capterra, `/sobre-tentare`) son
+   mejoras de confianza, no bloqueantes de datos.
 2. Ninguno de los pendientes de arriba bloquea técnicamente abrir
    `/crear-estudio` al público — son mejoras de visibilidad/confianza, no
    requisitos funcionales. La decisión de cuándo abrir es tuya y depende de
