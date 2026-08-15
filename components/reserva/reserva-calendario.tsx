@@ -73,6 +73,14 @@ export interface ReservaSlot {
   spotsOcupados: string[];    // ids de spot ya ocupados
   miReservaId: string | null; // reserva propia activa (si la hay)
   miEstado: 'CONFIRMADA' | 'LISTA_ESPERA' | null;
+  /**
+   * Fase 5 (Booking Engine): plazo para aceptar una plaza liberada de lista
+   * de espera (`reservas.oferta_expira_en`, migr `20260731130000`). `null`/
+   * ausente = en espera sin oferta activa todavía — mismo criterio que ya
+   * usa `components/portal/portal-reservas-view.tsx`, portado aquí porque
+   * ninguna de las dos superficies públicas (Modo A/B) lo tenía.
+   */
+  miOfertaExpiraEn?: string | null;
   precio?: number | null;     // se muestra en el CTA si no hay cobertura de plan
 }
 
@@ -89,6 +97,13 @@ export interface ReservaCalendarioProps {
   onReservar: (slot: ReservaSlot, spotId: string | null) => ResultadoReserva | void | Promise<ResultadoReserva | void>;
   /** Cancela. Si devuelve un resultado y es `ok: false`, la hoja dice el motivo. */
   onCancelar: (reservaId: string) => void | Promise<ResultadoEscritura | void>;
+  /**
+   * Acepta una plaza liberada de lista de espera (Fase 5 Booking Engine,
+   * `aceptar_oferta_lista_espera`). Opcional: sin ella, un slot con
+   * `miOfertaExpiraEn` activa cae al aviso pasivo de siempre ("estás en
+   * lista de espera") en vez del botón de aceptar.
+   */
+  onAceptarOferta?: (reservaId: string) => ResultadoEscritura | void | Promise<ResultadoEscritura | void>;
   /** 'calendario' (tira de semana) o 'lista' (agrupada por día, para Mis reservas). */
   variant?: 'calendario' | 'lista';
   /**
@@ -151,7 +166,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 }
 
 export function ReservaCalendario({
-  t, slots, onReservar, onCancelar,
+  t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
   irADia,
 }: ReservaCalendarioProps) {
@@ -375,6 +390,15 @@ export function ReservaCalendario({
           ventanaPorTipo={ventanaPorTipo}
           fontFamily={fontFamily}
           onClose={cerrarHoja}
+          onAceptarOferta={onAceptarOferta ? async () => {
+            if (!openSlot.miReservaId || enviando) return;
+            setErrorReserva(null);
+            setEnviando(true);
+            const r = await onAceptarOferta(openSlot.miReservaId);
+            setEnviando(false);
+            if (r && !r.ok) { setErrorReserva(r.error); return; }
+            setResultado('CONFIRMADA');
+          } : undefined}
           onReservar={async () => {
             if (enviando) return;
             setErrorReserva(null);
@@ -513,7 +537,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
 
 function BookingSheet({
   t, slot, selectedSpot, onSelectSpot, resultado, errorReserva, enviando, cancelacionVentanaHoras, ventanaPorTipo,
-  fontFamily, onClose, onReservar, onCancelar,
+  fontFamily, onClose, onReservar, onCancelar, onAceptarOferta,
 }: {
   t: ModoTokens;
   slot: ReservaSlot;
@@ -528,6 +552,7 @@ function BookingSheet({
   onClose: () => void;
   onReservar: () => void;
   onCancelar: () => void;
+  onAceptarOferta?: () => void;
 }) {
   const titleId = useId();
   // P2-8: el tipo de esta clase puede tener su propia ventana; sin override,
@@ -560,6 +585,10 @@ function BookingSheet({
       : (slot.precio != null ? `Reservar · ${slot.precio} €` : 'Reservar');
 
   const esCancelar = tieneReserva;
+
+  // Fase 5 (Booking Engine): oferta de plaza liberada, con plazo. `onAceptarOferta`
+  // ausente (Modo B sin endpoint público wireado todavía) cae al aviso pasivo.
+  const hayOferta = enEspera && !!slot.miOfertaExpiraEn && !!onAceptarOferta;
 
   return (
     <div
@@ -655,7 +684,27 @@ function BookingSheet({
         {resultado === 'LISTA_ESPERA' && <Banner tipo="warn" texto="Estás en lista de espera. Te avisaremos si se libera una plaza." />}
         {resultado === 'CANCELADA' && <Banner tipo="warn" texto="Reserva cancelada." />}
         {!resultado && yaReservada && <Banner tipo="ok" texto="Ya tienes esta clase reservada." />}
-        {!resultado && enEspera && <Banner tipo="warn" texto="Estás en lista de espera para esta clase." />}
+        {!resultado && enEspera && !hayOferta && <Banner tipo="warn" texto="Estás en lista de espera para esta clase." />}
+
+        {!resultado && hayOferta && (
+          <div style={{ padding: '13px 15px', borderRadius: radius.card, background: semantic.warning.soft }}>
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 10, lineHeight: 1.4 }}>
+              ¡Se ha liberado una plaza! Tienes hasta las {fmtHora(slot.miOfertaExpiraEn!)} para aceptarla.
+            </p>
+            <button
+              type="button"
+              disabled={enviando}
+              onClick={onAceptarOferta}
+              style={{
+                width: '100%', height: 44, borderRadius: 14, border: 'none', fontSize: 13.5, fontWeight: 800,
+                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                cursor: enviando ? 'default' : 'pointer', opacity: enviando ? 0.6 : 1,
+              }}
+            >
+              {enviando ? 'Aceptando…' : 'Aceptar plaza'}
+            </button>
+          </div>
+        )}
 
         {ventanaEfectiva != null && ventanaEfectiva > 0 && !tieneReserva && !lleno && (
           <p style={{ fontSize: 12, color: t.muted }}>

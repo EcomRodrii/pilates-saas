@@ -145,6 +145,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
         spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
         miReservaId: mia?.id ?? null,
         miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
+        miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
         precio: cubierta ? null : precioClaseSuelta,
       } satisfies ReservaSlot;
     });
