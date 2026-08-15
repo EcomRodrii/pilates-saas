@@ -54,7 +54,7 @@ const ORIGEN_TENTARE = (() => {
 function WidgetApp({ slug }: { slug: string }) {
   const {
     slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
-    politicaPrivacidad, terminosServicio, onReservar, onCancelar,
+    politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
   } = useDatosWidget(slug, ORIGEN_TENTARE);
   const trackedRef = useRef(false);
   useEffect(() => {
@@ -116,6 +116,7 @@ function WidgetApp({ slug }: { slug: string }) {
         slots={slots}
         onReservar={onReservar}
         onCancelar={onCancelar}
+        onAceptarOferta={onAceptarOferta}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
       />
     </div>

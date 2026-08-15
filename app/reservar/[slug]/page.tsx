@@ -259,7 +259,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
+    addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -772,6 +772,7 @@ export default function ReservarPage() {
           spotsOcupados: spotsOcupadosPorSesion.get(s.id) ?? [],
           miReservaId: mia?.id ?? null,
           miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
+          miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
@@ -1611,6 +1612,7 @@ export default function ReservarPage() {
                   irADia={comandoDia ?? undefined}
                   onReservar={handleReservarCalendario}
                   onCancelar={cancelarReserva}
+                  onAceptarOferta={aceptarOfertaEspera}
                   cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
                   ventanaPorTipo={ventanaPorTipo}
                   vacio={hayFiltrosQuizActivos

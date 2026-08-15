@@ -128,10 +128,20 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
+  // Fase 5 (Booking Engine): acepta una plaza liberada de lista de espera.
+  const onAceptarOferta = useCallback(async (reservaId: string) => {
+    if (!socia?.socioId) return;
+    const r = await postPublicoWidget(`${baseUrl}/api/public/aceptar-oferta-espera`, {
+      studioId: datos.studioId, reservaId,
+    }, { studioId: datos.studioId });
+    recargar();
+    return r;
+  }, [socia, datos.studioId, recargar, baseUrl]);
+
   return {
     slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
-    onReservar, onCancelar, recargar,
+    onReservar, onCancelar, onAceptarOferta, recargar,
   };
 }
