@@ -526,7 +526,7 @@ export default function CrearPerfilNetworkPage() {
                 <div className="relative">
                   {perfil?.fotoUrl
                     // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora
-                    ? <img src={perfil.fotoUrl} alt="" className="w-20 h-20 rounded-full object-cover" />
+                    ? <img src={perfil.fotoUrl} alt={perfil.nombre} width={80} height={80} className="w-20 h-20 rounded-full object-cover" />
                     : <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={22} color={NW_MUTED} /></div>}
                 </div>
                 <div>
@@ -749,7 +749,7 @@ function PasoRevisar({
         <div className="flex items-center gap-3">
           {perfil.fotoUrl
             // eslint-disable-next-line @next/next/no-img-element -- foto subida por la instructora
-            ? <img src={perfil.fotoUrl} alt="" className="w-14 h-14 rounded-full object-cover" />
+            ? <img src={perfil.fotoUrl} alt={perfil.nombre} width={56} height={56} className="w-14 h-14 rounded-full object-cover" />
             : <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={18} color={NW_MUTED} /></div>}
           <div>
             <p className="text-[15px] font-extrabold" style={{ color: NW_TINTA }}>{perfil.nombre}</p>
