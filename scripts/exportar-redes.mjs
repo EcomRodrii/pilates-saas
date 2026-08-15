@@ -143,7 +143,7 @@ for (const [destino, origen, viewBox, ancho] of LOGOS) {
 // medio, donde un PNG de 2400 px se queda corto.
 for (const svg of ['horizontal/tentare-horizontal-degradado.svg', 'horizontal/tentare-horizontal-blanco.svg', 'vertical/tentare-vertical-degradado.svg', 'isotipo/tentare-isotipo-degradado.svg']) {
   const datos = fs.readFileSync(path.join(KIT, svg));
-  const ruta = guarda(path.join('vectorial', path.basename(svg)), datos);
+  guarda(path.join('vectorial', path.basename(svg)), datos);
   hechos.push(`vectorial/${path.basename(svg)}`.padEnd(44) + ` SVG  ${(datos.length / 1024).toFixed(0)} KB`);
 }
 
