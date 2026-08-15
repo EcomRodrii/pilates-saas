@@ -53,6 +53,10 @@ const ReservaCalendario = dynamic(
   () => import('@/components/reserva/reserva-calendario').then((m) => m.ReservaCalendario),
   { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando calendario…</div> },
 );
+const MiCuenta = dynamic(
+  () => import('@/components/cuenta-widget/mi-cuenta').then((m) => m.MiCuenta),
+  { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando…</div> },
+);
 const CitasPublica = dynamic(
   () => import('@/components/reserva/citas-publica').then((m) => m.CitasPublica),
   { ssr: false, loading: () => <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--portal-muted-2)' }}>Cargando citas…</div> },
@@ -218,12 +222,17 @@ function SpotPickerPublico({ spots, takenIds, selected, onSelect, primary }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio';
+type Tab = 'clases' | 'citas' | 'misreservas' | 'estudio' | 'cuenta';
 // Cada pestaña es también un widget embebible por separado (Configuración >
 // Estudio > Enlaces genera un <iframe ?embed=1&tab=…> distinto por cada una)
 // — de ahí que valga la pena validar el ?tab= de la URL contra esta lista en
 // vez de leerlo a ciegas.
-const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio'];
+//
+// 'cuenta' (Fase 4 Booking Engine): NO repurpone 'misreservas' — ya hay
+// enlaces ?tab= en producción apuntando a ese id, y "Mis reservas" y "Mi
+// cuenta" (bonos+perfil) son conceptualmente distintos incluso en el portal
+// instalable (rutas separadas). Ver docs/account-widget-diseno.md §4.
+const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'cuenta'];
 // 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
 // manual — la reserva no queda confirmada ni en lista de espera, se avisa a
 // la socia por separado cuando la propietaria decida.
@@ -1209,7 +1218,7 @@ export default function ReservarPage() {
   const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
   const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
 
-  const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
+  const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -1921,6 +1930,45 @@ export default function ReservarPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── TAB: MI CUENTA (Fase 4 Booking Engine) ──────────────────────────
+            Solo Bonos y Perfil: "Mis reservas" ya tiene su propia pestaña más
+            completa arriba (calendario, .ics, aviso de cancelación tardía) —
+            ver docs/account-widget-diseno.md §4. */}
+        {tab === 'cuenta' && (
+          <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}`, maxWidth: 520 }}>
+            {!socia ? (
+              <div style={{ borderRadius: R.card, background: 'var(--portal-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '56px 24px', gap: 16, textAlign: 'center', boxShadow: SH.card }}>
+                <div style={{ width: 56, height: 56, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--portal-surface-2)' }}>
+                  <Users size={24} style={{ color: PRIMARY }} />
+                </div>
+                <div>
+                  <h3 style={{ fontFamily: serif, fontSize: 21, color: 'var(--portal-ink)' }}>Identifícate para ver tu cuenta</h3>
+                  <p style={{ fontSize: 12.5, color: 'var(--portal-muted-2)', marginTop: 6 }}>Te enviamos un enlace de acceso a tu email. Sin contraseñas.</p>
+                </div>
+                <button onClick={() => { setBookingSesionId(''); setLoginStep('login'); }}
+                  style={{ height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  Acceder
+                </button>
+              </div>
+            ) : (
+              (() => {
+                const socioCompleto = socios.find(s => s.id === socia.socioId);
+                if (!socioCompleto) return null;
+                return (
+                  <MiCuenta
+                    t={tokensCalendario} secciones={['bonos', 'perfil']} socio={socioCompleto}
+                    reservas={reservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
+                    suscripciones={suscripciones} planesTarifa={planesTarifa}
+                    onCancelar={cancelarReserva} onAceptarOferta={aceptarOfertaEspera}
+                    onActualizarPerfil={(cambios) => updateSocio(socia.socioId, cambios)}
+                    onLogout={logout}
+                  />
+                );
+              })()
+            )}
           </div>
         )}
       </div>

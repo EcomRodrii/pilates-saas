@@ -25,6 +25,7 @@ import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
+import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta';
 import widgetCss from './widget.css';
 
 // Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
@@ -55,6 +56,8 @@ function WidgetApp({ slug }: { slug: string }) {
   const {
     slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
+    sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
+    onActualizarPerfil, logout,
   } = useDatosWidget(slug, ORIGEN_TENTARE);
   const trackedRef = useRef(false);
   useEffect(() => {
@@ -71,6 +74,7 @@ function WidgetApp({ slug }: { slug: string }) {
   // sesión" lo abre a demanda: no tapar el calendario a quien solo quiere
   // mirar horarios.
   const [accesoAbierto, setAccesoAbierto] = useState(false);
+  const [cuentaAbierta, setCuentaAbierta] = useState(false);
   const walkInSinFicha = autenticado && !socia;
   const mostrarFormulario = walkInSinFicha || accesoAbierto;
 
@@ -82,20 +86,34 @@ function WidgetApp({ slug }: { slug: string }) {
   }
   return (
     <div>
-      {!socia && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-          {mostrarFormulario ? (
-            !walkInSinFicha && (
-              <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: TEMA.muted, fontSize: 12.5, cursor: 'pointer' }}>
-                Ver clases sin iniciar sesión
-              </button>
-            )
-          ) : (
-            <button type="button" onClick={() => setAccesoAbierto(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-              Iniciar sesión
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        {socia ? (
+          <button type="button" onClick={() => setCuentaAbierta(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            Mi cuenta
+          </button>
+        ) : mostrarFormulario ? (
+          !walkInSinFicha && (
+            <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: TEMA.muted, fontSize: 12.5, cursor: 'pointer' }}>
+              Ver clases sin iniciar sesión
             </button>
-          )}
-        </div>
+          )
+        ) : (
+          <button type="button" onClick={() => setAccesoAbierto(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            Iniciar sesión
+          </button>
+        )}
+      </div>
+      {cuentaAbierta && socio && (
+        <HojaCuentaWidget t={TEMA} onClose={() => setCuentaAbierta(false)}>
+          <MiCuenta
+            t={TEMA} socio={socio}
+            reservas={misReservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
+            suscripciones={suscripciones} planesTarifa={planesTarifa}
+            onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
+            onActualizarPerfil={onActualizarPerfil}
+            onLogout={() => { setCuentaAbierta(false); logout(); }}
+          />
+        </HojaCuentaWidget>
       )}
       {mostrarFormulario && (
         <div style={{ marginBottom: 16 }}>

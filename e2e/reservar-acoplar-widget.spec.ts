@@ -6,7 +6,7 @@ import { test, expect, type Page } from '@playwright/test';
 // El problema medido: incrustado llevaba su propio decorado y no había forma de
 // quitarlo — fondo `#F6F7F9` opaco (una losa casi blanca sobre una web oscura),
 // tipografía fija, el pie con la dirección y los legales que la web anfitriona
-// ya tiene, y las cuatro pestañas aunque se incrustara solo el horario.
+// ya tiene, y las cinco pestañas aunque se incrustara solo el horario.
 //
 // ⚠️ Se comprueba con `getComputedStyle` sobre la RAÍZ del widget, no sobre
 // `body > div`: entre medias hay envoltorios de proveedores sin estilo propio, y
@@ -60,7 +60,7 @@ test('sin parámetros, el widget sigue exactamente como estaba', async ({ page }
   const r = await medir(page, '');
   expect(r.fondo).not.toBe('rgba(0, 0, 0, 0)');
   expect(r.linkFuente).toBe(false);
-  expect(r.pestanas).toBe(4);
+  expect(r.pestanas).toBe(5);
   expect(r.hayPie).toBe(true);
 });
 
@@ -102,7 +102,7 @@ test('⚠️ la página SUELTA no cambia, aunque le pases los parámetros', asyn
   await page.goto(`/reservar/${SLUG}?fondo=transparente&pie=0&solo-pestana=1`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
   await expect(page.locator('footer')).toBeVisible();
-  await expect(page.locator('#horario button')).toHaveCount(4);
+  await expect(page.locator('#horario button')).toHaveCount(5);
 });
 
 // ── Color del texto ─────────────────────────────────────────────────────────
