@@ -3,8 +3,9 @@ import { cargarDatosPublicos } from '@/lib/api-client';
 import { postPublicoWidget } from '@/lib/reservar/api-publica';
 import { construirSlots, type FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useSesionWidget } from '@/lib/widget/usar-sesion-widget';
+import { supabasePortal } from '@/lib/db/supabase-portal';
 import type {
-  Sesion, TipoClase, Sala, Instructor, Spot, Reserva, Suscripcion, PlanTarifa,
+  Sesion, TipoClase, Sala, Instructor, Spot, Reserva, Suscripcion, PlanTarifa, Socio,
   SustitucionConfirmadaPublica,
 } from '@/lib/types';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
@@ -35,12 +36,18 @@ interface DatosCrudos {
   // comparación de consentimiento vigente (penalizaciones) se rompería.
   politicaPrivacidad: string;
   terminosServicio: string;
+  // Fase 4 (Booking Engine — Mi Cuenta): TODAS las reservas de la socia (no
+  // solo las que aforan un slot visible) y su ficha completa. Vienen del
+  // MISMO payload que ya se pedía en cada carga (`pub.socia.*`, sin gatear
+  // por `liviano`) — antes se tiraban a la basura, ver docs/account-widget-diseno.md §0.
+  misReservas: Reserva[];
+  socio: Socio | null;
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
-  politicaPrivacidad: '', terminosServicio: '',
+  politicaPrivacidad: '', terminosServicio: '', misReservas: [], socio: null,
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -77,6 +84,8 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         sustitucionesConfirmadas: pub.sustitucionesConfirmadas ?? [],
         politicaPrivacidad: pub.studio?.politicaPrivacidad ?? '',
         terminosServicio: pub.studio?.terminosServicio ?? '',
+        misReservas: pub.socia?.reservas ?? [],
+        socio: pub.socia?.socio ?? null,
       });
       setError(null);
       setCargando(false);
@@ -138,10 +147,29 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
+  // Fase 4 (Booking Engine — Mi Cuenta): edita los campos de la lista blanca
+  // de actualizarSociaPublica (teléfono/NIF/fecha de nacimiento/dirección/
+  // avatar) — nunca nombre/apellidos/email, excluidos a propósito ahí.
+  const onActualizarPerfil = useCallback(async (cambios: Record<string, unknown>) => {
+    if (!socia?.socioId) return { ok: false as const, error: 'No autenticada.' };
+    const r = await postPublicoWidget(`${baseUrl}/api/public/socio`, {
+      accion: 'actualizar', studioId: datos.studioId, cambios,
+    }, { studioId: datos.studioId });
+    recargar();
+    return r;
+  }, [socia, datos.studioId, recargar, baseUrl]);
+
+  const logout = useCallback(async () => {
+    await supabasePortal.auth.signOut();
+    refrescarSesion();
+  }, [refrescarSesion]);
+
   return {
     slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
     studioId: datos.studioId || null,
     politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
-    onReservar, onCancelar, onAceptarOferta, recargar,
+    sesiones: datos.sesiones, tiposClase: datos.tiposClase, salas: datos.salas, instructores: datos.instructores,
+    misReservas: datos.misReservas, suscripciones: datos.suscripciones, planesTarifa: datos.planesTarifa, socio: datos.socio,
+    onReservar, onCancelar, onAceptarOferta, onActualizarPerfil, logout, recargar,
   };
 }
