@@ -7,17 +7,27 @@
 // Un ZIP con .tsx/.jsx sin compilar, o que dependa de Next/Vite, se marca
 // INCOMPATIBLE con el motivo exacto — nunca una aproximación silenciosa.
 //
-// «Publicar» marca cuál de los ZIPs subidos es «el elegido», y lo hace
-// visible de verdad en `imports.tentare.app/<slug>` — un origen APARTE de
-// `tentare.app`, no el iframe en sandbox de esta pantalla (ver el comentario
-// de seguridad en `app/tema-publicado/[slug]/[[...ruta]]/route.ts` para el
-// porqué de un origen distinto en vez de reabrir el sandbox). Cada tema
-// subido empieza como "borrador" — no hace falta ninguna acción para eso, es
-// el estado por defecto hasta que se publica.
+// ⚠️ DOS "publicar" que NO tienen nada que ver entre sí, y por eso este
+// componente nunca usa la palabra pelada "Publicar" para el de aquí abajo:
+// - El de esta tarjeta (`accionarPublicacion`) marca cuál ZIP es "el
+//   elegido" y lo hace visible en `imports.tentare.app/<slug>` — un origen
+//   APARTE de `tentare.app` (ver el comentario de seguridad en
+//   `app/tema-publicado/[slug]/[[...ruta]]/route.ts`). NUNCA toca
+//   `studio_theme` ni el portal real.
+// - El que hace que el portal real (`tentare.app/portal/<slug>`,
+//   `/reservar/<slug>`) muestre el tema vive DENTRO del editor nativo
+//   (`/configuracion/apariencia/editor`, tras "Extraer a tema nativo"), y
+//   escribe en `studio_theme.config_published` — sistema totalmente
+//   distinto, sin relación con `theme_imports`.
+// Confundir estos dos fue un bug real reportado por el fundador: extraía un
+// ZIP, pulsaba el "Publicar" de esta tarjeta (el de arriba) y el portal
+// real seguía sin cambiar — porque ese botón nunca tocaba `studio_theme`.
+// El fix no cambia qué hace cada botón (ambos son legítimos y necesarios),
+// solo que ya no puedan confundirse: ver `extraer()` y las etiquetas de
+// abajo.
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Upload, AlertTriangle, CheckCircle2, Eye, EyeOff, ExternalLink, Trash2, Pencil, Wand2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -43,7 +53,6 @@ interface TemaImportado {
 const HOST_PUBLICADO = process.env.NEXT_PUBLIC_IMPORTS_HOST || null;
 
 export function ImportarTemaZip({ slug }: { slug: string | null }) {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [temas, setTemas] = useState<TemaImportado[] | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -52,6 +61,7 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [aBorrar, setABorrar] = useState<TemaImportado | null>(null);
+  const [extraido, setExtraido] = useState<string | null>(null);
 
   useEffect(() => { void cargarTemas(); }, []);
 
@@ -126,9 +136,17 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
   // instala un tema NATIVO nuevo con ese color (borrador) — el camino real a
   // lo que se pidió (edición visual, publicable como "Tu tema"), sin reabrir
   // el aislamiento de origen del ZIP. Ver el comentario de la ruta PATCH.
-  async function extraer(id: string) {
+  //
+  // ⚠️ A propósito NO navega sola al editor tras extraer (antes lo hacía, con
+  // un `router.push` silencioso): eso dejaba a la propietaria en el editor
+  // SIN saber que todavía le faltaba un "Publicar" más — el de esta pantalla
+  // ya lo había visto y, sin previo aviso de que era otro sistema, daba por
+  // hecho que ya estaba hecho. Ahora se queda aquí con la confirmación
+  // explícita y el enlace directo al paso que de verdad falta.
+  async function extraer(id: string, nombre: string) {
     setTrabajando(id);
     setError(null);
+    setExtraido(null);
     try {
       const res = await fetch(`/api/theme/importado/${id}`, {
         method: 'PATCH',
@@ -140,9 +158,10 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
         setError(body?.error ?? 'No se ha podido extraer un tema de este ZIP.');
         return;
       }
-      router.push('/configuracion/apariencia/editor');
+      setExtraido(nombre);
     } catch (e) {
       setError(mensajeSeguro(e, ERROR_RED));
+    } finally {
       setTrabajando(null);
     }
   }
@@ -172,8 +191,9 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
         <p className="text-[15px] font-bold text-foreground">Importar tema desde ZIP</p>
         <p className="text-[13px] text-muted-foreground mt-1">
           Sube el .zip exportado de Claude Design. Se importa tal cual — HTML, CSS, imágenes y
-          tipografías originales, sin recrearlo con los componentes de Tentare. Cada ZIP se guarda
-          como borrador hasta que lo publiques.
+          tipografías originales, sin recrearlo con los componentes de Tentare. Para que se vea
+          en tu portal de verdad, pulsa <strong>«Extraer a tema nativo»</strong> y publícalo desde
+          el editor — el «Publicar» de cada ZIP de aquí abajo es solo una vista previa aparte.
         </p>
       </div>
 
@@ -193,6 +213,24 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
         </div>
       ) : null}
 
+      {extraido ? (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-[13px] text-emerald-900">
+          <CheckCircle2 className="size-4 mt-0.5 shrink-0" />
+          <div className="space-y-1.5">
+            <p>
+              «{extraido}» se ha guardado como borrador de tu tema. Todavía no se ve en tu
+              portal — falta publicarlo desde el editor.
+            </p>
+            <Link
+              href="/configuracion/apariencia/editor"
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Ir al editor a publicarlo
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       {temas && temas.length > 0 ? (
         <div className="space-y-3 pt-1">
           {temas.map((tema) => (
@@ -202,12 +240,15 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-[14px] font-semibold text-foreground truncate">{tema.nombre}</p>
                     {tema.publicado ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-semibold px-2 py-0.5">
-                        Publicado
+                      <span
+                        className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-semibold px-2 py-0.5"
+                        title="Visible en la vista previa aparte, no en tu portal real"
+                      >
+                        Vista previa activa
                       </span>
                     ) : (
                       <span className="inline-flex items-center rounded-full bg-muted text-muted-foreground text-[11px] font-semibold px-2 py-0.5">
-                        Borrador
+                        Sin vista previa
                       </span>
                     )}
                   </div>
@@ -237,9 +278,9 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                   ) : null}
                   {tema.estado === 'listo' ? (
                     <Button
-                      variant="ghost" size="sm" disabled={trabajando === tema.id}
-                      onClick={() => void extraer(tema.id)}
-                      title="Crea un tema nativo nuevo con el color de marca de este diseño, editable visualmente y publicable como Tu tema"
+                      variant="outline" size="sm" disabled={trabajando === tema.id}
+                      onClick={() => void extraer(tema.id, tema.nombre)}
+                      title="Crea un tema nativo nuevo con el color de marca de este diseño, editable visualmente y publicable en tu portal real"
                     >
                       <Wand2 className="size-4" />
                       Extraer a tema nativo
@@ -247,10 +288,11 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                   ) : null}
                   {tema.estado === 'listo' && !tema.publicado ? (
                     <Button
-                      variant="outline" size="sm" disabled={trabajando === tema.id}
+                      variant="ghost" size="sm" disabled={trabajando === tema.id}
                       onClick={() => void accionarPublicacion(tema.id, 'publicar')}
+                      title={`No publica en tu portal — solo activa la vista previa aparte de${HOST_PUBLICADO ? ` ${HOST_PUBLICADO}` : ' un dominio propio'}`}
                     >
-                      Publicar
+                      Publicar vista previa
                     </Button>
                   ) : null}
                   {tema.publicado && HOST_PUBLICADO && slug ? (
@@ -259,7 +301,7 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                       className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                     >
                       <ExternalLink className="size-4" />
-                      Ver publicado
+                      Ver vista previa
                     </a>
                   ) : null}
                   {tema.publicado ? (
@@ -267,7 +309,7 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
                       variant="ghost" size="sm" disabled={trabajando === tema.id}
                       onClick={() => void accionarPublicacion(tema.id, 'despublicar')}
                     >
-                      Quitar como activo
+                      Quitar vista previa
                     </Button>
                   ) : null}
                   <Button
