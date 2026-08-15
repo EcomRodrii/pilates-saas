@@ -6,13 +6,15 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // El camino real a lo que se pidió del ZIP importado: no publicarlo como "Tu
 // tema" (reabriría el aislamiento de origen, decisión de seguridad ya
 // cerrada — ver app/tema-publicado/[slug]/[[...ruta]]/route.ts), sino leer su
-// color de marca declarado e instalar un tema NATIVO nuevo con ese color,
-// editable visualmente y publicable de verdad. El lado servidor
-// (extraerColorDeclarado) ya tiene sus propios tests unitarios
-// (lib/theme-import/extraer-tema.test.ts); esto verifica que el botón manda
-// la acción correcta y seguía a donde promete — el fallo que ya le costó a
-// esta pantalla dos veces (P1 de la auditoría Momence: el rail prometía algo
-// que la página no cumplía).
+// color de marca e instalar un tema NATIVO nuevo con ese color, editable
+// visualmente y publicable de verdad. El lado servidor (extraerColorDeMarca)
+// ya tiene sus propios tests unitarios (lib/theme-import/extraer-tema.test.ts)
+// — tres heurísticas en cascada que NUNCA devuelven null, así que desde el
+// cliente "Extraer" ya no tiene un camino de fallo por "sin color
+// declarado": eso era justo el "nada de reglas como estas" que pidió el
+// fundador. Esto verifica que el botón manda la acción correcta y sigue a
+// donde promete — el fallo que ya le costó a esta pantalla dos veces (P1 de
+// la auditoría Momence: el rail prometía algo que la página no cumplía).
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AUTH_UID = 'auth-e2e-duena';
@@ -62,14 +64,10 @@ async function montar(page: Page, temas: unknown[] = [TEMA_LISTO]) {
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       patches.push(body);
-      if (body.accion === 'extraer') {
-        // El tema de prueba "no declara color" salvo que se le pida lo
-        // contrario — así el mismo mock cubre éxito y fallo.
-        const conColor = (temas[0] as { conColor?: boolean })?.conColor;
-        return conColor
-          ? json(route, { ok: true, primary: '#333B24' })
-          : json(route, { error: 'Este tema no declara un color de marca extraíble.' }, 422);
-      }
+      // El servidor real ya no tiene camino de fallo por "sin color": la
+      // extracción SIEMPRE devuelve algo (ver extraer-tema.test.ts). El mock
+      // refleja eso — siempre éxito, cualquiera que sea el tema.
+      if (body.accion === 'extraer') return json(route, { ok: true, primary: '#333B24' });
       return json(route, { ok: true });
     }
     return json(route, {});
@@ -83,8 +81,8 @@ async function montar(page: Page, temas: unknown[] = [TEMA_LISTO]) {
   return { patches };
 }
 
-test('extraer con éxito manda la acción correcta y lleva al editor nativo', async ({ page }) => {
-  const { patches } = await montar(page, [{ ...TEMA_LISTO, conColor: true }]);
+test('extraer manda la acción correcta y lleva al editor nativo', async ({ page }) => {
+  const { patches } = await montar(page);
   await expect(page.getByText('Tentade', { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Extraer a tema nativo' }).click();
@@ -93,11 +91,13 @@ test('extraer con éxito manda la acción correcta y lleva al editor nativo', as
   expect(patches).toContainEqual({ accion: 'extraer' });
 });
 
-test('sin color declarado, avisa del motivo y NO navega', async ({ page }) => {
-  await montar(page, [{ ...TEMA_LISTO, conColor: false }]);
+test('⚠️ automático de verdad: ningún ZIP bloquea el botón con un error de "sin color"', async ({ page }) => {
+  // El pedido explícito que arregla este fichero: sea cual sea el ZIP, el
+  // botón lleva al editor — nunca un aviso de "este tema no declara...".
+  await montar(page);
   await expect(page.getByText('Tentade', { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Extraer a tema nativo' }).click();
-  await expect(page.getByText('Este tema no declara un color de marca extraíble.')).toBeVisible();
-  await expect(page).toHaveURL(/\/configuracion\/apariencia$/);
+  await page.waitForURL(/\/configuracion\/apariencia\/editor$/, { timeout: 15_000 });
+  await expect(page.getByText(/no declara/i)).toHaveCount(0);
 });

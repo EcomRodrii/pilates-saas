@@ -4,7 +4,7 @@ import { borrarPrefijoR2, subirObjetoR2 } from '@/lib/r2';
 import { servirFicheroTema, contenidoFuenteDeFichero, type FilaTemaImportado } from '@/lib/theme-import/servir';
 import { resolverPreviewEnVivo } from '@/lib/theme-import/preview-en-vivo';
 import { contentTypeDe } from '@/lib/theme-import/content-type';
-import { extraerColorDeclarado } from '@/lib/theme-import/extraer-tema';
+import { extraerColorDeMarca } from '@/lib/theme-import/extraer-tema';
 import { verificarTokenPreviewHome } from '@/lib/theme/home-preview-token';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { featureDeEstudio } from '@/lib/billing/feature-estudio';
@@ -115,10 +115,12 @@ async function autorizarEscritura(req: NextRequest): Promise<
 // visualmente editable y publicable como "Tu tema" — sin reabrir el
 // aislamiento de origen del ZIP (ver el comentario de seguridad de
 // `app/tema-publicado/[slug]/[[...ruta]]/route.ts`): lee el color de marca
-// DECLARADO por el diseño (`extraerColorDeclarado`, del HTML fuente sin
-// enlazar) e instala un tema nativo nuevo con ese color, en el MISMO camino
-// que "Usar" en la Biblioteca (`instalarTema` + `guardarBorradorTheme`) —
-// borrador, nunca publicado solo. El ZIP en sí se queda intacto, sandboxed.
+// del diseño (`extraerColorDeMarca`, del HTML fuente sin enlazar — tres
+// heurísticas en cascada, NUNCA null) e instala un tema nativo nuevo con ese
+// color, en el MISMO camino que "Usar" en la Biblioteca (`instalarTema` +
+// `guardarBorradorTheme`) — borrador, nunca publicado solo. El ZIP en sí se
+// queda intacto, sandboxed. Automático de verdad: no hay ZIP que lo bloquee
+// con un error, en el peor caso instala con el verde de fábrica.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; ruta?: string[] }> }) {
   const auth = await autorizarEscritura(req);
   if (!auth.ok) return auth.res;
@@ -147,10 +149,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Este tema no se pudo importar en modo estático.' }, { status: 409 });
     }
     const fuente = await contenidoFuenteDeFichero(fila, fila.entry_html);
-    const color = fuente ? extraerColorDeclarado(fuente.contenido) : null;
-    if (!color) {
-      return NextResponse.json({ error: 'Este tema no declara un color de marca extraíble.' }, { status: 422 });
-    }
+    const color = fuente ? extraerColorDeMarca(fuente.contenido) : extraerColorDeMarca('');
     const draftActual = await getThemeBorrador(auth.studioId);
     const nuevo = instalarTema(draftActual, { primary: color }, { themeId: 'importado', themeVersion: 1 });
     await guardarBorradorTheme(auth.studioId, nuevo);
