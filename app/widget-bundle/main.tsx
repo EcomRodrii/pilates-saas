@@ -19,11 +19,12 @@
 // esa hoja se inyecta como <style> DENTRO del shadow root, nunca en el
 // <head> del documento anfitrión.
 import { createRoot } from 'react-dom/client';
-import { StrictMode, useEffect, useRef } from 'react';
+import { StrictMode, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
+import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
 import widgetCss from './widget.css';
 
 // Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
@@ -51,7 +52,10 @@ const ORIGEN_TENTARE = (() => {
 })();
 
 function WidgetApp({ slug }: { slug: string }) {
-  const { slots, cargando, error, studioId, onReservar, onCancelar } = useDatosWidget(slug, ORIGEN_TENTARE);
+  const {
+    slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
+    politicaPrivacidad, terminosServicio, onReservar, onCancelar,
+  } = useDatosWidget(slug, ORIGEN_TENTARE);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (!studioId || trackedRef.current) return;
@@ -60,6 +64,16 @@ function WidgetApp({ slug }: { slug: string }) {
     trackEventoWidget(studioId, 'widget_viewed', { baseUrl: ORIGEN_TENTARE });
   }, [studioId]);
 
+  // El formulario se pinta solo (sin toggle) cuando hay un JWT válido pero
+  // sin ficha de socia todavía — walk-in que acaba de demostrar su email por
+  // magic link/contraseña y solo le falta el alta (Fase 2, ver
+  // docs/auth-widget-diseno.md §1). Sin sesión previa, un enlace "Iniciar
+  // sesión" lo abre a demanda: no tapar el calendario a quien solo quiere
+  // mirar horarios.
+  const [accesoAbierto, setAccesoAbierto] = useState(false);
+  const walkInSinFicha = autenticado && !socia;
+  const mostrarFormulario = walkInSinFicha || accesoAbierto;
+
   if (error) {
     return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>{error}</div>;
   }
@@ -67,13 +81,44 @@ function WidgetApp({ slug }: { slug: string }) {
     return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>Cargando clases…</div>;
   }
   return (
-    <ReservaCalendario
-      t={TEMA}
-      slots={slots}
-      onReservar={onReservar}
-      onCancelar={onCancelar}
-      vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
-    />
+    <div>
+      {!socia && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          {mostrarFormulario ? (
+            !walkInSinFicha && (
+              <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: TEMA.muted, fontSize: 12.5, cursor: 'pointer' }}>
+                Ver clases sin iniciar sesión
+              </button>
+            )
+          ) : (
+            <button type="button" onClick={() => setAccesoAbierto(true)} style={{ background: 'none', border: 'none', color: 'var(--portal-brand)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+              Iniciar sesión
+            </button>
+          )}
+        </div>
+      )}
+      {mostrarFormulario && (
+        <div style={{ marginBottom: 16 }}>
+          <FormularioAccesoWidget
+            t={TEMA}
+            slug={slug}
+            baseUrl={ORIGEN_TENTARE}
+            studioId={studioId ?? ''}
+            autenticado={walkInSinFicha}
+            politicaPrivacidad={politicaPrivacidad}
+            terminosServicio={terminosServicio}
+            onListo={() => { refrescarSesion(); setAccesoAbierto(false); }}
+          />
+        </div>
+      )}
+      <ReservaCalendario
+        t={TEMA}
+        slots={slots}
+        onReservar={onReservar}
+        onCancelar={onCancelar}
+        vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
+      />
+    </div>
   );
 }
 
