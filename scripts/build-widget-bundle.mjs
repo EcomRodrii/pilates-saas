@@ -33,6 +33,12 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('✘ Faltan NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local — el widget no podría autenticar a ninguna socia.');
   process.exit(1);
 }
+// Opcional a propósito, igual que en el resto del repo (turnstile-widget.tsx):
+// sin site key, `useCaptchaWidget` no monta nada y el login/registro del
+// widget queda sin captcha propio — gotrue lo sigue exigiendo a nivel de
+// proyecto si está activado, así que no es un agujero de seguridad, solo una
+// UX peor (el error de Supabase en vez de un mensaje amable).
+const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
 
 await esbuild.build({
   entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],
@@ -51,6 +57,7 @@ await esbuild.build({
     'process.env.NODE_ENV': '"production"',
     'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(SUPABASE_URL),
     'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(SUPABASE_ANON_KEY),
+    'process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY': JSON.stringify(TURNSTILE_SITE_KEY),
   },
   logLevel: 'info',
 });

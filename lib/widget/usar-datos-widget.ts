@@ -29,11 +29,18 @@ interface DatosCrudos {
   planesTarifa: PlanTarifa[];
   suscripciones: Suscripcion[];
   sustitucionesConfirmadas: SustitucionConfirmadaPublica[];
+  // Para el texto legal del formulario de registro (Fase 2) — mismo criterio
+  // que textoLegalCompleto() en lib/legal-textos.ts: NUNCA un contrato
+  // "simplificado" distinto del que ve la socia en Modo A/portal, o la
+  // comparación de consentimiento vigente (penalizaciones) se rompería.
+  politicaPrivacidad: string;
+  terminosServicio: string;
 }
 
 const VACIO: DatosCrudos = {
   studioId: '', sesiones: [], tiposClase: [], salas: [], instructores: [], spots: [],
   reservas: [], planesTarifa: [], suscripciones: [], sustitucionesConfirmadas: [],
+  politicaPrivacidad: '', terminosServicio: '',
 };
 
 // `baseUrl`: el bundle corre en el DOM de la web del ESTUDIO — todas las
@@ -41,7 +48,7 @@ const VACIO: DatosCrudos = {
 // origen si no se les da explícitamente el de Tentare. Ver
 // app/widget-bundle/main.tsx, que lo resuelve del propio <script src="...">.
 export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosSlots) {
-  const { socia } = useSesionWidget(slug, baseUrl);
+  const { socia, usuarioEmail, autenticado, refrescar: refrescarSesion } = useSesionWidget(slug, baseUrl);
   const [datos, setDatos] = useState<DatosCrudos>(VACIO);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +75,8 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
         planesTarifa: pub.planesTarifa ?? [],
         suscripciones: pub.socia?.suscripciones ?? [],
         sustitucionesConfirmadas: pub.sustitucionesConfirmadas ?? [],
+        politicaPrivacidad: pub.studio?.politicaPrivacidad ?? '',
+        terminosServicio: pub.studio?.terminosServicio ?? '',
       });
       setError(null);
       setCargando(false);
@@ -119,5 +128,10 @@ export function useDatosWidget(slug: string, baseUrl: string, filtros?: FiltrosS
     return r;
   }, [socia, datos.studioId, recargar, baseUrl]);
 
-  return { slots, cargando, error, socia, studioId: datos.studioId || null, onReservar, onCancelar, recargar };
+  return {
+    slots, cargando, error, socia, usuarioEmail, autenticado, refrescarSesion,
+    studioId: datos.studioId || null,
+    politicaPrivacidad: datos.politicaPrivacidad, terminosServicio: datos.terminosServicio,
+    onReservar, onCancelar, recargar,
+  };
 }

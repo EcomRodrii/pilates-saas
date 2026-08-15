@@ -11,22 +11,28 @@ import type { SociaSesion } from '@/lib/use-socia-session';
 // árbol de dependencias) al bundle final. El widget no necesita ese
 // recargarPublico(): su propio hook (usar-datos-widget.ts) ya recarga solo.
 //
-// Sin enviarEnlace/establecerPassword/loginConPassword a propósito: el
-// bundle no reimplementa el flujo de login completo (magic link + captcha
-// + contrato) dentro del Shadow DOM — eso sigue viviendo en /reservar/[slug]
-// (Modo A). Esto solo BOOTSTREA una sesión que YA existe (visitante que
-// volvió tras loguearse antes en el portal/la página completa); sin sesión
-// previa, el widget deja reservar mediante el enlace a la página completa.
+// Este hook solo BOOTSTREA la sesión (lee lo que ya haya en supabasePortal,
+// vía /api/public/session). Las ACCIONES de login/registro (Fase 2 del
+// Booking Engine, docs/auth-widget-diseno.md) viven aparte, en
+// lib/widget/usar-auth-widget.ts — separado a propósito: este hook es puro
+// lectura/estado, ese otro es el que escribe (signInWithPassword,
+// signInWithOtp, alta de socia).
 // `baseUrl`: igual que en usar-datos-widget.ts — el bundle embebible corre en
 // el DOM de la web del estudio, así que una ruta relativa a `/api/public/...`
 // resolvería contra el origen del estudio, no el de Tentare.
 export function useSesionWidget(slug: string, baseUrl = '') {
   const [socia, setSocia] = useState<SociaSesion | null>(null);
+  // Autenticada (JWT válido) pero SIN ficha de socia todavía en este estudio —
+  // walk-in recién logueada por primera vez. Distinto de `socia === null` sin
+  // más: el formulario de acceso necesita saber si toca pedir login o registro
+  // (Fase 2, docs/auth-widget-diseno.md §1/§3).
+  const [usuarioEmail, setUsuarioEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const resolver = useCallback(async () => {
     const { data: { session: sb } } = await supabasePortal.auth.getSession();
-    if (!sb?.access_token) { setSocia(null); setIsLoading(false); return; }
+    if (!sb?.access_token) { setSocia(null); setUsuarioEmail(null); setIsLoading(false); return; }
+    setUsuarioEmail(sb.user?.email ?? null);
     try {
       // ?slug= en la URL (además del body): el preflight CORS no puede leer
       // el body JSON, así que resuelve la lista blanca desde la query string.
@@ -52,5 +58,5 @@ export function useSesionWidget(slug: string, baseUrl = '') {
     return () => sub.subscription.unsubscribe();
   }, [resolver]);
 
-  return { socia, isLoading };
+  return { socia, usuarioEmail, autenticado: !!usuarioEmail, isLoading, refrescar: resolver };
 }
