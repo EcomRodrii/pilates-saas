@@ -8,7 +8,7 @@ const sala = (o: Partial<Sala> & Pick<Sala, 'id'>): Sala => ({
 });
 
 const ses = (o: Partial<SesionColumna> & Pick<SesionColumna, 'id' | 'salaId'>): SesionColumna => ({
-  inicioMin: 480, finMin: 540, estado: 'PROGRAMADA', confirmadas: 4, enEspera: 0, aforoMaximo: 8, ...o,
+  inicioMin: 480, finMin: 540, estado: 'PROGRAMADA', confirmadas: 4, enEspera: 0, aforoMaximo: 8, finalizada: false, ...o,
 });
 
 test('agrupa por sala, respetando el filtro "todas"', () => {
@@ -95,7 +95,7 @@ test('hayAtencion NO se enciende por lista de espera si la clase está llena (si
 // ── prepararColumnasDiaSemana ────────────────────────────────────────────────
 
 const sesSemana = (o: Partial<SesionSemana> & Pick<SesionSemana, 'id' | 'dia'>): SesionSemana => ({
-  salaId: 'norte', inicioMin: 480, finMin: 540, estado: 'PROGRAMADA', confirmadas: 4, enEspera: 0, aforoMaximo: 8, ...o,
+  salaId: 'norte', inicioMin: 480, finMin: 540, estado: 'PROGRAMADA', confirmadas: 4, enEspera: 0, aforoMaximo: 8, finalizada: false, ...o,
 });
 
 test('siempre devuelve las 7 columnas, aunque no haya clases', () => {

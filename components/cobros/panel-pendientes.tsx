@@ -8,7 +8,7 @@ import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn, formatEuro } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { crearCheckoutStripe, enviarEmailRecibo } from '@/lib/api-client';
+import { cobrarOnlineDirecto, enviarEmailRecibo } from '@/lib/api-client';
 import {
   CheckCircle,
   XCircle,
@@ -517,29 +517,34 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
 
   // ── Acciones ──────────────────────────────────────────────────────────────
 
+  // Reintento off-session: cobra con la tarjeta/SEPA que la SOCIA ya tiene
+  // guardada, sin generar ningún enlace ni redirigir a nadie. Antes esto
+  // llamaba a crearCheckoutStripe (Checkout Session pública) y navegaba la
+  // propia pestaña de quien pulsaba el botón —la propietaria— a una página
+  // pidiendo una tarjeta a mano: parecía que la propietaria era quien pagaba.
+  // "Cobrar online" significa "inténtalo ahora con lo que ya tiene guardado
+  // la alumna", no "paga tú".
   async function cobrarOnline(reciboId: string) {
     const r = recibos.find(x => x.id === reciboId);
     if (!r || !studio || !r.socioId) return; // sin socia (venta de mostrador) no hay cobro online
-    const socio = socios.find(s => s.id === r.socioId);
     setStripeLoading(reciboId);
-    const result = await crearCheckoutStripe({
-      reciboId,
-      socioId: r.socioId,
-      studioId: studio.id,
-      concepto: r.concepto,
-      importe: r.importe,
-      socioEmail: socio?.email ?? null,
-      socioNombre: socio ? `${socio.nombre} ${socio.apellidos}` : 'Clienta',
-    });
+    const result = await cobrarOnlineDirecto({ reciboId, socioId: r.socioId });
     setStripeLoading(null);
-    if ('url' in result && result.url) {
-      // `assign()` en vez de `href = …`: mismo salto, pero llamada en vez de
-      // mutación de un global (lo que marcaba `react-hooks/immutability`).
-      window.location.assign(result.url);
-    } else {
-      const err = 'error' in result ? result.error : 'Error desconocido';
-      setStripeToast({ tipo: 'error', msg: err });
+    if ('error' in result) {
+      setStripeToast({ tipo: 'error', msg: result.error });
+      return;
     }
+    if (result.aviso === 'COBRADO_SIN_PERSISTIR') {
+      setStripeToast({ tipo: 'error', msg: result.detalle ?? 'Cobrado en Stripe, pero sin persistir — revísalo manualmente.' });
+      return;
+    }
+    // El servidor ya dejó el recibo escrito (COBRADO, con factura sellada y
+    // renovación aplicada; o EN_CURSO si es un adeudo SEPA que tarda días) —
+    // resetDatosPilates() vuelve a traer todo de servidor en vez de replicar
+    // aquí esa lógica de negocio (sellado/renovación), que ya está hecha y
+    // probada en cobrarReciboOffSession.
+    setStripeToast({ tipo: 'ok', msg: 'Cobro intentado con el método guardado de la socia. Actualizando…' });
+    resetDatosPilates();
   }
 
   async function cobrarYEmail(reciboId: string, metodo?: MetodoCobro) {
@@ -932,7 +937,7 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
                                 onClick={() => cobrarOnline(r.id)}
                                 disabled={stripeLoading === r.id}
                                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-brand/10 text-brand-medio hover:bg-info/10 transition-colors disabled:opacity-60"
-                                title="Enviar enlace de pago Stripe"
+                                title="Reintentar el cobro con la tarjeta o SEPA que ya tiene guardado la socia"
                               >
                                 {stripeLoading === r.id
                                   ? <Loader2 size={12} className="animate-spin" />

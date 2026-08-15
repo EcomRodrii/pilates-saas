@@ -132,11 +132,22 @@ export const MENSAJE_CLASE_AUN_NO_EMPEZADA = 'Esta clase todavía no ha empezado
 // la llama ya sabe que hay un hueco de verdad. Una clase LLENA con lista de
 // espera es un estado SANO (el sistema ya avisa solo en cuanto alguien
 // cancela) — no debe pedir decisión ni ofrecer overselling.
+// `finalizada` = la clase ya terminó (ahora >= sesiones.fin). SIN_INSTRUCTORA
+// gana a FINALIZADA en `estadoSesion` a propósito (es el estado más grave, y
+// se sigue pintando así para que el histórico sea legible: "esta clase pasó
+// sin instructora"), pero eso NO significa que siga pidiendo una decisión
+// operativa días después — nadie puede "cubrir" ni "mover" una clase que ya
+// ocurrió. Una propietaria vio "1 clase necesita una decisión" apuntando a
+// una clase de 6 días atrás porque esta función nunca miraba el tiempo.
+// SIN_PASAR_LISTA es la excepción: por diseño solo EXISTE una vez terminada
+// la clase (ver estadoSesion) y sigue siendo trabajo real pendiente.
 export function pideDecision(
   estado: EstadoSesion,
-  o: { enEspera: number; sobreaforo: number; huecosLibres: number },
+  o: { enEspera: number; sobreaforo: number; huecosLibres: number; finalizada?: boolean },
 ): boolean {
   if (estado === 'CANCELADA') return false;
-  if (['SIN_INSTRUCTORA', 'INCIDENCIA', 'CONFLICTO', 'SIN_PASAR_LISTA'].includes(estado)) return true;
+  if (estado === 'SIN_PASAR_LISTA') return true;
+  if (o.finalizada) return false;
+  if (['SIN_INSTRUCTORA', 'INCIDENCIA', 'CONFLICTO'].includes(estado)) return true;
   return (o.enEspera > 0 && o.huecosLibres > 0) || o.sobreaforo > 0;
 }

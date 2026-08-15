@@ -16,6 +16,8 @@ export interface ItemDecision {
   sobreaforo: number;
   /** aforoMaximo - confirmadas, nunca negativo. Ver nota en calendario-estado.ts:pideDecision. */
   huecosLibres: number;
+  /** La clase ya terminó — ver nota en calendario-estado.ts:pideDecision. */
+  finalizada: boolean;
 }
 
 // Mismo orden que `pideDecision` respeta internamente (gravedad), y dentro de
@@ -23,7 +25,7 @@ export interface ItemDecision {
 // quien las recorre con ‹ ›.
 export function decisionesOrdenadas<T extends ItemDecision>(items: T[]): T[] {
   return items
-    .filter(i => pideDecision(i.estado, { enEspera: i.enEspera, sobreaforo: i.sobreaforo, huecosLibres: i.huecosLibres }))
+    .filter(i => pideDecision(i.estado, { enEspera: i.enEspera, sobreaforo: i.sobreaforo, huecosLibres: i.huecosLibres, finalizada: i.finalizada }))
     .sort((a, b) => (a.dia - b.dia) || (a.inicioMin - b.inicioMin));
 }
 
