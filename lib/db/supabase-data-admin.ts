@@ -465,9 +465,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, layout, temaPublicado, retoParticipRes, horarioRes,
+      contenidoPortalRes, bannersPortalRes, layout, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -488,12 +488,6 @@ export async function fetchPublicStudioData(
         // (service-role, cacheada con React cache), así que se llama tal cual,
         // sin RLS/endpoint nuevo.
         getLayout(studioId),
-        // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del
-        // tema sigue siendo puramente CSS server-rendered (ThemeStyle), esto es
-        // la única excepción — la barra inferior (portal-shell.tsx) decide con
-        // JS si renderiza iconos/pestaña expandible, algo que un CSS var no
-        // puede decidir por sí solo.
-        getThemePublicado(studioId),
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
@@ -545,59 +539,21 @@ export async function fetchPublicStudioData(
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       portalHome: layout?.portalHome ?? null,
-      // Orden/visibilidad de las secciones de /reservar. Mismo canal que
-      // `portalHome`: el layout ya se carga aquí, así que no hay consulta nueva.
-      // Las reglas de resolución NO viven aquí — las aplica `ordenarSecciones`
-      // en el cliente, para que la página y el editor usen exactamente las
-      // mismas y no puedan divergir.
+      // Orden/visibilidad LEGACY de las secciones de /reservar — ya no la usa
+      // app/reservar/[slug]/page.tsx (lee `bloquesReservar`, más abajo, ya
+      // resuelto). Se mantiene expuesta por si algún consumidor viejo la
+      // sigue leyendo; `resolveLayout` es quien la sintetiza a bloques.
       reservar: layout?.reservar ?? null,
       // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
       // borrador — solo lo publicado llega al portal en vivo.
       homeBloques: layout?.bloques.home.publicado ?? [],
       bloquesClases: layout?.bloques.clases.publicado ?? [],
       bloquesBonos: layout?.bloques.bonos.publicado ?? [],
-      // Qué tema tiene instalado, no solo sus valores: el portal en React
-      // elige con esto cuál de los tres juegos de tokens monta.
-      themeIdPublicado: temaPublicado?.themeId ?? null,
-      tabBarStyle: temaPublicado?.tabBarStyle ?? null,
-      navPortal: temaPublicado?.navPortal ?? null,
-      redesSociales: temaPublicado?.redesSociales ?? null,
-      // Textos de la portada de /reservar — el widget que el estudio incrusta
-      // en su web. Viajan como VALOR JS y no como CSS por el mismo motivo que
-      // los de arriba, pero al revés: una variable CSS puede llevar un color,
-      // no una frase. Sin esto, el titular seguiría siendo una constante del
-      // código servida idéntica a todos los estudios.
-      // «Sobre nosotros»: vacío significa que la sección NO existe, así que
-      // aquí NO se sustituye por nada — quien lo pinta distingue vacío de
-      // ausente sin ayuda.
-      // Apariencia del widget incrustado. Viaja como VALOR JS, no como CSS: el
-      // fondo `transparente` y un nombre de fuente no son colores.
-      widgetFondo: temaPublicado?.widgetFondo ?? null,
-      widgetFuente: temaPublicado?.widgetFuente ?? null,
-      widgetOcultarPie: temaPublicado?.widgetOcultarPie ?? false,
-      widgetSoloPestana: temaPublicado?.widgetSoloPestana ?? false,
-      widgetTexto: temaPublicado?.widgetTexto ?? 'auto',
-      reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
-      reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
-      reservarAvisoQuiz: temaPublicado?.reservarAvisoQuiz ?? null,
-      reservarVacioTitulo: temaPublicado?.reservarVacioTitulo ?? null,
-      reservarVacioTexto: temaPublicado?.reservarVacioTexto ?? null,
-      reservarConfirmacion: temaPublicado?.reservarConfirmacion ?? null,
-      reservarListaEspera: temaPublicado?.reservarListaEspera ?? null,
-      reservarAyuda: temaPublicado?.reservarAyuda ?? null,
-      reservarComoFunciona: temaPublicado?.reservarComoFunciona ?? null,
-      reservarTitular: temaPublicado?.reservarTitular ?? null,
-      reservarSubtitulo: temaPublicado?.reservarSubtitulo ?? null,
-      reservarCta: temaPublicado?.reservarCta ?? null,
-      // Barra clásica (Oliva/Noir, ver harmonic-discovering-kettle.md): igual
-      // que tabBarStyle/navPortal, es una decisión de LAYOUT que portal-shell.tsx
-      // toma con JS (position flotante o no), no algo que una CSS var pueda
-      // decidir por sí sola.
-      barraClasica: temaPublicado?.barraClasica ?? null,
-      // Variantes de forma por bloque (theme-variantes.ts) — viajan como valor
-      // JS por el mismo motivo que `barraClasica`: deciden qué elementos
-      // EXISTEN, algo que una CSS var no puede decidir.
-      variantes: temaPublicado?.variantes ?? null,
+      // /reservar (Fase 2 de su generalización a bloques): MISMO patrón que
+      // las tres de arriba — `resolveLayout` ya sintetiza esto desde el
+      // legado (`reservar.orden/ocultos`) cuando nadie ha guardado bloques
+      // todavía, así que la página no tiene que volver a resolverlo.
+      bloquesReservar: layout?.bloques.reservar.publicado ?? [],
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -612,6 +568,55 @@ export async function fetchPublicStudioData(
       retoConteos,
     };
   });
+
+  // Tema publicado: FUERA del caché de catálogo a propósito, con su propio
+  // fetch (no otro TTL, directo cada vez). Publicar un tema debe reflejarse
+  // en el portal al instante — meterlo en `conCacheCatalogo` (como estaba)
+  // lo dejaba preso hasta 60s detrás de datos que sí pueden esperar (una
+  // sala, un plan). Reproducido en vivo: tras publicar, el endpoint público
+  // seguía sirviendo el tema anterior con la BD ya actualizada. `getThemePublicado`
+  // ya está envuelto en `cache()` de React (memoización solo de esta misma
+  // petición), así que esto no reintroduce las 13 queries que este caché
+  // existe para evitar — es una query, no trece.
+  const temaPublicado = liviano ? null : await getThemePublicado(studioId);
+
+  // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del tema
+  // sigue siendo puramente CSS server-rendered (ThemeStyle), esto es la
+  // excepción — cosas que portal-shell.tsx/reservar deciden con JS (iconos,
+  // layout de barra, textos de la portada), no algo que una CSS var pueda
+  // decidir por sí sola. `null`/`false`/`'auto'` en modo `liviano` o sin tema:
+  // misma forma del objeto que en modo completo.
+  const camposTema = {
+    // Qué tema tiene instalado, no solo sus valores: el portal en React elige
+    // con esto cuál de los tres juegos de tokens monta.
+    themeIdPublicado: temaPublicado?.themeId ?? null,
+    tabBarStyle: temaPublicado?.tabBarStyle ?? null,
+    navPortal: temaPublicado?.navPortal ?? null,
+    redesSociales: temaPublicado?.redesSociales ?? null,
+    widgetFondo: temaPublicado?.widgetFondo ?? null,
+    widgetFuente: temaPublicado?.widgetFuente ?? null,
+    widgetOcultarPie: temaPublicado?.widgetOcultarPie ?? false,
+    widgetSoloPestana: temaPublicado?.widgetSoloPestana ?? false,
+    widgetTexto: temaPublicado?.widgetTexto ?? 'auto',
+    reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
+    reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
+    reservarAvisoQuiz: temaPublicado?.reservarAvisoQuiz ?? null,
+    reservarVacioTitulo: temaPublicado?.reservarVacioTitulo ?? null,
+    reservarVacioTexto: temaPublicado?.reservarVacioTexto ?? null,
+    reservarConfirmacion: temaPublicado?.reservarConfirmacion ?? null,
+    reservarListaEspera: temaPublicado?.reservarListaEspera ?? null,
+    reservarAyuda: temaPublicado?.reservarAyuda ?? null,
+    reservarComoFunciona: temaPublicado?.reservarComoFunciona ?? null,
+    reservarTitular: temaPublicado?.reservarTitular ?? null,
+    reservarSubtitulo: temaPublicado?.reservarSubtitulo ?? null,
+    reservarCta: temaPublicado?.reservarCta ?? null,
+    // Barra clásica (Oliva/Noir): decisión de LAYOUT que portal-shell.tsx toma
+    // con JS (position flotante o no), no algo que una CSS var pueda decidir.
+    barraClasica: temaPublicado?.barraClasica ?? null,
+    // Variantes de forma por bloque (theme-variantes.ts): deciden qué
+    // elementos EXISTEN, algo que una CSS var no puede decidir.
+    variantes: temaPublicado?.variantes ?? null,
+  };
 
   // Fuera del caché a propósito (ver comentario arriba): disponibilidad real.
   // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
@@ -633,6 +638,7 @@ export async function fetchPublicStudioData(
     studio: studioPublico(studioRow as RowStudios),
     sesiones: (sesionesData ?? []).map(mapSesion),
     ...catalogo,
+    ...camposTema,
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
   };
 

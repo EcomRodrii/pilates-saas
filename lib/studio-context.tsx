@@ -267,6 +267,11 @@ interface StudioContextValue {
   homeBloques: BloqueHome[];
   bloquesClases: BloqueHome[];
   bloquesBonos: BloqueHome[];
+  // /reservar (Fase 2 de su generalización a bloques): igual que las tres de
+  // arriba, ya PUBLICADO. Consumida por app/reservar/[slug]/page.tsx en vez
+  // de que esa página resuelva el layout por su cuenta — una sola lectura,
+  // como el resto de pantallas del portal.
+  bloquesReservar: BloqueHome[];
   // Comportamiento de la barra inferior del portal (galería de temas,
   // "Editorial") — expuesto como valor JS, no solo CSS: portal-shell.tsx
   // decide con esto si pinta iconos/pestaña expandible.
@@ -671,6 +676,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [homeBloques, setHomeBloques] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.home.publicado);
   const [bloquesClases, setBloquesClases] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.clases.publicado);
   const [bloquesBonos, setBloquesBonos] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.bonos.publicado);
+  const [bloquesReservar, setBloquesReservar] = useState<BloqueHome[]>(DEFAULT_LAYOUT.bloques.reservar.publicado);
   const [tabBarStyle, setTabBarStyle] = useState<TabBarStyleId>('clasica');
   const [barraClasica, setBarraClasica] = useState(false);
   const [variantes, setVariantes] = useState<VariantesResueltas>(DEFAULT_VARIANTES);
@@ -927,6 +933,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setHomeBloques(pub.homeBloques ?? DEFAULT_LAYOUT.bloques.home.publicado);
       setBloquesClases(pub.bloquesClases ?? DEFAULT_LAYOUT.bloques.clases.publicado);
       setBloquesBonos(pub.bloquesBonos ?? DEFAULT_LAYOUT.bloques.bonos.publicado);
+      setBloquesReservar(pub.bloquesReservar ?? DEFAULT_LAYOUT.bloques.reservar.publicado);
       setTabBarStyle(pub.tabBarStyle === 'pestanaActiva' ? 'pestanaActiva' : 'clasica');
       setBarraClasica(pub.barraClasica === true);
       // resolveVariantes valida clave a clave y siempre devuelve el objeto
@@ -4274,6 +4281,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     homeBloques,
     bloquesClases,
     bloquesBonos,
+    bloquesReservar,
     tabBarStyle: tabBarStyleEfectivo,
     barraClasica: barraClasicaEfectiva,
     variantes: variantesEfectivas,
@@ -4511,7 +4519,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // notara.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
-    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
+    planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, variantesEfectivas, navPortal, themeIdEfectivo, portalReact, redesSociales, favoritos, retosApuntados, retoConteos, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa,
     camposPersonalizados, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,

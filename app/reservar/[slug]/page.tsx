@@ -23,7 +23,8 @@ import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
-import { seccionVisible, ordenarSecciones } from '@/lib/reservar/secciones';
+import { seccionReservarDeSistemaId } from '@/lib/portal-home-bloques';
+import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
@@ -258,7 +259,7 @@ export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
     planesTarifa, suscripciones, studioConfig, studio, redesSociales,
-    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, ordenReservar,
+    addReserva, updateSocio, cancelarReserva, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
@@ -356,6 +357,13 @@ export default function ReservarPage() {
   // Filtrar por instructora faltaba, y es de las tres formas en que se elige
   // cuando ya conoces el estudio (con quién, qué día, a qué hora).
   const [filtroInstructor, setFiltroInstructor] = useState('');
+  // Filtrar por sala: el dato (`slot.salaNombre`) ya viajaba en el payload
+  // para pintarse en la fila — faltaba solo la UI (Fase 1 del Booking Engine).
+  const [filtroSala, setFiltroSala] = useState('');
+  // Buscar por texto libre (Fase 1): nombre de clase o de instructora, sobre
+  // los mismos slots ya cargados — sin fetch nuevo, comparación directa como
+  // el resto de filtros de esta página.
+  const [busqueda, setBusqueda] = useState('');
   // Objetivo del asistente. No está en el rail a propósito: el rail filtra por
   // hechos de la clase (tipo, quién, nivel, hora); el objetivo es una pregunta
   // sobre la clienta, y solo tiene sentido dentro del asistente que la hace.
@@ -413,7 +421,7 @@ export default function ReservarPage() {
     }
     return porInstructor;
   }, [sesiones, tiposClase]);
-  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroObjetivo !== '';
+  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroSala !== '' || busqueda !== '' || filtroObjetivo !== '';
   function reiniciarFiltrosQuiz() {
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
     setQuizCompletado(false);
@@ -621,6 +629,7 @@ export default function ReservarPage() {
       tipoClaseId: s.tipoClaseId,
       nivel: s.tipo?.nivel ?? 'TODOS',
       instructorNombre: s.instructor?.nombre ?? null,
+      salaNombre: s.sala?.nombre ?? null,
       horario: horarioDeSesion(s.inicio),
     })), [sesionesRich, nowMs]);
 
@@ -730,6 +739,12 @@ export default function ReservarPage() {
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
+      .filter(s => {
+        if (!busqueda) return true;
+        const q = busqueda.toLowerCase();
+        return (s.tipo?.nombre ?? '').toLowerCase().includes(q) || (s.instructor?.nombre ?? '').toLowerCase().includes(q);
+      })
       .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtroObjetivo))
       .filter(s => !filtroHorario || horarioDeSesion(s.inicio) === filtroHorario)
       .filter(s => filtroDias.length === 0 || filtroDias.includes(new Date(s.inicio).getDay()))
@@ -760,7 +775,7 @@ export default function ReservarPage() {
           precio: cubierta ? null : precioClaseSuelta,
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1196,9 +1211,13 @@ export default function ReservarPage() {
   const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio']] as const;
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
-  // Lo decide el estudio desde el editor de Apariencia. La resolución sale de
-  // `ordenarSecciones`, la MISMA función que pinta el rail del editor: aquí no
-  // se vuelve a decidir nada, así que el rail no puede prometer un orden que
+  // Lo decide el estudio desde el editor de Apariencia (Theme Builder
+  // unificado, components/theme/portal-bloques-editor.tsx con
+  // pantalla="reservar" — Fase 2 de la generalización de /reservar al motor
+  // de bloques, mismo constructor que ya usan Inicio, Clases y Bonos):
+  // `bloquesReservar` llega YA resuelto y publicado (fetchPublicStudioData,
+  // igual que homeBloques/bloquesClases/bloquesBonos) — esta página no
+  // vuelve a decidir nada, así que el rail no puede prometer un orden que
   // esta página no cumpla.
   //
   // ⚠️ Se reordena con `order` de CSS sobre un contenedor flex, **sin mover el
@@ -1210,8 +1229,22 @@ export default function ReservarPage() {
   // El precio, que es real y conviene tener escrito: el orden de tabulación y
   // el de un lector de pantalla siguen el DOM, no lo que se ve. Solo afecta a
   // quien reordene de verdad — sin tocar nada, los dos órdenes coinciden.
-  const posicionSeccion = new Map(ordenarSecciones(ordenReservar).map((s, i) => [s.id, i]));
+  const posicionSeccion = new Map(
+    bloquesReservar.map((b, i) => [b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : b.id, i]),
+  );
   const orden = (id: string) => posicionSeccion.get(id) ?? 0;
+  const seccionesVisibles = new Set(
+    bloquesReservar.filter((b) => !b.oculto).map((b) => (b.kind === 'sistema' ? seccionReservarDeSistemaId(b.sistemaId) : '')),
+  );
+  const seccionVisible = (id: string) => seccionesVisibles.has(id);
+  // Los bloques del CATÁLOGO (banner/texto/cta/faq/galería/vídeo/testimonios/
+  // contenedor) que el estudio haya añadido — las 6 secciones de siempre son
+  // `sistema` y ya se pintan por su cuenta, JSX fijo, más abajo; estos son
+  // contenido nuevo, del mismo tipo que ya se puede añadir en Inicio/Clases/
+  // Bonos. Se intercalan con la MISMA técnica de `order` que las de siempre.
+  const bloquesCatalogo = bloquesReservar.filter(
+    (b): b is Exclude<typeof b, { kind: 'sistema' }> => b.kind !== 'sistema' && !b.oculto,
+  );
 
   return (
     <>
@@ -1312,7 +1345,7 @@ export default function ReservarPage() {
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
             tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
-        {!embedMode && seccionVisible('portada', ordenReservar) && (
+        {!embedMode && seccionVisible('portada') && (
         <div
           style={{
             position: 'relative',
@@ -1504,7 +1537,25 @@ export default function ReservarPage() {
                   cazó CI, con los tests de reserva entrando por las pestañas de
                   día—. Cambiar por dónde se reserva es una decisión de producto
                   aparte, no un efecto colateral de añadir una vista. */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 20, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
+              {/* Buscar por texto libre (Fase 1 del Booking Engine) — nombre de
+                  clase o de instructora. Separado del rail de filtros: es una
+                  entrada de texto, no una elección entre opciones cerradas. */}
+              <div style={{ marginTop: 20, position: 'relative', maxWidth: 360 }}>
+                <input
+                  type="search"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar clase o instructora…"
+                  aria-label="Buscar clase o instructora"
+                  style={{
+                    width: '100%', fontSize: 13, padding: '10px 14px', borderRadius: R.pill,
+                    border: '1px solid var(--portal-line)', background: 'var(--portal-surface)',
+                    color: 'var(--portal-ink)',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 4, marginTop: 12, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
                 {([['lista', 'Lista'], ['mes', 'Mes'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
                   <button
                     key={id}
@@ -1583,18 +1634,19 @@ export default function ReservarPage() {
               <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
                 <RailFiltros
                   clases={slotsParaFiltros}
-                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario }}
+                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
                   onCambiar={(campo, valor) => {
                     if (campo === 'tipo') setFiltroTipo(valor);
                     else if (campo === 'instructor') setFiltroInstructor(valor);
                     else if (campo === 'nivel') setFiltroNivel(valor);
+                    else if (campo === 'sala') setFiltroSala(valor);
                     else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
                   }}
                   onLimpiar={() => {
                     setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
-                    setFiltroHorario(''); setFiltroDias([]);
+                    setFiltroHorario(''); setFiltroDias([]); setFiltroSala('');
                   }}
-                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, dias: filtroDias })}
+                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, sala: filtroSala, dias: filtroDias })}
                   nResultados={slots.length}
                   etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
                   etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
@@ -1890,7 +1942,7 @@ export default function ReservarPage() {
           mismo de siempre (activo y precio > 0, que además es requisito del
           checkout de Stripe): una banda «Bonos y membresías» vacía en la
           página pública es peor que no tenerla. */}
-      {seccionVisible('bonos', ordenReservar) && planesContratables.length > 0 && (
+      {seccionVisible('bonos') && planesContratables.length > 0 && (
         <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
@@ -1962,7 +2014,7 @@ export default function ReservarPage() {
           criterio que la bio de instructora (#946).
 
           El título solo no basta: un encabezado sobre nada es peor que nada. */}
-      {seccionVisible('sobre', ordenReservar) && textosReservar.sobreTexto && (
+      {seccionVisible('sobre') && textosReservar.sobreTexto && (
         <div style={{ order: orden('sobre'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 720, marginInline: 'auto', textAlign: 'center' }}>
             {textosReservar.sobreTitulo && (
@@ -1982,7 +2034,7 @@ export default function ReservarPage() {
         </div>
       )}
 
-      {seccionVisible('cifras', ordenReservar) && mereceBanda(cifras) && (
+      {seccionVisible('cifras') && mereceBanda(cifras) && (
         <div style={{ order: orden('cifras'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(26, 3, 38)} ${cq(20, 3.8, 48)} 0` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: cq(28, 4, 60) }}>
             {cifras.map(c => (
@@ -1995,10 +2047,18 @@ export default function ReservarPage() {
         </div>
       )}
 
+      {/* Bloques del catálogo añadidos desde el editor — cada uno en su propia
+          posición de `order`, entre las 6 secciones de siempre. */}
+      {bloquesCatalogo.map((b) => (
+        <div key={b.id} style={{ order: orden(b.id) }}>
+          <BloqueReservarRender bloque={b} slug={slug} />
+        </div>
+      ))}
+
       {/* `ocultarPie` solo puede venir en modo incrustado (ver `apariencia`),
           así que la página suelta conserva su pie con los legales pase lo que
           pase. Ahí es el único sitio donde vive esa información. */}
-      {!apariencia.ocultarPie && seccionVisible('contacto', ordenReservar) && (
+      {!apariencia.ocultarPie && seccionVisible('contacto') && (
       <footer style={{ order: orden('contacto'), borderTop: '1px solid var(--portal-surface-2)', marginTop: 40, padding: `${cq(28, 3, 40)} ${cq(20, 3.8, 48)}` }}>
         <div style={{ maxWidth: 1280, marginInline: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, textAlign: 'center' }}>
           {/* ¿Dudas? — teléfono y email del estudio. Cada uno se pinta SOLO si

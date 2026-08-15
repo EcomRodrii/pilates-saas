@@ -95,6 +95,10 @@ export function zodDeBloques(
     // a ser arrastrable en la siguiente carga — el fallo silencioso que
     // advierte la regla de retrocompatibilidad de portal-home-bloques.ts.
     fijo: z.literal(true).optional(),
+    // Mismo motivo, mismo mecanismo — ver `esBloqueOcultable` en
+    // portal-home-bloques.ts: un `fijo` que SÍ se puede ocultar (Portada de
+    // /reservar) también viaja en el dato, no en una tabla aparte.
+    fijoOcultable: z.literal(true).optional(),
     // `.optional()` porque los que todavía no tienen campos abiertos no
     // guardan config ninguna, y los guardados de antes tampoco la traen.
     config: z.record(z.string(), z.unknown()).optional(),

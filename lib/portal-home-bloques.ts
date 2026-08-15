@@ -24,14 +24,16 @@
 // zod vive en layout-schema.ts, que envuelve estos mismos tipos.
 
 import { cumpleCondicion, defaultsDe, resolverConfig, type CampoSchema, type CondicionCampo, type ConfigDe } from './theme/campos.ts';
+import { SECCIONES_RESERVAR, SECCIONES_ANCLADAS, ordenarSecciones, seccionVisible, type OrdenGuardado } from './reservar/secciones.ts';
 
-export const PANTALLA_IDS = ['home', 'clases', 'bonos'] as const;
+export const PANTALLA_IDS = ['home', 'clases', 'bonos', 'reservar'] as const;
 export type PantallaId = (typeof PANTALLA_IDS)[number];
 
 export const PANTALLA_LABEL: Record<PantallaId, string> = {
   home: 'Inicio',
   clases: 'Clases',
   bonos: 'Bonos',
+  reservar: 'Reservar',
 };
 
 export const BLOQUES_SISTEMA_IDS = [
@@ -50,9 +52,33 @@ export const BLOQUES_SISTEMA_IDS = [
   // e inmovibles para la propietaria. Van OCULTOS por defecto como los tres de
   // arriba — un estudio sin el kit no los ve.
   'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio',
+  // /reservar (Fase 1 de su generalización a bloques, ver comentario de
+  // `resolveBloquesPantalla`): las 6 secciones de siempre
+  // (lib/reservar/secciones.ts), con el prefijo `reservar` para que no se
+  // puedan confundir con un bloque de otra pantalla en el jsonb guardado —
+  // sin él, `reservarBonos` sería literalmente `bonos`, el mismo string que
+  // ya usa la pantalla `bonos` para razones distintas.
+  'reservarPortada', 'reservarHorario', 'reservarBonos', 'reservarSobre', 'reservarCifras', 'reservarContacto',
 ] as const;
 export type BloqueSistemaId = (typeof BLOQUES_SISTEMA_IDS)[number];
 
+/** El `BloqueSistemaId` de /reservar para un id de `SECCIONES_RESERVAR`. */
+function sistemaIdDeSeccionReservar(id: string): BloqueSistemaId {
+  return `reservar${id.charAt(0).toUpperCase()}${id.slice(1)}` as BloqueSistemaId;
+}
+
+/**
+ * El inverso: el id de `SECCIONES_RESERVAR` (`'portada'`, `'horario'`…) para
+ * un `BloqueSistemaId` de /reservar. Exportada para que
+ * `app/reservar/[slug]/page.tsx` pueda seguir preguntando por el mismo
+ * vocabulario corto de siempre (el de `lib/reservar/secciones.ts`) tras leer
+ * el orden/visibilidad final del motor de bloques, en vez de esparcir por la
+ * página el prefijo `reservar` de la clave interna del registro.
+ */
+export function seccionReservarDeSistemaId(sistemaId: BloqueSistemaId): string {
+  const sinPrefijo = sistemaId.slice('reservar'.length);
+  return sinPrefijo.charAt(0).toLowerCase() + sinPrefijo.slice(1);
+}
 
 // Qué bloques `sistema` tiene cada pantalla, en su orden por defecto. Se
 // pueden reordenar/ocultar como cualquier otro bloque, pero no eliminar: son
@@ -64,6 +90,7 @@ export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSis
   home: ['cabecera', 'proximaClase', 'estaSemana', 'accesosRapidos', 'invitarAmiga', 'contenidoEstudio', 'tiraSemana', 'progresoSemanal', 'retos', 'racha', 'tarjetaBono', 'misReservas', 'videosEnCasa', 'citaEstudio'],
   clases: ['listadoClases'],
   bonos: ['listadoBonos'],
+  reservar: SECCIONES_RESERVAR.map((s) => sistemaIdDeSeccionReservar(s.id)),
 };
 
 /**
@@ -80,15 +107,32 @@ export const BLOQUES_SISTEMA_POR_PANTALLA: Record<PantallaId, readonly BloqueSis
  * de producto, no una limitación. Así que se listan y se editan, pero sin
  * agarradera de arrastre ni ojo de ocultar: mentirían.
  */
+// «Portada» y «Horario» de /reservar son las ANCLADAS de
+// lib/reservar/secciones.ts (el fondo degradado compartido y el hecho de ser
+// la razón de existir del widget) — mismo motivo de fondo que las fijas de
+// Home, forma distinta de aplicarlo: aquí SÍ importa la posición relativa
+// entre ellas dos (portada antes que horario), así que viajan en ese orden.
 export const BLOQUES_FIJOS_POR_PANTALLA: Record<PantallaId, readonly BloqueSistemaId[]> = {
   home: ['cabecera', 'proximaClase'],
   clases: [],
   bonos: [],
+  reservar: SECCIONES_ANCLADAS.map(sistemaIdDeSeccionReservar),
 };
 
 /** Si un bloque es de los que existen siempre y no se reordenan. */
 export function esBloqueFijo(bloque: BloqueHome): boolean {
   return bloque.kind === 'sistema' && bloque.fijo === true;
+}
+
+// De los FIJOS, cuáles conservan el ojo de ocultar — hoy solo Portada de
+// /reservar. Solo MATERIALIZA la marca (igual que BLOQUES_FIJOS_POR_PANTALLA
+// hace con `fijo`); responder "¿se puede ocultar?" es cosa de
+// `esBloqueOcultable`, que pregunta al bloque, no a esta lista.
+const SISTEMA_FIJO_OCULTABLE = new Set<BloqueSistemaId>(['reservarPortada']);
+
+/** Si un bloque FIJO además admite ocultarse (los no-fijos siempre pueden). */
+export function esBloqueOcultable(bloque: BloqueHome): boolean {
+  return !esBloqueFijo(bloque) || (bloque.kind === 'sistema' && bloque.fijoOcultable === true);
 }
 
 // ── Schemas de campo ────────────────────────────────────────────────────────
@@ -332,6 +376,15 @@ export type BloqueHome =
        * fijo?".
        */
       fijo?: true;
+      /**
+       * "Fijo, pero SÍ se puede ocultar" — Portada de /reservar: comparte el
+       * degradado del hero con la barra y las pestañas (no se puede separar
+       * sin dejar costuras, ver lib/reservar/secciones.ts), pero es justo lo
+       * que pide quien incrusta el widget en una web con su propia cabecera.
+       * Mismo motivo que `fijo` para vivir EN EL DATO y no en una tabla que
+       * el render y el editor puedan consultar de forma distinta.
+       */
+      fijoOcultable?: true;
     }
   | { id: string; kind: 'banner'; config: BannerConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
   | { id: string; kind: 'texto'; config: TextoConfig; oculto?: boolean; estilo?: EstiloBloque; hijos?: BloqueHijo[] }
@@ -845,6 +898,41 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
     id: 'sistema', sistemaId: 'listadoBonos', nombre: 'Tu bono y accesos rápidos',
     icono: 'Ticket', origen: 'sistema', estilizable: false, campos: CAMPOS_LISTADO_BONOS,
   },
+  // /reservar (Fase 1 de su generalización a bloques): las 6 secciones de
+  // siempre, SIN campos propios todavía — sus textos siguen viviendo en el
+  // tema (reservarTitular/reservarSobreTexto/…, theme-editor.tsx) exactamente
+  // como hoy. Esta fase solo generaliza el motor de orden/visibilidad; darles
+  // campos editables aquí es la fase siguiente, no esta.
+  reservarPortada: {
+    id: 'sistema', sistemaId: 'reservarPortada', nombre: 'Portada',
+    descripcion: 'Titular, foto y botón.',
+    icono: 'Image', origen: 'sistema', estilizable: false, campos: [],
+  },
+  reservarHorario: {
+    id: 'sistema', sistemaId: 'reservarHorario', nombre: 'Horario y reservas',
+    descripcion: 'Las clases y el calendario.',
+    icono: 'CalendarRange', origen: 'sistema', estilizable: false, campos: [],
+  },
+  reservarBonos: {
+    id: 'sistema', sistemaId: 'reservarBonos', nombre: 'Bonos y membresías',
+    descripcion: 'Tus planes, con el botón de contratar.',
+    icono: 'Ticket', origen: 'sistema', estilizable: false, campos: [],
+  },
+  reservarSobre: {
+    id: 'sistema', sistemaId: 'reservarSobre', nombre: 'Sobre nosotros',
+    descripcion: 'Lo que cuentas de tu estudio. Sin texto, no se ve.',
+    icono: 'Info', origen: 'sistema', estilizable: false, campos: [],
+  },
+  reservarCifras: {
+    id: 'sistema', sistemaId: 'reservarCifras', nombre: 'Cifras del estudio',
+    descripcion: 'Clases por semana, instructoras.',
+    icono: 'BarChart2', origen: 'sistema', estilizable: false, campos: [],
+  },
+  reservarContacto: {
+    id: 'sistema', sistemaId: 'reservarContacto', nombre: 'Contacto y pie',
+    descripcion: 'Teléfono, email y enlaces legales.',
+    icono: 'Phone', origen: 'sistema', estilizable: false, campos: [],
+  },
   tiraSemana: {
     id: 'sistema', sistemaId: 'tiraSemana',
     nombre: 'Tira de la semana',
@@ -964,6 +1052,7 @@ export const DEFAULT_BLOQUES_POR_PANTALLA: Record<PantallaId, BloqueHome[]> = {
   home: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.home.map((id) => resolverBloque(bloqueSistema(id))!), 'home'),
   clases: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.clases.map((id) => resolverBloque(bloqueSistema(id))!), 'clases'),
   bonos: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.bonos.map((id) => resolverBloque(bloqueSistema(id))!), 'bonos'),
+  reservar: conFijos(BLOQUES_SISTEMA_POR_PANTALLA.reservar.map((id) => resolverBloque(bloqueSistema(id))!), 'reservar'),
 };
 /** @deprecated usar DEFAULT_BLOQUES_POR_PANTALLA.home */
 export const DEFAULT_HOME_BLOQUES: BloqueHome[] = DEFAULT_BLOQUES_POR_PANTALLA.home;
@@ -978,6 +1067,7 @@ export const DEFAULT_BLOQUES_SHAPE: BloquesPorPantallaShape = {
   home: { draft: DEFAULT_BLOQUES_POR_PANTALLA.home, publicado: DEFAULT_BLOQUES_POR_PANTALLA.home },
   clases: { draft: DEFAULT_BLOQUES_POR_PANTALLA.clases, publicado: DEFAULT_BLOQUES_POR_PANTALLA.clases },
   bonos: { draft: DEFAULT_BLOQUES_POR_PANTALLA.bonos, publicado: DEFAULT_BLOQUES_POR_PANTALLA.bonos },
+  reservar: { draft: DEFAULT_BLOQUES_POR_PANTALLA.reservar, publicado: DEFAULT_BLOQUES_POR_PANTALLA.reservar },
 };
 /** @deprecated usar DEFAULT_BLOQUES_SHAPE.home */
 export const DEFAULT_HOME_BLOQUES_SHAPE: HomeBloquesShape = DEFAULT_BLOQUES_SHAPE.home;
@@ -1138,19 +1228,33 @@ export function conFijos(bloques: BloqueHome[], pantalla: PantallaId): BloqueHom
   // Marca los que YA están: un borrador guardado antes de que la marca
   // existiera no la trae, y sin esto sus bloques fijos pasarían de golpe a ser
   // arrastrables y borrables. Se persiste en el siguiente guardado.
-  const marcados = bloques.map((b) => (
-    b.kind === 'sistema' && fijos.includes(b.sistemaId) && b.fijo !== true ? { ...b, fijo: true as const } : b
-  ));
+  // `fijoOcultable` se marca con la MISMA regla, en el MISMO sitio — así el
+  // render y el editor no pueden leer una versión distinta de "¿se puede
+  // ocultar este fijo?", el mismo motivo por el que `fijo` vive aquí.
+  const marcados = bloques.map((b) => {
+    if (b.kind !== 'sistema' || !fijos.includes(b.sistemaId)) return b;
+    const ocultable = SISTEMA_FIJO_OCULTABLE.has(b.sistemaId);
+    if (b.fijo === true && (b.fijoOcultable === true) === ocultable) return b;
+    return { ...b, fijo: true as const, ...(ocultable ? { fijoOcultable: true as const } : {}) };
+  });
   const presentes = new Set(marcados.filter((b) => b.kind === 'sistema').map((b) => b.sistemaId));
   const faltan = fijos.filter((id) => !presentes.has(id));
   if (faltan.length === 0) return marcados;
-  return [...faltan.map((id) => ({ ...resolverBloque(bloqueSistema(id))!, fijo: true as const })), ...marcados];
+  return [
+    ...faltan.map((id) => ({
+      ...resolverBloque(bloqueSistema(id))!,
+      fijo: true as const,
+      ...(SISTEMA_FIJO_OCULTABLE.has(id) ? { fijoOcultable: true as const } : {}),
+    })),
+    ...marcados,
+  ];
 }
 
 export function resolveBloquesPantalla(
   raw: unknown,
   pantallaId: PantallaId,
   legacyPortalHome?: { orden: string[]; ocultos: string[] },
+  legacyReservar?: OrdenGuardado,
 ): HomeBloquesShape {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const draft = resolverBloques(obj.draft);
@@ -1182,6 +1286,27 @@ export function resolveBloquesPantalla(
       // dato otra vez.
       ordenLegacy.map((id) => resolverBloque(legacyOcultos.has(id) ? { ...bloqueSistema(id), oculto: true } : bloqueSistema(id))!),
       'home',
+    );
+    return { draft: sintetizado, publicado: sintetizado };
+  }
+
+  // /reservar (Fase 1 de su generalización a bloques): la MISMA fuente de
+  // verdad de orden/visibilidad que hoy usa app/reservar/[slug]/page.tsx
+  // (ordenarSecciones/seccionVisible, lib/reservar/secciones.ts) — no una
+  // segunda copia de esas reglas (ancladas, siempre-visibles, dedupe) escrita
+  // a mano aquí, que divergiría en el primer cambio a una de las dos.
+  // Mientras nada escriba en `bloques.reservar` (el editor de /reservar sigue
+  // guardando en `layout.reservar` sin cambios en esta fase), esta rama es la
+  // ÚNICA que produce datos: por eso no hace falta un branch aparte para "sin
+  // legacy" — con `{orden:[], ocultos:[]}` sintetiza exactamente el default.
+  if (pantallaId === 'reservar' && legacyReservar) {
+    const sintetizado = conFijos(
+      ordenarSecciones(legacyReservar).map((s) => {
+        const id = sistemaIdDeSeccionReservar(s.id);
+        const base = bloqueSistema(id);
+        return resolverBloque(seccionVisible(s.id, legacyReservar) ? base : { ...base, oculto: true })!;
+      }),
+      'reservar',
     );
     return { draft: sintetizado, publicado: sintetizado };
   }

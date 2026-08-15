@@ -28,6 +28,31 @@ test('esVistaPreview incluye Reservas y Perfil, que no tienen bloques pero sí s
   assert.equal(esVistaPreview('contenido-portal'), false);
 });
 
+test('reservar tiene bloques pero NO es una vista de iframe — es la página pública, con su propio esquema', () => {
+  assert.equal(tieneBloques('reservar'), true);
+  assert.equal(esVistaPreview('reservar'), false);
+});
+
+test('elegir "reservar" en el rail no mueve el preview — mismo motivo que "Inicio del panel"', () => {
+  const enClases = elegirPagina(ESTADO_INICIAL, 'clases');
+  const despues = elegirPagina(enClases, 'reservar');
+  assert.equal(despues.pagina, 'reservar', 'el rail sí cambia');
+  assert.equal(despues.vista, 'clases', 'el preview se queda donde estaba');
+});
+
+test('pantallaOperativa: seleccionar reservar en el rail opera sobre reservar', () => {
+  assert.equal(pantallaOperativa(elegirPagina(ESTADO_INICIAL, 'reservar')), 'reservar');
+  assert.equal(pantallaOperativa(elegirBloque(ESTADO_INICIAL, 'reservar', 'sistema-reservarBonos')), 'reservar');
+});
+
+test('elegir un bloque de reservar mueve el rail pero no el preview — no hay iframe al que arrastrarlo', () => {
+  const enClases = elegirPagina(ESTADO_INICIAL, 'clases');
+  const despues = elegirBloque(enClases, 'reservar', 'sistema-reservarBonos');
+  assert.equal(despues.pagina, 'reservar');
+  assert.equal(despues.vista, 'clases', 'el preview se queda donde estaba');
+  assert.deepEqual(despues.seleccion, { tipo: 'bloque', pantalla: 'reservar', id: 'sistema-reservarBonos' });
+});
+
 test('elegir una pantalla del portal la enseña y deselecciona lo anterior', () => {
   const conBloque = elegirBloque(ESTADO_INICIAL, 'home', 'b1');
   const despues = elegirPagina(conBloque, 'clases');

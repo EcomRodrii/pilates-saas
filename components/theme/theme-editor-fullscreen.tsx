@@ -32,7 +32,7 @@ import { PANTALLA_IDS, PANTALLA_LABEL, bloqueEstaCompleto, type PantallaId, type
 import { guardarThemeBorrador, publicarThemeApi, guardarBloquesBorradorApi, publicarBloquesApi, fetchThemePublicado } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
 import { useHomeSeccionesEditor, HomeSeccionesList } from './home-editor';
-import { useReservarSeccionesEditor, ReservarSeccionesList, ReservarEsquema } from './reservar-editor';
+import { ReservarEsquema } from './reservar-editor';
 import { useContenidoPortalEditor, ContenidoPortalList, ContenidoPortalPanel } from './contenido-portal-editor';
 import { useBloquesEditor, CatalogoBloques, BloquesSeccionesList, BloquesConfigPanel, labelDe } from './portal-bloques-editor';
 import { useThemeEditor, AjustesCategoriaPanel, AJUSTES_CATEGORIAS, type AjustesCategoriaId } from './theme-editor';
@@ -87,11 +87,12 @@ const ICONO_DISPOSITIVO: Record<DispositivoId, LucideIcon> = {
   movil: Smartphone, tablet: Tablet, completo: Monitor,
 };
 
-// ⚠️ `reservar-pagina` ≠ `reservas`. La segunda es la pantalla «Reservas» DEL
-// PORTAL (lo que ve la socia dentro de su app); la primera es `/reservar/<slug>`,
-// la página pública que el estudio enlaza desde su web y que ve cualquiera. Se
-// parecen tanto de nombre que conviene que los ids no.
-type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'bienvenida' | 'reservas' | 'perfil' | 'reservar-pagina';
+// ⚠️ La pantalla `reservar` (PantallaId) ≠ la vista `reservas`. La segunda es
+// la pantalla «Reservas» DEL PORTAL (lo que ve la socia dentro de su app); la
+// primera es `/reservar/<slug>`, la página pública que el estudio enlaza
+// desde su web y que ve cualquiera. Se parecen tanto de nombre que conviene
+// no perder de vista cuál es cuál.
+type IdPantalla = PantallaId | 'dashboard-inicio' | 'contenido-portal' | 'bienvenida' | 'reservas' | 'perfil';
 
 type Nodo =
   | { tipo: 'tema'; categoria: AjustesCategoriaId }
@@ -161,8 +162,8 @@ const GRUPOS_RAIL: { titulo: string; ayuda: string; filas: FilaRail[] }[] = [
     // grupo y no colgando del portal de la socia — no es una pantalla más de
     // esa app, es la puerta de la calle.
     titulo: 'Página pública de reservas',
-    ayuda: 'La que enlazas desde tu web. La ve cualquiera, sin cuenta. Sus secciones se reordenan y se ocultan; el horario va siempre.',
-    filas: [{ id: 'reservar-pagina', label: 'Secciones de la página', desplegable: true }],
+    ayuda: 'La que enlazas desde tu web. La ve cualquiera, sin cuenta. La portada y el horario van siempre en su sitio; añade y ordena el resto.',
+    filas: [{ id: 'reservar', label: 'Secciones de la página', desplegable: true }],
   },
   {
     titulo: 'Panel del equipo',
@@ -259,7 +260,6 @@ export function ThemeEditorFullscreen() {
   const ajustesHook = useThemeEditor();
   const bloquesHook = useBloquesEditor();
   const homeHook = useHomeSeccionesEditor();
-  const reservarHook = useReservarSeccionesEditor();
   const contenidoHook = useContenidoPortalEditor();
 
   // Autoguardado del borrador. Va AQUÍ, antes del `return` por rol de abajo:
@@ -405,7 +405,6 @@ export function ThemeEditorFullscreen() {
   function descartarSeccionActiva() {
     if (nodo.tipo === 'tema') { ajustesHook.recargar(); return; }
     if (nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio') { homeHook.recargar(); return; }
-    if (nodo.tipo === 'pantalla' && nodo.id === 'reservar-pagina') { reservarHook.recargar(); return; }
     const p = nodo.tipo === 'item' && nodo.grupo !== 'contenido-portal' ? nodo.grupo : nodo.tipo === 'pantalla' && PANTALLA_IDS.includes(nodo.id as PantallaId) ? (nodo.id as PantallaId) : null;
     if (p) bloquesHook.descartarCambios(p);
   }
@@ -562,22 +561,6 @@ export function ThemeEditorFullscreen() {
               {homeHook.guardando ? 'Guardando…' : 'Guardar cambios'}
             </button>
           )}
-          {nodo.tipo === 'pantalla' && nodo.id === 'reservar-pagina' && (
-            <>
-              {/* El resultado del guardado SE DICE. Esta pantalla escribe en
-                  vivo contra el servidor y ningún e2e de este repo ve nunca un
-                  4xx (`page.route` los mockea), así que un fallo mudo aquí solo
-                  se descubriría abriendo la página pública y viéndola igual. */}
-              {reservarHook.aviso && (
-                <span className={`text-[12px] ${reservarHook.aviso.tipo === 'ok' ? 'text-muted-foreground' : 'text-destructive font-semibold'}`}>
-                  {reservarHook.aviso.texto}
-                </span>
-              )}
-              <button onClick={reservarHook.guardar} disabled={reservarHook.guardando} className="text-[13px] font-semibold px-3 py-1.5 rounded-lg border border-border disabled:opacity-50">
-                {reservarHook.guardando ? 'Guardando…' : 'Guardar cambios'}
-              </button>
-            </>
-          )}
           <button
             type="button" onClick={() => setDialogoAbierto(true)}
             className="text-[13px] font-bold px-4 py-1.5 rounded-lg bg-brand text-brand-foreground"
@@ -717,7 +700,7 @@ export function ThemeEditorFullscreen() {
                     </div>
                     {p.desplegable && expandido && (
                       <div className="pl-[30px] pr-1 pt-1 pb-2">
-                        {p.id === 'home' || p.id === 'clases' || p.id === 'bonos' ? (
+                        {p.id === 'home' || p.id === 'clases' || p.id === 'bonos' || p.id === 'reservar' ? (
                           // La estrechez de `p.id` a PantallaId (verificada arriba) no
                           // sobrevive dentro del closure de `onSeleccionar` — TS no
                           // puede probar que `p` no cambia antes de que se dispare el
@@ -731,8 +714,6 @@ export function ThemeEditorFullscreen() {
                           ); })()
                         ) : p.id === 'dashboard-inicio' ? (
                           <HomeSeccionesList hook={homeHook} />
-                        ) : p.id === 'reservar-pagina' ? (
-                          <ReservarSeccionesList hook={reservarHook} />
                         ) : (
                           <ContenidoPortalList
                             hook={contenidoHook}
@@ -770,8 +751,13 @@ export function ThemeEditorFullscreen() {
           <div className="w-full">
             {nodo.tipo === 'tema' && !AJUSTES_EN_EL_PORTAL.has(nodo.categoria) ? (
               <ThemePreview config={ajustesHook.draft} slug={ajustesHook.studio?.slug} dispositivo={dispositivo} zoom={zoom} />
-            ) : nodo.tipo === 'pantalla' && nodo.id === 'reservar-pagina' ? (
-              <ReservarEsquema hook={reservarHook} />
+            ) : nodo.tipo !== 'tema' && pantallaActiva === 'reservar' ? (
+              // Un ajuste del tema con AJUSTES_EN_EL_PORTAL (nodo.tipo==='tema' aquí,
+              // caído del `if` de arriba) NO se aplica a /reservar — sigue de largo
+              // hasta el HomePreview de más abajo, igual que para cualquier otra
+              // pantalla del portal. Solo se enseña el esquema al operar de verdad
+              // sobre las secciones/bloques de /reservar.
+              <ReservarEsquema bloques={bloquesHook.bloquesDe('reservar')} />
             ) : nodo.tipo === 'pantalla' && nodo.id === 'dashboard-inicio' ? (
               <div className="w-[320px] aspect-[9/16] rounded-2xl border border-dashed border-border bg-background flex items-center justify-center text-center px-6">
                 <p className="text-[12px] text-muted-foreground">Este panel es interno, no tiene vista previa.</p>

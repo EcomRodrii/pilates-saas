@@ -26,6 +26,7 @@ import {
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { GoogleIcon } from '@/components/auth/google-icon';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import {
@@ -107,7 +108,7 @@ function identidadDesdeApi(i: PerfilIdentidadNetwork): IdentidadForm {
 
 export default function CrearPerfilNetworkPage() {
   const uid = useId();
-  const { user, loading: cargandoSesion, signUp } = useAuth();
+  const { user, loading: cargandoSesion, signUp, signInWithGoogle } = useAuth();
 
   // ── Paso 01: cuenta (sin sesión todavía) ──────────────────────────────
   const [nombreCuenta, setNombreCuenta] = useState('');
@@ -116,7 +117,18 @@ export default function CrearPerfilNetworkPage() {
   const [errorCuenta, setErrorCuenta] = useState('');
   const [infoCuenta, setInfoCuenta] = useState('');
   const [creandoCuenta, setCreandoCuenta] = useState(false);
+  const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
+
+  // Igual que en /network/acceso: vuelve siempre a /login (redirectPath por
+  // defecto de signInWithGoogle), así que el error de vuelta de Google se ve
+  // ahí — aquí solo se captura el rechazo síncrono previo al redirect.
+  async function conectarConGoogle() {
+    setErrorCuenta('');
+    setConectandoGoogle(true);
+    const { error } = await signInWithGoogle();
+    if (error) { setErrorCuenta(error); setConectandoGoogle(false); }
+  }
 
   const [paso, setPaso] = useState(0);
   const [pasoInicialElegido, setPasoInicialElegido] = useState(false);
@@ -155,10 +167,20 @@ export default function CrearPerfilNetworkPage() {
 
   // Reanudación (2f simplificada, dentro del propio wizard): aterriza en el
   // primer paso incompleto, publicado → última. Se decide UNA vez.
+  //
+  // pasoIncompletoDe(null) devuelve 0 ("Tu cuenta") porque para el flujo de
+  // email/password ese valor nunca se usa tal cual — crearCuenta() salta a
+  // mano a setPaso(1) justo después de crear la cuenta. Pero quien llega
+  // aquí YA CON SESIÓN sin haber pasado por crearCuenta() (alta con Google,
+  // que vuelve de /login con user ya puesto) sí podía quedarse en paso 0 —
+  // y el cuerpo autenticado del wizard no tiene ningún bloque para
+  // paso === 0 (todos empiezan en 1), así que se veía "Paso 1 de 12" en
+  // blanco. Con sesión activa el paso "Tu cuenta" ya está hecho por
+  // definición, así que el mínimo real aquí es 1.
   useEffect(() => {
     if (cargando || pasoInicialElegido || !user) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPaso(pasoIncompletoDe(perfil));
+    setPaso(Math.max(1, pasoIncompletoDe(perfil)));
     setPasoInicialElegido(true);
   }, [cargando, pasoInicialElegido, user, perfil]);
 
@@ -261,6 +283,23 @@ export default function CrearPerfilNetworkPage() {
           Tu <span style={{ color: NW_PRODUCTO }}>cuenta</span>
         </h1>
         <p className="mt-2 text-[14px] mb-6" style={{ color: NW_MUTED }}>Crea tu cuenta gratis. Es el primer paso para publicar tu perfil.</p>
+
+        <button
+          type="button"
+          disabled={conectandoGoogle}
+          onClick={() => void conectarConGoogle()}
+          className="w-full max-w-sm flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[13.5px] font-semibold hover:bg-black/[.02] transition-colors disabled:opacity-60 mb-4"
+          style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
+        >
+          <GoogleIcon />
+          {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
+        </button>
+        <div className="flex items-center gap-3 mb-4 max-w-sm">
+          <div className="h-px flex-1" style={{ background: NW_BORDE }} />
+          <span className="text-[11px] font-medium" style={{ color: NW_MUTED_2 }}>o</span>
+          <div className="h-px flex-1" style={{ background: NW_BORDE }} />
+        </div>
+
         <form onSubmit={crearCuenta} className="space-y-4 max-w-sm">
           <div>
             <label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-n`}>Tu nombre</label>

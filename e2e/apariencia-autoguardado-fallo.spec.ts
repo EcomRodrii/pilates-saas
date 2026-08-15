@@ -41,7 +41,7 @@ async function montar(page: Page) {
   }, [STORAGE_KEY, AUTH_UID] as const);
 
   const estado = { fallar: false, puts: 0 };
-  const bloques: Record<string, unknown[]> = { home: BLOQUES_HOME, clases: [], bonos: [] };
+  const bloques: Record<string, unknown[]> = { home: BLOQUES_HOME, clases: [], bonos: [], reservar: [] };
 
   await page.route('**/api/**', route => json(route, {}));
   await page.route('**/api/billing/estado**', route => json(route, { bloqueado: false }));

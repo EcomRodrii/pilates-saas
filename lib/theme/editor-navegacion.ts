@@ -19,16 +19,28 @@
 
 import { PANTALLA_IDS, type PantallaId } from '../portal-home-bloques.ts';
 
+// Pantallas cuyo constructor de bloques tiene un iframe de vista previa en
+// vivo (/portal-preview/[slug]/<pantalla>, montado en el portal de la
+// socia): home/clases/bonos. `/reservar` SÍ tiene constructor de bloques
+// desde su generalización a la Fase 1 del Theme Builder —`PANTALLA_IDS` la
+// incluye—, pero es una página PÚBLICA fuera de ese árbol de rutas: su vista
+// previa es un esquema (ReservarEsquema en reservar-editor.tsx), no un
+// iframe. Hardcodeada, no derivada con `.filter` de `PANTALLA_IDS`: un array
+// construido en tiempo de ejecución perdería el tipo literal que
+// `VistaPreview` necesita.
+const PANTALLAS_CON_IFRAME = ['home', 'clases', 'bonos'] as const satisfies readonly PantallaId[];
+
 /** Páginas que el iframe del preview sabe enseñar. */
-export const VISTAS_PREVIEW = [...PANTALLA_IDS, 'bienvenida', 'reservas', 'perfil'] as const;
+export const VISTAS_PREVIEW = [...PANTALLAS_CON_IFRAME, 'bienvenida', 'reservas', 'perfil'] as const;
 export type VistaPreview = (typeof VISTAS_PREVIEW)[number];
 
 /** Todo lo que puede estar seleccionado en el rail. */
-// `reservar-pagina` está en el mismo saco que las otras dos: se selecciona en
-// el rail y NO es una vista del iframe. Es `/reservar/<slug>`, una página
-// pública distinta del portal — no confundir con la vista `reservas`, que es
-// la pantalla de reservas DENTRO del portal de la socia.
-export type PaginaEditor = VistaPreview | 'dashboard-inicio' | 'contenido-portal' | 'reservar-pagina';
+// `reservar` (la página pública) se selecciona en el rail como cualquier
+// pantalla del portal —tiene bloques, ver `tieneBloques`— pero NO es una
+// `VistaPreview`: no hay iframe que la enseñe, así que seleccionarla no
+// mueve `vista` (mismo comportamiento que `dashboard-inicio`/
+// `contenido-portal`, y por el mismo motivo).
+export type PaginaEditor = VistaPreview | 'dashboard-inicio' | 'contenido-portal' | 'reservar';
 
 /**
  * Qué panel se está usando. `ajustes` es el tema global (colores, tipografía,
@@ -87,9 +99,19 @@ export function elegirPagina(estado: EstadoEditor, pagina: PaginaEditor): Estado
 /**
  * Elegir un bloque, venga del rail o de un clic dentro del preview. Arrastra
  * la página consigo — un bloque siempre pertenece a una.
+ *
+ * `vista` solo sigue a `pantalla` cuando esa pantalla tiene iframe
+ * (`esVistaPreview`) — igual que `elegirPagina`. Un bloque de /reservar
+ * arrastra el rail a esa página, pero no hay iframe al que arrastrar: el
+ * preview se queda donde estaba, como al elegir "Inicio del panel".
  */
 export function elegirBloque(estado: EstadoEditor, pantalla: PantallaId, id: string): EstadoEditor {
-  return { modo: 'secciones', pagina: pantalla, vista: pantalla, seleccion: { tipo: 'bloque', pantalla, id } };
+  return {
+    modo: 'secciones',
+    pagina: pantalla,
+    vista: esVistaPreview(pantalla) ? pantalla : estado.vista,
+    seleccion: { tipo: 'bloque', pantalla, id },
+  };
 }
 
 /** Elegir un item de "Contenido del portal" (mensaje destacado, banners). */

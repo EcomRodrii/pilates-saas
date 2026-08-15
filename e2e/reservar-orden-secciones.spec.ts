@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { resolveBloquesPantalla } from '../lib/portal-home-bloques.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El orden que el estudio elige en el editor, cumplido por la PÁGINA.
@@ -16,6 +17,14 @@ import { test, expect, type Page } from '@playwright/test';
 // ⚠️ Se comprueba por POSICIÓN EN PANTALLA (`boundingBox().y`), nunca por orden
 // del DOM: se reordena con `order` de CSS, así que el DOM no se mueve y un test
 // que mirase el DOM daría verde con la página pintada al revés.
+//
+// ⚠️ La página lee `bloquesReservar` YA RESUELTO (Fase 2 del Theme Builder,
+// fetchPublicStudioData) — no vuelve a interpretar `orden`/`ocultos` por su
+// cuenta. Este mock aquí sustituye a `fetchPublicStudioData` entero, así que
+// tiene que hacer ÉL la misma resolución que haría el servidor de verdad
+// (`resolveBloquesPantalla`, la MISMA función, no una reimplementada) — si no,
+// pasar `orden`/`ocultos` al mock no movería nada y estos tests certificarían
+// un contrato que la app real ya no cumple.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SLUG = 'tentare';
@@ -45,9 +54,17 @@ function fixture(extra: Record<string, unknown> = {}) {
 }
 
 async function montar(page: Page, reservar: unknown = null, extra: Record<string, unknown> = {}) {
+  // Mismo cálculo que el servidor (getLayout → resolveLayout →
+  // resolveBloquesPantalla), reutilizando la función real: si `bloques.reservar`
+  // no está guardado (el caso de todos los tests de aquí abajo), sintetiza
+  // desde `orden`/`ocultos`, igual que en producción.
+  const bloquesReservar = resolveBloquesPantalla(
+    null, 'reservar', undefined,
+    (reservar ?? undefined) as { orden?: string[]; ocultos?: string[] } | undefined,
+  ).publicado;
   await page.route('**/rest/v1/**', r => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: S }) }));
   await page.route('**/api/theme**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
-  await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture({ reservar, ...extra })) }));
+  await page.route('**/api/public/studio-data', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture({ reservar, bloquesReservar, ...extra })) }));
   await page.route('**/api/public/session', r => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'no' }) }));
   await page.goto(`/reservar/${SLUG}`);
 }
@@ -243,4 +260,45 @@ test('⚠️ sin escribir nada se sigue viendo el texto de fábrica', async ({ p
   await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('¿Primera vez en el estudio?', { exact: false })).toBeVisible();
   await expect(page.getByText('CÓMO FUNCIONA', { exact: true })).toBeVisible();
+});
+
+// ── Bloques del catálogo (Fase 2 del Theme Builder) ─────────────────────────
+// La pieza que cierra el ciclo: un bloque añadido desde el editor (banner/
+// texto/cta/…) tiene que APARECER en la página real, con el render propio de
+// /reservar (components/reservar/bloque-reservar-render.tsx) — no el del
+// portal, y no silenciosamente ausente.
+
+test('un bloque de texto añadido desde el editor se pinta en la página, con el lenguaje visual de /reservar', async ({ page }) => {
+  const base = resolveBloquesPantalla(null, 'reservar').publicado;
+  const bloquesReservar = [
+    ...base,
+    { id: 'b-texto-1', kind: 'texto', config: { titulo: 'Nuestros servicios', texto: 'Reformer, mat y clases privadas.' } },
+  ];
+  await montar(page, null, { bloquesReservar });
+  // El título del bloque es un `<div>` con estilo de titular, no un `<h*>`
+  // semántico — mismo patrón que su equivalente del portal
+  // (components/portal/bloque-home-render.tsx). `getByText`, no
+  // `getByRole('heading')`.
+  await expect(page.getByText('Nuestros servicios', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Reformer, mat y clases privadas.')).toBeVisible();
+});
+
+test('un bloque oculto no se pinta', async ({ page }) => {
+  const base = resolveBloquesPantalla(null, 'reservar').publicado;
+  const bloquesReservar = [
+    ...base,
+    { id: 'b-texto-2', kind: 'texto', config: { titulo: 'Aviso oculto', texto: 'x' }, oculto: true },
+  ];
+  await montar(page, null, { bloquesReservar });
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Aviso oculto', { exact: true })).toHaveCount(0);
+});
+
+test('un bloque de texto vacío (incompleto) tampoco se pinta', async ({ page }) => {
+  const base = resolveBloquesPantalla(null, 'reservar').publicado;
+  const bloquesReservar = [...base, { id: 'b-texto-3', kind: 'texto', config: { titulo: '', texto: '' } }];
+  await montar(page, null, { bloquesReservar });
+  // Mismo gate que Inicio/Clases/Bonos (bloqueEstaCompleto): sin título ni
+  // cuerpo, no cuenta como sección — la página sigue en pie, sin un hueco.
+  await expect(page.locator('#horario')).toBeVisible({ timeout: 30_000 });
 });
