@@ -81,23 +81,52 @@ async function montar(page: Page, temas: unknown[] = [TEMA_LISTO]) {
   return { patches };
 }
 
-test('extraer manda la acción correcta y lleva al editor nativo', async ({ page }) => {
+test('extraer manda la acción correcta, avisa del paso que falta y de ahí lleva al editor nativo', async ({ page }) => {
+  // ⚠️ A propósito YA NO navega sola tras extraer (ver el comentario de
+  // `extraer()` en importar-tema-zip.tsx): un bug real reportado por el
+  // fundador fue confundir el «Publicar» de esta tarjeta (solo
+  // imports.tentare.app) con el del editor nativo (el que de verdad publica
+  // en el portal), precisamente porque el auto-navegado silencioso no dejaba
+  // rastro de que hiciera falta un paso más. Ahora el botón sigue "llevando
+  // a donde promete" (la garantía que este fichero ya protegía), pero con una
+  // parada explícita en medio en vez de un salto mudo.
   const { patches } = await montar(page);
   await expect(page.getByText('Tentade', { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Extraer a tema nativo' }).click();
-  await page.waitForURL(/\/configuracion\/apariencia\/editor$/, { timeout: 15_000 });
-
   expect(patches).toContainEqual({ accion: 'extraer' });
+
+  await expect(page.getByText(/se ha guardado como borrador/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Todavía no se ve en tu portal/i)).toBeVisible();
+
+  await page.getByRole('link', { name: 'Ir al editor a publicarlo' }).click();
+  await page.waitForURL(/\/configuracion\/apariencia\/editor$/, { timeout: 15_000 });
 });
 
 test('⚠️ automático de verdad: ningún ZIP bloquea el botón con un error de "sin color"', async ({ page }) => {
   // El pedido explícito que arregla este fichero: sea cual sea el ZIP, el
-  // botón lleva al editor — nunca un aviso de "este tema no declara...".
+  // botón confirma la extracción — nunca un aviso de "este tema no declara...".
   await montar(page);
   await expect(page.getByText('Tentade', { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole('button', { name: 'Extraer a tema nativo' }).click();
-  await page.waitForURL(/\/configuracion\/apariencia\/editor$/, { timeout: 15_000 });
+  await expect(page.getByText(/se ha guardado como borrador/i)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/no declara/i)).toHaveCount(0);
+});
+
+test('el «Publicar» de la tarjeta ZIP no promete el portal real', async ({ page }) => {
+  // La confusión exacta que reportó el fundador: extraer, pulsar el
+  // "Publicar" de ESTA tarjeta (el de theme_imports, solo
+  // imports.tentare.app) y esperar que el portal cambiara. Este test fija
+  // que la etiqueta ya no puede leerse como "publica tu tema" — DENTRO de
+  // la tarjeta del ZIP. (La página también tiene el "Publicar" del tema
+  // nativo arriba en "Tu tema" — ese es el correcto y no lo toca este fix.)
+  await montar(page);
+  await expect(page.getByText('Tentade', { exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // Fila concreta del ZIP (no toda la tarjeta ni la página): el borde
+  // redondeado que envuelve nombre + botones de CADA tema importado.
+  const filaZip = page.locator('div.rounded-xl.border.border-border', { hasText: 'Tentade' });
+  await expect(filaZip.getByRole('button', { name: 'Publicar vista previa' })).toBeVisible();
+  await expect(filaZip.getByRole('button', { name: 'Publicar', exact: true })).toHaveCount(0);
 });
