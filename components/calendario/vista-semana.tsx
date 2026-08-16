@@ -6,7 +6,11 @@ import { calcularScrollInicial } from '@/lib/calendario-scroll';
 import type { ColumnaDia } from '@/lib/calendario-columnas';
 import type { DatoSesion } from '@/components/calendario/vista-dia-salas';
 
-const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+// Indexado por Date.getDay() (0=domingo…6=sábado, convención nativa de JS) —
+// a propósito NO por posición de columna: con la semana progresiva (a
+// petición de una propietaria — la ventana visible arranca en hoy, no
+// siempre en lunes) la columna 0 puede ser cualquier día real.
+const NOMBRE_DIA_POR_WEEKDAY = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 // Ancho mínimo de cada columna-día. Sin esto, en móvil (o con la ventana del
 // panel estrecha) `flex-1`/`grid-cols-7` reparte 7 columnas en el ancho que
@@ -131,7 +135,7 @@ export function VistaSemana({
                       className="text-[11px] font-bold uppercase tracking-wide"
                       style={{ color: esHoy ? 'var(--brand-medio)' : 'var(--muted-foreground)' }}
                     >
-                      {DIAS[i]}
+                      {NOMBRE_DIA_POR_WEEKDAY[fechasSemana[i]?.getDay() ?? i]}
                     </span>
                     {esHoy ? (
                       <span

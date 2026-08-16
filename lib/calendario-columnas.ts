@@ -102,8 +102,18 @@ export interface DiaAbiertoLocal {
 // Sin sala de por medio: los carriles se calculan sobre TODO lo del día
 // (varias salas a la vez), igual que hace el prototipo, porque el punto de la
 // semana es planificar de un vistazo, no distinguir sala por sala.
-export function prepararColumnasDiaSemana(sesiones: SesionSemana[], horarioSemana?: DiaAbiertoLocal[]): ColumnaDia[] {
-  const cerradoPorDia = new Map(horarioSemana?.map(h => [h.dia, !h.abierto]));
+//
+// `fechasColumnas` (semana progresiva): antes la columna N siempre era el
+// weekday N (lunes=0…domingo=6), así que `dia` de la sesión (índice de
+// columna) y la clave de `horarioSemana` (weekday real) eran lo mismo por
+// casualidad. Con la ventana visible pudiendo arrancar en cualquier día, la
+// columna 0 ya no es siempre lunes — hace falta el weekday REAL de cada
+// columna para consultar si el estudio abre ese día, aparte del índice de
+// columna (que sigue sirviendo tal cual para agrupar las sesiones).
+export function prepararColumnasDiaSemana(
+  sesiones: SesionSemana[], fechasColumnas: Date[], horarioSemana?: DiaAbiertoLocal[],
+): ColumnaDia[] {
+  const cerradoPorWeekday = new Map(horarioSemana?.map(h => [h.dia, !h.abierto]));
   return Array.from({ length: 7 }, (_, dia) => {
     const delDia = sesiones.filter(s => s.dia === dia);
     const { puesto, total } = asignarCarriles(delDia.map(s => ({ id: s.id, inicioMin: s.inicioMin, finMin: s.finMin })));
@@ -127,6 +137,7 @@ export function prepararColumnasDiaSemana(sesiones: SesionSemana[], horarioSeman
       finalizada: s.finalizada,
     }));
 
-    return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0, cerrado: cerradoPorDia.get(dia) ?? false };
+    const weekday = fechasColumnas[dia] ? (fechasColumnas[dia].getDay() + 6) % 7 : dia;
+    return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0, cerrado: cerradoPorWeekday.get(weekday) ?? false };
   });
 }

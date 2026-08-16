@@ -40,6 +40,17 @@ export function rangoSemana(fecha: Date): RangoFechas {
   return { desde: desde.toISOString(), hasta: addDays(desde, 7).toISOString() };
 }
 
+// Semana PROGRESIVA (calendario/page.tsx, vista "semana"): la ventana visible
+// arranca en la fecha que se le pase tal cual, sin redondear al lunes de esa
+// semana ISO — a propósito distinta de `rangoSemana`/`inicioSemana`, que
+// siguen ancladas a lunes porque las usa la vista de Mes (`vista-mes.tsx`,
+// rejilla 6×7 alineada al calendario) y no deben cambiar.
+export function rangoSemanaDesde(fecha: Date): RangoFechas {
+  const desde = new Date(fecha);
+  desde.setHours(0, 0, 0, 0);
+  return { desde: desde.toISOString(), hasta: addDays(desde, 7).toISOString() };
+}
+
 export function inicioMes(fecha: Date): Date {
   const d = new Date(fecha);
   d.setDate(1);

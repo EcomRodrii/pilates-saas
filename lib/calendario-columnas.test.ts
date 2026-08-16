@@ -98,27 +98,42 @@ const sesSemana = (o: Partial<SesionSemana> & Pick<SesionSemana, 'id' | 'dia'>):
   salaId: 'norte', inicioMin: 480, finMin: 540, estado: 'PROGRAMADA', confirmadas: 4, enEspera: 0, aforoMaximo: 8, finalizada: false, ...o,
 });
 
+// 7 fechas reales a partir de un ISO — columna 0 es esa fecha, no siempre
+// lunes (semana progresiva, calendario/page.tsx). La mayoría de tests de
+// abajo usan una que SÍ arranca en lunes (2026-08-10) para poder seguir
+// leyendo "dia: 0" como "lunes" en los asserts existentes; el test dedicado
+// a esto usa una que arranca en jueves para probar el caso nuevo de verdad.
+function semanaDesde(iso: string): Date[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(iso + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+}
+const SEMANA_LUNES = semanaDesde('2026-08-10'); // lunes
+
 test('siempre devuelve las 7 columnas, aunque no haya clases', () => {
-  const cols = prepararColumnasDiaSemana([]);
+  const cols = prepararColumnasDiaSemana([], SEMANA_LUNES);
   assert.equal(cols.length, 7);
   assert.deepEqual(cols.map(c => c.dia), [0, 1, 2, 3, 4, 5, 6]);
 });
 
 test('un día sin clases se marca "vacío" — no implica "cerrado"', () => {
-  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })]);
+  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })], SEMANA_LUNES);
   assert.equal(cols[0].vacio, false);
   assert.equal(cols[6].vacio, true); // domingo, sin nada en el fixture
   assert.equal(cols[6].cerrado, false); // sin horarioSemana, nunca se afirma "cerrado" sin dato real
 });
 
 test('sin horarioSemana ningún día se marca "cerrado", tenga o no clases', () => {
-  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })]);
+  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 0 })], SEMANA_LUNES);
   assert.ok(cols.every(c => c.cerrado === false));
 });
 
 test('horarioSemana marca "cerrado" solo los días que el estudio no abre, independientemente de vacio', () => {
   const cols = prepararColumnasDiaSemana(
     [sesSemana({ id: 'a', dia: 6 })], // domingo, con una clase igualmente
+    SEMANA_LUNES,
     [
       { dia: 0, abierto: true }, { dia: 1, abierto: true }, { dia: 2, abierto: true },
       { dia: 3, abierto: true }, { dia: 4, abierto: true }, { dia: 5, abierto: false },
@@ -132,12 +147,38 @@ test('horarioSemana marca "cerrado" solo los días que el estudio no abre, indep
   assert.equal(cols[0].cerrado, false); // lunes: abierto
 });
 
+// Regresión: semana progresiva — la columna 0 puede ser CUALQUIER weekday,
+// no siempre lunes. horarioSemana sigue siendo un mapa por WEEKDAY REAL
+// (0=lunes…6=domingo), así que "cerrado" tiene que consultarse por el
+// weekday de cada columna, no por su posición.
+test('horarioSemana con ventana que NO arranca en lunes: "cerrado" sigue el weekday real de cada columna, no su posición', () => {
+  const semanaJueves = semanaDesde('2026-08-13'); // jueves 13 → miércoles 19
+  const cols = prepararColumnasDiaSemana(
+    [],
+    semanaJueves,
+    [
+      { dia: 0, abierto: true }, { dia: 1, abierto: true }, { dia: 2, abierto: true },
+      { dia: 3, abierto: true }, { dia: 4, abierto: true }, { dia: 5, abierto: false }, // sábado cerrado
+      { dia: 6, abierto: false }, // domingo cerrado
+    ],
+  );
+  // Columna 0 = jueves (weekday 3, abierto). Columna 2 = sábado (weekday 5,
+  // cerrado). Columna 3 = domingo (weekday 6, cerrado). Con el bug viejo
+  // (cerrado por posición de columna), la columna 0 habría salido "cerrada"
+  // por confundirse con el weekday 0 (lunes, que en esta ventana es la
+  // columna 4) — exactamente el caso que este test existe para cazar.
+  assert.equal(cols[0].cerrado, false); // jueves: abierto
+  assert.equal(cols[2].cerrado, true); // sábado: cerrado
+  assert.equal(cols[3].cerrado, true); // domingo: cerrado
+  assert.equal(cols[4].cerrado, false); // lunes (columna 4 en esta ventana): abierto
+});
+
 test('las sesiones de distintos días no se mezclan en los carriles', () => {
   const cols = prepararColumnasDiaSemana([
     sesSemana({ id: 'lun-a', dia: 0, inicioMin: 480, finMin: 540 }),
     sesSemana({ id: 'lun-b', dia: 0, inicioMin: 500, finMin: 560 }), // choca con lun-a
     sesSemana({ id: 'mar-a', dia: 1, inicioMin: 480, finMin: 540 }), // mismo horario, otro día — no debería chocar
-  ]);
+  ], SEMANA_LUNES);
   assert.equal(cols[0].sesiones.length, 2);
   assert.notEqual(cols[0].sesiones[0].carril, cols[0].sesiones[1].carril);
   assert.equal(cols[1].sesiones.length, 1);
@@ -146,6 +187,6 @@ test('las sesiones de distintos días no se mezclan en los carriles', () => {
 });
 
 test('hayAtencion por lista de espera funciona igual que en la vista de día', () => {
-  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 2, enEspera: 1 })]);
+  const cols = prepararColumnasDiaSemana([sesSemana({ id: 'a', dia: 2, enEspera: 1 })], SEMANA_LUNES);
   assert.equal(cols[2].hayAtencion, true);
 });
