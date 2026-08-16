@@ -59,7 +59,7 @@ import { minutosDesdeOffset, nuevoHorarioArrastrado } from '@/lib/calendario-arr
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision, type TipoAccion } from '@/lib/calendario-decisiones';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado, preguntaAvisoCobertura } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor } from '@/lib/calendario-filtros';
-import { rangoDia, rangoSemana, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
+import { rangoDia, rangoSemanaDesde, rangoMes, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { ModalNotaVoz } from '@/components/socios/modal-nota-voz';
@@ -78,10 +78,19 @@ function addDays(date: Date, n: number) {
   return d;
 }
 
+// Semana PROGRESIVA, a petición explícita de una propietaria: la ventana
+// visible arranca en la fecha que se le pase tal cual (medianoche), sin
+// redondear al lunes de esa semana ISO — si hoy es domingo, la ventana es
+// domingo→sábado, no el lunes-domingo que ya había pasado. `cambiarSemana`
+// (más abajo) ya sumaba/restaba 7 días sobre este valor sin volver a anclar
+// a ningún lunes, así que basta con este cambio para que "Hoy", la carga
+// inicial y la navegación de semanas queden progresivos sin tocar nada más
+// de ese lado. NO confundir con `inicioSemana`/`rangoSemana`
+// (lib/calendario-rango.ts): esas siguen ancladas a lunes a propósito,
+// porque las usa la vista de Mes para alinear su rejilla 6×7 al calendario
+// real — cambiarlas rompería esa vista, que no tiene nada que ver con esto.
 function weekStart(date: Date) {
   const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
   d.setHours(0, 0, 0, 0);
   return d;
 }
@@ -646,6 +655,12 @@ export default function Calendario() {
   // ── Derived data (contexto completo — formularios/conflictos) ───────────────
   const todayStr = localDate(now);
   const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(semana, i)), [semana]);
+  // Semana progresiva: la columna de una sesión ya NO es su día ISO
+  // (lunes=0…domingo=6) — es su offset respecto al primer día de la ventana
+  // VISIBLE, que puede ser cualquier weekday. `dias` ya es esa ventana; este
+  // mapa evita rehacer aritmética de fechas (con riesgo de DST) en cada sitio
+  // que necesita "columna de esta sesión".
+  const columnaPorFecha = useMemo(() => new Map(dias.map((d, i) => [localDate(d), i])), [dias]);
 
   const sesionesEnriquecidas = useMemo<SesionEnr[]>(() => {
     const tiposById = new Map(tiposClase.map(t => [t.id, t]));
@@ -926,18 +941,32 @@ export default function Calendario() {
   // vista actual.
   function invalidarCacheSerieYNavegarSiHaceFalta(fechas: Date[]): { navego: boolean } {
     if (fechas.length === 0) return { navego: false };
-    const semanasUnicas = new Map<string, Date>();
-    for (const f of fechas) {
-      const ws = weekStart(f);
-      semanasUnicas.set(localDate(ws), ws);
+    // Semana progresiva: ya no hay una partición fija de 7-en-7 días que
+    // garantice que cada fecha caiga en EXACTAMENTE una entrada cacheada —
+    // el usuario puede haber visitado ventanas que se solapan (p. ej.
+    // [3-9 ago] y luego, tras pulsar Hoy otro día, [5-11 ago]), y una fecha
+    // nueva puede caer dentro de varias a la vez. Se borra cualquier
+    // entrada cuyo rango [desde,hasta) contenga alguna fecha tocada — el
+    // caché nunca tiene más de un puñado de entradas vivas, así que esto no
+    // es caro.
+    for (const [clave] of cacheVistaRef.current) {
+      const [desdeIso, hastaIso] = clave.split('_');
+      const desdeMs = new Date(desdeIso).getTime();
+      const hastaMs = new Date(hastaIso).getTime();
+      const tocaAlgunaFecha = fechas.some(f => f.getTime() >= desdeMs && f.getTime() < hastaMs);
+      if (tocaAlgunaFecha) cacheVistaRef.current.delete(clave);
     }
-    for (const ws of semanasUnicas.values()) {
-      cacheVistaRef.current.delete(claveRango(rangoSemana(ws)));
-    }
-    const primeraSemana = weekStart(fechas[0]);
-    const otraSemana = localDate(primeraSemana) !== localDate(semana);
-    if (otraSemana) setSemana(primeraSemana);
-    return { navego: otraSemana };
+    // "¿la primera fecha cae dentro de la ventana visible?" — antes era
+    // "¿su weekStart coincide con `semana`?", que dejó de ser equivalente en
+    // cuanto weekStart dejó de redondear a lunes (dos fechas de la MISMA
+    // ventana progresiva ya no comparten weekStart salvo que una de ellas
+    // sea justo el primer día). Sin este cambio, crear una clase el jueves
+    // con la ventana abierta en miércoles (ambos en la misma semana visible)
+    // disparaba una navegación innecesaria.
+    const primera = fechas[0];
+    const dentroDeLaVentana = dias.some(d => localDate(d) === localDate(primera));
+    if (!dentroDeLaVentana) setSemana(weekStart(primera));
+    return { navego: !dentroDeLaVentana };
   }
 
   async function crearSesion() {
@@ -1356,7 +1385,7 @@ export default function Calendario() {
 
   const rango: RangoFechas = vista === 'dia' ? rangoDia(diaSeleccionado)
     : vista === 'mes' ? rangoMes(mesVisto)
-    : rangoSemana(semana);
+    : rangoSemanaDesde(semana);
   const claveVista = claveRango(rango);
 
   const cargarDatosVista = useCallback(async (r: RangoFechas) => {
@@ -1489,7 +1518,6 @@ export default function Calendario() {
     const porSala = filtroSala === 'todas' ? sesionesVistaFiltradas : sesionesVistaFiltradas.filter(s => s.salaId === filtroSala);
     const cols: SesionSemana[] = porSala.map(s => {
       const r = reservasPorSesion.get(s.id) ?? [];
-      const d = new Date(s.inicio).getDay();
       return {
         id: s.id,
         inicioMin: new Date(s.inicio).getHours() * 60 + new Date(s.inicio).getMinutes(),
@@ -1499,12 +1527,12 @@ export default function Calendario() {
         confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
         enEspera: r.filter(x => x.estado === 'LISTA_ESPERA').length,
         aforoMaximo: s.aforoMaximo,
-        dia: d === 0 ? 6 : d - 1,
+        dia: columnaPorFecha.get(localDate(s.inicio)) ?? 0,
         finalizada: now.getTime() >= new Date(s.fin).getTime(),
       };
     });
-    return prepararColumnasDiaSemana(cols, datosVista.horarioSemana);
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala, now]);
+    return prepararColumnasDiaSemana(cols, dias, datosVista.horarioSemana);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala, now, columnaPorFecha, dias]);
 
   // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
   // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
@@ -1594,7 +1622,7 @@ export default function Calendario() {
       const enEspera = r.filter(x => x.estado === 'LISTA_ESPERA').length;
       const sala = datosVista.salas.find(x => x.id === s.salaId);
       const d = new Date(s.inicio);
-      const dia = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      const dia = columnaPorFecha.get(localDate(s.inicio)) ?? 0;
       return {
         id: s.id, sesionId: s.id,
         estado: estadoPorSesion.get(s.id) ?? 'PROGRAMADA',
@@ -1606,7 +1634,7 @@ export default function Calendario() {
         finalizada: now.getTime() >= new Date(s.fin).getTime(),
       };
     });
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, vista, now]);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, vista, now, columnaPorFecha]);
 
   const decisiones = useMemo(() => decisionesOrdenadas(itemsDecision), [itemsDecision]);
 
