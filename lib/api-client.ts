@@ -739,6 +739,23 @@ export async function aprobarCobroAutonomo(params: {
   return aviso ? { ok: true, ...aviso } : { ok: true };
 }
 
+// "Cobrar online" desde Cobros → Clienta: reintento off-session real con la
+// tarjeta/SEPA ya guardado de la socia, sin generar ningún enlace ni pedirle
+// nada — sustituye a crearCheckoutStripe para este botón (esa función crea un
+// Checkout Session público, pensado para /reservar y el portal, no para un
+// reintento desde el panel). Mismo 202/CobroAprobado que aprobarCobroAutonomo.
+export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string }> {
+  const res = await fetch('/api/cobros/cobrar-online', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  const aviso = leerAvisoCobro(data);
+  return aviso ? { ok: true, ...aviso } : { ok: true };
+}
+
 // Fase 3: aprueba un cobro de penalización pendiente (cancelación
 // tardía/no-show) con la tarjeta ya guardada de la socia.
 // Mismo 202 que `aprobarCobroAutonomo`: el cargo entró en Stripe y la

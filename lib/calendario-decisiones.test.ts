@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { decisionesOrdenadas, accionParaEstado, reservasParaPasarLista, type ItemDecision } from './calendario-decisiones.ts';
 
 const item = (o: Partial<ItemDecision> & Pick<ItemDecision, 'sesionId' | 'estado'>): ItemDecision => ({
-  dia: 0, inicioMin: 480, enEspera: 0, sobreaforo: 0, huecosLibres: 0, ...o,
+  dia: 0, inicioMin: 480, enEspera: 0, sobreaforo: 0, huecosLibres: 0, finalizada: false, ...o,
 });
 
 // ── decisionesOrdenadas ──────────────────────────────────────────────────────

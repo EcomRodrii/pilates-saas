@@ -1478,10 +1478,11 @@ export default function Calendario() {
           confirmadas: r.filter(x => x.estado === 'CONFIRMADA' || x.estado === 'ASISTIDA').length,
           enEspera: r.filter(x => x.estado === 'LISTA_ESPERA').length,
           aforoMaximo: s.aforoMaximo,
+          finalizada: now.getTime() >= new Date(s.fin).getTime(),
         };
       });
     return prepararColumnasSalaDia(cols, datosVista.salas, filtroSala);
-  }, [datosVista, sesionesVistaFiltradas, diaSeleccionado, reservasPorSesion, estadoPorSesion, filtroSala]);
+  }, [datosVista, sesionesVistaFiltradas, diaSeleccionado, reservasPorSesion, estadoPorSesion, filtroSala, now]);
 
   const columnasSemana = useMemo(() => {
     if (!datosVista) return [];
@@ -1499,10 +1500,11 @@ export default function Calendario() {
         enEspera: r.filter(x => x.estado === 'LISTA_ESPERA').length,
         aforoMaximo: s.aforoMaximo,
         dia: d === 0 ? 6 : d - 1,
+        finalizada: now.getTime() >= new Date(s.fin).getTime(),
       };
     });
     return prepararColumnasDiaSemana(cols, datosVista.horarioSemana);
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala]);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, filtroSala, now]);
 
   // La rejilla (Día/Semana) se recortaba EXACTAMENTE al horario del estudio
   // (studios.hora_apertura/hora_cierre): una clase real que empezara antes o
@@ -1542,11 +1544,11 @@ export default function Calendario() {
         confirmadas,
         aforoMaximo: s.aforoMaximo,
         cancelada: s.cancelada,
-        pideAtencion: pideDecision(estado, { enEspera, sobreaforo, huecosLibres }),
+        pideAtencion: pideDecision(estado, { enEspera, sobreaforo, huecosLibres, finalizada: now.getTime() >= new Date(s.fin).getTime() }),
       };
     });
     return agregarPorDiaMes(sesiones);
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion]);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, now]);
 
   // ── Métricas (punto 8: hablan de lo que se está mirando) ────────────────────
   const tarjetas = useMemo(() => {
@@ -1601,9 +1603,10 @@ export default function Calendario() {
         enEspera,
         sobreaforo: sala ? Math.max(0, s.aforoMaximo - sala.capacidad) : 0,
         huecosLibres: Math.max(0, s.aforoMaximo - confirmadas),
+        finalizada: now.getTime() >= new Date(s.fin).getTime(),
       };
     });
-  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, vista]);
+  }, [datosVista, sesionesVistaFiltradas, reservasPorSesion, estadoPorSesion, vista, now]);
 
   const decisiones = useMemo(() => decisionesOrdenadas(itemsDecision), [itemsDecision]);
 

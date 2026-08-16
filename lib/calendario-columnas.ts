@@ -19,6 +19,8 @@ export interface SesionColumna {
   confirmadas: number;
   enEspera: number;
   aforoMaximo: number;
+  /** La clase ya terminó (fecha real, no solo finMin del día) — ver nota en pideDecision. */
+  finalizada: boolean;
 }
 
 export interface SesionEnColumna extends SesionColumna {
@@ -59,6 +61,7 @@ export function prepararColumnasSalaDia(
       enEspera: s.enEspera,
       sobreaforo: Math.max(0, s.aforoMaximo - sala.capacidad),
       huecosLibres: Math.max(0, s.aforoMaximo - s.confirmadas),
+      finalizada: s.finalizada,
     }));
 
     return { sala, sesiones: conCarril, ocupacionMedia, hayAtencion };
@@ -121,6 +124,7 @@ export function prepararColumnasDiaSemana(sesiones: SesionSemana[], horarioSeman
       enEspera: s.enEspera,
       sobreaforo: 0,
       huecosLibres: Math.max(0, s.aforoMaximo - s.confirmadas),
+      finalizada: s.finalizada,
     }));
 
     return { dia, sesiones: conCarril, ocupacionMedia, hayAtencion, vacio: delDia.length === 0, cerrado: cerradoPorDia.get(dia) ?? false };

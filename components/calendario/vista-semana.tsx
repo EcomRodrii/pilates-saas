@@ -53,9 +53,26 @@ export function VistaSemana({
   // Mismo criterio que VistaDiaSalas: solo al abrir (eslint-disable a
   // propósito, ver ese componente). Sin "hoy" en la semana mostrada, no hay
   // "ahora" que perseguir — abre arriba del todo.
+  //
+  // El scroll HORIZONTAL faltaba del todo: por debajo de ANCHO_MIN_COLUMNA_PX
+  // las 7 columnas no caben y este contenedor scrollea en horizontal (arriba),
+  // pero arrancaba siempre en 0 — se veía "Lun" primero aunque hoy fuera
+  // domingo (última columna), con el resaltado de HOY correcto pero fuera de
+  // la vista inicial sin desplazarse a mano. `data-dia-index` ya existe en
+  // cada columna del cuerpo (más abajo) para esto.
   useEffect(() => {
     const min = hoyIndex != null ? ahoraMin ?? null : null;
-    scrollRef.current?.scrollTo({ top: calcularScrollInicial(min, horaInicioMin, horaFinMin, pxPorHora) });
+    const top = calcularScrollInicial(min, horaInicioMin, horaFinMin, pxPorHora);
+    const contenedor = scrollRef.current;
+    let left: number | undefined;
+    if (hoyIndex != null && contenedor) {
+      const col = contenedor.querySelector<HTMLElement>(`[data-dia-index="${hoyIndex}"]`);
+      if (col) {
+        const centrado = col.offsetLeft + col.offsetWidth / 2 - contenedor.clientWidth / 2;
+        left = Math.max(0, Math.min(centrado, contenedor.scrollWidth - contenedor.clientWidth));
+      }
+    }
+    contenedor?.scrollTo({ top, ...(left != null ? { left } : {}) });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `[]` a propósito, ver el comentario de arriba. La regla señala la línea del array de dependencias, no la del `useEffect`.
   }, []);
   const horas: { label: string; topPx: number }[] = [];

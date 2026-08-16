@@ -148,3 +148,27 @@ test('pideDecision: EN_CURSO con sobreaforo SÍ pide decisión (ajustar aforo), 
 test('pideDecision: CANCELADA nunca pide decisión, aunque tenga espera/sobreaforo/hueco libre', () => {
   assert.equal(pideDecision('CANCELADA', { enEspera: 5, sobreaforo: 3, huecosLibres: 2 }), false);
 });
+
+// Regresión: una propietaria vio "1 clase necesita una decisión" apuntando a
+// una clase de 6 días atrás — SIN_INSTRUCTORA/INCIDENCIA/CONFLICTO no miraban
+// si la clase ya había pasado.
+test('pideDecision: SIN_INSTRUCTORA/INCIDENCIA/CONFLICTO finalizadas ya NO piden decisión (histórico, no accionable)', () => {
+  for (const e of ['SIN_INSTRUCTORA', 'INCIDENCIA', 'CONFLICTO'] as const) {
+    assert.equal(pideDecision(e, { enEspera: 0, sobreaforo: 0, huecosLibres: 0, finalizada: true }), false, e);
+  }
+});
+
+test('pideDecision: SIN_INSTRUCTORA/INCIDENCIA/CONFLICTO sin finalizar SIGUEN pidiendo decisión (no se rompe el caso normal)', () => {
+  for (const e of ['SIN_INSTRUCTORA', 'INCIDENCIA', 'CONFLICTO'] as const) {
+    assert.equal(pideDecision(e, { enEspera: 0, sobreaforo: 0, huecosLibres: 0, finalizada: false }), true, e);
+  }
+});
+
+test('pideDecision: SIN_PASAR_LISTA sigue pidiendo decisión aunque la clase esté finalizada — es la excepción, solo existe una vez terminada', () => {
+  assert.equal(pideDecision('SIN_PASAR_LISTA', { enEspera: 0, sobreaforo: 0, huecosLibres: 0, finalizada: true }), true);
+});
+
+test('pideDecision: lista de espera/sobreaforo de una clase finalizada tampoco piden decisión — no se puede ofrecer una plaza de una clase que ya pasó', () => {
+  assert.equal(pideDecision('PROGRAMADA', { enEspera: 2, sobreaforo: 0, huecosLibres: 1, finalizada: true }), false);
+  assert.equal(pideDecision('EN_CURSO', { enEspera: 0, sobreaforo: 1, huecosLibres: 0, finalizada: true }), false);
+});
