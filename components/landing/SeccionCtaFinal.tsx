@@ -1,8 +1,26 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { X } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { esExterno, PIE_V5 } from './enlaces';
+
+// Redes sociales de Tentare (la marca, no las del estudio — esas son
+// per-estudio en el Theme Builder, ver REDES_SOCIALES en /reservar/[slug]).
+const REDES_TENTARE = [
+  { href: 'https://x.com/tentaresoftware', label: 'X (Twitter)', Icono: X },
+  { href: 'https://www.instagram.com/tentareapp/', label: 'Instagram', Icono: IconoInstagram },
+];
+
+function IconoInstagram({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+      <rect x={3} y={3} width={18} height={18} rx={5} />
+      <circle cx={12} cy={12} r={4} />
+      <circle cx={17.2} cy={6.8} r={1.1} fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
 // Sección 13 ("CTA final") + pie de página de la landing v5.
 //
@@ -48,6 +66,13 @@ export function SeccionCtaFinal() {
                 Contáctanos por correo en <a href={`mailto:${SOPORTE_EMAIL}`}>{SOPORTE_EMAIL}</a> o por{' '}
                 <a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a> — respuestas humanas.
               </p>
+              <div className="v5-pie-redes">
+                {REDES_TENTARE.map(({ href, label, Icono }) => (
+                  <a key={href} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
+                    <Icono size={16} />
+                  </a>
+                ))}
+              </div>
             </div>
             {PIE_V5.map((col) => (
               <div key={col.titulo} className="v5-pie-col">
@@ -93,6 +118,9 @@ export function SeccionCtaFinal() {
         .v5-pie-contacto { font-size: 13px; line-height: 1.6; color: #8E8E86; max-width: 34ch; margin: 0; }
         .v5-pie-contacto a { color: #D9C29E; }
         .v5-pie-contacto a:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .v5-pie-redes { display: flex; align-items: center; gap: 14px; }
+        .v5-pie-redes a { display: flex; color: #A6A69E; transition: color .2s; }
+        .v5-pie-redes a:hover { color: #fff; }
         .v5-pie-col { display: flex; flex-direction: column; gap: 11px; font-size: 13.5px; color: #A6A69E; }
         .v5-pie-col a { color: #A6A69E; }
         .v5-pie-col a:hover { color: #fff; }
