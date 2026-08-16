@@ -49,18 +49,24 @@ export function VistaSemana({
 }: VistaSemanaProps) {
   const altoTotal = ((horaFinMin - horaInicioMin) / 60) * pxPorHora;
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Se dispara UNA VEZ, la primera vez que hay columnas de verdad — no en el
+  // montaje a secas. VistaSemana vive dentro de un ternario en page.tsx (no
+  // se desmonta al cambiar de pestaña mientras siga en semana), así que si
+  // llega a montarse ANTES de que `datosVista` termine de cargar, `columnas`
+  // llega vacío en el primer render: el useEffect de montaje disparaba sin
+  // ninguna columna todavía en el DOM, el `querySelector` de abajo nunca
+  // encontraba nada, y el salto horizontal a "hoy" no se hacía — silenciosamente,
+  // sin volver a intentarlo cuando los datos por fin llegaban. Este ref evita
+  // repetirlo en cada refresco posterior (eso SÍ resetearía el scroll del
+  // usuario cada vez que se refrescan datos, el motivo original del `[]`).
+  const yaPosicionado = useRef(false);
 
-  // Mismo criterio que VistaDiaSalas: solo al abrir (eslint-disable a
+  // Mismo criterio que VistaDiaSalas para el vertical (eslint-disable a
   // propósito, ver ese componente). Sin "hoy" en la semana mostrada, no hay
   // "ahora" que perseguir — abre arriba del todo.
-  //
-  // El scroll HORIZONTAL faltaba del todo: por debajo de ANCHO_MIN_COLUMNA_PX
-  // las 7 columnas no caben y este contenedor scrollea en horizontal (arriba),
-  // pero arrancaba siempre en 0 — se veía "Lun" primero aunque hoy fuera
-  // domingo (última columna), con el resaltado de HOY correcto pero fuera de
-  // la vista inicial sin desplazarse a mano. `data-dia-index` ya existe en
-  // cada columna del cuerpo (más abajo) para esto.
   useEffect(() => {
+    if (yaPosicionado.current || columnas.length === 0) return;
+    yaPosicionado.current = true;
     const min = hoyIndex != null ? ahoraMin ?? null : null;
     const top = calcularScrollInicial(min, horaInicioMin, horaFinMin, pxPorHora);
     const contenedor = scrollRef.current;
@@ -73,8 +79,8 @@ export function VistaSemana({
       }
     }
     contenedor?.scrollTo({ top, ...(left != null ? { left } : {}) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `[]` a propósito, ver el comentario de arriba. La regla señala la línea del array de dependencias, no la del `useEffect`.
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ahoraMin/horaInicioMin/horaFinMin/pxPorHora se omiten a propósito: solo importan la PRIMERA vez que se ejecuta de verdad (guardado por yaPosicionado), no en cada recálculo.
+  }, [columnas, hoyIndex]);
   const horas: { label: string; topPx: number }[] = [];
   for (let m = horaInicioMin; m <= horaFinMin; m += 60) {
     horas.push({ label: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, topPx: ((m - horaInicioMin) / 60) * pxPorHora });
