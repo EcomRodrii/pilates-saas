@@ -610,12 +610,33 @@ function BookingSheet({
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)', fontFamily }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50, display: 'flex',
+        // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
+        alignItems: 'flex-end', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)', fontFamily,
+      }}
     >
       <div
         onClick={e => e.stopPropagation()}
+        // Medido en el navegador a 1280px: esto era una banda a TODO el ancho
+        // pegada al borde inferior, con ~1000px de vacío entre cada etiqueta y
+        // su valor («HORARIO ......... 10:00 – 10:50») y un botón «RESERVAR» de
+        // 1240px. Un patrón de móvil ampliado, no un diseño de escritorio.
+        //
+        // Se arregla con un `maxWidth` y el centrado del padre, SIN CSS nuevo y
+        // sin media queries: por debajo de 560px sigue siendo exactamente la
+        // hoja de siempre (el 100% manda), y por encima queda una tarjeta
+        // centrada del ancho de una columna legible.
+        //
+        // ⚠️ Con una clase CSS habría quedado mejor (diálogo centrado en
+        // vertical), pero este componente es inline-styled A PROPÓSITO: también
+        // lo compila esbuild para el bundle embebido, sin Tailwind ni PostCSS
+        // (solo `animate-spin`, resuelto a mano en widget.css). Una clase nueva
+        // habría que duplicarla ahí, y el widget incrustado se vería distinto
+        // del alojado en cuanto una de las dos se quedara atrás.
         style={{
-          width: '100%', background: t.bg, borderRadius: '24px 24px 0 0',
+          width: '100%', maxWidth: 560, background: t.bg, borderRadius: '24px 24px 0 0',
           padding: `10px 20px ${sheetBottomPadding}`, display: 'flex', flexDirection: 'column', gap: 14,
           maxHeight: '88vh', overflowY: 'auto',
         }}

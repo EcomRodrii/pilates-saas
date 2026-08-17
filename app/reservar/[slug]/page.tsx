@@ -1712,29 +1712,27 @@ export default function ReservarPage() {
                   esta columna tiene que ser lo que se USA, no lo que se lee una
                   vez. Se pinta solo si algún filtro tiene de verdad más de una
                   opción (ver RailFiltros). */}
-              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '20px 22px' }}>
-                <RailFiltros
-                  clases={slotsParaFiltros}
-                  estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
-                  onCambiar={(campo, valor) => {
-                    if (campo === 'tipo') setFiltroTipo(valor);
-                    else if (campo === 'instructor') setFiltroInstructor(valor);
-                    else if (campo === 'nivel') setFiltroNivel(valor);
-                    else if (campo === 'sala') setFiltroSala(valor);
-                    else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
-                  }}
-                  onLimpiar={() => {
-                    setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
-                    setFiltroHorario(''); setFiltroDias([]); setFiltroSala('');
-                  }}
-                  nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, sala: filtroSala, dias: filtroDias })}
-                  nResultados={slots.length}
-                  etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
-                  etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
-                  horarioDe={(c) => (c as { horario?: string | null }).horario ?? null}
-                  fontFamily={sans}
-                />
-              </div>
+              <RailFiltros
+                clases={slotsParaFiltros}
+                estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
+                onCambiar={(campo, valor) => {
+                  if (campo === 'tipo') setFiltroTipo(valor);
+                  else if (campo === 'instructor') setFiltroInstructor(valor);
+                  else if (campo === 'nivel') setFiltroNivel(valor);
+                  else if (campo === 'sala') setFiltroSala(valor);
+                  else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
+                }}
+                onLimpiar={() => {
+                  setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
+                  setFiltroHorario(''); setFiltroDias([]); setFiltroSala('');
+                }}
+                nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, sala: filtroSala, dias: filtroDias })}
+                nResultados={slots.length}
+                etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
+                etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
+                horarioDe={(c) => (c as { horario?: string | null }).horario ?? null}
+                fontFamily={sans}
+              />
 
               <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
