@@ -118,11 +118,13 @@ export function mapFilaAExperienciaPublica(f: Omit<FilaRedExperiencia, 'perfil_i
 
 export function mapFilaAPerfilPublico(
   f: FilaRedPerfilPublica, experienciaVerificada: boolean, resumenResenas: ResumenResenas = { promedio: null, total: 0 },
+  certificacionVerificada = false,
 ): PerfilNetworkPublico {
   return {
     id: f.id,
     slug: f.slug,
     experienciaVerificada,
+    certificacionVerificada,
     resumenResenas,
     nombre: f.nombre,
     fotoUrl: f.foto_url,

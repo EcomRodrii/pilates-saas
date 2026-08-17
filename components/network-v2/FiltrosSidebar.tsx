@@ -196,6 +196,16 @@ export function FiltrosSidebar() {
             </span>
             <span onClick={() => actualizar('experienciaVerificada', searchParams.get('experienciaVerificada') === '1' ? null : '1')}>Experiencia verificada</span>
           </label>
+          <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
+            <span
+              className="shrink-0 flex items-center justify-center transition-colors"
+              style={{ width: 19, height: 19, borderRadius: 6, background: searchParams.get('certificacionVerificada') === '1' ? NW_PRODUCTO : '#fff', border: `1.5px solid ${searchParams.get('certificacionVerificada') === '1' ? NW_PRODUCTO : NW_BORDE}` }}
+              onClick={() => actualizar('certificacionVerificada', searchParams.get('certificacionVerificada') === '1' ? null : '1')}
+            >
+              {searchParams.get('certificacionVerificada') === '1' && <Check size={13} color="#fff" strokeWidth={3} />}
+            </span>
+            <span onClick={() => actualizar('certificacionVerificada', searchParams.get('certificacionVerificada') === '1' ? null : '1')}>Formación verificada</span>
+          </label>
         </div>
       </Grupo>
     </div>
@@ -228,10 +238,13 @@ export function ChipsActivos() {
   if (searchParams.get('experienciaVerificada') === '1') {
     chips.push({ clave: 'experienciaVerificada', valor: '1', etiqueta: 'Experiencia verificada' });
   }
+  if (searchParams.get('certificacionVerificada') === '1') {
+    chips.push({ clave: 'certificacionVerificada', valor: '1', etiqueta: 'Formación verificada' });
+  }
 
   if (chips.length === 0) return null;
 
-  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada']);
+  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada', 'certificacionVerificada']);
 
   function quitar(clave: string, valor: string) {
     const sp = new URLSearchParams(searchParams.toString());

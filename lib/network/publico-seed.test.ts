@@ -12,7 +12,7 @@ import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 const SIN_FILTROS: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [],
-  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null,
+  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null,
 };
 
 const [marta, sofia] = PERFILES_SEED_E2E;
@@ -68,6 +68,12 @@ test('slugCiudadUrl: minúsculas y espacios a guiones, SIN quitar tildes (round-
   assert.equal(slugCiudadUrl('Madrid'), 'madrid');
   assert.equal(slugCiudadUrl('Alcalá de Henares'), 'alcalá-de-henares');
   assert.equal(slugCiudadUrl('  Barcelona  '), 'barcelona');
+});
+
+test('soloCertificacionVerificada: Marta true, Sofía false', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloCertificacionVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
 });
 
 test('valoracionMinima: Sofía sin reseñas (promedio null) nunca cumple un mínimo pedido', () => {
