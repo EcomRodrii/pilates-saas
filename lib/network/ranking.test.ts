@@ -4,7 +4,7 @@ import { ordenarResultadosNetwork } from './ranking.ts';
 import type { PerfilNetworkPublico, FiltroBusquedaNetwork } from './tipos.ts';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
-  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null,
+  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null,
 };
 
 function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): PerfilNetworkPublico {
@@ -13,7 +13,7 @@ function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): Perf
     destacado: false,
     resumenResenas: { promedio: null, total: 0 },
     nombre: 'Test', fotoUrl: null, ciudad: null, zona: null, radioKm: null, descripcion: null,
-    especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false,
+    especialidades: [], aniosExperiencia: null, tarifaRango: null, experienciaVerificada: false, certificacionVerificada: false,
     disponibilidadEstado: 'no_disponible', disponibilidadHorarios: [], tipoTrabajo: [],
     estado: 'published', identidadVerificadaEn: null,
     creadoEn: '2026-01-01T00:00:00Z', actualizadoEn: '2026-01-01T00:00:00Z', ultimoAccesoEn: null,
