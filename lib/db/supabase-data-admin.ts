@@ -1632,13 +1632,27 @@ export async function ofrecerPlazaLibre(params: {
   if (!admin) throw new Error('Service role no configurada');
 
   const { data: ses } = await admin.from('sesiones')
-    .select('aforo_maximo, tipo_clase_id, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+    .select('tipo_clase_id, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
   if (!ses || ses.cancelada) return { error: 'Esta clase no está disponible' };
 
+  // I-9: esto comparaba contra `aforo_maximo` CRUDO, que ignora las máquinas
+  // averiadas. Con una avería registrada se ofrecía una plaza que no existe — y
+  // desde que aceptar una oferta comprueba el aforo de verdad (C-4), esa oferta
+  // fantasma le cuesta el sitio a la socia: acepta a tiempo, se encuentra la
+  // clase llena, pierde la plaza y gasta una recuperación por un hueco que nunca
+  // estuvo libre. Se usa la misma fuente que `reservar_plaza`.
+  const { data: aforo, error: errAforo } = await admin.rpc('aforo_efectivo', { p_sesion_id: params.sesionId });
+  if (errAforo) {
+    reportDbError('[ofrecerPlazaLibre] no se pudo calcular el aforo efectivo', errAforo);
+    return { error: 'No se ha podido comprobar el aforo de esta clase' };
+  }
   const { count: confirmadas } = await admin.from('reservas')
     .select('id', { count: 'exact', head: true })
     .eq('sesion_id', params.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']);
-  if ((confirmadas ?? 0) >= (ses.aforo_maximo as number)) {
+  // `null` = sesión sin aforo definido, mismo criterio que reservar_plaza: no
+  // hay límite que respetar.
+  const limite = aforo as number | null;
+  if (limite != null && (confirmadas ?? 0) >= limite) {
     return { error: 'No hay ningún hueco libre en esta clase ahora mismo' };
   }
 
@@ -1996,6 +2010,29 @@ export async function cancelarReservaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
+
+  // I-7: el camino de CREAR tiene su guardia de "clase ya empezada"
+  // (crearReservaPublica), el de cancelar no la tenía en ninguna capa — ni aquí
+  // ni en `cancelar_reserva_plaza`, que solo mira `inicio` para decidir si la
+  // cancelación es TARDÍA, no para impedirla. Cancelar por API una clase ya
+  // terminada encadenaba la promoción de la lista de espera y la devolución de
+  // bono sobre una clase que ya se ha dado.
+  //
+  // La guardia va AQUÍ y no dentro de la RPC a propósito: mostrador sí puede
+  // necesitar cancelar una reserva pasada para cuadrar el histórico, y la RPC
+  // es el camino común de las dos. Mismo criterio que la guardia de crear, que
+  // también vive en la capa pública y no en `reservar_plaza`.
+  const { data: reservaRow } = await admin.from('reservas')
+    .select('sesion_id').eq('id', params.reservaId).eq('studio_id', params.studioId)
+    .eq('socio_id', params.socioId).maybeSingle();
+  if (reservaRow?.sesion_id) {
+    const { data: sesionRow } = await admin.from('sesiones')
+      .select('inicio').eq('id', reservaRow.sesion_id as string).maybeSingle();
+    if (sesionRow?.inicio && new Date(sesionRow.inicio as string).getTime() <= Date.now()) {
+      return { error: 'Esta clase ya ha empezado: habla con el estudio si necesitas anularla.' as const };
+    }
+  }
+
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
   const r = await ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
   if ('error' in r) return r;
