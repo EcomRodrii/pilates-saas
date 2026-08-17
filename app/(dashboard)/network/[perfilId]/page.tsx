@@ -169,6 +169,14 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
             <p className="text-[13px] text-foreground">{perfil.aniosExperiencia} años</p>
           </div>
         )}
+        {experiencias.length > 0 && (
+          <div className={`${cardCls} p-6`}>
+            <h3 className="text-[14px] font-semibold text-foreground mb-1">Experiencia en estudios</h3>
+            <p className="text-[13px] text-foreground">
+              {new Set(experiencias.map(e => e.studioId ?? e.nombreEstudio)).size} estudios
+            </p>
+          </div>
+        )}
         {perfil.tarifaRango && (
           <div className={`${cardCls} p-6`}>
             <h3 className="text-[14px] font-semibold text-foreground mb-1">Tarifa orientativa</h3>

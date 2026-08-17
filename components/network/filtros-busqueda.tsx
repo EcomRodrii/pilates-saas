@@ -6,6 +6,7 @@ import {
   HORARIOS_NETWORK, HORARIO_LABEL,
   TIPOS_TRABAJO_NETWORK, TIPO_TRABAJO_LABEL,
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
+  TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
 } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
 import { inputCls, labelCls } from '@/app/(dashboard)/configuracion/page';
@@ -15,6 +16,12 @@ const EXPERIENCIA_OPCIONES = [
   { valor: 1, etiqueta: '1+ años' },
   { valor: 3, etiqueta: '3+ años' },
   { valor: 5, etiqueta: '5+ años' },
+] as const;
+
+const VALORACION_OPCIONES = [
+  { valor: null, etiqueta: 'Cualquiera' },
+  { valor: 4, etiqueta: '4+ ★' },
+  { valor: 4.5, etiqueta: '4,5+ ★' },
 ] as const;
 
 export function FiltrosBusquedaNetwork({
@@ -91,6 +98,58 @@ export function FiltrosBusquedaNetwork({
               {etiqueta}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div>
+        <p className={labelCls}>Tarifa</p>
+        <SelectorChips
+          opciones={TARIFAS_RANGO_NETWORK.map(v => ({ valor: v, etiqueta: TARIFA_RANGO_LABEL[v] }))}
+          seleccion={filtro.tarifaRango}
+          onChange={tarifaRango => onChange({ ...filtro, tarifaRango })}
+        />
+      </div>
+
+      <div>
+        <p className={labelCls}>Valoración mínima</p>
+        <div className="flex flex-wrap gap-2">
+          {VALORACION_OPCIONES.map(({ valor, etiqueta }) => (
+            <button
+              key={etiqueta}
+              type="button"
+              onClick={() => onChange({ ...filtro, valoracionMinima: valor })}
+              aria-pressed={filtro.valoracionMinima === valor}
+              className={
+                filtro.valoracionMinima === valor
+                  ? 'px-3 py-1.5 rounded-full text-[12px] font-medium border bg-brand text-brand-foreground border-brand'
+                  : 'px-3 py-1.5 rounded-full text-[12px] font-medium border bg-card text-foreground border-border hover:bg-muted'
+              }
+            >
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className={labelCls}>Verificación</p>
+        <div className="flex flex-wrap gap-2">
+          <label className="flex items-center gap-1.5 text-[12.5px] text-foreground">
+            <input
+              type="checkbox"
+              checked={filtro.soloIdentidadVerificada}
+              onChange={e => onChange({ ...filtro, soloIdentidadVerificada: e.target.checked })}
+            />
+            Identidad verificada
+          </label>
+          <label className="flex items-center gap-1.5 text-[12.5px] text-foreground">
+            <input
+              type="checkbox"
+              checked={filtro.soloExperienciaVerificada}
+              onChange={e => onChange({ ...filtro, soloExperienciaVerificada: e.target.checked })}
+            />
+            Experiencia verificada
+          </label>
         </div>
       </div>
     </div>
