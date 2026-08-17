@@ -116,6 +116,12 @@ export interface FiltroBusquedaNetwork {
   // tarjeta — mismo dato, filtrado después en vez de un `HAVING` en SQL
   // (supabase-js no hace GROUP BY).
   valoracionMinima: number | null;
+  // `red_perfiles.idiomas` es texto libre por diseño (migración
+  // 20260813223506: "Español (nativo), Inglés (avanzado)", sin catálogo
+  // fijo). Coincidencia parcial sin distinguir mayúsculas sobre CUALQUIER
+  // elemento del array — mismo criterio que `ciudad`, pero en JS (post-
+  // query) porque es un array, no una columna de texto simple.
+  idioma: string | null;
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.

@@ -67,6 +67,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     soloExperienciaVerificada: sp.get('experienciaVerificada') === '1',
     soloCertificacionVerificada: sp.get('certificacionVerificada') === '1',
     valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
+    idioma: sp.get('idioma')?.trim() || null,
   };
 }
 
@@ -144,6 +145,7 @@ export function perfilCoincideFiltro(p: PerfilNetworkPublico, filtro: FiltroBusq
   if (filtro.soloExperienciaVerificada && !p.experienciaVerificada) return false;
   if (filtro.soloCertificacionVerificada && !p.certificacionVerificada) return false;
   if (filtro.valoracionMinima != null && (p.resumenResenas.promedio == null || p.resumenResenas.promedio < filtro.valoracionMinima)) return false;
+  if (filtro.idioma && !p.idiomas.some(i => i.toLowerCase().includes(filtro.idioma!.toLowerCase()))) return false;
   return true;
 }
 
@@ -221,6 +223,13 @@ export async function buscarPerfilesPublico(
   if (filtro.valoracionMinima != null) {
     const minimo = filtro.valoracionMinima;
     perfiles = perfiles.filter(p => p.resumenResenas.promedio != null && p.resumenResenas.promedio >= minimo);
+  }
+  // `idiomas` es un array de texto libre (sin catálogo fijo) — coincidencia
+  // parcial en JS, no `.ilike` de SQL (eso solo sirve sobre una columna de
+  // texto simple como `ciudad`).
+  if (filtro.idioma) {
+    const idioma = filtro.idioma.toLowerCase();
+    perfiles = perfiles.filter(p => p.idiomas.some(i => i.toLowerCase().includes(idioma)));
   }
 
   return { perfiles: ordenarResultadosNetwork(perfiles, filtro) };

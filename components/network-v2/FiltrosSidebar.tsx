@@ -48,6 +48,7 @@ export function FiltrosSidebar() {
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
   const [ciudad, setCiudad] = useState(searchParams.get('ciudad') ?? '');
+  const [idioma, setIdioma] = useState(searchParams.get('idioma') ?? '');
 
   function actualizar(clave: string, valor: string | null) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -208,6 +209,18 @@ export function FiltrosSidebar() {
           </label>
         </div>
       </Grupo>
+
+      <Grupo titulo="Idioma">
+        <input
+          value={idioma}
+          onChange={e => setIdioma(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && actualizar('idioma', idioma || null)}
+          onBlur={() => actualizar('idioma', idioma || null)}
+          placeholder="Inglés, francés..."
+          className="w-full px-3 py-2.5 text-[13.5px] outline-none"
+          style={{ border: `1px solid ${NW_BORDE}`, borderRadius: 13, color: NW_TINTA }}
+        />
+      </Grupo>
     </div>
   );
 }
@@ -238,13 +251,16 @@ export function ChipsActivos() {
   if (searchParams.get('experienciaVerificada') === '1') {
     chips.push({ clave: 'experienciaVerificada', valor: '1', etiqueta: 'Experiencia verificada' });
   }
+  if (searchParams.get('idioma')) {
+    chips.push({ clave: 'idioma', valor: searchParams.get('idioma')!, etiqueta: searchParams.get('idioma')! });
+  }
   if (searchParams.get('certificacionVerificada') === '1') {
     chips.push({ clave: 'certificacionVerificada', valor: '1', etiqueta: 'Formación verificada' });
   }
 
   if (chips.length === 0) return null;
 
-  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada', 'certificacionVerificada']);
+  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada', 'certificacionVerificada', 'idioma']);
 
   function quitar(clave: string, valor: string) {
     const sp = new URLSearchParams(searchParams.toString());

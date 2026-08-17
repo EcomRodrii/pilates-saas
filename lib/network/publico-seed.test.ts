@@ -12,7 +12,7 @@ import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 const SIN_FILTROS: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [],
-  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null,
+  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 const [marta, sofia] = PERFILES_SEED_E2E;
@@ -74,6 +74,15 @@ test('soloCertificacionVerificada: Marta true, Sofía false', () => {
   const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloCertificacionVerificada: true };
   assert.equal(perfilCoincideFiltro(marta, f), true);
   assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('idioma: substring sin distinguir mayúsculas sobre cualquier elemento del array', () => {
+  // Marta: ['es', 'en'] — perfil de seed tiene idiomas cortos, sin acentos.
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'en' }), true);
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'EN' }), true);
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'fr' }), false);
+  // Sofía: ['es'] únicamente.
+  assert.equal(perfilCoincideFiltro(sofia, { ...SIN_FILTROS, idioma: 'en' }), false);
 });
 
 test('valoracionMinima: Sofía sin reseñas (promedio null) nunca cumple un mínimo pedido', () => {
