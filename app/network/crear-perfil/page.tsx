@@ -358,6 +358,32 @@ export default function CrearPerfilNetworkPage() {
     );
   }
 
+  // ⚠️ Antes esto era `i < paso` — "he pasado por aquí", no "este paso
+  // tiene datos reales". Como ningún campo entre el 2 y el 9 era
+  // obligatorio para avanzar, se podía pulsar Continuar sin tocar nada y
+  // el rail pintaba ✓ igual. Ahora cada paso comprueba SU dato real —
+  // mismo criterio que ya arregló pasoIncompletoDe en lib/network/
+  // pasos-onboarding.ts para la reanudación. Formación (índice 5) es la
+  // única excepción a propósito: es opcional ("Lo haré más tarde"), así
+  // que no se le exige dato para no contradecir esa salida. Revisar/
+  // Publicar (10-11) son pantallas de navegación, no de datos — se quedan
+  // con el criterio anterior.
+  function pasoEstaHecho(i: number): boolean {
+    switch (i) {
+      case 0: return true; // "Tu cuenta": ya creada si se llegó hasta aquí
+      case 1: return verificacion != null;
+      case 2: return form.ciudad.trim() !== '';
+      case 3: return form.aniosExperiencia.trim() !== '';
+      case 4: return form.especialidades.length > 0;
+      case 5: return certificaciones.length > 0;
+      case 6: return form.tipoTrabajo.length > 0;
+      case 7: return form.disponibilidadHorarios.length > 0;
+      case 8: return Boolean(form.tarifaRango);
+      case 9: return form.idiomasTexto.trim() !== '' || form.descripcion.trim() !== '';
+      default: return i < paso;
+    }
+  }
+
   const pasoActual = PASOS[paso];
 
   return (
@@ -374,7 +400,7 @@ export default function CrearPerfilNetworkPage() {
         </p>
         <ol className="mt-6 space-y-0.5">
           {PASOS.map((p, i) => {
-            const hecho = i < paso;
+            const hecho = pasoEstaHecho(i);
             const actual = i === paso;
             return (
               <li key={p.n}>
@@ -429,14 +455,14 @@ export default function CrearPerfilNetworkPage() {
                 </p>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Primer apellido</label>
-                  <input value={identidad.apellido1} onChange={e => setIdentidad(v => ({ ...v, apellido1: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Segundo apellido (opcional)</label>
-                  <input value={identidad.apellido2} onChange={e => setIdentidad(v => ({ ...v, apellido2: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Fecha de nacimiento</label>
-                  <input type="date" value={identidad.fechaNacimiento} onChange={e => setIdentidad(v => ({ ...v, fechaNacimiento: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>País de residencia</label>
-                  <input value={identidad.paisResidencia} onChange={e => setIdentidad(v => ({ ...v, paisResidencia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="España" /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido1`}>Primer apellido</label>
+                  <input id={`${uid}-apellido1`} value={identidad.apellido1} onChange={e => setIdentidad(v => ({ ...v, apellido1: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido2`}>Segundo apellido (opcional)</label>
+                  <input id={`${uid}-apellido2`} value={identidad.apellido2} onChange={e => setIdentidad(v => ({ ...v, apellido2: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-nacimiento`}>Fecha de nacimiento</label>
+                  <input id={`${uid}-nacimiento`} type="date" value={identidad.fechaNacimiento} onChange={e => setIdentidad(v => ({ ...v, fechaNacimiento: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-pais`}>País de residencia</label>
+                  <input id={`${uid}-pais`} value={identidad.paisResidencia} onChange={e => setIdentidad(v => ({ ...v, paisResidencia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="España" /></div>
               </div>
               <div>
                 <label className={labelCls} style={{ color: NW_TINTA }}>Documento</label>
@@ -458,11 +484,11 @@ export default function CrearPerfilNetworkPage() {
               />
               {verificacion && <EstadoDocumento estado={verificacion.estado} motivo={verificacion.motivoRechazo} />}
               <div>
-                <label className={labelCls} style={{ color: NW_TINTA }}>Dirección — privada, nunca se muestra</label>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <input value={identidad.direccionCp} onChange={e => setIdentidad(v => ({ ...v, direccionCp: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Código postal" />
-                  <input value={identidad.direccionCiudad} onChange={e => setIdentidad(v => ({ ...v, direccionCiudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Ciudad" />
-                  <input value={identidad.direccionProvincia} onChange={e => setIdentidad(v => ({ ...v, direccionProvincia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Provincia" />
+                <p className={labelCls} style={{ color: NW_TINTA }} id={`${uid}-direccion`}>Dirección — privada, nunca se muestra</p>
+                <div className="grid sm:grid-cols-3 gap-3" role="group" aria-labelledby={`${uid}-direccion`}>
+                  <input aria-label="Código postal" value={identidad.direccionCp} onChange={e => setIdentidad(v => ({ ...v, direccionCp: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Código postal" />
+                  <input aria-label="Ciudad" value={identidad.direccionCiudad} onChange={e => setIdentidad(v => ({ ...v, direccionCiudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Ciudad" />
+                  <input aria-label="Provincia" value={identidad.direccionProvincia} onChange={e => setIdentidad(v => ({ ...v, direccionProvincia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Provincia" />
                 </div>
               </div>
             </div>
@@ -470,10 +496,10 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 2 && (
             <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Ciudad</label>
-                <input value={form.ciudad} onChange={e => setForm(v => ({ ...v, ciudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Barcelona" /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Zona / barrio (opcional)</label>
-                <input value={form.zona} onChange={e => setForm(v => ({ ...v, zona: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Gràcia" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-ciudad`}>Ciudad</label>
+                <input id={`${uid}-ciudad`} value={form.ciudad} onChange={e => setForm(v => ({ ...v, ciudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Barcelona" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-zona`}>Zona / barrio (opcional)</label>
+                <input id={`${uid}-zona`} value={form.zona} onChange={e => setForm(v => ({ ...v, zona: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Gràcia" /></div>
               <div>
                 <label className={labelCls} style={{ color: NW_TINTA }}>Radio de desplazamiento</label>
                 <div className="flex gap-2">
@@ -491,11 +517,11 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 3 && (
             <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Años de experiencia</label>
-                <input type="number" min={0} value={form.aniosExperiencia} onChange={e => setForm(v => ({ ...v, aniosExperiencia: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Cuéntanos tu recorrido (opcional)</label>
-                <textarea value={form.descripcion} onChange={e => setForm(v => ({ ...v, descripcion: e.target.value }))} rows={4} className={inputCls} style={inputStyle} /></div>
-              <SeccionExperienciaNetwork onExperienciasChange={() => {}} />
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-anios`}>Años de experiencia</label>
+                <input id={`${uid}-anios`} type="number" min={0} value={form.aniosExperiencia} onChange={e => setForm(v => ({ ...v, aniosExperiencia: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-recorrido`}>Cuéntanos tu recorrido (opcional)</label>
+                <textarea id={`${uid}-recorrido`} value={form.descripcion} onChange={e => setForm(v => ({ ...v, descripcion: e.target.value }))} rows={4} className={inputCls} style={inputStyle} /></div>
+              <SeccionExperienciaNetwork onExperienciasChange={() => {}} tokensNetworkV2 />
             </div>
           )}
 
@@ -568,12 +594,12 @@ export default function CrearPerfilNetworkPage() {
                   <p className="text-[12px] mt-1.5" style={{ color: NW_MUTED_2 }}>Una foto real, de cara. Recomendado: cuadrada, buena luz.</p>
                 </div>
               </div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Idiomas (separados por coma)</label>
-                <input value={form.idiomasTexto} onChange={e => setForm(v => ({ ...v, idiomasTexto: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Español (nativo), Inglés (avanzado)" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-idiomas`}>Idiomas (separados por coma)</label>
+                <input id={`${uid}-idiomas`} value={form.idiomasTexto} onChange={e => setForm(v => ({ ...v, idiomasTexto: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Español (nativo), Inglés (avanzado)" /></div>
               <div className="grid sm:grid-cols-3 gap-3">
-                <input value={form.instagram} onChange={e => setForm(v => ({ ...v, instagram: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Instagram (opcional)" />
-                <input value={form.linkedin} onChange={e => setForm(v => ({ ...v, linkedin: e.target.value }))} className={inputCls} style={inputStyle} placeholder="LinkedIn (opcional)" />
-                <input value={form.web} onChange={e => setForm(v => ({ ...v, web: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Web (opcional)" />
+                <input aria-label="Instagram" value={form.instagram} onChange={e => setForm(v => ({ ...v, instagram: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Instagram (opcional)" />
+                <input aria-label="LinkedIn" value={form.linkedin} onChange={e => setForm(v => ({ ...v, linkedin: e.target.value }))} className={inputCls} style={inputStyle} placeholder="LinkedIn (opcional)" />
+                <input aria-label="Web" value={form.web} onChange={e => setForm(v => ({ ...v, web: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Web (opcional)" />
               </div>
             </div>
           )}
