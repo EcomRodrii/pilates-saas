@@ -327,20 +327,54 @@ async function procesarEvento(
             metodoCobro = tipo === 'bizum' ? 'BIZUM' : 'TARJETA';
           } catch { /* si falla la lectura, dejamos TARJETA por defecto */ }
         }
-        const { error } = await admin.from('recibos')
-          .update({ estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro })
+        const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
+        const { data: marcado, error } = await admin.from('recibos')
+          .update({
+            estado: 'COBRADO', fecha_cobro: new Date().toISOString(), metodo_cobro: metodoCobro,
+            // Un cobro por checkout no dejaba el PaymentIntent en NINGUNA parte
+            // de Tentare (solo lo escribían el cobro off-session y la compra de
+            // plan). Por eso /api/reembolsos tenía que buscarlo en Stripe por
+            // metadata['reciboId'], y con dos cargos descartaba el resultado y
+            // respondía "no encontramos el cobro de este recibo".
+            ...(piId ? { stripe_payment_intent_id: piId } : {}),
+            // Pagada: deja de haber una sesión abierta que reutilizar.
+            checkout_session_id: null,
+          })
           // Acotado al tenant y a los estados realmente cobrables, que según el
           // CHECK de `recibos` son PENDIENTE, FALLIDO (recuperación tras dunning)
           // y EN_CURSO (adeudo SEPA en vuelo: el portal se lo muestra a la socia
           // como pendiente, así que un pago con tarjeta sobre él es legítimo y
           // debe marcarlo cobrado). Quedan fuera COBRADO —para no reescribir la
           // fecha_cobro con un evento tardío o duplicado— y DEVUELTO, para no
-          // resucitar un recibo ya devuelto. 0 filas afectadas no es un error.
+          // resucitar un recibo ya devuelto.
           .eq('id', reciboId).eq('studio_id', studioId)
-          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO']);
+          .in('estado', ['PENDIENTE', 'FALLIDO', 'EN_CURSO'])
+          .select('id').maybeSingle();
         if (error) {
           console.error('[stripe webhook] no se pudo marcar el recibo como COBRADO', reciboId, error);
           return NextResponse.json({ error: 'Fallo al persistir el cobro' }, { status: 500 });
+        }
+        // 0 filas tiene DOS causas muy distintas y hasta ahora se trataban igual
+        // (ni siquiera se miraba: el update iba sin `.select()`):
+        //   · Stripe reentrega el MISMO evento — normal, no hay nada que hacer.
+        //   · Un SEGUNDO cobro real del mismo recibo — dinero cobrado dos veces.
+        // Se distinguen por el PaymentIntent: si el recibo ya guarda uno y llega
+        // otro distinto, no es un reintento. Es el aviso que faltaba para que
+        // esto deje de ser invisible; devolver el cargo sigue siendo manual.
+        if (!marcado && piId) {
+          const { data: previo } = await admin.from('recibos')
+            .select('stripe_payment_intent_id')
+            .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+          const anterior = (previo?.stripe_payment_intent_id as string | null) ?? null;
+          if (anterior && anterior !== piId) {
+            Sentry.captureMessage('[stripe webhook] SEGUNDO cobro del mismo recibo: hay que devolver uno', {
+              level: 'error',
+              extra: {
+                reciboId, studioId, sessionId: session.id,
+                paymentIntentCobrado: anterior, paymentIntentDuplicado: piId,
+              },
+            });
+          }
         }
         // Renovación en servidor (refill de bono / extensión del mensual):
         // antes solo la aplicaba el panel al "marcar cobrado" a mano, así que
