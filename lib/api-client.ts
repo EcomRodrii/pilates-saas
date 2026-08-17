@@ -19,6 +19,7 @@ import type {
   CertificacionNetwork, NuevaCertificacionNetwork,
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
 } from '@/lib/network/tipos';
+import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -2585,11 +2586,16 @@ export async function fetchVacanteNetwork(id: string): Promise<VacanteNetwork | 
   }
 }
 
-export async function fetchCandidaturasVacanteNetwork(vacanteId: string): Promise<CandidaturaNetwork[]> {
+// Solo esta lista (candidaturas de UNA vacante, lado estudio) trae `encaje`
+// — el resto de usos de CandidaturaNetwork (mis-candidaturas, lado
+// instructora) no tiene una vacante fija contra la que calcularlo.
+export type CandidaturaConEncaje = CandidaturaNetwork & { encaje: EncajeCandidatura | null };
+
+export async function fetchCandidaturasVacanteNetwork(vacanteId: string): Promise<CandidaturaConEncaje[]> {
   try {
     const res = await fetch(`/api/network/vacantes/${encodeURIComponent(vacanteId)}/candidaturas`, { headers: await authHeader() });
     if (!res.ok) return [];
-    const data = (await res.json()) as { candidaturas?: CandidaturaNetwork[] };
+    const data = (await res.json()) as { candidaturas?: CandidaturaConEncaje[] };
     return data.candidaturas ?? [];
   } catch {
     return [];
