@@ -196,22 +196,50 @@ número, así que la rejilla no puede navegar a otro mes. Es la misma pasada
 pendiente que `Calendar.tsx` documenta desde antes, y el prototipo tampoco trae
 flechas de mes, así que no se nota.
 
-### «Completadas» NO está, y el hueco es de datos
+### «Completadas»: por qué necesitó un endpoint
 
-El prototipo pone «Completadas» bajo «Próximas» en la vista de lista. No se
-construyó porque **no hay de dónde sacarlo**: `fetchPublicStudioData` acota las
-sesiones a `fin >= ahora`, así que una clase pasada no llega nunca al portal.
-Las reservas `ASISTIDA` sí están en el contexto (52 en el estudio piloto), pero
-sin su sesión no hay ni nombre ni fecha que pintar.
+El prototipo la pone bajo «Próximas» en la vista de lista, y **no se podía
+sacar de lo que el portal ya carga**: `fetchPublicStudioData` acota las sesiones
+a `fin >= ahora`, así que una clase pasada no llega nunca al cliente. Las
+reservas `ASISTIDA` sí están en el contexto (52 en el estudio piloto), pero sin
+su sesión no hay ni nombre ni fecha que pintar.
 
-Las dos salidas, y ninguna es una adaptación de tema:
+De las dos salidas se eligió la segunda: ensanchar la ventana del catálogo
+público habría metido meses de historia en CADA carga de CADA portal, también
+los que no enseñan historial.
 
-- **Ensanchar la ventana hacia atrás** en el catálogo público — regresión de
-  carga para TODOS los portales, incluidos los que no usan Sereno.
-- **Un endpoint propio del historial de la socia**, cargado en diferido al abrir
-  la lista. Superficie de backend nueva, pero acotada y perezosa.
+**`POST /api/public/historial`** (`historialAsistidasPublico`), con el patrón de
+`canje` y `favoritos`: rate limit, `verificarUsuarioSupabase` para el JWT y
+**`socioAutenticado` deriva la socia del token, nunca del body** — con un
+`socioId` del cliente, cualquiera leería a qué clases va otra socia del mismo
+estudio.
 
-Se documenta en vez de pintar una sección vacía que nunca se llena.
+- **Solo `ASISTIDA`.** Una `CONFIRMADA` cuya clase ya pasó no es lo mismo: o el
+  estudio no pasa lista, o no fue. Contarla como hecha mentiría en una cifra que
+  además se suma en «clases este mes».
+- ⚠️ **La consulta sale de `sesiones`, no de `reservas`.** La primera versión
+  ordenaba por `sesiones.inicio` desde `reservas` — una columna de la tabla
+  EMBEBIDA. Si PostgREST no aplicara ese orden, el `limit` se llevaría 30 filas
+  arbitrarias en vez de las 30 últimas, en silencio y sin fallar. Invertida, el
+  orden es por columna propia y no tiene duda. `order` + `limit` van siempre
+  juntos y explícitos (patrón del truncado de #684).
+- **Carga en diferido**, solo al abrir la lista. Es la mitad del acuerdo que
+  permite tener historial sin penalizar a nadie más.
+- ⚠️ **`null` ≠ `[]`**: `null` es «no se ha podido pedir» y la sección no se
+  pinta; `[]` es «no has asistido a ninguna» y eso sí se dice. Un fallo deja
+  `null`.
+- ⚠️ **No se persiste en `localStorage`.** Son datos del servidor, no estado de
+  pantalla: guardarlos abriría la app con el historial de la semana pasada, y
+  dejaría las clases de la socia en el almacenamiento de un dispositivo
+  compartido.
+
+Verificado contra producción con `execute_sql`: 11 filas para una socia real,
+en orden descendente, y cero filas de otra socia o de otro estudio.
+
+⚠️ **Cobertura**: la consulta está verificada contra datos reales y la sección
+mirada en pantalla, pero **el endpoint no tiene test automático** — el glob de
+la suite es `lib/**` y `app/api/` queda fuera, que es un punto ciego conocido
+del repo, no de este cambio.
 
 ## 6. Desviaciones del diseño, a propósito
 

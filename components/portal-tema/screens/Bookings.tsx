@@ -1,6 +1,8 @@
 "use client";
 
-import { Button, Card, EmptyState } from "@/components/portal-tema/components/ui/primitives";
+import { useEffect } from "react";
+import { Button, Card, EmptyState, SectionTitle } from "@/components/portal-tema/components/ui/primitives";
+import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { DayStrip, Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { AnadirAlCalendario } from "@/components/portal-tema/components/ui/anadir-al-calendario";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
@@ -31,6 +33,14 @@ export function Bookings({ vm }: { vm: ViewModel }) {
   // es exactamente la de antes.
   const conVistas = vm.features.tab_set === "agenda";
   const vista = conVistas ? vm.agenda.vista : "lista";
+  // El historial se pide al ABRIR la lista, no al montar el portal: es la mitad
+  // del acuerdo que permite tenerlo sin meterlo en la carga de todo el mundo.
+  // `cargarHistorial` es idempotente (se guarda de repetir), así que el efecto
+  // puede correr en cada render de la lista sin encadenar peticiones.
+  useEffect(() => {
+    if (conVistas && vista === "lista") actions.cargarHistorial();
+  }, [conVistas, vista, actions]);
+
   const delDia = new Set(vm.agenda.delDia);
   const filas = vista === "lista" ? vm.bookings : vm.bookings.filter((r) => delDia.has(r.id));
 
@@ -130,13 +140,35 @@ export function Bookings({ vm }: { vm: ViewModel }) {
           )}
         </div>
 
-        {/* ⚠️ «Completadas» del prototipo NO está, y el hueco es de DATOS, no
-            de pantalla: el catálogo público acota las sesiones a `fin >= ahora`
-            (`fetchPublicStudioData`), así que una clase pasada no llega nunca
-            al portal. Las reservas ASISTIDA sí están en el contexto, pero sin
-            su sesión no hay ni nombre ni fecha que pintar. Pintar una sección
-            vacía que nunca se llena sería exactamente la clase de promesa que
-            este kit lleva quitando, así que no se pinta. */}
+        {/* «Completadas». Solo en la lista, y solo cuando el historial ha
+            llegado: `null` significa «no se ha podido pedir» (previsualización
+            sin sesión, o el servidor falló) y ahí la sección no aparece, en vez
+            de anunciar un vacío que no es verdad. `[]` sí se dice: es «todavía
+            no has asistido a ninguna». */}
+        {conVistas && vista === "lista" && vm.agenda.completadas ? (
+          <section style={{ marginTop: 26 }}>
+            <SectionTitle>Completadas</SectionTitle>
+            {vm.agenda.completadas.length ? (
+              vm.agenda.completadas.map((c) => (
+                <article className="card completada" key={c.id}>
+                  <span className="completada__check" aria-hidden="true">
+                    <Icon name="check" size={15} stroke={2} />
+                  </span>
+                  <span className="completada__body">
+                    <span className="completada__name">{c.nombre}</span>
+                    <span className="completada__meta">
+                      {[c.cuando, c.instructora].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                </article>
+              ))
+            ) : (
+              <p className="hoja__texto" style={{ marginTop: 0 }}>
+                Aquí aparecerán las clases a las que ya hayas asistido.
+              </p>
+            )}
+          </section>
+        ) : null}
       </div>
     </>
   );

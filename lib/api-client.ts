@@ -2689,3 +2689,42 @@ export async function fetchMisCandidaturasNetwork(): Promise<CandidaturaNetwork[
     return [];
   }
 }
+
+/** Una clase pasada a la que la socia asistió. Espejo de `ClaseAsistida`. */
+export interface ClaseAsistidaCliente {
+  reservaId: string;
+  sesionId: string;
+  inicio: string;
+  nombre: string;
+  instructora: string;
+}
+
+/**
+ * El historial de clases asistidas de la socia en sesión.
+ *
+ * Va aparte del catálogo público a propósito y se pide EN DIFERIDO, solo
+ * cuando se abre la lista de la agenda: el catálogo acota las sesiones a
+ * `fin >= ahora` para no arrastrar meses de historia en cada carga, y
+ * ensancharlo habría penalizado a todos los portales.
+ *
+ * `portalAuthHeader()` manda el JWT de la socia; el servidor deriva de ahí su
+ * identidad y no se fía de ningún id del body. Sin sesión devuelve 401, y aquí
+ * eso es una lista vacía, no un error en pantalla: la sección simplemente no
+ * se pinta.
+ */
+export async function fetchHistorialAsistidas(
+  studioId: string, limite?: number,
+): Promise<ClaseAsistidaCliente[]> {
+  try {
+    const res = await fetch('/api/public/historial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId, limite }),
+    });
+    if (!res.ok) return [];
+    const data = (await res.json().catch(() => ({}))) as { clases?: ClaseAsistidaCliente[] };
+    return data.clases ?? [];
+  } catch {
+    return [];
+  }
+}

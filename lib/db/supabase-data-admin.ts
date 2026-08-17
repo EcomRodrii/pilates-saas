@@ -2479,6 +2479,109 @@ export async function toggleFavoritoPublico(params: {
   return { ok: true };
 }
 
+/** Una clase a la que la socia YA asistió. Lo mínimo para pintar su fila. */
+export interface ClaseAsistida {
+  reservaId: string;
+  sesionId: string;
+  /** Inicio en ISO. Quien lo pinte decide el formato y la zona. */
+  inicio: string;
+  nombre: string;
+  instructora: string;
+}
+
+/**
+ * Las clases pasadas a las que la socia asistió, de la más reciente a la más
+ * antigua.
+ *
+ * ⚠️ Existe porque el catálogo público NO puede responder a esto:
+ * `fetchPublicStudioData` acota las sesiones a `fin >= ahora` (para que el
+ * aforo no arrastre meses de historia en cada carga del portal), así que una
+ * clase pasada no llega nunca al cliente. Ensanchar aquella ventana habría
+ * penalizado la carga de TODOS los portales, incluidos los que no enseñan
+ * historial; esto se pide aparte y solo cuando hace falta.
+ *
+ * ⚠️ Solo `ASISTIDA`. Una `CONFIRMADA` cuya clase ya pasó no es lo mismo: o el
+ * estudio no pasa lista, o no fue. Meterla aquí le contaría a la socia como
+ * hecha una clase a la que quizá no fue, y este historial se suma en «clases
+ * este mes».
+ *
+ * ⚠️ `order` + `limit` van SIEMPRE juntos y explícitos: PostgREST corta en 1000
+ * filas EN SILENCIO, y sin orden estable el corte devuelve un subconjunto
+ * arbitrario que además cambia entre llamadas. Es el patrón que ya costó el
+ * truncado de los backups (#684).
+ */
+export async function historialAsistidasPublico(params: {
+  studioId: string; socioId: string; limite?: number;
+}): Promise<ClaseAsistida[]> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return [];
+  // Tope duro además del que pida quien llama: esta lista se pinta de una vez,
+  // sin paginar, y nadie lee 500 filas de un tirón en un móvil.
+  const limite = Math.min(Math.max(params.limite ?? 30, 1), 100);
+
+  // ⚠️ Se consulta desde `sesiones`, no desde `reservas`, y el motivo es el
+  // ORDEN: la columna por la que hay que ordenar (`inicio`) vive aquí. Al
+  // revés habría que ordenar por una columna de la tabla EMBEBIDA, que
+  // depende de cómo PostgREST resuelva ese caso — y si no lo aplicara, el
+  // `limit` se llevaría 30 filas arbitrarias en vez de las 30 últimas, en
+  // silencio y sin fallar. Ordenar por una columna de la tabla de la que se
+  // selecciona no tiene esa duda.
+  //
+  // El filtro por socia va sobre la reserva embebida con `!inner`, así que una
+  // sesión sin reserva suya no entra.
+  const { data, error } = await admin
+    .from('sesiones')
+    .select('id, inicio, tipo_clase_id, instructor_id, reservas!inner(id, socio_id, estado, studio_id)')
+    .eq('studio_id', params.studioId)
+    .eq('reservas.studio_id', params.studioId)
+    .eq('reservas.socio_id', params.socioId)
+    .eq('reservas.estado', 'ASISTIDA')
+    .lt('inicio', new Date().toISOString())
+    .order('inicio', { ascending: false })
+    .limit(limite);
+  if (error || !data) return [];
+
+  // Los nombres se resuelven aparte y no con otro `!inner`: anidar tres niveles
+  // en PostgREST hace la consulta frágil (y silenciosamente vacía si una FK no
+  // está declarada como espera). Dos lecturas pequeñas por catálogo, cacheables
+  // por el propio Postgres, son más predecibles.
+  const filas = (data as unknown as {
+    id: string; inicio: string; tipo_clase_id: string; instructor_id: string;
+    reservas: { id: string }[] | { id: string } | null;
+  }[]).map((s) => ({
+    // Con `!inner` sobre una relación uno-a-muchos, PostgREST devuelve un
+    // ARRAY. Una socia no puede tener dos reservas ASISTIDA de la misma
+    // sesión, así que se coge la primera — pero se normaliza en vez de
+    // asumir la forma.
+    reservaId: (Array.isArray(s.reservas) ? s.reservas[0]?.id : s.reservas?.id) ?? s.id,
+    sesionId: s.id,
+    inicio: s.inicio,
+    tipoClaseId: s.tipo_clase_id,
+    instructorId: s.instructor_id,
+  }));
+  const tipoIds = [...new Set(filas.map((f) => f.tipoClaseId).filter(Boolean))];
+  const instrIds = [...new Set(filas.map((f) => f.instructorId).filter(Boolean))];
+
+  const [tipos, instructores] = await Promise.all([
+    tipoIds.length
+      ? admin.from('tipos_clase').select('id, nombre').eq('studio_id', params.studioId).in('id', tipoIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+    instrIds.length
+      ? admin.from('instructores').select('id, nombre').eq('studio_id', params.studioId).in('id', instrIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+  ]);
+  const nombreTipo = new Map((tipos.data ?? []).map((t) => [t.id, t.nombre]));
+  const nombreInstr = new Map((instructores.data ?? []).map((i) => [i.id, i.nombre]));
+
+  return filas.map((f) => ({
+    reservaId: f.reservaId,
+    sesionId: f.sesionId,
+    inicio: f.inicio,
+    nombre: nombreTipo.get(f.tipoClaseId) ?? 'Clase',
+    instructora: nombreInstr.get(f.instructorId) ?? '',
+  }));
+}
+
 // Apunta/desapunta a la socia autenticada de un reto del carrusel de Inicio
 // (tema Bloom). `retoKey` se valida contra RETOS_PORTAL (contenido fijo de
 // código, no una tabla) — el CHECK de la migración es la segunda barrera.

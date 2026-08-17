@@ -7,7 +7,7 @@ import {
   CHALLENGES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_AGENDA, TABS_CON_CENTRO, WEEK_BARS,
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
-import { rejillaMesPortal } from "@/lib/portal-tema/datos";
+import { fechaLarga, rejillaMesPortal } from "@/lib/portal-tema/datos";
 // La MISMA regla que ejecuta la RPC al cancelar (`cancelar_reserva_plaza`:
 // `v_devolver := v_devolver_tardia or not v_tardia`), no una segunda copia.
 import { debeDevolverBono } from "@/lib/booking-logic";
@@ -300,6 +300,20 @@ export function useViewModel() {
           mes,
           /** Las del día elegido, para la vista de semana y la de mes. */
           delDia: fechaElegida ? suyas.filter((c) => c.fecha === fechaElegida).map((c) => c.id) : [],
+          /**
+           * Las que ya asistió, para «Completadas». `null` = todavía no se han
+           * pedido, y entonces la sección NO se pinta; `[]` = no ha asistido a
+           * ninguna, y ahí sí se dice. Son cosas distintas.
+           */
+          completadas: state.historial?.map((h) => ({
+            id: h.reservaId,
+            nombre: h.nombre,
+            // La fecha en palabras, en la zona del ESTUDIO — `fechaLarga` es la
+            // misma que ya usa la caducidad del bono, no un formato nuevo.
+            cuando: fechaLarga(h.inicio),
+            instructora: h.instructora,
+          })) ?? null,
+          cargandoCompletadas: state.historialCargando,
         };
       })(),
 
