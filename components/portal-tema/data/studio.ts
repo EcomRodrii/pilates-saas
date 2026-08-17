@@ -231,7 +231,13 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // estudio; aquí es de muestra, como el resto de este objeto.
   // Fecha de referencia de los datos de MUESTRA. Fija a propósito: la vista
   // previa tiene que verse igual hoy que dentro de un mes.
-  ahoraISO: '2026-08-13T09:00:00.000Z',
+  // ⚠️ Tiene que ser el MISMO día que `hoy` y que la semana de `DAYS`. Estaba
+  // en agosto mientras la semana y las clases eran de septiembre, y nadie lo
+  // notó porque hasta ahora nada comparaba una fecha COMPLETA contra este
+  // instante: la rejilla del mes de la agenda salía en agosto y el día
+  // seleccionado no casaba con ninguna clase. Los datos de muestra tienen que
+  // ser coherentes entre sí o la previsualización miente.
+  ahoraISO: '2026-09-04T09:00:00.000Z',
   hoy: { num: 4, largo: "martes, 4 de septiembre", mes: "septiembre" },
   // De muestra, como el resto: en el portal real viene de `calcularRacha`
   // (`lib/engines/streak-engine.ts`), la misma que alimenta los logros.

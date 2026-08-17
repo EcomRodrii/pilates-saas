@@ -180,3 +180,8 @@
 .tarifa__perks { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; padding-left: 32px; }
 .tarifa__perk { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
 .tarifa__perk .icon { color: var(--brand); flex: none; }
+
+/* Celdas vacías (meses vecinos) y días pasados, en la agenda de Sereno. */
+.calendar__cell.is-vacia { pointer-events: none; }
+.calendar__cell.is-pasado { color: var(--muted); opacity: .55; }
+.calendar__cell.is-selected.is-pasado { color: var(--on-brand); opacity: 1; }

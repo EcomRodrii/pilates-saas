@@ -337,3 +337,38 @@
   border-color: transparent;
   color: var(--success);
 }
+
+/* ── Filas de la agenda (Sereno) ────────────────────────────────────────── */
+.agenda-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card-sm, 16px);
+  text-align: left;
+  transition: border-color .2s ease;
+}
+.agenda-row:hover { border-color: var(--card-hover-border); }
+/* La barra de acento dice de un vistazo que la fila es SUYA. En malva cuando
+ * es una plaza y en el gris del track cuando solo está en la cola: son dos
+ * cosas distintas y la píldora sola no basta a la velocidad a la que se
+ * escanea una lista. */
+.agenda-row__marca { flex: none; align-self: stretch; width: 4px; border-radius: 2px; background: var(--accent); }
+.agenda-row__marca--espera { background: var(--track); }
+.agenda-row__fecha { flex: none; width: 40px; display: flex; flex-direction: column; align-items: center; }
+.agenda-row__dow { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; color: var(--muted); }
+.agenda-row__num { font-family: var(--font-body); font-size: 17px; font-weight: 600; color: var(--ink); }
+.agenda-row__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.agenda-row__name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.agenda-row__meta { font-size: 12.5px; color: var(--muted); }
+.agenda-pill {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-brand);
+  font-size: 11px; font-weight: 600;
+}
+.agenda-pill--espera { background: var(--accent-soft); color: var(--accent-ink); }

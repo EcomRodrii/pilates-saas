@@ -8,6 +8,42 @@ import { AnadirAlCalendario } from "@/components/portal-tema/components/ui/anadi
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
+/**
+ * La fila de la agenda de Sereno: barra de acento, cuerpo y píldora de estado.
+ *
+ * Sin botones a propósito. La de siempre lleva cuatro («Ver clase»,
+ * «Cancelar», y los dos de calendario) y en una lista de la semana eso son
+ * dieciséis botones en pantalla; aquí se entra a la clase y desde allí se
+ * gestiona, que es lo que hace la captura.
+ */
+function FilaAgenda({ row, conFecha }: {
+  row: ViewModel["bookings"][number];
+  /** Con el bloque de fecha delante (vista de lista, que mezcla días). */
+  conFecha?: boolean;
+}) {
+  const actions = useActions();
+  return (
+    <button className="agenda-row is-pressable" onClick={() => actions.openClass(row.id)}>
+      {conFecha ? (
+        <span className="agenda-row__fecha">
+          <span className="agenda-row__dow">{row.day}</span>
+          <span className="agenda-row__num">{row.dayNumero}</span>
+        </span>
+      ) : (
+        <span className={"agenda-row__marca" + (row.enEspera ? " agenda-row__marca--espera" : "")} aria-hidden="true"></span>
+      )}
+      <span className="agenda-row__body">
+        <span className="agenda-row__name">{row.name}</span>
+        <span className="agenda-row__meta">
+          {[conFecha ? row.time : row.tramo, conFecha && row.esHoy ? "Hoy" : "", row.profe]
+            .filter(Boolean).join(" · ")}
+        </span>
+      </span>
+      <span className={"agenda-pill" + (row.enEspera ? " agenda-pill--espera" : "")}>{row.estado}</span>
+    </button>
+  );
+}
+
 const VISTAS = [
   { key: "semana", label: "Semana" },
   { key: "mes", label: "Mes" },
@@ -67,7 +103,9 @@ export function Bookings({ vm }: { vm: ViewModel }) {
           </div>
         ) : null}
 
-        {conVistas && vista === "semana" ? <DayStrip week={vm.agenda.semana} /> : null}
+        {conVistas && vista === "semana"
+          ? <DayStrip week={vm.agenda.semana} boxed={vm.features.day_strip_style === "cajas"} />
+          : null}
 
         {conVistas && vista === "mes" ? (
           <Card className="calendar">
@@ -79,11 +117,14 @@ export function Bookings({ vm }: { vm: ViewModel }) {
               {vm.agenda.mes.cells.map((cell) => (
                 <button
                   key={cell.fecha}
-                  className={["calendar__cell", cell.outside ? "is-muted" : "", cell.today ? "is-today" : "", cell.selected ? "is-selected" : ""].filter(Boolean).join(" ")}
+                  className={["calendar__cell", cell.outside ? "is-vacia" : "", cell.pasado ? "is-pasado" : "", cell.today ? "is-today" : "", cell.selected ? "is-selected" : ""].filter(Boolean).join(" ")}
                   onClick={cell.outside ? undefined : () => actions.selectDay(cell.label)}
                 >
-                  {cell.label}
-                  {cell.marked ? <i className="calendar__mark"></i> : null}
+                  {/* Las celdas de los meses vecinos van VACÍAS, no con su
+                      número en gris: un «4» apagado al lado del 4 de este mes
+                      es justo la confusión que ya costó un fallo aquí. */}
+                  {cell.outside ? "" : cell.label}
+                  {cell.marked && !cell.outside ? <i className="calendar__mark"></i> : null}
                 </button>
               ))}
             </div>
@@ -97,7 +138,28 @@ export function Bookings({ vm }: { vm: ViewModel }) {
         ) : null}
 
         <div className="scroller no-scrollbar">
-          {filas.length ? (
+          {conVistas ? (
+            filas.length ? (
+              <>
+                {vista === "lista" ? <SectionTitle>Próximas</SectionTitle> : null}
+                {filas.map((row) => <FilaAgenda key={row.id} row={row} conFecha={vista === "lista"} />)}
+              </>
+            ) : vista === "lista" ? (
+              <EmptyState
+                title="Aún no has reservado"
+                text="Elige una clase del horario y aparecerá aquí."
+                cta="Ver horario"
+                onAction={actions.goSchedule}
+              />
+            ) : (
+              <EmptyState
+                title="Nada este día"
+                text="Elige otro día o busca una clase en el horario."
+                cta="Ver horario"
+                onAction={actions.goSchedule}
+              />
+            )
+          ) : filas.length ? (
             filas.map((row) => (
               <article className="card booking" key={row.id}>
                 <div className="booking__head">

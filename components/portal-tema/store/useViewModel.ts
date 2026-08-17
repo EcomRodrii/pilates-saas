@@ -274,7 +274,17 @@ export function useViewModel() {
 
       // Una reserva cuya clase ya no está (cancelada, o de otra semana) se cae
       // de la lista en vez de pintarse a medias.
-      bookings: idsReservados.flatMap((id) => {
+      // ⚠️ Por FECHA y hora, no en el orden en que se reservaron. `bookings` sale
+      // de `idsReservados`, que viene del orden de la tabla: en la agenda eso
+      // dejaba la clase de las 18:00 encima de la de las 10:00 del mismo día.
+      // Una agenda que no va en orden no es una agenda.
+      bookings: [...idsReservados]
+        .sort((a, b) => {
+          const ca = buscarClase(datos, a); const cb = buscarClase(datos, b);
+          if (!ca || !cb) return 0;
+          return (ca.fecha + ca.time).localeCompare(cb.fecha + cb.time);
+        })
+        .flatMap((id) => {
         const c = buscarClase(datos, id);
         if (!c) return [];
         return [{
@@ -291,6 +301,18 @@ export function useViewModel() {
           // solo se ofrecía en la pantalla de confirmación: quien la cerraba, o
           // reservaba desde otro sitio, se quedaba sin ello para siempre.
           ics: eventoDeClase(c),
+          // ── Lo que pide la agenda de Sereno ──────────────────────────────
+          // El tramo entero («11:00 – 11:50»): en la agenda la pregunta es
+          // cuánto ocupa el día, no solo a qué hora empieza.
+          tramo: c.time + " – " + c.end,
+          // Nombre corto, como en el hero: el apellido no ayuda a reconocerla.
+          profe: c.teacher.split(" ")[0],
+          dayNumero: c.day,
+          esHoy: c.day === datos.hoy.num,
+          // Estar en la cola y tener plaza NO son lo mismo, y la píldora de la
+          // agenda es lo único que los distingue de un vistazo.
+          enEspera: porClase.get(c.id)?.estado === "LISTA_ESPERA",
+          estado: porClase.get(c.id)?.estado === "LISTA_ESPERA" ? "En lista de espera" : "Reservada",
         }];
       }),
 
