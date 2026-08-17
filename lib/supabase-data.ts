@@ -2841,6 +2841,27 @@ export async function dbConsumirSesionBono(
   return { ok: true, saldo: data as number };
 }
 
+// I-10 · espejo exacto del anterior para DEVOLVER. El consumo ya era atómico y
+// la devolución no: se leía el saldo del snapshot local, se calculaba
+// `min(tope, restantes+1)` en JS y se escribía el resultado, así que dos
+// cancelaciones concurrentes escribían el mismo número y una devolución se
+// perdía sin error. La RPC hace el incremento con el tope dentro del WHERE.
+//
+// `saldo: null` NO es un fallo: significa que no había hueco (el bono ya estaba
+// al total del plan), que es un desenlace legítimo y distinto de un error.
+export async function dbDevolverSesionBono(
+  suscripcionId: string, studioId: string,
+): Promise<{ ok: true; saldo: number | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('devolver_sesion_bono', {
+    p_suscripcion_id: suscripcionId, p_studio_id: studioId,
+  });
+  if (error) {
+    reportDbError('[dbDevolverSesionBono]', error);
+    return { error: error.message };
+  }
+  return { ok: true, saldo: (data as number | null) ?? null };
+}
+
 // F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0096). Sustituye al sum()
 // sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
 // en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o

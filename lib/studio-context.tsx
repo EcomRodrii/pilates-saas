@@ -35,6 +35,7 @@ import {
   dbOtorgarCreditoDisparador,
   dbInsertRewardCatalogItem, dbUpdateRewardCatalogItem, dbDeleteRewardCatalogItem, dbAjustarStock,
   dbConsumirSesionBono,
+  dbDevolverSesionBono,
   dbInsertRewardRedemption, dbUpdateRewardRedemption,
   dbInsertAchievementDefinition, dbUpdateAchievementDefinition,
   dbUpsertAchievementProgress, dbInsertAchievementHistory,
@@ -184,7 +185,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -1501,7 +1502,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
           ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
-      consumirSesionBono(promovidaSocioId, sesionId);
+      await consumirSesionBono(promovidaSocioId, sesionId);
     }
     return { recuperacion: 'CREADA', caduca };
   }
@@ -2589,25 +2590,33 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // con dos bonos vivos regala saldo en uno y lo deja perdido en el otro.
   async function devolverSesionBono(socioId: string, sesionId?: string | null) {
     const tipoClaseId = sesionId ? sesiones.find(s => s.id === sesionId)?.tipoClaseId ?? null : null;
-    const consumible = bonoConsumible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
-    if (!consumible) return;
-    const { suscripcion: sus, plan, sesionesRestantes } = consumible;
+    // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
+    // no saldo: usando el de consumir, cancelar la clase que gastó la ÚLTIMA
+    // sesión no devolvía nada, porque un bono a 0 ya no es "consumible".
+    const devolvible = bonoDevolvible(socioId, suscripciones, planesTarifa, undefined, tipoClaseId);
+    if (!devolvible) return;
+    const { suscripcion: sus } = devolvible;
 
-    const nuevasRestantes = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
-    // Se espera y se comprueba (antes era fire-and-forget, mismo motivo que
-    // consumirSesionBono más arriba): la cancelación de la reserva que llama a
-    // esto ya se confirmó en servidor, así que un fallo aquí no debe deshacer
-    // nada — pero sí hay que enterarse, o la socia pierde una sesión de bono
-    // sin que quede rastro.
-    const res = await dbUpdateSuscripcion(sus.id, { sesionesRestantes: nuevasRestantes });
-    if (!res.ok) {
+    // I-10: incremento ATÓMICO en la BD con el tope dentro del WHERE, en vez de
+    // calcular `min(tope, restantes+1)` aquí sobre un estado que puede estar
+    // desfasado y escribirlo. Dos cancelaciones a la vez perdían una devolución.
+    // Se sigue esperando y comprobando (antes era fire-and-forget): la
+    // cancelación de la reserva ya se confirmó en servidor, así que un fallo
+    // aquí no debe deshacer nada — pero sí hay que enterarse, o la socia pierde
+    // una sesión de bono sin que quede rastro.
+    const res = await dbDevolverSesionBono(sus.id, getCurrentStudioId());
+    if ('error' in res) {
       capturarMensaje('[devolverSesionBono] no se pudo devolver la sesión al bono', 'error', {
         extra: { socioId, sesionId, suscripcionId: sus.id, error: res.error },
       });
       return;
     }
+    // `saldo` null = no había hueco (bono ya al tope): no es un fallo, pero
+    // tampoco hay nada que reflejar en pantalla.
+    if (res.saldo == null) return;
+    const saldo = res.saldo;
     setSuscripciones(prev => prev.map(s =>
-      s.id === sus.id ? { ...s, sesionesRestantes: nuevasRestantes } : s
+      s.id === sus.id ? { ...s, sesionesRestantes: saldo } : s
     ));
   }
 
@@ -2669,7 +2678,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setReservas(prev => prev.map(x => x.id === reservaId
         ? { ...x, estado: r.estado as EstadoReserva, posicionEspera: r.posicionEspera } : x));
     }
-    if (r.estado === 'CONFIRMADA') consumirSesionBono(socioId, sesionId);
+    if (r.estado === 'CONFIRMADA') await consumirSesionBono(socioId, sesionId);
     if (esPrimeraReserva) otorgarCreditos(socioId, 'PRIMERA_RESERVA', socioId);
     // I12: evaluar logros/retos sobre el set con el estado AUTORITATIVO de la
     // RPC, no sobre la estimación optimista. Si la estimación fue CONFIRMADA
@@ -2818,7 +2827,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
         ? { ...r, estado: 'CONFIRMADA' as const, posicionEspera: null } : r));
     // La socia promovida ahora ocupa plaza: se le descuenta la sesión del bono.
-    consumirSesionBono(promovidaSocioId, sesionId);
+    await consumirSesionBono(promovidaSocioId, sesionId);
 
     const socio = socios.find(s => s.id === promovidaSocioId);
     const sesion = sesiones.find(s => s.id === sesionId);

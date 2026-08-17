@@ -40,17 +40,61 @@ export function bonoConsumible(
   // caduque antes, aunque no fuera el que cubre la clase.
   tipoClaseId?: string | null,
 ): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
+  return elegirBono(socioId, suscripciones, planesTarifa, hoyISO, tipoClaseId,
+    // Para CONSUMIR hace falta que quede algo que descontar.
+    (restantes) => restantes > 0);
+}
+
+// I-5: el espejo de `bonoConsumible` para DEVOLVER. Parece el mismo problema y
+// no lo es: para consumir hace falta saldo > 0, pero para devolver hace falta
+// HUECO — y el bono al que hay que devolverle la sesión es justo el que se quedó
+// a 0 al gastarla.
+//
+// Usar `bonoConsumible` para las dos cosas tenía una consecuencia fea: cancelar
+// la clase que gastó la ÚLTIMA sesión no devolvía nada (el bono a 0 ya no era
+// "consumible"), y el llamador marcaba `bonoDevuelto = true` igualmente, así que
+// el email le decía a la socia que le habíamos devuelto la sesión. Y es el peor
+// momento posible: al llegar a 0 se le crea además el recibo de renovación, o
+// sea que se quedaba con 0 sesiones, nada devuelto y una factura pendiente.
+export function bonoDevolvible(
+  socioId: string,
+  suscripciones: Suscripcion[],
+  planesTarifa: PlanTarifa[],
+  hoyISO: string = new Date().toISOString().slice(0, 10),
+  tipoClaseId?: string | null,
+): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
+  return elegirBono(socioId, suscripciones, planesTarifa, hoyISO, tipoClaseId,
+    // Para DEVOLVER hace falta sitio por debajo del total del plan. Un plan sin
+    // `sesiones` (saldo no acotado) siempre admite la devolución.
+    (restantes, plan) => restantes < (plan.sesiones ?? Number.POSITIVE_INFINITY));
+}
+
+// El cuerpo común. Lo único que cambia entre consumir y devolver es qué hace
+// apto a un bono; el resto —vigencia, cobertura por tipo de clase y el orden
+// determinista— tiene que ser IDÉNTICO, o se devolvería a un bono distinto del
+// que se descontó.
+function elegirBono(
+  socioId: string,
+  suscripciones: Suscripcion[],
+  planesTarifa: PlanTarifa[],
+  hoyISO: string,
+  tipoClaseId: string | null | undefined,
+  esApto: (sesionesRestantes: number, plan: PlanTarifa) => boolean,
+): { suscripcion: Suscripcion; plan: PlanTarifa; sesionesRestantes: number } | null {
   const candidatas = suscripciones.filter(s => {
     if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) return false;
-    // ⚠️ Un bono AGOTADO no es candidato. Parece obvio y no lo era: el filtro
-    // solo miraba `!== null`, así que un bono a 0 seguía compitiendo — y con el
-    // desempate por id podía GANAR siempre. Visto en producción: una socia con
-    // cuatro bonos (uno a 0 y tres a 4) reservaba y no se descontaba de ningún
-    // sitio, porque el elegido ya no tenía nada que descontar. Doce sesiones
-    // pagadas que no se iban a gastar nunca, sin un solo error por ningún lado.
-    if (s.sesionesRestantes <= 0) return false;
     const plan = planesTarifa.find(p => p.id === s.planId);
     if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) return false;
+    // ⚠️ Para CONSUMIR, un bono AGOTADO no es candidato. Parece obvio y no lo
+    // era: el filtro solo miraba `!== null`, así que un bono a 0 seguía
+    // compitiendo — y con el desempate por id podía GANAR siempre. Visto en
+    // producción: una socia con cuatro bonos (uno a 0 y tres a 4) reservaba y no
+    // se descontaba de ningún sitio, porque el elegido ya no tenía nada que
+    // descontar. Doce sesiones pagadas que no se iban a gastar nunca, sin un
+    // solo error por ningún lado.
+    // Para DEVOLVER la aptitud es la CONTRARIA (hace falta hueco, no saldo), y
+    // usar la de consumir para las dos cosas era el bug I-5.
+    if (!esApto(s.sesionesRestantes, plan)) return false;
     if (!planCubreTipoClase(plan, tipoClaseId)) return false;
     // Vigente: mismo criterio que tieneEntitlementActivo. Un bono ACTIVA pero
     // CADUCADO (fechaFin < hoy) NO se consume ni se devuelve — antes se descontaba
@@ -78,12 +122,11 @@ export function calcularConsumoBono(sesionesRestantes: number): { nuevasRestante
   return { nuevasRestantes, agotado: nuevasRestantes === 0 };
 }
 
-// Nuevo saldo tras devolver una sesión (al cancelar una reserva confirmada),
-// sin superar el total de sesiones del plan.
-export function calcularDevolucionBono(sesionesRestantes: number, planSesiones: number | null): number {
-  const tope = planSesiones ?? Number.POSITIVE_INFINITY;
-  return Math.min(tope, sesionesRestantes + 1);
-}
+// `calcularDevolucionBono` vivía aquí y se ha BORRADO (I-10): calculaba
+// `min(tope, restantes + 1)` en JS a partir de un saldo leído antes, que es
+// justo el read-modify-write que perdía devoluciones cuando dos cancelaciones
+// coincidían. El tope lo aplica ahora la RPC `devolver_sesion_bono` dentro de su
+// propio WHERE. Dejar viva la versión no atómica era invitar a volver al bug.
 
 // C-4: ¿la socia tiene derecho a reservar? Cierto si tiene una suscripción
 // ACTIVA que sea o bien un plan MENSUAL vigente (sin fecha fin, o fin >= hoy),
