@@ -27,6 +27,12 @@ const EXPERIENCIA_OPCIONES = [
   { valor: '10', etiqueta: '10+' },
 ] as const;
 
+const VALORACION_OPCIONES = [
+  { valor: '', etiqueta: 'Cualquiera' },
+  { valor: '4', etiqueta: '4+ ★' },
+  { valor: '4.5', etiqueta: '4,5+ ★' },
+] as const;
+
 function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="py-5" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
@@ -153,6 +159,45 @@ export function FiltrosSidebar() {
           })}
         </div>
       </Grupo>
+
+      <Grupo titulo="Valoración mínima">
+        <div className="space-y-2">
+          {VALORACION_OPCIONES.map(o => {
+            const activo = (searchParams.get('valoracionMinima') ?? '') === o.valor;
+            return (
+              <label key={o.valor} className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }} onClick={() => actualizar('valoracionMinima', o.valor || null)}>
+                <span className="shrink-0 rounded-full" style={{ width: 16, height: 16, border: `1.5px solid ${activo ? NW_PRODUCTO : NW_BORDE}`, boxShadow: activo ? `inset 0 0 0 3px #fff, inset 0 0 0 999px ${NW_PRODUCTO}` : undefined }} />
+                {o.etiqueta}
+              </label>
+            );
+          })}
+        </div>
+      </Grupo>
+
+      <Grupo titulo="Verificación">
+        <div className="space-y-2">
+          <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
+            <span
+              className="shrink-0 flex items-center justify-center transition-colors"
+              style={{ width: 19, height: 19, borderRadius: 6, background: searchParams.get('identidadVerificada') === '1' ? NW_PRODUCTO : '#fff', border: `1.5px solid ${searchParams.get('identidadVerificada') === '1' ? NW_PRODUCTO : NW_BORDE}` }}
+              onClick={() => actualizar('identidadVerificada', searchParams.get('identidadVerificada') === '1' ? null : '1')}
+            >
+              {searchParams.get('identidadVerificada') === '1' && <Check size={13} color="#fff" strokeWidth={3} />}
+            </span>
+            <span onClick={() => actualizar('identidadVerificada', searchParams.get('identidadVerificada') === '1' ? null : '1')}>Identidad verificada</span>
+          </label>
+          <label className="flex items-center gap-2.5 cursor-pointer text-[13.5px]" style={{ color: NW_TINTA }}>
+            <span
+              className="shrink-0 flex items-center justify-center transition-colors"
+              style={{ width: 19, height: 19, borderRadius: 6, background: searchParams.get('experienciaVerificada') === '1' ? NW_PRODUCTO : '#fff', border: `1.5px solid ${searchParams.get('experienciaVerificada') === '1' ? NW_PRODUCTO : NW_BORDE}` }}
+              onClick={() => actualizar('experienciaVerificada', searchParams.get('experienciaVerificada') === '1' ? null : '1')}
+            >
+              {searchParams.get('experienciaVerificada') === '1' && <Check size={13} color="#fff" strokeWidth={3} />}
+            </span>
+            <span onClick={() => actualizar('experienciaVerificada', searchParams.get('experienciaVerificada') === '1' ? null : '1')}>Experiencia verificada</span>
+          </label>
+        </div>
+      </Grupo>
     </div>
   );
 }
@@ -174,12 +219,23 @@ export function ChipsActivos() {
   for (const v of (searchParams.get('tarifaRango') ?? '').split(',').filter(Boolean)) {
     if (esTarifa(v)) chips.push({ clave: 'tarifaRango', valor: v, etiqueta: TARIFA_RANGO_LABEL[v] });
   }
+  if (searchParams.get('valoracionMinima')) {
+    chips.push({ clave: 'valoracionMinima', valor: searchParams.get('valoracionMinima')!, etiqueta: `${searchParams.get('valoracionMinima')}+ ★` });
+  }
+  if (searchParams.get('identidadVerificada') === '1') {
+    chips.push({ clave: 'identidadVerificada', valor: '1', etiqueta: 'Identidad verificada' });
+  }
+  if (searchParams.get('experienciaVerificada') === '1') {
+    chips.push({ clave: 'experienciaVerificada', valor: '1', etiqueta: 'Experiencia verificada' });
+  }
 
   if (chips.length === 0) return null;
 
+  const CLAVES_VALOR_UNICO = new Set(['ciudad', 'valoracionMinima', 'identidadVerificada', 'experienciaVerificada']);
+
   function quitar(clave: string, valor: string) {
     const sp = new URLSearchParams(searchParams.toString());
-    if (clave === 'ciudad') { sp.delete('ciudad'); }
+    if (CLAVES_VALOR_UNICO.has(clave)) { sp.delete(clave); }
     else {
       const restantes = (sp.get(clave) ?? '').split(',').filter(v => v && v !== valor);
       if (restantes.length) sp.set(clave, restantes.join(',')); else sp.delete(clave);

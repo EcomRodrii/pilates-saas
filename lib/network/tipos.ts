@@ -95,6 +95,17 @@ export interface FiltroBusquedaNetwork {
   // discreto (tarifaRango, no un número) — aquí se filtra por los rangos
   // seleccionados, honesto con lo que el dato puede responder de verdad.
   tarifaRango: TarifaRangoNetwork[];
+  // Fase 2 "búsqueda avanzada" — identidad va directo a SQL
+  // (`identidad_verificada_en is not null`); experiencia se resuelve
+  // post-query, sobre el mismo Set ya calculado en lote para el badge de
+  // cada tarjeta (`buscarPerfilesPublico`) — ningún cálculo nuevo, solo se
+  // usa también para filtrar, no solo para pintar.
+  soloIdentidadVerificada: boolean;
+  soloExperienciaVerificada: boolean;
+  // Reseñas ya se agregan en lote para pintar `resumenResenas` en cada
+  // tarjeta — mismo dato, filtrado después en vez de un `HAVING` en SQL
+  // (supabase-js no hace GROUP BY).
+  valoracionMinima: number | null;
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.

@@ -54,6 +54,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     return valor ? valor.split(',').map(v => v.trim()).filter(Boolean) : [];
   };
   const experienciaMinimaRaw = sp.get('experienciaMinima');
+  const valoracionMinimaRaw = sp.get('valoracionMinima');
   return {
     ciudad: sp.get('ciudad')?.trim() || null,
     especialidades: listaParam('especialidades').filter(esEspecialidadValida) as FiltroBusquedaNetwork['especialidades'],
@@ -62,6 +63,9 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     tipoTrabajo: listaParam('tipoTrabajo').filter(esTipoTrabajoValido) as FiltroBusquedaNetwork['tipoTrabajo'],
     experienciaMinima: experienciaMinimaRaw && Number.isFinite(Number(experienciaMinimaRaw)) ? Number(experienciaMinimaRaw) : null,
     tarifaRango: listaParam('tarifaRango').filter(esTarifaRangoValida) as FiltroBusquedaNetwork['tarifaRango'],
+    soloIdentidadVerificada: sp.get('identidadVerificada') === '1',
+    soloExperienciaVerificada: sp.get('experienciaVerificada') === '1',
+    valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
   };
 }
 
@@ -135,6 +139,9 @@ export function perfilCoincideFiltro(p: PerfilNetworkPublico, filtro: FiltroBusq
   if (filtro.tipoTrabajo.length && !p.tipoTrabajo.some(t => filtro.tipoTrabajo.includes(t))) return false;
   if (filtro.experienciaMinima != null && (p.aniosExperiencia == null || p.aniosExperiencia < filtro.experienciaMinima)) return false;
   if (filtro.tarifaRango.length && (p.tarifaRango == null || !filtro.tarifaRango.includes(p.tarifaRango))) return false;
+  if (filtro.soloIdentidadVerificada && !p.identidadVerificadaEn) return false;
+  if (filtro.soloExperienciaVerificada && !p.experienciaVerificada) return false;
+  if (filtro.valoracionMinima != null && (p.resumenResenas.promedio == null || p.resumenResenas.promedio < filtro.valoracionMinima)) return false;
   return true;
 }
 
@@ -163,6 +170,7 @@ export async function buscarPerfilesPublico(
   if (filtro.tipoTrabajo.length > 0) query = query.overlaps('tipo_trabajo', filtro.tipoTrabajo);
   if (filtro.experienciaMinima != null) query = query.gte('anios_experiencia', filtro.experienciaMinima);
   if (filtro.tarifaRango.length > 0) query = query.in('tarifa_rango', filtro.tarifaRango);
+  if (filtro.soloIdentidadVerificada) query = query.not('identidad_verificada_en', 'is', null);
 
   const { data, error } = await query;
   if (error) return { error };
@@ -191,9 +199,19 @@ export async function buscarPerfilesPublico(
     puntuacionesPorPerfil.set(r.perfil_id as string, lista);
   }
 
-  const perfiles = filas.map(f => mapFilaAPerfilPublico(
+  let perfiles = filas.map(f => mapFilaAPerfilPublico(
     f, perfilesConExperienciaVerificada.has(f.id), resumenDesdePuntuaciones(puntuacionesPorPerfil.get(f.id) ?? []),
   ));
+
+  // Post-filtro, no SQL: los dos datos ya se calcularon en lote arriba para
+  // pintar el badge/la reseña de cada tarjeta — filtrar por ellos aquí no
+  // añade ninguna consulta nueva, solo reusa lo ya traído.
+  if (filtro.soloExperienciaVerificada) perfiles = perfiles.filter(p => p.experienciaVerificada);
+  if (filtro.valoracionMinima != null) {
+    const minimo = filtro.valoracionMinima;
+    perfiles = perfiles.filter(p => p.resumenResenas.promedio != null && p.resumenResenas.promedio >= minimo);
+  }
+
   return { perfiles: ordenarResultadosNetwork(perfiles, filtro) };
 }
 

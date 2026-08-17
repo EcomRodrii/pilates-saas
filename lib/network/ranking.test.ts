@@ -4,7 +4,7 @@ import { ordenarResultadosNetwork } from './ranking.ts';
 import type { PerfilNetworkPublico, FiltroBusquedaNetwork } from './tipos.ts';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
-  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [],
+  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null,
 };
 
 function perfil(overrides: Partial<PerfilNetworkPublico> & { id: string }): PerfilNetworkPublico {

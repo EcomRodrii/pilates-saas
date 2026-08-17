@@ -69,7 +69,7 @@ const FAQ_ITEMS = [
 export default async function NetworkLandingPage() {
   const admin = getSupabaseAdmin();
   const resultado = admin
-    ? await buscarPerfilesPublico(admin, { ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [] })
+    ? await buscarPerfilesPublico(admin, { ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null })
     : null;
   const perfiles = resultado && 'perfiles' in resultado ? resultado.perfiles : [];
   const destacadas = [...perfiles].sort((a, b) => Number(b.destacado) - Number(a.destacado)).slice(0, 4);

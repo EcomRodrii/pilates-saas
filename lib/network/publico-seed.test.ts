@@ -12,7 +12,7 @@ import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 const SIN_FILTROS: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [],
-  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [],
+  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null,
 };
 
 const [marta, sofia] = PERFILES_SEED_E2E;
@@ -50,4 +50,25 @@ test('ciudad: substring sin distinguir mayúsculas, como el ilike de Postgres', 
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'madr' }), true);
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'MADRID' }), true);
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'Barcelona' }), false);
+});
+
+test('soloIdentidadVerificada: Marta tiene identidadVerificadaEn, Sofía no', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloIdentidadVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('soloExperienciaVerificada: Marta true, Sofía false', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloExperienciaVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('valoracionMinima: Sofía sin reseñas (promedio null) nunca cumple un mínimo pedido', () => {
+  // Mismo criterio que tarifaRango con null: un mínimo pedido nunca lo
+  // cumple un perfil sin dato, aunque el mínimo sea 0-como.
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, valoracionMinima: 4 };
+  assert.equal(perfilCoincideFiltro(marta, f), true); // 4.8 >= 4
+  assert.equal(perfilCoincideFiltro(sofia, f), false); // promedio: null
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, valoracionMinima: 4.9 }), false); // 4.8 < 4.9
 });
