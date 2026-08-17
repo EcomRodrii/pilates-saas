@@ -29,6 +29,22 @@ export function useViewModel() {
 
   return useMemo(() => {
     const f = cfg.features;
+    // §6 — El evento de calendario de una clase, en la forma que consumen
+    // `eventoIcs` y `urlGoogleCalendar` (lib/calendario-ics.ts).
+    //
+    // Se extrae porque ahora lo piden DOS sitios: la pantalla de confirmación
+    // (que ya lo tenía) y cada fila de "Mis reservas" (que no). Construirlo dos
+    // veces es como se acaba con una alumna a la que el .ics de la confirmación
+    // le pone la dirección y el de su lista de reservas no.
+    //
+    // ⚠️ Instante real (`startsAt`/`endsAt`), nunca la hora de pared: un evento
+    // sin zona se corre de hora en un móvil configurado en otra.
+    const eventoDeClase = (c: { id: string; startsAt: string; endsAt: string; name: string; teacher: string; room: string }) => ({
+      id: c.id, inicio: c.startsAt, fin: c.endsAt, titulo: c.name,
+      instructora: c.teacher, sala: c.room,
+      estudioNombre: datos.estudio.nombre || cfg.studio,
+      estudioDireccion: [datos.estudio.direccion, datos.estudio.ciudad].filter(Boolean).join(", "),
+    });
     const cls = buscarClase(datos, state.classId);
     // ⚠️ Las reservas de verdad mandan sobre las de la demo. `state.booked` es
     // la lista de mentira del kit (la llena un `setTimeout`, no el servidor):
@@ -234,6 +250,10 @@ export function useViewModel() {
           // El id que hay que mandar para cancelar NO es el de la clase.
           // `undefined` en la demo, donde no hay reserva que cancelar.
           reservaId: reservaPorClase.get(c.id),
+          // §6 — Para poder añadirla al calendario DESPUÉS de reservar. Antes
+          // solo se ofrecía en la pantalla de confirmación: quien la cerraba, o
+          // reservaba desde otro sitio, se quedaba sin ello para siempre.
+          ics: eventoDeClase(c),
         }];
       }),
 
@@ -435,13 +455,7 @@ export function useViewModel() {
           kicker: u.estado === "CONFIRMADA" ? "Reserva confirmada" : "Tu solicitud",
           name: c.name, teacher: c.teacher, room: c.room, duration: c.duration,
           when: (c.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, c.day)) + " · " + c.time,
-          // Para el `.ics`: el instante real, no la hora de pared.
-          ics: {
-            id: c.id, inicio: c.startsAt, fin: c.endsAt, titulo: c.name,
-            instructora: c.teacher, sala: c.room,
-            estudioNombre: datos.estudio.nombre || cfg.studio,
-            estudioDireccion: [datos.estudio.direccion, datos.estudio.ciudad].filter(Boolean).join(", "),
-          },
+          ics: eventoDeClase(c),
         };
       })(),
 
