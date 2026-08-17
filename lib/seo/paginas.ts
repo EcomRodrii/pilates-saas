@@ -133,7 +133,7 @@ const FUNCIONALIDADES: PaginaSeo[] = [
     prioridad: 1,
     changeFrequency: 'monthly',
     actualizado: PUBLICADO,
-    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/recursos/cubrir-baja-instructora', '/network/instructoras'],
+    relacionadas: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/calendario-y-salas', '/recursos/cubrir-baja-instructora', '/soluciones/estudio-de-yoga'],
   },
   {
     path: '/funcionalidades/bonos-y-membresias',
@@ -425,6 +425,28 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
     relacionadas: ['/comparativa', '/precios', '/recursos/checklist-elegir-software-estudio'],
+  },
+  {
+    // Página única, no un árbol de 15 funcionalidades en paralelo: nace sin
+    // ningún estudio de yoga real usando Tentare todavía y sin lógica de
+    // negocio específica de yoga (el motor de reservas/bonos/cobros es
+    // agnóstico de disciplina, verificado en `tipos_clase`; lo único
+    // yoga-específico que existe de verdad hoy es que Tentare Network ya
+    // trata 'yoga' como especialidad propia — `ESPECIALIDADES_NETWORK` en
+    // `lib/network/catalogo.ts`). Ampliar a más páginas cuando haya
+    // demanda real que lo justifique, no antes — mismo criterio que ya se
+    // aplicó a `/soluciones/cambiar-de-software`.
+    path: '/soluciones/estudio-de-yoga',
+    titulo: 'Tentare para estudios de Yoga — reservas, bonos y sustituciones',
+    descripcion:
+      'El mismo motor de reservas, bonos, cobros y sustituciones que ya usan estudios de Pilates, funcionando igual para series, talleres y clases sueltas de Yoga.',
+    grupo: 'soluciones',
+    etiqueta: 'Estudio de Yoga',
+    resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.',
+    prioridad: 0.6,
+    changeFrequency: 'monthly',
+    actualizado: '2026-08-15',
+    relacionadas: ['/funcionalidades/sustituciones', '/precios', '/comparativa'],
   },
   {
     path: '/recursos',
