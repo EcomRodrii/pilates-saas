@@ -39,6 +39,15 @@
   background: var(--dot);
 }
 .calendar__cell.is-selected .calendar__mark { background: var(--on-brand); }
+/* El mismo punto, pero suelto en una línea de texto (la leyenda de la agenda):
+ * sin el posicionamiento absoluto, que ahí no tiene celda a la que anclarse. */
+.calendar__mark--suelto { position: static; transform: none; display: inline-block; vertical-align: middle; }
+.calendar__leyenda {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted);
+}
 
 /* ── Tabla ────────────────────────────────────────────────────────────── */
 .table-wrap {

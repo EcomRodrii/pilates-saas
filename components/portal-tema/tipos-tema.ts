@@ -27,7 +27,24 @@ export type WeekStripStyle = "card" | "bare";
  *   `basico`  — Inicio · Clases · Reservas · Perfil (Oliva/Bloom/Noir).
  *   `centro`  — Inicio · Reservas · Mi centro · Bonos · Perfil (Tentada).
  */
-export type TabSet = "basico" | "centro";
+/**
+ * Qué cuatro (o cinco) pestañas lleva la barra.
+ *
+ *   `basico`  — Inicio · Clases · Reservas · Perfil.
+ *   `centro`  — los cinco de Tentada, con «Mi centro» y «Bonos».
+ *   `agenda`  — como `basico`, pero la tercera se llama «Agenda» y su icono es
+ *               un reloj. Es la de Sereno: su prototipo titula esa pantalla
+ *               «Mi agenda», no «Mis reservas».
+ *
+ * ⚠️ Es un `tab_set` nuevo y no un renombrado del de siempre a propósito. El
+ * README del paquete pedía hacerlo «vía la config de nav existente
+ * (`lib/portal-nav.ts`), sin tocar el kit», y esa vía NO llega hasta aquí:
+ * `NAV_SEG_IDS` es del portal viejo (`home`/`clases`/`bonos`/`videos`/`perfil`),
+ * no tiene ningún segmento `reservas`, y el kit no lee `navPortal` en ningún
+ * sitio — comprobado con grep. Cambiar la etiqueta de `basico` habría
+ * renombrado la pestaña también a Oliva, Bloom y Noir, que no lo han pedido.
+ */
+export type TabSet = "basico" | "centro" | "agenda";
 
 /**
  * Forma de la pantalla de horario.

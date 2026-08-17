@@ -82,6 +82,26 @@ export function Hojas({ vm }: { vm: ViewModel }) {
     );
   }
 
+  if (hoja.tipo === "sinCreditos") {
+    return (
+      <Hoja onClose={actions.cerrarHoja}>
+        <p className="hoja__titulo">Te quedaste sin créditos</p>
+        <p className="hoja__texto">
+          Para reservar esta clase necesitas un bono activo. Puedes activar uno
+          desde aquí y volver a intentarlo.
+        </p>
+        {/* Cerrar ANTES de navegar: `ir()` no toca `hoja` (a propósito — el
+            detalle de clase se abre con la hoja puesta), así que un `goBuy` a
+            secas dejaba la hoja encima de la pantalla de compra. */}
+        <Button block style={{ marginTop: 14 }}
+          onClick={() => { actions.cerrarHoja(); actions.goBuy(); }}>
+          Ver bonos
+        </Button>
+        <Button block variant="ghost" style={{ marginTop: 9 }} onClick={actions.cerrarHoja}>Ahora no</Button>
+      </Hoja>
+    );
+  }
+
   if (hoja.tipo === "errorReserva") {
     return (
       <Hoja onClose={actions.cerrarHoja}>

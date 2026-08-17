@@ -91,7 +91,7 @@ function diasDeLaSemana(ahora: Date, tz: string): { fecha: string; dia: DiaPorta
     d.setUTCDate(d.getUTCDate() - diaSemana + i);
     const idx = d.getUTCDay();
     const fecha = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-    return { fecha, dia: { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate() } };
+    return { fecha, dia: { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate(), fecha } };
   });
 }
 
@@ -404,7 +404,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
     })
     .filter(({ fecha }) => fechas.has(fecha))
     .sort((a, b) => a.s.inicio.localeCompare(b.s.inicio))
-    .map(({ s, dia }) => {
+    .map(({ s, fecha, dia }) => {
       const tipo = porTipo.get(s.tipoClaseId);
       const sala = porSala.get(s.salaId);
       const instructor = porInstructor.get(s.instructorId);
@@ -417,6 +417,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         // pueden llamarse igual y el nombre además se puede renombrar.
         type: s.tipoClaseId,
         day: dia,
+        fecha,
         time: horaLocal(s.inicio, tz),
         end: horaLocal(s.fin, tz),
         startsAt: s.inicio,

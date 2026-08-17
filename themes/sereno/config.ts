@@ -43,7 +43,11 @@ export const THEME: ThemeConfig = {
     "detail_style": "bleed",
     "next_class_style": "hero",
     "week_strip_style": "card",
-    "tab_set": "basico",
+    // ⚠️ `agenda`, no el `basico` que traía el paquete: con `basico` la tercera
+    // pestaña se rotula «Reservas» y el prototipo la llama «Agenda» (lo señala
+    // el propio README, §9.4). Ver `TabSet` para por qué no se hace por
+    // `lib/portal-nav.ts` como sugería.
+    "tab_set": "agenda",
     "schedule_style": "chips",
     "passes_style": "plan",
     "profile_style": "card"

@@ -1,23 +1,94 @@
 "use client";
 
-import { Button, EmptyState } from "@/components/portal-tema/components/ui/primitives";
-import { Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { Button, Card, EmptyState } from "@/components/portal-tema/components/ui/primitives";
+import { DayStrip, Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { AnadirAlCalendario } from "@/components/portal-tema/components/ui/anadir-al-calendario";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
-/** Mis reservas. Cada una con ver y cancelar. */
+const VISTAS = [
+  { key: "semana", label: "Semana" },
+  { key: "mes", label: "Mes" },
+  { key: "lista", label: "Lista" },
+] as const;
+
+/**
+ * Mis reservas / Mi agenda.
+ *
+ * Dos formas según el tema. La de siempre es la LISTA a secas, y es la que
+ * siguen viendo Tentada, Oliva, Bloom y Noir: nada cambia para ellos. Sereno
+ * pide además semana y mes (`tab_set: "agenda"`), con el segmentado arriba.
+ *
+ * ⚠️ La vista de MES no navega entre meses, y no es un olvido: `state.day` es
+ * un número de día, no una fecha, así que un mes anterior no se puede
+ * seleccionar sin convertirlo — está documentado en `Calendar.tsx` desde antes
+ * de esto. El prototipo tampoco trae flechas de mes, así que el hueco no se
+ * nota; el día que haga falta, es una pasada propia.
+ */
 export function Bookings({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  // El segmentado solo lo pide el tema que lo declara. Sin él, esta pantalla
+  // es exactamente la de antes.
+  const conVistas = vm.features.tab_set === "agenda";
+  const vista = conVistas ? vm.agenda.vista : "lista";
+  const delDia = new Set(vm.agenda.delDia);
+  const filas = vista === "lista" ? vm.bookings : vm.bookings.filter((r) => delDia.has(r.id));
+
   return (
     <>
       <Island />
       <StatusBar />
       <div className="canvas no-scrollbar">
-        <h1 className="screen-title">Mis reservas</h1>
+        <h1 className="screen-title">{conVistas ? "Mi agenda" : "Mis reservas"}</h1>
+
+        {conVistas ? (
+          <div className="segmented" role="tablist" aria-label="Vista de la agenda">
+            {VISTAS.map((v) => (
+              <button
+                key={v.key}
+                role="tab"
+                aria-selected={vista === v.key}
+                className={("segmented__item " + (vista === v.key ? "is-active" : "")).trim()}
+                onClick={() => actions.setAgendaVista(v.key)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {conVistas && vista === "semana" ? <DayStrip week={vm.agenda.semana} /> : null}
+
+        {conVistas && vista === "mes" ? (
+          <Card className="calendar">
+            <div className="calendar__head">
+              <p className="calendar__month">{vm.agenda.mes.month}</p>
+            </div>
+            <div className="calendar__grid">
+              {vm.agenda.mes.dow.map((d, i) => <span className="calendar__dow" key={d + i}>{d}</span>)}
+              {vm.agenda.mes.cells.map((cell) => (
+                <button
+                  key={cell.fecha}
+                  className={["calendar__cell", cell.outside ? "is-muted" : "", cell.today ? "is-today" : "", cell.selected ? "is-selected" : ""].filter(Boolean).join(" ")}
+                  onClick={cell.outside ? undefined : () => actions.selectDay(cell.label)}
+                >
+                  {cell.label}
+                  {cell.marked ? <i className="calendar__mark"></i> : null}
+                </button>
+              ))}
+            </div>
+            {/* Sin leyenda de «Completada»: esa mitad no se puede pintar
+                todavía (ver el estado vacío de la lista). Prometerla en la
+                leyenda y no marcarla nunca sería peor que no ofrecerla. */}
+            <p className="calendar__leyenda">
+              <i className="calendar__mark calendar__mark--suelto"></i> Tienes clase
+            </p>
+          </Card>
+        ) : null}
+
         <div className="scroller no-scrollbar">
-          {vm.bookings.length ? (
-            vm.bookings.map((row) => (
+          {filas.length ? (
+            filas.map((row) => (
               <article className="card booking" key={row.id}>
                 <div className="booking__head">
                   <div className="class-row__time">
@@ -42,15 +113,30 @@ export function Bookings({ vm }: { vm: ViewModel }) {
                 </div>
               </article>
             ))
-          ) : (
+          ) : vista === "lista" ? (
             <EmptyState
               title="Aún no has reservado"
               text="Elige una clase del horario y aparecerá aquí."
               cta="Ver horario"
               onAction={actions.goSchedule}
             />
+          ) : (
+            <EmptyState
+              title="Nada este día"
+              text="Elige otro día o busca una clase en el horario."
+              cta="Ver horario"
+              onAction={actions.goSchedule}
+            />
           )}
         </div>
+
+        {/* ⚠️ «Completadas» del prototipo NO está, y el hueco es de DATOS, no
+            de pantalla: el catálogo público acota las sesiones a `fin >= ahora`
+            (`fetchPublicStudioData`), así que una clase pasada no llega nunca
+            al portal. Las reservas ASISTIDA sí están en el contexto, pero sin
+            su sesión no hay ni nombre ni fecha que pintar. Pintar una sección
+            vacía que nunca se llena sería exactamente la clase de promesa que
+            este kit lleva quitando, así que no se pinta. */}
       </div>
     </>
   );

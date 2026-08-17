@@ -155,6 +155,64 @@ a tema (§7).
 5. **El `\n` de `welcome.text`** partía la frase por un sitio que no era el suyo:
    `.welcome__text` es `pre-line` y ya tiene su medida.
 
+## 5.bis Segunda entrega del paquete (§9 «Paridad visual»)
+
+Claude Design reexportó el ZIP con un README ampliado. **El tema es byte a byte
+idéntico** —`config.ts`, `tokens.css`, el prototipo y los tres JSON— así que no
+hubo nada que reintegrar; lo nuevo es una lista de diagnóstico (§9). De sus
+cinco puntos, tres ya estaban cubiertos y tres no. Los tres que faltaban:
+
+1. **La 3ª pestaña se llama «Agenda»**, no «Reservas». ⚠️ El README pedía
+   hacerlo «vía `lib/portal-nav.ts`, sin tocar el kit» y **esa vía no llega
+   aquí**: `NAV_SEG_IDS` es del portal viejo (`home`/`clases`/`bonos`/`videos`/
+   `perfil`), no tiene segmento `reservas`, y el kit no lee `navPortal` en
+   ningún sitio (grep). Se resuelve con un `tab_set: "agenda"` nuevo —el eje
+   que ya existe para esto— en vez de renombrar `basico`, que le habría
+   cambiado la etiqueta también a Oliva, Bloom y Noir.
+2. **Hoja «sin créditos»** con salida a Bonos. NO es una comprobación previa
+   que impida pulsar: se decide DESPUÉS del rechazo del servidor y solo cuando
+   su cartera (`datos.bonos`, no el bono contable) está vacía. Adivinarlo antes
+   bloquearía a quien sí puede reservar — un estudio puede tener
+   `reserva_exigir_plan` desactivado, y un plan ilimitado no cuenta sesiones.
+3. **Agenda con segmentado Semana / Mes / Lista.** Reutiliza `rejillaMesPortal`
+   y `DayStrip`, que ya existían. Los puntos marcan SUS reservas, no el horario
+   del estudio: misma función, otra entrada.
+
+### El bug que destapó la vista de mes
+
+Al mirarla en el navegador, el punto salía bajo el «4» gris del mes siguiente y
+la reserva de septiembre aparecía bajo el 4 de agosto seleccionado. Causa:
+**`state.day` es un número de día, no una fecha**, y la rejilla del mes siempre
+trae celdas de los meses vecinos. Es exactamente el bug que `clasesDeLaSemana`
+ya documenta («una clase del 5 de septiembre tiene `day` 5 igual que el 5 de
+agosto y se colaba en el horario»), reintroducido en otra pantalla.
+
+Arreglado en la raíz: `StudioClass` y `DiaPortal` ganan `fecha` ('YYYY-MM-DD') —
+`diasDeLaSemana` ya la calculaba y `semanaDe` la tiraba— y la agenda resuelve el
+día elegido a fecha antes de filtrar. Dos tests nuevos lo fijan.
+
+⚠️ Esto **no** resuelve la limitación de fondo: `state.day` sigue siendo un
+número, así que la rejilla no puede navegar a otro mes. Es la misma pasada
+pendiente que `Calendar.tsx` documenta desde antes, y el prototipo tampoco trae
+flechas de mes, así que no se nota.
+
+### «Completadas» NO está, y el hueco es de datos
+
+El prototipo pone «Completadas» bajo «Próximas» en la vista de lista. No se
+construyó porque **no hay de dónde sacarlo**: `fetchPublicStudioData` acota las
+sesiones a `fin >= ahora`, así que una clase pasada no llega nunca al portal.
+Las reservas `ASISTIDA` sí están en el contexto (52 en el estudio piloto), pero
+sin su sesión no hay ni nombre ni fecha que pintar.
+
+Las dos salidas, y ninguna es una adaptación de tema:
+
+- **Ensanchar la ventana hacia atrás** en el catálogo público — regresión de
+  carga para TODOS los portales, incluidos los que no usan Sereno.
+- **Un endpoint propio del historial de la socia**, cargado en diferido al abrir
+  la lista. Superficie de backend nueva, pero acotada y perezosa.
+
+Se documenta en vez de pintar una sección vacía que nunca se llena.
+
 ## 6. Desviaciones del diseño, a propósito
 
 - **La ficha del detalle usa `.detail__label`** (Libre Caslon 14px), no el rótulo

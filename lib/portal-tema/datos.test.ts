@@ -100,6 +100,11 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
   assert.equal(clases.length, 1);
   assert.deepEqual(clases[0], {
     id: 'x1', name: 'Reformer', type: 't1', day: 3,
+    // La fecha LOCAL completa, junto al día del mes. `day` sirve dentro de una
+    // semana; en cuanto algo compara contra la rejilla del mes —que trae
+    // celdas de los meses vecinos— el número solo miente. Mismo motivo que el
+    // filtro por fecha de aquí arriba.
+    fecha: '2026-09-03',
     time: '18:00', end: '18:50', duration: '50 min',
     // La hora de PARED es Madrid (18:00); el instante real es UTC. Las dos
     // salen de la misma sesión, así que no pueden discrepar.
@@ -117,6 +122,33 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // ninguna, en vez de copiar el «6 horas» del prototipo.
     cancelHoras: null,
   });
+});
+
+// ⚠️ El mismo bug que el filtro del horario, pero en la AGENDA — y este salió
+// mirando la pantalla, no razonando: la vista de mes marcaba el 4 de septiembre
+// (gris, del mes vecino) teniendo seleccionado el 4 de agosto, y debajo enseñaba
+// la reserva de septiembre como si fuera de ese día. `day` no distingue meses y
+// la rejilla del mes SIEMPRE trae celdas de los vecinos.
+test('cada clase trae su fecha completa, no solo el día del mes', () => {
+  const clases = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-04T16:00:00.000Z', '2026-09-04T17:00:00.000Z')],
+    tiposClase: [tipo('t1', 'Reformer')],
+  });
+  assert.equal(clases[0].day, 4);
+  assert.equal(clases[0].fecha, '2026-09-04');
+});
+
+test('semanaDe: cada día trae su fecha, no solo el número', () => {
+  // La semana que CRUZA de mes es donde se nota: dos días con el mismo número
+  // no pueden convivir, pero sí dos con el mismo número en meses distintos en
+  // cuanto se compara contra la rejilla del mes.
+  const semana = semanaDe(new Date('2026-09-03T10:00:00.000Z'));
+  assert.deepEqual(semana.map((d) => d.fecha), [
+    '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03',
+    '2026-09-04', '2026-09-05', '2026-09-06',
+  ]);
 });
 
 test('clasesDeLaSemana: fuera de la semana, canceladas y orden', () => {
@@ -420,7 +452,7 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 // aquí: si `StudioClass` gana un campo, este ayudante tiene que enterarse.
 function clase(id: string): StudioClass {
   return {
-    id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
+    id, name: 'Reformer', type: 't1', day: 7, fecha: '2026-09-07', time: '18:15', end: '19:10',
     startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
     level: 'Todos los niveles', seats: 3, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
@@ -692,7 +724,7 @@ test('sociaDe: «Domiciliado» exige mandato SEPA, no solo el método preferido'
 
 const claseEn = (iso: string): StudioClass => ({
   id: `c-${iso}`, name: 'Reformer', type: 'reformer',
-  day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
+  day: Number(iso.slice(8, 10)), fecha: iso.slice(0, 10), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
   level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
   initial: 'A', seats: 10, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
