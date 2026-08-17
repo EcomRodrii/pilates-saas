@@ -140,11 +140,25 @@ export function useViewModel() {
         isToday: next.day === datos.hoy.num,
         day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
         meta: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + ", " + next.time + " · " + next.room,
+        // El chip que va SOBRE la foto: cuándo, y nada más. La sala y la
+        // instructora ya están en la fila de debajo, y repetirlas ahí llenaba
+        // el chip de texto hasta partirlo en dos líneas.
+        chip: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + " · " + next.time,
+        // Para el círculo de la fila «Con Marta». `inicialDe` es la misma que
+        // usa el adaptador para el resto de avatares — no un `[0]` suelto, que
+        // con un nombre vacío devuelve `undefined`.
+        teacherInitial: next.initial,
+        // «Con Marta · Sala 2»: quién primero, que es lo que se busca de un
+        // vistazo; el cuándo ya lo dice el chip de la foto.
+        // Nombre CORTO: «Con Marta», no «Con Marta Gómez». Es la fila de un
+        // vistazo y el apellido no ayuda a reconocerla; la ficha del detalle sí
+        // lo lleva entero.
+        quien: "Con " + next.teacher.split(" ")[0] + " · " + next.room,
       },
       // «Tu» delante en Noir y Tentada, y en Tentada NO es un matiz: es el
       // rótulo impreso en el billete, y el diseño lo escribe entero.
       nextHeading: next
-        ? (cfg.id === "noir" || cfg.id === "tentada" ? "Tu próxima clase" : "Próxima clase")
+        ? (cfg.id === "noir" || cfg.id === "tentada" || cfg.id === "sereno" ? "Tu próxima clase" : "Próxima clase")
         : "Tu semana",
 
       progress: {

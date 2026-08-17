@@ -1,7 +1,16 @@
 /** Contrato del tema. Los cinco temas rellenan esta misma forma. */
 
 export type WelcomeStyle = "photo" | "soft" | "dark";
-export type GreetingStyle = "display-first" | "micro-first";
+/**
+ * Jerarquía de la cabecera del Inicio.
+ *
+ *   `display-first` — «Hola, Laura» grande arriba y la pregunta debajo (Oliva).
+ *   `micro-first`   — un micro («Buenos días») y el nombre debajo.
+ *   `date-first`    — la FECHA de hoy en micro y «Hola, Laura» en la serif
+ *                     grande debajo, sin avatar (Sereno). La campana se queda
+ *                     a la derecha, con su punto.
+ */
+export type GreetingStyle = "display-first" | "micro-first" | "date-first";
 export type QuickLinksStyle = "cards" | "bare";
 export type TabBarStyle = "classic" | "floating";
 export type DetailStyle = "card" | "bleed";
@@ -83,7 +92,8 @@ export type HomeBlockName =
   | "weekly-progress"
   | "quick-links"
   | "week-strip"
-  | "studio-banner";
+  | "studio-banner"
+  | "waitlist-banner";
 
 export interface ThemeFeatures {
   welcome_style: WelcomeStyle;
@@ -92,6 +102,13 @@ export interface ThemeFeatures {
   welcome_cta_circle: boolean;
   greeting_style: GreetingStyle;
   hero_badge: boolean;
+  /**
+   * El «cuándo» de la próxima clase va como CHIP sobre la foto, y la
+   * instructora en una fila con su inicial (Sereno). Solo tiene sentido donde
+   * la foto es una banda con sitio libre; con la foto a la derecha
+   * (Oliva/Bloom/Noir) el chip caería encima del texto.
+   */
+  hero_chip?: boolean;
   quick_links_style: QuickLinksStyle;
   tab_bar_style: TabBarStyle;
   tab_icon_fill: boolean;
