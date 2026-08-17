@@ -65,6 +65,7 @@ export function filtroDesdeSearchParams(sp: URLSearchParams): FiltroBusquedaNetw
     tarifaRango: listaParam('tarifaRango').filter(esTarifaRangoValida) as FiltroBusquedaNetwork['tarifaRango'],
     soloIdentidadVerificada: sp.get('identidadVerificada') === '1',
     soloExperienciaVerificada: sp.get('experienciaVerificada') === '1',
+    soloCertificacionVerificada: sp.get('certificacionVerificada') === '1',
     valoracionMinima: valoracionMinimaRaw && Number.isFinite(Number(valoracionMinimaRaw)) ? Number(valoracionMinimaRaw) : null,
   };
 }
@@ -107,7 +108,7 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: true, identidadVerificadaEn: '2026-01-15T10:00:00.000Z',
     creadoEn: '2026-01-01T00:00:00.000Z', actualizadoEn: '2026-08-01T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es', 'en'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
+    experienciaVerificada: true, certificacionVerificada: true, resumenResenas: { promedio: 4.8, total: 12 },
   },
   {
     id: 'perfil-e2e-2', slug: 'sofia-ruiz-e2e', nombre: 'Sofía Ruiz',
@@ -119,7 +120,7 @@ export const PERFILES_SEED_E2E: readonly PerfilNetworkPublico[] = [
     estado: 'published', destacado: false, identidadVerificadaEn: null,
     creadoEn: '2026-03-01T00:00:00.000Z', actualizadoEn: '2026-07-15T00:00:00.000Z', ultimoAccesoEn: null,
     idiomas: ['es'], instagram: null, linkedin: null, web: null,
-    experienciaVerificada: false, resumenResenas: { promedio: null, total: 0 },
+    experienciaVerificada: false, certificacionVerificada: false, resumenResenas: { promedio: null, total: 0 },
   },
 ];
 
@@ -141,6 +142,7 @@ export function perfilCoincideFiltro(p: PerfilNetworkPublico, filtro: FiltroBusq
   if (filtro.tarifaRango.length && (p.tarifaRango == null || !filtro.tarifaRango.includes(p.tarifaRango))) return false;
   if (filtro.soloIdentidadVerificada && !p.identidadVerificadaEn) return false;
   if (filtro.soloExperienciaVerificada && !p.experienciaVerificada) return false;
+  if (filtro.soloCertificacionVerificada && !p.certificacionVerificada) return false;
   if (filtro.valoracionMinima != null && (p.resumenResenas.promedio == null || p.resumenResenas.promedio < filtro.valoracionMinima)) return false;
   return true;
 }
@@ -187,6 +189,13 @@ export async function buscarPerfilesPublico(
     : { data: [] as { perfil_id: string }[] };
   const perfilesConExperienciaVerificada = new Set((experienciasConfirmadas ?? []).map(e => e.perfil_id as string));
 
+  // "Formación verificada" en LOTE, mismo criterio: una consulta con
+  // `.in(perfil_id)` para todo el listado, nunca por tarjeta.
+  const { data: certificacionesVerificadas } = ids.length
+    ? await admin.from('red_certificaciones').select('perfil_id').in('perfil_id', ids).eq('estado', 'verificado')
+    : { data: [] as { perfil_id: string }[] };
+  const perfilesConCertificacionVerificada = new Set((certificacionesVerificadas ?? []).map(c => c.perfil_id as string));
+
   // Reseñas en LOTE, mismo criterio que arriba: una query con `.in(perfil_id)`
   // para todo el listado, agregada en JS (Supabase-js no hace GROUP BY).
   const { data: resenasData } = ids.length
@@ -201,12 +210,14 @@ export async function buscarPerfilesPublico(
 
   let perfiles = filas.map(f => mapFilaAPerfilPublico(
     f, perfilesConExperienciaVerificada.has(f.id), resumenDesdePuntuaciones(puntuacionesPorPerfil.get(f.id) ?? []),
+    perfilesConCertificacionVerificada.has(f.id),
   ));
 
-  // Post-filtro, no SQL: los dos datos ya se calcularon en lote arriba para
+  // Post-filtro, no SQL: los datos ya se calcularon en lote arriba para
   // pintar el badge/la reseña de cada tarjeta — filtrar por ellos aquí no
   // añade ninguna consulta nueva, solo reusa lo ya traído.
   if (filtro.soloExperienciaVerificada) perfiles = perfiles.filter(p => p.experienciaVerificada);
+  if (filtro.soloCertificacionVerificada) perfiles = perfiles.filter(p => p.certificacionVerificada);
   if (filtro.valoracionMinima != null) {
     const minimo = filtro.valoracionMinima;
     perfiles = perfiles.filter(p => p.resumenResenas.promedio != null && p.resumenResenas.promedio >= minimo);
@@ -283,7 +294,10 @@ async function detallePerfilDesdeFila(
   };
 
   return {
-    perfil: mapFilaAPerfilPublico(filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion))),
+    perfil: mapFilaAPerfilPublico(
+      filaPublica, tieneExperienciaVerificada, resumenDesdePuntuaciones(resenas.map(r => r.puntuacion)),
+      certificaciones.length > 0,
+    ),
     experiencias,
     certificaciones,
     badges,

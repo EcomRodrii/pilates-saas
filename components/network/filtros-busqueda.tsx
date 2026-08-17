@@ -150,6 +150,14 @@ export function FiltrosBusquedaNetwork({
             />
             Experiencia verificada
           </label>
+          <label className="flex items-center gap-1.5 text-[12.5px] text-foreground">
+            <input
+              type="checkbox"
+              checked={filtro.soloCertificacionVerificada}
+              onChange={e => onChange({ ...filtro, soloCertificacionVerificada: e.target.checked })}
+            />
+            Formación verificada
+          </label>
         </div>
       </div>
     </div>

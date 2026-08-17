@@ -77,9 +77,15 @@ export type CambiosPerfilNetwork = Partial<
 // `resumenResenas`: mismo criterio de coste que `experienciaVerificada` —
 // se calcula en LOTE para los N perfiles de un listado (una query con
 // `.in(perfilId)` agrupada), nunca una consulta por tarjeta.
+// `certificacionVerificada`: mismo criterio de coste que `experienciaVerificada`
+// — se calcula en LOTE para los N perfiles de un listado (una query con
+// `.in(perfilId)` sobre red_certificaciones filtrada a estado='verificado'),
+// nunca una consulta por tarjeta. Una certificación 'pendiente'/'en_revision'
+// NO cuenta — mismo criterio que "Formación verificada" del perfil público
+// (docs/README): no se enseña como logro solo por haberla subido.
 export type PerfilNetworkPublico =
   Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'>
-  & { experienciaVerificada: boolean; resumenResenas: ResumenResenas };
+  & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
 // opcionales: sin filtros, se listan todos los perfiles publicados.
@@ -102,6 +108,10 @@ export interface FiltroBusquedaNetwork {
   // usa también para filtrar, no solo para pintar.
   soloIdentidadVerificada: boolean;
   soloExperienciaVerificada: boolean;
+  // Mismo criterio que soloExperienciaVerificada: red_certificaciones ya se
+  // consulta en lote para calcular `certificacionVerificada` de cada
+  // tarjeta — filtrar por ella no añade ninguna consulta nueva.
+  soloCertificacionVerificada: boolean;
   // Reseñas ya se agregan en lote para pintar `resumenResenas` en cada
   // tarjeta — mismo dato, filtrado después en vez de un `HAVING` en SQL
   // (supabase-js no hace GROUP BY).

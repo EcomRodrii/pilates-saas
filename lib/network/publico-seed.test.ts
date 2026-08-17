@@ -12,7 +12,7 @@ import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 const SIN_FILTROS: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [],
-  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, valoracionMinima: null,
+  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null,
 };
 
 const [marta, sofia] = PERFILES_SEED_E2E;
@@ -60,6 +60,12 @@ test('soloIdentidadVerificada: Marta tiene identidadVerificadaEn, Sofía no', ()
 
 test('soloExperienciaVerificada: Marta true, Sofía false', () => {
   const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloExperienciaVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('soloCertificacionVerificada: Marta true, Sofía false', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloCertificacionVerificada: true };
   assert.equal(perfilCoincideFiltro(marta, f), true);
   assert.equal(perfilCoincideFiltro(sofia, f), false);
 });
