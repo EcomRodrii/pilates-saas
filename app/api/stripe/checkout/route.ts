@@ -184,10 +184,24 @@ export async function POST(req: NextRequest) {
   //
   // `payment_method_options.card.setup_future_usage` resuelve exactamente esto:
   // el guardado se pide POR MÉTODO, así que la tarjeta se guarda y Bizum no
-  // arrastra una opción que no soporta. El `setup_future_usage` global se deja
-  // de pedir: uno por método vale para los dos casos y evita tener dos formas
-  // de decir lo mismo. Ver el webhook (`checkout.session.completed`), que
-  // comprueba el método REALMENTE usado antes de guardar nada.
+  // arrastra una opción que no soporta. Ver el webhook
+  // (`checkout.session.completed`), que comprueba el método REALMENTE usado
+  // antes de guardar nada.
+  //
+  // ⚠️ El `setup_future_usage` GLOBAL se sigue pidiendo cuando no hay Bizum,
+  // aunque el por-método ya lo cubriría. No es redundancia por descuido:
+  //
+  //   · El camino sin Bizum (portal, panel, /reservar, enlace de pago) YA
+  //     funcionaba con el global, y el webhook comprobaba justo ese campo.
+  //   · Dejar solo el por-método haría que ese camino que funciona dependa de
+  //     que Stripe devuelva `payment_method_options.card.setup_future_usage` en
+  //     el PaymentIntent recuperado. Es lo esperable, pero aquí no hay Stripe en
+  //     modo test para comprobarlo, y si no lo devolviera se dejarían de guardar
+  //     tarjetas en el único camino por el que hoy se guardan.
+  //
+  // Con Bizum sí va solo el por-método: el global es incompatible con `bizum` y
+  // Stripe rechazaría la sesión. Así el camino nuevo gana capacidad sin poner en
+  // riesgo el que ya iba, y `metodoReutilizableDe` acepta las dos formas.
   const conBizum = body.bizum === true;
   const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
 
@@ -213,11 +227,13 @@ export async function POST(req: NextRequest) {
       // igual cuando se paga por Bizum (el Customer se queda sin método
       // reutilizable, que es lo correcto, en vez de no existir).
       customer_creation: 'always' as const,
-      // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Sustituye al
-      // `setup_future_usage` global, que obligaba a elegir entre ofrecer Bizum
-      // y poder volver a cobrar (ver el comentario largo más arriba).
+      // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Es lo que
+      // permite ofrecer Bizum y seguir pudiendo cobrar después.
       payment_method_options: { card: { setup_future_usage: 'off_session' as const } },
       payment_intent_data: {
+        // Y el global cuando no hay Bizum, para no cambiar en nada el camino que
+        // ya funcionaba (ver el comentario largo más arriba).
+        ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
         // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
         // session (Stripe no la copia). Sin el reciboId aquí, una devolución o
