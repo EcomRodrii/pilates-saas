@@ -7,8 +7,19 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 
 // Fase 2 "Growth Widget": recibe los eventos anónimos del funnel del widget
 // público (ver lib/reservar/eventos.ts para el catálogo y el helper de
-// cliente). Sin PII: `sessionId` es del navegador de la visitante, nunca un
-// id de socia — no hace falta JWT ni comprobar a quién pertenece.
+// cliente). Sin PII por defecto: `sessionId` es del navegador de la
+// visitante, nunca un id de socia.
+//
+// Fase 8 (CRO): 4 de los 13 tipos (booking_started/checkout_started/
+// booking_completed/booking_abandoned) SÍ pueden llevar `socioId` — sigue
+// sin JWT (fire-and-forget, rate limit 120/min) porque `sociaPorId`
+// (lib/notifications/recipients.ts) ya acota la lectura por
+// `studio_id`+`id`, así que un `socioId` ajeno mandado a mano no puede leer
+// ni mover nada de otra socia/estudio — como mucho dispara el email
+// informativo de RESERVA_ABANDONADA, y el `dedupKey` diario de
+// emitirReservaAbandonada limita el efecto a un correo por socia por día
+// pase lo que pase con el rate limit. Riesgo residual documentado y
+// revisado explícitamente en docs/cro-analytics-widget-diseno.md §5.2/§7.3.
 //
 // Fire-and-forget desde el cliente (no espera la respuesta, usa `keepalive`):
 // este endpoint SIEMPRE responde 200 salvo un body claramente inválido — un
@@ -27,6 +38,9 @@ export async function POST(req: NextRequest) {
     tipo?: string;
     sesionClaseId?: string | null;
     origen?: string | null;
+    // Fase 8 (CRO): solo poblado por el cliente en los eventos donde la
+    // visitante ya está identificada — ver lib/reservar/eventos.ts.
+    socioId?: string | null;
   } | null;
 
   if (!body?.studioId || !body.sessionId || !body.tipo || !esTipoEventoValido(body.tipo)) {
@@ -44,6 +58,7 @@ export async function POST(req: NextRequest) {
     tipo: body.tipo,
     sesionClaseId: body.sesionClaseId ?? null,
     origen: body.origen ?? null,
+    socioId: body.socioId ?? null,
   });
 
   return conCorsWidget(req, NextResponse.json({ ok: true }));

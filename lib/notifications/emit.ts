@@ -62,6 +62,42 @@ export async function emitirReserva(
   }
 }
 
+// Fase 8 "Booking Experience Engine" (CRO): la visitante ya identificada
+// dejó algo a medias en el widget. `sesionId` opcional: viene de "cerró el
+// modal de reserva ya iniciado" (con clase concreta) — falta en "canceló el
+// pago en Stripe" (compra de plan, sin sesión de clase asociada). Un solo
+// dedupKey por sesión de clase/socia/día evita reabrir el modal y volver a
+// cerrarlo mande dos correos; sin sesionId, por socia/día (una vez basta).
+// Es también el mitigante REAL del endpoint público sin JWT que dispara
+// esto (app/api/public/evento/route.ts): pase lo que pase con el rate
+// limit, nadie recibe más de un email por día por este camino — revisado
+// explícitamente por tentare-seguridad (docs/cro-analytics-widget-diseno.md §5.2).
+export async function emitirReservaAbandonada(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string; sesionId?: string | null },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    let claseTexto = '';
+    if (p.sesionId) {
+      const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+      claseTexto = ` una plaza en ${ctx.clase} (${ctx.cuando})`;
+    }
+    const hoy = new Date().toISOString().slice(0, 10);
+    const dedup = p.sesionId
+      ? `reserva-abandonada:${p.sesionId}:${p.socioId}:${hoy}`
+      : `reserva-abandonada:${p.socioId}:${hoy}`;
+    await publish({
+      type: EVENTOS.RESERVA_ABANDONADA, studioId: p.studioId,
+      data: { slug: (studio?.slug as string | null) ?? '', socioId: p.socioId, claseTexto },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: dedup,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirReservaAbandonada:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva cancelada: confirmación a la socia. Importa sobre todo cuando la
 // cancela el SISTEMA (corte por no confirmar riesgo de plantón, o Fase 2a:
 // rechazo/expiración de una aprobación pendiente): si no, se encuentra sin

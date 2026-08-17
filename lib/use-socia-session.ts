@@ -5,6 +5,7 @@ import { captchaGastado } from './auth/captcha-usado.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeSeguro } from '@/lib/errores';
+import { sessionIdWidget } from './reservar/eventos.ts';
 
 export interface SociaSesion {
   socioId: string;
@@ -78,7 +79,14 @@ export function useSociaSession(slug: string) {
   // socia en la página sin ninguna señal de si había entrado o no: tenía que
   // pulsar "Acceder" otra vez para que el modal reaccionara.
   const enviarEnlace = useCallback(async (email: string, sesionId?: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
-    const query = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1';
+    const base = sesionId ? `?sesion=${encodeURIComponent(sesionId)}` : '?acceso=1';
+    // Fase 8 (CRO): propaga el sessionId ANÓNIMO (sessionStorage, no
+    // identidad de socia — eventos.ts) al enlace mágico para poder medir
+    // lead_completed al volver: es la única forma de emparejar "pidió el
+    // enlace" con "lo abrió" cuando ambos ocurren en pestañas/sesiones de
+    // navegador distintas (ver docs/cro-analytics-widget-diseno.md §1.1).
+    const wsid = sessionIdWidget();
+    const query = wsid ? `${base}&wsid=${encodeURIComponent(wsid)}` : base;
     const { error } = await supabasePortal.auth.signInWithOtp({
       email: email.trim(),
       options: { emailRedirectTo: `${window.location.origin}/reservar/${slug}${query}`, captchaToken },
