@@ -143,10 +143,15 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // intención mientras nada la comprobara, que es como un flag temporal se
   // queda para siempre.
   //
-  // Y solo en las CINCO rutas que el kit cubre: `/progreso`, `/compras`,
-  // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
-  // `/videos` no tienen pantalla equivalente y se quedan con el portal de
-  // siempre. Encender la bandera no puede dejar a nadie sin esas pantallas.
+  // Y solo en las rutas que el kit cubre: `/progreso`, `/compras`,
+  // `/preferencias`, `/invitar`, `/instructores` y `/videos` no tienen
+  // pantalla equivalente y se quedan con el portal de siempre. Encender la
+  // bandera no puede dejar a nadie sin esas pantallas.
+  //
+  // ⚠️ `/notificaciones` SÍ la cubre ya (`Avisos`, con los mismos datos de
+  // `fetchNotificaciones`), así que ha salido de esa lista. Lo que sigue fuera
+  // es `/preferencias`, que es otra cosa: allí viven el control por canal y la
+  // activación de push, y el kit todavía no los tiene.
   // ⚠️ Clases estuvo fuera para los estudios con plaza fija hasta que el kit
   // tuvo selector de sitio: el detalle reservaba con `spotId: null` y dejaba a
   // la socia de un reformer sin máquina, que es justo lo que la hoja de

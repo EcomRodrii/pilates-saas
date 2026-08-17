@@ -77,6 +77,24 @@ export const HISTORIAL_DE_MUESTRA = [
   { reservaId: 'h3', sesionId: 's-h3', inicio: '2026-08-14T17:00:00.000Z', nombre: 'Reformer suave', instructora: 'Marta Gómez' },
 ];
 
+/**
+ * Bandeja de avisos, SOLO para la previsualización de temas.
+ *
+ * En el portal real llega de `fetchNotificaciones` (tabla `notification`,
+ * acotada por el JWT de la socia). Aquí no hay socia, y sin muestra la pantalla
+ * de Avisos no se podría revisar nunca al mirar un tema.
+ */
+export const AVISOS_DE_MUESTRA = [
+  { id: 'a1', tipo: 'Lista de espera', leido: false, cuando: 'Hace 5 min', accion: 'Confirmar mi plaza',
+    texto: 'Se ha liberado una plaza en Reformer fuerza, mañana a las 18:00. Tienes 45 minutos para confirmarla.' },
+  { id: 'a2', tipo: 'Recordatorio', leido: false, cuando: 'Hace 2 h', accion: null,
+    texto: 'Pilates Reformer hoy a las 18:00 con Marta, en la Sala 2.' },
+  { id: 'a3', tipo: 'Del estudio', leido: true, cuando: 'Ayer', accion: null,
+    texto: 'La semana que viene abrimos huecos nuevos de mañana en reformer. Se publican el viernes.' },
+  { id: 'a4', tipo: 'Reserva', leido: true, cuando: 'Ayer', accion: null,
+    texto: 'Tu reserva de Pilates Reformer quedó confirmada.' },
+];
+
 export const FILTERS = [
   { key: "todas", label: "Todas" },
   { key: "reformer", label: "Reformer" },

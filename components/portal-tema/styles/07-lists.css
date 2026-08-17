@@ -431,3 +431,26 @@
 .fila > .icon { flex: none; color: var(--card-hover-border); }
 .perfil-salir { color: var(--danger); }
 .perfil-firma { margin-top: 14px; text-align: center; font-size: 11px; color: var(--card-hover-border); }
+
+/* ── Bandeja de avisos (Sereno) ─────────────────────────────────────────── */
+.aviso {
+  margin-top: 9px;
+  padding: 15px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-quick-link);
+}
+/* Los leídos se apagan enteros con opacidad y no con dos grises nuevos: así
+ * sigue funcionando igual en modo noche, donde unos grises fijos se verían
+ * apagados al revés. Mismo criterio que la pantalla de siempre. */
+.aviso.is-leido { opacity: .81; }
+.aviso__top { display: flex; align-items: center; gap: 8px; }
+.aviso__dot { flex: none; width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+.aviso.is-leido .aviso__dot { background: var(--track); }
+.aviso__tipo {
+  font-family: var(--font-body);
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.aviso__cuando { margin-left: auto; font-size: 11.5px; color: var(--card-hover-border); }
+.aviso__texto { margin-top: 6px; font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }

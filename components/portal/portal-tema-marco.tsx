@@ -53,10 +53,33 @@ import { Teachers } from '@/components/portal-tema/screens/Teachers';
 import { Info } from '@/components/portal-tema/screens/Info';
 import { MyData } from '@/components/portal-tema/screens/MyData';
 import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
+import { Avisos } from '@/components/portal-tema/screens/Avisos';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
-import { crearCheckoutPlan, fetchHistorialAsistidas } from '@/lib/api-client';
+import { crearCheckoutPlan, fetchHistorialAsistidas, portalAuthHeader } from '@/lib/api-client';
+import { fetchNotificaciones, accionNotificacion } from '@/lib/notifications/client';
+import { selloTemporal } from '@/lib/avisos-portal';
+
+/**
+ * El rótulo de cada aviso, en palabras de la socia.
+ *
+ * `NotificationCategory` es vocabulario del motor (`reservas`, `sistema`,
+ * `decisiones`…) y algunas de esas categorías no le dicen nada a quien lo lee.
+ * Se traduce aquí, en el borde, y no en el motor: allí la categoría decide
+ * canales y permisos, no cómo se titula en una pantalla.
+ */
+const CATEGORIA_AVISO: Record<string, string> = {
+  reservas: 'Reserva',
+  clases: 'Clase',
+  sustituciones: 'Cambio de instructora',
+  pagos: 'Pago',
+  marketing: 'Del estudio',
+  sistema: 'Aviso',
+  // `decisiones` y `red` son de PANEL, no de socia (ver lib/notifications/
+  // ambito.ts), así que no deberían llegar aquí; si llegaran, «Aviso» es
+  // preferible a enseñarle la palabra interna.
+};
 import { diaDelMesHoy } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
@@ -69,6 +92,9 @@ const RUTA_A_PANTALLA: Record<string, ScreenId> = {
   bonos: 'bonos',
   centro: 'centro',
   perfil: 'perfil',
+  // La bandeja pasa a pintarla el kit, en la MISMA ruta de siempre: quien
+  // tenga guardado `/notificaciones` sigue llegando a sus avisos.
+  notificaciones: 'avisos',
 };
 
 const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
@@ -76,6 +102,9 @@ const PANTALLA_A_RUTA: Partial<Record<ScreenId, string>> = {
   // Avisos y Progreso siguen siendo del portal de siempre: las dos tienen más
   // de lo que dibuja el prototipo (canales + push, recompensas + créditos).
   preferencias: 'preferencias', progreso: 'progreso',
+  // Ruta propia: la bandeja se comparte por enlace desde los correos y los
+  // push, y una pantalla sin URL rompería esos enlaces.
+  avisos: 'notificaciones',
   // «Invitar a una amiga» es una fila del perfil en el prototipo y una HOJA
   // con un código inventado («LAURA-2026»). Aquí no: el portal ya tiene una
   // pantalla de invitación de verdad, con el enlace personal de la socia, las
@@ -117,6 +146,7 @@ const PANTALLAS = {
   info: Info,
   misdatos: MyData,
   perfil: Profile,
+  avisos: Avisos,
 } as const;
 
 /** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
@@ -303,6 +333,39 @@ export function PortalTemaMarco() {
     return fetchHistorialAsistidas(studioId);
   }, [studioId]);
 
+  // La bandeja de avisos. MISMOS datos que ya servía `/notificaciones`
+  // (`fetchNotificaciones`, tabla `notification`, acotada por el JWT de la
+  // socia): cero backend nuevo, solo cambia quién lo pinta.
+  const avisosRef = useRef<Map<string, string>>(new Map());
+  const alPedirAvisos = useCallback(async () => {
+    if (!studioId) return [];
+    const { items } = await fetchNotificaciones(portalAuthHeader, { ambito: 'socia', studioId });
+    // Al abrir la bandeja se marcan todas como leídas, igual que hacía la
+    // pantalla de siempre — es lo que apaga el punto de la campana. El estado
+    // local NO se toca: los puntos siguen mientras la pantalla está abierta,
+    // que es justo lo que se ha venido a mirar.
+    if (items.some((i) => i.readAt == null)) {
+      void accionNotificacion(portalAuthHeader, { ambito: 'socia', studioId }, 'read-all');
+    }
+    // El destino de cada aviso se guarda aquí: el kit solo maneja ids, y así
+    // no tiene que conocer las rutas del portal.
+    avisosRef.current = new Map(items.filter((n) => n.deepLink).map((n) => [n.id, n.deepLink as string]));
+    return items.map((n) => ({
+      id: n.id,
+      tipo: CATEGORIA_AVISO[n.category] ?? 'Aviso',
+      texto: [n.title, n.body].filter(Boolean).join(' · '),
+      cuando: selloTemporal(n.createdAt),
+      leido: n.readAt != null,
+      // Solo hay botón si el aviso lleva a algún sitio de verdad.
+      accion: n.deepLink ? 'Ver' : null,
+    }));
+  }, [studioId]);
+
+  const alAbrirAviso = useCallback((id: string) => {
+    const destino = avisosRef.current.get(id);
+    if (destino) router.push(destino);
+  }, [router]);
+
   const alSalir = useCallback(() => {
     logout();
     router.replace(`/portal/${slug}/login`);
@@ -330,6 +393,8 @@ export function PortalTemaMarco() {
         alReservar={alReservar}
         alGuardarDatos={alGuardarDatos}
         alPedirHistorial={alPedirHistorial}
+        alPedirAvisos={alPedirAvisos}
+        alAbrirAviso={alAbrirAviso}
         alSalir={alSalir}
         // El día/noche del portal de siempre (`lib/portal-modo`), tal cual: el
         // kit no lo conoce, solo lo pinta. Sin esto la fila «Aspecto» no se

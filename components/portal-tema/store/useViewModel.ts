@@ -482,6 +482,10 @@ export function useViewModel() {
 
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
 
+      // La bandeja. `items: null` = todavía no ha llegado; la pantalla no dice
+      // «no tienes avisos» mientras tanto.
+      avisos: { items: state.avisos, cargando: state.avisosCargando },
+
       // Las tres cifras de la cabecera del perfil de Sereno.
       //
       // ⚠️ NINGUNA sale de `metrics` (justo debajo), que tiene un `18` escrito
