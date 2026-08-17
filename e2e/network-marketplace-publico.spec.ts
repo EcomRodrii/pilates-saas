@@ -28,7 +28,7 @@ test.describe('Marketplace público (sin sesión)', () => {
   test('con perfiles sembrados, lista tarjetas reales — no un listado vacío', async ({ page }) => {
     await page.goto('/network/instructoras');
 
-    await expect(page.getByRole('heading', { name: 'Instructoras de Pilates' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Instructoras de Pilates y Yoga' })).toBeVisible({ timeout: 30_000 });
     // Los dos perfiles de la semilla (PERFILES_SEED_E2E), por nombre — no por
     // cantidad: contar tarjetas sería frágil si la semilla crece.
     await expect(page.getByText('Marta Gómez')).toBeVisible();

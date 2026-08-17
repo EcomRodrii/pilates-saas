@@ -86,7 +86,7 @@ export function SeccionHeroNetwork() {
           style={{ objectFit: 'cover', objectPosition: 'center 38%' }} />
         <div className="nw-hero-velo" aria-hidden />
         <div className="nw-hero-wrap">
-          <p className="nw-hero-eyebrow">Red profesional de instructoras de Pilates</p>
+          <p className="nw-hero-eyebrow">Red profesional de instructoras de Pilates y Yoga</p>
           <h1 className="nw-hero-h1">Que te encuentren<br />los estudios.</h1>
           <p className="nw-hero-lead">
             Publica tu perfil gratis. Estudios de toda España buscan por especialidad, ciudad y

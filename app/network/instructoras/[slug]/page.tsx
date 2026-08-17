@@ -11,6 +11,7 @@ import { BotonContactar, BotonReportar } from '@/components/network-publico/boto
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
+  tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA } from '@/components/network-v2/tokens';
@@ -47,9 +48,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const { perfil } = detalle;
   const ciudad = perfil.ciudad ? ` en ${perfil.ciudad}` : '';
-  const title = `${perfil.nombre} — Instructora de Pilates${ciudad} | Tentare Network`;
+  const profesion = tituloProfesionalDe(perfil.especialidades);
+  const title = `${perfil.nombre} — ${profesion}${ciudad} | Tentare Network`;
   const description = perfil.descripcion?.slice(0, 155)
-    ?? `Instructora de Pilates${ciudad}. ${perfil.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(', ')}.`;
+    ?? `${profesion}${ciudad}. ${perfil.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(', ')}.`;
   const url = `${LEGAL.url}/network/instructoras/${slug}`;
 
   return {
@@ -90,7 +92,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
     '@context': 'https://schema.org',
     '@type': 'Person',
     name: perfil.nombre,
-    jobTitle: 'Instructora de Pilates',
+    jobTitle: tituloProfesionalDe(perfil.especialidades),
     ...(perfil.ciudad ? { address: { '@type': 'PostalAddress', addressLocality: perfil.ciudad } } : {}),
     ...(perfil.fotoUrl ? { image: perfil.fotoUrl } : {}),
     ...(perfil.descripcion ? { description: perfil.descripcion } : {}),
@@ -136,7 +138,8 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
             <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
             <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
-              Instructora de Pilates{perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
+              {tituloProfesionalDe(perfil.especialidades)}
+              {perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
             <div className="mt-3 flex items-center gap-4 flex-wrap text-[13.5px]" style={{ color: NW_MUTED }}>
               {perfil.resumenResenas.total > 0 && (

@@ -15,7 +15,7 @@ export function SeccionPieNetwork() {
         <div className="nw-pie-grid">
           <div className="nw-pie-marca">
             <LogoTentare formato="horizontal" tinta="blanco" producto="network" titulo="Tentare Network" alto={24} decorativo />
-            <p className="nw-pie-desc">La red profesional de instructoras de Pilates. Parte de Tentare, el software para estudios de Pilates.</p>
+            <p className="nw-pie-desc">La red profesional de instructoras de Pilates y Yoga. Parte de Tentare, el software para estudios de Pilates.</p>
             <p className="nw-pie-contacto">
               ¿Dudas? Escríbenos a <a href={`mailto:${SOPORTE_EMAIL}`}>{SOPORTE_EMAIL}</a>
             </p>

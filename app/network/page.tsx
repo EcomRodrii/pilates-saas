@@ -16,8 +16,8 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_VERDE_OSCURO, NW_PRODUCTO, NW
 // literal /network, que hasta ahora tenía el buscador de la propietaria
 // (movido a /network/buscar, ver lib/nav-config.ts).
 export const metadata: Metadata = {
-  title: 'Tentare Network — Encuentra tu instructora de Pilates',
-  description: 'La red profesional de instructoras de Pilates. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+  title: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
+  description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
 };
 
 const PASOS_COMO_FUNCIONA = [
@@ -93,11 +93,11 @@ export default async function NetworkLandingPage() {
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
         <div>
           <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-            Red profesional de instructoras de Pilates
+            Red profesional de instructoras de Pilates y Yoga
           </p>
           <h1 className="mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance">
             Encuentra la{' '}
-            <span style={{ color: NW_PRODUCTO }}>instructora de Pilates</span>{' '}
+            <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span>{' '}
             que necesitas.
           </h1>
           <p className="mt-5 text-[17.5px]" style={{ color: NW_MUTED }}>
@@ -135,7 +135,7 @@ export default async function NetworkLandingPage() {
       {destacadas.length > 0 && (
         <section className="max-w-[1240px] mx-auto px-6 pb-20">
           <div className="flex items-end justify-between mb-6">
-            <h2 className="text-[26px] font-extrabold tracking-tight">Descubre instructoras de Pilates</h2>
+            <h2 className="text-[26px] font-extrabold tracking-tight">Descubre instructoras de Pilates y Yoga</h2>
             <Link href="/network/instructoras" className="text-[13.5px] font-bold hover:opacity-70" style={{ color: NW_PRODUCTO }}>
               Ver todas →
             </Link>

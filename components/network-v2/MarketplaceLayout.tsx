@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico, ciudadesConPerfilesPublicados, slugCiudadUrl } from '@/lib/network/publico';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+import { DISCIPLINA_LABEL, type DisciplinaNetwork } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
 import { NavPublico } from './NavPublico';
 import { PieNetwork } from './PieNetwork';
@@ -16,13 +17,15 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO } from './tokens';
 // dato sigue viniendo de lib/network/publico.ts sin cambios; esto es
 // puramente la vista.
 export async function MarketplaceLayout({
-  filtro, tituloCiudad, migasPan,
+  filtro, tituloCiudad, migasPan, disciplinaFija,
 }: {
   filtro: FiltroBusquedaNetwork;
-  /** Ciudad a nombrar en el H1 ("Instructoras de Pilates en {X}"), o null para el genérico. */
+  /** Ciudad a nombrar en el H1 ("Instructoras de Pilates y Yoga en {X}"), o null para el genérico. */
   tituloCiudad: string | null;
   /** Niveles tras "Inicio" (mismo patrón que FeatureStructuredData.tsx) — el propio llamador conoce su profundidad real. */
   migasPan: { name: string; item: string }[];
+  /** Solo cuando la ruta fija UNA especialidad con disciplina reconocible (ej. /ciudad/[c]/yoga) — "Instructoras de Yoga" en vez del genérico "de Pilates y Yoga". */
+  disciplinaFija?: DisciplinaNetwork | null;
 }) {
   const admin = getSupabaseAdmin();
   const [resultado, ciudades] = await Promise.all([
@@ -50,14 +53,15 @@ export async function MarketplaceLayout({
 
       <div className="max-w-[1240px] mx-auto px-6 pt-10 pb-4">
         <h1 className="text-[38px] font-extrabold tracking-tight">
-          Instructoras de Pilates{tituloCiudad ? (
+          Instructoras de {disciplinaFija ? DISCIPLINA_LABEL[disciplinaFija] : 'Pilates y Yoga'}
+          {tituloCiudad ? (
             <> en <span style={{ color: NW_PRODUCTO }}>{tituloCiudad}</span></>
           ) : null}
         </h1>
         <p className="mt-2 text-[15px]" style={{ color: NW_MUTED }}>
           {perfiles.length > 0
             ? `${perfiles.length} instructora${perfiles.length === 1 ? '' : 's'}${tituloCiudad ? ` en ${tituloCiudad}` : ''}`
-            : 'Perfiles verificados de Pilates, listos para tu estudio.'}
+            : 'Perfiles verificados de Pilates y Yoga, listos para tu estudio.'}
         </p>
       </div>
 

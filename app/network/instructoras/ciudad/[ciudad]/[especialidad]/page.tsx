@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
-import { esEspecialidadValida, ESPECIALIDAD_LABEL } from '@/lib/network/catalogo';
+import { esEspecialidadValida, ESPECIALIDAD_LABEL, DISCIPLINA_DE_ESPECIALIDAD, DISCIPLINA_LABEL } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
 import { LEGAL } from '@/lib/legal-info';
 
@@ -16,11 +16,13 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string; especialidad: string }> }): Promise<Metadata> {
   const { ciudad, especialidad } = await params;
   const nombreCiudad = ciudadDesdeParam(ciudad);
-  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates | Tentare Network' };
+  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates y Yoga | Tentare Network' };
   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
+  const disciplina = DISCIPLINA_DE_ESPECIALIDAD[especialidad];
+  const nombreDisciplina = disciplina ? DISCIPLINA_LABEL[disciplina] : 'Pilates y Yoga';
   return {
-    title: `Instructoras de Pilates de ${nombreEspecialidad} en ${nombreCiudad} | Tentare Network`,
-    description: `Instructoras de Pilates especializadas en ${nombreEspecialidad} en ${nombreCiudad}, verificadas y disponibles.`,
+    title: `Instructoras de ${nombreDisciplina} de ${nombreEspecialidad} en ${nombreCiudad} | Tentare Network`,
+    description: `Instructoras de ${nombreDisciplina} especializadas en ${nombreEspecialidad} en ${nombreCiudad}, verificadas y disponibles.`,
   };
 }
 
@@ -37,6 +39,7 @@ export default async function MarketplacePorCiudadYEspecialidadPage({
     <MarketplaceLayout
       filtro={{ ...FILTRO_BASE, ciudad: nombreCiudad, especialidades: [especialidad] }}
       tituloCiudad={nombreCiudad}
+      disciplinaFija={DISCIPLINA_DE_ESPECIALIDAD[especialidad]}
       migasPan={[
         { name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
         { name: nombreCiudad, item: `${LEGAL.url}/network/instructoras/ciudad/${ciudad}` },
