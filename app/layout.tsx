@@ -79,22 +79,22 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
-  title: 'Software de Gestión para Estudios de Pilates | Tentare',
+  title: 'Software de Gestión para Estudios de Pilates en Barcelona',
   description:
-    'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+    'Gestiona tu estudio de Pilates en Barcelona con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
   alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: 'Tentare',
-    title: 'Tentare — Software para estudios de Pilates',
+    title: 'Software para estudios de Pilates en Barcelona',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo. Sin permanencia, desde 29€/mes.',
     url: BASE_URL,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tentare — Software para estudios de Pilates',
+    title: 'Software para estudios de Pilates en Barcelona',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',
   },
