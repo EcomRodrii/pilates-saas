@@ -439,7 +439,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/soluciones/estudio-de-yoga',
     titulo: 'Tentare para estudios de Yoga — reservas, bonos y sustituciones',
     descripcion:
-      'El mismo motor de reservas, bonos, cobros y sustituciones que ya usan estudios de Pilates, funcionando igual para series, talleres y clases sueltas de Yoga.',
+      'Nacimos con foco en Pilates. El mismo motor de reservas, bonos, cobros y sustituciones funciona igual para Yoga y centros que combinan ambas disciplinas.',
     grupo: 'soluciones',
     etiqueta: 'Estudio de Yoga',
     resumen: 'Reservas, bonos y sustituciones para tu estudio de yoga.',

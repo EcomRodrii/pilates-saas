@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     title: pagina.titulo,
-    description: 'Reservas, bonos, cobros y sustituciones — el mismo motor que ya usan estudios de Pilates, sin cambiar de vocabulario ni de forma de dar clase.',
+    description: 'Nacimos con foco en Pilates. Reservas, bonos, cobros y sustituciones funcionan igual para Yoga y centros que combinan ambas disciplinas.',
     url: urlDe(PATH),
   },
 };
@@ -44,7 +44,11 @@ const SE_LLEVA = [
 const FAQ = [
   {
     q: '¿Tentare está pensado para yoga o para pilates?',
-    a: 'Nació para estudios de Pilates — sigue siendo su foco principal. Pero el motor de reservas, bonos, cobros y sustituciones no tiene nada de pilates-específico por dentro: un tipo de clase es un nombre que tú pones, y funciona igual para una serie de Hatha que para una clase de reformer.',
+    a: 'Nació con foco en Pilates, y ese sigue siendo su posicionamiento principal. Pero al hablar con estudios reales vimos que muchos combinan Pilates con Yoga y otras disciplinas wellness bajo el mismo techo — así que el producto está evolucionando para dar servicio también ahí, no como una categoría añadida por marketing sino porque es como funciona el sector de verdad. Por dentro, un tipo de clase es un nombre que tú pones: funciona igual para una serie de Hatha que para una clase de reformer.',
+  },
+  {
+    q: '¿Tentare sirve para un centro que combina Pilates y Yoga?',
+    a: 'Sí — es exactamente el caso que motivó esta página. Cada disciplina es su propio tipo de clase, con su propio horario, aforo y precio, dentro del mismo estudio y la misma cuenta.',
   },
   {
     q: '¿Puedo tener talleres puntuales y clases semanales a la vez?',
@@ -72,8 +76,8 @@ export default function EstudioDeYogaPage() {
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Para estudios de Yoga</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare, para estudios de Yoga también.</h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Nació para estudios de <strong style={{ color: '#1A1A1A' }}>Pilates</strong>, y sigue siendo su foco. Pero el motor de reservas, bonos, cobros y sustituciones no distingue disciplinas — funciona igual para una serie de yoga que para una clase de reformer.</p>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare, también para estudios de Yoga.</h1>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>Tentare nació con foco en <strong style={{ color: '#1A1A1A' }}>Pilates</strong>. Hablando con estudios reales vimos que muchos combinan Pilates con Yoga y otras disciplinas wellness bajo el mismo techo — así que el producto está evolucionando para dar servicio también ahí: reservas, bonos, cobros y sustituciones, funcionando igual sea cual sea la disciplina.</p>
         </div>
       </header>
 
@@ -97,8 +101,8 @@ export default function EstudioDeYogaPage() {
       <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(40px,5vw,56px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <Reveal>
-            <Callout title="Con honestidad: qué no es (todavía)" iconColor="#C79A2E" bg="#FBF6EA" border="#EEDFB8">
-              No hay ninguna función pensada solo para yoga — sin seguimiento de certificaciones (RYT o similares), sin vocabulario de posturas o secuencias integrado. Es la misma plataforma que un estudio de Pilates, sin una capa extra todavía. Si alguna vez la hay, esta página se actualiza para contarlo — no antes.
+            <Callout title="Con honestidad, de dónde viene esto" iconColor="#C79A2E" bg="#FBF6EA" border="#EEDFB8">
+              Pilates sigue siendo el foco principal del producto y del posicionamiento de Tentare — no es un cambio de rumbo. Yoga no se ha añadido por marketing: es lo que vimos al hablar con estudios reales, donde combinar Pilates y Yoga bajo el mismo techo es habitual, no una excepción. Hoy no hay ninguna función pensada solo para yoga — sin certificaciones (RYT o similares), sin vocabulario de posturas integrado — porque el motor real es el mismo para las dos disciplinas. Si eso cambia, esta página se actualiza para contarlo.
             </Callout>
           </Reveal>
         </div>
