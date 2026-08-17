@@ -432,6 +432,7 @@ export default function Dashboard() {
     cobrarTodosPendientes,
     actividadReciente,
     automationLogs,
+    studio,
   } = useStudio();
 
   // Personalización de la home por estudio (reordenar/ocultar secciones). Se
@@ -445,7 +446,16 @@ export default function Dashboard() {
     window.addEventListener('tentare-layout-changed', onCambio);
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', onCambio); };
   }, []);
-  const homeVisibles = ordenarSeccionesHome(aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home));
+  // `studio.onbPrioridad` es lo que la propietaria contestó a "¿qué es lo que
+  // más te preocupa ahora mismo?" en el asistente de bienvenida. El asistente
+  // prometía "con eso ordenamos tu panel de inicio" y la respuesta no la leía
+  // nadie; esto es lo que la cumple. Un estudio que haya reordenado su home a
+  // mano sigue mandando en el resto del orden: la prioridad solo sube su
+  // sección, no rehace la página.
+  const homeVisibles = ordenarSeccionesHome(
+    aplicarLayout(HOME_SECCIONES.map((s) => s.id), layout.home),
+    studio?.onbPrioridad,
+  );
   const ordenSeccion = (id: string) => {
     const i = homeVisibles.indexOf(id);
     return i === -1 ? undefined : i; // undefined → oculta
