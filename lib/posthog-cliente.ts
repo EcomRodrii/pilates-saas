@@ -60,6 +60,11 @@ function forzarCarga(): Promise<PostHogSDK | null> {
         capture_pageview: true,    // solo URL/referrer, sin contenido de DOM
         disable_session_recording: true, // se enciende a mano solo donde no hay datos de una socia
         person_profiles: 'identified_only',
+        // El botón de feedback flotante (encuesta por defecto de PostHog)
+        // salía en todas las pantallas del panel sin que nadie lo pidiera —
+        // una propietaria lo reportó como ruido. Sin encuestas configuradas
+        // hoy en este proyecto de PostHog, desactivarlas todas no pierde nada.
+        disable_surveys: true,
       });
       sdk = instancia;
       cola.conectar(envolverDestino(instancia));
