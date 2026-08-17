@@ -118,6 +118,11 @@ export default function CrearPerfilNetworkPage() {
   const [passwordCuenta, setPasswordCuenta] = useState('');
   const [errorCuenta, setErrorCuenta] = useState('');
   const [infoCuenta, setInfoCuenta] = useState('');
+  // Distingue el caso "ya existe cuenta" para poder pintar /network/acceso
+  // como un <Link> real en vez de la ruta escrita a mano en texto plano —
+  // hallazgo de la auditoría UX: la misma pantalla ya tiene un Link
+  // idéntico dos líneas más abajo, esto solo evita duplicarlo como texto.
+  const [cuentaExistente, setCuentaExistente] = useState(false);
   const [creandoCuenta, setCreandoCuenta] = useState(false);
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
@@ -196,7 +201,7 @@ export default function CrearPerfilNetworkPage() {
 
   async function crearCuenta(e: React.FormEvent) {
     e.preventDefault();
-    setErrorCuenta(''); setInfoCuenta(''); setCreandoCuenta(true);
+    setErrorCuenta(''); setInfoCuenta(''); setCuentaExistente(false); setCreandoCuenta(true);
     const token = await pedirToken();
     if (token === null) { setCreandoCuenta(false); setErrorCuenta(ERROR_CAPTCHA); return; }
     const { error, needsConfirmation, yaRegistrado } = await signUp(
@@ -204,7 +209,8 @@ export default function CrearPerfilNetworkPage() {
     );
     if (error) { setErrorCuenta(error); setCreandoCuenta(false); return; }
     if (yaRegistrado) {
-      setInfoCuenta('Ya existe una cuenta con ese email. Inicia sesión desde /network/acceso — tu progreso te espera aquí.');
+      setInfoCuenta('Ya existe una cuenta con ese email. Tu progreso te espera ahí.');
+      setCuentaExistente(true);
       setCreandoCuenta(false);
       return;
     }
@@ -309,6 +315,13 @@ export default function CrearPerfilNetworkPage() {
     return (
       <ShellCentrado>
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
+        {/* Antes solo había texto "Paso 1 de 12" — el resto del wizard (pasos
+            2-12) sí tiene barra+lista completa en su rail; el primer contacto
+            de la usuaria con el producto era, de todo el flujo, el que MENOS
+            orientación daba (hallazgo de la auditoría UX). */}
+        <div className="mb-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: NW_BORDE }}>
+          <div className="h-full rounded-full" style={{ width: `${Math.round((1 / PASOS.length) * 100)}%`, background: NW_PRODUCTO }} />
+        </div>
         <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso 1 de 12</p>
         <h1 className="text-[30px] font-extrabold" style={{ color: NW_TINTA }}>
           Tu <span style={{ color: NW_PRODUCTO }}>cuenta</span>
@@ -345,7 +358,13 @@ export default function CrearPerfilNetworkPage() {
             <input id={`${uid}-p`} type="password" required minLength={6} value={passwordCuenta} onChange={e => setPasswordCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="••••••••" />
           </div>
           {errorCuenta && <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{errorCuenta}</p>}
-          {infoCuenta && <p className="text-[13px] rounded-lg px-3 py-2" style={{ background: NW_SAGE, color: NW_TINTA }}>{infoCuenta}</p>}
+          {infoCuenta && (
+            <p className="text-[13px] rounded-lg px-3 py-2" style={{ background: NW_SAGE, color: NW_TINTA }}>
+              {infoCuenta}{cuentaExistente && (
+                <> <Link href="/network/acceso" className="font-semibold underline" style={{ color: NW_TINTA }}>Inicia sesión</Link>.</>
+              )}
+            </p>
+          )}
           {captcha}
           <button type="submit" disabled={creandoCuenta} className="w-full py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-60" style={{ background: NW_PRODUCTO }}>
             {creandoCuenta ? 'Un momento…' : 'Continuar'}
@@ -553,9 +572,10 @@ export default function CrearPerfilNetworkPage() {
               <div>
                 <p className={labelCls} style={{ color: NW_TINTA }}>Estado</p>
                 <SelectorChips
+                  unico
                   opciones={DISPONIBILIDAD_ESTADOS_NETWORK.map(v => ({ valor: v, etiqueta: DISPONIBILIDAD_ESTADO_LABEL[v] }))}
                   seleccion={[form.disponibilidadEstado]}
-                  onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[sel.length - 1] ?? v.disponibilidadEstado }))}
+                  onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[0] ?? v.disponibilidadEstado }))}
                 />
               </div>
               <div>
@@ -571,9 +591,10 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 8 && (
             <SelectorChips
+              unico
               opciones={TARIFAS_RANGO_NETWORK.map(v => ({ valor: v, etiqueta: TARIFA_RANGO_LABEL[v] }))}
               seleccion={form.tarifaRango ? [form.tarifaRango] : []}
-              onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[sel.length - 1] }))}
+              onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[0] }))}
             />
           )}
 
@@ -655,7 +676,14 @@ export default function CrearPerfilNetworkPage() {
                 <ChevronLeft size={16} /> Atrás
               </button>
               <div className="flex items-center gap-3">
-                {paso === 5 && <button type="button" onClick={() => setPaso(p => p + 1)} className="text-[13px] font-semibold" style={{ color: NW_MUTED }}>Lo haré más tarde</button>}
+                {/* Formación/Cómo quieres trabajar/Disponibilidad/Tarifa: ninguno bloquea
+                    PATCH /api/network/perfil/estado (solo exige nombre+ciudad+especialidades)
+                    — antes solo Formación ofrecía esta salida honesta, dejando el resto
+                    "rellena o adivina que puedes saltarlo" sin decirlo (hallazgo de la
+                    auditoría UX). */}
+                {[5, 6, 7, 8].includes(paso) && (
+                  <button type="button" onClick={() => setPaso(p => p + 1)} className="text-[13px] font-semibold" style={{ color: NW_MUTED }}>Lo haré más tarde</button>
+                )}
                 <button
                   type="button" disabled={guardando} onClick={siguiente}
                   className="flex items-center gap-1.5 px-8 py-3.5 rounded-full text-[14px] font-bold text-white disabled:opacity-60"
