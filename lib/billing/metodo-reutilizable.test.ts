@@ -57,3 +57,26 @@ test('sin payment_method no hay nada que guardar', () => {
 test('un PaymentIntent vacío no revienta', () => {
   assert.equal(metodoReutilizableDe({}), null);
 });
+
+test('con las DOS formas puestas a la vez se guarda igual', () => {
+  // El camino sin Bizum pide el `setup_future_usage` global (como antes) Y el
+  // por-método. Es deliberado: así ese camino no depende de que Stripe devuelva
+  // el por-método en el PaymentIntent, algo que no se ha podido comprobar sin
+  // Stripe en modo test. Cualquiera de las dos señales basta.
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_card', type: 'card' },
+    payment_method_types: ['card'],
+    setup_future_usage: 'off_session',
+    payment_method_options: { card: { setup_future_usage: 'off_session' } },
+  }), 'pm_card');
+});
+
+test('solo el por-método también basta (camino con Bizum ofrecido)', () => {
+  // Con Bizum en la sesión el global es incompatible y Stripe la rechazaría, así
+  // que ahí el por-método es la ÚNICA señal posible.
+  assert.equal(metodoReutilizableDe({
+    payment_method: { id: 'pm_card', type: 'card' },
+    payment_method_types: ['card', 'bizum'],
+    payment_method_options: { card: { setup_future_usage: 'off_session' } },
+  }), 'pm_card');
+});
