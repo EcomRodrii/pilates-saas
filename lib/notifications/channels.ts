@@ -106,7 +106,7 @@ const email: Canal = {
     if (!apiKey || apiKey.startsWith('re_XXXX')) return { status: 'SKIPPED', error: 'email no configurado' };
 
     const { data: st } = await admin.from('studios')
-      .select('nombre, color_primario, logo_url').eq('id', notificacion.studioId).maybeSingle();
+      .select('nombre, color_primario, logo_url, email').eq('id', notificacion.studioId).maybeSingle();
     const color = (st?.color_primario as string | null) || '#343825';
     const estudio = (st?.nombre as string | null) || 'Tentare';
     const logo = st?.logo_url as string | null;
@@ -128,8 +128,15 @@ const email: Canal = {
       // estudio solo tiene sentido cuando quien recibe es una socia; el resto
       // sigue viendo "Tentare" (es el propio producto avisando al equipo).
       const from = destinatario.role === 'SOCIA' ? remitentePorMarca(estudio) : (process.env.RESEND_FROM || 'Tentare <onboarding@resend.dev>');
+      // Reply-To solo cuando quien recibe es una SOCIA, por el mismo motivo
+      // que el remitente: si el aviso es para el equipo del estudio, poner su
+      // propia dirección como respuesta les haría escribirse a sí mismos.
+      const replyTo = destinatario.role === 'SOCIA' ? ((st?.email as string | null) ?? '').trim() : '';
       const { data, error } = await resend.emails.send(
-        { from, to: [destinatario.email], subject: notificacion.title, html },
+        {
+          from, to: [destinatario.email], subject: notificacion.title, html,
+          ...(replyTo ? { replyTo } : {}),
+        },
         { idempotencyKey: `noti-${notificacion.id}` },
       );
       if (error) return { status: 'FAILED', error: error.message };
