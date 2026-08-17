@@ -16,12 +16,14 @@ import { useAuth } from '@/lib/auth-context';
 import { authHeader } from '@/lib/api-client';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_BORDE } from '@/components/network-v2/tokens';
 
 export default function AccesoNetworkPage() {
   const uid = useId();
-  const { signIn, signInWithGoogle, session, user, loading } = useAuth();
+  const { signIn, signInWithGoogle, session, user, loading, verificarOtpSignup, reenviarConfirmacion } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mostrarPassword, setMostrarPassword] = useState(false);
@@ -30,6 +32,16 @@ export default function AccesoNetworkPage() {
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
   const yaResuelto = useRef(false);
+  // Cuenta sin confirmar (alta hecha en /network/crear-perfil o la landing,
+  // nunca verificada): en vez de "Te falta confirmar tu email" suelto, se
+  // manda a la misma pantalla de código que ven esas dos altas — mismo
+  // patrón que app/login/page.tsx.
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  useEffect(() => {
+    const pendiente = leerEmailOtpPendiente();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pendiente) setEmailOtp(pendiente);
+  }, []);
 
   // A diferencia de /login, esta pantalla NUNCA recibe la vuelta de Google
   // directamente: signInWithGoogle() vuelve siempre a /login (su
@@ -68,7 +80,16 @@ export default function AccesoNetworkPage() {
     const token = await pedirToken();
     if (token === null) { setSubmitting(false); setError(ERROR_CAPTCHA); return; }
     const { error } = await signIn(email, password, token || undefined);
-    if (error) { setError(error); setSubmitting(false); }
+    if (error) {
+      if (/confirmar tu email/i.test(error)) {
+        recordarEmailOtpPendiente(email.trim());
+        setEmailOtp(email.trim());
+        setSubmitting(false);
+        return;
+      }
+      setError(error);
+      setSubmitting(false);
+    }
   }
 
   if (loading || (session && user)) return null;
@@ -118,6 +139,21 @@ export default function AccesoNetworkPage() {
 
       <div id="login" className="p-10 lg:p-16 flex flex-col justify-center scroll-mt-6">
         <div className="max-w-[380px] mx-auto w-full">
+        {emailOtp ? (
+          <OtpVerificacion
+            email={emailOtp}
+            onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
+            onReenviar={async () => {
+              const token = await pedirToken();
+              if (token === null) return { error: ERROR_CAPTCHA };
+              return reenviarConfirmacion(emailOtp, token || undefined);
+            }}
+            onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setError(''); }}
+            onVerificado={() => olvidarEmailOtpPendiente()}
+            sinTarjeta
+          />
+        ) : (
+        <>
           <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>¿Ya tienes cuenta?</p>
 
           <button
@@ -183,6 +219,8 @@ export default function AccesoNetworkPage() {
           <div className="mt-8 rounded-xl p-4 text-[12.5px]" style={{ background: NW_SAGE, color: NW_TINTA }}>
             Al entrar te llevamos a tu sitio: las instructoras a Tentare Network, las propietarias a su estudio. Nunca al panel equivocado.
           </div>
+        </>
+        )}
         </div>
       </div>
     </div>

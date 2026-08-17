@@ -10,11 +10,31 @@ import { uid as generarId } from '@/lib/utils';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 
 export default function LoginPage() {
   const uid = useId();
-  const { signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion, signInWithGoogle } = useAuth();
+  const {
+    signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion, signInWithGoogle, verificarOtpSignup,
+  } = useAuth();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
+  // Alta recién creada, esperando el código de 6 dígitos — sustituye al viejo
+  // "revisa tu email y pulsa el enlace". `emailOtp` no vive en `email` (el
+  // campo del formulario) para poder volver a "cambiar correo" sin perder lo
+  // que la persona ya había escrito antes de enviarlo.
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  // Recarga/atrás/pestaña cerrada y reabierta a medio verificar: el email
+  // pendiente sobrevive en sessionStorage (lib/auth/otp-pendiente.ts) — sin
+  // esto, un F5 en plena verificación devolvía sin más al formulario de
+  // "Iniciar sesión", como si el alta nunca hubiera pasado.
+  useEffect(() => {
+    const pendiente = leerEmailOtpPendiente();
+    if (!pendiente) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEmailOtp(pendiente);
+    setModo('crear');
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -32,10 +52,6 @@ export default function LoginPage() {
   // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
   // alguien le mandase el enlace desde el panel de Supabase.
   const [recuperando, setRecuperando] = useState(false);
-  // Se enseña solo cuando el error ES el de email sin confirmar: un botón de
-  // "reenviar confirmación" siempre visible invita a pulsarlo a quien no lo
-  // necesita, y cada pulsación gasta el rate limit de correos del proyecto.
-  const [faltaConfirmar, setFaltaConfirmar] = useState(false);
   // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
   // dependencias cambian de identidad más de una vez por login (`user` es un
   // objeto nuevo en cada evento de auth), y `pending_studio` solo se limpia al
@@ -203,22 +219,8 @@ export default function LoginPage() {
     });
   }, [session, user, loading]);
 
-  // El captcha se exige a nivel de PROYECTO en Supabase, así que esta llamada
-  // también lo necesita: sin token, gotrue la rechaza igual que un login.
-  async function reenviarElCorreoDeConfirmacion() {
-    setError(''); setInfo('');
-    setRecuperando(true);
-    const token = await pedirToken();
-    if (token === null) { setRecuperando(false); setError(ERROR_CAPTCHA); return; }
-    const r = await reenviarConfirmacion(email, token || undefined);
-    setRecuperando(false);
-    if (r.error) { setError(r.error); return; }
-    setFaltaConfirmar(false);
-    setInfo(`Te hemos reenviado el correo de confirmación a ${email.trim()}. Mira también en spam.`);
-  }
-
   async function pedirEnlaceDeRecuperacion() {
-    setError(''); setInfo(''); setFaltaConfirmar(false);
+    setError(''); setInfo('');
     if (!email.trim()) {
       setError('Escribe tu email arriba y vuelve a pulsar.');
       return;
@@ -258,11 +260,17 @@ export default function LoginPage() {
         // argumento de no revelar si la cuenta existe no aplica aquí: la
         // pantalla anterior acaba de decirlo. Los mensajes concretos salen de
         // `mensajeDeError` en auth-context, que sí distingue los casos.
+        // Cuenta sin confirmar: en vez de un enlace "reenviar confirmación"
+        // suelto, se manda directo a la pantalla de código — el mismo paso
+        // que ve quien se acaba de registrar, así no hay dos experiencias
+        // distintas para "te falta confirmar el email".
+        if (/confirmar tu email/i.test(error)) {
+          recordarEmailOtpPendiente(email.trim());
+          setEmailOtp(email.trim());
+          setSubmitting(false);
+          return;
+        }
         setError(error);
-        // Y ese mensaje decía "busca nuestro correo" sin ofrecer nada más: si
-        // el correo no llegó, se borró, o el enlace caducó, era un callejón sin
-        // salida. Ahora se ofrece reenviarlo, solo en este caso concreto.
-        setFaltaConfirmar(/confirmar tu email/i.test(error));
         setSubmitting(false);
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
@@ -287,11 +295,8 @@ export default function LoginPage() {
         setModo('entrar');
         setSubmitting(false);
       } else if (needsConfirmation) {
-        setInfo('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.');
-        setModo('entrar');
-        // Nada más crearse es cuando más falla: el correo tarda, cae en spam, o
-        // se escribe mal la dirección. Que el reenvío esté a mano desde ya.
-        setFaltaConfirmar(true);
+        recordarEmailOtpPendiente(email.trim());
+        setEmailOtp(email.trim());
         setSubmitting(false);
       }
       // Si no requiere confirmación, ya hay sesión y el useEffect se encarga.
@@ -309,6 +314,20 @@ export default function LoginPage() {
           <p className="text-[14px] text-[#8E8E86] mt-1">Panel de gestión</p>
         </div>
 
+        {emailOtp ? (
+          <OtpVerificacion
+            email={emailOtp}
+            onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
+            onReenviar={async () => {
+              const token = await pedirToken();
+              if (token === null) return { error: ERROR_CAPTCHA };
+              return reenviarConfirmacion(emailOtp, token || undefined);
+            }}
+            onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setError(''); setInfo(''); }}
+            onVerificado={() => olvidarEmailOtpPendiente()}
+          />
+        ) : (
+        <>
         {/* Card */}
         <div className="bg-white rounded-2xl p-6" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
           <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">
@@ -370,15 +389,6 @@ export default function LoginPage() {
             {error && (
               <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
             )}
-            {faltaConfirmar && (
-              <button
-                type="button" disabled={recuperando}
-                onClick={() => void reenviarElCorreoDeConfirmacion()}
-                className="w-full text-center text-[12.5px] font-semibold text-[#3A3A34] hover:underline disabled:opacity-60"
-              >
-                {recuperando ? 'Enviando…' : 'Reenviarme el correo de confirmación'}
-              </button>
-            )}
             {info && (
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
             )}
@@ -422,6 +432,8 @@ export default function LoginPage() {
             </>
           )}
         </p>
+        </>
+        )}
       </div>
     </div>
   );

@@ -26,6 +26,8 @@ import {
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { GoogleIcon } from '@/components/auth/google-icon';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
@@ -108,7 +110,7 @@ function identidadDesdeApi(i: PerfilIdentidadNetwork): IdentidadForm {
 
 export default function CrearPerfilNetworkPage() {
   const uid = useId();
-  const { user, loading: cargandoSesion, signUp, signInWithGoogle } = useAuth();
+  const { user, loading: cargandoSesion, signUp, signInWithGoogle, verificarOtpSignup, reenviarConfirmacion } = useAuth();
 
   // ── Paso 01: cuenta (sin sesión todavía) ──────────────────────────────
   const [nombreCuenta, setNombreCuenta] = useState('');
@@ -119,6 +121,14 @@ export default function CrearPerfilNetworkPage() {
   const [creandoCuenta, setCreandoCuenta] = useState(false);
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
+  // Alta recién creada, esperando el código de 6 dígitos — mismo patrón que
+  // app/login/page.tsx (única fuente de este componente, OtpVerificacion).
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  useEffect(() => {
+    const pendiente = leerEmailOtpPendiente();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pendiente) setEmailOtp(pendiente);
+  }, []);
 
   // Igual que en /network/acceso: vuelve siempre a /login (redirectPath por
   // defecto de signInWithGoogle), así que el error de vuelta de Google se ve
@@ -199,7 +209,8 @@ export default function CrearPerfilNetworkPage() {
       return;
     }
     if (needsConfirmation) {
-      setInfoCuenta('Cuenta creada. Revisa tu email para confirmarla — al volver, seguimos justo aquí.');
+      recordarEmailOtpPendiente(emailCuenta.trim());
+      setEmailOtp(emailCuenta.trim());
       setCreandoCuenta(false);
       return;
     }
@@ -272,6 +283,26 @@ export default function CrearPerfilNetworkPage() {
   }
 
   if (cargandoSesion || cargando) return null;
+
+  // ── Paso 01 sin sesión, alta creada: verificar código ─────────────────
+  if (emailOtp && !user) {
+    return (
+      <ShellCentrado>
+        <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
+        <OtpVerificacion
+          email={emailOtp}
+          onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
+          onReenviar={async () => {
+            const token = await pedirToken();
+            if (token === null) return { error: ERROR_CAPTCHA };
+            return reenviarConfirmacion(emailOtp, token || undefined);
+          }}
+          onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setErrorCuenta(''); setInfoCuenta(''); }}
+          onVerificado={() => olvidarEmailOtpPendiente()}
+        />
+      </ShellCentrado>
+    );
+  }
 
   // ── Paso 01 sin sesión: pantalla de alta ──────────────────────────────
   if (!user) {
