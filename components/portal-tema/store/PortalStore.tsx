@@ -65,6 +65,20 @@ export interface PortalState {
    * y ni pintan el control.
    */
   agendaVista: 'semana' | 'mes' | 'lista';
+  /**
+   * Sus clases ya asistidas, para «Completadas».
+   *
+   * `null` = todavía no se han pedido (o no hay de quién pedirlas: la
+   * previsualización corre sin sesión de socia). NO es lo mismo que `[]`, que
+   * sí significa «no ha asistido a ninguna» — y por eso la sección solo se
+   * pinta cuando hay array, no cuando hay elementos.
+   *
+   * Se piden EN DIFERIDO al abrir la lista, no al montar el portal: es la
+   * única forma de tener historial sin meterlo en la carga de todo el mundo
+   * (ver `fetchHistorialAsistidas`).
+   */
+  historial: { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[] | null;
+  historialCargando: boolean;
   /** Qué sección abre «Información del centro». */
   infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
   /**
@@ -138,6 +152,8 @@ const initialState = (): PortalState => ({
   // Semana primero: es la vista que responde «¿qué tengo esta semana?», que es
   // a lo que se entra en la agenda.
   agendaVista: 'semana',
+  historial: null,
+  historialCargando: false,
   infoKey: 'horario',
   hoja: null,
 });
@@ -191,6 +207,7 @@ export interface PortalActions {
   setHorarioTab(tab: 'clases' | 'espera'): void;
   setBonosTab(tab: 'bonos' | 'historial'): void;
   setAgendaVista(vista: 'semana' | 'mes' | 'lista'): void;
+  cargarHistorial(): void;
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
   goMisDatos(): void;
@@ -324,6 +341,18 @@ export type AlPagarPortal = (planId: string) => Promise<string | null>;
 export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
 
 /**
+ * Pide el historial de clases asistidas de la socia. Devuelve `[]` si no hay
+ * sesión o el servidor falla — la sección «Completadas» se calla en vez de
+ * enseñar un error, porque es información de apoyo, no la razón de la
+ * pantalla.
+ *
+ * Va inyectada como el resto de escrituras: el kit no sabe que existe Supabase.
+ */
+export type AlPedirHistorialPortal = () => Promise<
+  { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[]
+>;
+
+/**
  * Guarda los datos de la socia. Devuelve `null` si el servidor lo confirmó, o
  * el mensaje de error si no — nunca se avisa de «Guardado» sin esa respuesta.
  */
@@ -379,6 +408,7 @@ export function PortalProvider({
   alCancelar,
   alReservar,
   alGuardarDatos,
+  alPedirHistorial,
   alSalir,
   aspecto,
   compra,
@@ -415,6 +445,7 @@ export function PortalProvider({
   alPagar?: AlPagarPortal;
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
+  alPedirHistorial?: AlPedirHistorialPortal;
   /** Sin esto, "Reservar mi plaza" es un `setTimeout`. */
   alReservar?: AlReservarPortal;
   alGuardarDatos?: AlGuardarDatosPortal;
@@ -472,7 +503,13 @@ export function PortalProvider({
 
   useEffect(() => {
     if (!hydrated.current) return;
-    const { toast, toastId, loading, running, paying, authWorking, ...rest } = state;
+    // ⚠️ `historial` NO se persiste, y no es un descuido: son datos del
+    // SERVIDOR, no estado de pantalla. Guardarlos dejaría a la socia abriendo
+    // la app con el historial de la semana pasada —sin la clase de ayer— hasta
+    // que algo lo refrescara, y encima metería sus clases en el
+    // `localStorage` de un dispositivo compartido. Con `null` se vuelve a
+    // pedir, que es barato y siempre cierto.
+    const { toast, toastId, loading, running, paying, authWorking, historial, historialCargando, ...rest } = state;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
@@ -495,6 +532,8 @@ export function PortalProvider({
     alPagarRef.current = alPagar;
   }, [alPagar]);
 
+  const alPedirHistorialRef = useRef(alPedirHistorial);
+  useEffect(() => { alPedirHistorialRef.current = alPedirHistorial; }, [alPedirHistorial]);
   const alCancelarRef = useRef(alCancelar);
   useEffect(() => {
     alCancelarRef.current = alCancelar;
@@ -622,6 +661,21 @@ export function PortalProvider({
       setHorarioTab: (horarioTab) => set({ horarioTab }),
       setBonosTab: (bonosTab) => set({ bonosTab }),
       setAgendaVista: (agendaVista) => set({ agendaVista }),
+      // Una sola vez por montaje: `historial !== null` ya significa «pedido».
+      // Sin esa guarda, el efecto que la llama al abrir la lista dispararía una
+      // petición por render.
+      cargarHistorial: () => {
+        const pedir = alPedirHistorialRef.current;
+        const s = stateRef.current;
+        if (!pedir || s.historial !== null || s.historialCargando) return;
+        set({ historialCargando: true });
+        pedir()
+          .then((historial) => set({ historial, historialCargando: false }))
+          // Un fallo deja `historial` en `null`, no en `[]`: `[]` diría «no has
+          // asistido a ninguna», que es una afirmación distinta de «no lo he
+          // podido cargar». Así la sección no se pinta en vez de mentir.
+          .catch(() => set({ historialCargando: false }));
+      },
       // Elegir el bono es un paso propio en Tentada; en los otros temas la
       // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
       goBuy: () => ir({ screen: "comprar" }),

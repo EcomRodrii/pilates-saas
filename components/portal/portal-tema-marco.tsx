@@ -56,7 +56,7 @@ import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
-import { crearCheckoutPlan } from '@/lib/api-client';
+import { crearCheckoutPlan, fetchHistorialAsistidas } from '@/lib/api-client';
 import { diaDelMesHoy } from '@/lib/portal-tema/datos';
 import { TEMAS_PORTAL, TEMA_PORTAL_POR_DEFECTO, esTemaPortal } from '@/themes/registro';
 import '@/components/portal-tema/portal-tema.css';
@@ -289,6 +289,20 @@ export function PortalTemaMarco() {
     return r.ok ? null : r.error;
   }, [socioId, updateSocio]);
 
+  // El historial de clases asistidas, para «Completadas». Va por un endpoint
+  // propio y NO por el catálogo público: ese acota las sesiones a `fin >= ahora`
+  // (para que el aforo no arrastre meses de historia en cada carga), y
+  // ensancharlo habría penalizado a TODOS los portales, también los que no
+  // enseñan historial. La identidad la deriva el servidor del JWT de la socia;
+  // aquí no se manda ningún `socioId`.
+  //
+  // Sin estudio no se pide nada: devolver `[]` diría «no has asistido a
+  // ninguna», y lo cierto es que no se sabe.
+  const alPedirHistorial = useCallback(async () => {
+    if (!studioId) return [];
+    return fetchHistorialAsistidas(studioId);
+  }, [studioId]);
+
   const alSalir = useCallback(() => {
     logout();
     router.replace(`/portal/${slug}/login`);
@@ -315,6 +329,7 @@ export function PortalTemaMarco() {
         alCancelar={alCancelar}
         alReservar={alReservar}
         alGuardarDatos={alGuardarDatos}
+        alPedirHistorial={alPedirHistorial}
         alSalir={alSalir}
         // El día/noche del portal de siempre (`lib/portal-modo`), tal cual: el
         // kit no lo conoce, solo lo pinta. Sin esto la fila «Aspecto» no se

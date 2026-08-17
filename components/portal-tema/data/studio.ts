@@ -64,6 +64,19 @@ export const CLASSES: StudioClass[] = [
     description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"], cancelHoras: 6 },
 ];
 
+/**
+ * Clases ya asistidas, SOLO para la previsualización de temas.
+ *
+ * En el portal real esto llega del endpoint `/api/public/historial`, que
+ * deriva la socia del JWT. Aquí no hay socia, así que sin esta muestra la
+ * sección «Completadas» no se podría revisar nunca al mirar un tema.
+ */
+export const HISTORIAL_DE_MUESTRA = [
+  { reservaId: 'h1', sesionId: 's-h1', inicio: '2026-08-28T16:00:00.000Z', nombre: 'Pilates Reformer', instructora: 'Marta Gómez' },
+  { reservaId: 'h2', sesionId: 's-h2', inicio: '2026-08-21T08:00:00.000Z', nombre: 'Pilates de suelo', instructora: 'Emma Ruiz' },
+  { reservaId: 'h3', sesionId: 's-h3', inicio: '2026-08-14T17:00:00.000Z', nombre: 'Reformer suave', instructora: 'Marta Gómez' },
+];
+
 export const FILTERS = [
   { key: "todas", label: "Todas" },
   { key: "reformer", label: "Reformer" },
