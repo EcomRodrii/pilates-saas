@@ -7,6 +7,7 @@ import { reclamarWebhookEvent, marcarWebhookProcesado, claveWebhook } from '@/li
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
+import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
 import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroSepaExitoso } from '@/lib/billing/dunning-server';
 
@@ -198,7 +199,44 @@ async function procesarEvento(
       return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
     }
 
-    if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
+    if (session.mode === 'setup' && session.metadata?.purpose === 'tarjeta') {
+      // La socia autorizó una tarjeta sin pagar nada (/api/stripe/setup-tarjeta).
+      // Es el único camino por el que una socia que paga en mostrador, por
+      // Bizum o importada de otra plataforma llega a tener método cobrable.
+      // Mismo trato que el guardado tras un pago: si no se puede persistir se
+      // devuelve 5xx y Stripe reintenta (idempotente, mismos ids).
+      if (socioId && typeof session.setup_intent === 'string') {
+        const si = await stripe.setupIntents.retrieve(
+          session.setup_intent,
+          { expand: ['payment_method'] },
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+        const pm = si.payment_method;
+        const pmId = typeof pm === 'string' ? pm : (pm?.id ?? null);
+        const esTarjeta = typeof pm === 'string' ? true : pm?.type === 'card';
+        if (!studioId) {
+          // Mismo criterio que el guardado tras pago: sin studioId no se acota
+          // el UPDATE al estudio dueño de la socia, y no se escribe.
+          Sentry.captureMessage('[stripe webhook] setup de tarjeta sin studioId: no se guarda', {
+            level: 'warning', extra: { socioId, sessionId: session.id },
+          });
+        } else if (pmId && esTarjeta) {
+          const update: Record<string, string> = { stripe_payment_method_id: pmId };
+          if (typeof session.customer === 'string') update.stripe_customer_id = session.customer;
+          const { error } = await admin.from('socios')
+            .update(update).eq('id', socioId).eq('studio_id', studioId);
+          if (error) {
+            console.error('[stripe webhook] no se pudo guardar la tarjeta autorizada', socioId, error);
+            return NextResponse.json({ error: 'Fallo al guardar la tarjeta' }, { status: 500 });
+          }
+          // Caducidad para los avisos de Fase 3 del Brain. Best-effort: lo que
+          // importa (poder cobrar) ya está escrito.
+          await guardarCaducidadTarjeta(admin, stripe, {
+            socioId, studioId, paymentMethodId: pmId, stripeAccount: event.account,
+          });
+        }
+      }
+    } else if (session.mode === 'setup' && session.metadata?.purpose === 'sepa_mandate') {
       // Fase 1 · PR-2 — alta de mandato SEPA: la socia aceptó la domiciliación.
       // Guardamos el PaymentMethod (sepa_debit) y el mandato para poder cobrar
       // la mensualidad off-session (PR-3). El SetupIntent vive en la cuenta
@@ -397,17 +435,17 @@ async function procesarEvento(
         // devuelve "no such payment_intent".
         const paymentIntent = await stripe.paymentIntents.retrieve(
           session.payment_intent,
-          {},
+          // Expandido a propósito: sin el objeto no se sabe con qué método se
+          // pagó DE VERDAD, solo qué métodos se ofrecieron. En una sesión con
+          // Bizum + tarjeta esa diferencia decide entre guardar una tarjeta
+          // cobrable y guardar un método de Bizum que romperá el próximo cobro.
+          // No cuesta una llamada extra: es el mismo retrieve.
+          { expand: ['payment_method'] },
           event.account ? { stripeAccount: event.account } : undefined
         );
-        const paymentMethodId = typeof paymentIntent.payment_method === 'string'
-          ? paymentIntent.payment_method
-          : paymentIntent.payment_method?.id;
-        // Solo guardamos como método recurrente si es una tarjeta reutilizable.
-        const piPmTypes = (paymentIntent.payment_method_types ?? []) as string[];
-        const esTarjetaReutilizable = piPmTypes.includes('card')
-          && paymentIntent.setup_future_usage === 'off_session';
-        if (paymentMethodId && esTarjetaReutilizable) {
+        // Una sola regla, con tests: lib/billing/metodo-reutilizable.ts.
+        const paymentMethodId = metodoReutilizableDe(paymentIntent);
+        if (paymentMethodId) {
           if (!studioId) {
             // Sin studioId no se puede acotar el UPDATE al estudio dueño de la
             // socia: preferimos no escribir a escribir cross-tenant sobre un id
@@ -555,12 +593,14 @@ async function procesarEvento(
       // Un fallo aquí devuelve 5xx para reintentar (idempotente: mismos
       // customer/payment_method). Bizum no aplica: este endpoint solo ofrece
       // tarjeta (payment_method_types:['card'] fijo).
-      if (typeof pi.customer === 'string' && typeof pi.payment_method === 'string') {
-        const piPmTypes = (pi.payment_method_types ?? []) as string[];
-        const esTarjetaReutilizable = piPmTypes.includes('card') && pi.setup_future_usage === 'off_session';
-        if (esTarjetaReutilizable) {
+      if (typeof pi.customer === 'string') {
+        // Misma regla única que en checkout.session.completed. Aquí el evento ya
+        // ES el PaymentIntent y este endpoint solo ofrece tarjeta, así que el
+        // `payment_method` sin expandir basta.
+        const pmReutilizable = metodoReutilizableDe(pi);
+        if (pmReutilizable) {
           const { error } = await admin.from('socios')
-            .update({ stripe_customer_id: pi.customer, stripe_payment_method_id: pi.payment_method })
+            .update({ stripe_customer_id: pi.customer, stripe_payment_method_id: pmReutilizable })
             .eq('id', entrega.socioId).eq('studio_id', studioId);
           if (error) {
             console.error('[stripe webhook] no se pudo guardar la tarjeta de la socia (checkout embebido)', entrega.socioId, error);
@@ -570,7 +610,7 @@ async function procesarEvento(
           // que en checkout.session.completed: el método de pago —lo que
           // importa— ya está guardado.
           await guardarCaducidadTarjeta(admin, stripe, {
-            socioId: entrega.socioId, studioId, paymentMethodId: pi.payment_method, stripeAccount: event.account,
+            socioId: entrega.socioId, studioId, paymentMethodId: pmReutilizable, stripeAccount: event.account,
           });
         }
       }
