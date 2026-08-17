@@ -37,11 +37,12 @@ export const THEME: ThemeConfig = {
     "greeting_style": "date-first",
     "hero_badge": false,
     "hero_chip": true,
+    "day_strip_style": "cajas",
     "quick_links_style": "cards",
     "tab_bar_style": "floating",
     "tab_icon_fill": false,
     "tab_labels": "todas",
-    "detail_style": "bleed",
+    "detail_style": "bleed-bajo",
     "next_class_style": "hero",
     "week_strip_style": "card",
     // ⚠️ `agenda`, no el `basico` que traía el paquete: con `basico` la tercera

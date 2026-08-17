@@ -182,3 +182,12 @@
 .week--boxed .day.is-active { background: var(--brand); }
 .week--boxed .day.is-active .day__label { color: var(--on-brand); opacity: .8; }
 .week--boxed .day.is-active .day__num { color: var(--on-brand); font-weight: 700; }
+
+/* Las cajas de Sereno: tarjeta con borde y el punto del día visible. Tentada
+ * ya usaba `--boxed` sin borde ni punto, así que los tres van por token con su
+ * valor de antes por defecto y su pantalla no se mueve. */
+.week--boxed .day {
+  background: var(--day-box-bg, transparent);
+  border: var(--day-box-border, 0);
+}
+.week--boxed .day__dot { display: var(--day-box-dot, none); margin-top: 3px; }

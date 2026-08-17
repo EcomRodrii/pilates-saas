@@ -211,11 +211,25 @@ export function useViewModel() {
       })),
 
       filters: datos.filtros.map((x) => ({ key: x.key, label: x.label, active: state.filter === x.key })),
+      // «Hoy · 3 clases»: el día elegido y cuántas hay. Va bajo los filtros en
+      // Sereno, donde el contador de la cabecera no existe.
+      diaFrase: (state.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, state.day))
+        + " · " + plural(dayList.length, "clase", "clases"),
       classes: dayList.map((c) => {
         const isBooked = idsReservados.includes(c.id);
         return {
           id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
           meta: c.room + " · " + c.level,
+          // «Emma · Sala A · Todos» — quién primero, que es lo que se busca al
+          // elegir clase. La fila de siempre lleva la instructora abajo con su
+          // avatar; esta la sube a la línea de metadatos.
+          metaLarga: [c.teacher.split(" ")[0], c.room, c.level].filter(Boolean).join(" · "),
+          // «4 plazas» junto al badge. Vacío cuando no quedan o ya es suya: ahí
+          // el badge («Completa», «Reservada») ya lo dice todo y repetirlo
+          // sobra.
+          plazas: !isBooked && !enCola(c.id) && c.seats > 0
+            ? c.seats + (c.seats === 1 ? " plaza" : " plazas")
+            : "",
           // Sin el nivel: la fila de Tentada ya escribe «con {teacher} · {room}»
           // y repetir «Intermedio» ahí la parte en tres líneas.
           room: c.room,
@@ -232,6 +246,12 @@ export function useViewModel() {
             ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
             : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
           statusTone: (isBooked ? "booked" : c.seats ? "free" : "full") as "booked" | "free" | "full",
+          // El badge de la fila de Sereno dice el ESTADO y nada más
+          // («Disponible»), porque las plazas van detrás en su propia línea.
+          // El de siempre mete el número dentro («3 libres») y ahí sí es lo
+          // único que hay, así que se conservan los dos.
+          estadoCorto: enCola(c.id) ? "En lista"
+            : isBooked ? "Reservada" : c.seats ? "Disponible" : "Completa",
         };
       }),
       classCount: plural(dayList.length, "clase", "clases"),
@@ -452,6 +472,20 @@ export function useViewModel() {
         plazaElegida: state.spotElegido,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
+        // El estado que va sobre la foto cuando el título baja al lienzo.
+        // Reusa las mismas palabras que la fila del horario para que la socia
+        // lea lo mismo en las dos pantallas.
+        estado: enCola(state.classId) ? "En lista"
+          : (booked && !enCola(state.classId)) ? "Reservada"
+          : cls.seats ? "Disponible" : "Completa",
+        // Los tres datos de la clase como chips de dos líneas. El nivel puede
+        // venir vacío (un tipo sin nivel marcado) y entonces su chip no se
+        // pinta, en vez de dejar uno con el rótulo y el hueco.
+        chips: [
+          cls.level ? { label: "Nivel", valor: cls.level } : null,
+          { label: "Duración", valor: cls.duration },
+          cls.room ? { label: "Sala", valor: cls.room } : null,
+        ].filter(Boolean) as { label: string; valor: string }[],
         booked: booked && !enCola(state.classId),
         // El id que hay que mandar para cancelar NO es el de la clase.
         reservaId: reservaPorClase.get(state.classId),

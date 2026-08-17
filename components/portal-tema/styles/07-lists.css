@@ -306,3 +306,34 @@
 .completada__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .completada__name { font-size: 13.5px; font-weight: 600; color: var(--done-ink); }
 .completada__meta { font-size: 12px; color: var(--muted); }
+
+/* ── La fila del horario de Sereno ──────────────────────────────────────── */
+/* Hora | separador | cuerpo | chevron. El separador es la pieza que ordena la
+ * lectura: sin él la hora y el nombre se leen como una sola frase. */
+.class-row--sereno { align-items: center; gap: 14px; padding: 15px 16px; }
+.class-row--sereno .class-row__time { flex: 0 0 46px; text-align: center; }
+.class-row--sereno .class-row__hour { font-family: var(--font-body); font-size: 15px; font-weight: 600; }
+.class-row--sereno .class-row__dur { margin-top: 2px; font-size: 11px; }
+.class-row__sep { flex: none; align-self: stretch; width: 1px; background: var(--border); }
+.class-row--sereno .class-row__name {
+  font-family: var(--font-body);
+  font-size: 15px; font-weight: 600; letter-spacing: 0;
+}
+.class-row--sereno .class-row__meta { margin-top: 3px; font-size: 12.5px; }
+.class-row--sereno .class-row__foot { margin-top: 7px; gap: 8px; }
+/* El badge deja de irse a la derecha: aquí va pegado al texto, con las plazas
+ * detrás. Es una frase («Disponible · 4 plazas»), no una columna. */
+.class-row--sereno .status { margin-left: 0; }
+.class-row__plazas { font-size: 11.5px; color: var(--muted); }
+.class-row--sereno > .icon { flex: none; color: var(--card-hover-border); }
+/* «Hoy · 3 clases», entre los filtros y la lista. */
+.dia-frase { margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+/* Los badges de esta fila, con el peso que pide la captura: la reserva en
+ * tinta maciza (es LA suya) y lo disponible en verde apagado. Van acotados a
+ * `--sereno` para no repintar los badges del resto de temas. */
+.class-row--sereno .status--booked { background: var(--ink); color: var(--on-brand); }
+.class-row--sereno .status--free {
+  background: color-mix(in srgb, var(--success) 13%, var(--surface));
+  border-color: transparent;
+  color: var(--success);
+}

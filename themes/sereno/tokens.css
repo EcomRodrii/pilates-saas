@@ -109,6 +109,13 @@ html[data-theme="sereno"] {
   --desk-muted: #8E8A82;
 
   /* ── Componentes ───────────────────────────────────────────────────── */
+  /* La tira de días en cajas: tarjeta blanca con borde, y el punto visible
+   * (marca los días con clase). Tentada usa la misma forma sin borde ni punto,
+   * y por eso los tres son tokens — ver 05-navigation.css. */
+  --day-box-bg: #FFFFFF;
+  --day-box-border: 1px solid #E7E3DC;
+  --day-box-dot: block;
+
   --chip-height: 34px;
   --chip-bg: #FFFFFF;
   --tab-bar-bg: rgba(255,255,255,.86);   /* cápsula flotante con blur */

@@ -13,7 +13,15 @@ export type WelcomeStyle = "photo" | "soft" | "dark";
 export type GreetingStyle = "display-first" | "micro-first" | "date-first";
 export type QuickLinksStyle = "cards" | "bare";
 export type TabBarStyle = "classic" | "floating";
-export type DetailStyle = "card" | "bleed";
+/**
+ * Cabecera del detalle de clase.
+ *   `card`       — foto contenida y el título dentro de la hoja.
+ *   `bleed`      — foto a sangre con el título y la instructora ENCIMA.
+ *   `bleed-bajo` — foto a sangre pero el título DEBAJO, sobre el lienzo, con
+ *                  el estado como píldora sobre la foto (Sereno). El texto
+ *                  deja de depender del brillo de la imagen.
+ */
+export type DetailStyle = "card" | "bleed" | "bleed-bajo";
 
 /**
  * Forma de la tarjeta de "próxima clase".
@@ -109,6 +117,18 @@ export interface ThemeFeatures {
    * (Oliva/Bloom/Noir) el chip caería encima del texto.
    */
   hero_chip?: boolean;
+  /**
+   * Forma de la tira de días del horario y la agenda.
+   *
+   *   ausente / `circulos` — el número en un círculo, con la etiqueta encima
+   *                          y el punto debajo (Oliva/Bloom/Noir).
+   *   `cajas`              — cada día en su tarjeta con borde, etiqueta y
+   *                          número apilados (Sereno).
+   *
+   * Tentada ya pinta cajas en su pantalla de Reservas, pero por una prop del
+   * componente, no por el tema: son dos usos distintos de la misma forma.
+   */
+  day_strip_style?: "circulos" | "cajas";
   quick_links_style: QuickLinksStyle;
   tab_bar_style: TabBarStyle;
   tab_icon_fill: boolean;
