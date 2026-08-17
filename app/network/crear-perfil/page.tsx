@@ -19,6 +19,7 @@
 // (formación) son de verdad nuevos — necesitan el modelo de documentos que
 // no existía antes de esta fase.
 import { useEffect, useId, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Check, Loader2, Camera, Upload, X, Clock3, ShieldCheck, Lock, ChevronLeft, ChevronRight,
@@ -701,8 +702,35 @@ export default function CrearPerfilNetworkPage() {
   );
 }
 
+// Split-screen en escritorio (lg+): antes era una columna de 384px centrada
+// en toda la pantalla, con ~60% de aire vacío a los lados y sin ninguna
+// imagen ni contexto de marca — la pantalla con MENOS orientación de todo
+// el wizard justo en el primer contacto de la usuaria (hallazgo de la
+// auditoría UX). Reutiliza /disciplinas/pilates.jpg — la misma foto real
+// que ya usa SeccionHeroNetwork/SeccionCtaFinal para Network, no una
+// encargada de nuevo (mismo criterio de marca: el producto se distingue
+// por su color, no rehaciendo el material). En móvil/tablet, columna
+// centrada como antes — el panel de foto se oculta, no se apila encima.
 function ShellCentrado({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-dvh flex items-center justify-center px-6 py-16" style={{ background: '#FAF9F5' }}><div className="max-w-sm w-full">{children}</div></div>;
+  return (
+    <div className="min-h-dvh lg:flex" style={{ background: '#FAF9F5' }}>
+      <div className="flex items-center justify-center px-6 py-16 lg:flex-1 lg:py-24">
+        <div className="max-w-sm w-full">{children}</div>
+      </div>
+      <div className="hidden lg:block lg:flex-1 relative">
+        <Image src="/disciplinas/pilates.jpg" alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,.05), rgba(26,26,26,.35))' }} />
+        <div className="absolute bottom-10 left-10 right-10">
+          <p className="text-[22px] font-extrabold leading-tight text-white">
+            La red profesional de instructoras de Pilates y Yoga.
+          </p>
+          <p className="mt-2 text-[14px] text-white/85">
+            Publica tu perfil una vez. Los estudios te contactan a ti.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DropzoneDocumento({
