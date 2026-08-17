@@ -7,7 +7,10 @@ import { crearReservaPublica } from '@/lib/db/supabase-data-admin';
 
 // GET /api/oauth/v1/reservas — triggers "Nueva reserva"/"Reserva cancelada"
 // de Zapier (polling). `?estado=` filtra (CONFIRMADA por defecto; pasar
-// CANCELADA para el segundo trigger). Requiere `reservas:leer`.
+// CANCELADA para el segundo trigger). `?socioId=` filtra además por clienta
+// (Fase 9 — extensión incremental, docs/api-publica-v1-diseno.md §3.1): sin
+// esto, "las reservas de esta clienta" exigía traer toda la página y filtrar
+// en el cliente. Requiere `reservas:leer`.
 export async function GET(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'oauth-v1-reservas', { max: 60, windowSeconds: 60 });
   if (limited) return limited;
@@ -25,14 +28,15 @@ export async function GET(req: NextRequest) {
 
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit')) || 25, 100);
   const estado = req.nextUrl.searchParams.get('estado') ?? 'CONFIRMADA';
+  const socioId = req.nextUrl.searchParams.get('socioId');
 
-  const { data, error } = await admin
+  let query = admin
     .from('reservas')
     .select('id, sesion_id, socio_id, estado, spot_id, creado_en')
     .eq('studio_id', ctx.studioId)
-    .eq('estado', estado)
-    .order('creado_en', { ascending: false })
-    .limit(limit);
+    .eq('estado', estado);
+  if (socioId) query = query.eq('socio_id', socioId);
+  const { data, error } = await query.order('creado_en', { ascending: false }).limit(limit);
 
   const statusCode = error ? 500 : 200;
   auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: 'reservas:leer', metodo: 'GET', ruta: '/api/oauth/v1/reservas', statusCode, ip: clientIp(req) });
