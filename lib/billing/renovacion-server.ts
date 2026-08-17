@@ -107,21 +107,38 @@ export async function aplicarRenovacionServidor(
     };
 
     if (plan.tipo === 'BONO' || plan.tipo === 'PUNTUAL') {
-      // El guard es lo que hace idempotente el refill — y de paso garantiza que
-      // el saldo previo era EXACTAMENTE 0 en los casos en que sí se aplica.
-      if (sus.sesiones_restantes !== 0) {
+      // I-6. Antes esto era `if (sus.sesiones_restantes !== 0) return
+      // { aplicada: false }`: un guard que hacía dos trabajos y solo uno bien.
+      // Servía de idempotencia (un reintento sobre un bono ya recargado no lo
+      // recarga otra vez) pero confundía "ya lo recargué" con "todavía no lo
+      // había agotado", así que cobrar una renovación con saldo > 0 se llevaba
+      // el dinero y no entregaba nada — registrado en `entrega_aplicada: false`,
+      // que no mira ninguna alerta.
+      //
+      // La idempotencia correcta es por RECIBO, y vive en la RPC junto con la
+      // recarga: leerla aquí y escribir después serían tres pasos, y dos
+      // reintentos del webhook a la vez recargarían dos veces (una carrera que
+      // el guard viejo no tenía). Ver migr 20260818003000.
+      //
+      // La RPC SUMA en vez de reemplazar: desde 0 el resultado es idéntico al de
+      // antes, y con saldo > 0 la socia ya no pierde lo que le quedaba.
+      const { data: saldoNuevo, error: errRenov } = await admin.rpc('renovar_bono_idempotente', {
+        p_recibo_id: reciboId, p_studio_id: studioId, p_sesiones: plan.sesiones,
+      });
+      if (errRenov) {
+        Sentry.captureException(new Error(`[renovarBonoIdempotente] ${errRenov.message}`), {
+          tags: { area: 'renovacion' }, extra: { reciboId, studioId },
+        });
         return guardar({ aplicada: false, tipo: 'BONO', antes, despues: antes });
       }
-      await admin
-        .from('suscripciones')
-        .update({ sesiones_restantes: plan.sesiones, estado: 'ACTIVA' })
-        .eq('id', sus.id)
-        .eq('studio_id', studioId);
+      // null = este recibo ya había entregado (reintento). No es un fallo, y no
+      // se reescribe el snapshot para no pisar el de la entrega buena.
+      if (saldoNuevo == null) return { aplicada: false, tipo: 'BONO', antes, despues: antes };
       return guardar({
         aplicada: true, tipo: 'BONO', antes,
         // Esta rama NO toca `fecha_fin`: se arrastra tal cual para que la
         // comprobación de interferencia no dé un falso positivo después.
-        despues: { sesionesRestantes: (plan.sesiones ?? null) as number | null, fechaFin: antes.fechaFin, estado: 'ACTIVA' },
+        despues: { sesionesRestantes: saldoNuevo as number, fechaFin: antes.fechaFin, estado: 'ACTIVA' },
       });
     }
 
