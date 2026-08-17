@@ -292,6 +292,17 @@ export interface FuenteDatosPortal {
   /** La ventana de cancelación del estudio (`studios.cancelacion_ventana_horas`). */
   cancelacionVentanaHoras?: number | null;
   /**
+   * `studios.cancelacion_devolver_bono_tardia`: si el estudio devuelve la
+   * sesión INCLUSO cuando cancela dentro de la ventana. Por defecto `false`.
+   *
+   * ⚠️ Sin este dato no se puede decir la verdad sobre el crédito, y la hoja de
+   * cancelar del kit lo estaba prometiendo igualmente («La clase vuelve a tu
+   * bono», sin mirar nada). La ventana sola NO basta: la RPC decide con
+   * `v_devolver := v_devolver_tardia or not v_tardia`, así que un estudio con
+   * esta bandera activa sí devuelve aunque cancele tarde.
+   */
+  cancelacionDevolverBonoTardia?: boolean;
+  /**
    * Nombre y año de apertura, para el cierre de pantalla que firma el
    * estudio. `anioFundacion` es opcional de verdad: `studios.anio_fundacion`
    * es nullable y NO es `creadoEn` (el alta en Tentare, migr 0134) — sin él
@@ -576,6 +587,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
   return {
     clases,
     ahoraISO: f.ahora.toISOString(),
+    devolverBonoTardia: f.cancelacionDevolverBonoTardia ?? false,
     hoy: hoyDe(f.ahora, tz),
     racha: f.racha ?? null,
     estudio: f.estudio ?? {

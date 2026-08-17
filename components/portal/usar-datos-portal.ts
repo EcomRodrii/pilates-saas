@@ -49,6 +49,9 @@ export function useDatosPortal(socioId: string | null) {
     bloquesInicio: homeBloques,
     planes: planesTarifa,
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? null,
+    // La otra mitad de la política. Sin ella la hoja de cancelar no puede
+    // decir si el crédito vuelve — ver `devolverBonoTardia` en `DatosPortal`.
+    cancelacionDevolverBonoTardia: studio?.cancelacionDevolverBonoTardia ?? false,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
     // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
     // sin año en vez de inventarse uno.
@@ -89,7 +92,7 @@ export function useDatosPortal(socioId: string | null) {
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl, studio?.imagenBienvenidaUrl,
        studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,
-       studio?.cancelacionVentanaHoras]);
+       studio?.cancelacionVentanaHoras, studio?.cancelacionDevolverBonoTardia]);
 
   // `socia` sale también: el marco la necesita para «Mis datos», y
   // recalcularla allí sería el mismo `find` dos veces sobre la misma lista.

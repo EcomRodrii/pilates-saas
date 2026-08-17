@@ -153,6 +153,25 @@
 }
 .hoja__titulo { font-size: 17px; font-weight: 800; color: var(--ink); }
 .hoja__texto { margin-top: 8px; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+
+/* El desenlace del crédito al cancelar. Va en su propia caja y no como una
+ * línea más del párrafo porque es la información por la que se abre esta hoja:
+ * si la sesión vuelve al bono o se pierde. Tokens, no colores sueltos — así el
+ * ámbar es el `--warning` de cada tema. */
+.hoja__nota {
+  margin-top: 10px;
+  padding: 11px 13px;
+  border-radius: var(--radius-input, 13px);
+  background: var(--support-soft, var(--support));
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.hoja__nota--aviso {
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: color-mix(in srgb, var(--warning) 78%, var(--ink));
+}
+.hoja__nota--aviso strong { font-weight: 700; color: var(--warning); }
 .hoja__profe { display: flex; align-items: center; gap: 14px; }
 /* El botón destructivo: contorno y no relleno. Un rojo macizo del ancho de la
  * pantalla pesa más que «Mantener reserva», y la que conserva la plaza es la

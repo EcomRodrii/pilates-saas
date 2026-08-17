@@ -4,6 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
 import type { DatosPortal } from "@/lib/portal-tema/tipos";
 import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
+// La ÚNICA frase que `mensajeDeFalloAlGuardar` reserva para un fallo de red de
+// verdad. Es lo que separa «vuelve a intentarlo» de «el estudio ha dicho que
+// no» — ver el comentario de la hoja `errorReserva`.
+import { ERROR_RED } from "@/lib/errores";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
@@ -71,6 +75,19 @@ export interface PortalState {
     | { tipo: 'espera'; classId: string }
     | { tipo: 'bono'; bonoId: string }
     | { tipo: 'pago' }
+    /**
+     * La reserva no salió. Antes esto era un TOAST y se iba solo en tres
+     * segundos: la socia se quedaba sin saber si se había gastado un crédito
+     * ni cómo volver a intentarlo. Es la única acción del portal que le cuesta
+     * dinero, así que el fallo se queda en pantalla hasta que ella lo cierre.
+     *
+     * `reintentable` distingue «se cayó la conexión» de «el estudio ha dicho
+     * que no» (sin bono, clase empezada, tope semanal…): ofrecer «Reintentar»
+     * sobre un rechazo legítimo sería mandarla a repetir algo que va a volver
+     * a fallar. Sale de comparar contra `ERROR_RED`, que es la ÚNICA frase que
+     * `mensajeDeFalloAlGuardar` reserva para un fallo de red de verdad.
+     */
+    | { tipo: 'errorReserva'; classId: string; mensaje: string; reintentable: boolean }
     | null;
 }
 
@@ -643,8 +660,17 @@ export function PortalProvider({
           // fila del horario (`id`), no hay ninguna elegida y va `null`.
           const plaza = id && id !== s.classId ? null : s.spotElegido;
           reservar(classId, plaza).then((r) => {
+            if (!r.ok) {
+              // ⚠️ La plaza elegida NO se suelta cuando la reserva falla: si se
+              // cayó la conexión, «Reintentar» tiene que pedir el MISMO sitio.
+              // Soltarla aquí convertía el segundo intento en «que me la
+              // asignen», que no es lo que ella eligió.
+              return set({
+                loading: false,
+                hoja: { tipo: 'errorReserva', classId, mensaje: r.error, reintentable: r.error === ERROR_RED },
+              });
+            }
             set({ loading: false, spotElegido: null });
-            if (!r.ok) return notify(r.error);
             // A la pantalla de confirmación con el desenlace que dio el
             // SERVIDOR. El aviso se queda igualmente: si la navegación la
             // lleva una ruta que aún no ha pintado, el mensaje ya está.

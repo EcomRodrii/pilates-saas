@@ -1,0 +1,199 @@
+/* Tema Sereno — tokens de diseño.
+ * MISMO formato y MISMOS nombres de token que themes/{tentada,oliva,bloom,noir}/tokens.css:
+ * selector html[data-theme="sereno"] (convive en el bundle; el activo se elige
+ * con el atributo data-theme, no cargando otra hoja). Ningún componente escribe
+ * un color o un radio a mano: si falta un valor, se añade AQUÍ como token.
+ *
+ * ⚠️ Igual que en los otros cuatro:
+ * 1. `html[...]` y no `[...]` a secas — gana al --font-display que el layout
+ *    raíz declara con next/font.
+ * 2. Las fuentes van por var(--font-…) servidas por next/font desde nuestro
+ *    dominio (cero petición a Google): registrar --font-libre-caslon y
+ *    --font-figtree en app/layout.tsx, como se hizo con Cormorant para Tentada.
+ *
+ * Los controles de la propietaria NO se retiran: radioTema pisa --radius-* y
+ * escalaTexto multiplica los --size-* (ver varsRadioSobreTema /
+ * varsEscalaSobreTema en themes/registro.ts). */
+
+html[data-theme="sereno"] {
+  /* ── Marca ─────────────────────────────────────────────────────────── */
+  --brand: #221F1C;                 /* CTA = tinta; la marca es la calma, no un color */
+  --brand-hover: #3A352F;
+  --on-brand: #F6F4F1;
+  --support: #ECE8E1;
+  --support-soft: color-mix(in srgb, #ECE8E1 40%, #FFFFFF);
+  --accent: #8A6478;                /* malva: estado y foco, nunca relleno de texto largo */
+  --accent-soft: color-mix(in srgb, #8A6478 11%, #FFFFFF);
+  --accent-ink: #8A6478;
+
+  /* ── Superficies y texto ───────────────────────────────────────────── */
+  --bg: #F6F4F1;
+  --surface: #FFFFFF;
+  --border: #E7E3DC;
+  --ink: #221F1C;
+  --muted: #85807A;
+  --card-hover-border: color-mix(in srgb, #221F1C 22%, #E7E3DC);
+  --focus-ring: color-mix(in srgb, #8A6478 26%, transparent);
+
+  /* ── Semánticos ────────────────────────────────────────────────────── */
+  --success: #47694F;
+  --warning: #97722F;
+  --danger: #A34242;
+  --dot: #8A6478;
+  --fav: #8A6478;
+  --done-bg: #ECE8E1;
+  --done-ink: #5B564F;
+  --track: #ECE8E1;
+
+  /* ── Tipografía ────────────────────────────────────────────────────── */
+  --font-display: var(--font-libre-caslon), Georgia, serif;
+  --font-body: var(--font-figtree), system-ui, sans-serif;
+  --weight-display: 400;
+
+  /* El rótulo de sección de Sereno son versalitas de CUERPO muy espaciadas
+   * («TU PRÓXIMA CLASE»), no un titular pequeño en la serif — mismo caso que
+   * Tentada. Sin estos cinco tokens `.section-title` cae a sus valores por
+   * defecto (`--font-display`, sin caja alta, tracking negativo) y el rótulo
+   * sale en Libre Caslon minúscula: el paquete que entregó diseño no los
+   * traía, y era la única diferencia real entre sus tokens y lo que el kit
+   * necesita para pintar la spec. Se añaden AQUÍ, nunca sueltos en un
+   * componente (README del tema, §10.2). */
+  --size-section: 11px;
+  --section-title-family: var(--font-body);
+  --section-title-weight: 600;
+  --section-title-tracking: .14em;
+  --section-title-transform: uppercase;
+  --section-title-color: var(--muted);
+  --size-screen-title: 30px;
+  /* ⚠️ El paquete traía 13px con el comentario «la línea micro sobre el
+   * nombre». Es al revés: en el kit `--size-greeting` lo consume
+   * `.greeting__name` —el TITULAR del saludo— y la línea micro va a un 12.5px
+   * fijo de `.greeting__micro`. Con 13px el nombre salía del tamaño de un
+   * metadato; medido en el navegador. 30px es el titular de la cabecera en el
+   * prototipo, el mismo cuerpo que `--size-screen-title`. */
+  --size-greeting: 30px;
+  --size-hero-title: 22px;
+  --size-pass-name: 21px;
+  --size-detail-label: 14px;
+
+  /* ── Espaciado ─────────────────────────────────────────────────────── */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 40px; --space-9: 56px;
+  --canvas-gap: 22px;
+
+  /* ── Rejilla (web pública) ─────────────────────────────────────────── */
+  --page-width: 1200px;
+  --gutter: 24px;
+  --grid-gap: 22px;
+  --section-pad-block: 84px;
+
+  /* ── Radios ────────────────────────────────────────────────────────── */
+  --radius-card: 22px;
+  --radius-button: 16px;
+  --radius-chip: 999px;
+  --radius-input: 13px;
+  --radius-quick-link: 18px;
+
+  /* ── Sombras ───────────────────────────────────────────────────────── */
+  --shadow-card: 0 18px 40px -30px rgba(34,31,28,.35);
+  --shadow-card-hover: 0 22px 46px -30px rgba(34,31,28,.42);
+  --shadow-float: 0 20px 44px -20px rgba(34,31,28,.35);
+  --shadow-control: 0 14px 30px -14px rgba(34,31,28,.5);
+
+  /* ── Teléfono (previsualización) ───────────────────────────────────── */
+  --phone-width: 392px;
+  --phone-height: 812px;
+  --bezel: #D9D2C6;
+  --desk: #ECE9E3;
+  --desk-ink: #221F1C;
+  --desk-muted: #8E8A82;
+
+  /* ── Componentes ───────────────────────────────────────────────────── */
+  --chip-height: 34px;
+  --chip-bg: #FFFFFF;
+  --tab-bar-bg: rgba(255,255,255,.86);   /* cápsula flotante con blur */
+  --tab-bar-border: 1px solid rgba(255,255,255,.9);
+  /* Lo que hace que la cápsula sea de Sereno y no la píldora de Bloom: el
+   * cristal esmerilado, el radio 22 (no la píldora completa) y una pastilla
+   * activa de arena con la tinta encima. Los cuatro son tokens con el valor
+   * de siempre por defecto — ver 05-navigation.css. */
+  --tab-bar-blur: blur(18px) saturate(160%);
+  --tab-bar-radius: 22px;
+  --tab-pill-radius: 16px;
+  --tab-pill-bg: #F0EBE3;
+  --tab-pill-ink: #221F1C;
+  --tab-active: #221F1C;
+  --tab-idle: #9A9287;
+  --bell-bg: #FFFFFF;
+  --bell-border: 1px solid #E7E3DC;
+  --photo-bg: #E8E2D9;
+  --control-bg: #FFFFFF;
+  --control-border: 1px solid #E7E3DC;
+
+  /* ── Próxima clase (hero) ──────────────────────────────────────────── */
+  --hero-bg: #FFFFFF;               /* tarjeta clara: foto arriba, texto abajo */
+  /* La composición que dice el comentario de arriba, ahora de verdad: la foto
+   * es una banda de 118px pegada al borde superior y el texto va debajo, en
+   * vez de la mitad derecha que traen los otros temas. Ver 06-home.css. */
+  --hero-photo-inset: 0 0 auto 0;
+  --hero-photo-height: 118px;
+  --hero-body-display: block;       /* si no, el padding de arriba no empuja */
+  --hero-body-pad: 134px 18px 18px;
+  /* Sin velo: el velo cubre la tarjeta ENTERA (`.hero__veil` va a `inset: 0`),
+   * y en los otros temas eso está bien porque el texto va encima de la foto.
+   * Aquí el texto va sobre superficie blanca, así que el degradado solo
+   * ensuciaba la mitad de abajo con un gris que no es de nadie. */
+  --hero-veil: none;
+  --hero-badge-bg: #ECE8E1;
+  --hero-badge-ink: #221F1C;
+  --hero-ink: #221F1C;
+  --hero-ink-soft: #85807A;
+  --hero-ink-strong: #221F1C;
+  --hero-cta-bg: #221F1C;
+  --hero-cta-ink: #F6F4F1;
+  --hero-arrow: #221F1C;
+  --hero-arrow-opacity: 0.55;
+
+  /* ── Bienvenida ────────────────────────────────────────────────────── */
+  --welcome-bg: #E8E2D9;
+  /* ⚠️ El velo llega a porcelana OPACA antes de donde empieza el texto, no al
+   * 100 % como venía en el paquete. Sereno es el único de los cinco temas que
+   * escribe la bienvenida en TINTA sobre la foto (los otros cuatro la escriben
+   * en blanco sobre un velo que oscurece), y la foto de esa pantalla es la
+   * VERTICAL, que se elige oscura a propósito justo por eso — ver `fotos` en
+   * `lib/portal-tema/tipos.ts`. Con el corte original el titular en malva y el
+   * párrafo en `--welcome-ink-soft` caían sobre foto a medio velar y no se
+   * leían; medido en el navegador con la foto por defecto, no supuesto.
+   * El degradado sigue existiendo —la foto se ve arriba y se funde— pero por
+   * debajo del 62 % el lienzo es sólido, así que la legibilidad ya no depende
+   * de qué foto haya subido el estudio. */
+  --welcome-veil: linear-gradient(180deg, rgba(246,244,241,0) 0%, rgba(246,244,241,.45) 38%, #F6F4F1 62%, #F6F4F1 100%);
+  --welcome-ink: #221F1C;
+  --welcome-ink-soft: #85807A;
+  --welcome-accent: #8A6478;
+  --welcome-pad: 0 30px 30px;
+  --welcome-measure: 14ch;
+  --welcome-leading: 1.12;
+  --size-welcome: 34px;
+  --size-welcome-text: 15px;
+  --welcome-cta-bg: #221F1C;
+  --welcome-cta-ink: #F6F4F1;
+  --welcome-cta-height: 56px;
+  /* El botón de Sereno NO es una píldora ni lleva flecha: es el mismo
+   * rectángulo de radio 16 que todos sus CTA (`border-radius:16px` en el
+   * prototipo). Los dos son tokens nuevos con el valor de siempre por defecto,
+   * así que solo cambian aquí. */
+  --welcome-cta-radius: var(--radius-button);
+  --welcome-cta-arrow-display: none;
+  --welcome-cta-justify: center;
+  --welcome-cta-pad: 0 24px;
+  --welcome-cta-shadow: 0 14px 30px -14px rgba(34,31,28,.5);
+  --welcome-dots: flex-start;
+  --welcome-dot-on: #8A6478;
+  --welcome-dot-off: rgba(34,31,28,.18);
+
+  /* ── Hero de la web pública ────────────────────────────────────────── */
+  --hero-section-veil: linear-gradient(180deg, rgba(232,226,217,.55) 0%, rgba(246,244,241,.85) 70%, #F6F4F1 100%);
+  --hero-section-ink: #221F1C;
+  --hero-section-ink-soft: #85807A;
+}

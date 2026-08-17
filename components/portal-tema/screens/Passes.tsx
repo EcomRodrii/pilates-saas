@@ -122,16 +122,51 @@ export function Passes({ vm }: { vm: ViewModel }) {
           <span style={{ width: 40 }}></span>
         </div>
 
-        <Card className="pass">
-          <p className="pass__name">{vm.pass.name}</p>
-          <div className="pass__row">
-            <span className="pass__number">{vm.pass.left}</span>
-            <span className="pass__note">clases disponibles<br />caduca el {vm.pass.expires}</span>
-          </div>
-          <div className="pass__bar">
-            <span className="pass__fill" style={{ "--pct": vm.pass.percent + "%" } as React.CSSProperties}></span>
-          </div>
-        </Card>
+        {/* ⚠️ Los TRES estados, y hasta ahora solo se pintaba el primero: sin
+            bono la tarjeta salía con un «0» y un «caduca el » sin fecha, y con
+            un plan ILIMITADO salía igual de vacía porque `bonoDe` descarta a
+            propósito los que no tienen sesiones que contar. Son dos situaciones
+            distintas —«no tienes» y «tienes de los que no se cuentan»— y
+            enseñar la misma tarjeta rota para las dos es lo que hacía que una
+            socia con mensual creyera que se había quedado sin nada. */}
+        {vm.pass.total > 0 ? (
+          <>
+            <SectionTitle>Bono activo</SectionTitle>
+            <Card className="pass">
+              <p className="pass__name">{vm.pass.name}</p>
+              <div className="pass__row">
+                <span className="pass__number">{vm.pass.left}</span>
+                <span className="pass__note">
+                  {vm.pass.left === 1 ? "clase disponible" : "clases disponibles"}
+                  {/* Sin fecha de fin no se escribe «caduca el » a secas:
+                      `fechaLarga` devuelve vacío cuando `fecha_fin` es NULL, y
+                      eso es un bono sin caducidad, no un dato que falte. */}
+                  {vm.pass.expires ? <><br />caduca el {vm.pass.expires}</> : null}
+                </span>
+              </div>
+              <div className="pass__bar">
+                <span className="pass__fill" style={{ "--pct": vm.pass.percent + "%" } as React.CSSProperties}></span>
+              </div>
+              <p className="pass__uso">{vm.pass.total - vm.pass.left} de {vm.pass.total} usadas</p>
+            </Card>
+          </>
+        ) : vm.wallet.length ? (
+          <>
+            <SectionTitle>Bono activo</SectionTitle>
+            {vm.wallet.map((b) => (
+              <Card className="pass" key={b.id}>
+                <p className="pass__name">{b.name}</p>
+                <p className="pass__note" style={{ marginTop: 8 }}>{b.subline}</p>
+                {b.footline ? <p className="pass__uso">{b.footline}</p> : null}
+              </Card>
+            ))}
+          </>
+        ) : (
+          <EmptyState
+            title="Todavía no tienes bono"
+            text="Elige uno abajo y podrás reservar tus clases desde aquí."
+          />
+        )}
 
         <section>
           <SectionTitle>Cambiar de plan</SectionTitle>

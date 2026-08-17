@@ -30,6 +30,8 @@ export const FUENTES = [
   { id: 'jakarta', label: 'Plus Jakarta Sans', stack: 'var(--font-jakarta), system-ui, sans-serif' },
   { id: 'inter', label: 'Inter', stack: 'var(--font-inter), system-ui, sans-serif' },
   { id: 'poppins', label: 'Poppins', stack: 'var(--font-poppins), system-ui, sans-serif' },
+  // Tema "Sereno" (themes/sereno/) — registrada en next/font (app/layout.tsx).
+  { id: 'figtree', label: 'Figtree', stack: 'var(--font-figtree), system-ui, sans-serif' },
   { id: 'serif', label: 'Serif clásica', stack: 'Georgia, "Times New Roman", serif' },
   { id: 'mono', label: 'Monoespaciada', stack: 'var(--font-plex-mono), ui-monospace, monospace' },
 ] as const;
@@ -86,6 +88,10 @@ export const ESTILOS_TITULAR_PORTAL = [
   // (app/layout.tsx) con su cursiva. Es la ÚNICA de esta lista que trae una
   // familia nueva: las otras tres reusan fuentes que el layout ya cargaba.
   { id: 'cormorant', label: 'Cormorant Garamond' },
+  // Tema "Sereno" — Libre Caslon Text, registrada en next/font con su cursiva
+  // (app/layout.tsx). La segunda familia nueva de esta lista, por el mismo
+  // motivo que Cormorant: el tema titula con una serif que el repo no tenía.
+  { id: 'libreCaslon', label: 'Libre Caslon Text' },
 ] as const;
 
 export type PortalHeadingFontId = (typeof ESTILOS_TITULAR_PORTAL)[number]['id'];

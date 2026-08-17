@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { BASE_URL } from '@/lib/seo/paginas';
-import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond } from 'next/font/google';
+import { Plus_Jakarta_Sans, Instrument_Serif, Instrument_Sans, Outfit, Poppins, Cormorant_Garamond, Libre_Caslon_Text, Figtree } from 'next/font/google';
 import { StudioProvider } from '@/lib/studio-context';
 import { AuthProvider } from '@/lib/auth-context';
 import './globals.css';
@@ -77,6 +77,36 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
 });
 
+// Tema "Sereno" (themes/sereno/) — las DOS familias del tema son nuevas en el
+// repo, a diferencia de los cuatro anteriores, que reusaban lo ya cargado
+// salvo la Garamond de Tentada.
+//
+// Libre Caslon Text titula: el saludo, el nombre de la clase, los titulares de
+// las hojas y el numerazo del bono. Se pide la CURSIVA porque la cita del
+// estudio va en cursiva de verdad (mismo motivo que Instrument Serif y
+// Cormorant: sin ella el navegador inclina la redonda, y en una Caslon se nota
+// tanto como en las otras dos). El 700 entra porque `--section-title-weight`
+// de Sereno es 600 en la SANS pero la display se usa a 400 y a 700 en el
+// prototipo (nombre de clase vs. rótulos fuertes).
+const libreCaslon = Libre_Caslon_Text({
+  subsets: ['latin'],
+  variable: '--font-libre-caslon',
+  weight: ['400', '700'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
+
+// El cuerpo de Sereno. Se piden 300-700 porque el prototipo usa 500/600 en
+// metadatos y rótulos y 700 en los importes. Mismo criterio que `outfit`,
+// `poppins` y `cormorant`: coste fijo, se carga siempre, `next/font` no admite
+// carga condicional por tenant.
+const figtree = Figtree({
+  subsets: ['latin'],
+  variable: '--font-figtree',
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: 'Software de Gestión para Estudios de Pilates | Tentare',
@@ -112,7 +142,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} antialiased`}>
+    <html lang="es" className={`${jakarta.variable} ${instrumentSerif.variable} ${instrumentSans.variable} ${outfit.variable} ${poppins.variable} ${cormorant.variable} ${libreCaslon.variable} ${figtree.variable} antialiased`}>
       <body className="bg-background">
         <AuthProvider>
           <StudioProvider>{children}</StudioProvider>

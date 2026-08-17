@@ -34,13 +34,23 @@
 }
 .tab.is-active .tab__label { font-weight: 600; }
 
+/* ⚠️ La cápsula flotante estaba escrita a mano: fondo, radio, borde y la
+ * pastilla activa iban con valores fijos, así que un tema no podía cambiarla
+ * aunque declarara `--tab-bar-bg` y `--tab-bar-border` — solo los leía la
+ * barra pegada. Bloom era el único que flotaba y sus valores COINCIDÍAN con
+ * los fijos (`--tab-bar-bg: var(--surface)`, borde `none`), así que nadie lo
+ * notó hasta que Sereno pidió una cápsula con cristal esmerilado y pastilla
+ * arena. Ahora lee los mismos tokens que la otra barra, con los valores de
+ * antes por defecto: Bloom no se mueve. */
 .tab-bar--floating {
   margin: 12px 22px calc(26px + env(safe-area-inset-bottom));
   height: 66px;
   padding: 0 9px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 0;
+  border-radius: var(--tab-bar-radius, 999px);
+  background: var(--tab-bar-bg, var(--surface));
+  border: var(--tab-bar-border, 0);
+  backdrop-filter: var(--tab-bar-blur, none);
+  -webkit-backdrop-filter: var(--tab-bar-blur, none);
   box-shadow: var(--shadow-float);
   align-items: center;
   justify-content: space-around;
@@ -52,14 +62,32 @@
   gap: 8px;
   height: 48px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: var(--tab-pill-radius, 999px);
 }
 .tab-bar--floating .tab.is-active {
   padding: 0 20px;
-  background: var(--brand);
-  color: var(--on-brand);
+  /* La marca sigue siendo el valor por defecto (Bloom). Sereno la pide arena
+   * con la tinta encima: su marca ES la tinta, y una pastilla de marca dejaría
+   * un rectángulo negro flotando sobre la porcelana. */
+  background: var(--tab-pill-bg, var(--brand));
+  color: var(--tab-pill-ink, var(--on-brand));
 }
 .tab-bar--floating .tab__label { font-size: 13.5px; }
+
+/* Cápsula con las CUATRO etiquetas (Sereno). En fila no caben —la cuarta se
+ * sale de la barra, medido en el navegador—, así que icono y texto se apilan y
+ * cada pestaña reparte el ancho a partes iguales, igual que en el prototipo. */
+.tab-bar--etiquetas { padding: 0 6px; gap: 2px; }
+.tab-bar--etiquetas .tab {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  height: 52px;
+  padding: 0 4px;
+}
+.tab-bar--etiquetas .tab.is-active { padding: 0 4px; }
+.tab-bar--etiquetas .tab__label { font-size: 10px; }
 
 /* ── Barra superior de pantallas de detalle ──────────────────────────────── */
 .topbar {

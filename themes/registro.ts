@@ -5,9 +5,13 @@
 // aquí no hay una copia por tema: hay cuatro entradas de datos y un solo
 // `components/portal-tema/`. Tentada (el predeterminado, del prototipo
 // "Balance App") entró después por esta misma puerta: dos ficheros de datos y
-// tres banderas nuevas, cero código propio.
+// tres banderas nuevas, cero código propio. Sereno, el quinto, entró igual: el
+// paquete que entregó Claude Design ya venía en ESTE formato (config.ts +
+// tokens.css contra el contrato de `tipos-tema.ts`), así que no hubo que
+// traducir nada — solo el rótulo de sección necesitó tokens que su tokens.css
+// no traía.
 //
-// El tema activo se elige poniendo `data-theme` en <html>. Los cuatro bloques de
+// El tema activo se elige poniendo `data-theme` en <html>. Los cinco bloques de
 // tokens conviven en el bundle (cada uno bajo `[data-theme="…"]`), así que
 // cambiar de tema no recarga ninguna hoja.
 
@@ -15,9 +19,10 @@ import { THEME as TENTADA } from './tentada/config.ts';
 import { THEME as OLIVA } from './oliva/config.ts';
 import { THEME as BLOOM } from './bloom/config.ts';
 import { THEME as NOIR } from './noir/config.ts';
+import { THEME as SERENO } from './sereno/config.ts';
 import type { ThemeConfig } from '../components/portal-tema/tipos-tema.ts';
 
-export type TemaPortalId = 'tentada' | 'oliva' | 'bloom' | 'noir';
+export type TemaPortalId = 'tentada' | 'oliva' | 'bloom' | 'noir' | 'sereno';
 
 /**
  * `tentada` va PRIMERO porque es el predeterminado: es el que se resuelve
@@ -29,6 +34,7 @@ export const TEMAS_PORTAL: Record<TemaPortalId, ThemeConfig> = {
   oliva: OLIVA,
   bloom: BLOOM,
   noir: NOIR,
+  sereno: SERENO,
 };
 
 /**

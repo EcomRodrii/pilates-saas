@@ -1,4 +1,4 @@
-/** Contrato del tema. Los cuatro temas rellenan esta misma forma. */
+/** Contrato del tema. Los cinco temas rellenan esta misma forma. */
 
 export type WelcomeStyle = "photo" | "soft" | "dark";
 export type GreetingStyle = "display-first" | "micro-first";
@@ -78,6 +78,17 @@ export interface ThemeFeatures {
   quick_links_style: QuickLinksStyle;
   tab_bar_style: TabBarStyle;
   tab_icon_fill: boolean;
+  /**
+   * Qué pestañas de la barra FLOTANTE llevan etiqueta.
+   *
+   *   `activa` — solo la activa (Bloom, y el comportamiento de siempre).
+   *   `todas`  — las cuatro, siempre (Sereno).
+   *
+   * Opcional a propósito: ausente = `activa`, así los cuatro temas anteriores
+   * no declaran nada y no cambian. En la barra clásica no aplica — ahí todas
+   * las pestañas llevan etiqueta desde siempre.
+   */
+  tab_labels?: "activa" | "todas";
   detail_style: DetailStyle;
   next_class_style: NextClassStyle;
   week_strip_style: WeekStripStyle;
@@ -106,7 +117,7 @@ export interface TypeEntry {
 }
 
 export interface ThemeConfig {
-  id: "tentada" | "oliva" | "bloom" | "noir";
+  id: "tentada" | "oliva" | "bloom" | "noir" | "sereno";
   name: string;
   version: string;
   studio: string;
