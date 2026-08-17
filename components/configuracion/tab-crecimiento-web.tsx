@@ -2,7 +2,11 @@
 
 // Fase 8 "Booking Experience Engine" (CRO + Inteligencia): embudo del widget
 // público, agregado server-side (embudo_widget/embudo_widget_por_dia, migr
-// 20260817020000). Diseño completo: docs/cro-analytics-widget-diseno.md.
+// 20260817013933). Diseño completo: docs/cro-analytics-widget-diseno.md.
+//
+// Vive dentro de Configuración → API (no como pestaña propia): es la misma
+// superficie de negocio que los widgets embebibles, solo que mirando el
+// resultado en vez del código a pegar.
 //
 // Gateada con `puedeGestionarPortalHome` (PROPIETARIO/MANAGER) — los MISMOS
 // roles que la RLS de `widget_eventos_lectura` ya exige, NO

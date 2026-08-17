@@ -8,6 +8,7 @@ import { useRol, puedeGestionarAppsOAuth } from '@/lib/permisos';
 import { authHeader } from '@/lib/api-client';
 import { labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { copiarAlPortapapeles } from '@/lib/utils';
+import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
 
 // Antes vivía escondido dentro de Estudio → Enlaces, una sub-pestaña que
 // nadie mira buscando "cómo pongo Tentare en mi web". Movido a su propio
@@ -46,9 +47,17 @@ const WIDGETS = [
   { id: 'embed-script', tabParam: 'clases', nombre: 'Calendario embebido (sin iframe)', desc: 'El mismo calendario, pero integrado de verdad en tu web — sin marco, con tu tipografía alrededor. Requiere autorizar tu dominio abajo.', alto: 0, requiereSesion: false, modo: 'script' },
 ] as const;
 
+// "Crecimiento web" vivía como pestaña propia de primer nivel (Fase 8) — se
+// mueve aquí dentro porque es la misma superficie de negocio que "API": el
+// widget público es el canal, esto es su cuadro de mando. Sub-navegación
+// local (no el `sub` de page.tsx, que reconstruye la URL con `?tab=`): esta
+// pantalla no tenía deep-link propio antes y no hace falta inventarlo ahora.
+type Seccion = 'widgets' | 'crecimiento';
+
 export function TabApi({ showToast }: { showToast: (m: string) => void }) {
   const { studio } = useStudio();
   const rol = useRol();
+  const [seccion, setSeccion] = useState<Seccion>('widgets');
 
   if (!studio?.slug) return null;
 
@@ -58,11 +67,37 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
         <h2 className="text-[16px] font-semibold text-foreground">API</h2>
         <p className="text-[13px] text-muted-foreground mt-0.5">
           Pon Tentare en tu propia web: seis widgets, uno por cada cosa que
-          hace tu estudio.
+          hace tu estudio, y qué tal les está yendo.
         </p>
       </div>
-      <WidgetEmbebible slug={studio.slug} showToast={showToast} />
-      {puedeGestionarAppsOAuth(rol) && <AppsConectadas showToast={showToast} />}
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => setSeccion('widgets')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
+            seccion === 'widgets' ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          Widgets
+        </button>
+        <button
+          onClick={() => setSeccion('crecimiento')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-[12px] font-semibold border transition-colors',
+            seccion === 'crecimiento' ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+          )}
+        >
+          Crecimiento web
+        </button>
+      </div>
+      {seccion === 'widgets' ? (
+        <>
+          <WidgetEmbebible slug={studio.slug} showToast={showToast} />
+          {puedeGestionarAppsOAuth(rol) && <AppsConectadas showToast={showToast} />}
+        </>
+      ) : (
+        <TabCrecimientoWeb showToast={showToast} />
+      )}
     </div>
   );
 }
