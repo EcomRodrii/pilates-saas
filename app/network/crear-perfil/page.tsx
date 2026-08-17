@@ -19,6 +19,7 @@
 // (formación) son de verdad nuevos — necesitan el modelo de documentos que
 // no existía antes de esta fase.
 import { useEffect, useId, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Check, Loader2, Camera, Upload, X, Clock3, ShieldCheck, Lock, ChevronLeft, ChevronRight,
@@ -119,6 +120,11 @@ export default function CrearPerfilNetworkPage() {
   const [passwordCuenta, setPasswordCuenta] = useState('');
   const [errorCuenta, setErrorCuenta] = useState('');
   const [infoCuenta, setInfoCuenta] = useState('');
+  // Distingue el caso "ya existe cuenta" para poder pintar /network/acceso
+  // como un <Link> real en vez de la ruta escrita a mano en texto plano —
+  // hallazgo de la auditoría UX: la misma pantalla ya tiene un Link
+  // idéntico dos líneas más abajo, esto solo evita duplicarlo como texto.
+  const [cuentaExistente, setCuentaExistente] = useState(false);
   const [creandoCuenta, setCreandoCuenta] = useState(false);
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
@@ -197,7 +203,7 @@ export default function CrearPerfilNetworkPage() {
 
   async function crearCuenta(e: React.FormEvent) {
     e.preventDefault();
-    setErrorCuenta(''); setInfoCuenta(''); setCreandoCuenta(true);
+    setErrorCuenta(''); setInfoCuenta(''); setCuentaExistente(false); setCreandoCuenta(true);
     const token = await pedirToken();
     if (token === null) { setCreandoCuenta(false); setErrorCuenta(ERROR_CAPTCHA); return; }
     const { error, needsConfirmation, yaRegistrado } = await signUp(
@@ -205,7 +211,8 @@ export default function CrearPerfilNetworkPage() {
     );
     if (error) { setErrorCuenta(error); setCreandoCuenta(false); return; }
     if (yaRegistrado) {
-      setInfoCuenta('Ya existe una cuenta con ese email. Inicia sesión desde /network/acceso — tu progreso te espera aquí.');
+      setInfoCuenta('Ya existe una cuenta con ese email. Tu progreso te espera ahí.');
+      setCuentaExistente(true);
       setCreandoCuenta(false);
       return;
     }
@@ -310,6 +317,13 @@ export default function CrearPerfilNetworkPage() {
     return (
       <ShellCentrado>
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo /></Link>
+        {/* Antes solo había texto "Paso 1 de 12" — el resto del wizard (pasos
+            2-12) sí tiene barra+lista completa en su rail; el primer contacto
+            de la usuaria con el producto era, de todo el flujo, el que MENOS
+            orientación daba (hallazgo de la auditoría UX). */}
+        <div className="mb-1.5 h-1.5 rounded-full overflow-hidden" style={{ background: NW_BORDE }}>
+          <div className="h-full rounded-full" style={{ width: `${Math.round((1 / PASOS.length) * 100)}%`, background: NW_PRODUCTO }} />
+        </div>
         <p className="text-[12px] font-bold uppercase tracking-wide mb-1" style={{ color: NW_PRODUCTO }}>Paso 1 de 12</p>
         <h1 className="text-[30px] font-extrabold" style={{ color: NW_TINTA }}>
           Tu <span style={{ color: NW_PRODUCTO }}>cuenta</span>
@@ -346,7 +360,13 @@ export default function CrearPerfilNetworkPage() {
             <input id={`${uid}-p`} type="password" required minLength={6} value={passwordCuenta} onChange={e => setPasswordCuenta(e.target.value)} className={inputCls} style={inputStyle} placeholder="••••••••" />
           </div>
           {errorCuenta && <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{errorCuenta}</p>}
-          {infoCuenta && <p className="text-[13px] rounded-lg px-3 py-2" style={{ background: NW_SAGE, color: NW_TINTA }}>{infoCuenta}</p>}
+          {infoCuenta && (
+            <p className="text-[13px] rounded-lg px-3 py-2" style={{ background: NW_SAGE, color: NW_TINTA }}>
+              {infoCuenta}{cuentaExistente && (
+                <> <Link href="/network/acceso" className="font-semibold underline" style={{ color: NW_TINTA }}>Inicia sesión</Link>.</>
+              )}
+            </p>
+          )}
           {captcha}
           <button type="submit" disabled={creandoCuenta} className="w-full py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-60" style={{ background: NW_PRODUCTO }}>
             {creandoCuenta ? 'Un momento…' : 'Continuar'}
@@ -357,6 +377,32 @@ export default function CrearPerfilNetworkPage() {
         </p>
       </ShellCentrado>
     );
+  }
+
+  // ⚠️ Antes esto era `i < paso` — "he pasado por aquí", no "este paso
+  // tiene datos reales". Como ningún campo entre el 2 y el 9 era
+  // obligatorio para avanzar, se podía pulsar Continuar sin tocar nada y
+  // el rail pintaba ✓ igual. Ahora cada paso comprueba SU dato real —
+  // mismo criterio que ya arregló pasoIncompletoDe en lib/network/
+  // pasos-onboarding.ts para la reanudación. Formación (índice 5) es la
+  // única excepción a propósito: es opcional ("Lo haré más tarde"), así
+  // que no se le exige dato para no contradecir esa salida. Revisar/
+  // Publicar (10-11) son pantallas de navegación, no de datos — se quedan
+  // con el criterio anterior.
+  function pasoEstaHecho(i: number): boolean {
+    switch (i) {
+      case 0: return true; // "Tu cuenta": ya creada si se llegó hasta aquí
+      case 1: return verificacion != null;
+      case 2: return form.ciudad.trim() !== '';
+      case 3: return form.aniosExperiencia.trim() !== '';
+      case 4: return form.especialidades.length > 0;
+      case 5: return certificaciones.length > 0;
+      case 6: return form.tipoTrabajo.length > 0;
+      case 7: return form.disponibilidadHorarios.length > 0;
+      case 8: return Boolean(form.tarifaRango);
+      case 9: return form.idiomasTexto.trim() !== '' || form.descripcion.trim() !== '';
+      default: return i < paso;
+    }
   }
 
   const pasoActual = PASOS[paso];
@@ -375,7 +421,7 @@ export default function CrearPerfilNetworkPage() {
         </p>
         <ol className="mt-6 space-y-0.5">
           {PASOS.map((p, i) => {
-            const hecho = i < paso;
+            const hecho = pasoEstaHecho(i);
             const actual = i === paso;
             return (
               <li key={p.n}>
@@ -430,14 +476,14 @@ export default function CrearPerfilNetworkPage() {
                 </p>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Primer apellido</label>
-                  <input value={identidad.apellido1} onChange={e => setIdentidad(v => ({ ...v, apellido1: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Segundo apellido (opcional)</label>
-                  <input value={identidad.apellido2} onChange={e => setIdentidad(v => ({ ...v, apellido2: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>Fecha de nacimiento</label>
-                  <input type="date" value={identidad.fechaNacimiento} onChange={e => setIdentidad(v => ({ ...v, fechaNacimiento: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-                <div><label className={labelCls} style={{ color: NW_TINTA }}>País de residencia</label>
-                  <input value={identidad.paisResidencia} onChange={e => setIdentidad(v => ({ ...v, paisResidencia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="España" /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido1`}>Primer apellido</label>
+                  <input id={`${uid}-apellido1`} value={identidad.apellido1} onChange={e => setIdentidad(v => ({ ...v, apellido1: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-apellido2`}>Segundo apellido (opcional)</label>
+                  <input id={`${uid}-apellido2`} value={identidad.apellido2} onChange={e => setIdentidad(v => ({ ...v, apellido2: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-nacimiento`}>Fecha de nacimiento</label>
+                  <input id={`${uid}-nacimiento`} type="date" value={identidad.fechaNacimiento} onChange={e => setIdentidad(v => ({ ...v, fechaNacimiento: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+                <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-pais`}>País de residencia</label>
+                  <input id={`${uid}-pais`} value={identidad.paisResidencia} onChange={e => setIdentidad(v => ({ ...v, paisResidencia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="España" /></div>
               </div>
               <div>
                 <label className={labelCls} style={{ color: NW_TINTA }}>Documento</label>
@@ -459,11 +505,11 @@ export default function CrearPerfilNetworkPage() {
               />
               {verificacion && <EstadoDocumento estado={verificacion.estado} motivo={verificacion.motivoRechazo} />}
               <div>
-                <label className={labelCls} style={{ color: NW_TINTA }}>Dirección — privada, nunca se muestra</label>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <input value={identidad.direccionCp} onChange={e => setIdentidad(v => ({ ...v, direccionCp: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Código postal" />
-                  <input value={identidad.direccionCiudad} onChange={e => setIdentidad(v => ({ ...v, direccionCiudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Ciudad" />
-                  <input value={identidad.direccionProvincia} onChange={e => setIdentidad(v => ({ ...v, direccionProvincia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Provincia" />
+                <p className={labelCls} style={{ color: NW_TINTA }} id={`${uid}-direccion`}>Dirección — privada, nunca se muestra</p>
+                <div className="grid sm:grid-cols-3 gap-3" role="group" aria-labelledby={`${uid}-direccion`}>
+                  <input aria-label="Código postal" value={identidad.direccionCp} onChange={e => setIdentidad(v => ({ ...v, direccionCp: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Código postal" />
+                  <input aria-label="Ciudad" value={identidad.direccionCiudad} onChange={e => setIdentidad(v => ({ ...v, direccionCiudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Ciudad" />
+                  <input aria-label="Provincia" value={identidad.direccionProvincia} onChange={e => setIdentidad(v => ({ ...v, direccionProvincia: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Provincia" />
                 </div>
               </div>
             </div>
@@ -471,10 +517,10 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 2 && (
             <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Ciudad</label>
-                <input value={form.ciudad} onChange={e => setForm(v => ({ ...v, ciudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Barcelona" /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Zona / barrio (opcional)</label>
-                <input value={form.zona} onChange={e => setForm(v => ({ ...v, zona: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Gràcia" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-ciudad`}>Ciudad</label>
+                <input id={`${uid}-ciudad`} value={form.ciudad} onChange={e => setForm(v => ({ ...v, ciudad: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Barcelona" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-zona`}>Zona / barrio (opcional)</label>
+                <input id={`${uid}-zona`} value={form.zona} onChange={e => setForm(v => ({ ...v, zona: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Gràcia" /></div>
               <div>
                 <label className={labelCls} style={{ color: NW_TINTA }}>Radio de desplazamiento</label>
                 <div className="flex gap-2">
@@ -492,11 +538,11 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 3 && (
             <div className="space-y-4">
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Años de experiencia</label>
-                <input type="number" min={0} value={form.aniosExperiencia} onChange={e => setForm(v => ({ ...v, aniosExperiencia: e.target.value }))} className={inputCls} style={inputStyle} /></div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Cuéntanos tu recorrido (opcional)</label>
-                <textarea value={form.descripcion} onChange={e => setForm(v => ({ ...v, descripcion: e.target.value }))} rows={4} className={inputCls} style={inputStyle} /></div>
-              <SeccionExperienciaNetwork onExperienciasChange={() => {}} />
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-anios`}>Años de experiencia</label>
+                <input id={`${uid}-anios`} type="number" min={0} value={form.aniosExperiencia} onChange={e => setForm(v => ({ ...v, aniosExperiencia: e.target.value }))} className={inputCls} style={inputStyle} /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-recorrido`}>Cuéntanos tu recorrido (opcional)</label>
+                <textarea id={`${uid}-recorrido`} value={form.descripcion} onChange={e => setForm(v => ({ ...v, descripcion: e.target.value }))} rows={4} className={inputCls} style={inputStyle} /></div>
+              <SeccionExperienciaNetwork onExperienciasChange={() => {}} tokensNetworkV2 />
             </div>
           )}
 
@@ -528,9 +574,10 @@ export default function CrearPerfilNetworkPage() {
               <div>
                 <p className={labelCls} style={{ color: NW_TINTA }}>Estado</p>
                 <SelectorChips
+                  unico
                   opciones={DISPONIBILIDAD_ESTADOS_NETWORK.map(v => ({ valor: v, etiqueta: DISPONIBILIDAD_ESTADO_LABEL[v] }))}
                   seleccion={[form.disponibilidadEstado]}
-                  onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[sel.length - 1] ?? v.disponibilidadEstado }))}
+                  onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[0] ?? v.disponibilidadEstado }))}
                 />
               </div>
               <div>
@@ -546,9 +593,10 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 8 && (
             <SelectorChips
+              unico
               opciones={TARIFAS_RANGO_NETWORK.map(v => ({ valor: v, etiqueta: TARIFA_RANGO_LABEL[v] }))}
               seleccion={form.tarifaRango ? [form.tarifaRango] : []}
-              onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[sel.length - 1] }))}
+              onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[0] }))}
             />
           )}
 
@@ -569,12 +617,12 @@ export default function CrearPerfilNetworkPage() {
                   <p className="text-[12px] mt-1.5" style={{ color: NW_MUTED_2 }}>Una foto real, de cara. Recomendado: cuadrada, buena luz.</p>
                 </div>
               </div>
-              <div><label className={labelCls} style={{ color: NW_TINTA }}>Idiomas (separados por coma)</label>
-                <input value={form.idiomasTexto} onChange={e => setForm(v => ({ ...v, idiomasTexto: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Español (nativo), Inglés (avanzado)" /></div>
+              <div><label className={labelCls} style={{ color: NW_TINTA }} htmlFor={`${uid}-idiomas`}>Idiomas (separados por coma)</label>
+                <input id={`${uid}-idiomas`} value={form.idiomasTexto} onChange={e => setForm(v => ({ ...v, idiomasTexto: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Español (nativo), Inglés (avanzado)" /></div>
               <div className="grid sm:grid-cols-3 gap-3">
-                <input value={form.instagram} onChange={e => setForm(v => ({ ...v, instagram: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Instagram (opcional)" />
-                <input value={form.linkedin} onChange={e => setForm(v => ({ ...v, linkedin: e.target.value }))} className={inputCls} style={inputStyle} placeholder="LinkedIn (opcional)" />
-                <input value={form.web} onChange={e => setForm(v => ({ ...v, web: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Web (opcional)" />
+                <input aria-label="Instagram" value={form.instagram} onChange={e => setForm(v => ({ ...v, instagram: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Instagram (opcional)" />
+                <input aria-label="LinkedIn" value={form.linkedin} onChange={e => setForm(v => ({ ...v, linkedin: e.target.value }))} className={inputCls} style={inputStyle} placeholder="LinkedIn (opcional)" />
+                <input aria-label="Web" value={form.web} onChange={e => setForm(v => ({ ...v, web: e.target.value }))} className={inputCls} style={inputStyle} placeholder="Web (opcional)" />
               </div>
             </div>
           )}
@@ -630,7 +678,14 @@ export default function CrearPerfilNetworkPage() {
                 <ChevronLeft size={16} /> Atrás
               </button>
               <div className="flex items-center gap-3">
-                {paso === 5 && <button type="button" onClick={() => setPaso(p => p + 1)} className="text-[13px] font-semibold" style={{ color: NW_MUTED }}>Lo haré más tarde</button>}
+                {/* Formación/Cómo quieres trabajar/Disponibilidad/Tarifa: ninguno bloquea
+                    PATCH /api/network/perfil/estado (solo exige nombre+ciudad+especialidades)
+                    — antes solo Formación ofrecía esta salida honesta, dejando el resto
+                    "rellena o adivina que puedes saltarlo" sin decirlo (hallazgo de la
+                    auditoría UX). */}
+                {[5, 6, 7, 8].includes(paso) && (
+                  <button type="button" onClick={() => setPaso(p => p + 1)} className="text-[13px] font-semibold" style={{ color: NW_MUTED }}>Lo haré más tarde</button>
+                )}
                 <button
                   type="button" disabled={guardando} onClick={siguiente}
                   className="flex items-center gap-1.5 px-8 py-3.5 rounded-full text-[14px] font-bold text-white disabled:opacity-60"
@@ -648,8 +703,35 @@ export default function CrearPerfilNetworkPage() {
   );
 }
 
+// Split-screen en escritorio (lg+): antes era una columna de 384px centrada
+// en toda la pantalla, con ~60% de aire vacío a los lados y sin ninguna
+// imagen ni contexto de marca — la pantalla con MENOS orientación de todo
+// el wizard justo en el primer contacto de la usuaria (hallazgo de la
+// auditoría UX). Reutiliza /disciplinas/pilates.jpg — la misma foto real
+// que ya usa SeccionHeroNetwork/SeccionCtaFinal para Network, no una
+// encargada de nuevo (mismo criterio de marca: el producto se distingue
+// por su color, no rehaciendo el material). En móvil/tablet, columna
+// centrada como antes — el panel de foto se oculta, no se apila encima.
 function ShellCentrado({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-dvh flex items-center justify-center px-6 py-16" style={{ background: '#FAF9F5' }}><div className="max-w-sm w-full">{children}</div></div>;
+  return (
+    <div className="min-h-dvh lg:flex" style={{ background: '#FAF9F5' }}>
+      <div className="flex items-center justify-center px-6 py-16 lg:flex-1 lg:py-24">
+        <div className="max-w-sm w-full">{children}</div>
+      </div>
+      <div className="hidden lg:block lg:flex-1 relative">
+        <Image src="/disciplinas/pilates.jpg" alt="" fill sizes="50vw" style={{ objectFit: 'cover' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,.05), rgba(26,26,26,.35))' }} />
+        <div className="absolute bottom-10 left-10 right-10">
+          <p className="text-[22px] font-extrabold leading-tight text-white">
+            La red profesional de instructoras de Pilates y Yoga.
+          </p>
+          <p className="mt-2 text-[14px] text-white/85">
+            Publica tu perfil una vez. Los estudios te contactan a ti.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DropzoneDocumento({

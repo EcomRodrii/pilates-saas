@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (m.includes('user already registered')) {
       return 'Ya hay una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña».';
     }
-    if (m.includes('password')) return 'La contraseña debe tener al menos 8 caracteres.';
+    if (m.includes('password')) return 'La contraseña debe tener al menos 6 caracteres.';
     // Fase 9/10: este Google ya es la identidad de OTRA cuenta de Tentare —
     // el caso que linkIdentity rechaza en vez de fusionar en silencio.
     if (m.includes('identity is already linked') || m.includes('already linked to another user')) {
