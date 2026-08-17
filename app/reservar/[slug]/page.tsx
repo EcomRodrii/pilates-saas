@@ -1351,32 +1351,48 @@ export default function ReservarPage() {
   // prometer de verdad.
   if (dataLoaded && !studio) {
     return (
-      <div style={{
-        minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 24, background: 'var(--portal-bg)', fontFamily: sans,
-      }}>
-        <div style={{ maxWidth: 380, textAlign: 'center' }}>
-          {/* Serif y tamaño fijo, no `heading()`: ese usa `cq()`, que necesita
-              un ancestro con `container-type`, y esta pantalla es autónoma. */}
-          <h1 style={{ fontFamily: serif, fontSize: 26, lineHeight: 1.1, color: 'var(--portal-ink)', marginBottom: 10 }}>
-            No hemos podido cargar el horario
-          </h1>
-          <p style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--portal-muted-2)', marginBottom: 22 }}>
-            Ha sido un problema nuestro, no del enlace. Vuelve a intentarlo en un momento.
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            style={{
-              height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, border: 'none',
-              background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-              fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            Reintentar
-          </button>
+      <>
+        {/* ⚠️ Los MISMOS tres canales de color que el render normal, y por el
+            mismo motivo (ver el bloque largo más abajo). Una pantalla de error
+            que se los salte es una losa casi blanca sobre la web oscura de un
+            estudio — justo el fallo que ya costó tres arreglos seguidos aquí:
+              1. el `<style>` de html/body, porque el `<body>` del iframe pinta
+                 su fondo opaco POR DEBAJO aunque este div sea transparente;
+              2. `fondoCss(apariencia)`, para que «transparente» lo sea;
+              3. los tokens por PROP (`tokensCalendario`) y no
+                 `var(--portal-ink)`, porque el color del texto de esta página
+                 no viaja por variables CSS. */}
+        {embedMode && (
+          <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
+        )}
+        <div style={{
+          minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, background: fondoCss(apariencia) ?? 'var(--portal-bg)',
+          fontFamily: fuenteWidget ?? sans,
+        }}>
+          <div style={{ maxWidth: 380, textAlign: 'center' }}>
+            {/* Serif y tamaño fijo, no `heading()`: ese usa `cq()`, que necesita
+                un ancestro con `container-type`, y esta pantalla es autónoma. */}
+            <h1 style={{ fontFamily: serif, fontSize: 26, lineHeight: 1.1, color: tokensCalendario.ink, marginBottom: 10 }}>
+              No hemos podido cargar el horario
+            </h1>
+            <p style={{ fontSize: 14, lineHeight: 1.5, color: tokensCalendario.muted, marginBottom: 22 }}>
+              Ha sido un problema nuestro, no del enlace. Vuelve a intentarlo en un momento.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, border: 'none',
+                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Reintentar
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 

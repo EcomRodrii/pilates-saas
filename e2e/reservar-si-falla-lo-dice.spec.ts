@@ -126,3 +126,65 @@ test('un estudio sin clases lo dice, en vez de enseñar un hueco mudo', async ({
   // El estudio sigue siendo el suyo: sin clases no es lo mismo que sin estudio.
   await expect(page.getByText(/Estudio Alma/).first()).toBeVisible();
 });
+
+// ── Y el estado de error, sobre una web OSCURA ───────────────────────────────
+//
+// Mismo criterio que `reservar-oscuro-todas-las-vistas.spec.ts`: se CUENTAN
+// superficies claras barriendo el DOM, no se comprueba un elemento concreto.
+// Un elemento concreto solo prueba el canal que ya conocías, y en esta página
+// el color viaja por TRES (variables CSS, el `<style>` de html/body, y los
+// tokens que el calendario recibe por prop).
+//
+// Esta pantalla nació saltándose los tres: fondo `var(--portal-bg)` fijo a
+// pantalla completa y texto por variables. Sobre la web oscura de un estudio
+// eso es una losa casi blanca — exactamente el fallo que ya costó tres
+// arreglos seguidos aquí (#981, #982, #984).
+
+/** Superficies que siguen CLARAS. Devuelve las culpables, no solo cuántas. */
+async function superficiesClaras(page: import('@playwright/test').Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll('body *'))) {
+      const s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) continue;
+      const caja = el.getBoundingClientRect();
+      if (caja.width < 40 || caja.height < 20) continue;
+      const m = /^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/.exec(s.backgroundColor);
+      if (!m) continue;
+      const alfa = m[4] === undefined ? 1 : Number(m[4]);
+      if (alfa > 0.3 && Number(m[1]) > 200 && Number(m[2]) > 200 && Number(m[3]) > 200) {
+        out.push(`${s.backgroundColor} <${el.tagName.toLowerCase()}> ${(el.getAttribute('style') ?? '').slice(0, 90)}`);
+      }
+    }
+    return out;
+  });
+}
+
+test('el error sobre una web oscura no es una losa clara', async ({ page }) => {
+  await page.clock.install({ time: new Date(AHORA) });
+  await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
+  await page.route('**/api/theme**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ primary: '#2C352C', secondary: '#6B7A64', logoUrl: null, radius: 12 }) }));
+
+  let roto = false;
+  await page.route('**/api/public/studio-data', (r) => (roto
+    ? r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' })
+    : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixtureSociaLista()) })));
+
+  const url = `/reservar/${SLUG}?embed=1&tab=clases&fondo=transparente&texto=claro`;
+  for (let intento = 0; intento < 6; intento++) {
+    await page.goto(url);
+    if (await page.locator('#horario').waitFor({ timeout: 40_000 }).then(() => true).catch(() => false)) break;
+  }
+
+  roto = true;
+  await page.reload();
+  await expect(page.getByText(/No hemos podido cargar el horario/)).toBeVisible({ timeout: 60_000 });
+
+  const claras = await superficiesClaras(page);
+  expect(claras, `superficies claras sobre web oscura:\n${claras.join('\n')}`).toEqual([]);
+
+  // Y el `<body>`, que es el que pintaba su fondo opaco un nivel por debajo
+  // aunque el div de arriba fuera transparente.
+  const fondoBody = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(fondoBody).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+});
