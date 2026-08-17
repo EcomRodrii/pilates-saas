@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+import { LEGAL } from '@/lib/legal-info';
 
 // Variante SEO del marketplace por ciudad (README: "MISMO layout, título
 // dinámico «Instructoras de Pilates en {Ciudad}»"). Bajo /ciudad/ y no
@@ -28,5 +29,14 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
 export default async function MarketplacePorCiudadPage({ params }: { params: Promise<{ ciudad: string }> }) {
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
-  return <MarketplaceLayout filtro={{ ...FILTRO_BASE, ciudad: nombre }} tituloCiudad={nombre} />;
+  return (
+    <MarketplaceLayout
+      filtro={{ ...FILTRO_BASE, ciudad: nombre }}
+      tituloCiudad={nombre}
+      migasPan={[
+        { name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
+        { name: nombre, item: `${LEGAL.url}/network/instructoras/ciudad/${ciudad}` },
+      ]}
+    />
+  );
 }

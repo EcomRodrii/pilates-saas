@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { filtroDesdeSearchParams } from '@/lib/network/publico';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
+import { LEGAL } from '@/lib/legal-info';
 
 // Marketplace público de Tentare Network — Server Component a propósito
 // (docs/NETWORK-AUDIT-2.md §11): sin esto, Google vería un div vacío que se
@@ -24,5 +25,11 @@ export default async function MarketplaceInstructorasPage({
   );
   const filtro = filtroDesdeSearchParams(urlSearchParams);
 
-  return <MarketplaceLayout filtro={filtro} tituloCiudad={filtro.ciudad} />;
+  return (
+    <MarketplaceLayout
+      filtro={filtro}
+      tituloCiudad={filtro.ciudad}
+      migasPan={[{ name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` }]}
+    />
+  );
 }

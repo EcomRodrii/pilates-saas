@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perfilCoincideFiltro, PERFILES_SEED_E2E } from './publico.ts';
+import { perfilCoincideFiltro, PERFILES_SEED_E2E, slugCiudadUrl } from './publico.ts';
 import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 // ⚠️ Existe porque `perfilCoincideFiltro` reimplementa a mano lo que en
@@ -62,6 +62,12 @@ test('soloExperienciaVerificada: Marta true, Sofía false', () => {
   const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloExperienciaVerificada: true };
   assert.equal(perfilCoincideFiltro(marta, f), true);
   assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('slugCiudadUrl: minúsculas y espacios a guiones, SIN quitar tildes (round-trip con ciudadDesdeParam)', () => {
+  assert.equal(slugCiudadUrl('Madrid'), 'madrid');
+  assert.equal(slugCiudadUrl('Alcalá de Henares'), 'alcalá-de-henares');
+  assert.equal(slugCiudadUrl('  Barcelona  '), 'barcelona');
 });
 
 test('soloCertificacionVerificada: Marta true, Sofía false', () => {

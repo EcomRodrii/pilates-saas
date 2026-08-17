@@ -326,3 +326,30 @@ export async function obtenerPerfilPublicoPorSlug(
   if (!data) return null;
   return detallePerfilDesdeFila(admin, data as Record<string, unknown>);
 }
+
+// Slug de URL para /network/instructoras/ciudad/[ciudad] — a propósito NO
+// quita tildes (a diferencia de normalizarSlug de lib/network/slug.ts, hecho
+// para slugs de perfil): `ciudadDesdeParam` (la página que lo decodifica)
+// no las reconstruye si se pierden, y el filtro de búsqueda (`ilike`) es
+// sensible a acentos — "Alcala" no encontraría a nadie en "Alcalá de
+// Henares". Los caracteres no-ASCII van bien en una URL (el navegador los
+// percent-encoda); solo hay que encodeURIComponent() donde se interpole en
+// un href/loc.
+export function slugCiudadUrl(ciudad: string): string {
+  return ciudad.trim().toLowerCase().replace(/\s+/g, '-');
+}
+
+// Ciudades con AL MENOS un perfil publicado — nunca la lista fija de
+// ciudades-coords.ts (esa es para geolocalización "cerca de mí", no para
+// generar páginas: usarla crearía páginas SEO vacías de ciudades sin
+// ninguna instructora, justo lo que ya evita el comentario de
+// app/sitemap.ts sobre "nunca miles de páginas vacías generadas a priori").
+export async function ciudadesConPerfilesPublicados(admin: SupabaseClient): Promise<string[]> {
+  const { data } = await admin
+    .from('red_perfiles')
+    .select('ciudad')
+    .eq('estado', 'published')
+    .not('ciudad', 'is', null);
+  const ciudades = new Set((data ?? []).map(f => (f.ciudad as string).trim()).filter(Boolean));
+  return [...ciudades].sort((a, b) => a.localeCompare(b, 'es'));
+}

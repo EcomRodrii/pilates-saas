@@ -85,6 +85,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
   const { perfil, experiencias, certificaciones, badges, resenas } = detalle;
 
+  const url = `${LEGAL.url}/network/instructoras/${slug}`;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -93,15 +94,28 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
     ...(perfil.ciudad ? { address: { '@type': 'PostalAddress', addressLocality: perfil.ciudad } } : {}),
     ...(perfil.fotoUrl ? { image: perfil.fotoUrl } : {}),
     ...(perfil.descripcion ? { description: perfil.descripcion } : {}),
-    url: `${LEGAL.url}/network/instructoras/${slug}`,
+    url,
+    isPartOf: { '@type': 'WebSite', name: LEGAL.marca, url: LEGAL.url },
     ...(perfil.resumenResenas.total > 0 ? {
       aggregateRating: { '@type': 'AggregateRating', ratingValue: perfil.resumenResenas.promedio, reviewCount: perfil.resumenResenas.total },
     } : {}),
   };
 
+  // Mismo patrón de 3 niveles que FeatureStructuredData.tsx.
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: LEGAL.url },
+      { '@type': 'ListItem', position: 2, name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
+      { '@type': 'ListItem', position: 3, name: perfil.nombre, item: url },
+    ],
+  };
+
   return (
     <div style={{ background: NW_FONDO, color: NW_TINTA }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
       <NavPublico />
 
       <div className="max-w-[1240px] mx-auto px-6 pt-8 pb-24">
