@@ -111,6 +111,24 @@ test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
   assert.match(render(pl.body, { clase: 'Reformer', cuando: 'lunes a las 9:00' }), /Reformer.*lunes a las 9:00/);
 });
 
+test('red.candidatura_recibida: plantilla para PROPIETARIO y MANAGER (gerencia), sin recepción', () => {
+  assert.deepEqual(ROLES_POR_AUDIENCIA[REGLAS[EVENTOS.RED_CANDIDATURA_RECIBIDA].audiencia], ['PROPIETARIO', 'MANAGER']);
+  for (const rol of ROLES_POR_AUDIENCIA[REGLAS[EVENTOS.RED_CANDIDATURA_RECIBIDA].audiencia]) {
+    assert.ok(plantillaDe(EVENTOS.RED_CANDIDATURA_RECIBIDA, rol), `falta plantilla red.candidatura_recibida#${rol}`);
+  }
+  const pl = plantillaDe(EVENTOS.RED_CANDIDATURA_RECIBIDA, 'PROPIETARIO')!;
+  assert.match(render(pl.body, { profesional: 'Laura', vacanteTitulo: 'Reformer' }), /Laura.*Reformer/);
+  assert.equal(pl.deepLink!({ vacanteId: 'redvac-1' }), '/network/vacantes/redvac-1');
+});
+
+test('red.vacante_encaja: solo PUSH (único push no solicitado de Network), plantilla INSTRUCTOR', () => {
+  const regla = REGLAS[EVENTOS.RED_VACANTE_ENCAJA];
+  assert.deepEqual(regla.canales, ['PUSH']);
+  assert.deepEqual(ROLES_POR_AUDIENCIA[regla.audiencia], ['INSTRUCTOR']);
+  const pl = plantillaDe(EVENTOS.RED_VACANTE_ENCAJA, 'INSTRUCTOR')!;
+  assert.match(render(pl.body, { titulo: 'Instructora de Reformer' }), /Instructora de Reformer/);
+});
+
 test('clase cubierta: dice que la clase SIGUE, y con nombre y apellidos', () => {
   // Solo las alumnas: a quien entra a cubrir ya le llega sustitucion.aceptada.
   assert.equal(REGLAS[EVENTOS.CLASE_SUSTITUTA].audiencia, 'socias-de-la-sesion');
