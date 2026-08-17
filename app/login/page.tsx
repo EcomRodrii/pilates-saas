@@ -7,7 +7,7 @@ import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, dbInsertInstructoraPropia, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
 import { authHeader } from '@/lib/api-client';
 import { uid as generarId } from '@/lib/utils';
-import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
+import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion, recordarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
@@ -71,6 +71,19 @@ export default function LoginPage() {
     if (new URLSearchParams(window.location.search).get('alta') !== '1') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setModo('crear');
+  }, []);
+
+  // Segunda vía para el token de invitación, además del sessionStorage que
+  // /invitacion ya guardó al entrar (lib/equipo/invitacion-pendiente.ts). Se
+  // vio en producción una cuenta creada y confirmada por OTP sin vincular a
+  // ningún estudio — sessionStorage se había perdido en el salto desde
+  // /invitacion sin dejar traza de la causa exacta. Si el token llega por
+  // querystring (mismo origen, /invitacion → /login, sin relación con el
+  // enlace del correo), se vuelve a guardar aquí — cubre el caso justo antes
+  // de que se necesite, tanto si sessionStorage sobrevivió como si no.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('token');
+    if (token) recordarTokenInvitacion(token);
   }, []);
 
   // Vuelta de Google con fallo (cancelado, callback caído, provider mal
