@@ -5,6 +5,7 @@ import { MapPin, Check, Star } from 'lucide-react';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { ESPECIALIDAD_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL } from '@/lib/network/catalogo';
 import type { PerfilNetworkPublico } from '@/lib/network/tipos';
+import type { EncajeBusqueda } from '@/lib/network/encaje-busqueda';
 
 const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'], string> = {
   disponible: '#2F9E44',
@@ -13,7 +14,14 @@ const PUNTO_DISPONIBILIDAD: Record<PerfilNetworkPublico['disponibilidadEstado'],
   no_disponible: '#9CA3AF',
 };
 
-export function TarjetaResultadoNetwork({ perfil, distanciaKm }: { perfil: PerfilNetworkPublico; distanciaKm?: number | null }) {
+export function TarjetaResultadoNetwork({
+  perfil, distanciaKm, encaje,
+}: {
+  perfil: PerfilNetworkPublico;
+  distanciaKm?: number | null;
+  /** Solo cuando el buscador tiene 2+ opciones marcadas en especialidad/horario/tipo de trabajo — ver lib/network/encaje-busqueda.ts. */
+  encaje?: EncajeBusqueda;
+}) {
   return (
     <Link
       href={`/network/${perfil.id}`}
@@ -55,6 +63,19 @@ export function TarjetaResultadoNetwork({ perfil, distanciaKm }: { perfil: Perfi
           <p className="text-[11px] text-success flex items-center gap-1 mt-1">
             <Check size={11} /> Experiencia verificada
           </p>
+        )}
+        {encaje && encaje.criterios.length > 0 && (
+          <div className="mt-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-brand" style={{ width: `${encaje.barra}%` }} />
+              </div>
+              <span className="text-[11px] text-muted-foreground shrink-0">Encaje</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {encaje.criterios.map(c => `${c.label} ${c.coincidencias}/${c.solicitadas}`).join(' · ')}
+            </p>
+          </div>
         )}
       </div>
     </Link>
