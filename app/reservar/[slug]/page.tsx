@@ -31,6 +31,7 @@ import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } f
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
+import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
@@ -353,6 +354,10 @@ export default function ReservarPage() {
     () => (embedMode && modoTextoDe(apariencia) === 'noche' ? MODO_TOKENS.noche : RESERVAR_TOKENS),
     [embedMode, apariencia],
   );
+  // Widget incrustado sobre una web oscura. Se saca a su propia constante
+  // porque lo necesita algo más que los tokens del calendario — ver el aviso de
+  // error del checkout, más abajo.
+  const esNoche = embedMode && modoTextoDe(apariencia) === 'noche';
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
 
@@ -2136,8 +2141,23 @@ export default function ReservarPage() {
         <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
+            {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
+                Esas no participan del modo del widget: medido, el aviso salía
+                EXACTAMENTE igual en claro y en oscuro —rojo teja #A8442A sobre
+                un fondo al 10 %—, que sobre una web oscura da ~2,8:1 y no llega
+                a AA con texto de 13 px. Justo el error que la alumna más
+                necesita poder leer: el que le dice que su pago no ha arrancado.
+                `semantic.danger` sí tiene variante de noche. */}
             {stripeError && (
-              <div className="text-destructive bg-destructive/10 border border-destructive/30" style={{ marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13 }}>
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13,
+                  color: esNoche ? semantic.danger.textNoche : semantic.danger.text,
+                  background: semantic.danger.soft,
+                  border: `1px solid ${esNoche ? semantic.danger.textNoche : semantic.danger.text}33`,
+                }}
+              >
                 {stripeError}
               </div>
             )}
