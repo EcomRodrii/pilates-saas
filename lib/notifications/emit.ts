@@ -68,6 +68,10 @@ export async function emitirReserva(
 // pago en Stripe" (compra de plan, sin sesión de clase asociada). Un solo
 // dedupKey por sesión de clase/socia/día evita reabrir el modal y volver a
 // cerrarlo mande dos correos; sin sesionId, por socia/día (una vez basta).
+// Es también el mitigante REAL del endpoint público sin JWT que dispara
+// esto (app/api/public/evento/route.ts): pase lo que pase con el rate
+// limit, nadie recibe más de un email por día por este camino — revisado
+// explícitamente por tentare-seguridad (docs/cro-analytics-widget-diseno.md §5.2).
 export async function emitirReservaAbandonada(
   admin: SupabaseClient,
   p: { studioId: string; socioId: string; sesionId?: string | null },
