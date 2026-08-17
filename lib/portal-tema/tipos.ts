@@ -239,6 +239,15 @@ export interface DatosPortal {
    */
   ahoraISO: string;
   /**
+   * `studios.cancelacion_devolver_bono_tardia`. La segunda mitad de la
+   * política: con `cancelHoras` sola no se puede saber si la socia recupera la
+   * sesión, porque la RPC decide con «devuelve en tardía O no es tardía».
+   *
+   * Va aquí y no en la clase porque es del ESTUDIO — la ventana sí es por tipo
+   * de clase, esto no.
+   */
+  devolverBonoTardia: boolean;
+  /**
    * Hoy en la zona del estudio. `num` es el día del MES (casa con
    * `StudioClass.day`) y `largo` la fecha en palabras que pinta la cabecera
    * del Inicio. Van juntas para que no puedan discrepar — ver `hoyDe`.

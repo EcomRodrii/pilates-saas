@@ -8,6 +8,9 @@ import {
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
 import { rejillaMesPortal } from "@/lib/portal-tema/datos";
+// La MISMA regla que ejecuta la RPC al cancelar (`cancelar_reserva_plaza`:
+// `v_devolver := v_devolver_tardia or not v_tardia`), no una segunda copia.
+import { debeDevolverBono } from "@/lib/booking-logic";
 import { usePortal, useDatos } from "./PortalStore";
 import { useTema } from "./TemaContext";
 
@@ -275,10 +278,32 @@ export function useViewModel() {
       // clase. El prototipo escribe «Es gratis hasta 6 horas antes»; ese 6 es
       // suyo. Si el estudio no fija ninguna ventana no se promete nada — y
       // «gratis» solo se dice cuando de verdad lo es.
-      cancelSheet: {
-        aviso: cls?.cancelHoras
-          ? `Es gratis hasta ${cls.cancelHoras} ${cls.cancelHoras === 1 ? "hora" : "horas"} antes de la clase.`
-          : "Consulta con el estudio su política de cancelación.",
+      //
+      // ⚠️ Y `devuelve` no es cosmético. Esta hoja escribía «La clase vuelve a
+      // tu bono» siempre que la socia tuviera bono, sin mirar la hora: quien
+      // cancelaba dentro de la ventana se iba creyendo que recuperaba la
+      // sesión y no la recuperaba. Se predice con el MISMO helper puro que usa
+      // el servidor (`debeDevolverBono`, lib/booking-logic.ts) y con las dos
+      // mitades de la política —la ventana de ESTA clase y la bandera del
+      // estudio—, así que dice lo que la RPC va a decidir, no una suposición.
+      //
+      // ⚠️ Y se resuelve por el classId que trae LA HOJA, no por `state.classId`.
+      // Desde «Mis reservas» (`Bookings`) la hoja se abre con el id de esa fila
+      // y no toca `state.classId`, así que hasta ahora la política que se leía
+      // era la de la última clase abierta en el detalle —o la de la demo, si no
+      // se había abierto ninguna—. Con una ventana por tipo de clase eso es
+      // decirle a la socia la de otra clase; con `devuelve` de por medio, es
+      // decirle que recupera un crédito que va a perder.
+      cancelSheetDe: (classId: string) => {
+        const c = buscarClase(datos, classId);
+        return {
+          aviso: c?.cancelHoras
+            ? `Es gratis hasta ${c.cancelHoras} ${c.cancelHoras === 1 ? "hora" : "horas"} antes de la clase.`
+            : "Consulta con el estudio su política de cancelación.",
+          devuelve: c
+            ? debeDevolverBono(c.startsAt, new Date(datos.ahoraISO), c.cancelHoras ?? 0, datos.devolverBonoTardia)
+            : true,
+        };
       },
 
       // Su perfil. Los SEIS campos que edita, no los tres del prototipo: los
@@ -415,7 +440,11 @@ export function useViewModel() {
         active: state.tab === t.key,
         fill: state.tab === t.key && f.tab_icon_fill ? "currentColor" : "none",
         stroke: state.tab === t.key ? 2.2 : 1.7,
-        showLabel: f.tab_bar_style !== "floating" || state.tab === t.key,
+        // La cápsula flotante enseñaba la etiqueta SOLO en la activa, que es la
+        // regla de Bloom escrita como si fuera la de todas las barras
+        // flotantes. Sereno flota y sí las lleva las cuatro (README del tema,
+        // §3: «icono+etiqueta, activa con pastilla»). Ausente = como siempre.
+        showLabel: f.tab_bar_style !== "floating" || f.tab_labels === "todas" || state.tab === t.key,
       })),
       // `confirmada` lleva barra, como en el diseño: sin ella la socia se queda
       // sin más salida que el botón, y el detalle (que sí es una pantalla

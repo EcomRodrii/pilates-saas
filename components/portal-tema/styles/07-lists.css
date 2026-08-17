@@ -69,6 +69,17 @@
   font-size: 60px; line-height: .85; letter-spacing: -.02em; color: var(--ink);
 }
 .pass__note { font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+/* «2 de 10 usadas», bajo la barra. El dato ya estaba en la tarjeta (la barra lo
+ * dibuja) pero sin cifra: una barra al 80 % no dice cuántas quedan por usar. */
+.pass__uso {
+  margin-top: 10px;
+  font-family: var(--section-title-family, var(--font-body));
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--section-title-tracking, .04em);
+  text-transform: var(--section-title-transform, none);
+  color: var(--muted);
+}
 .pass__bar {
   margin-top: 18px; height: 8px;
   border-radius: 999px;

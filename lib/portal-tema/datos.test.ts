@@ -5,6 +5,9 @@ import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
   bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
+// La misma regla que ejecuta la RPC al cancelar, y la que el kit usa para
+// redactar la hoja. Se prueba AQUÍ, junto al dato que la alimenta.
+import { debeDevolverBono } from '../booking-logic.ts';
 import type { PlazaPortal, StudioClass } from './tipos.ts';
 import type { Spot } from '../types.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -365,6 +368,33 @@ test('construirDatosPortal: un estudio vacío da datos vacíos pero válidos', (
     apellidos: '', email: '', telefono: '', fechaNacimiento: '', direccion: '', domiciliado: false,
     tarjeta: null,
   });
+});
+
+// ── La política de cancelación, entera ──────────────────────────────────────
+// La hoja de cancelar del kit prometía «La clase vuelve a tu bono» a cualquiera
+// que tuviera bono, sin mirar la hora. Para no mentir hacen falta las DOS
+// mitades de la política, y la segunda no llegaba al portal: la RPC decide con
+// `v_devolver := v_devolver_tardia or not v_tardia`.
+
+test('construirDatosPortal: `devolverBonoTardia` viaja, y por defecto es false', () => {
+  const ahora = new Date('2026-09-03T10:00:00.000Z');
+  // Sin declararlo: `studios.cancelacion_devolver_bono_tardia` es `false` por
+  // defecto, y suponer lo contrario sería prometerle una devolución que no hay.
+  assert.equal(construirDatosPortal({ ...BASE, ahora }).devolverBonoTardia, false);
+  assert.equal(
+    construirDatosPortal({ ...BASE, ahora, cancelacionDevolverBonoTardia: true }).devolverBonoTardia, true);
+});
+
+test('debeDevolverBono con los datos del portal: la ventana sola NO decide', () => {
+  // El caso que motivó todo esto. Misma clase, misma hora, misma ventana: lo
+  // único que cambia es la bandera del estudio, y el desenlace es el contrario.
+  const inicio = '2026-09-03T18:00:00.000Z';
+  const dentroDePlazo = new Date('2026-09-03T14:00:00.000Z'); // 4 h antes, ventana de 6
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 6, false), false);
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 6, true), true);
+  // Fuera de plazo devuelve siempre, y sin ventana configurada nunca es tardía.
+  assert.equal(debeDevolverBono(inicio, new Date('2026-09-03T09:00:00.000Z'), 6, false), true);
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 0, false), true);
 });
 
 test('construirDatosPortal: los filtros solo traen tipos que están en las clases', () => {

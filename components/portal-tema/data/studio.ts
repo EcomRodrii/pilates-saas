@@ -190,6 +190,11 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // exactamente lo que ve una socia cuya propietaria aún no ha subido ninguna.
   fotos: { portada: IMAGENES_POR_DEFECTO.portada[0], vertical: IMAGENES_POR_DEFECTO.vertical[0] },
   clases: CLASSES,
+  // La política más común (`studios.cancelacion_devolver_bono_tardia` es
+  // `false` por defecto): cancelando tarde no se recupera la sesión. Así la
+  // previsualización enseña el aviso ámbar de la hoja de cancelar, que es el
+  // caso que hay que poder mirar.
+  devolverBonoTardia: false,
   // Coherente con `DAYS` (mar → 4) y con el día que la previsualización trae
   // seleccionado. En el portal real lo calcula `hoyDe()` en la zona del
   // estudio; aquí es de muestra, como el resto de este objeto.

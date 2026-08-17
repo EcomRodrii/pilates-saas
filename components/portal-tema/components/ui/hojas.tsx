@@ -43,6 +43,9 @@ export function Hojas({ vm }: { vm: ViewModel }) {
   if (!hoja) return null;
 
   if (hoja.tipo === "cancelar") {
+    // La política de LA CLASE QUE SE CANCELA. Desde «Mis reservas» la hoja se
+    // abre sin tocar la clase abierta en el detalle — ver `cancelSheetDe`.
+    const politica = vm.cancelSheetDe(hoja.classId);
     return (
       <Hoja onClose={actions.cerrarHoja}>
         <p className="hoja__titulo">¿Cancelar esta reserva?</p>
@@ -51,16 +54,55 @@ export function Hojas({ vm }: { vm: ViewModel }) {
             de clase por delante. Prometerle una ventana que no es la de su
             estudio la deja pagando una cancelación que creía gratis — y si el
             estudio no fija ninguna, no se promete nada. */}
-        <p className="hoja__texto">
-          {vm.cancelSheet.aviso}
-          {vm.pass.total ? <><br />La clase vuelve a tu bono.</> : null}
-        </p>
+        <p className="hoja__texto">{politica.aviso}</p>
+        {/* ⚠️ Aquí ponía «La clase vuelve a tu bono» siempre que tuviera bono,
+            sin mirar la hora. Cancelando dentro de la ventana eso es falso, y
+            la socia se enteraba al ver el saldo. Ahora son dos avisos
+            distintos y el de perder la sesión va en ámbar, que es lo que pide
+            la spec del tema — y lo que se merece una acción irreversible que
+            además cuesta dinero. `devuelve` sale del mismo helper que ejecuta
+            el servidor, no de una regla escrita otra vez aquí. */}
+        {vm.pass.total ? (
+          politica.devuelve ? (
+            <p className="hoja__nota">La clase vuelve a tu bono.</p>
+          ) : (
+            <p className="hoja__nota hoja__nota--aviso" role="status">
+              Ya estás dentro del plazo: esta clase <strong>no vuelve a tu bono</strong>.
+            </p>
+          )
+        ) : null}
         <Button block variant="ghost" className="hoja__peligro" loading={vm.detail?.loading}
           onClick={() => actions.cancel(hoja.classId, hoja.reservaId)}>
           Sí, cancelar reserva
         </Button>
         <Button block variant="ghost" style={{ marginTop: 9 }} onClick={actions.cerrarHoja}>
           Mantener reserva
+        </Button>
+      </Hoja>
+    );
+  }
+
+  if (hoja.tipo === "errorReserva") {
+    return (
+      <Hoja onClose={actions.cerrarHoja}>
+        <p className="hoja__titulo">No hemos podido reservar</p>
+        {/* El motivo lo escribe el SERVIDOR, no esta pantalla: son seis
+            rechazos legítimos distintos (sin bono, bono que no cubre el tipo,
+            clase empezada, cancelada, tope de simultáneas, límite semanal) y
+            resumirlos todos en «ha fallado» le quitaría lo único accionable. */}
+        <p className="hoja__texto">{hoja.mensaje}</p>
+        {/* Verdad en los dos casos: la reserva es transaccional y el bono solo
+            se consume cuando la RPC confirma, así que un intento fallido nunca
+            le ha descontado nada. Decirlo es la mitad del alivio. */}
+        <p className="hoja__nota">No se ha usado ningún crédito.</p>
+        {hoja.reintentable ? (
+          <Button block loading={vm.detail?.loading} style={{ marginTop: 14 }}
+            onClick={() => actions.reserve(hoja.classId)}>
+            Reintentar
+          </Button>
+        ) : null}
+        <Button block variant="ghost" style={{ marginTop: 9 }} onClick={actions.cerrarHoja}>
+          {hoja.reintentable ? "Ahora no" : "Entendido"}
         </Button>
       </Hoja>
     );

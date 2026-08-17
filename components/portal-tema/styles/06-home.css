@@ -40,18 +40,32 @@
   transition: transform .24s cubic-bezier(.16,1,.3,1), box-shadow .24s ease;
 }
 .hero:hover { box-shadow: var(--shadow-float); }
-.hero__photo { position: absolute; inset: 0 0 0 44%; }
+/* El encuadre de la foto era fijo —la mitad derecha de la tarjeta— y ningún
+ * tema podía cambiarlo. Sereno la quiere como una BANDA arriba con el texto
+ * debajo (su `--hero-bg` es blanco justo por eso), que es una composición
+ * distinta, no otro color. Tres tokens con los valores de siempre por defecto:
+ * Oliva, Bloom y Noir siguen con la foto a la derecha sin declarar nada. */
+.hero__photo { position: absolute; inset: var(--hero-photo-inset, 0 0 0 44%); height: var(--hero-photo-height, auto); }
 .hero__photo img { width: 100%; height: 100%; object-fit: cover; }
 .hero__veil { position: absolute; inset: 0; background: var(--hero-veil); }
-.hero__body { position: relative; padding: 20px; }
+/* ⚠️ `.hero__body` es un <span> y sigue siendo INLINE por defecto, así que su
+ * padding vertical no empuja nada — el `20px` de siempre solo ha estado
+ * separando por los lados. Con la foto a la derecha da igual; con la foto
+ * arriba (Sereno) el texto se le metía encima. Se deja como está para los
+ * cuatro temas anteriores y se declara bloque solo donde hace falta: cambiarlo
+ * para todos les añadiría 20px arriba y abajo que hoy no tienen. */
+.hero__body { display: var(--hero-body-display, inline); position: relative; padding: var(--hero-body-pad, 20px); }
 /* La tarjeta es un <button> con <span> dentro: los devolvemos a bloque. */
 .hero__title, .hero__teacher, .hero__meta { display: block; }
 .hero__badge {
   display: grid; place-items: center;
   width: 44px; height: 44px;
   border-radius: 14px;
-  background: rgba(255,255,255,.16);
-  color: var(--on-brand);
+  /* Blanco translúcido y tinta clara porque en Oliva/Bloom/Noir este cuadrito
+   * va SOBRE la foto. En una tarjeta clara (Sereno) desaparecía: mismo blanco
+   * sobre blanco. Dos tokens con el valor de siempre por defecto. */
+  background: var(--hero-badge-bg, rgba(255,255,255,.16));
+  color: var(--hero-badge-ink, var(--on-brand));
   margin-bottom: 18px;
 }
 .hero__title {

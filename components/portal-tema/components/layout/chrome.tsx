@@ -65,8 +65,17 @@ export function TabBar({
   floating: boolean;
 }) {
   const actions = useActions();
+  // Con las CUATRO etiquetas puestas, la cápsula no cabe en fila: icono y
+  // texto pasan a columna, como en la barra pegada. Se deduce de los propios
+  // tabs en vez de con otra prop — quien decide es `tab_labels` del tema, y
+  // pasarlo dos veces sería otro sitio donde puedan discrepar.
+  const conEtiquetas = floating && tabs.every((t) => t.showLabel);
   return (
-    <nav className={("tab-bar " + (floating ? "tab-bar--floating" : "")).trim()} aria-label="Navegación principal">
+    <nav
+      className={["tab-bar", floating && "tab-bar--floating", conEtiquetas && "tab-bar--etiquetas"]
+        .filter(Boolean).join(" ")}
+      aria-label="Navegación principal"
+    >
       {tabs.map((item) => (
         <button
           key={item.key}
