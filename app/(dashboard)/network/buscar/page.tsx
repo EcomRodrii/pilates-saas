@@ -8,6 +8,7 @@ import { FiltrosBusquedaNetwork } from '@/components/network/filtros-busqueda';
 import { TarjetaResultadoNetwork } from '@/components/network/tarjeta-resultado';
 import { buscarPerfilesNetwork } from '@/lib/api-client';
 import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/network/use-cerca-de-mi';
+import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
 import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 
@@ -101,7 +102,12 @@ export default function NetworkBuscadorPage() {
             </div>
           ) : (
             resultadosOrdenados.map(({ item: perfil, distanciaKm }) => (
-              <TarjetaResultadoNetwork key={perfil.id} perfil={perfil} distanciaKm={distanciaKm} />
+              <TarjetaResultadoNetwork
+                key={perfil.id}
+                perfil={perfil}
+                distanciaKm={distanciaKm}
+                encaje={encajeBusquedaDe(filtro, perfil)}
+              />
             ))
           )}
         </div>
