@@ -8,7 +8,7 @@ import type { PerfilNetworkPublico } from './tipos.ts';
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [],
   experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false,
-  soloCertificacionVerificada: false, valoracionMinima: null,
+  soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 function perfil(overrides: Partial<PerfilNetworkPublico> = {}): PerfilNetworkPublico {

@@ -13,7 +13,7 @@ import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
-  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null,
+  ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 // Buscador de profesionales — docs/NETWORK-IMPLEMENTATION-PLAN.md Fases 4/5

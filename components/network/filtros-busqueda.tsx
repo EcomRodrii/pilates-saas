@@ -160,6 +160,16 @@ export function FiltrosBusquedaNetwork({
           </label>
         </div>
       </div>
+
+      <div>
+        <p className={labelCls}>Idioma</p>
+        <input
+          className={inputCls}
+          value={filtro.idioma ?? ''}
+          onChange={e => onChange({ ...filtro, idioma: e.target.value || null })}
+          placeholder="Inglés, francés..."
+        />
+      </div>
     </div>
   );
 }
