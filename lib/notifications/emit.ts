@@ -111,7 +111,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -121,7 +121,16 @@ export async function emitirReservaCancelada(
         ? ' No se aprobó a tiempo: la clase ya ha empezado.'
         : p.motivo === 'oferta_caducada'
           ? ' No aceptaste la plaza a tiempo y se ha ofrecido a la siguiente en la lista.'
-          : '';
+          // Aceptó dentro de plazo, pero la plaza ya no estaba: mientras su
+          // oferta seguía viva, otra persona reservó el hueco por la vía normal
+          // (una reserva en LISTA_ESPERA no ocupa aforo). No es culpa suya, así
+          // que el texto no puede sonar a que llegó tarde — y se le compensa con
+          // una recuperación, que es lo que menciona el final de la frase.
+          : p.motivo === 'plaza_ya_ocupada'
+            ? ' La plaza se ocupó justo antes de que aceptaras. Te hemos guardado una recuperación para otra clase.'
+            : p.motivo === 'clase_ya_empezada'
+              ? ' La clase ya había empezado cuando aceptaste. Te hemos guardado una recuperación para otra clase.'
+              : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },

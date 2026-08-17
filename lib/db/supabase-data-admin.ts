@@ -1708,10 +1708,13 @@ export async function aceptarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  // La RPC solo tiene una salida no-excepcional (`select 'CONFIRMADA'`); todo
-  // lo demás sale por `raise exception` y se lee abajo en `error`. Por eso no
-  // se mira el `data`: no lleva nada que no sepamos ya.
-  const { error } = await admin.rpc('aceptar_oferta_lista_espera', {
+  // C-4: la RPC ya NO tiene una sola salida buena. Comprueba el aforo y que la
+  // clase no haya empezado (antes no hacía ninguna de las dos cosas: era la
+  // única vía de confirmación sin candado, y producía overbooking real). Cuando
+  // la plaza ya no está devuelve `AFORO_LLENO` / `CLASE_YA_EMPEZADA` en vez de
+  // lanzar, porque una excepción revertiría la cancelación que sí queremos que
+  // persista. Hay que leer el `data`.
+  const { data, error } = await admin.rpc('aceptar_oferta_lista_espera', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId
   });
   if (error) {
@@ -1721,9 +1724,48 @@ export async function aceptarOfertaListaEspera(params: {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' };
     return { error: error.message };
   }
+  const fila = Array.isArray(data) ? data[0] : data;
+  const resultado = (fila?.estado as string | undefined) ?? 'CONFIRMADA';
 
   const { data: res } = await admin.from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
   const sesionId = res?.sesion_id as string | undefined;
+
+  if (resultado !== 'CONFIRMADA') {
+    // Aceptó dentro de plazo y aun así se queda sin plaza. Decisión de producto:
+    // PIERDE EL SITIO (ya la ha cancelado la RPC) y se le compensa con una
+    // recuperación — la misma que se da al cancelar una plaza fija, con su tope
+    // de 4 aplicado dentro de `crear_recuperacion`. NO se consume bono: no ha
+    // llegado a ocupar plaza.
+    const recupId = `recup-${uid()}`;
+    const { data: creada } = await admin.rpc('crear_recuperacion', {
+      p_id: recupId,
+      p_studio_id: params.studioId,
+      p_socio_id: params.socioId,
+      p_origen_reserva_id: params.reservaId,
+      p_motivo: resultado === 'AFORO_LLENO'
+        ? 'La plaza se ocupó antes de aceptar la oferta'
+        : 'La clase ya había empezado al aceptar la oferta',
+    });
+    if (sesionId) {
+      const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+      await emitirReservaCancelada(admin, {
+        studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
+        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada' : 'clase_ya_empezada',
+      });
+    }
+    // El mensaje no puede sonar a que llegó tarde: aceptó a tiempo. Y si la
+    // recuperación no se creó (tope alcanzado), no se le promete.
+    const compensada = creada === 'CREADA';
+    const base = resultado === 'AFORO_LLENO'
+      ? 'La plaza se ocupó justo antes de que aceptaras.'
+      : 'La clase ya había empezado cuando aceptaste.';
+    return {
+      error: compensada
+        ? `${base} Te hemos guardado una recuperación para que la uses en otra clase.`
+        : `${base} No hemos podido guardarte una recuperación: habla con el estudio.`,
+    };
+  }
+
   if (sesionId) {
     await consumirBonoServidor(admin, params.studioId, params.socioId, sesionId);
     const { emitirReserva } = await import('@/lib/notifications/emit');
