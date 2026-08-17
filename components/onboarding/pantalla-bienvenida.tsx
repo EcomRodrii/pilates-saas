@@ -2,7 +2,12 @@
 
 // Pantalla de bienvenida a pantalla completa, mostrada UNA sola vez justo
 // después de crear el estudio: intro con efecto máquina de escribir → wizard
-// rápido de 6 preguntas (un toque por respuesta) → resumen. Diseñada en
+// rápido de 11 preguntas (un toque por respuesta, con auto-avance) → resumen.
+// Eran 6; las 5 de operativa (salas, aforo, duración, clases, cobro) se
+// añadieron porque son las que dejan el estudio MONTADO en vez de solo
+// perfilado — ver §8 en lib/onboarding/plan-configuracion.ts. Cinco toques más
+// aquí es el intercambio explícito por no llegar al panel con una lista de
+// cosas que configurar a mano. Diseñada en
 // Claude Design (Bienvenida.dc.html) y portada aquí con los tokens reales del
 // producto (oliva/arena) en vez de los hex de la maqueta.
 //
@@ -20,6 +25,14 @@ import { IconButton } from '@/components/ui/icon-button';
 import { authHeader } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
 import { useStudio } from '@/lib/studio-context';
+// Las opciones se pintan DESDE el módulo puro a propósito: la etiqueta que se
+// enseña y la que se interpreta son el mismo dato, así que no pueden divergir
+// al editar una de las dos (hay un test que recorre las listas enteras).
+import {
+  OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_COBRO,
+  TIPOS_CLASE_SUGERIDOS, interpretarRespuestasWizard, planificarConfiguracion,
+  planVacio,
+} from '@/lib/onboarding/plan-configuracion';
 
 const FRASES = [
   'Tu estudio ya está en marcha.',
@@ -38,6 +51,15 @@ type Respuestas = {
   importar?: string;
   foco?: string[];
   ayuda?: string;
+  // §8 — Las cinco de operativa son las ÚNICAS que configuran algo de verdad:
+  // se convierten en salas con su aforo, tipos de clase con su duración y
+  // borradores de bono/cuota (lib/onboarding/plan-configuracion.ts). Las seis
+  // de arriba siguen siendo perfil del estudio.
+  salas?: string;
+  aforo?: string;
+  duracion?: string;
+  clases?: string[];
+  cobro?: string[];
 };
 
 type Paso = {
@@ -52,7 +74,10 @@ type Paso = {
 const PASOS: Paso[] = [
   {
     id: 'centros', etiqueta: 'Tu estudio', titulo: '¿Cuántos centros tienes?',
-    nota: 'Si gestionas más de uno, activamos la vista multicentro.',
+    // Decía "activamos la vista multicentro". No se activa nada: las sedes de
+    // una cadena se crean por /api/cadena/sedes y el multicentro depende de
+    // eso, no de esta respuesta. Se cuenta lo que sí pasa.
+    nota: 'Nos dice si vas a necesitar gestionar varias sedes.',
     opciones: ['1 estudio', '2-3 estudios', '4-10 estudios', 'Más de 10'],
   },
   {
@@ -62,8 +87,41 @@ const PASOS: Paso[] = [
   },
   {
     id: 'alumnos', etiqueta: 'Tu estudio', titulo: '¿Cuántos alumnos activos tienes?',
-    nota: 'Ajustamos los límites y los informes a tu tamaño real.',
+    // Decía "ajustamos los límites y los informes a tu tamaño real". No hay
+    // límites por estudio que ajustar, y los informes se calculan sobre los
+    // datos reales, no sobre esta respuesta.
+    nota: 'Nos ayuda a entender el tamaño de tu estudio desde el primer día.',
     opciones: ['Menos de 50', '50-150', '150-300', '300-600', 'Más de 600'],
+  },
+  {
+    id: 'salas', etiqueta: 'Tu espacio', titulo: '¿Cuántas salas tienes?',
+    nota: 'Las creamos por ti para que puedas programar clases hoy mismo.',
+    opciones: [...OPCIONES_SALAS],
+  },
+  {
+    id: 'aforo', etiqueta: 'Tu espacio', titulo: '¿Cuántas plazas hay en cada sala?',
+    nota: 'Es el límite real de reservas por clase, así que no lo adivinamos.',
+    opciones: [...OPCIONES_AFORO],
+  },
+  {
+    id: 'duracion', etiqueta: 'Tus clases', titulo: '¿Cuánto dura una clase?',
+    nota: 'La duración por defecto de cada clase que programes.',
+    opciones: [...OPCIONES_DURACION],
+  },
+  {
+    id: 'clases', etiqueta: 'Tus clases', titulo: '¿Qué clases das?',
+    nota: 'Elige hasta cuatro. Las dejamos creadas y podrás añadir más luego.',
+    opciones: [...TIPOS_CLASE_SUGERIDOS],
+    multi: 4,
+  },
+  {
+    id: 'cobro', etiqueta: 'Tus precios', titulo: '¿Cómo cobras a tus alumnas?',
+    // No se promete el precio: se deja el bono con la forma correcta y en
+    // borrador. Un precio inventado sería un bono comprable por dinero que
+    // nadie ha decidido.
+    nota: 'Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
+    opciones: [...OPCIONES_COBRO],
+    multi: 2,
   },
   {
     id: 'importar', etiqueta: 'Migración', titulo: '¿Quieres que importemos tus datos?',
@@ -76,7 +134,10 @@ const PASOS: Paso[] = [
   },
   {
     id: 'foco', etiqueta: 'Prioridad', titulo: '¿Qué es lo que más te preocupa ahora mismo?',
-    nota: 'Elige hasta dos. Con eso ordenamos tu panel de inicio.',
+    // Esta sí se cumple ya: `ordenarSeccionesHome` sube la sección que atiende
+    // la prioridad elegida (lib/home-sections.ts). Se matiza el "ordenamos"
+    // porque no todas las prioridades tienen hoy una sección que mover.
+    nota: 'Elige hasta dos. Subimos a lo primero de tu panel lo que más te importe.',
     opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de profesoras', 'Automatizar tareas', 'Marketing', 'Otro'],
     multi: 2,
   },
@@ -251,6 +312,11 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
   const resumen = ([
     ['Centros', e.ans.centros],
     ['Alumnos activos', e.ans.alumnos],
+    ['Salas', e.ans.salas],
+    ['Plazas por sala', e.ans.aforo],
+    ['Duración de clase', e.ans.duracion],
+    ['Clases', (e.ans.clases ?? []).join(' · ')],
+    ['Cobras con', (e.ans.cobro ?? []).join(' · ')],
     ['Vienes de', e.ans.software],
     ['Prioridad', (e.ans.foco ?? []).join(' · ')],
     ['Puesta en marcha', e.ans.ayuda],
@@ -367,6 +433,33 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
       onbPrioridad: ans.foco ?? null,
       onbAyudaAlta: ans.ayuda ?? null,
     });
+
+    // §8 — Lo que de verdad convierte el cuestionario en un estudio montado:
+    // crea sus salas con su aforo, sus tipos de clase con su duración y los
+    // borradores de bono/cuota. Antes de esto, TODAS las respuestas del
+    // asistente se guardaban en `studios.onb_*` y no las leía nadie.
+    //
+    // Se espera (`await`) a propósito, a diferencia del aviso de ayuda-alta de
+    // abajo: en cuanto la propietaria entra al panel, el checklist de primeros
+    // pasos consulta salas/tipos/planes para marcar qué está hecho. Sin
+    // esperar, entraría a un checklist que dice "configura tus salas" con las
+    // salas ya creándose por detrás — y la impresión sería justo la contraria
+    // de la que se busca.
+    //
+    // El endpoint es idempotente (inserta lo que falte, por nombre), así que un
+    // reintento no duplica nada. Fallo suave: si no se puede aplicar, ella ya
+    // ha visto su resumen y el panel sigue siendo usable — el checklist le
+    // pedirá esas mismas cosas, que es el comportamiento de siempre.
+    const operativa = interpretarRespuestasWizard(ans);
+    if (!planVacio(planificarConfiguracion(operativa))) {
+      try {
+        await fetch('/api/onboarding/configurar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify(operativa),
+        });
+      } catch { /* fallo suave: el checklist de primeros pasos sigue estando */ }
+    }
     // "Quiero una videollamada" / "Configuradlo por mí": antes esto se quedaba
     // solo en la columna onb_ayuda_alta y nadie del equipo se enteraba de que
     // alguien había pedido ayuda humana. Best-effort: si falla, la propietaria

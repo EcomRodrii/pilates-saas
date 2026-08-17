@@ -61,21 +61,38 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'RESEND',
     nombre: 'Resend',
-    descripcion: 'Envía emails de bienvenida, recibos y campañas desde tu propio dominio.',
+    // "desde tu propio dominio" era falso: la dirección que FIRMA es siempre la
+    // verificada de la plataforma (ver lib/emails/remitente.ts) — usar una del
+    // estudio sin verificar en Resend haría rebotar el correo, y verificar un
+    // dominio no se resuelve pegando un campo aquí. Lo que sí se puede dar al
+    // estudio es el nombre visible y la dirección de respuesta, que es
+    // exactamente lo que hacen estos dos campos desde que dejaron de ser
+    // decorativos (antes se guardaban y no los leía ni una línea del producto).
+    descripcion: 'Pon tu nombre y tu dirección de respuesta en los correos a tus alumnas: bienvenida, recibos, recordatorios y campañas.',
     Icon: ResendIcon,
     color: 'var(--foreground)',
     bg: '#F5F5F5',
     campos: [
-      { key: 'fromEmail', label: 'Email remitente', placeholder: 'hola@tentare.es' },
-      { key: 'fromName', label: 'Nombre remitente', placeholder: 'Tentare' },
+      // Etiquetas y ejemplos del ESTUDIO, no de Tentare: el placeholder anterior
+      // ('hola@tentare.es' / 'Tentare') invitaba a rellenarlo con nuestros
+      // datos, que es lo contrario de lo que hace el campo.
+      { key: 'fromEmail', label: 'Email para respuestas', placeholder: 'hola@tuestudio.es' },
+      { key: 'fromName', label: 'Nombre que verán tus alumnas', placeholder: 'Studio Pilates Barcelona' },
     ],
     secretoEnv: 'RESEND_API_KEY',
-    docsUrl: 'https://resend.com/api-keys',
+    // Sin `docsUrl`: apuntaba a resend.com/api-keys, o sea a sacar una clave de
+    // API que la propietaria NO debe gestionar — el propio aviso de este modal
+    // dice que el proveedor de envío lo lleva Tentare. Mandarla ahí contradecía
+    // ese aviso dos líneas más abajo.
   },
   {
     tipo: 'GOOGLE_CALENDAR',
     nombre: 'Google Calendar',
-    descripcion: 'Sincroniza las clases del estudio con el calendario de Google de la propietaria. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Decía "sincroniza las clases con tu calendario" sin más. Es cierto, pero
+    // solo cuando ella pulsa "Sincronizar ahora": no hay ningún proceso que
+    // empuje una clase nueva, movida o cancelada por su cuenta. Dicho así, se
+    // entiende igual que "sincronizado" y espera que se mantenga solo.
+    descripcion: 'Copia las clases de las próximas 4 semanas a tu calendario de Google cada vez que pulses «Sincronizar ahora». No se actualiza solo. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: GoogleCalendarIcon,
     color: '#4285F4',
     bg: '#F5F5F5',
@@ -119,7 +136,13 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'GMAIL',
     nombre: 'Gmail',
-    descripcion: 'Envía emails desde el Gmail de la propietaria y trae sus contactos como clientas nuevas. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Prometía "envía emails desde el Gmail de la propietaria" y eso NO existe:
+    // `enviarEmailGmail` tiene un único llamador en todo el repo, el botón de
+    // "Enviar email de prueba" de esta misma tarjeta. Ningún correo a una
+    // alumna sale por Gmail — todos van por Resend. La otra mitad (traer
+    // contactos) sí es real. Dos estudios la tienen conectada desde el 16-ago,
+    // así que se corrige el texto; desactivarla les quitaría algo que usan.
+    descripcion: 'Trae los contactos de tu Gmail como clientas nuevas. Los correos a tus alumnas los sigue enviando Tentare, no tu Gmail. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: Mail,
     color: '#EA4335',
     bg: '#F5F5F5',
@@ -129,12 +152,21 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'ZOOM',
     nombre: 'Zoom',
-    descripcion: 'Lleva tus clases más allá del estudio y ofrece sesiones en cualquier momento y lugar. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Estaba ofreciéndose como conectable y conectarla NO HACÍA NADA: el OAuth,
+    // el "probar conexión" y hasta `crearReunionZoom()` existen, pero esa
+    // función no tiene ni un llamador en todo el repo, así que ninguna clase
+    // llega a tener reunión. Pasa a "Próximamente" (mismo patrón que
+    // Mailchimp/Brevo) en vez de dejar un botón que promete y no entrega.
+    // Cero estudios la tienen conectada en producción, así que nadie pierde
+    // nada; y las rutas OAuth se quedan, listas para cuando se cablee de verdad
+    // — hoy las clases online están en feature-freeze (lib/frozen-features.ts).
+    descripcion: 'Clases online con su enlace de Zoom en cada sesión del calendario.',
     Icon: ZoomIcon,
     color: '#0B5CFF',
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
+    proximamente: true,
   },
   {
     tipo: 'KISI',
@@ -164,7 +196,9 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'KLAVIYO',
     nombre: 'Klaviyo',
-    descripcion: 'Sincroniza las clientas que han consentido marketing por email con tu cuenta de Klaviyo. Conexión OAuth — no necesitas pegar ninguna clave.',
+    // Funciona de verdad, pero igual que Google Calendar: solo cuando ella
+    // pulsa. Sin decirlo, "sincroniza" se lee como continuo.
+    descripcion: 'Envía a tu cuenta de Klaviyo las clientas que han consentido marketing por email, cada vez que pulses «Sincronizar ahora». Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: Megaphone,
     color: '#000000',
     bg: '#F5F5F5',

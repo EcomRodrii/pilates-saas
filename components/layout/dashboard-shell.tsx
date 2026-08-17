@@ -175,7 +175,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // entero mientras esté activa. "Salir" de ella no navega a ningún sitio:
   // updateStudio actualiza el estado local de forma optimista, así que el
   // siguiente render de este mismo layout deja de cumplir la condición.
-  if (studio && !cargandoDatos && !studio.bienvenidaVistaEn) {
+  //
+  // Solo a la PROPIETARIA, y `rolResuelto` para no decidirlo con el rol mínimo
+  // de A-2 mientras carga. Antes no miraba el rol, y eso tenía dos
+  // consecuencias: (1) quien primero entrara al panel —una recepcionista, una
+  // instructora que acaba de vincular su ficha— se comía el asistente, y como
+  // al terminarlo se sella `bienvenida_vista_en` del ESTUDIO, la propietaria no
+  // lo veía nunca; (2) desde que el asistente configura el estudio de verdad
+  // (§8: crea salas, tipos de clase y borradores de bono), ese camino además
+  // preguntaba cosas que no se iban a poder aplicar — /api/onboarding/configurar
+  // exige PROPIETARIO, así que habría respondido 403 y el estudio se quedaría
+  // sin montar después de que el asistente dijera "las creamos por ti".
+  if (studio && !cargandoDatos && !studio.bienvenidaVistaEn && rolResuelto && rol === 'PROPIETARIO') {
     return <PantallaBienvenida studio={studio} />;
   }
 

@@ -19,7 +19,7 @@
 import { useMemo, useState, useEffect, useId, type CSSProperties } from 'react';
 import {
   ChevronLeft, ChevronRight, Clock, MapPin, Users, X,
-  CheckCircle, AlertCircle, CalendarDays,
+  CheckCircle, AlertCircle, CalendarDays, Ticket,
 } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { NivelClase, EstadoReserva, Spot } from '@/lib/types';
@@ -82,6 +82,20 @@ export interface ReservaSlot {
    */
   miOfertaExpiraEn?: string | null;
   precio?: number | null;     // se muestra en el CTA si no hay cobertura de plan
+  /**
+   * §3 — Qué le cuesta a la alumna reservar ESTA clase, en una frase, ya
+   * resuelta por `lib/reservar/cobertura.ts` ("Descuenta 1 sesión de tu Bono 10
+   * Reformer · te quedarán 4", "Tu bono no cubre esta clase · 15 € como clase
+   * suelta"). Llega como texto y no como estructura a propósito: este
+   * componente también se compila en el bundle embebido (esbuild, Shadow DOM) y
+   * no debe arrastrar la lógica de bonos por una línea de copia.
+   *
+   * `null`/ausente = no hay nada honesto que decir (sin sesión y sin precio
+   * público configurado), y entonces no se pinta nada. Antes esto no existía:
+   * con plan que cubre, el botón decía "Reservar" a secas y la alumna no sabía
+   * qué se le iba a descontar.
+   */
+  coberturaTexto?: string | null;
 }
 
 export interface ReservaCalendarioProps {
@@ -703,6 +717,24 @@ function BookingSheet({
             >
               {enviando ? 'Aceptando…' : 'Aceptar plaza'}
             </button>
+          </div>
+        )}
+
+        {/* §3 — Qué consume la reserva, justo encima del botón y no perdido en
+            una esquina: es el último dato que ve antes de pulsar. Solo al
+            reservar — con la reserva ya hecha, el saldo que se enseñaría sería
+            el de ANTES de descontar, y sonaría a que se va a cobrar otra vez. */}
+        {!tieneReserva && !lleno && slot.coberturaTexto && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+              borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`,
+            }}
+          >
+            <Ticket size={15} style={{ color: t.muted, flexShrink: 0 }} aria-hidden />
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: t.ink, lineHeight: 1.35 }}>
+              {slot.coberturaTexto}
+            </p>
           </div>
         )}
 

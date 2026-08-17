@@ -745,16 +745,47 @@ export async function aprobarCobroAutonomo(params: {
 // nada — sustituye a crearCheckoutStripe para este botón (esa función crea un
 // Checkout Session público, pensado para /reservar y el portal, no para un
 // reintento desde el panel). Mismo 202/CobroAprobado que aprobarCobroAutonomo.
-export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string }> {
+export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: string }): Promise<CobroAprobado | { error: string; errorCode?: string }> {
   const res = await fetch('/api/cobros/cobrar-online', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
     body: JSON.stringify(params),
   });
   const data = await res.json();
-  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+  // `errorCode` se propaga: sin él, "la socia no tiene método de pago guardado"
+  // llegaba a la pantalla como un texto rojo indistinguible de un fallo de red,
+  // y no había forma de ofrecer la única salida real (pedirle la tarjeta).
+  if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)), errorCode: data.errorCode };
   const aviso = leerAvisoCobro(data);
   return aviso ? { ok: true, ...aviso } : { ok: true };
+}
+
+/**
+ * Enlace para que una socia AUTORICE una tarjeta sin pagar nada (Stripe
+ * Checkout en `mode: 'setup'`). Es la salida cuando un cobro off-session
+ * responde `SIN_TARJETA`: la propietaria le manda este enlace y, en cuanto la
+ * socia lo completa, el webhook deja el método guardado y "Cobrar online"
+ * funciona. Nunca pasa por aquí ningún dato de la tarjeta: la recoge Stripe.
+ */
+export async function crearEnlaceTarjeta(params: {
+  studioId: string;
+  socioId: string;
+  slug?: string;
+}): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/stripe/setup-tarjeta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json() as { url?: string; error?: string };
+    // `res.ok` ANTES del cuerpo, mismo criterio que postCheckout: un 500 no se
+    // le cuenta a nadie como un problema de su conexión.
+    if (!res.ok || !data.url) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { url: data.url };
+  } catch {
+    return { error: 'No se ha podido preparar el enlace. Comprueba tu conexión.' };
+  }
 }
 
 // Fase 3: aprueba un cobro de penalización pendiente (cancelación

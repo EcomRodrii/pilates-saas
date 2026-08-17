@@ -174,9 +174,20 @@ export async function POST(req: NextRequest) {
   // R2: take-rate de plataforma (apagado por defecto; ver lib/billing/stripe-fees.ts).
   const fee = applicationFeeAmount(Math.round(importe * 100));
 
-  // Con Bizum: ofrecemos Bizum + tarjeta pero NO guardamos la tarjeta (Bizum no
-  // admite setup_future_usage y es solo puntual). Sin Bizum: solo tarjeta y la
-  // guardamos para cobros recurrentes off-session.
+  // Bizum no admite `setup_future_usage` (es un pago puntual sin mandato
+  // reutilizable), así que durante un tiempo pedir Bizum apagaba el guardado de
+  // tarjeta de TODA la sesión — incluido `customer_creation`. El problema es que
+  // esa sesión sigue ofreciendo tarjeta: el botón "Pagar con Bizum" del widget
+  // manda `bizum: true`, y una socia que allí acabara pagando CON TARJETA no
+  // dejaba ni Customer ni PaymentMethod. Después, "Cobrar online" en el panel
+  // solo podía decir "La socia no tiene tarjeta ni mandato SEPA guardado".
+  //
+  // `payment_method_options.card.setup_future_usage` resuelve exactamente esto:
+  // el guardado se pide POR MÉTODO, así que la tarjeta se guarda y Bizum no
+  // arrastra una opción que no soporta. El `setup_future_usage` global se deja
+  // de pedir: uno por método vale para los dos casos y evita tener dos formas
+  // de decir lo mismo. Ver el webhook (`checkout.session.completed`), que
+  // comprueba el método REALMENTE usado antes de guardar nada.
   const conBizum = body.bizum === true;
   const paymentMethodTypes: Array<'card' | 'bizum'> = conBizum ? ['card', 'bizum'] : ['card'];
 
@@ -198,10 +209,15 @@ export async function POST(req: NextRequest) {
         },
       ],
       customer_email: body.socioEmail ?? undefined,
-      // Solo creamos Customer + guardamos tarjeta cuando NO hay Bizum (flujo recurrente).
-      ...(conBizum ? {} : { customer_creation: 'always' as const }),
+      // Siempre: sin Customer no hay dónde adjuntar la tarjeta, y esto vale
+      // igual cuando se paga por Bizum (el Customer se queda sin método
+      // reutilizable, que es lo correcto, en vez de no existir).
+      customer_creation: 'always' as const,
+      // Guardado POR MÉTODO: la tarjeta sí, Bizum no lo admite. Sustituye al
+      // `setup_future_usage` global, que obligaba a elegir entre ofrecer Bizum
+      // y poder volver a cobrar (ver el comentario largo más arriba).
+      payment_method_options: { card: { setup_future_usage: 'off_session' as const } },
       payment_intent_data: {
-        ...(conBizum ? {} : { setup_future_usage: 'off_session' as const }),
         ...(fee !== undefined ? { application_fee_amount: fee } : {}),
         // El handler `charge.refunded` lee la metadata del PAYMENT INTENT, no de la
         // session (Stripe no la copia). Sin el reciboId aquí, una devolución o

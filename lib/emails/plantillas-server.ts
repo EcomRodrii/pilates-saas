@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import type { PersonalizacionPlantilla } from '@/lib/emails/cuerpo-editable';
+import { marcaDesdeFila, type MarcaEstudio } from './marca.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resuelve el override de plantilla de email de un estudio (asunto + intro).
@@ -78,7 +79,9 @@ export function interpolarPersonalizacion(
   };
 }
 
-export type MarcaEstudio = { nombre?: string | null; colorPrimario?: string | null; logoUrl?: string | null; slug?: string | null };
+// El tipo y el mapeo viven en ./marca.ts (sin dependencias, con test propio).
+// Se reexporta para no tocar los ~10 importadores que ya lo traen de aquí.
+export type { MarcaEstudio } from './marca.ts';
 
 // Resuelve el logo + color + slug de un estudio para pintarlos en la
 // plantilla premium compartida (lib/emails/layout.tsx) y, si hace falta,
@@ -90,17 +93,51 @@ export async function resolverMarcaEstudio(studioId: string | null | undefined):
   if (!studioId) return {};
   const admin = getSupabaseAdmin();
   if (!admin) return {};
-  const { data } = await admin
-    .from('studios')
-    .select('nombre, color_primario, logo_url, slug')
-    .eq('id', studioId)
-    .maybeSingle();
+  const [{ data }, override] = await Promise.all([
+    admin
+      .from('studios')
+      // `email` es nuevo aquí: alimenta el Reply-To (ver marca.ts).
+      .select('nombre, color_primario, logo_url, slug, email')
+      .eq('id', studioId)
+      .maybeSingle(),
+    resolverRemitenteResend(studioId),
+  ]);
   if (!data) return {};
+  const marca = marcaDesdeFila(data);
+  // La integración "Resend" del estudio deja de ser decorativa: hasta ahora
+  // guardaba `fromEmail`/`fromName` en `integraciones.config` y NINGUNA línea
+  // del producto los leía — dos estudios en producción la tenían en verde
+  // ("Conectado") sin que cambiara nada. Se aplican donde es seguro hacerlo:
+  // el nombre visible del remitente, y la dirección de respuesta. La dirección
+  // que FIRMA no se toca (haría rebotar el correo si no está verificada en
+  // Resend, y verificar un dominio no es algo que se resuelva pegando un campo).
   return {
-    nombre: data.nombre as string | null,
-    colorPrimario: (data.color_primario as string | null) ?? undefined,
-    logoUrl: data.logo_url as string | null,
-    slug: data.slug as string | null,
+    ...marca,
+    ...(override.fromName ? { nombre: override.fromName } : {}),
+    ...(override.fromEmail ? { replyTo: override.fromEmail } : {}),
+  };
+}
+
+// Config de la integración RESEND de un estudio, si la tiene activa.
+async function resolverRemitenteResend(
+  studioId: string,
+): Promise<{ fromEmail?: string; fromName?: string }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return {};
+  const { data } = await admin
+    .from('integraciones')
+    .select('activo, config')
+    .eq('studio_id', studioId).eq('tipo', 'RESEND')
+    .maybeSingle();
+  if (!data?.activo) return {};
+  const cfg = (data.config ?? {}) as { fromEmail?: unknown; fromName?: unknown };
+  const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '') || undefined;
+  const fromEmail = texto(cfg.fromEmail);
+  return {
+    // Una dirección a medio escribir no se manda a Resend como Reply-To: la
+    // rechazaría y tumbaría un correo que antes salía bien.
+    fromEmail: fromEmail && /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(fromEmail) ? fromEmail : undefined,
+    fromName: texto(cfg.fromName),
   };
 }
 

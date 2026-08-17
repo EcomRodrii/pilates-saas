@@ -6,9 +6,9 @@ import Link from 'next/link';
 import { useStudio } from '@/lib/studio-context';
 import type { EstadoRecibo, Socio, MetodoCobro } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn, formatEuro } from '@/lib/utils';
+import { cn, copiarAlPortapapeles, formatEuro } from '@/lib/utils';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
-import { cobrarOnlineDirecto, enviarEmailRecibo } from '@/lib/api-client';
+import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo } from '@/lib/api-client';
 import {
   CheckCircle,
   XCircle,
@@ -180,6 +180,14 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
   // ── Stripe state ────────────────────────────────────────────────────────────
   const [stripeLoading, setStripeLoading] = useState<string | null>(null);
   const [stripeToast, setStripeToast] = useState<{ tipo: 'ok' | 'error'; msg: string } | null>(null);
+  // "Cobrar online" sobre una socia sin método guardado tenía como única
+  // respuesta un texto rojo que se iba en 4 segundos: la propietaria no podía
+  // hacer nada con esa información. Este estado convierte ese callejón en la
+  // acción que de verdad lo resuelve — pedirle a la socia que autorice una
+  // tarjeta. No es un toast a propósito: no debe desaparecer solo.
+  const [pedirTarjeta, setPedirTarjeta] = useState<{ socioId: string; nombre: string } | null>(null);
+  const [enlaceTarjeta, setEnlaceTarjeta] = useState<{ url: string; copiado: boolean } | null>(null);
+  const [generandoEnlace, setGenerandoEnlace] = useState(false);
 
   // Handle Stripe redirect — use window.location to avoid useSearchParams suspension
   useEffect(() => {
@@ -531,6 +539,18 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     const result = await cobrarOnlineDirecto({ reciboId, socioId: r.socioId });
     setStripeLoading(null);
     if ('error' in result) {
+      if (result.errorCode === 'SIN_TARJETA') {
+        // No es un error que la propietaria pueda arreglar leyéndolo: hace falta
+        // que la SOCIA autorice un método. Se le ofrece ese camino en vez del
+        // mensaje técnico.
+        const socia = socios.find(s => s.id === r.socioId);
+        setPedirTarjeta({
+          socioId: r.socioId,
+          nombre: socia ? `${socia.nombre} ${socia.apellidos ?? ''}`.trim() : 'la socia',
+        });
+        setEnlaceTarjeta(null);
+        return;
+      }
       setStripeToast({ tipo: 'error', msg: result.error });
       return;
     }
@@ -545,6 +565,24 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     // probada en cobrarReciboOffSession.
     setStripeToast({ tipo: 'ok', msg: 'Cobro intentado con el método guardado de la socia. Actualizando…' });
     resetDatosPilates();
+  }
+
+  // Genera el enlace de autorización de tarjeta y lo deja copiado. Se copia en
+  // vez de abrirlo: quien tiene que rellenarlo es la socia, no quien pulsa.
+  // `copiarAlPortapapeles` y no `navigator.clipboard` directo — en Safari este
+  // último resuelve sin copiar nada y el mensaje "Copiado" sería mentira.
+  async function pedirTarjetaASocia() {
+    if (!pedirTarjeta || !studio) return;
+    setGenerandoEnlace(true);
+    const res = await crearEnlaceTarjeta({
+      studioId: studio.id, socioId: pedirTarjeta.socioId, slug: studio.slug ?? undefined,
+    });
+    setGenerandoEnlace(false);
+    if ('error' in res) {
+      setStripeToast({ tipo: 'error', msg: res.error });
+      return;
+    }
+    setEnlaceTarjeta({ url: res.url, copiado: await copiarAlPortapapeles(res.url) });
   }
 
   async function cobrarYEmail(reciboId: string, metodo?: MetodoCobro) {
@@ -650,6 +688,64 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
         )}>
           {stripeToast.tipo === 'ok' ? <CheckCircle size={16} /> : <XCircle size={16} />}
           {stripeToast.msg}
+        </div>
+      )}
+
+      {/* Sin método guardado: la salida real, no un error. Se explica en una
+          frase POR QUÉ no se puede cobrar y qué hace el enlace, porque la
+          propietaria se lo va a reenviar a una clienta y tiene que poder
+          contárselo. */}
+      {pedirTarjeta && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="titulo-pedir-tarjeta">
+          <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 shadow-xl">
+            <h3 id="titulo-pedir-tarjeta" className="text-[17px] font-bold text-foreground">
+              {pedirTarjeta.nombre} no tiene tarjeta guardada
+            </h3>
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              Para cobrar sin que esté delante hace falta que ella autorice una tarjeta una vez.
+              Genera el enlace y mándaselo por donde habléis normalmente: lo rellena en Stripe,
+              no aquí, y su tarjeta no pasa en ningún momento por Tentare.
+            </p>
+
+            {enlaceTarjeta ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-[12px] font-semibold text-success">
+                  {enlaceTarjeta.copiado
+                    ? 'Enlace copiado — pégalo en tu WhatsApp o correo.'
+                    : 'Enlace listo. Cópialo a mano: tu navegador no ha dejado copiarlo solo.'}
+                </p>
+                {/* Visible siempre, no solo cuando falla el copiado: un enlace
+                    que se anuncia copiado y no está deja a la propietaria sin
+                    nada que pegar. */}
+                <input
+                  readOnly value={enlaceTarjeta.url}
+                  onFocus={e => e.currentTarget.select()}
+                  aria-label="Enlace para guardar la tarjeta"
+                  className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-[12px] text-foreground"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Cuando lo complete, su tarjeta queda guardada y &laquo;Cobrar online&raquo; ya funcionará.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => { setPedirTarjeta(null); setEnlaceTarjeta(null); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border text-[13px] font-bold text-foreground hover:bg-muted transition-colors"
+              >
+                Cerrar
+              </button>
+              {!enlaceTarjeta && (
+                <button
+                  onClick={pedirTarjetaASocia} disabled={generandoEnlace}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 transition-colors disabled:opacity-60"
+                >
+                  {generandoEnlace ? 'Generando…' : 'Generar enlace'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
