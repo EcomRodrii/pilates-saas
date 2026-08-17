@@ -19,7 +19,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -825,17 +825,31 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
 }
 
 
-async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null) {
+// Devuelve `true` solo si de verdad se devolvió una sesión. Antes no devolvía
+// nada y el llamador daba la devolución por hecha (I-5): ver el comentario en
+// `bonoDevolvible`.
+async function devolverBonoServidor(
+  admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
+): Promise<boolean> {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
   const planesConTipos = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
-  const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
-  if (!consumible) return;
-  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
-  const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
-  await admin.from('suscripciones').update({ sesiones_restantes: nuevas }).eq('id', sus.id);
+  // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
+  // no saldo — y el bono al que hay que devolverle la sesión es justo el que se
+  // quedó a 0 al gastarla, que `bonoConsumible` descarta.
+  const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
+  if (!devolvible) return false;
+  // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
+  // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
+  // concurrentes escribían el mismo número y una devolución se perdía en
+  // silencio — la misma asimetría que el consumo ya había resuelto.
+  const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
+    p_suscripcion_id: devolvible.suscripcion.id, p_studio_id: studioId,
+  });
+  if (error) { reportDbError('[devolverBonoServidor]', error); return false; }
+  return nuevoSaldo != null;
 }
 
 // Reúne los datos de una clase para un email transaccional (nombre de clase,
@@ -1822,8 +1836,13 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
     .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
 
   const confirmadas = afectadas.filter(r => r.estado === 'CONFIRMADA' && r.socio_id);
+  // I-5: se guarda POR SOCIA si la devolución tuvo efecto, para que el email no
+  // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
+  // socia recibe su propio correo, así que el dato es por persona, no global.
+  const devueltoPorSocia = new Map<string, boolean>();
   for (const r of confirmadas) {
-    await devolverBonoServidor(admin, params.studioId, r.socio_id as string, tipoClaseId);
+    const socioId = r.socio_id as string;
+    devueltoPorSocia.set(socioId, await devolverBonoServidor(admin, params.studioId, socioId, tipoClaseId));
   }
 
   const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
@@ -1842,7 +1861,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
       if (!s.email) continue;
       await enviarEmailTransaccional({
         tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
-        data: { ...datos, bonoDevuelto: true },
+        data: { ...datos, bonoDevuelto: devueltoPorSocia.get(s.id as string) === true },
         studioId: params.studioId,
         idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`
       });
@@ -1943,8 +1962,11 @@ export async function ejecutarCancelacionReserva(
     // panel. `?? true` mantiene lo de siempre si la RPC aún no trae la columna.
     if (inicio && (row?.devolver_bono ?? true)) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
-      await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
-      bonoDevuelto = true;
+      // I-5: `bonoDevuelto` sale de lo que REALMENTE pasó, no de haber llamado.
+      // Antes se ponía a true a pelo, así que el email de cancelación le decía a
+      // la socia que le habíamos devuelto la sesión aunque no se hubiera
+      // devuelto nada.
+      bonoDevuelto = await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
     }
   }
 

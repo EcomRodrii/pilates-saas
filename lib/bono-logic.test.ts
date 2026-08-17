@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import type { Suscripcion, PlanTarifa } from '@/lib/types';
 import {
   hayAlgoQueContratar,
-  bonoConsumible, calcularConsumoBono, calcularDevolucionBono, tieneEntitlementActivo,
+  bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
 } from './bono-logic.ts';
@@ -106,17 +106,50 @@ test('calcularConsumoBono nunca baja de 0', () => {
   assert.deepEqual(calcularConsumoBono(0), { nuevasRestantes: 0, agotado: true });
 });
 
-// ── calcularDevolucionBono ───────────────────────────────────────────────────
-test('calcularDevolucionBono suma una sesión', () => {
-  assert.equal(calcularDevolucionBono(2, 10), 3);
+// ── bonoDevolvible (I-5) ─────────────────────────────────────────────────────
+// El tope ya no se calcula aquí: lo aplica la RPC `devolver_sesion_bono` dentro
+// de su WHERE (I-10). Lo que se prueba aquí es a QUÉ bono hay que devolverle la
+// sesión, que es donde estaba el fallo.
+
+test('bonoDevolvible SÍ elige un bono agotado — el caso que bonoConsumible descarta', () => {
+  const suscripciones = [sus({ id: 's-0', socioId: 'a', planId: 'p1', sesionesRestantes: 0 })];
+  const planes = [plan({ id: 'p1', tipo: 'BONO', sesiones: 10 })];
+  // Este es el bug I-5: cancelar la clase que gastó la ÚLTIMA sesión no
+  // devolvía nada, porque un bono a 0 no es "consumible".
+  assert.equal(bonoConsumible('a', suscripciones, planes), null);
+  assert.equal(bonoDevolvible('a', suscripciones, planes)?.suscripcion.id, 's-0');
 });
 
-test('calcularDevolucionBono no supera el total del plan', () => {
-  assert.equal(calcularDevolucionBono(10, 10), 10);
+test('bonoDevolvible ignora el bono que ya está al total del plan (no hay hueco)', () => {
+  const suscripciones = [sus({ id: 's-lleno', socioId: 'a', planId: 'p1', sesionesRestantes: 10 })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO', sesiones: 10 })]), null);
 });
 
-test('calcularDevolucionBono sin tope de plan (sesiones null) suma sin límite', () => {
-  assert.equal(calcularDevolucionBono(99, null), 100);
+test('bonoDevolvible con un plan sin tope de sesiones siempre admite la devolución', () => {
+  const suscripciones = [sus({ id: 's-x', socioId: 'a', planId: 'p1', sesionesRestantes: 99 })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO', sesiones: null })])?.suscripcion.id, 's-x');
+});
+
+test('bonoDevolvible respeta la cobertura por tipo de clase, igual que consumir', () => {
+  const suscripciones = [sus({ id: 's-ref', socioId: 'a', planId: 'p-ref', sesionesRestantes: 0 })];
+  const planes = [plan({ id: 'p-ref', tipo: 'BONO', sesiones: 10, tiposClaseIds: ['tc-reformer'] })];
+  assert.equal(bonoDevolvible('a', suscripciones, planes, '2026-07-26', 'tc-reformer')?.suscripcion.id, 's-ref');
+  assert.equal(bonoDevolvible('a', suscripciones, planes, '2026-07-26', 'tc-mat'), null);
+});
+
+test('bonoDevolvible no resucita un bono caducado', () => {
+  const suscripciones = [sus({ id: 's-cad', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-07-01' })];
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25'), null);
+});
+
+test('bonoDevolvible usa el MISMO orden que consumir: devuelve al que caduca antes', () => {
+  const suscripciones = [
+    sus({ id: 's-tarde', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-12-31' }),
+    sus({ id: 's-pronto', socioId: 'a', planId: 'p1', sesionesRestantes: 0, fechaFin: '2026-08-31' }),
+  ];
+  // Si el orden divergiera del de consumir, se devolvería a un bono distinto del
+  // que se descontó.
+  assert.equal(bonoDevolvible('a', suscripciones, [plan({ id: 'p1', tipo: 'BONO' })], '2026-07-25')?.suscripcion.id, 's-pronto');
 });
 
 // ── tieneEntitlementActivo (C-4) ──────────────────────────────────────────────
