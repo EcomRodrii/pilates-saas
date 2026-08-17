@@ -24,7 +24,8 @@ import { RailFiltros } from '@/components/reserva/rail-filtros';
 import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
-import { seccionReservarDeSistemaId } from '@/lib/portal-home-bloques';
+import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
+import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
@@ -273,6 +274,21 @@ export default function ReservarPage() {
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
   } = useStudio();
+
+  // Fase 7 "Widget Experience Builder": qué pestañas y si se ofrece el
+  // Discovery Quiz, configurable por estudio en el bloque `reservarHorario`
+  // del mismo Theme Builder que ya decide orden/visibilidad de secciones
+  // (más abajo, `posicionSeccion`/`seccionVisible`). `resolverConfig` rellena
+  // con `porDefecto: true` un estudio que nunca tocó este ajuste — cero
+  // cambio para nadie que no lo use. "Clases" no tiene checkbox: es la
+  // pestaña de caída y no puede desactivarse.
+  const bloqueHorario = bloquesReservar.find((b) => b.kind === 'sistema' && b.sistemaId === 'reservarHorario');
+  const configHorario = resolverConfig(CAMPOS_RESERVAR_HORARIO, bloqueHorario && bloqueHorario.kind === 'sistema' ? bloqueHorario.config : undefined);
+  const tabHabilitada = (t: Tab) => t === 'clases'
+    || (t === 'citas' && configHorario.mostrarCitas !== false)
+    || (t === 'misreservas' && configHorario.mostrarMisReservas !== false)
+    || (t === 'estudio' && configHorario.mostrarEstudio !== false)
+    || (t === 'cuenta' && configHorario.mostrarCuenta !== false);
   const estudioNombre = studio?.nombre ?? 'Tentare';
   const estudioLogo = studio?.logoUrl ?? null;
   const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
@@ -450,7 +466,7 @@ export default function ReservarPage() {
   // la prop `irADia` de ReservaCalendario.
   const [comandoDia, setComandoDia] = useState<{ fecha: string; nonce: number } | null>(null);
   const [tab, setTab] = useState<Tab>(
-    TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
+    TAB_IDS.includes(tabInicial as Tab) && tabHabilitada(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
 
   // Fase 8 (CRO): "vio el listado de clases" — una vez por sesión, mismo
@@ -1269,7 +1285,8 @@ export default function ReservarPage() {
   const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
   const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
 
-  const tabs = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
+  const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
+  const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
 
   // ── Orden y visibilidad de las secciones ───────────────────────────────────
   // Lo decide el estudio desde el editor de Apariencia (Theme Builder
@@ -1528,8 +1545,10 @@ export default function ReservarPage() {
 
               {/* Discovery quiz — ver components/reserva/discovery-quiz.tsx. Un
                   filtro más sobre los mismos slots ya cargados (nivel/tipo/
-                  horario/día), no un motor de recomendación nuevo. */}
-              {quizAbierto ? (
+                  horario/día), no un motor de recomendación nuevo. Apagable
+                  entero desde Apariencia (Fase 7): un estudio con 2-3 tipos
+                  de clase no tiene nada que "descubrir" — el quiz es ruido. */}
+              {configHorario.mostrarQuiz === false ? null : quizAbierto ? (
                 <div style={{ marginBottom: 20 }}>
                   <DiscoveryQuiz
                     nivelesDisponibles={nivelesDisponibles}

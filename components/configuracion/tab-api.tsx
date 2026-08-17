@@ -188,6 +188,11 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // Compacto (480px, pensado para una barra lateral) vs ancho completo (100%
   // del contenedor anfitrión) — antes venía fijo a 480px sin más opción.
   const [anchoCompleto, setAnchoCompleto] = useState(false);
+  // Fase 7 "Widget Experience Builder": `solo-pestana=1` ya existe y ya lo
+  // respeta app/reservar/[slug]/page.tsx — solo faltaba un checkbox aquí para
+  // activarlo sin editar el HTML a mano. Nace en `false` para no cambiar
+  // ningún snippet ya pegado en una web real.
+  const [soloEstaPestana, setSoloEstaPestana] = useState(false);
   const widget = WIDGETS.find(w => w.id === activo)!;
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -214,7 +219,8 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
 
   const maxWidth = anchoCompleto ? '100%' : '480px';
   const sesionQuery = widget.requiereSesion && sesionElegida ? `&sesion=${encodeURIComponent(sesionElegida)}` : '';
-  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}`;
+  const soloPestanaQuery = widget.modo !== 'script' && soloEstaPestana ? '&solo-pestana=1' : '';
+  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}${soloPestanaQuery}`;
   // Id único por widget (no solo por estudio): una web puede embeber varios
   // widgets del mismo estudio a la vez (clases + citas), y el listener de
   // abajo necesita distinguir qué iframe redimensionar. Para "Reserva esta
@@ -353,6 +359,38 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
         >
           Ancho completo
         </button>
+      </div>
+      )}
+      {widget.modo !== 'script' && (
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-muted-foreground">Pestañas:</span>
+          <button
+            onClick={() => setSoloEstaPestana(false)}
+            className={cn(
+              'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
+              !soloEstaPestana ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+            )}
+          >
+            Todas
+          </button>
+          <button
+            onClick={() => setSoloEstaPestana(true)}
+            className={cn(
+              'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
+              soloEstaPestana ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
+            )}
+          >
+            Solo esta pestaña
+          </button>
+        </div>
+        {soloEstaPestana && (
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Enseña solo esta pestaña, sin las otras cuatro — para cuando el
+            widget va dentro de una sección de tu web y no quieres que la
+            visitante se vaya a Mi cuenta sin querer.
+          </p>
+        )}
       </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
