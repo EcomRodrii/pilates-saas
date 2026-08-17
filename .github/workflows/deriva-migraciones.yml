@@ -1,0 +1,40 @@
+name: Deriva de migraciones
+
+# Comprueba que supabase/migrations/ y lo aplicado en producción digan lo mismo.
+#
+# NO corre en pull_request a propósito: al abrir un PR, su migración todavía no
+# está aplicada — eso es lo normal, no un fallo. La deriva solo es un defecto
+# DESPUÉS de mergear, que es cuando "mergeado" empieza a leerse como "aplicado".
+#
+# Va en su propio workflow y no como un job más de ci.yml para que el `schedule`
+# no arrastre al build y a los 12 shards de e2e una vez al día.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  schedule:
+    # 07:17 UTC. Minuto raro a propósito: GitHub encola con retraso los crons en
+    # punto, cuando los lanza todo el mundo.
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  deriva:
+    name: Repo ↔ producción
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Sin `npm ci`: el script es Node pelado, sin dependencias. Cuesta un
+      # segundo y no necesita el árbol de node_modules.
+      - name: Autocomprobación del propio check
+        run: node scripts/comprobar-deriva-migraciones.mjs --autocomprobacion
+
+      - name: Cruzar contra producción
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/comprobar-deriva-migraciones.mjs
