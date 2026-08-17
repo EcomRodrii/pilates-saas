@@ -52,7 +52,8 @@ export const THEME: ThemeConfig = {
     "tab_set": "agenda",
     "schedule_style": "chips",
     "passes_style": "plan",
-    "profile_style": "card"
+    "pass_style_sereno": true,
+    "profile_style": "fichas"
   },
   "home_blocks": [
     "greeting",
@@ -67,6 +68,13 @@ export const THEME: ThemeConfig = {
   "member_initial": "L",
   "greeting_note": "hoy toca cuidarte",
   "closing_quote": "Respira hondo. El resto puede esperar.",
+  // Copy del TEMA, no dato: firma el pie de la tarjeta de bono. Sin esto la
+  // tarjeta se queda en la caducidad, que es lo que hacen los otros cuatro.
+  "pass_valores": [
+    { "icono": "leaf", "label": "Equilibrio" },
+    { "icono": "music", "label": "Bienestar" },
+    { "icono": "heart", "label": "Conexión" }
+  ],
   "welcome": {
     "line1": "Tu espacio",
     "line2": "para sentirte bien",

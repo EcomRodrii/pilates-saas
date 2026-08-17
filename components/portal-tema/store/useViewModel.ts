@@ -473,9 +473,37 @@ export function useViewModel() {
       // Toda su cartera, no solo el bono que se está gastando: `bonoDe` deja
       // fuera los ilimitados y una socia con plan mensual no veía ninguno.
       wallet: datos.bonos,
+      // Las iniciales del estudio para el monograma de la tarjeta de bono
+      // («AP» de Aura Pilates). Salen del nombre REAL; sin nombre no se pinta
+      // el círculo en vez de enseñar dos letras inventadas.
+      monograma: (datos.estudio.nombre || cfg.studio)
+        .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join(""),
       purchases: datos.compras,
 
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
+
+      // Las tres cifras de la cabecera del perfil de Sereno.
+      //
+      // ⚠️ NINGUNA sale de `metrics` (justo debajo), que tiene un `18` escrito
+      // a mano desde el kit de diseño: es el patrón que este repo lleva
+      // quitando —una cifra en pantalla que nadie calcula—. Aquí las tres son
+      // reales o no se pintan:
+      //  · créditos → el saldo del bono;
+      //  · clases este mes → se CUENTAN del historial de asistidas, y por eso
+      //    `null` mientras no haya llegado (se pide en diferido);
+      //  · racha → `calcularRacha`, que ya es la fuente de sus logros, y `null`
+      //    por debajo de dos semanas: una semana suelta no es una racha.
+      cifrasPerfil: (() => {
+        const mes = (datos.ahoraISO ?? "").slice(0, 7);
+        const esteMes = state.historial?.filter((h) => h.inicio.slice(0, 7) === mes).length ?? null;
+        return [
+          { valor: String(passLeft), label: passLeft === 1 ? "crédito" : "créditos" },
+          esteMes === null ? null : { valor: String(esteMes), label: "clases este mes" },
+          datos.racha && datos.racha.semanas >= 2
+            ? { valor: String(datos.racha.semanas), label: "semanas seguidas" }
+            : null,
+        ].filter(Boolean) as { valor: string; label: string }[];
+      })(),
       metrics: [
         { value: idsReservados.length, label: "reservas" },
         { value: 18, label: "clases" },
