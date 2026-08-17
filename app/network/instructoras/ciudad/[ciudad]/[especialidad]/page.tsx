@@ -15,10 +15,10 @@ const FILTRO_BASE: Omit<FiltroBusquedaNetwork, 'ciudad' | 'especialidades'> = {
 export async function generateMetadata({ params }: { params: Promise<{ ciudad: string; especialidad: string }> }): Promise<Metadata> {
   const { ciudad, especialidad } = await params;
   const nombreCiudad = ciudadDesdeParam(ciudad);
-  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates | Tentare Network' };
+  if (!esEspecialidadValida(especialidad)) return { title: 'Instructoras de Pilates' };
   const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
   return {
-    title: `Instructoras de Pilates de ${nombreEspecialidad} en ${nombreCiudad} | Tentare Network`,
+    title: `Instructoras de Pilates de ${nombreEspecialidad} en ${nombreCiudad}`,
     description: `Instructoras de Pilates especializadas en ${nombreEspecialidad} en ${nombreCiudad}, verificadas y disponibles.`,
   };
 }

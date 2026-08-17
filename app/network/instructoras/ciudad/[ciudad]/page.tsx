@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
   return {
-    title: `Instructoras de Pilates en ${nombre} | Tentare Network`,
+    title: `Instructoras de Pilates en ${nombre}`,
     description: `Encuentra instructoras de Pilates verificadas en ${nombre}. Filtra por especialidad y disponibilidad, contacta directamente.`,
   };
 }
