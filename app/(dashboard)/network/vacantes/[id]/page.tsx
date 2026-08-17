@@ -9,9 +9,10 @@ import { Toast, useToast } from '@/components/ui/toast';
 import {
   fetchVacanteNetwork, cambiarEstadoVacanteNetwork,
   fetchCandidaturasVacanteNetwork, cambiarEstadoCandidaturaNetwork, toggleFavoritoNetwork,
+  type CandidaturaConEncaje,
 } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, ESPECIALIDAD_LABEL, HORARIO_LABEL } from '@/lib/network/catalogo';
-import type { VacanteNetwork, CandidaturaNetwork, EstadoCandidatura } from '@/lib/network/tipos';
+import type { VacanteNetwork, EstadoCandidatura } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +26,7 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
   const { id } = use(params);
   const { message: toastMsg, show: showToast, dismiss: dismissToast } = useToast();
   const [vacante, setVacante] = useState<VacanteNetwork | null>(null);
-  const [candidaturas, setCandidaturas] = useState<CandidaturaNetwork[] | null>(null);
+  const [candidaturas, setCandidaturas] = useState<CandidaturaConEncaje[] | null>(null);
   const [cargando, setCargando] = useState(true);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState('');
@@ -157,6 +158,19 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
                     </div>
                   </div>
                 </div>
+                {c.encaje && c.encaje.criterios.length > 0 && (
+                  <div className="mt-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${c.encaje.barra}%` }} />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground shrink-0">Encaje</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      {c.encaje.criterios.map(cr => `${cr.label} ${cr.cumple ? '✓' : '✗'}`).join(' · ')}
+                    </p>
+                  </div>
+                )}
                 {c.mensaje && <p className="text-[12.5px] text-foreground mt-2 whitespace-pre-line">{c.mensaje}</p>}
                 {activa && (
                   <div className="flex items-center gap-1.5 mt-3 flex-wrap">
