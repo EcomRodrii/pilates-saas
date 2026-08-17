@@ -4,7 +4,7 @@ import type {
 } from '@/lib/types';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import type { SociaSesion } from '@/lib/use-socia-session';
-import { tieneEntitlementActivo } from '../bono-logic.ts';
+import { resolutorCobertura, precioDeCobertura, textoCobertura } from './cobertura.ts';
 import { claseSirvePara } from './objetivos.ts';
 
 function pad2(n: number) { return String(n).padStart(2, '0'); }
@@ -51,7 +51,10 @@ export interface EntradaConstruirSlots {
   suscripciones: Suscripcion[];
   planesTarifa: PlanTarifa[];
   socia: SociaSesion | null;
-  bookingSesionId?: string | null;
+  // `bookingSesionId` estuvo aquí para resolver "el tipo de la clase abierta" y
+  // decidir la cobertura de TODO el listado con ella. La cobertura es ahora por
+  // clase (ver más abajo), así que dejó de tener lectores: se quita en vez de
+  // dejar un parámetro que parece influir en algo y no influye.
   nowMs: number;
   filtros?: FiltrosSlots;
 }
@@ -60,7 +63,7 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   const {
     sesiones, tiposClase, salas, instructores, reservas, spots,
     sustitucionesConfirmadas, suscripciones, planesTarifa, socia,
-    bookingSesionId, nowMs, filtros = {},
+    nowMs, filtros = {},
   } = entrada;
 
   const tiposById = new Map(tiposClase.map(t => [t.id, t]));
@@ -108,10 +111,18 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   }
 
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
-  const tipoClaseAbierta = bookingSesionId ? (sesiones.find(x => x.id === bookingSesionId)?.tipoClaseId ?? null) : null;
-  const cubierta = socia?.socioId
-    ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(new Date(nowMs)), tipoClaseAbierta)
-    : false;
+  // §3 — La cobertura se resuelve POR CLASE, no una vez para todo el listado.
+  // Antes se calculaba con el tipo de la clase cuya hoja estuviera abierta
+  // (`tipoClaseAbierta`) y ese resultado se aplicaba a las decenas de slots: con
+  // un Reformer cubierto abierto, las filas de Mat perdían su precio aunque
+  // hubiera que pagarlas. El gate sí usaba el tipo bueno, así que no se cobraba
+  // mal — pero la alumna pulsaba "Reservar" creyendo que estaba incluida.
+  // Cacheado por tipo (lib/reservar/cobertura.ts): un recorrido por TIPO, no por
+  // fila.
+  const cobertura = resolutorCobertura({
+    socioId: socia?.socioId, suscripciones, planesTarifa,
+    hoyISO: localDate(new Date(nowMs)), precioClaseSuelta,
+  });
 
   return sesionesRich
     .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
@@ -146,7 +157,10 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
         miReservaId: mia?.id ?? null,
         miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
         miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
-        precio: cubierta ? null : precioClaseSuelta,
+        precio: precioDeCobertura(cobertura(s.tipoClaseId)),
+        // Lo que de verdad cierra "nunca llegar al checkout sin saber qué
+        // reservas": de qué bono sale y cuánto queda después.
+        coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
       } satisfies ReservaSlot;
     });
 }

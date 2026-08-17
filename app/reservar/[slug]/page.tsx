@@ -10,6 +10,7 @@ import { textoLegalCompleto } from '@/lib/legal-textos';
 import { useSociaSession } from '@/lib/use-socia-session';
 import { PlanTarifa, type Reserva } from '@/lib/types';
 import { tieneEntitlementActivo, hayAlgoQueContratar } from '@/lib/bono-logic';
+import { resolutorCobertura, precioDeCobertura, textoCobertura } from '@/lib/reservar/cobertura';
 import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
@@ -731,15 +732,21 @@ export default function ReservarPage() {
     return m;
   }, [spots]);
 
-  // Cobertura de plan/bono de la socia autenticada → precio a mostrar en el CTA
-  // (informativo; el gate real se aplica en handleConfirm y en el servidor).
+  // Cobertura de plan/bono de la socia autenticada → precio y frase de "qué te
+  // cuesta" del CTA (informativo; el gate real se aplica en handleConfirm y en
+  // el servidor).
   const precioClaseSuelta = planesTarifa.find(p => p.tipo === 'PUNTUAL' && p.activo)?.precio ?? null;
-  // Cobertura de la clase que se está mirando: con bonos acotados, "incluida en
-  // tu bono" depende del tipo, no solo de que le queden sesiones.
-  const tipoClaseAbierta = sesiones.find(x => x.id === bookingSesionId)?.tipoClaseId ?? null;
-  const cubierta = socia?.socioId
-    ? tieneEntitlementActivo(socia.socioId, suscripciones, planesTarifa, localDate(now), tipoClaseAbierta)
-    : false;
+  // §3 — POR CLASE, no una vez para todo el listado. Antes esto se resolvía con
+  // el tipo de la clase cuya hoja estuviera abierta y se aplicaba a todos los
+  // slots: con un Reformer cubierto abierto, las filas de Mat perdían su precio
+  // aunque hubiera que pagarlas; y sin hoja abierta la respuesta era "por el
+  // plan", así que un bono solo de Reformer tampoco enseñaba precio en Mat. El
+  // gate usaba el tipo correcto, así que nunca se cobró mal — pero se llegaba a
+  // pulsar "Reservar" creyendo que estaba incluida. Cacheado por tipo.
+  const cobertura = useMemo(() => resolutorCobertura({
+    socioId: socia?.socioId, suscripciones, planesTarifa,
+    hoyISO: localDate(now), precioClaseSuelta,
+  }), [socia?.socioId, suscripciones, planesTarifa, now, precioClaseSuelta]);
 
   // P2-8: ventana de cancelación por tipo de clase, solo para los que tienen
   // override propio — el resto hereda la del estudio (ver ReservaCalendario).
@@ -812,10 +819,11 @@ export default function ReservarPage() {
           miReservaId: mia?.id ?? null,
           miEstado: mia ? (mia.estado as 'CONFIRMADA' | 'LISTA_ESPERA') : null,
           miOfertaExpiraEn: mia?.ofertaExpiraEn ?? null,
-          precio: cubierta ? null : precioClaseSuelta,
+          precio: precioDeCobertura(cobertura(s.tipoClaseId)),
+          coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cubierta, precioClaseSuelta]);
+  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
