@@ -721,6 +721,46 @@ export async function emitirRedContactoSolicitado(
 
 // `emailContacto` nunca es null aquí — aceptar exige que la profesional
 // tenga uno guardado (ver app/api/network/contacto/resolver/route.ts).
+// Fase 2 (matching). `studioId` es el estudio dueño de la vacante — la
+// audiencia 'gerencia' ya resuelve por él (mismo patrón que
+// emitirRedVerificacionSolicitada).
+export async function emitirRedCandidaturaRecibida(
+  admin: SupabaseClient,
+  p: { studioId: string; candidaturaId: string; vacanteTitulo: string; profesional: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_CANDIDATURA_RECIBIDA, studioId: p.studioId,
+      data: { vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
+      resource: { type: 'red_candidatura', id: p.candidaturaId },
+      dedupKey: `red-candidatura-recibida:${p.candidaturaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedCandidaturaRecibida:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Fase 2 (matching). `studioId` es el estudio que publica — la audiencia
+// 'red-instructoras-lista' ignora ese studioId y resuelve por
+// `data.authUserIds` (ver recipients.ts), calculados por el caller (sin
+// cron: ver app/api/network/vacantes/[id]/estado/route.ts). `NotificationEvent.
+// studioId` es obligatorio igual que en emitirRedExperienciaConfirmada.
+export async function emitirRedVacanteEncaja(
+  admin: SupabaseClient,
+  p: { studioId: string; vacanteId: string; titulo: string; authUserIds: string[] },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_VACANTE_ENCAJA, studioId: p.studioId,
+      data: { vacanteId: p.vacanteId, titulo: p.titulo, authUserIds: p.authUserIds },
+      resource: { type: 'red_vacante', id: p.vacanteId },
+      dedupKey: `red-vacante-encaja:${p.vacanteId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedVacanteEncaja:', e instanceof Error ? e.message : e);
+  }
+}
+
 export async function emitirRedContactoAceptado(
   admin: SupabaseClient,
   p: {

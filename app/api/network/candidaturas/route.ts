@@ -3,6 +3,7 @@ import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno, errorPeticion } from '@/lib/errores-servidor';
 import { uid } from '@/lib/utils';
+import { emitirRedCandidaturaRecibida } from '@/lib/notifications/emit';
 
 // Aplicar a una vacante (Fase 2, "instructora → busca oportunidades").
 // Exige perfil PUBLICADO — un perfil suspendido por moderación (mismo hueco
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
   if (!vacanteId) return errorPeticion('Falta la vacante.');
 
   const [{ data: perfil }, { data: vacante }] = await Promise.all([
-    admin.from('red_perfiles').select('id, estado').eq('auth_user_id', usuario.userId).maybeSingle(),
-    admin.from('red_vacantes').select('id, studio_id, estado').eq('id', vacanteId).maybeSingle(),
+    admin.from('red_perfiles').select('id, nombre, estado').eq('auth_user_id', usuario.userId).maybeSingle(),
+    admin.from('red_vacantes').select('id, studio_id, titulo, estado').eq('id', vacanteId).maybeSingle(),
   ]);
   if (!perfil) return errorPeticion('Todavía no tienes un perfil en Tentare Network.', 403);
   if (perfil.estado !== 'published') {
@@ -32,8 +33,9 @@ export async function POST(req: NextRequest) {
     return errorPeticion('Esta vacante ya no está disponible.', 404);
   }
 
+  const candidaturaId = `redcand-${uid()}`;
   const { error } = await admin.from('red_candidaturas').insert({
-    id: `redcand-${uid()}`,
+    id: candidaturaId,
     vacante_id: vacanteId,
     perfil_id: perfil.id,
     studio_id: vacante.studio_id,
@@ -43,6 +45,10 @@ export async function POST(req: NextRequest) {
     if (error.code === '23505') return errorPeticion('Ya has aplicado a esta vacante.', 409);
     return errorInterno('network:candidaturas:POST', error, 'No se ha podido enviar tu candidatura.');
   }
+
+  await emitirRedCandidaturaRecibida(admin, {
+    studioId: vacante.studio_id, candidaturaId, vacanteTitulo: vacante.titulo, profesional: perfil.nombre,
+  });
 
   return NextResponse.json({ ok: true });
 }
