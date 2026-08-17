@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { fijarUsuario } from '@/lib/sentry-cliente';
+import { identificar as identificarEnPosthog, resetear as resetearPosthog } from '@/lib/posthog-cliente';
 import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -13,6 +14,14 @@ import { setCurrentStudioId } from './supabase-data';
 // email ni nombre — respeta sendDefaultPii:false de la config de Sentry.
 function identificarEnSentry(session: Session | null) {
   fijarUsuario(session?.user ? { id: session.user.id } : null);
+}
+
+// Este contexto es SOLO de personal (propietaria/manager/instructora/
+// recepción) — las socias entran por lib/portal-auth.tsx, no por aquí. Mismo
+// criterio que identificarEnSentry: solo el id (UUID), nunca email ni nombre.
+function identificarEnPosthogSiHaySesion(session: Session | null) {
+  if (session?.user) identificarEnPosthog(session.user.id);
+  else resetearPosthog();
 }
 
 type AuthContextType = {
@@ -49,12 +58,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       identificarEnSentry(data.session);
+      identificarEnPosthogSiHaySesion(data.session);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       identificarEnSentry(session);
+      identificarEnPosthogSiHaySesion(session);
     });
 
     return () => subscription.unsubscribe();

@@ -1,5 +1,6 @@
 import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
@@ -1534,6 +1535,7 @@ export async function crearReservaPublica(params: {
     if (params.spotId) {
       spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
     }
+    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
   }
   // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
   // tanto para logros como para retos vigentes.

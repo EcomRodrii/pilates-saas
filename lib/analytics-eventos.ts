@@ -18,7 +18,11 @@ export type EventoAnalitica =
   // Un cobro a una socia se completó. La señal de GMV del negocio.
   | { nombre: 'pago_completado'; props: { importe_centimos: number; via: 'checkout' | 'off_session' | 'terminal' | 'sepa' | 'bizum' } }
   // El estado de la suscripción del estudio al SaaS cambió (alta/renovación/impago/baja).
-  | { nombre: 'suscripcion_cambiada'; props: { plan: string | null; estado: string } };
+  | { nombre: 'suscripcion_cambiada'; props: { plan: string | null; estado: string } }
+  // Una reserva quedó CONFIRMADA (nunca lista de espera/pendiente). Señal de
+  // conversión del embudo de reserva — sin socioId ni sesionId: eso ya
+  // identificaría a una socia/clase concreta, y el distinct_id es el tenant.
+  | { nombre: 'reserva_completada'; props: { con_spot_elegido: boolean } };
 
 /** ¿Está configurada la analítica? (POSTHOG_KEY presente). */
 export function analyticsHabilitado(): boolean {
