@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { PAGINAS, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { ciudadesConPerfilesPublicados, slugCiudadUrl } from '@/lib/network/publico';
 
 // El sitemap se DERIVA del registro (lib/seo/paginas.ts); aquí no se mantiene
 // ninguna lista.
@@ -46,5 +47,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(p.actualizado_en as string),
   }));
 
-  return [...estaticas, ...perfiles];
+  // Solo ciudad SOLA, no ciudad×especialidad todavía: sin volumen real de
+  // perfiles por ciudad hoy no se justifica fragmentar más el sitemap (ver
+  // comentario de slugCiudadUrl sobre por qué esta lista sale de perfiles
+  // reales, no de un catálogo fijo).
+  const ciudades = await ciudadesConPerfilesPublicados(admin);
+  const paginasCiudad: MetadataRoute.Sitemap = ciudades.map((ciudad) => ({
+    url: `${BASE_URL}/network/instructoras/ciudad/${encodeURIComponent(slugCiudadUrl(ciudad))}`,
+    changeFrequency: 'weekly',
+    priority: 0.5,
+  }));
+
+  return [...estaticas, ...perfiles, ...paginasCiudad];
 }

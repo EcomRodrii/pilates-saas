@@ -74,8 +74,20 @@ export default async function NetworkLandingPage() {
   const perfiles = resultado && 'perfiles' in resultado ? resultado.perfiles : [];
   const destacadas = [...perfiles].sort((a, b) => Number(b.destacado) - Number(a.destacado)).slice(0, 4);
 
+  // FAQ_ITEMS ya existe y se pinta más abajo (<details>/<summary>) — esto
+  // solo declara el mismo contenido como dato estructurado, sin duplicar
+  // copy nuevo.
+  const faqLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_ITEMS.map(({ q, a }) => ({
+      '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  };
+
   return (
     <div style={{ background: NW_FONDO, color: NW_TINTA }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd).replace(/</g, '\\u003c') }} />
       <NavPublico />
 
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">

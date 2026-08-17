@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 import { esEspecialidadValida, ESPECIALIDAD_LABEL } from '@/lib/network/catalogo';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
+import { LEGAL } from '@/lib/legal-info';
 
 function ciudadDesdeParam(param: string): string {
   return decodeURIComponent(param).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -31,10 +32,16 @@ export default async function MarketplacePorCiudadYEspecialidadPage({
   const { ciudad, especialidad } = await params;
   if (!esEspecialidadValida(especialidad)) notFound();
   const nombreCiudad = ciudadDesdeParam(ciudad);
+  const nombreEspecialidad = ESPECIALIDAD_LABEL[especialidad];
   return (
     <MarketplaceLayout
       filtro={{ ...FILTRO_BASE, ciudad: nombreCiudad, especialidades: [especialidad] }}
       tituloCiudad={nombreCiudad}
+      migasPan={[
+        { name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
+        { name: nombreCiudad, item: `${LEGAL.url}/network/instructoras/ciudad/${ciudad}` },
+        { name: nombreEspecialidad, item: `${LEGAL.url}/network/instructoras/ciudad/${ciudad}/${especialidad}` },
+      ]}
     />
   );
 }
