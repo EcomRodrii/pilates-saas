@@ -236,7 +236,7 @@ export function SeccionExperienciaNetwork({ onExperienciasChange }: { onExperien
             <input
               className={inputCls} value={form.nombreEstudio}
               onChange={e => setForm(f => ({ ...f, nombreEstudio: e.target.value }))}
-              placeholder="Pilates Studio Barcelona"
+              placeholder="Nombre del estudio"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">

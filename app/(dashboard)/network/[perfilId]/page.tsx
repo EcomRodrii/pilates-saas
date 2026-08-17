@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL,
-  TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
+  TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL, tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { rangoAnios } from '@/lib/network/formato';
 import type { PerfilNetworkPublico, ExperienciaNetworkPublica, BadgesNetwork } from '@/lib/network/tipos';
@@ -116,7 +116,7 @@ export default function PerfilNetworkPage({ params }: { params: Promise<{ perfil
         <ArrowLeft size={13} /> Volver al buscador
       </Link>
 
-      <PageHeader title={perfil.nombre} description="Instructora de Pilates" />
+      <PageHeader title={perfil.nombre} description={tituloProfesionalDe(perfil.especialidades)} />
 
       <div className={`${cardCls} p-6`}>
         <div className="flex items-center gap-4">

@@ -45,6 +45,7 @@ import {
   TIPOS_TRABAJO_NETWORK, TIPO_TRABAJO_LABEL,
   TARIFAS_RANGO_NETWORK, TARIFA_RANGO_LABEL,
   DISPONIBILIDAD_ESTADOS_NETWORK, DISPONIBILIDAD_ESTADO_LABEL,
+  tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import type { PerfilNetwork, PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
@@ -784,7 +785,7 @@ function PasoRevisar({
             : <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: NW_SAGE }}><Camera size={18} color={NW_MUTED} /></div>}
           <div>
             <p className="text-[15px] font-extrabold" style={{ color: NW_TINTA }}>{perfil.nombre}</p>
-            <p className="text-[13px] font-bold" style={{ color: NW_PRODUCTO }}>Instructora de Pilates</p>
+            <p className="text-[13px] font-bold" style={{ color: NW_PRODUCTO }}>{tituloProfesionalDe(form.especialidades)}</p>
           </div>
         </div>
         <p className="text-[12.5px] mt-3" style={{ color: NW_MUTED_2 }}>{form.ciudad || 'Ciudad'} · {form.aniosExperiencia || '0'} años · {DISPONIBILIDAD_ESTADO_LABEL[form.disponibilidadEstado]}</p>

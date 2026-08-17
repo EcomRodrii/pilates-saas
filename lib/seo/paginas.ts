@@ -328,17 +328,17 @@ export const PAGINAS: PaginaSeo[] = [
   },
   ...FUNCIONALIDADES,
 
-  // ── Tentare Network — marketplace público de instructoras de Pilates ──────
+  // ── Tentare Network — marketplace público de instructoras de Pilates y Yoga ──
   // Rediseño 2026-08: `/network` pasa de ruta bloqueada (buscador privado de
   // la propietaria, movido a /network/buscar) a landing pública del
   // marketplace — ver el comentario sobre PREFIJOS_NO_INDEXABLES más arriba.
   {
     path: '/network',
-    titulo: 'Tentare Network — Encuentra tu instructora de Pilates',
-    descripcion: 'La red profesional de instructoras de Pilates. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+    titulo: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
+    descripcion: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
     grupo: 'funcionalidades',
     etiqueta: 'Tentare Network',
-    resumen: 'Descubre, conoce y contacta con instructoras de Pilates verificadas.',
+    resumen: 'Descubre, conoce y contacta con instructoras de Pilates y Yoga verificadas.',
     prioridad: 0.8,
     changeFrequency: 'weekly',
     relacionadas: ['/network/instructoras', '/funcionalidades/sustituciones'],
@@ -352,8 +352,8 @@ export const PAGINAS: PaginaSeo[] = [
   // vive en EXCEPCIONES_INDEXABLES, no aquí.
   {
     path: '/network/instructoras',
-    titulo: 'Instructoras de Pilates | Tentare Network',
-    descripcion: 'Encuentra instructoras de Pilates disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+    titulo: 'Instructoras de Pilates y Yoga | Tentare Network',
+    descripcion: 'Encuentra instructoras de Pilates y Yoga disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
     grupo: 'funcionalidades',
     etiqueta: 'Marketplace de instructoras',
     resumen: 'El marketplace de Tentare Network, con filtros reales.',

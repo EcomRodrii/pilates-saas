@@ -10,8 +10,8 @@ import { LEGAL } from '@/lib/legal-info';
 // [ciudad] y [ciudad]/[especialidad]) — esta página solo resuelve el
 // filtro desde la querystring, como antes.
 export const metadata: Metadata = {
-  title: 'Instructoras de Pilates | Tentare Network',
-  description: 'Encuentra instructoras de Pilates disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+  title: 'Instructoras de Pilates y Yoga | Tentare Network',
+  description: 'Encuentra instructoras de Pilates y Yoga disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
 };
 
 export default async function MarketplaceInstructorasPage({
