@@ -353,6 +353,10 @@ export default function ReservarPage() {
     if (widgetLoadedRef.current || !studio?.id) return;
     widgetLoadedRef.current = true;
     trackEventoWidget(studio.id, 'widget_loaded', { origen: searchParams.get('ref') });
+    // Fase 8 (CRO): en Modo A "cargado" y "visto" son el mismo instante
+    // (página completa, visible al pintar) — Modo B ya dispara los dos
+    // juntos (main.tsx), aquí faltaba este.
+    trackEventoWidget(studio.id, 'widget_viewed', { origen: searchParams.get('ref') });
   }, [studio?.id, searchParams]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
@@ -447,6 +451,16 @@ export default function ReservarPage() {
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
+
+  // Fase 8 (CRO): "vio el listado de clases" — una vez por sesión, mismo
+  // patrón guardia que widgetLoadedRef arriba. 'clases' es la pestaña por
+  // defecto, así que la mayoría de visitas lo disparan de inmediato.
+  const classListViewedRef = useRef(false);
+  useEffect(() => {
+    if (classListViewedRef.current || tab !== 'clases' || !studio?.id) return;
+    classListViewedRef.current = true;
+    trackEventoWidget(studio.id, 'class_list_viewed', {});
+  }, [tab, studio?.id]);
 
   // Auto-resize del <iframe> embebido (audit de rendimiento de los widgets):
   // el código que se copia en tab-api.tsx fija un `height` en px por widget —
@@ -551,7 +565,18 @@ export default function ReservarPage() {
   // pasaba nada al volver del correo y había que pulsar "Acceder" otra vez.
   // Esta rama SÍ depende del magic link, así que sigue exigiendo `autenticado`.
   const deepLinkHecho = useRef(false);
+  const leadCompletedRef = useRef(false);
   useEffect(() => {
+    // Fase 8 (CRO): volver aquí con `wsid` en la URL Y ya autenticada es
+    // justo el momento que lead_started no podía medir por sí solo — se
+    // pidió el enlace en una sesión/pestaña, se abrió (y autenticó) en
+    // otra. `wsid` viaja siempre junto a `sesion`/`acceso=1`
+    // (use-socia-session.ts), así que basta comprobarlo aquí, sin tocar el
+    // resto del deep-link. Ver docs/cro-analytics-widget-diseno.md §1.1.
+    if (!leadCompletedRef.current && autenticado && studio?.id && searchParams.get('wsid')) {
+      leadCompletedRef.current = true;
+      trackEventoWidget(studio.id, 'lead_completed', {});
+    }
     if (!mounted || deepLinkHecho.current) return;
     const sesionDeepLink = searchParams.get('sesion');
     if (sesionDeepLink) {
@@ -595,6 +620,11 @@ export default function ReservarPage() {
     if (compra !== 'ok' && compra !== 'cancelada') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee el parámetro de retorno de Stripe una sola vez y limpia la URL a continuación; depende de la URL, no de props ni estado.
     setPagoAviso(compra);
+    // Fase 8 (CRO): el propio Stripe diciendo "canceló" — más fiable que
+    // cualquier heurístico de tiempo. Ver docs/cro-analytics-widget-diseno.md §5.1.
+    if (compra === 'cancelada') {
+      trackEventoWidget(studio?.id, 'booking_abandoned', { socioId: socia?.socioId ?? null });
+    }
     const limpio = new URLSearchParams(searchParams.toString());
     limpio.delete('compra');
     router.replace(`/reservar/${slug}${limpio.toString() ? `?${limpio.toString()}` : ''}`, { scroll: false });
@@ -910,6 +940,7 @@ export default function ReservarPage() {
         setLoginStep('contrato');
       } else if (sesionId) {
         setLoginStep('confirm');
+        trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: sesionId });
       } else {
         // Acceso genérico (botón "Acceder" de la cabecera, sin clase elegida):
         // ya está todo hecho — autenticada, con ficha, contrato firmado — y no
@@ -925,6 +956,13 @@ export default function ReservarPage() {
   }
 
   function closeBooking() {
+    // Fase 8 (CRO): abandono conocido — ya se disparó booking_started
+    // (pasos 'confirm'/'espera'/'pendiente' en adelante) o ya iba camino de
+    // reservar (registro/contrato) y se cierra sin terminar. Cerrar desde
+    // 'login' no cuenta: ahí ni siquiera se ha intentado nada todavía.
+    if (['confirm', 'espera', 'pendiente', 'registro', 'contrato'].includes(loginStep) && bookingSesionId) {
+      trackEventoWidget(studio?.id, 'booking_abandoned', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
+    }
     setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
     setMostrarPasswordLogin(false); setLoginPassword('');
   }
@@ -1020,7 +1058,12 @@ export default function ReservarPage() {
     }
     // Con clase pendiente hay algo que confirmar; en acceso genérico ya
     // está todo hecho (ficha existente + contrato recién firmado arriba).
-    if (bookingSesionId) { setLoginStep('confirm'); } else { closeBooking(); }
+    if (bookingSesionId) {
+      setLoginStep('confirm');
+      trackEventoWidget(studio?.id, 'class_detail_viewed', { sesionClaseId: bookingSesionId });
+    } else {
+      closeBooking();
+    }
   }
 
   async function handleConfirm() {
@@ -1035,7 +1078,7 @@ export default function ReservarPage() {
     const gate = evaluarGate(socia?.socioId, sesion.tipoClaseId, sesion.inicio);
     if (gate) { setGateError(gate); return; }
 
-    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: bookingSesionId });
+    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
     setGateError('');
     confirmandoRef.current = true;
     setConfirmando(true);
@@ -1066,7 +1109,7 @@ export default function ReservarPage() {
       // dice, y el paso se queda donde estaba. Antes se saltaba a «done» siempre y
       // la clienta se iba convencida de tener plaza.
       if (!r.ok) { setGateError(r.error); return; }
-      trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: bookingSesionId });
+      trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
       if (r.estado === 'LISTA_ESPERA') {
         // Posición estimada: nº de personas ya en espera + 1 (I-11).
         const enEspera = reservas.filter(x => x.sesionId === bookingSesionId && x.estado === 'LISTA_ESPERA').length;
@@ -1090,7 +1133,7 @@ export default function ReservarPage() {
   //    elegido en la hoja se propaga a ese flujo (openBooking lo resetea primero,
   //    por eso se fija después).
   function handleReservarCalendario(slot: ReservaSlot, spotId: string | null): ResultadoReserva | void | Promise<ResultadoReserva | void> {
-    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: slot.id });
+    trackEventoWidget(studio?.id, 'booking_started', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
     if (!autenticado || !socia) {
       openBooking(slot.id);
       if (spotId) setSelectedSpot(spotId);
@@ -1110,7 +1153,7 @@ export default function ReservarPage() {
     // para pintar confirmación/lista de espera in situ).
     const resultado = addReserva(slot.id, socia.socioId, spotId);
     void resultado.then(r => {
-      if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id });
+      if (r.ok) trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: slot.id, socioId: socia?.socioId ?? null });
     }).catch(() => {});
     return resultado;
   }
@@ -1152,7 +1195,7 @@ export default function ReservarPage() {
         // efecto de siempre en /reservar/[slug] visitado directo).
         // Antes de navegar fuera: booking_completed se mide en Stripe (importe
         // real), esto solo marca que la visitante LLEGÓ a intentar pagar.
-        trackEventoWidget(studio?.id, 'checkout_started', { origen: searchParams.get('ref') });
+        trackEventoWidget(studio?.id, 'checkout_started', { origen: searchParams.get('ref'), socioId: socia?.socioId ?? null });
         (window.top ?? window).location.href = data.url;
       } else {
         setStripeError(data.error ?? 'Error al procesar el pago');
@@ -1494,14 +1537,14 @@ export default function ReservarPage() {
                     setFiltroHorario={setFiltroHorario}
                     filtroDias={filtroDias}
                     setFiltroDias={setFiltroDias}
-                    onCompletar={() => { setQuizAbierto(false); setQuizCompletado(true); }}
+                    onCompletar={() => { setQuizAbierto(false); setQuizCompletado(true); trackEventoWidget(studio?.id, 'recommendation_completed', {}); }}
                     onCerrar={() => setQuizAbierto(false)}
                   />
                 </div>
               ) : quizCompletado || hayFiltrosQuizActivos ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, fontSize: 12, color: 'var(--portal-muted-2)' }}>
                   Filtrado según tus preferencias
-                  <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); }}
+                  <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); trackEventoWidget(studio?.id, 'recommendation_started', {}); }}
                     style={{ color: PRIMARY_FG, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0 }}>
                     Cambiar
                   </button>
@@ -1518,7 +1561,7 @@ export default function ReservarPage() {
                 }}>
                   <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>{textosReservar.avisoQuiz || '¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.'}</span>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); }}
+                    <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); trackEventoWidget(studio?.id, 'recommendation_started', {}); }}
                       style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       Sí, ayúdame
                     </button>
@@ -2505,7 +2548,15 @@ export default function ReservarPage() {
                 <button onClick={handleConfirm} disabled={confirmando}
                   className="w-full py-3 rounded-2xl font-bold text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ backgroundColor: PRIMARY }}>
-                  {confirmando ? 'Confirmando…' : 'Confirmar reserva'}
+                  {confirmando
+                    ? 'Un momento…'
+                    // Fase 8 (CRO): el botón dice lo que de verdad va a pasar —
+                    // "nunca automático" también significa que el texto no
+                    // puede prometer una plaza confirmada cuando en realidad
+                    // apunta a lista de espera. Ver docs/cro-analytics-widget-diseno.md §5.3.
+                    : bookingSesion.ocupadas >= bookingSesion.aforoMaximo
+                      ? 'Avísame si se libera un hueco'
+                      : 'Confirmar reserva'}
                 </button>
               </div>
             )}

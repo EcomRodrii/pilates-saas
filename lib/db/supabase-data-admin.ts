@@ -1359,6 +1359,9 @@ function registrarIntentoFallido(admin: SupabaseClient, params: {
 // público que lo llama.
 export function registrarEventoWidget(admin: SupabaseClient, params: {
   studioId: string; sessionId: string; tipo: string; sesionClaseId?: string | null; origen?: string | null;
+  // Fase 8 (CRO): solo relevante en los eventos donde la visitante ya está
+  // identificada — ver el comentario de la columna en la migración.
+  socioId?: string | null;
 }): void {
   void admin.from('widget_eventos').insert({
     id: `evt-${uid()}`,
@@ -1367,13 +1370,26 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
     tipo: params.tipo,
     sesion_clase_id: params.sesionClaseId ?? null,
     origen: params.origen ?? null,
+    socio_id: params.socioId ?? null,
   }).then(({ error }) => {
-    // FK inválida (studio_id/sesion_id inexistentes desde un cliente con
-    // datos corruptos) no es un fallo del sistema — no genera ruido en Sentry.
+    // FK inválida (studio_id/sesion_id/socio_id inexistentes desde un
+    // cliente con datos corruptos) no es un fallo del sistema — no genera
+    // ruido en Sentry.
     if (error && error.code !== '23503') {
       capturarExcepcion(new Error(`registrarEventoWidget: ${error.message}`), { tags: { area: 'analitica-widget' } });
     }
   });
+
+  // Fase 8 (CRO): recuperación de un abandono conocido — inline, sin cron
+  // (docs/cro-analytics-widget-diseno.md §5.2). Riesgo de seguridad
+  // documentado ahí: socioId viaja sin JWT en este endpoint fire-and-forget.
+  if (params.tipo === 'booking_abandoned' && params.socioId) {
+    void import('@/lib/notifications/emit').then(({ emitirReservaAbandonada }) =>
+      emitirReservaAbandonada(admin, {
+        studioId: params.studioId, socioId: params.socioId!, sesionId: params.sesionClaseId ?? null,
+      }),
+    ).catch(() => {});
+  }
 }
 
 // Crea una reserva respetando aforo/lista de espera (booking-logic) y consume

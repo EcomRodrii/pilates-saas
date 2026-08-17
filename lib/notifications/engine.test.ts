@@ -43,6 +43,7 @@ test('automatizaciones: cada evento nuevo tiene regla + plantilla que renderiza'
     [EVENTOS.CLASE_CASI_LLENA, 'PROPIETARIO', { clase: 'Barre', cuando: 'hoy', porcentaje: 90, ocupadas: 9, aforo: 10 }, /Barre.*90%.*9\/10/],
     [EVENTOS.SOCIA_INACTIVA, 'PROPIETARIO', { socia: 'María', dias: 45 }, /María.*45 días/],
     [EVENTOS.RESERVA_OFERTA_LISTA_ESPERA, 'SOCIA', { clase: 'Reformer', cuando: 'hoy', hora: '19:30' }, /19:30.*Reformer.*hoy/],
+    [EVENTOS.RESERVA_ABANDONADA, 'SOCIA', { claseTexto: ' una plaza en Reformer (hoy)' }, /Reformer/],
   ];
   for (const [evento, rol, data, re] of casos) {
     assert.ok(REGLAS[evento], `falta regla para ${evento}`);

@@ -48,7 +48,12 @@ export function sessionIdWidget(): string {
 export function trackEventoWidget(
   studioId: string | null | undefined,
   tipo: TipoEventoWidget,
-  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string },
+  // `socioId` (Fase 8, CRO): solo tiene sentido en los eventos donde la
+  // visitante YA está identificada (booking_started/checkout_started/
+  // booking_completed/booking_abandoned) — nunca en los anónimos. Habilita
+  // la recuperación de un abandono conocido sin ampliar el diseño anónimo
+  // de esta tabla más de lo justo. Ver docs/cro-analytics-widget-diseno.md §5.2.
+  extra?: { sesionClaseId?: string | null; origen?: string | null; baseUrl?: string; socioId?: string | null },
 ): void {
   if (typeof window === 'undefined' || !studioId) return;
   try {
@@ -70,6 +75,7 @@ export function trackEventoWidget(
         sessionId: sessionIdWidget(),
         sesionClaseId: extra?.sesionClaseId ?? null,
         origen: extra?.origen ?? null,
+        socioId: extra?.socioId ?? null,
       }),
     }).catch(() => {});
   } catch {

@@ -73,6 +73,12 @@ export const EVENTOS = {
   // RESERVA_CONFIRMADA (emitirReserva) y la caducidad de la oferta reutiliza
   // RESERVA_CANCELADA (emitirReservaCancelada, motivo 'oferta_caducada').
   RESERVA_OFERTA_LISTA_ESPERA: 'reserva.oferta_lista_espera',
+  // Fase 8 "Booking Experience Engine" (CRO): la visitante ya identificada
+  // dejó algo a medias en el widget (cerró el modal de reserva ya iniciado, o
+  // canceló el pago en Stripe) — mismo criterio de recuperación legítima que
+  // un aviso de "tu bono caduca", nunca un patrón oscuro. Ver
+  // docs/cro-analytics-widget-diseno.md §5.2.
+  RESERVA_ABANDONADA: 'reserva.abandonada',
   // Cron de plazas fijas (materializar-plazas): esta semana NO se ha podido
   // generar la reserva automática de "tu reformer fijo" — sesión cancelada,
   // suscripción pausada, o sin aforo tras priorizar por antigüedad. Distinto
@@ -182,6 +188,11 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA, pero
   // aquí SÍ hace falta que actúe (no basta con enterarse).
   [EVENTOS.RESERVA_OFERTA_LISTA_ESPERA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'socia-del-evento' },
+  // Solo EMAIL a propósito (§5.2 del diseño): un push sería más intrusivo de
+  // lo que merece un recordatorio informativo, y el canal in-app no llega a
+  // quien todavía no ha vuelto a abrir la app. BAJA prioridad — informativo,
+  // sin urgencia real de negocio.
+  [EVENTOS.RESERVA_ABANDONADA]: { category: 'reservas', priority: 'BAJA', canales: ['EMAIL'], audiencia: 'socia-del-evento' },
   // clase.*: SIN EMAIL a propósito. El panel ya manda su propio correo a cada
   // alumna con plaza (enviarEmailCancelacionClase / avisarAlumnas) → declararlo
   // aquí les llegaría el mismo aviso dos veces.
@@ -356,6 +367,14 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_CANCELADA}#SOCIA`]: {
     title: 'Reserva cancelada',
     body: 'Se ha cancelado tu reserva de {clase} del {cuando}.{motivoTexto}',
+  },
+  // {claseTexto}: la clase concreta si la había ("tu plaza en {clase}"), o
+  // vacío para el camino de compra de plan cancelada en Stripe (sin sesión
+  // de clase asociada) — un solo texto, sin plantilla duplicada por caso.
+  [`${EVENTOS.RESERVA_ABANDONADA}#SOCIA`]: {
+    title: 'Dejaste algo a medias',
+    body: 'Viste{claseTexto} en nuestra web pero no llegaste a confirmarlo. Si quieres, puedes retomarlo cuando te venga bien.',
+    deepLink: (d: Datos) => `/reservar/${s(d.slug)}`,
   },
   // {motivoTexto} explica por qué, igual que en RESERVA_CANCELADA — mismo
   // patrón, tres motivos posibles según plazas_fijas_sin_materializar.

@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     tipo?: string;
     sesionClaseId?: string | null;
     origen?: string | null;
+    // Fase 8 (CRO): solo poblado por el cliente en los eventos donde la
+    // visitante ya está identificada — ver lib/reservar/eventos.ts.
+    socioId?: string | null;
   } | null;
 
   if (!body?.studioId || !body.sessionId || !body.tipo || !esTipoEventoValido(body.tipo)) {
@@ -44,6 +47,7 @@ export async function POST(req: NextRequest) {
     tipo: body.tipo,
     sesionClaseId: body.sesionClaseId ?? null,
     origen: body.origen ?? null,
+    socioId: body.socioId ?? null,
   });
 
   return conCorsWidget(req, NextResponse.json({ ok: true }));

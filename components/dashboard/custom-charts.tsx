@@ -13,7 +13,11 @@ const labelCls = 'text-[11px] font-semibold uppercase tracking-wide text-muted-f
 
 const COLORES = ['#F7A6C4', '#7AA80E', '#0369A1', '#D97706', '#7C3AED', '#DC2626'];
 
-function ChartLine({ points, color }: { points: { label: string; value: number }[]; color: string }) {
+// Exportados (Fase 8, CRO): genéricos de verdad — {label, value}[] + color,
+// sin depender de useStudio() ni de DashboardChart — la pantalla de
+// Crecimiento web (embudo del widget) los reutiliza tal cual en vez de traer
+// una librería de gráficos nueva. Ver docs/cro-analytics-widget-diseno.md §3.2.
+export function ChartLine({ points, color }: { points: { label: string; value: number }[]; color: string }) {
   const w = 400, h = 100;
   const max = Math.max(...points.map(p => p.value), 1);
   const step = points.length > 1 ? w / (points.length - 1) : 0;
@@ -35,7 +39,7 @@ function ChartLine({ points, color }: { points: { label: string; value: number }
   );
 }
 
-function ChartBars({ points, color }: { points: { label: string; value: number }[]; color: string }) {
+export function ChartBars({ points, color }: { points: { label: string; value: number }[]; color: string }) {
   const max = Math.max(...points.map(p => p.value), 1);
   return (
     <div className="flex items-end gap-1.5 h-24">

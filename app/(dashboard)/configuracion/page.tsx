@@ -32,6 +32,7 @@ const TabClasesSalas = dynamic(() => import('@/components/configuracion/tab-clas
 const TabCitas = dynamic(() => import('@/components/configuracion/tab-citas').then(m => m.TabCitas), { loading: () => <PanelSkeleton /> });
 const TabApi = dynamic(() => import('@/components/configuracion/tab-api').then(m => m.TabApi), { loading: () => <PanelSkeleton /> });
 const TabCuestionarioSalud = dynamic(() => import('@/components/configuracion/tab-cuestionario-salud').then(m => m.TabCuestionarioSalud), { loading: () => <PanelSkeleton /> });
+const TabCrecimientoWeb = dynamic(() => import('@/components/configuracion/tab-crecimiento-web').then(m => m.TabCrecimientoWeb), { loading: () => <PanelSkeleton /> });
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 export const inputCls =
@@ -230,7 +231,7 @@ export function NivelBadge({ nivel }: { nivel: TipoClase['nivel'] }) {
 
 // ─── Tab definition ───────────────────────────────────────────────────────────
 
-type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'api' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
+type TabId = 'planes' | 'clases-salas' | 'citas' | 'gamificacion' | 'integraciones' | 'estudio' | 'api' | 'crecimiento-web' | 'campos' | 'cuestionario-salud' | 'plantillas' | 'backups' | 'perfil';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'planes',      label: 'Planes y tarifas' },
@@ -240,6 +241,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'integraciones', label: 'Integraciones' },
   { id: 'estudio',     label: 'Estudio' },
   { id: 'api',         label: 'API' },
+  { id: 'crecimiento-web', label: 'Crecimiento web' },
   { id: 'campos',      label: 'Campos de clienta' },
   { id: 'cuestionario-salud', label: 'Cuestionario de salud' },
   { id: 'plantillas',  label: 'Emails' },
@@ -358,6 +360,7 @@ export default function ConfiguracionPage() {
       {activeTab === 'integraciones' && <TabIntegraciones showToast={showToast} />}
       {activeTab === 'estudio'     && <TabEstudio      showToast={showToast} sub={estudioSub} />}
       {activeTab === 'api'         && <TabApi          showToast={showToast} />}
+      {activeTab === 'crecimiento-web' && <TabCrecimientoWeb showToast={showToast} />}
       {activeTab === 'campos'      && <TabCamposPersonalizados showToast={showToast} />}
       {activeTab === 'cuestionario-salud' && <TabCuestionarioSalud showToast={showToast} />}
       {activeTab === 'plantillas'  && <TabPlantillasEmail showToast={showToast} />}

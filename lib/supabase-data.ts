@@ -2860,6 +2860,23 @@ export async function dbIngresosPorDia(desde: string | null): Promise<{ dia: str
   return ((data ?? []) as { dia: string; total: number }[]).map((r) => ({ dia: r.dia, total: Number(r.total) }));
 }
 
+// Fase 8 (CRO): embudo del widget público, agregado server-side, mismo
+// patrón que dbInformeIngresos/dbIngresosPorDia (0096). `desde` requerido —
+// a diferencia de ingresos, este embudo no tiene sentido "de siempre" (el
+// primer evento es de hace días, no meses). Ver
+// docs/cro-analytics-widget-diseno.md §2.1.
+export async function dbEmbudoWidget(desde: string): Promise<{ tipo: string; n: number }[]> {
+  const { data, error } = await supabase.rpc('embudo_widget', { p_desde: desde });
+  if (error) { reportDbError('[dbEmbudoWidget]', error); return []; }
+  return ((data ?? []) as { tipo: string; n: number }[]).map((r) => ({ tipo: r.tipo, n: Number(r.n) }));
+}
+
+export async function dbEmbudoWidgetPorDia(desde: string): Promise<{ dia: string; tipo: string; n: number }[]> {
+  const { data, error } = await supabase.rpc('embudo_widget_por_dia', { p_desde: desde });
+  if (error) { reportDbError('[dbEmbudoWidgetPorDia]', error); return []; }
+  return ((data ?? []) as { dia: string; tipo: string; n: number }[]).map((r) => ({ dia: r.dia, tipo: r.tipo, n: Number(r.n) }));
+}
+
 // Desglose de ventas por tipo (Planes/Bonos/Clases sueltas/Otros) para
 // /informes, agregado SERVER-SIDE (migr 20260810150000, mismo patrón que
 // dbInformeIngresos). `tipo` sale de planes_tarifa.tipo; los recibos sin
