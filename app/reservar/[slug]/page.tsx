@@ -31,6 +31,7 @@ import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } f
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
+import { semantic } from '@/lib/portal-tokens';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { horarioPublico, precioPorClase } from '@/lib/estudio-publico';
 import { ahorroPorcentaje } from '@/lib/reservar/ahorro-plan';
@@ -269,7 +270,7 @@ function telefonoValido(telefono: string): boolean {
 export default function ReservarPage() {
   const {
     sesiones, reservas, socios, tiposClase, salas, instructores, spots,
-    planesTarifa, suscripciones, studioConfig, studio, redesSociales,
+    planesTarifa, suscripciones, studioConfig, studio, redesSociales, dataLoaded,
     addReserva, updateSocio, cancelarReserva, aceptarOfertaEspera, addSocioFromPortal, planMasElegidoId, sustitucionesConfirmadas, textosReservar, bloquesReservar,
     aparienciaWidget,
     citasServicios, citasDisponibilidad, citas, reservarCitaPublica, cancelarCita,
@@ -289,11 +290,22 @@ export default function ReservarPage() {
     || (t === 'misreservas' && configHorario.mostrarMisReservas !== false)
     || (t === 'estudio' && configHorario.mostrarEstudio !== false)
     || (t === 'cuenta' && configHorario.mostrarCuenta !== false);
-  const estudioNombre = studio?.nombre ?? 'Tentare';
+  // ⚠️ Sin identidad inventada. Estos cuatro valores caían a los de Tentare y a
+  // una dirección de ejemplo ('Tentare', 'hola@tentare.es', '+34 951 000 000',
+  // 'Málaga · Calle Larios 12'). Se ven cuando `studio` es null — es decir,
+  // cuando los datos del estudio NO han cargado. Medido en el navegador con la
+  // API devolviendo 500: la página de reservas de un estudio se pintaba entera,
+  // con aspecto normal, anunciando el nombre y el teléfono de OTRA empresa a las
+  // clientas de ese estudio, y sin decir en ningún sitio que algo había fallado.
+  //
+  // Un hueco vacío es recuperable; una identidad equivocada en una página
+  // pública, no. Y el caso real de fallo ya no llega aquí: se corta antes con
+  // el estado de error de abajo.
+  const estudioNombre = studio?.nombre ?? '';
   const estudioLogo = studio?.logoUrl ?? null;
-  const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ') || 'Málaga · Calle Larios 12';
-  const estudioEmail = studio?.email ?? 'hola@tentare.es';
-  const estudioTelefono = studio?.telefono ?? '+34 951 000 000';
+  const estudioDireccion = [studio?.ciudad, studio?.direccion].filter(Boolean).join(' · ');
+  const estudioEmail = studio?.email ?? '';
+  const estudioTelefono = studio?.telefono ?? '';
   // La foto de portada. `fotoUrl` es la del estudio y `imagenBienvenidaUrl` la
   // que ya se usa en la bienvenida del portal — se prefiere la primera y se cae
   // a la segunda para no pedirle al estudio que suba dos veces lo mismo.
@@ -342,6 +354,10 @@ export default function ReservarPage() {
     () => (embedMode && modoTextoDe(apariencia) === 'noche' ? MODO_TOKENS.noche : RESERVAR_TOKENS),
     [embedMode, apariencia],
   );
+  // Widget incrustado sobre una web oscura. Se saca a su propia constante
+  // porque lo necesita algo más que los tokens del calendario — ver el aviso de
+  // error del checkout, más abajo.
+  const esNoche = embedMode && modoTextoDe(apariencia) === 'noche';
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
 
@@ -1324,6 +1340,67 @@ export default function ReservarPage() {
     (b): b is Exclude<typeof b, { kind: 'sistema' }> => b.kind !== 'sistema' && !b.oculto,
   );
 
+  // Los datos del estudio no cargaron. `dataLoaded` se pone a true también en
+  // el `catch` de `cargarPublico` (studio-context), así que "terminé de
+  // intentarlo y sigo sin estudio" es exactamente esta condición.
+  //
+  // Antes esto no se comprobaba y la página seguía adelante: se pintaba entera
+  // con los valores por defecto —el nombre y el teléfono de Tentare— y sin un
+  // solo aviso. Una clienta veía la página de reservas de su estudio con la
+  // marca de otra empresa y un horario vacío, y lo único que podía concluir es
+  // que su estudio ya no tiene clases.
+  //
+  // Se dice lo que pasa y se ofrece la salida. `location.reload()` y no un
+  // reintento fino a propósito: el fallo puede haber dejado a medias cualquiera
+  // de las cargas de esta pantalla, y volver a empezar es lo único que se puede
+  // prometer de verdad.
+  if (dataLoaded && !studio) {
+    return (
+      <>
+        {/* ⚠️ Los MISMOS tres canales de color que el render normal, y por el
+            mismo motivo (ver el bloque largo más abajo). Una pantalla de error
+            que se los salte es una losa casi blanca sobre la web oscura de un
+            estudio — justo el fallo que ya costó tres arreglos seguidos aquí:
+              1. el `<style>` de html/body, porque el `<body>` del iframe pinta
+                 su fondo opaco POR DEBAJO aunque este div sea transparente;
+              2. `fondoCss(apariencia)`, para que «transparente» lo sea;
+              3. los tokens por PROP (`tokensCalendario`) y no
+                 `var(--portal-ink)`, porque el color del texto de esta página
+                 no viaja por variables CSS. */}
+        {embedMode && (
+          <style>{`html,body{background:${fondoCss(apariencia) ?? 'var(--portal-bg)'} !important;}`}</style>
+        )}
+        <div style={{
+          minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, background: fondoCss(apariencia) ?? 'var(--portal-bg)',
+          fontFamily: fuenteWidget ?? sans,
+        }}>
+          <div style={{ maxWidth: 380, textAlign: 'center' }}>
+            {/* Serif y tamaño fijo, no `heading()`: ese usa `cq()`, que necesita
+                un ancestro con `container-type`, y esta pantalla es autónoma. */}
+            <h1 style={{ fontFamily: serif, fontSize: 26, lineHeight: 1.1, color: tokensCalendario.ink, marginBottom: 10 }}>
+              No hemos podido cargar el horario
+            </h1>
+            <p style={{ fontSize: 14, lineHeight: 1.5, color: tokensCalendario.muted, marginBottom: 22 }}>
+              Ha sido un problema nuestro, no del enlace. Vuelve a intentarlo en un momento.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                height: 48, padding: '0 26px', borderRadius: R.pillBtnSm, border: 'none',
+                background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
     {/* ⚠️ **Sin esto, «transparente» NO es transparente.** El `background` del
@@ -2064,8 +2141,23 @@ export default function ReservarPage() {
         <div style={{ order: orden('bonos'), borderTop: '1px solid var(--portal-surface-2)', padding: `${cq(30, 3.6, 50)} ${cq(20, 3.8, 48)}` }}>
           <div style={{ maxWidth: 1280, marginInline: 'auto' }}>
             <h2 style={{ fontFamily: serif, fontSize: cq(22, 2.6, 34), lineHeight: 1.15, textAlign: 'center', marginBottom: 6 }}>Bonos y membresías</h2>
+            {/* ⚠️ Sin las clases `text-destructive`/`bg-destructive` del PANEL.
+                Esas no participan del modo del widget: medido, el aviso salía
+                EXACTAMENTE igual en claro y en oscuro —rojo teja #A8442A sobre
+                un fondo al 10 %—, que sobre una web oscura da ~2,8:1 y no llega
+                a AA con texto de 13 px. Justo el error que la alumna más
+                necesita poder leer: el que le dice que su pago no ha arrancado.
+                `semantic.danger` sí tiene variante de noche. */}
             {stripeError && (
-              <div className="text-destructive bg-destructive/10 border border-destructive/30" style={{ marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13 }}>
+              <div
+                role="alert"
+                style={{
+                  marginTop: 12, padding: '10px 16px', borderRadius: 14, fontSize: 13,
+                  color: esNoche ? semantic.danger.textNoche : semantic.danger.text,
+                  background: semantic.danger.soft,
+                  border: `1px solid ${esNoche ? semantic.danger.textNoche : semantic.danger.text}33`,
+                }}
+              >
                 {stripeError}
               </div>
             )}
