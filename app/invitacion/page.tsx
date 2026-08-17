@@ -50,7 +50,21 @@ export default function PaginaInvitacion() {
     // Si hay otra sesión abierta (el caso que rompía el flujo), se cierra antes
     // de mandar al alta: si no, el login rebota al panel de esa otra persona.
     if (user) await signOut();
-    window.location.href = '/login?destino=/dashboard&alta=1';
+    // El token viaja TAMBIÉN por la URL, no solo en sessionStorage (que
+    // `cargar()` ya guardó al entrar). Detectado en producción: una
+    // propietaria invitó a alguien como PROPIETARIO, el alta y el código OTP
+    // fueron perfectos, pero la cuenta acabó sin vincular a ningún estudio
+    // (recayó en el enrutado de Tentare Network) — sessionStorage se había
+    // vaciado en el salto de esta pantalla a /login, sin dejar rastro de la
+    // causa exacta (partición de almacenamiento del navegador, un cliente de
+    // correo reescribiendo el enlace...). Pasarlo también por la URL (mismo
+    // origen, sin el problema de "emailRedirectTo debe coincidir con las
+    // redirect URLs permitidas" que sí aplica al enlace del CORREO — ver
+    // lib/equipo/invitacion-pendiente.ts) le da una segunda vía que no
+    // depende de que ese storage sobreviva el salto.
+    const token = new URLSearchParams(window.location.search).get('token');
+    const destino = `/login?destino=/dashboard&alta=1${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    window.location.href = destino;
   }
 
   const caja = 'w-full max-w-sm rounded-2xl border border-border bg-card px-6 py-7 text-center flex flex-col gap-3';
