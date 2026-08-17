@@ -15,14 +15,17 @@ import type { DatosPortal, PlazaPortal, StudioClass } from "@/lib/portal-tema/ti
 
 export type { DatosPortal, StudioClass } from "@/lib/portal-tema/tipos";
 
+// La semana de muestra. `fecha` va junto al `num` por el mismo motivo que en
+// `StudioClass`: comparar por número de día miente en cuanto hay dos meses en
+// juego, y la rejilla del mes siempre trae celdas de los vecinos.
 export const DAYS = [
-  { key: "lun", label: "LUN", num: 3 },
-  { key: "mar", label: "MAR", num: 4 },
-  { key: "mie", label: "MIÉ", num: 5 },
-  { key: "jue", label: "JUE", num: 6 },
-  { key: "vie", label: "VIE", num: 7 },
-  { key: "sab", label: "SÁB", num: 8 },
-  { key: "dom", label: "DOM", num: 9 },
+  { key: "lun", label: "LUN", num: 3, fecha: "2026-09-03" },
+  { key: "mar", label: "MAR", num: 4, fecha: "2026-09-04" },
+  { key: "mie", label: "MIÉ", num: 5, fecha: "2026-09-05" },
+  { key: "jue", label: "JUE", num: 6, fecha: "2026-09-06" },
+  { key: "vie", label: "VIE", num: 7, fecha: "2026-09-07" },
+  { key: "sab", label: "SÁB", num: 8, fecha: "2026-09-08" },
+  { key: "dom", label: "DOM", num: 9, fecha: "2026-09-09" },
 ] as const;
 
 
@@ -47,17 +50,17 @@ const salaReformer = (ocupadas: readonly number[]): PlazaPortal[] =>
   }));
 
 export const CLASSES: StudioClass[] = [
-  { id: "c1", name: "Pilates Reformer", fotoUrl: imagenDeClase({ nombre: "Pilates Reformer" }), type: "reformer", day: 4, time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: salaReformer([2, 3, 5, 6, 8]),
+  { id: "c1", name: "Pilates Reformer", fotoUrl: imagenDeClase({ nombre: "Pilates Reformer" }), type: "reformer", day: 4, fecha: "2026-09-04", time: "18:00", end: "19:00", startsAt: "2026-09-04T16:00:00.000Z", endsAt: "2026-09-04T17:00:00.000Z", duration: "50 min", room: "Sala 2", level: "Intermedio", teacher: "Marta Gómez", initial: "M", seats: 3, plazas: salaReformer([2, 3, 5, 6, 8]),
     description: "Clase dinámica para trabajar fuerza, flexibilidad y control. Enfoque en técnica y respiración.", benefits: ["Mejorar fuerza", "Reformer"], cancelHoras: 6 },
-  { id: "c2", name: "Pilates de suelo", fotoUrl: imagenDeClase({ nombre: "Pilates de suelo" }), type: "suelo", day: 4, time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
+  { id: "c2", name: "Pilates de suelo", fotoUrl: imagenDeClase({ nombre: "Pilates de suelo" }), type: "suelo", day: 4, fecha: "2026-09-04", time: "10:00", end: "10:50", startsAt: "2026-09-04T08:00:00.000Z", endsAt: "2026-09-04T08:50:00.000Z", duration: "50 min", room: "Sala A", level: "Todos", teacher: "Emma Ruiz", initial: "E", seats: 6, plazas: [],
     description: "Trabajo de cuerpo completo sobre colchoneta. Control del centro y movilidad de columna.", benefits: ["Pilates suelo", "Mejorar movilidad"], cancelHoras: 6 },
-  { id: "c3", name: "Reformer fuerza", fotoUrl: imagenDeClase({ nombre: "Reformer fuerza" }), type: "reformer", day: 5, time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: salaReformer([4]),
+  { id: "c3", name: "Reformer fuerza", fotoUrl: imagenDeClase({ nombre: "Reformer fuerza" }), type: "reformer", day: 5, fecha: "2026-09-05", time: "09:00", end: "09:50", startsAt: "2026-09-05T07:00:00.000Z", endsAt: "2026-09-05T07:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Avanzado", teacher: "Sofía Marín", initial: "S", seats: 12, plazas: salaReformer([4]),
     description: "Sesión de cuerpo completo en reformer. Trabajo de control, resistencia y alineación.", benefits: ["Entrenamiento avanzado", "Reformer"], cancelHoras: 6 },
-  { id: "c4", name: "Pilates prenatal", fotoUrl: imagenDeClase({ nombre: "Pilates prenatal" }), type: "prenatal", day: 5, time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
+  { id: "c4", name: "Pilates prenatal", fotoUrl: imagenDeClase({ nombre: "Pilates prenatal" }), type: "prenatal", day: 5, fecha: "2026-09-05", time: "11:30", end: "12:15", startsAt: "2026-09-05T09:30:00.000Z", endsAt: "2026-09-05T10:15:00.000Z", duration: "45 min", room: "Sala A", level: "Suave", teacher: "Nuria Peña", initial: "N", seats: 4, plazas: [],
     description: "Adaptada a cada trimestre. Suelo pélvico, respiración y alivio de la zona lumbar.", benefits: ["Empezar desde cero", "Mejorar movilidad"], cancelHoras: 6 },
-  { id: "c5", name: "Reformer suave", fotoUrl: imagenDeClase({ nombre: "Reformer suave" }), type: "reformer", day: 6, time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: salaReformer([1, 2, 3, 4, 5, 6, 7, 8]),
+  { id: "c5", name: "Reformer suave", fotoUrl: imagenDeClase({ nombre: "Reformer suave" }), type: "reformer", day: 6, fecha: "2026-09-06", time: "19:00", end: "19:50", startsAt: "2026-09-06T17:00:00.000Z", endsAt: "2026-09-06T17:50:00.000Z", duration: "50 min", room: "Sala 2", level: "Iniciación", teacher: "Marta Gómez", initial: "M", seats: 0, plazas: salaReformer([1, 2, 3, 4, 5, 6, 7, 8]),
     description: "Ritmo pausado y muchas correcciones. La mejor puerta de entrada al reformer.", benefits: ["Empezar desde cero", "Reformer"], cancelHoras: 6 },
-  { id: "c6", name: "Abdomen y espalda", fotoUrl: imagenDeClase({ nombre: "Abdomen y espalda" }), type: "suelo", day: 7, time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
+  { id: "c6", name: "Abdomen y espalda", fotoUrl: imagenDeClase({ nombre: "Abdomen y espalda" }), type: "suelo", day: 7, fecha: "2026-09-07", time: "08:00", end: "08:40", startsAt: "2026-09-07T06:00:00.000Z", endsAt: "2026-09-07T06:40:00.000Z", duration: "40 min", room: "Sala A", level: "Intermedio", teacher: "Emma Ruiz", initial: "E", seats: 5, plazas: [],
     description: "Cuarenta minutos centrados en el core y la cadena posterior. Empieza bien el día.", benefits: ["Mejorar fuerza", "Pilates suelo"], cancelHoras: 6 },
 ];
 
@@ -102,6 +105,21 @@ export const TABS = [
   { key: "inicio", label: "Inicio", icon: "home" },
   { key: "clases", label: "Clases", icon: "calendar" },
   { key: "reservas", label: "Reservas", icon: "bookmark" },
+  { key: "perfil", label: "Perfil", icon: "user" },
+] as const;
+
+/**
+ * Las mismas cuatro de `TABS`, pero la tercera es «Agenda» con un reloj — la
+ * barra de Sereno (`tab_set: "agenda"`, ver `TabSet` en tipos-tema.ts).
+ *
+ * La pantalla es la MISMA (`reservas`): lo que cambia es cómo la llama el
+ * tema. Sereno la titula «Mi agenda» porque enseña la semana y el mes, no solo
+ * la lista de lo reservado.
+ */
+export const TABS_AGENDA = [
+  { key: "inicio", label: "Inicio", icon: "home" },
+  { key: "clases", label: "Clases", icon: "calendar" },
+  { key: "reservas", label: "Agenda", icon: "clock" },
   { key: "perfil", label: "Perfil", icon: "user" },
 ] as const;
 

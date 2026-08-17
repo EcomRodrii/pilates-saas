@@ -17,6 +17,17 @@ export interface StudioClass {
   type: string;
   /** Día del MES (no día de la semana): es lo que casa con la rejilla. */
   day: number;
+  /**
+   * La fecha local completa, 'YYYY-MM-DD'.
+   *
+   * ⚠️ `day` NO basta para comparar, y este adaptador ya se comió ese bug una
+   * vez: «una clase del 5 de septiembre tiene `day` 5 igual que el 5 de agosto
+   * y se colaba en el horario» (ver `clasesDeLaSemana`). Dentro de UNA semana
+   * los números no se repiten, así que la tira funciona con `day`; en cuanto
+   * algo compara contra la rejilla del MES —que trae celdas de los meses
+   * vecinos— hace falta la fecha entera.
+   */
+  fecha: string;
   time: string;
   end: string;
   /**
@@ -68,6 +79,13 @@ export interface DiaPortal {
   label: string;
   /** Día del mes, para casar con `StudioClass.day`. */
   num: number;
+  /**
+   * La fecha local completa, 'YYYY-MM-DD'. `diasDeLaSemana` ya la calculaba y
+   * `semanaDe` la tiraba; se conserva por el mismo motivo que
+   * `StudioClass.fecha`: comparar por número de día miente en cuanto hay dos
+   * meses en juego.
+   */
+  fecha: string;
 }
 
 export interface FiltroPortal {

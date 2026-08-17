@@ -4,7 +4,7 @@ import { IMAGENES_CLASE } from "@/lib/imagenes-por-defecto";
 import { useMemo } from "react";
 import { ICON_PATHS, type IconName } from "@/components/portal-tema/components/ui/Icon";
 import {
-  CHALLENGES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_CON_CENTRO, WEEK_BARS,
+  CHALLENGES, EXERCISES, NOTIFICATIONS, QUICK_LINKS, TABS, TABS_AGENDA, TABS_CON_CENTRO, WEEK_BARS,
   buscarClase, etiquetaDia, plural,
 } from "@/components/portal-tema/data/studio";
 import { rejillaMesPortal } from "@/lib/portal-tema/datos";
@@ -260,6 +260,49 @@ export function useViewModel() {
         }];
       }),
 
+      // ── La Agenda: semana, mes y lista ──────────────────────────────────
+      //
+      // ⚠️ Los puntos marcan SUS reservas, no el horario del estudio. Es la
+      // diferencia entre las dos pantallas: `week`/`calendar` (arriba) marcan
+      // los días en que HAY clase, porque sirven para ir a reservar; aquí un
+      // punto significa «ese día tienes algo». Se consigue pasándole a
+      // `rejillaMesPortal` sus clases en vez de todas — misma función, otra
+      // entrada, cero código nuevo de rejilla.
+      //
+      // ⚠️ `vista` la usa solo el tema que la pide; los demás siguen viendo la
+      // lista de siempre y ni pintan el segmentado.
+      agenda: (() => {
+        const suyas = idsReservados
+          .map((id) => buscarClase(datos, id))
+          .filter((c): c is NonNullable<typeof c> => !!c);
+        const conReserva = new Set(suyas.map((c) => c.fecha));
+        const mes = rejillaMesPortal(new Date(datos.ahoraISO), suyas, state.day);
+        // ⚠️ El día elegido se resuelve a FECHA antes de filtrar, y no es
+        // ceremonia: `state.day` es un número de día y la rejilla del mes trae
+        // celdas de los meses vecinos, así que «4» puede ser el 4 de este mes o
+        // el del siguiente. Con el número a secas, seleccionar el 4 de agosto
+        // sacaba una clase del 4 de septiembre — visto en pantalla. La celda
+        // seleccionada ya sabe su fecha; la tira de la semana también.
+        //
+        // Esto NO resuelve la limitación de fondo (`state.day` sigue siendo un
+        // número, así que la rejilla no puede navegar a otro mes — ver
+        // `Calendar.tsx`); solo impide que esta pantalla mienta con ella.
+        const fechaElegida = mes.cells.find((c) => c.selected)?.fecha
+          ?? datos.dias.find((d) => d.num === state.day)?.fecha
+          ?? null;
+        return {
+          vista: state.agendaVista,
+          semana: datos.dias.map((d) => ({
+            label: d.label, num: d.num,
+            active: state.day === d.num,
+            hasClass: conReserva.has(d.fecha),
+          })),
+          mes,
+          /** Las del día elegido, para la vista de semana y la de mes. */
+          delDia: fechaElegida ? suyas.filter((c) => c.fecha === fechaElegida).map((c) => c.id) : [],
+        };
+      })(),
+
       pass: {
         name: datos.bono.name, left: passLeft, total: datos.bono.total, expires: datos.bono.expires,
         // Sin bono no hay porcentaje que enseñar, y dividir por cero daría NaN.
@@ -435,7 +478,7 @@ export function useViewModel() {
         normas: datos.estudio.normas,
       },
 
-      tabs: (f.tab_set === "centro" ? TABS_CON_CENTRO : TABS).map((t) => ({
+      tabs: (f.tab_set === "centro" ? TABS_CON_CENTRO : f.tab_set === "agenda" ? TABS_AGENDA : TABS).map((t) => ({
         key: t.key, label: t.label, icon: t.icon as IconName,
         active: state.tab === t.key,
         fill: state.tab === t.key && f.tab_icon_fill ? "currentColor" : "none",

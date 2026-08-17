@@ -59,6 +59,12 @@ export interface PortalState {
   horarioTab: 'clases' | 'espera';
   /** Pestaña abierta en «Mis bonos». Solo la usa `passes_style: "cartera"`. */
   bonosTab: 'bonos' | 'historial';
+  /**
+   * Vista de la Agenda: semana, mes o lista. Solo la usa el tema que pide la
+   * agenda con segmentado (Sereno); el resto siguen viendo la lista de siempre
+   * y ni pintan el control.
+   */
+  agendaVista: 'semana' | 'mes' | 'lista';
   /** Qué sección abre «Información del centro». */
   infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
   /**
@@ -88,6 +94,18 @@ export interface PortalState {
      * `mensajeDeFalloAlGuardar` reserva para un fallo de red de verdad.
      */
     | { tipo: 'errorReserva'; classId: string; mensaje: string; reintentable: boolean }
+    /**
+     * El rechazo se explica solo: no tiene ningún bono ni plan activo, así que
+     * no hay nada que reintentar — hay que comprar.
+     *
+     * ⚠️ NO es una comprobación PREVIA que le impida pulsar. Se decide DESPUÉS
+     * de que el servidor haya dicho que no, y solo cuando su cartera está
+     * vacía de verdad. Adivinarlo antes bloquearía a quien sí puede reservar:
+     * un estudio puede tener `reserva_exigir_plan` desactivado, y un plan
+     * ilimitado no cuenta sesiones. Aquí quien decide sigue siendo el servidor;
+     * esto solo elige qué hoja lo cuenta.
+     */
+    | { tipo: 'sinCreditos'; classId: string }
     | null;
 }
 
@@ -117,6 +135,9 @@ const initialState = (): PortalState => ({
   ultimaReserva: null,
   horarioTab: 'clases',
   bonosTab: 'bonos',
+  // Semana primero: es la vista que responde «¿qué tengo esta semana?», que es
+  // a lo que se entra en la agenda.
+  agendaVista: 'semana',
   infoKey: 'horario',
   hoja: null,
 });
@@ -169,6 +190,7 @@ export interface PortalActions {
   setFilter(key: string): void;
   setHorarioTab(tab: 'clases' | 'espera'): void;
   setBonosTab(tab: 'bonos' | 'historial'): void;
+  setAgendaVista(vista: 'semana' | 'mes' | 'lista'): void;
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
   goMisDatos(): void;
@@ -599,6 +621,7 @@ export function PortalProvider({
       setFilter: (key) => set({ filter: key }),
       setHorarioTab: (horarioTab) => set({ horarioTab }),
       setBonosTab: (bonosTab) => set({ bonosTab }),
+      setAgendaVista: (agendaVista) => set({ agendaVista }),
       // Elegir el bono es un paso propio en Tentada; en los otros temas la
       // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
       goBuy: () => ir({ screen: "comprar" }),
@@ -665,9 +688,19 @@ export function PortalProvider({
               // cayó la conexión, «Reintentar» tiene que pedir el MISMO sitio.
               // Soltarla aquí convertía el segundo intento en «que me la
               // asignen», que no es lo que ella eligió.
+              //
+              // Y si su cartera está vacía, el rechazo tiene una salida mejor
+              // que «reintentar»: comprar. La decisión la sigue tomando el
+              // servidor —esto solo elige qué hoja lo explica— y se mira la
+              // cartera ENTERA (`bonos`), no el bono contable: un plan
+              // ilimitado no tiene sesiones que contar y `bono.total` sería 0
+              // teniéndolo activo.
+              const sinNada = datosRef.current.bonos.length === 0;
               return set({
                 loading: false,
-                hoja: { tipo: 'errorReserva', classId, mensaje: r.error, reintentable: r.error === ERROR_RED },
+                hoja: sinNada
+                  ? { tipo: 'sinCreditos', classId }
+                  : { tipo: 'errorReserva', classId, mensaje: r.error, reintentable: r.error === ERROR_RED },
               });
             }
             set({ loading: false, spotElegido: null });
