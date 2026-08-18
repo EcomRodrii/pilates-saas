@@ -15,7 +15,9 @@
 // mismos que ya expone `lib/portal-paleta.ts` — esta pantalla YA es la fuente
 // de ese diseño, así que no hace falta una sexta paleta.
 import type { CSSProperties } from 'react';
-import { serif, sans, EASE } from './portal-design';
+import { serif, sans, EASE } from './portal-design.ts';
+import { MODO_TOKENS } from './portal-paleta.ts';
+import { radiosDe, coloresDe, familiaCss, familiaDisplayCss, type AparienciaWidget } from './reservar/apariencia-widget.ts';
 
 export { serif, sans, EASE };
 
@@ -72,3 +74,30 @@ export function heading(vw: [number, number, number], it = false): CSSProperties
 
 export const easeCard = `border-color .4s ease, background .4s ease, transform .5s ${EASE}`;
 export const easeBtn = `background .35s ease, transform .45s ${EASE}`;
+
+/**
+ * Los tokens de esta pantalla, con la apariencia del estudio (Fase 1 del
+ * rediseño, docs/widget-reservas-theme-builder-diseno.md) pisando encima de
+ * los valores fijos de siempre — nunca al revés. Sin ningún campo tocado,
+ * esto devuelve EXACTAMENTE `MODO_TOKENS.dia`/`.noche` + los radios de
+ * arriba: cero cambio visual para un estudio que no personalice nada.
+ *
+ * El acento (`--portal-brand`) se queda fuera a propósito — es blanco-etiqueta
+ * por estudio y ya vive como custom property CSS, no como valor JS; los
+ * consumidores lo leen directamente (`var(--portal-brand)`), igual que ya
+ * hace el resto de esta página.
+ */
+export function resolverTokensReservar(a: AparienciaWidget, modo: 'dia' | 'noche' = 'dia') {
+  const base = MODO_TOKENS[modo];
+  const colores = coloresDe(a, {
+    superficie: base.surface, tinta: base.ink, textoSecundario: base.muted,
+    linea: base.line, relleno: base.surface2,
+  });
+  const radios = radiosDe(a, { tarjeta: radius.card, boton: radius.pill, input: radius.spot });
+  return {
+    ...colores,
+    ...radios,
+    fuenteUI: familiaCss(a) ?? sans,
+    fuenteDisplay: familiaDisplayCss(a) ?? familiaCss(a) ?? serif,
+  };
+}
