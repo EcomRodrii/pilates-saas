@@ -149,8 +149,21 @@ const PANTALLAS = {
   avisos: Avisos,
 } as const;
 
-/** Las que sí manda la URL. Ver `pantallasDeRuta` en el store. */
+/** Las que sí manda la URL. */
 const PANTALLAS_DE_RUTA = Object.values(RUTA_A_PANTALLA);
+
+/**
+ * Las que este kit pinta SIN ruta propia — el detalle de una clase y la
+ * confirmación. Son las ÚNICAS que pueden quedarse por encima de la ruta.
+ *
+ * ⚠️ Se calcula restando, no a mano: una pantalla nueva sin ruta entra sola, y
+ * —más importante— nada que no pinte este kit puede colarse. Cuando esto se
+ * expresaba al revés (la lista de las que SÍ tienen ruta, y mandaba el store
+ * para todo lo demás), el estado inicial `welcome` bloqueaba la ruta desde el
+ * primer render y el portal se quedaba sin barra de pestañas y sin responder.
+ */
+const PANTALLAS_SIN_RUTA = (Object.keys(PANTALLAS) as ScreenId[])
+  .filter((p) => !(PANTALLAS_DE_RUTA as string[]).includes(p));
 
 /**
  * `null` = esta ruta NO la cubre el kit y tiene que seguir con el portal
@@ -401,7 +414,7 @@ export function PortalTemaMarco() {
         // pinta, que es lo correcto en la previsualización.
         aspecto={aspecto}
         compra={compra}
-        pantallasDeRuta={PANTALLAS_DE_RUTA}
+        pantallasSinRuta={PANTALLAS_SIN_RUTA}
         pantalla={pantalla}
         // El día de HOY en la semana del estudio, no el 4 de la demo.
         diaPorDefecto={hoy}
