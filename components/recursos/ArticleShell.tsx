@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ACC } from '@/components/landing/theme';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
 
@@ -64,6 +65,11 @@ export function ArticleShell({
 
   return (
     <>
+      {/* Todas las páginas que usan este armazón (9 guías de /recursos + la
+          comparativa larga de Glofox) llevaban Article/Breadcrumb propios pero
+          ninguna Organization/WebSite — auditoría SEO 2026-08-18. Un único
+          punto, no 10 imports repetidos. */}
+      <OrganizationStructuredData />
       <div ref={barRef} style={{ position: 'fixed', top: 0, left: 0, height: 3, width: 0, background: ACC, zIndex: 120, boxShadow: '0 0 10px rgba(90,97,66,.5)' }} />
       <SiteNav {...(backHref ? { backHref, backLabel } : {})} />
 
