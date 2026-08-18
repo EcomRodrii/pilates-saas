@@ -8,7 +8,7 @@ import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
 import { TarjetaInstructora } from '@/components/network-v2/TarjetaInstructora';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
 
 // Landing pública de Tentare Network (1a del rediseño) — Server Component:
 // "sin esto Google ve un div vacío", mismo criterio que ya usa
@@ -156,8 +156,8 @@ export default async function NetworkLandingPage() {
         <div className="mt-10 flex flex-col gap-3.5">
           {PROBLEMA_ITEMS.map(item => (
             <div key={item.sin} className="grid sm:grid-cols-2 gap-3.5">
-              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: '#F4F2EC', color: '#6B6B62' }}>
-                <span className="mt-0.5 flex-shrink-0" style={{ color: '#B0AFA4' }}>✕</span>
+              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: NW_PROBLEMA.fondo, color: NW_PROBLEMA.texto }}>
+                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PROBLEMA.icono }}>✕</span>
                 <p className="text-[14.5px] leading-[1.55] m-0">{item.sin}</p>
               </div>
               <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl font-medium" style={{ background: NW_ESTADO.verificada.fondo, color: NW_TINTA }}>
@@ -194,12 +194,12 @@ export default async function NetworkLandingPage() {
           <Link
             href="/network/crear-perfil"
             className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold"
-            style={{ background: '#F1ECE1', color: NW_VERDE_OSCURO }}
+            style={{ background: NW_SAND, color: NW_VERDE_OSCURO }}
           >
             Crear perfil gratis
           </Link>
         </div>
-        <div className="rounded-[24px] p-10 bg-white" style={{ border: '1px solid #E5E3DA' }}>
+        <div className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
           <h2 className="text-[24px] font-extrabold leading-tight">
             Soy propietaria — Encuentra a tu <span style={{ color: NW_PRODUCTO }}>próxima instructora</span>.
           </h2>
@@ -220,7 +220,7 @@ export default async function NetworkLandingPage() {
         <h2 className="text-[26px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
         <div className="mt-8 grid sm:grid-cols-3 gap-6">
           {CONFIANZA_ITEMS.map(item => (
-            <div key={item.titulo} className="rounded-2xl p-6 bg-white" style={{ border: '1px solid #E5E3DA' }}>
+            <div key={item.titulo} className="rounded-2xl p-6 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
               <h3 className="text-[16px] font-extrabold">{item.titulo}</h3>
               <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
             </div>
@@ -232,7 +232,7 @@ export default async function NetworkLandingPage() {
         <h2 className="text-[26px] font-extrabold tracking-tight">Preguntas frecuentes</h2>
         <div className="mt-8 flex flex-col gap-3">
           {FAQ_ITEMS.map(item => (
-            <details key={item.q} className="group rounded-2xl px-5 py-4 bg-white" style={{ border: '1px solid #E5E3DA' }}>
+            <details key={item.q} className="group rounded-2xl px-5 py-4 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
               <summary className="text-[15px] font-bold cursor-pointer list-none flex items-center justify-between gap-4">
                 {item.q}
                 <span className="text-[18px] font-normal group-open:rotate-45 transition-transform" style={{ color: NW_PRODUCTO }}>+</span>

@@ -50,7 +50,7 @@ import {
 } from '@/lib/network/catalogo';
 import type { PerfilNetwork, PerfilIdentidadNetwork, VerificacionIdentidadNetwork, CertificacionNetwork } from '@/lib/network/tipos';
 import { PASOS_ONBOARDING as PASOS, pasoIncompletoDe } from '@/lib/network/pasos-onboarding';
-import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_ESTADO } from '@/components/network-v2/tokens';
+import { NW_TINTA, NW_MUTED, NW_MUTED_2, NW_BORDE, NW_SAGE, NW_PRODUCTO, NW_ESTADO, NW_FONDO } from '@/components/network-v2/tokens';
 
 const inputCls = 'w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none';
 const inputStyle = { border: `1px solid ${NW_BORDE}`, color: NW_TINTA };
@@ -408,7 +408,7 @@ export default function CrearPerfilNetworkPage() {
   const pasoActual = PASOS[paso];
 
   return (
-    <div className="min-h-dvh flex flex-col lg:flex-row" style={{ background: '#FAF9F5' }}>
+    <div className="min-h-dvh flex flex-col lg:flex-row" style={{ background: NW_FONDO }}>
       {/* Rail izquierdo */}
       <aside className="lg:w-[300px] shrink-0 p-8 lg:min-h-dvh" style={{ background: NW_SAGE }}>
         <Link href="/network" className="inline-flex mb-8"><LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={22} decorativo /></Link>
@@ -548,6 +548,7 @@ export default function CrearPerfilNetworkPage() {
 
           {paso === 4 && (
             <SelectorChips
+              v2
               opciones={ESPECIALIDADES_NETWORK.map(v => ({ valor: v, etiqueta: ESPECIALIDAD_LABEL[v] }))}
               seleccion={form.especialidades}
               onChange={sel => { setForm(v => ({ ...v, especialidades: sel })); guardar({ especialidades: sel }); }}
@@ -562,6 +563,7 @@ export default function CrearPerfilNetworkPage() {
             <div className="space-y-4">
               <p className={labelCls} style={{ color: NW_TINTA }}>Modalidad y tipo de oportunidades</p>
               <SelectorChips
+                v2
                 opciones={TIPOS_TRABAJO_NETWORK.map(v => ({ valor: v, etiqueta: TIPO_TRABAJO_LABEL[v] }))}
                 seleccion={form.tipoTrabajo}
                 onChange={sel => setForm(v => ({ ...v, tipoTrabajo: sel }))}
@@ -575,6 +577,7 @@ export default function CrearPerfilNetworkPage() {
                 <p className={labelCls} style={{ color: NW_TINTA }}>Estado</p>
                 <SelectorChips
                   unico
+                  v2
                   opciones={DISPONIBILIDAD_ESTADOS_NETWORK.map(v => ({ valor: v, etiqueta: DISPONIBILIDAD_ESTADO_LABEL[v] }))}
                   seleccion={[form.disponibilidadEstado]}
                   onChange={sel => setForm(v => ({ ...v, disponibilidadEstado: sel[0] ?? v.disponibilidadEstado }))}
@@ -583,6 +586,7 @@ export default function CrearPerfilNetworkPage() {
               <div>
                 <p className={labelCls} style={{ color: NW_TINTA }}>Horarios</p>
                 <SelectorChips
+                  v2
                   opciones={HORARIOS_NETWORK.map(v => ({ valor: v, etiqueta: HORARIO_LABEL[v] }))}
                   seleccion={form.disponibilidadHorarios}
                   onChange={sel => setForm(v => ({ ...v, disponibilidadHorarios: sel }))}
@@ -594,6 +598,7 @@ export default function CrearPerfilNetworkPage() {
           {paso === 8 && (
             <SelectorChips
               unico
+              v2
               opciones={TARIFAS_RANGO_NETWORK.map(v => ({ valor: v, etiqueta: TARIFA_RANGO_LABEL[v] }))}
               seleccion={form.tarifaRango ? [form.tarifaRango] : []}
               onChange={sel => setForm(v => ({ ...v, tarifaRango: sel[0] }))}
@@ -714,7 +719,7 @@ export default function CrearPerfilNetworkPage() {
 // centrada como antes — el panel de foto se oculta, no se apila encima.
 function ShellCentrado({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh lg:flex" style={{ background: '#FAF9F5' }}>
+    <div className="min-h-dvh lg:flex" style={{ background: NW_FONDO }}>
       <div className="flex items-center justify-center px-6 py-16 lg:flex-1 lg:py-24">
         <div className="max-w-sm w-full">{children}</div>
       </div>

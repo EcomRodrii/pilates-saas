@@ -315,6 +315,7 @@ export function SeccionExperienciaNetwork({
           <div>
             <p className={cLabel} style={sLabel}>Especialidades en ese estudio</p>
             <SelectorChips
+              v2={v2}
               opciones={ESPECIALIDADES_NETWORK.map(esp => ({ valor: esp, etiqueta: ESPECIALIDAD_LABEL[esp] }))}
               seleccion={form.especialidades}
               onChange={especialidades => setForm(f => ({ ...f, especialidades }))}

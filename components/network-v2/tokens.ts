@@ -33,6 +33,16 @@ export const NW_ESTRELLA = '#C99A3C';
 // el valor.
 export const NW_PRODUCTO = '#343825';
 
+// Tarjeta "sin Network" de la sección Problema (/network) — el único sitio
+// que usa este tono neutro apagado, distinto de NW_MUTED (que sí se repite
+// en toda la página). Centralizado aquí tras la auditoría del sistema de
+// diseño (2026-08-18): vivía como hex suelto en app/network/page.tsx.
+export const NW_PROBLEMA = {
+  fondo: '#F4F2EC',
+  texto: '#6B6B62',
+  icono: '#B0AFA4',
+} as const;
+
 export const NW_ESTADO = {
   verificada: { color: '#2E5A3A', fondo: '#EAF0E7' },
   pendiente: { color: '#8A6A25', fondo: '#F7EFDD' },
