@@ -223,7 +223,7 @@ export function Hojas({ vm }: { vm: ViewModel }) {
   return (
     <Hoja onClose={actions.cerrarHoja}>
       <div className="hoja__profe">
-        <Avatar>{profe.inicial}</Avatar>
+        <Avatar foto={profe.foto}>{profe.inicial}</Avatar>
         <div>
           <p className="hoja__titulo" style={{ marginBottom: 0 }}>{profe.nombre}</p>
         </div>

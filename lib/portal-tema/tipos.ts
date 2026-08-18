@@ -41,6 +41,15 @@ export interface StudioClass {
   level: string;
   teacher: string;
   initial: string;
+  /**
+   * La foto de quien la da. Vacía = se pinta su monograma.
+   *
+   * Se resuelve AQUÍ, donde el adaptador ya tiene el índice de instructoras
+   * (`porInstructor`), y no en la pantalla cruzando por nombre: dos
+   * instructoras que se llamen igual son un caso raro, pero cruzar personas
+   * por su nombre es un error que solo se descubre cuando pasa.
+   */
+  teacherFoto: string;
   /** Plazas libres. 0 = completa, y entonces la UI ofrece lista de espera. */
   seats: number;
   /**
@@ -156,6 +165,16 @@ export interface ProfesorPortal {
   inicial: string;
   /** Bio pública (`instructores.bio`). Vacía = no se pinta nada, no un hueco. */
   bio: string;
+  /**
+   * Su foto (`instructores.foto_url`, o `avatar` si no hay). Vacía = se pinta
+   * el monograma, que es lo que hacen las capturas del tema.
+   *
+   * ⚠️ El dato SIEMPRE llegaba al portal (`mapInstructorPublico` lo incluye) y
+   * este adaptador lo tiraba. En producción 7 de las 9 instructoras del
+   * estudio piloto tienen foto, así que se estaba sustituyendo una cara real
+   * por una inicial en todas partes.
+   */
+  foto: string;
 }
 
 export interface SociaPortal {
