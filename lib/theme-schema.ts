@@ -249,6 +249,14 @@ const reservarComoFuncionaSchema = z.string().max(RESERVAR_COMO_FUNCIONA_MAX);
 const widgetFondoSchema = z.union([z.literal('transparente'), z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)]).nullable();
 const widgetFuenteSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/).nullable();
 const widgetTextoSchema = z.enum(['auto', 'claro', 'oscuro']);
+// Fase 1 del rediseño del widget (docs/widget-reservas-theme-builder-diseno.md
+// §3/§5): extensión ADITIVA del sistema de apariencia ya existente arriba, no
+// un vocabulario de tokens paralelo. `widgetFuente` (renombrado 'fuenteUI' en
+// el propio prototipo) se queda con su nombre — ya hay temas reales guardados
+// con esa clave, y renombrarla no aporta nada que `widgetFuenteDisplay` (el
+// campo nuevo) no resuelva ya de forma aditiva.
+const widgetColorSchema = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/).nullable();
+const widgetRadioSchema = z.number().int().min(0).max(32).nullable();
 const buttonStyleSchema = z.enum(ESTILOS_BOTON.map((b) => b.id) as [ButtonStyleId, ...ButtonStyleId[]]);
 const cardStyleSchema = z.enum(ESTILOS_TARJETA.map((c) => c.id) as [CardStyleId, ...CardStyleId[]]);
 const portalHeadingFontSchema = z.enum(ESTILOS_TITULAR_PORTAL.map((f) => f.id) as [PortalHeadingFontId, ...PortalHeadingFontId[]]);
@@ -399,6 +407,17 @@ export const themeConfigSchema = z
     widgetOcultarPie: z.boolean().default(false),
     widgetSoloPestana: z.boolean().default(false),
     widgetTexto: widgetTextoSchema.default('auto'),
+    // Fase 1 rediseño widget — ver comentario junto a widgetColorSchema arriba.
+    // Todos null/ausente = el aspecto de hoy (MODO_TOKENS.dia), cero cambio
+    // visual para un estudio que no los toque.
+    widgetFuenteDisplay: widgetFuenteSchema.default(null),
+    widgetRadioBoton: widgetRadioSchema.default(null),
+    widgetRadioInput: widgetRadioSchema.default(null),
+    widgetSuperficie: widgetColorSchema.default(null),
+    widgetTinta: widgetColorSchema.default(null),
+    widgetTextoSecundario: widgetColorSchema.default(null),
+    widgetLinea: widgetColorSchema.default(null),
+    widgetRelleno: widgetColorSchema.default(null),
     // Opcionales con default: un tema guardado ANTES de esta fase no trae
     // estos campos, y debe seguir viéndose exactamente igual (solid/flat).
     buttonStyle: buttonStyleSchema.default('solid'),
@@ -489,6 +508,14 @@ export const DEFAULT_THEME: ThemeConfig = {
   widgetOcultarPie: false,
   widgetSoloPestana: false,
   widgetTexto: 'auto',
+  widgetFuenteDisplay: null,
+  widgetRadioBoton: null,
+  widgetRadioInput: null,
+  widgetSuperficie: null,
+  widgetTinta: null,
+  widgetTextoSecundario: null,
+  widgetLinea: null,
+  widgetRelleno: null,
   buttonStyle: 'solid',
   cardStyle: 'flat',
   portalHeadingFontId: 'instrumentSerif',
@@ -539,6 +566,8 @@ export const CAMPOS_DEL_ESTUDIO = [
   // Y la apariencia del widget: describe cómo encaja en la web del ESTUDIO, no
   // cómo se ve el portal. Instalar otro tema no puede descuadrarle su web.
   'widgetFondo', 'widgetFuente', 'widgetOcultarPie', 'widgetSoloPestana', 'widgetTexto',
+  'widgetFuenteDisplay', 'widgetRadioBoton', 'widgetRadioInput', 'widgetSuperficie',
+  'widgetTinta', 'widgetTextoSecundario', 'widgetLinea', 'widgetRelleno',
 ] as const;
 
 /** Lo que sí es del tema. Se calcula, no se escribe a mano: así no puede
@@ -625,6 +654,14 @@ export function resolveTheme(raw: unknown): ThemeConfig {
     widgetOcultarPie: pick('widgetOcultarPie', z.boolean()),
     widgetSoloPestana: pick('widgetSoloPestana', z.boolean()),
     widgetTexto: pick('widgetTexto', widgetTextoSchema),
+    widgetFuenteDisplay: pick('widgetFuenteDisplay', widgetFuenteSchema),
+    widgetRadioBoton: pick('widgetRadioBoton', widgetRadioSchema),
+    widgetRadioInput: pick('widgetRadioInput', widgetRadioSchema),
+    widgetSuperficie: pick('widgetSuperficie', widgetColorSchema),
+    widgetTinta: pick('widgetTinta', widgetColorSchema),
+    widgetTextoSecundario: pick('widgetTextoSecundario', widgetColorSchema),
+    widgetLinea: pick('widgetLinea', widgetColorSchema),
+    widgetRelleno: pick('widgetRelleno', widgetColorSchema),
     buttonStyle: pick('buttonStyle', buttonStyleSchema),
     cardStyle: pick('cardStyle', cardStyleSchema),
     portalHeadingFontId: pick('portalHeadingFontId', portalHeadingFontSchema),

@@ -191,6 +191,7 @@ import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
 import { useDashboardChartsStore } from '@/lib/stores/use-dashboard-charts-store';
 import { useProgressNotesStore } from '@/lib/stores/use-progress-notes-store';
+import type { AparienciaWidget } from '@/lib/reservar/apariencia-widget';
 
 // ─── Studio config (policy / terms) ─────────────────────────────────────────
 
@@ -695,8 +696,14 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     titular: '', subtitulo: '', cta: '', sobreTitulo: '', sobreTexto: '',
     avisoQuiz: '', vacioTitulo: '', vacioTexto: '', confirmacion: '', listaEspera: '', ayuda: '', comoFunciona: '',
   });
-  const [aparienciaWidget, setAparienciaWidget] = useState<{ fondo: string | null; fuente: string | null; ocultarPie: boolean; soloPestana: boolean; texto: 'auto' | 'claro' | 'oscuro' }>(
-    { fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto' });
+  // `radio`/`radioInput`(el legacy de radio de tarjeta) no viajan aquí a
+  // propósito: hoy solo existen como parámetro de URL (`?radio=`), sin campo
+  // persistido — mismo estado que tenía antes de esta fase.
+  const [aparienciaWidget, setAparienciaWidget] = useState<Omit<AparienciaWidget, 'radio'>>({
+    fondo: null, fuente: null, ocultarPie: false, soloPestana: false, texto: 'auto',
+    fuenteDisplay: null, radioBoton: null, radioInput: null,
+    superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
+  });
   const [ordenReservar, setOrdenReservar] = useState<{ orden: string[]; ocultos: string[] }>({ orden: [], ocultos: [] });
   const [favoritos, setFavoritos] = useState<FavoritoClase[]>([]);
   const [retosApuntados, setRetosApuntados] = useState<string[]>([]);
@@ -952,13 +959,27 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // queda al borrar lo escrito, y no puede publicar un titular en blanco.
       // Haciéndolo aquí, ningún consumidor tiene que acordarse.
       const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-      const p2 = pub as { widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown; widgetTexto?: unknown };
+      const p2 = pub as {
+        widgetFondo?: unknown; widgetFuente?: unknown; widgetOcultarPie?: unknown; widgetSoloPestana?: unknown; widgetTexto?: unknown;
+        widgetFuenteDisplay?: unknown; widgetRadioBoton?: unknown; widgetRadioInput?: unknown;
+        widgetSuperficie?: unknown; widgetTinta?: unknown; widgetTextoSecundario?: unknown; widgetLinea?: unknown; widgetRelleno?: unknown;
+      };
+      const colorOn = (v: unknown) => typeof v === 'string' ? v : null;
+      const radioOn = (v: unknown) => typeof v === 'number' ? v : null;
       setAparienciaWidget({
         fondo: typeof p2.widgetFondo === 'string' ? p2.widgetFondo : null,
         fuente: typeof p2.widgetFuente === 'string' ? p2.widgetFuente : null,
         ocultarPie: p2.widgetOcultarPie === true,
         soloPestana: p2.widgetSoloPestana === true,
         texto: p2.widgetTexto === 'claro' || p2.widgetTexto === 'oscuro' ? p2.widgetTexto : 'auto',
+        fuenteDisplay: typeof p2.widgetFuenteDisplay === 'string' ? p2.widgetFuenteDisplay : null,
+        radioBoton: radioOn(p2.widgetRadioBoton),
+        radioInput: radioOn(p2.widgetRadioInput),
+        superficie: colorOn(p2.widgetSuperficie),
+        tinta: colorOn(p2.widgetTinta),
+        textoSecundario: colorOn(p2.widgetTextoSecundario),
+        linea: colorOn(p2.widgetLinea),
+        relleno: colorOn(p2.widgetRelleno),
       });
       setTextosReservar({
         sobreTitulo: texto((pub as { reservarSobreTitulo?: unknown }).reservarSobreTitulo),

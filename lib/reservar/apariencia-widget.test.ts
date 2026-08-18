@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   resolverApariencia, fondoCss, familiaCss, urlFuente, fuenteValida,
-  modoTextoDe, luminancia,
+  modoTextoDe, luminancia, radiosDe, coloresDe, familiaDisplayCss, urlFuenteDisplay,
   APARIENCIA_POR_DEFECTO, type AparienciaWidget,
 } from './apariencia-widget.ts';
 
@@ -130,4 +130,60 @@ test('la luminancia entiende el hex de 3 dígitos y rechaza lo que no lo es', ()
 test('el parámetro `texto` de la URL pisa lo guardado, y la basura no', () => {
   assert.equal(resolverApariencia({ texto: 'oscuro' }, params('texto=claro')).texto, 'claro');
   assert.equal(resolverApariencia({ texto: 'oscuro' }, params('texto=azul')).texto, 'oscuro');
+});
+
+// ── Fase 1 rediseño del widget: extensión aditiva de tokens ────────────────
+
+test('sin tocar los campos nuevos, todo queda en null (aspecto de siempre)', () => {
+  assert.equal(APARIENCIA_POR_DEFECTO.fuenteDisplay, null);
+  assert.equal(APARIENCIA_POR_DEFECTO.radioBoton, null);
+  assert.equal(APARIENCIA_POR_DEFECTO.radioInput, null);
+  assert.equal(APARIENCIA_POR_DEFECTO.superficie, null);
+  assert.equal(urlFuenteDisplay(APARIENCIA_POR_DEFECTO), null);
+  assert.equal(familiaDisplayCss(APARIENCIA_POR_DEFECTO), null);
+});
+
+test('los nuevos parámetros de URL pisan lo guardado, igual que los de siempre', () => {
+  const r = resolverApariencia(null, params('fuente-display=Marcellus&radio-boton=8&radio-input=6&superficie=%23FFFFFF&tinta=%23111111&texto-secundario=%23888888&linea=%23DDDDDD&relleno=%23F3F3F3'));
+  assert.equal(r.fuenteDisplay, 'Marcellus');
+  assert.equal(r.radioBoton, 8);
+  assert.equal(r.radioInput, 6);
+  assert.equal(r.superficie, '#FFFFFF');
+  assert.equal(r.tinta, '#111111');
+  assert.equal(r.textoSecundario, '#888888');
+  assert.equal(r.linea, '#DDDDDD');
+  assert.equal(r.relleno, '#F3F3F3');
+});
+
+test('⚠️ un color inválido en la URL no apaga lo guardado', () => {
+  const r = resolverApariencia({ superficie: '#123456' }, params('superficie=noesuncolor'));
+  assert.equal(r.superficie, '#123456');
+});
+
+test('radiosDe: sin nada puesto, cae al valor por defecto de cada pieza', () => {
+  const d = { tarjeta: 26, boton: 999, input: 12 };
+  assert.deepEqual(radiosDe(APARIENCIA_POR_DEFECTO, d), { tarjeta: 26, boton: 999, input: 12 });
+});
+
+test('radiosDe: `radioBoton`/`radioInput` heredan de `radio` si no se tocan', () => {
+  const d = { tarjeta: 26, boton: 999, input: 12 };
+  const a = resolverApariencia({ radio: 10 });
+  assert.deepEqual(radiosDe(a, d), { tarjeta: 10, boton: 10, input: 10 });
+});
+
+test('radiosDe: cada campo explícito gana sobre la herencia de `radio`', () => {
+  const d = { tarjeta: 26, boton: 999, input: 12 };
+  const a = resolverApariencia({ radio: 10, radioBoton: 20 });
+  assert.deepEqual(radiosDe(a, d), { tarjeta: 10, boton: 20, input: 10 });
+});
+
+test('coloresDe: sin nada puesto, es exactamente el default (misma referencia de valores)', () => {
+  const d = { superficie: '#FFFFFF', tinta: '#221C19', textoSecundario: '#82766E', linea: '#E9E1D9', relleno: '#F3EDE7' };
+  assert.deepEqual(coloresDe(APARIENCIA_POR_DEFECTO, d), d);
+});
+
+test('coloresDe: solo se pisa lo que se toca', () => {
+  const d = { superficie: '#FFFFFF', tinta: '#221C19', textoSecundario: '#82766E', linea: '#E9E1D9', relleno: '#F3EDE7' };
+  const a = resolverApariencia({ tinta: '#000000' });
+  assert.deepEqual(coloresDe(a, d), { ...d, tinta: '#000000' });
 });
