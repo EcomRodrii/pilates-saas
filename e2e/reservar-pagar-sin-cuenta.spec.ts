@@ -75,7 +75,14 @@ async function abrirClaseSinSesion(page: Page) {
     await page.goto(`/reservar/${SLUG}?tab=clases`);
     if (await page.locator('#horario').waitFor({ timeout: 30_000 }).then(() => true).catch(() => false)) break;
   }
+  // La fila solo abre la hoja de DETALLE de la clase (precio, sala, horario) —
+  // el botón "Reservar" de esa hoja es el que de verdad dispara
+  // handleReservarCalendario/openBooking. Mismo patrón en dos pasos que
+  // abrirHojaDeClase/pulsarReservar en socia-lista.ts.
   await page.getByRole('button', { name: /Reformer a las 10:00/ }).click();
+  const botonReservar = page.getByRole('button', { name: /^Reservar/ }).last();
+  await expect(botonReservar).toBeVisible({ timeout: 15_000 });
+  await botonReservar.click();
 }
 
 test('visitante SIN cuenta: "Reservar clase" abre datos, no login', async ({ page }) => {
