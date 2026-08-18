@@ -469,7 +469,14 @@ export default function ReservarPage() {
   }, [sesiones, tiposClase]);
   const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroSala !== '' || busqueda !== '' || filtroObjetivo !== '';
   function reiniciarFiltrosQuiz() {
+    // Tiene que limpiar los MISMOS 7 filtros que `hayFiltrosQuizActivos`
+    // comprueba arriba — antes solo limpiaba 4 (los del quiz), así que
+    // "Ver todas" no quitaba un filtro de instructora/sala/búsqueda puesto
+    // desde el rail lateral, y el propio aviso "Filtrado según tus
+    // preferencias" se quedaba en pantalla después de pulsar el botón que
+    // decía limpiarlo.
     setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
+    setFiltroInstructor(''); setFiltroSala(''); setBusqueda(''); setFiltroObjetivo('');
     setQuizCompletado(false);
   }
   const tabInicial = searchParams.get('tab');

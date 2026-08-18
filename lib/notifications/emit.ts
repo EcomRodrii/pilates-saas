@@ -12,7 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
-import { cuandoEstudio, horaEstudio, fechaCortaEstudio } from '@/lib/utils';
+import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
   try {
@@ -83,7 +83,12 @@ export async function emitirReservaAbandonada(
       const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
       claseTexto = ` una plaza en ${ctx.clase} (${ctx.cuando})`;
     }
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Fecha LOCAL del estudio, no UTC (auditoría de esta sesión): con
+    // `toISOString()` el "día" cambiaba a medianoche UTC en vez de a
+    // medianoche en España, dejando una ventana de ~1-2h cada noche sin la
+    // única defensa real de este endpoint sin JWT (comentario de arriba) —
+    // mismo idiom ya usado en portal-sugerencias.ts/agenda.ts.
+    const hoy = new Date().toLocaleDateString('en-CA', { timeZone: TZ_ESTUDIO });
     const dedup = p.sesionId
       ? `reserva-abandonada:${p.sesionId}:${p.socioId}:${hoy}`
       : `reserva-abandonada:${p.socioId}:${hoy}`;
