@@ -88,6 +88,11 @@
   flex: 1;
   min-width: 0;
   flex-direction: column;
+  /* ⚠️ Faltaba, y se veía: sin `justify-content` la columna se pega al techo de
+   * la pastilla. Medido en el navegador: 0 px de hueco arriba y 13 abajo, o sea
+   * el icono y su texto descentrados dentro de su propia caja. `align-items`
+   * solo centra en el eje CRUZADO (horizontal aquí); el vertical es este. */
+  justify-content: center;
   gap: 3px;
   height: 52px;
   padding: 0 4px;

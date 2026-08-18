@@ -246,16 +246,28 @@ export function PortalTemaMarco() {
 
   const navegar = useMemo(() => (destino: DestinoPortal): boolean => {
     const ruta = PANTALLA_A_RUTA[destino.screen];
-    // `false` = "esta no la tengo como ruta"; la abre el store dentro de la
-    // ruta actual. Es el caso del detalle de una clase, que vive dentro de
-    // Clases igual que la hoja de reserva del portal de siempre.
+    // `false` = «no he navegado yo»; entonces la pantalla la aplica el store
+    // dentro de la ruta actual. Es el caso del detalle de una clase, que vive
+    // dentro de Clases igual que la hoja de reserva del portal de siempre.
     if (!ruta) return false;
     const destinoUrl = `/portal/${slug}/${ruta}`;
-    // Ya estamos aquí: navegar apilaría una entrada de historial idéntica y
-    // el botón atrás dejaría de funcionar como espera la socia. Lo que sí
-    // cambia (el día, la pestaña) ya lo ha aplicado el store antes de
-    // llamarnos — ver `ir()` en `PortalStore`.
-    if (pathname !== destinoUrl) router.push(destinoUrl);
+    // Ya estamos en esa URL: no se navega, porque apilaría una entrada de
+    // historial idéntica y el botón atrás del navegador dejaría de funcionar
+    // como espera la socia.
+    //
+    // ⚠️ Pero se devuelve `false`, NO `true`, y esto era un CALLEJÓN SIN SALIDA
+    // en toda la app. `ir()` solo aplica la pantalla al store cuando esto dice
+    // que no ha navegado. Favoritas e Historial no tienen ruta propia: se abren
+    // desde Inicio, así que al pulsar «atrás» el destino (`/home`) YA era la
+    // URL actual → no se navegaba, se devolvía `true`, el store no cambiaba de
+    // pantalla y la socia se quedaba encerrada. Lo mismo en cualquier pantalla
+    // sin ruta abierta desde su propia sección.
+    //
+    // El contrato pasa a ser «¿he navegado yo?», no «¿es esto una ruta mía?».
+    // Cuando la URL ya es la buena, quien tiene que mover la pantalla es el
+    // store — y ponerle el mismo valor que ya tenía no hace nada.
+    if (pathname === destinoUrl) return false;
+    router.push(destinoUrl);
     return true;
   }, [router, slug, pathname]);
 
