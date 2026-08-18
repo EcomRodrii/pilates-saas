@@ -417,8 +417,6 @@ export const PAGINAS: PaginaSeo[] = [
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.'],
-    ['tentare-vs-glofox', 'Glofox', ['/funcionalidades/sustituciones', '/precios'],
-      'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Tentare frente a Glofox, punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     titulo: `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
@@ -432,6 +430,24 @@ export const PAGINAS: PaginaSeo[] = [
     // "Tentare vs X" está decidiendo si (y cómo) cambiarse, no mirando precio.
     relacionadas: [...relacionadasFuncionalidad, '/soluciones/cambiar-de-software'],
   })),
+  // Glofox queda FUERA de la plantilla `.map()` de arriba a propósito: las
+  // otras 7 son la tabla ROWS/CompetitorPage de siempre, pero este post es un
+  // artículo largo verbatim (título y contenido exactos pedidos por el
+  // fundador, 2026-08-18) — el título real de la página no es "Tentare vs
+  // Glofox: comparativa..." sino el suyo propio, así que necesita su entrada
+  // literal en vez de heredar la plantilla genérica.
+  {
+    path: '/comparativa/tentare-vs-glofox',
+    titulo: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
+    descripcion:
+      'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Glofox frente a Tentare, sin folletos de marketing.',
+    grupo: 'software',
+    etiqueta: 'Tentare vs Glofox',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: '2026-08-18',
+    relacionadas: ['/funcionalidades/sustituciones', '/precios', '/soluciones/cambiar-de-software'],
+  },
   {
     path: '/soluciones/cambiar-de-software',
     titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
@@ -488,7 +504,7 @@ export const PAGINAS: PaginaSeo[] = [
     ['reducir-cancelaciones-ultima-hora', '2026-08-06', 'Reduce las cancelaciones de última hora'],
     ['checklist-elegir-software-estudio', '2026-08-06', 'Checklist: cómo elegir el software de tu estudio'],
     ['reservas-en-tu-web', '2026-08-18', 'Cómo integrar reservas de Pilates en tu propia web'],
-    ['widget-vs-iframe-reservas-pilates', '2026-08-18', 'Widget, iframe o redirección: cómo integrar reservas online en tu web'],
+    ['widget-vs-iframe-reservas-pilates', '2026-08-18', 'Cómo integrar reservas online en la web de tu estudio de pilates'],
   ] as const).map(([slug, actualizado, titulo]): PaginaSeo => ({
     path: `/recursos/${slug}`,
     titulo,

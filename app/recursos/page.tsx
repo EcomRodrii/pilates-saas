@@ -94,7 +94,7 @@ const ARTICLES: Article[] = [
   },
   {
     category: 'software',
-    title: 'Widget, iframe o redirección: cómo integrar reservas online',
+    title: 'Cómo integrar reservas online en la web de tu estudio de pilates',
     body: 'Las tres formas técnicas comparadas de verdad: qué pierdes con cada una, cómo instalarlas y el checklist antes de publicar.',
     href: '/recursos/widget-vs-iframe-reservas-pilates',
     meta: '9 min · ago 2026',
