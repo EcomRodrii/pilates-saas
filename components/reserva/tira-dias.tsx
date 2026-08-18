@@ -79,13 +79,15 @@ export function TiraDias({
         {dias.map((d) => {
           const key = localDayKey(d);
           const activo = key === seleccionado;
-          const hayClases = (conteos.get(key) ?? 0) > 0;
+          const n = conteos.get(key) ?? 0;
+          const hayClases = n > 0;
           return (
             <button
               key={key}
               type="button"
               role="tab"
               aria-selected={activo}
+              aria-label={`${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}, ${n} ${n === 1 ? 'clase' : 'clases'}`}
               onClick={() => onSeleccionar(key)}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
