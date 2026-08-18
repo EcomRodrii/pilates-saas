@@ -3,6 +3,7 @@
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Status } from "@/components/portal-tema/components/ui/primitives";
 import { useActions, useCromoDemo } from "@/components/portal-tema/store/PortalStore";
+import { useTema } from "@/components/portal-tema/store/TemaContext";
 import { alFallarImagen, IMAGENES_CLASE, IMAGENES_POR_DEFECTO } from "@/lib/imagenes-por-defecto";
 
 /**
@@ -181,9 +182,21 @@ function ClassRowSereno({ row }: { row: ClassRowData }) {
   );
 }
 
-export function ClassRow({ row, sereno }: { row: ClassRowData; sereno?: boolean }) {
+/**
+ * Una fila del horario. UNA entrada para las tres formas.
+ *
+ * ⚠️ La forma la decide el TEMA (`row_style`), no la pantalla. Antes `Schedule`
+ * elegía: la de Sereno con `day_strip_style === "cajas"` —una bandera de la
+ * TIRA DE DÍAS— y la de Tentada llamando a otro componente exportado aparte.
+ * O sea, la misma cosa por tres puertas distintas y dos de ellas deducidas de
+ * un eje que no era el suyo. Ausente = `clasica`, que es lo que pintan
+ * Oliva/Bloom/Noir.
+ */
+export function ClassRow({ row }: { row: ClassRowData }) {
   const actions = useActions();
-  if (sereno) return <ClassRowSereno row={row} />;
+  const estilo = useTema().features.row_style ?? "clasica";
+  if (estilo === "sereno") return <ClassRowSereno row={row} />;
+  if (estilo === "plana") return <ClassRowPlana row={row} />;
   const cls = ["class-row", "is-pressable", row.booked ? "is-booked" : "", row.statusTone === "full" ? "is-full" : ""]
     .filter(Boolean).join(" ");
   return (
@@ -227,7 +240,7 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
  * `alReservar` y su respuesta del servidor. No hay atajo optimista aquí — es
  * el camino que costó el bug #500.
  */
-export function ClassRowPlana({ row }: { row: ClassRowData }) {
+function ClassRowPlana({ row }: { row: ClassRowData }) {
   const actions = useActions();
   if (row.booked) {
     return (

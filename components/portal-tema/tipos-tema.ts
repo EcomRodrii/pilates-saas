@@ -132,6 +132,23 @@ export interface ThemeFeatures {
    */
   day_strip_style?: "circulos" | "cajas";
   /**
+   * La forma de una fila del horario.
+   *
+   *   `clasica` — hora + nombre + monograma de la instructora y estado
+   *               (Oliva/Bloom/Noir). Es el valor por defecto.
+   *   `sereno`  — con filete separador, estado y plazas al pie, y flecha.
+   *   `plana`   — dos formas según sea suya o esté libre, con el botón de
+   *               reservar EN LA PROPIA FILA (Tentada).
+   *
+   * ⚠️ Existe porque la pantalla lo deducía de otras banderas: la fila de
+   * Sereno se elegía con `day_strip_style === "cajas"` —una bandera de la TIRA
+   * DE DÍAS— y la de Tentada con `schedule_style === "tabs"`. Dos ejes
+   * distintos montados encima de otros dos, así que un tema que quisiera días
+   * en caja con la fila clásica no podía pedirlo. Ahora el eje tiene su nombre
+   * y `Schedule` no elige nada: la fila la decide el tema.
+   */
+  row_style?: "clasica" | "sereno" | "plana";
+  /**
    * La tarjeta de bono con foto, monograma y el saldo en serif grande
    * (Sereno). Ausente = la tarjeta `.pass` de siempre.
    */

@@ -51,6 +51,7 @@ export const THEME: ThemeConfig = {
     // `lib/portal-nav.ts` como sugería.
     "tab_set": "agenda",
     "schedule_style": "chips",
+    "row_style": "sereno",
     "passes_style": "plan",
     "pass_style_sereno": true,
     "profile_style": "fichas"

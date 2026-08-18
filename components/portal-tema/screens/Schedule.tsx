@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip, EmptyState } from "@/components/portal-tema/components/ui/primitives";
-import { ClassRow, ClassRowPlana, DayStrip, Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
+import { ClassRow, DayStrip, Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { useActions, usePortal } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -53,7 +53,7 @@ export function Schedule({ vm }: { vm: ViewModel }) {
           <div className="scroller no-scrollbar">
             {vm.classes.length ? (
               vm.classes.map((row) => (
-                <ClassRow key={row.id} row={row} sereno={vm.features.day_strip_style === "cajas"} />
+                <ClassRow key={row.id} row={row} />
               ))
             ) : (
               <EmptyState title="Nada este día" text="Prueba otro día de la semana o quita el filtro." />
@@ -90,7 +90,7 @@ export function Schedule({ vm }: { vm: ViewModel }) {
             <DayStrip week={vm.week} boxed />
             <div className="scroller no-scrollbar">
               {vm.classes.length ? (
-                vm.classes.map((row) => <ClassRowPlana key={row.id} row={row} />)
+                vm.classes.map((row) => <ClassRow key={row.id} row={row} />)
               ) : (
                 <EmptyState
                   title="No hay clases este día"
