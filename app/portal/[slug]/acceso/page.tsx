@@ -25,6 +25,20 @@ import { useModo } from '@/lib/portal-modo';
 import { display, micro, texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
+import { usePortalAuth } from '@/lib/portal-auth';
+import { altaConGoogle } from '@/lib/api-client';
+
+/** El logotipo de Google, en línea: son sus colores oficiales y no hay que teñirlos. */
+function GoogleLogo() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.7-.4-3.9H24v7.1h12.1c-.2 1.8-1.6 4.6-4.5 6.4l6.9 5.3c4.1-3.8 6.6-9.3 6.6-14.9z" />
+      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.3c-1.8 1.3-4.3 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.700000000000001l-7.1 5.5C7.9 40.8 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.5 27.9c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4l-7.1-5.5C2.9 16.5 2 20.1 2 23.5s.9 7 2.4 9.9z" />
+      <path fill="#EA4335" d="M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.1-6C34.9 3.4 29.9 1 24 1 15.4 1 7.9 6.2 4.4 13.6l7.1 5.5C13.3 13.3 18.2 9.5 24 9.5z" />
+    </svg>
+  );
+}
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA_FG,
 } from '@/components/portal/acceso/piezas';
@@ -52,6 +66,33 @@ export default function PortalAcceso() {
   const [email, setEmail] = useState(() => params.get('email') ?? '');
   const [error, setError] = useState('');
   const [enviado, setEnviado] = useState(params.get('enviado') === '1');
+  const [googleTrabajando, setGoogleTrabajando] = useState(false);
+  const { entrarConGoogle, session } = usePortalAuth();
+
+  const conGoogle = async () => {
+    setError('');
+    setGoogleTrabajando(true);
+    const r = await entrarConGoogle();
+    // Si sale bien, el navegador ya se va a Google: no se apaga el estado.
+    if ('error' in r) { setError(r.error); setGoogleTrabajando(false); }
+  };
+
+  // La vuelta de Google. `?oauth=1` es lo que distingue este caso de una visita
+  // normal, y por eso el alta NO vive en `/api/public/session` —que se llama en
+  // cada carga—: ahí, cualquiera con una sesión de Supabase de otro sitio
+  // quedaría dada de alta con solo VISITAR el portal de un estudio.
+  const vueltaDeGoogle = params.get('oauth') === '1';
+  useEffect(() => {
+    if (!vueltaDeGoogle || !session) return;
+    let vivo = true;
+    altaConGoogle(slug).then((r) => {
+      if (!vivo) return;
+      // El error se enseña; no se deja a la persona autenticada y en blanco.
+      if (r.error) return setError(r.error);
+      router.replace(`/portal/${slug}/home`);
+    });
+    return () => { vivo = false; };
+  }, [vueltaDeGoogle, session, slug, router]);
   // ⚠️ Aquí NO hay captcha, y no es un olvido: el paso 1 no llama al
   // servidor. Es la misma regla que hace que esta pantalla no pregunte «¿esta
   // socia tiene contraseña?» — sin petición no hay nada que proteger, y el
@@ -170,6 +211,36 @@ export default function PortalAcceso() {
                 <div style={{ marginTop: 18 }}>
                   <BotonCta listo={listo} onClick={seguir}>Seguir</BotonCta>
                 </div>
+
+                {/* ⚠️ Este botón SOLO puede estar aquí porque el proveedor de
+                    Google está activo de verdad en el proyecto. Uno que promete
+                    Google y no entra es una mentira en la pantalla de acceso —
+                    es literalmente lo que impedía el test que había, y por eso
+                    ese test cambia en este mismo commit en vez de borrarse.
+
+                    Sin captcha a propósito: en OAuth la prueba de que hay una
+                    persona la hace Google en su pantalla. Turnstile se exige en
+                    las vías de email, que son las que un robot puede repetir. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
+                  <span style={{ flex: 1, height: 1, background: t.line }} />
+                  <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o</span>
+                  <span style={{ flex: 1, height: 1, background: t.line }} />
+                </div>
+                <button
+                  onClick={conGoogle}
+                  disabled={googleTrabajando}
+                  style={{
+                    width: '100%', height: 52, borderRadius: 26,
+                    border: `1px solid ${t.line}`, background: t.surface, color: t.ink,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    fontSize: 15, fontWeight: 500,
+                    cursor: googleTrabajando ? 'default' : 'pointer',
+                    opacity: googleTrabajando ? 0.6 : 1,
+                  }}
+                >
+                  <GoogleLogo />
+                  {googleTrabajando ? 'Abriendo Google…' : 'Continuar con Google'}
+                </button>
                 <p style={{ ...texto.pie, color: t.micro, textAlign: 'center', marginTop: 20 }}>
                   ¿Primera vez aquí?{' '}
                   <Link href={`/reservar/${slug}`} style={{ color: t.muted2, fontWeight: 500, textDecoration: 'underline' }}>
