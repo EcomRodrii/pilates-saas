@@ -18,6 +18,7 @@ import { useStudio } from '@/lib/studio-context';
 import { dbInsertSoporteSolicitud } from '@/lib/supabase-data';
 import { StripeIcon, WhatsAppIcon, ZoomIcon, GoogleCalendarIcon, ResendIcon } from '@/components/icons/brand-icons';
 import { authHeader } from '@/lib/api-client';
+import { saludIntegracion, textoSalud } from '@/lib/integraciones/salud';
 import type { TipoIntegracion } from '@/lib/types';
 import { inputCls, labelCls, btnPrimary, btnSecondary, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { uuidV4 } from '@/lib/utils';
@@ -717,6 +718,15 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {CATALOGO_INTEGRACIONES.map(cat => {
           const intg = getIntegracion(cat.tipo);
+          // La salud SOLO aplica a las que viven en `integraciones` (WhatsApp,
+          // Kisi, Resend). Las de OAuth (Stripe, Google, Gmail...) no tienen
+          // fila aquí, así que salen APAGADA y la tarjeta queda igual que antes.
+          const salud = saludIntegracion(intg && {
+            activo: intg.activo, ultimoOkEn: intg.ultimoOkEn,
+            ultimoError: intg.ultimoError, ultimoErrorEn: intg.ultimoErrorEn,
+          });
+          const fallando = salud.estado === 'FALLANDO';
+          const lineaSalud = textoSalud(salud);
           const conectado = cat.tipo === 'STRIPE' ? stripeConectado : cat.tipo === 'GOOGLE_CALENDAR' ? googleConectado : cat.tipo === 'GMAIL' ? gmailConectado : cat.tipo === 'ZOOM' ? zoomConectado : cat.tipo === 'KLAVIYO' ? klaviyoConectado : cat.tipo === 'ZAPIER' ? zapierConectado : !!intg?.activo;
           return (
             <div key={cat.tipo} className={cn(cardCls, 'p-4 flex flex-col')}>
@@ -734,15 +744,29 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     ) : cat.accion !== 'exportar' && (
                       <span className={cn(
                         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold',
-                        conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
+                        // Verde SOLO si el servicio respondió la última vez. Con
+                        // el token caducado esto seguía diciendo «Conectado»
+                        // mientras las clientas dejaban de recibir nada.
+                        fallando ? 'bg-destructive/10 text-destructive'
+                          : conectado ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground',
                       )}>
-                        <span className={cn('w-1.5 h-1.5 rounded-full', conectado ? 'bg-success' : 'bg-muted-foreground')} />
-                        {conectado ? 'Conectado' : 'No conectado'}
+                        <span className={cn('w-1.5 h-1.5 rounded-full',
+                          fallando ? 'bg-destructive' : conectado ? 'bg-success' : 'bg-muted-foreground')} />
+                        {fallando ? 'Con problemas' : conectado ? 'Conectado' : 'No conectado'}
                       </span>
                     )}
                   </div>
                   {cat.categoria && <p className="text-[10px] font-bold uppercase tracking-wide text-[#B8B8AE] mt-0.5">{cat.categoria}</p>}
                   <p className="text-[12px] text-muted-foreground mt-1 leading-snug">{cat.descripcion}</p>
+                  {lineaSalud && (
+                    <p className={cn(
+                      'text-[11px] mt-1.5 leading-snug',
+                      lineaSalud.tono === 'error' ? 'text-destructive font-semibold'
+                        : lineaSalud.tono === 'ok' ? 'text-success' : 'text-muted-foreground',
+                    )}>
+                      {lineaSalud.texto}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#F1F1F4] flex items-center gap-2">
