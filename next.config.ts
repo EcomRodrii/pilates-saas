@@ -2,6 +2,14 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // Añade `crossorigin="anonymous"` a las etiquetas <script> que Next inyecta.
+  // Sin él, el navegador oculta la pila de cualquier error lanzado por un
+  // script servido desde otro origen (CDN, dominio de assets) y solo entrega
+  // un `Script error.` vacío a `window.onerror` — sin fichero, línea ni pila.
+  // Con el atributo, el próximo error cruzado llega con la pila real. Mismo
+  // motivo por el que `descartarScriptErrorOpaco` filtra ese ruido en
+  // lib/posthog-cliente.ts.
+  crossOrigin: 'anonymous',
   // URL limpia para el origen dedicado de temas ZIP publicados
   // (`imports.tentare.app/<slug>` en vez de `/tema-publicado/<slug>`). Esto
   // es SOLO azúcar de URL — la cerradura real de seguridad vive DENTRO del
