@@ -779,6 +779,26 @@ necesita `TURNSTILE_SECRET_KEY`; sin esa variable devuelve `'ok'` sin llamar a
 nadie. Fail-CLOSED en el veredicto de Cloudflare, fail-OPEN si la llamada no
 llega a completarse.
 
+Ese endpoint sigue **vivo y con consumidor** (verificado el 2026-08-19 contra
+`origin/main`), y con él las dos primitivas que solo él usa:
+`lib/auth/captcha-servidor.ts` y el campo trampa `lib/auth/trampa-bots.ts`
+(`CAMPO_TRAMPA`/`cayoEnLaTrampa`, #866, un honeypot que protege **sin depender
+de ninguna clave ni servicio externo**, justo para cuando `TURNSTILE_SECRET_KEY`
+no está puesta). Quien lo llama es `app/crear-estudio`, que **no da de alta
+ningún estudio**: recoge el email en `plataforma_lead` (origen `ALTA`) porque el
+alta pública por esa pantalla sigue sin abrirse — `dbCreateStudio` está latente,
+no borrada.
+
+⚠️ **No las retires por "huérfanas" sin cruzar contra `origin/main` primero.** Se
+llegó a plantear justo eso, con un grep que solo encontraba sus propios tests:
+el grep venía de otro worktree o de una rama anterior a #803 (2026-08-07, el
+commit que creó el endpoint). Ninguna de las 146 ramas remotas lo borra, y las
+23 que no lo tienen es porque son **más viejas que él**, no porque lo hayan
+eliminado. Mismo error de categoría que [[colisiones-entre-sesiones-paralelas]].
+Y si algún día se abre el alta de verdad y el endpoint muere, conservar
+`captcha-servidor.ts` antes que rehacerla: es la única pieza del repo que sabe
+llamar al `siteverify`, y reescribirla a mano es exactamente cómo apareció #847.
+
 ## ⚠️ Un merge de solo documentación NO despliega
 
 `vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
