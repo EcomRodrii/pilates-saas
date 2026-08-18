@@ -34,6 +34,13 @@ jobs:
   calidad:
     name: Tipos · lint · tests unitarios
     runs-on: ubuntu-latest
+    # ⚠️ `timeout-minutes` en TODOS los jobs, y no es burocracia: sin él GitHub
+    # aplica su tope por defecto de SEIS HORAS. La noche del 17-ago un `apt`
+    # colgado en un solo shard dejó un PR sin poder mergearse durante 40
+    # minutos, y sin este límite habría seguido bloqueado hasta la madrugada.
+    # Un job colgado tiene que MORIR y dejar reintentarlo, no ocupar el hueco.
+    # Los valores salen de medir los runs reales de `main`, no de estimarlos.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -106,6 +113,7 @@ jobs:
   build:
     name: Build de producción
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -194,6 +202,10 @@ jobs:
     name: E2E ${{ matrix.shard }}/12
     needs: build
     runs-on: ubuntu-latest
+    # 1-4 min en un run normal; 12 en el peor medido (caché de navegadores
+    # fallida, que descarga ~90 MB). 20 deja holgura de sobra y aun así corta
+    # un cuelgue en veinte minutos en vez de en seis horas.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -267,9 +279,34 @@ jobs:
       # siguiente, en el primer PR que acierte con la caché.
       #
       # Chromium sobrevivía porque el runner de Ubuntu ya trae casi todo lo suyo.
+      #
+      # ⚠️ **Con tope y reintento, porque este paso SE CUELGA.** Por debajo es
+      # `apt-get`, y en un runner de GitHub compite con `unattended-upgrades`
+      # por el candado de dpkg: si lo pierde, se queda esperando sin fallar
+      # nunca. Medido la noche del 17-ago — normalmente tarda 100 s, y ese día
+      # se quedó parado 20 minutos, dos veces seguidas, en dos runners
+      # distintos. Al tercer intento tardó 100 s otra vez y pasó: es
+      # transitorio, no una avería.
+      #
+      # Sin esto un cuelgue aquí no falla NUNCA: bloquea el merge del PR hasta
+      # el tope del job. Y un `timeout-minutes` de paso a secas tampoco bastaba
+      # —mataría el paso entero sin reintentar—, así que el tope va POR INTENTO
+      # con `timeout(1)`: un cuelgue aborta ese intento y el siguiente arranca
+      # limpio. Tres intentos de 3 min, y el `timeout-minutes` del paso como
+      # último cinturón por si el propio bucle se atasca.
       - name: Dependencias del sistema de los navegadores
         if: steps.cache-playwright.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium webkit
+        timeout-minutes: 12
+        run: |
+          for intento in 1 2 3; do
+            if timeout 180 npx playwright install-deps chromium webkit; then
+              exit 0
+            fi
+            echo "::warning::install-deps falló o se colgó (intento $intento/3). Reintentando…"
+            sleep 10
+          done
+          echo "::error::install-deps no terminó en 3 intentos. Sin las librerías de WebKit los tests mueren con «Target page, context or browser has been closed», que NO es un fallo de test."
+          exit 1
 
       - name: E2E (registro · reserva · pago)
         # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
@@ -295,6 +332,7 @@ jobs:
     if: always() && needs.e2e.result == 'failure'
     needs: e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -349,6 +387,7 @@ jobs:
     if: always()
     needs: [calidad, build, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Comprobar que todo lo anterior ha pasado
         run: |
