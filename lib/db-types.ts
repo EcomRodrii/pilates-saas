@@ -289,6 +289,10 @@ export interface RowIntegraciones {
   activo: boolean;
   config: any;
   actualizado_en: string;
+  // migr 20260818142206. Salud real del servicio (ver lib/integraciones/salud.ts).
+  ultimo_ok_en: string | null;
+  ultimo_error: string | null;
+  ultimo_error_en: string | null;
 }
 
 export interface RowLevelDefinitions {

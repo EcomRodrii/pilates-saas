@@ -101,7 +101,7 @@ test('lista-espera-ofertas-expirar: no debe quedar registrada dos veces (Inngest
 // para siempre — nada cerraba la fila. Bucket A puro (SELECT+UPDATE, sin
 // step.sleep): mismo patrón pg_cron que el resto, nunca Inngest.
 test('sustituciones-cerrar-vencidas: cadencia de 30 min en la migración pg_cron', () => {
-  const migracion = leer('supabase/migrations/20260818120000_pg_cron_sustituciones_cerrar_vencidas.sql');
+  const migracion = leer('supabase/migrations/20260817224815_pg_cron_sustituciones_cerrar_vencidas.sql');
   assert.equal(cronScheduleDeMigracion(migracion, 'sustituciones-cerrar-vencidas'), '*/30 * * * *');
 });
 

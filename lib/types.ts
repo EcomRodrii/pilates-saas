@@ -249,6 +249,12 @@ export interface Integracion {
   activo: boolean;
   config: Record<string, string>;
   actualizadoEn: string;
+  // Salud real del servicio, no del formulario (ver lib/integraciones/salud.ts).
+  // `activo` solo dice que el estudio la encendió; estas tres dicen si el
+  // servicio de verdad respondió la última vez que se habló con él.
+  ultimoOkEn: string | null;
+  ultimoError: string | null;
+  ultimoErrorEn: string | null;
 }
 
 export interface Usuario {
