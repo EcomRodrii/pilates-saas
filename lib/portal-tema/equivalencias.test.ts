@@ -141,3 +141,65 @@ test('un `fijo` oculto no se cuela DOS veces (una por fijo, otra al final por no
   const r = ordenDelInicio(TEMA, [{ kind: 'sistema', sistemaId: 'cabecera', oculto: true, fijo: true }]);
   assert.equal(r.filter((x) => x === 'home-header').length, 1);
 });
+
+// ── Los bloques SIN ficha en el editor conservan su sitio ────────────────────
+//
+// ⚠️ Este es el fallo que se vio EN PRODUCCIÓN (studio-1, 2026-08-18): el
+// saludo «Hola, Laura» salía al pie de la Home. `greeting` no existe en
+// `BLOQUE_EDITOR_A_KIT`, así que el estudio no puede tenerlo guardado nunca, y
+// la regla de «lo que no está guardado va detrás» lo mandaba al final — en
+// Oliva, Bloom, Noir y Sereno, que lo declaran PRIMERO.
+
+test('un bloque sin ficha en el editor NO se va al final: manda el tema', () => {
+  const tema = ['greeting', 'next-class', 'quick-links'];
+  const guardados = [
+    { kind: 'sistema', sistemaId: 'accesosRapidos' },
+    { kind: 'sistema', sistemaId: 'proximaClase' },
+  ];
+  // El estudio pidió accesos ANTES que la próxima clase: eso se respeta. Y el
+  // saludo, que no puede pedir, se queda donde lo pone el tema — delante.
+  assert.deepEqual(ordenDelInicio(tema, guardados), ['greeting', 'quick-links', 'next-class']);
+});
+
+test('dos sin ficha seguidos conservan su orden entre ellos', () => {
+  // Sin el cursor de inserción, el segundo adelantaba al primero.
+  const tema = ['greeting', 'waitlist-banner', 'next-class'];
+  const guardados = [{ kind: 'sistema', sistemaId: 'proximaClase' }];
+  assert.deepEqual(ordenDelInicio(tema, guardados), ['greeting', 'waitlist-banner', 'next-class']);
+});
+
+test('un sin ficha en MEDIO se ancla al bloque que tiene delante', () => {
+  const tema = ['next-class', 'headline', 'quick-links'];
+  const guardados = [
+    { kind: 'sistema', sistemaId: 'accesosRapidos' },
+    { kind: 'sistema', sistemaId: 'proximaClase' },
+  ];
+  // `headline` va detrás de `next-class` en el tema, y ahí se queda aunque el
+  // estudio haya subido los accesos por encima.
+  assert.deepEqual(ordenDelInicio(tema, guardados), ['quick-links', 'next-class', 'headline']);
+});
+
+test('lo que SÍ tiene ficha y el estudio no ha ordenado sigue yendo detrás', () => {
+  // La otra mitad de la regla, que no cambia: una sección nueva de un tema
+  // aparece en vez de desaparecer, pero al final — el estudio aún no ha
+  // opinado sobre ella.
+  const tema = ['next-class', 'pass-card'];
+  const guardados = [{ kind: 'sistema', sistemaId: 'proximaClase' }];
+  assert.deepEqual(ordenDelInicio(tema, guardados), ['next-class', 'pass-card']);
+});
+
+test('el orden de Sereno sobrevive a unos bloques guardados que no lo mencionan', () => {
+  // El caso REAL de studio-1: bloques por defecto del portal viejo, tema
+  // Sereno. Antes salía «next-class → quick-links → greeting → waitlist-banner».
+  const guardados = [
+    { kind: 'sistema', sistemaId: 'cabecera', fijo: true },
+    { kind: 'sistema', sistemaId: 'proximaClase', fijo: true },
+    { kind: 'sistema', sistemaId: 'estaSemana' },
+    { kind: 'sistema', sistemaId: 'accesosRapidos' },
+    { kind: 'sistema', sistemaId: 'contenidoEstudio' },
+  ];
+  assert.deepEqual(
+    ordenDelInicio(TEMAS_PORTAL.sereno.home_blocks, guardados),
+    ['greeting', 'waitlist-banner', 'next-class', 'quick-links', 'pass-card', 'bookings-list', 'studio-quote'],
+  );
+});

@@ -126,8 +126,40 @@ export function ordenDelInicio(
       .map((b) => BLOQUE_EDITOR_A_KIT[b.sistemaId as string])
       .filter(Boolean),
   );
+
+  // ⚠️ Los bloques SIN ficha en el editor conservan la posición que les da el
+  // TEMA, no se van al final.
+  //
+  // `greeting`, `headline` y `waitlist-banner` no existen en
+  // `BLOQUE_EDITOR_A_KIT`, así que el estudio NUNCA puede tenerlos guardados —
+  // y con la regla de «lo que no está guardado va detrás» acababan siempre
+  // abajo. `greeting` es el PRIMER bloque de Oliva, Bloom, Noir y Sereno: el
+  // saludo «Hola, Laura» salía al pie de la Home en cualquier estudio con
+  // bloques guardados. Visto en producción (studio-1, 2026-08-18).
+  //
+  // «No guardado» significa dos cosas distintas y hasta ahora se trataban
+  // igual: *el estudio no ha opinado todavía* (sección nueva de un tema → va
+  // detrás, para que aparezca en vez de desaparecer) y *el estudio no PUEDE
+  // opinar* (no hay ficha → manda el tema). Solo la primera justifica el final.
+  const resultado = [...pedidos];
+  // Cuántos sin-ficha llevamos puestos al principio: sin este cursor, dos
+  // seguidos (greeting + waitlist-banner) se insertarían en orden inverso.
+  let frente = 0;
   for (const kit of homeBlocks) {
-    if (!vistos.has(kit) && !ocultados.has(kit)) pedidos.push(kit);
+    if (vistos.has(kit) || BLOQUE_KIT_A_EDITOR[kit]) continue;
+    // El bloque del tema anterior a este que YA esté colocado. Es el ancla que
+    // conserva la posición relativa sin depender de índices absolutos.
+    let ancla = -1;
+    for (let j = homeBlocks.indexOf(kit) - 1; j >= 0; j--) {
+      const p = resultado.indexOf(homeBlocks[j]);
+      if (p !== -1) { ancla = p; break; }
+    }
+    if (ancla === -1) { resultado.splice(frente, 0, kit); frente++; }
+    else resultado.splice(ancla + 1, 0, kit);
   }
-  return pedidos;
+
+  for (const kit of homeBlocks) {
+    if (!resultado.includes(kit) && !ocultados.has(kit)) resultado.push(kit);
+  }
+  return resultado;
 }
