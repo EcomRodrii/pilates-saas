@@ -328,7 +328,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
         </div>
       </div>
 
-      <PieNetwork />
+      {/* pb-36 (144px, > los ~134px medidos del CTA sticky de arriba):
+          `pb-24` del contenedor de arriba solo reserva hueco DENTRO de esa
+          columna, PieNetwork es un hermano fuera de ella — sin este
+          padding, el CTA fijo tapaba el pie entero en móvil (auditoría
+          mobile-first, 2026-08-18: "Privacidad" y "Parte del ecosistema
+          Tentare" quedaban inalcanzables incluso haciendo scroll hasta el
+          final). Solo en móvil (lg:pb-0): el CTA es lg:hidden. */}
+      <div className="pb-36 lg:pb-0">
+        <PieNetwork />
+      </div>
     </div>
   );
 }
