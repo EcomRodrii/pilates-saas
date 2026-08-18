@@ -126,3 +126,12 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   background: var(--brand); color: var(--on-brand);
   display: inline-flex; align-items: center; justify-content: center;
 }
+
+/* Cabecera de pantalla con flecha atrás a la izquierda del título (Sereno). */
+.screen-head--atras { justify-content: flex-start; gap: 12px; }
+.icon-btn--redondo {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}

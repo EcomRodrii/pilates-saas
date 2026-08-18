@@ -140,11 +140,25 @@ export function useViewModel() {
         isToday: next.day === datos.hoy.num,
         day: next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day),
         meta: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + ", " + next.time + " · " + next.room,
+        // El chip que va SOBRE la foto: cuándo, y nada más. La sala y la
+        // instructora ya están en la fila de debajo, y repetirlas ahí llenaba
+        // el chip de texto hasta partirlo en dos líneas.
+        chip: (next.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, next.day)) + " · " + next.time,
+        // Para el círculo de la fila «Con Marta». `inicialDe` es la misma que
+        // usa el adaptador para el resto de avatares — no un `[0]` suelto, que
+        // con un nombre vacío devuelve `undefined`.
+        teacherInitial: next.initial,
+        // «Con Marta · Sala 2»: quién primero, que es lo que se busca de un
+        // vistazo; el cuándo ya lo dice el chip de la foto.
+        // Nombre CORTO: «Con Marta», no «Con Marta Gómez». Es la fila de un
+        // vistazo y el apellido no ayuda a reconocerla; la ficha del detalle sí
+        // lo lleva entero.
+        quien: "Con " + next.teacher.split(" ")[0] + " · " + next.room,
       },
       // «Tu» delante en Noir y Tentada, y en Tentada NO es un matiz: es el
       // rótulo impreso en el billete, y el diseño lo escribe entero.
       nextHeading: next
-        ? (cfg.id === "noir" || cfg.id === "tentada" ? "Tu próxima clase" : "Próxima clase")
+        ? (cfg.id === "noir" || cfg.id === "tentada" || cfg.id === "sereno" ? "Tu próxima clase" : "Próxima clase")
         : "Tu semana",
 
       progress: {
@@ -197,11 +211,25 @@ export function useViewModel() {
       })),
 
       filters: datos.filtros.map((x) => ({ key: x.key, label: x.label, active: state.filter === x.key })),
+      // «Hoy · 3 clases»: el día elegido y cuántas hay. Va bajo los filtros en
+      // Sereno, donde el contador de la cabecera no existe.
+      diaFrase: (state.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, state.day))
+        + " · " + plural(dayList.length, "clase", "clases"),
       classes: dayList.map((c) => {
         const isBooked = idsReservados.includes(c.id);
         return {
           id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
           meta: c.room + " · " + c.level,
+          // «Emma · Sala A · Todos» — quién primero, que es lo que se busca al
+          // elegir clase. La fila de siempre lleva la instructora abajo con su
+          // avatar; esta la sube a la línea de metadatos.
+          metaLarga: [c.teacher.split(" ")[0], c.room, c.level].filter(Boolean).join(" · "),
+          // «4 plazas» junto al badge. Vacío cuando no quedan o ya es suya: ahí
+          // el badge («Completa», «Reservada») ya lo dice todo y repetirlo
+          // sobra.
+          plazas: !isBooked && !enCola(c.id) && c.seats > 0
+            ? c.seats + (c.seats === 1 ? " plaza" : " plazas")
+            : "",
           // Sin el nivel: la fila de Tentada ya escribe «con {teacher} · {room}»
           // y repetir «Intermedio» ahí la parte en tres líneas.
           room: c.room,
@@ -218,6 +246,12 @@ export function useViewModel() {
             ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
             : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
           statusTone: (isBooked ? "booked" : c.seats ? "free" : "full") as "booked" | "free" | "full",
+          // El badge de la fila de Sereno dice el ESTADO y nada más
+          // («Disponible»), porque las plazas van detrás en su propia línea.
+          // El de siempre mete el número dentro («3 libres») y ahí sí es lo
+          // único que hay, así que se conservan los dos.
+          estadoCorto: enCola(c.id) ? "En lista"
+            : isBooked ? "Reservada" : c.seats ? "Disponible" : "Completa",
         };
       }),
       classCount: plural(dayList.length, "clase", "clases"),
@@ -240,7 +274,17 @@ export function useViewModel() {
 
       // Una reserva cuya clase ya no está (cancelada, o de otra semana) se cae
       // de la lista en vez de pintarse a medias.
-      bookings: idsReservados.flatMap((id) => {
+      // ⚠️ Por FECHA y hora, no en el orden en que se reservaron. `bookings` sale
+      // de `idsReservados`, que viene del orden de la tabla: en la agenda eso
+      // dejaba la clase de las 18:00 encima de la de las 10:00 del mismo día.
+      // Una agenda que no va en orden no es una agenda.
+      bookings: [...idsReservados]
+        .sort((a, b) => {
+          const ca = buscarClase(datos, a); const cb = buscarClase(datos, b);
+          if (!ca || !cb) return 0;
+          return (ca.fecha + ca.time).localeCompare(cb.fecha + cb.time);
+        })
+        .flatMap((id) => {
         const c = buscarClase(datos, id);
         if (!c) return [];
         return [{
@@ -257,6 +301,18 @@ export function useViewModel() {
           // solo se ofrecía en la pantalla de confirmación: quien la cerraba, o
           // reservaba desde otro sitio, se quedaba sin ello para siempre.
           ics: eventoDeClase(c),
+          // ── Lo que pide la agenda de Sereno ──────────────────────────────
+          // El tramo entero («11:00 – 11:50»): en la agenda la pregunta es
+          // cuánto ocupa el día, no solo a qué hora empieza.
+          tramo: c.time + " – " + c.end,
+          // Nombre corto, como en el hero: el apellido no ayuda a reconocerla.
+          profe: c.teacher.split(" ")[0],
+          dayNumero: c.day,
+          esHoy: c.day === datos.hoy.num,
+          // Estar en la cola y tener plaza NO son lo mismo, y la píldora de la
+          // agenda es lo único que los distingue de un vistazo.
+          enEspera: porClase.get(c.id)?.estado === "LISTA_ESPERA",
+          estado: porClase.get(c.id)?.estado === "LISTA_ESPERA" ? "En lista de espera" : "Reservada",
         }];
       }),
 
@@ -417,9 +473,41 @@ export function useViewModel() {
       // Toda su cartera, no solo el bono que se está gastando: `bonoDe` deja
       // fuera los ilimitados y una socia con plan mensual no veía ninguno.
       wallet: datos.bonos,
+      // Las iniciales del estudio para el monograma de la tarjeta de bono
+      // («AP» de Aura Pilates). Salen del nombre REAL; sin nombre no se pinta
+      // el círculo en vez de enseñar dos letras inventadas.
+      monograma: (datos.estudio.nombre || cfg.studio)
+        .split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join(""),
       purchases: datos.compras,
 
       notifications: NOTIFICATIONS.map((n) => ({ ...n, on: !!state.notifications[n.key] })),
+
+      // La bandeja. `items: null` = todavía no ha llegado; la pantalla no dice
+      // «no tienes avisos» mientras tanto.
+      avisos: { items: state.avisos, cargando: state.avisosCargando },
+
+      // Las tres cifras de la cabecera del perfil de Sereno.
+      //
+      // ⚠️ NINGUNA sale de `metrics` (justo debajo), que tiene un `18` escrito
+      // a mano desde el kit de diseño: es el patrón que este repo lleva
+      // quitando —una cifra en pantalla que nadie calcula—. Aquí las tres son
+      // reales o no se pintan:
+      //  · créditos → el saldo del bono;
+      //  · clases este mes → se CUENTAN del historial de asistidas, y por eso
+      //    `null` mientras no haya llegado (se pide en diferido);
+      //  · racha → `calcularRacha`, que ya es la fuente de sus logros, y `null`
+      //    por debajo de dos semanas: una semana suelta no es una racha.
+      cifrasPerfil: (() => {
+        const mes = (datos.ahoraISO ?? "").slice(0, 7);
+        const esteMes = state.historial?.filter((h) => h.inicio.slice(0, 7) === mes).length ?? null;
+        return [
+          { valor: String(passLeft), label: passLeft === 1 ? "crédito" : "créditos" },
+          esteMes === null ? null : { valor: String(esteMes), label: "clases este mes" },
+          datos.racha && datos.racha.semanas >= 2
+            ? { valor: String(datos.racha.semanas), label: "semanas seguidas" }
+            : null,
+        ].filter(Boolean) as { valor: string; label: string }[];
+      })(),
       metrics: [
         { value: idsReservados.length, label: "reservas" },
         { value: 18, label: "clases" },
@@ -438,6 +526,20 @@ export function useViewModel() {
         plazaElegida: state.spotElegido,
         description: cls.description,
         pill: cls.level + " · " + cls.duration,
+        // El estado que va sobre la foto cuando el título baja al lienzo.
+        // Reusa las mismas palabras que la fila del horario para que la socia
+        // lea lo mismo en las dos pantallas.
+        estado: enCola(state.classId) ? "En lista"
+          : (booked && !enCola(state.classId)) ? "Reservada"
+          : cls.seats ? "Disponible" : "Completa",
+        // Los tres datos de la clase como chips de dos líneas. El nivel puede
+        // venir vacío (un tipo sin nivel marcado) y entonces su chip no se
+        // pinta, en vez de dejar uno con el rótulo y el hueco.
+        chips: [
+          cls.level ? { label: "Nivel", valor: cls.level } : null,
+          { label: "Duración", valor: cls.duration },
+          cls.room ? { label: "Sala", valor: cls.room } : null,
+        ].filter(Boolean) as { label: string; valor: string }[],
         booked: booked && !enCola(state.classId),
         // El id que hay que mandar para cancelar NO es el de la clase.
         reservaId: reservaPorClase.get(state.classId),

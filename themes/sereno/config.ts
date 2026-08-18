@@ -34,13 +34,15 @@ export const THEME: ThemeConfig = {
     "welcome_curves": false,
     "welcome_seal": false,
     "welcome_cta_circle": false,
-    "greeting_style": "micro-first",
-    "hero_badge": true,
+    "greeting_style": "date-first",
+    "hero_badge": false,
+    "hero_chip": true,
+    "day_strip_style": "cajas",
     "quick_links_style": "cards",
     "tab_bar_style": "floating",
     "tab_icon_fill": false,
     "tab_labels": "todas",
-    "detail_style": "bleed",
+    "detail_style": "bleed-bajo",
     "next_class_style": "hero",
     "week_strip_style": "card",
     // ⚠️ `agenda`, no el `basico` que traía el paquete: con `basico` la tercera
@@ -50,10 +52,12 @@ export const THEME: ThemeConfig = {
     "tab_set": "agenda",
     "schedule_style": "chips",
     "passes_style": "plan",
-    "profile_style": "card"
+    "pass_style_sereno": true,
+    "profile_style": "fichas"
   },
   "home_blocks": [
     "greeting",
+    "waitlist-banner",
     "next-class",
     "pass-card",
     "quick-links",
@@ -64,6 +68,13 @@ export const THEME: ThemeConfig = {
   "member_initial": "L",
   "greeting_note": "hoy toca cuidarte",
   "closing_quote": "Respira hondo. El resto puede esperar.",
+  // Copy del TEMA, no dato: firma el pie de la tarjeta de bono. Sin esto la
+  // tarjeta se queda en la caducidad, que es lo que hacen los otros cuatro.
+  "pass_valores": [
+    { "icono": "leaf", "label": "Equilibrio" },
+    { "icono": "music", "label": "Bienestar" },
+    { "icono": "heart", "label": "Conexión" }
+  ],
   "welcome": {
     "line1": "Tu espacio",
     "line2": "para sentirte bien",

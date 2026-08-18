@@ -3,7 +3,7 @@
 import { PhoneFrame, TabBar } from "@/components/portal-tema/components/layout/chrome";
 import { Toast } from "@/components/portal-tema/components/ui/overlays";
 import { Hojas } from "@/components/portal-tema/components/ui/hojas";
-import { HISTORIAL_DE_MUESTRA } from "@/components/portal-tema/data/studio";
+import { AVISOS_DE_MUESTRA, HISTORIAL_DE_MUESTRA } from "@/components/portal-tema/data/studio";
 import { PortalProvider, useCompra, type CompraPortalVuelta, type ScreenId } from "@/components/portal-tema/store/PortalStore";
 import { TemaProvider } from "@/components/portal-tema/store/TemaContext";
 import { useViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -28,6 +28,7 @@ import { MyData } from "@/components/portal-tema/screens/MyData";
 import { ClassDetail } from "@/components/portal-tema/screens/ClassDetail";
 import { GuidedSession } from "@/components/portal-tema/screens/GuidedSession";
 import { BonoActivado } from "@/components/portal-tema/screens/BonoActivado";
+import { Avisos } from "@/components/portal-tema/screens/Avisos";
 
 const SCREENS = {
   welcome: Welcome,
@@ -49,6 +50,7 @@ const SCREENS = {
   detalle: ClassDetail,
   sesion: GuidedSession,
   compra: BonoActivado,
+  avisos: Avisos,
 } as const;
 
 function Portal() {
@@ -110,7 +112,8 @@ export function PortalApp({
           pantalla. En el portal real lo inyecta `PortalTemaMarco` con el
           endpoint de verdad. */}
       <PortalProvider datos={datos} compra={compra} pantalla={pantalla}
-        alPedirHistorial={async () => HISTORIAL_DE_MUESTRA}>
+        alPedirHistorial={async () => HISTORIAL_DE_MUESTRA}
+        alPedirAvisos={async () => AVISOS_DE_MUESTRA}>
         {bare ? <Portal /> : <PhoneFrame><Portal /></PhoneFrame>}
       </PortalProvider>
     </TemaProvider>

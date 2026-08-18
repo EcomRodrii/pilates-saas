@@ -29,10 +29,14 @@ export function Schedule({ vm }: { vm: ViewModel }) {
         <div className="canvas no-scrollbar">
           <div className="screen-head">
             <h1 className="screen-title">Clases</h1>
-            <span className="screen-count">{vm.classCount}</span>
+            {/* Sin contador arriba cuando la línea «Hoy · N clases» ya va bajo
+                los filtros: dos veces la misma cifra en la misma pantalla. */}
+            {vm.features.day_strip_style === "cajas"
+              ? null
+              : <span className="screen-count">{vm.classCount}</span>}
           </div>
 
-          <DayStrip week={vm.week} tight />
+          <DayStrip week={vm.week} tight boxed={vm.features.day_strip_style === "cajas"} />
 
           <div className="rail">
             {vm.filters.map((item) => (
@@ -42,9 +46,15 @@ export function Schedule({ vm }: { vm: ViewModel }) {
             ))}
           </div>
 
+          {vm.features.day_strip_style === "cajas"
+            ? <p className="dia-frase">{vm.diaFrase}</p>
+            : null}
+
           <div className="scroller no-scrollbar">
             {vm.classes.length ? (
-              vm.classes.map((row) => <ClassRow key={row.id} row={row} />)
+              vm.classes.map((row) => (
+                <ClassRow key={row.id} row={row} sereno={vm.features.day_strip_style === "cajas"} />
+              ))
             ) : (
               <EmptyState title="Nada este día" text="Prueba otro día de la semana o quita el filtro." />
             )}

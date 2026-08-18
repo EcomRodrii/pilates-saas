@@ -13,7 +13,7 @@ export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar"
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar" | "avisos"
   | "compra";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
@@ -79,6 +79,13 @@ export interface PortalState {
    */
   historial: { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[] | null;
   historialCargando: boolean;
+  /**
+   * La bandeja de avisos. `null` = no se ha pedido todavía (o no hay de quién:
+   * la previsualización corre sin sesión). Distinto de `[]`, que sí es «no
+   * tienes ninguno» — y por eso el vacío solo se dice con array.
+   */
+  avisos: { id: string; tipo: string; texto: string; cuando: string; leido: boolean; accion: string | null }[] | null;
+  avisosCargando: boolean;
   /** Qué sección abre «Información del centro». */
   infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
   /**
@@ -154,6 +161,8 @@ const initialState = (): PortalState => ({
   agendaVista: 'semana',
   historial: null,
   historialCargando: false,
+  avisos: null,
+  avisosCargando: false,
   infoKey: 'horario',
   hoja: null,
 });
@@ -208,6 +217,8 @@ export interface PortalActions {
   setBonosTab(tab: 'bonos' | 'historial'): void;
   setAgendaVista(vista: 'semana' | 'mes' | 'lista'): void;
   cargarHistorial(): void;
+  cargarAvisos(): void;
+  abrirAviso(id: string): void;
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
   goMisDatos(): void;
@@ -348,6 +359,19 @@ export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
  *
  * Va inyectada como el resto de escrituras: el kit no sabe que existe Supabase.
  */
+/**
+ * Pide la bandeja de avisos de la socia, y marca la visita. Devuelve `[]` si
+ * no hay sesión o el servidor falla.
+ *
+ * Inyectada como el resto: el kit no sabe que existe `/api/notifications`.
+ */
+export type AlPedirAvisosPortal = () => Promise<
+  { id: string; tipo: string; texto: string; cuando: string; leido: boolean; accion: string | null }[]
+>;
+
+/** Abre un aviso: lo marca leído y navega a donde apunte. */
+export type AlAbrirAvisoPortal = (id: string) => void;
+
 export type AlPedirHistorialPortal = () => Promise<
   { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[]
 >;
@@ -409,6 +433,8 @@ export function PortalProvider({
   alReservar,
   alGuardarDatos,
   alPedirHistorial,
+  alPedirAvisos,
+  alAbrirAviso,
   alSalir,
   aspecto,
   compra,
@@ -446,6 +472,8 @@ export function PortalProvider({
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
   alPedirHistorial?: AlPedirHistorialPortal;
+  alPedirAvisos?: AlPedirAvisosPortal;
+  alAbrirAviso?: AlAbrirAvisoPortal;
   /** Sin esto, "Reservar mi plaza" es un `setTimeout`. */
   alReservar?: AlReservarPortal;
   alGuardarDatos?: AlGuardarDatosPortal;
@@ -509,7 +537,8 @@ export function PortalProvider({
     // que algo lo refrescara, y encima metería sus clases en el
     // `localStorage` de un dispositivo compartido. Con `null` se vuelve a
     // pedir, que es barato y siempre cierto.
-    const { toast, toastId, loading, running, paying, authWorking, historial, historialCargando, ...rest } = state;
+    const { toast, toastId, loading, running, paying, authWorking, historial, historialCargando,
+            avisos, avisosCargando, ...rest } = state;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
@@ -534,6 +563,10 @@ export function PortalProvider({
 
   const alPedirHistorialRef = useRef(alPedirHistorial);
   useEffect(() => { alPedirHistorialRef.current = alPedirHistorial; }, [alPedirHistorial]);
+  const alPedirAvisosRef = useRef(alPedirAvisos);
+  useEffect(() => { alPedirAvisosRef.current = alPedirAvisos; }, [alPedirAvisos]);
+  const alAbrirAvisoRef = useRef(alAbrirAviso);
+  useEffect(() => { alAbrirAvisoRef.current = alAbrirAviso; }, [alAbrirAviso]);
   const alCancelarRef = useRef(alCancelar);
   useEffect(() => {
     alCancelarRef.current = alCancelar;
@@ -664,6 +697,19 @@ export function PortalProvider({
       // Una sola vez por montaje: `historial !== null` ya significa «pedido».
       // Sin esa guarda, el efecto que la llama al abrir la lista dispararía una
       // petición por render.
+      cargarAvisos: () => {
+        const pedir = alPedirAvisosRef.current;
+        const s = stateRef.current;
+        if (!pedir || s.avisos !== null || s.avisosCargando) return;
+        set({ avisosCargando: true });
+        pedir()
+          .then((avisos) => set({ avisos, avisosCargando: false, alertsSeen: true }))
+          // Un fallo deja `avisos` en `null`, no en `[]`: «no he podido leer la
+          // bandeja» y «no tienes avisos» son cosas distintas.
+          .catch(() => set({ avisosCargando: false }));
+      },
+      abrirAviso: (id) => { alAbrirAvisoRef.current?.(id); },
+
       cargarHistorial: () => {
         const pedir = alPedirHistorialRef.current;
         const s = stateRef.current;
@@ -835,8 +881,13 @@ export function PortalProvider({
         const s = stateRef.current;
         set({ notifications: { ...s.notifications, [key]: !s.notifications[key] } });
       },
+      // ⚠️ Esto decía «Tienes 2 avisos sin leer» con el 2 escrito a mano en el
+      // kit de diseño, sin mirar ninguna bandeja. Ahora abre la bandeja de
+      // verdad; si el tema no la monta (los cuatro anteriores), se queda el
+      // aviso flotante pero SIN inventarse una cifra.
       alerts: () => {
-        notify(stateRef.current.alertsSeen ? "Nada nuevo" : "Tienes 2 avisos sin leer");
+        if (alPedirAvisosRef.current) { ir({ screen: "avisos" }); return; }
+        notify("Tus avisos están en el menú del portal");
         set({ alertsSeen: true });
       },
 

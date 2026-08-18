@@ -6,6 +6,7 @@ import { useCountUp } from "@/components/portal-tema/hooks/motion";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import { ProfileTentada } from "@/components/portal-tema/screens/Profile.tentada";
+import { ProfileSereno } from "@/components/portal-tema/screens/Profile.sereno";
 
 function Metric({ value, label }: { value: number; label: string }) {
   const shown = useCountUp(value);
@@ -22,6 +23,8 @@ export function Profile({ vm }: { vm: ViewModel }) {
   // Tentada trae su propia forma (cabecera verde y filas), y con «Aspecto» y
   // el estado SEPA que el prototipo no tiene pero el perfil de la socia sí.
   if (vm.features.profile_style === "header") return <ProfileTentada vm={vm} />;
+  // Sereno: cabecera con avatar y correo, tres cifras y opciones en fichas.
+  if (vm.features.profile_style === "fichas") return <ProfileSereno vm={vm} />;
   return <ProfileKit vm={vm} />;
 }
 

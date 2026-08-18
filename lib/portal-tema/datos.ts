@@ -672,6 +672,11 @@ export interface CeldaMes {
   selected: boolean;
   /** Hay al menos una clase ese día. */
   marked: boolean;
+  /**
+   * Anterior a hoy. La agenda los apaga: no se puede reservar en el pasado, y
+   * un día pasado con el mismo peso que uno futuro invita a pulsarlo.
+   */
+  pasado: boolean;
 }
 
 /**
@@ -723,6 +728,7 @@ export function rejillaMesPortal(
       label: d.getUTCDate(),
       outside,
       today: fecha === hoyLocal,
+      pasado: fecha < hoyLocal,
       selected: !outside && d.getUTCDate() === seleccionado,
       marked: conClase.has(fecha),
     });

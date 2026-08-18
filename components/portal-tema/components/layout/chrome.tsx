@@ -132,13 +132,53 @@ export interface ClassRowData {
   eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
   meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
+  /** «Emma · Sala A · Todos» — la instructora subida a la línea de metadatos. */
+  metaLarga: string;
+  /** «4 plazas», o vacío cuando el badge ya lo dice todo. */
+  plazas: string;
+  /** «Disponible» / «Reservada» / «Completa» — el estado sin la cifra. */
+  estadoCorto: string;
   /** En la cola de esa clase, no con plaza. Son cosas distintas. */
   waiting: boolean;
   full: boolean;
 }
 
-export function ClassRow({ row }: { row: ClassRowData }) {
+/**
+ * La fila del horario de Sereno: hora | separador | cuerpo | chevron.
+ *
+ * La diferencia con la de siempre no es de color: la instructora sube a la
+ * línea de metadatos (con su avatar, la fila se lee de abajo arriba), el badge
+ * va acompañado de las plazas que quedan, y el chevron dice que se entra a
+ * algún sitio. Va aquí y no en un fichero por tema porque sigue siendo la misma
+ * fila con los mismos datos — es composición, no otra pantalla.
+ */
+function ClassRowSereno({ row }: { row: ClassRowData }) {
   const actions = useActions();
+  const cls = ["class-row", "class-row--sereno", "is-pressable", row.booked ? "is-booked" : "", row.statusTone === "full" ? "is-full" : ""]
+    .filter(Boolean).join(" ");
+  return (
+    <button className={cls} onClick={() => actions.openClass(row.id)}>
+      <span className="class-row__time">
+        <span className="class-row__hour">{row.time}</span>
+        <span className="class-row__dur">{row.duration}</span>
+      </span>
+      <span className="class-row__sep" aria-hidden="true"></span>
+      <span className="class-row__body">
+        <span className="class-row__name">{row.name}</span>
+        <span className="class-row__meta">{row.metaLarga}</span>
+        <span className="class-row__foot">
+          <Status tone={row.statusTone}>{row.estadoCorto}</Status>
+          {row.plazas ? <span className="class-row__plazas">{row.plazas}</span> : null}
+        </span>
+      </span>
+      <Icon name="forward" size={13} stroke={1.8} />
+    </button>
+  );
+}
+
+export function ClassRow({ row, sereno }: { row: ClassRowData; sereno?: boolean }) {
+  const actions = useActions();
+  if (sereno) return <ClassRowSereno row={row} />;
   const cls = ["class-row", "is-pressable", row.booked ? "is-booked" : "", row.statusTone === "full" ? "is-full" : ""]
     .filter(Boolean).join(" ");
   return (
