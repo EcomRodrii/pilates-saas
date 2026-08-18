@@ -242,6 +242,9 @@ export function profesoresDe(instructores: Instructor[]): ProfesorPortal[] {
     // `bio` es nullable de verdad: sin ella la ficha no pinta un párrafo
     // vacío ni un texto de relleno.
     bio: (i.bio ?? '').trim(),
+    // `foto_url` primero y `avatar` de reserva: son dos columnas distintas de
+    // la misma tabla y no todas las fichas usan la misma.
+    foto: (i.fotoUrl ?? i.avatar ?? '').trim(),
   }));
 }
 
@@ -427,6 +430,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         level: tipo ? (NIVEL[tipo.nivel] ?? '') : '',
         teacher: nombreInstructor,
         initial: inicialDe(nombreInstructor),
+        teacherFoto: (instructor?.fotoUrl ?? instructor?.avatar ?? '').trim(),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),
         plazas: plazasDeSesion(s, f.spots, f.reservas),
         fotoUrl: imagenDeClase(tipo),

@@ -137,6 +137,8 @@ export interface ClassRowData {
    */
   eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
+  /** Su foto. Vacía = se queda el monograma, que es lo que pintan las capturas. */
+  teacherFoto: string;
   meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
   /** «Emma · Sala A · Todos» — la instructora subida a la línea de metadatos. */
   metaLarga: string;
@@ -209,7 +211,7 @@ export function ClassRow({ row }: { row: ClassRowData }) {
         <span className="class-row__name">{row.name}</span>
         <span className="class-row__meta">{row.meta}</span>
         <span className="class-row__foot">
-          <Avatar size="xs">{row.initial}</Avatar>
+          <Avatar size="xs" foto={row.teacherFoto}>{row.initial}</Avatar>
           <span className="class-row__teacher">{row.teacher}</span>
           <Status tone={row.statusTone}>{row.status}</Status>
         </span>
