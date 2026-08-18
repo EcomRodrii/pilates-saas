@@ -1873,6 +1873,11 @@ export default function ReservarPage() {
                   t={tokensCalendario}
                   slots={slots}
                   variant={vistaClases === 'lista' ? 'lista' : 'calendario'}
+                  // Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md,
+                  // pantallas 01/02): tira de 10 días con scroll en vez de
+                  // paginación por semana. Único caller de Modo A que la activa —
+                  // el portal privado (app/portal/[slug]/clases) sigue en 'semana'.
+                  estiloDias="dias"
                   irADia={comandoDia ?? undefined}
                   onReservar={handleReservarCalendario}
                   onCancelar={cancelarReserva}

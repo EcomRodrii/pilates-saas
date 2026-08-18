@@ -33,6 +33,7 @@ import {
   agruparPorDia, etiquetaDia,
 } from '@/lib/reserva-calendario-logic';
 import { SpotPicker } from './spot-picker';
+import { TiraDias } from './tira-dias';
 
 // Instrument Sans, la misma familia sans que el resto de /reservar
 // (lib/reservar-publico-tokens.ts, que a su vez reexporta de portal-design.ts
@@ -143,6 +144,16 @@ export interface ReservaCalendarioProps {
   /** Copys de estado vacío. */
   vacio?: { titulo: string; cuerpo: string };
   fontFamily?: string;
+  /**
+   * Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md): la
+   * tira de 10 días con scroll horizontal de las pantallas 01/02 del handoff,
+   * en vez de la tira de SEMANA con paginación ‹ › de siempre. Por defecto
+   * 'semana' — cero cambio para cualquier caller existente (Modo B, "Mis
+   * reservas", vista Mes...). Solo Modo A la activa hoy, y solo en la tab
+   * "Clases"; el resto del componente (spot picker, hoja, estados vacíos,
+   * variant='lista') es idéntico en ambos estilos.
+   */
+  estiloDias?: 'semana' | 'dias';
 }
 
 function fmtHora(iso: string): string {
@@ -182,7 +193,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
-  irADia,
+  irADia, estiloDias = 'semana',
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -226,6 +237,10 @@ export function ReservaCalendario({
   const [enviando, setEnviando] = useState(false);
 
   const semana = useMemo(() => diasSemana(weekAnchor), [weekAnchor]);
+  // 'dias' (Fase 1 del rediseño): 10 días fijos desde hoy, scroll horizontal —
+  // no paginación por semana. Independiente de `weekAnchor`/`navegarSemana`,
+  // que siguen existiendo tal cual para `estiloDias === 'semana'`.
+  const diez = useMemo(() => Array.from({ length: 10 }, (_, i) => addDays(hoy, i)), [hoy]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
   const slotsDia = useMemo(() => slotsDelDia(slots, selectedDayKey), [slots, selectedDayKey]);
   const gruposLista = useMemo(() => (variant === 'lista' ? agruparPorDia(slots) : []), [variant, slots]);
@@ -284,7 +299,23 @@ export function ReservaCalendario({
 
   return (
     <div style={{ fontFamily }}>
-      {variant === 'calendario' && (
+      {variant === 'calendario' && estiloDias === 'dias' && (
+        <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
+          <TiraDias
+            dias={diez}
+            seleccionado={selectedDayKey}
+            conteos={conteoPorDia}
+            onSeleccionar={setSelectedDayKey}
+            tokens={{
+              surface: t.surface, line: t.line, ink: t.ink, mutedText: t.muted,
+              acento: 'var(--portal-brand)', acentoTexto: 'var(--portal-brand-foreground)',
+              fuenteDisplay: serif, fuenteUI: fontFamily, radioChip: 12,
+            }}
+          />
+        </div>
+      )}
+
+      {variant === 'calendario' && estiloDias === 'semana' && (
         <>
           {/* ── Navegación de semana ─────────────────────────────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -355,7 +386,11 @@ export function ReservaCalendario({
               );
             })}
           </div>
+        </>
+      )}
 
+      {variant === 'calendario' && (
+        <>
           {/* ── Horarios del día ─────────────────────────────────────────── */}
           {slotsDia.length === 0 ? (
             <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />

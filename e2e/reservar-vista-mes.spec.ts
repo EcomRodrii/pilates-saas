@@ -92,10 +92,14 @@ test('elegir un día lleva a sus horarios, y NO reserva nada', async ({ page }) 
   await abrirMes(page);
   await page.getByRole('button', { name: /^17 de agosto/ }).click();
   await expect(page.getByRole('button', { name: 'Día', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  // La tira de semana saltó a la del 17, y se ven sus tres clases. Se ancla en
-  // las HORAS y no en el botón «Reservar»: son el dato que prueba que estamos
-  // en el día correcto, y no dependen de cómo se etiquete el botón.
-  await expect(page.getByText('17–23 AGO')).toBeVisible();
+  // La tira de días saltó al 17, y se ven sus tres clases. Se ancla en las
+  // HORAS y no en el botón «Reservar» ni en una etiqueta de rango de semana
+  // (Fase 1 del rediseño: la tira ya no pagina por semana, ver tira-dias.tsx):
+  // son el dato que prueba que estamos en el día correcto.
+  // El aria-label de la tira de días es "‹día de la semana›, 17 de agosto, N
+  // clases" (tira-dias.tsx) — sin anclar al principio, a diferencia del botón
+  // de la vista Mes de arriba, que sí empieza por el número de día.
+  await expect(page.getByRole('tab', { name: /17 de agosto/ })).toHaveAttribute('aria-selected', 'true');
   for (const hora of ['09:00', '11:00', '19:00']) {
     await expect(page.getByText(hora, { exact: true })).toBeVisible();
   }
