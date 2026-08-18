@@ -4,7 +4,7 @@ import { tieneFeature } from '@/lib/billing/entitlements';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import {
   dbListPendientes, dbGetResumenDiarioReciente, dbGetMensajeDia, dbListMensajesRecientes,
-  dbGetRecomendacion, dbListOutcomesRecientes,
+  dbGetRecomendacion, dbListOutcomesRecientes, dbCountAutonomasHoy,
 } from '@/lib/decision/db';
 import { calcularEstadoEspecialista } from '@/lib/decision/director';
 import { seleccionarPrioridadesHome } from '@/lib/decision/prioridad';
@@ -27,13 +27,14 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
   const fechaHoy = now.toISOString().slice(0, 10);
-  const [resumen, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes] = await Promise.all([
+  const [resumen, pendientes, actividadRes, mensajeHoy, mensajesRecientes, outcomesRecientes, nAutonomasHoy] = await Promise.all([
     dbGetResumenDiarioReciente(sesion.studioId, now),
     dbListPendientes(sesion.studioId),
     requireSupabaseAdmin().from('actividad_reciente').select('*').eq('studio_id', sesion.studioId).order('creado_en', { ascending: false }).limit(10),
     dbGetMensajeDia(sesion.studioId, fechaHoy),
     dbListMensajesRecientes(sesion.studioId, now, 7),
     dbListOutcomesRecientes(sesion.studioId, 3),
+    dbCountAutonomasHoy(sesion.studioId, now),
   ]);
 
   // El Umbral (lib/decision/umbral.ts): el veredicto del día es el elemento
@@ -104,5 +105,9 @@ export async function GET(req: NextRequest) {
     masSituaciones,
     porEspecialista,
     actividad,
+    // Reorganización Centro de Control §1: cuenta lo que el piloto automático
+    // ya resolvió hoy sin esperar criterio — reusa dbCountAutonomasHoy (ya
+    // existía para el cupo diario del piloto, sin caller aquí hasta ahora).
+    nAutonomasHoy,
   });
 }

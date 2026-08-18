@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Candidata, Recomendacion } from './tipos.ts';
 import {
   PESOS, calcularScore, calcularPrioridad, enCooldown, calcularAjusteFeedback,
-  priorizar, seleccionarPrioridadesHome, type CandidataPriorizada,
+  priorizar, seleccionarPrioridadesHome, partirMasSituaciones, type CandidataPriorizada,
 } from './prioridad.ts';
 
 const NOW = new Date('2026-07-11T12:00:00.000Z');
@@ -157,4 +157,43 @@ test('seleccionarPrioridadesHome: desempate por riesgo PERDIDA antes que OPORTUN
   const oportunidad: CandidataPriorizada = { ...candidata({ especialista: 'INGRESOS', dedupeKey: 'o', socioId: undefined, riesgo: 'OPORTUNIDAD' }), score: 60, prioridad: 'ALTA' };
   const seleccion = seleccionarPrioridadesHome([oportunidad, perdida]);
   assert.equal(seleccion[0].dedupeKey, 'p');
+});
+
+// ── partirMasSituaciones (reorganización Centro de Control) ────────────────
+
+const FECHA_HOY = '2026-07-11';
+
+test('partirMasSituaciones: MEDIA/BAJA de un día anterior va a seguimiento', () => {
+  const vieja = recomendacion({ tipo: 'FUSIONAR_SESIONES', dedupeKey: 'a', estado: 'PENDIENTE', prioridad: 'MEDIA', id: 'r1', creadoEn: diasAntes(3) });
+  const { seguimiento, nuevas } = partirMasSituaciones([vieja], FECHA_HOY);
+  assert.deepEqual(seguimiento.map(r => r.id), ['r1']);
+  assert.equal(nuevas.length, 0);
+});
+
+test('partirMasSituaciones: MEDIA/BAJA detectada HOY va a nuevas, no a seguimiento', () => {
+  const hoy = new Date(`${FECHA_HOY}T09:00:00.000Z`).toISOString();
+  const reciente = recomendacion({ tipo: 'FUSIONAR_SESIONES', dedupeKey: 'b', estado: 'PENDIENTE', prioridad: 'BAJA', id: 'r2', creadoEn: hoy });
+  const { seguimiento, nuevas } = partirMasSituaciones([reciente], FECHA_HOY);
+  assert.equal(seguimiento.length, 0);
+  assert.deepEqual(nuevas.map(r => r.id), ['r2']);
+});
+
+test('partirMasSituaciones: ALTA/CRITICA vieja sigue en nuevas — la antigüedad no la degrada a seguimiento', () => {
+  const criticaVieja = recomendacion({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'c', estado: 'PENDIENTE', prioridad: 'CRITICA', id: 'r3', creadoEn: diasAntes(10) });
+  const { seguimiento, nuevas } = partirMasSituaciones([criticaVieja], FECHA_HOY);
+  assert.equal(seguimiento.length, 0);
+  assert.deepEqual(nuevas.map(r => r.id), ['r3']);
+});
+
+test('partirMasSituaciones: cada fila cae en exactamente un cubo, nunca en los dos', () => {
+  const todas = [
+    recomendacion({ tipo: 'FUSIONAR_SESIONES', dedupeKey: 'a', estado: 'PENDIENTE', prioridad: 'MEDIA', id: 'r1', creadoEn: diasAntes(3) }),
+    recomendacion({ tipo: 'RECUPERAR_SOCIA', dedupeKey: 'c', estado: 'PENDIENTE', prioridad: 'ALTA', id: 'r3', creadoEn: diasAntes(10) }),
+    recomendacion({ tipo: 'CONTACTAR_LEAD', dedupeKey: 'd', estado: 'PENDIENTE', prioridad: 'BAJA', id: 'r4', creadoEn: diasAntes(1) }),
+  ];
+  const { seguimiento, nuevas } = partirMasSituaciones(todas, FECHA_HOY);
+  const idsSeguimiento = new Set(seguimiento.map(r => r.id));
+  const idsNuevas = new Set(nuevas.map(r => r.id));
+  for (const id of idsSeguimiento) assert.equal(idsNuevas.has(id), false);
+  assert.equal(seguimiento.length + nuevas.length, todas.length);
 });
