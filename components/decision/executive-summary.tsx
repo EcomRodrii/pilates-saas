@@ -18,11 +18,12 @@ export function ExecutiveSummary({ resumen }: { resumen: ResumenAPI }) {
       {resumen.nDecisiones > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
           <span>
-            Tiempo estimado <strong className="font-semibold text-foreground">{resumen.tiempoEstimadoMin} min</strong>
+            Tiempo estimado ·{' '}
+            <strong className="font-semibold text-foreground">{resumen.tiempoEstimadoMin} min</strong>
           </span>
           {resumen.impactoTotal && resumen.impactoTotal.valor > 0 && (
             <span>
-              Impacto económico{' '}
+              Impacto potencial estimado ·{' '}
               <strong className="font-semibold text-foreground">+{resumen.impactoTotal.valor}€/mes</strong>
             </span>
           )}

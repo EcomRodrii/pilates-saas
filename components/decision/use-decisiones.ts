@@ -88,6 +88,10 @@ export interface DecisionesResponse {
   masSituaciones: RecomendacionAPI[];
   porEspecialista: PorEspecialistaAPI[];
   actividad: ActividadAPI[];
+  /** Cuántas recomendaciones resolvió solo el piloto automático hoy — cabecera
+   * del Centro de Control. Opcional: los e2e que mockean esta respuesta sin
+   * este campo (previos a la reorganización) no deben romperse. */
+  nAutonomasHoy?: number;
 }
 
 function quitarRecomendacion(prev: DecisionesResponse, id: string): DecisionesResponse {

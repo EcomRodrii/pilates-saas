@@ -16,3 +16,22 @@ export function severidad(prioridad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA', ries
   if (riesgo === 'PERDIDA' && confianzaNivel !== 'BAJA') return 'IMPORTANTE';
   return 'RECOMENDACION';
 }
+
+// Nivel de "Más situaciones" (reorganización Centro de Control): a diferencia
+// de `severidad` (badge de Prioridades/VeredictoDelDia), este deriva SOLO de
+// `prioridad` — ya es el resultado de impacto×confianza×urgencia×esfuerzo, no
+// hace falta recalcular nada. Tres niveles con vocabulario de acción, no de
+// alarma: "Señal" es explícitamente NO una recomendación de actuar todavía.
+export type NivelSituacion = 'ACCION_RECOMENDADA' | 'REVISAR' | 'SENAL';
+
+export const NIVEL_SITUACION_INFO: Record<NivelSituacion, { label: string; color: string; bg: string }> = {
+  ACCION_RECOMENDADA: { label: 'Acción recomendada', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 10%, var(--card))' },
+  REVISAR: { label: 'Revisar', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 10%, var(--card))' },
+  SENAL: { label: 'Señal', color: 'var(--muted-foreground)', bg: 'var(--muted)' },
+};
+
+export function nivelSituacion(prioridad: 'CRITICA' | 'ALTA' | 'MEDIA' | 'BAJA'): NivelSituacion {
+  if (prioridad === 'CRITICA' || prioridad === 'ALTA') return 'ACCION_RECOMENDADA';
+  if (prioridad === 'MEDIA') return 'REVISAR';
+  return 'SENAL';
+}

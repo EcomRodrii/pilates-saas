@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { RefreshCw, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStudio } from '@/lib/studio-context';
 import { mensajeParaSocia, enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { useDecisiones, type RecomendacionAPI } from '@/components/decision/use-decisiones';
+import { useAutonomiaConfig } from '@/components/decision/use-autonomia-config';
+import { elegibleParaAutonomia } from '@/lib/decision/autonomia';
+import { partirMasSituaciones } from '@/lib/decision/prioridad';
+import { nivelSituacion, NIVEL_SITUACION_INFO, type NivelSituacion } from '@/components/decision/severidad';
+import type { Recomendacion } from '@/lib/decision/tipos';
 import { ExecutiveSummary } from '@/components/decision/executive-summary';
 import { RecommendationCard } from '@/components/decision/recommendation-card';
 import { WhileYouSlept } from '@/components/decision/while-you-slept';
@@ -20,23 +25,86 @@ import { RiesgoPlanton } from '@/components/decision/riesgo-planton';
 import { EspecialistaCartera } from '@/components/centro-de-control/especialista-cartera';
 import { ContratoDecisionOS } from '@/components/decision/contrato-decision-os';
 import { VeredictoDelDia } from '@/components/decision/veredicto-del-dia';
-import { Seguimiento } from '@/components/decision/seguimiento';
+import { SeguimientoPendiente } from '@/components/decision/seguimiento-pendiente';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Toast, useToast } from '@/components/ui/toast';
 
-// Centro de Control — el Home basado en decisiones (Bible doc 4). Orden fijo,
-// nunca cambia (doc 5 §17): Resumen Ejecutivo → Prioridades → Mientras
-// Dormías → Mi Equipo → Actividad → Accesos rápidos. El saludo (con la fecha
-// y el nombre del propietario ya incrustados) lo redacta el Director en
-// servidor — esta página solo lo presenta.
+// Centro de Control — reorganizado como sistema de decisiones, no como lista
+// de todo lo que Tentare sabe (petición explícita 2026-08-18). Jerarquía fija
+// al desplegar "Ver todo el detalle": Piloto automático → Para hoy →
+// Recomendaciones de hoy (Prioridades → Más situaciones) → Tu equipo y tu
+// cartera → Riesgos → Accesos rápidos → Actividad. Fuera del desplegable,
+// visibles siempre: Estado global (VeredictoDelDia) y Seguimiento.
+//
+// Cada situación pendiente cae en EXACTAMENTE un cubo de pantalla —
+// Prioridades XOR Seguimiento XOR Más situaciones — para que nunca se vea la
+// misma recomendación como dos tarjetas con cifras que puedan divergir. La
+// partición (partirMasSituaciones, lib/decision/prioridad.ts) es puramente de
+// presentación: no cambia lo que persiste ni lo que `/dashboard` (Action
+// Center) recibe de `/api/decisiones` — ese contrato no se toca.
+function frasesSeguimientoOutcome(o: { outcome: 'POSITIVO' | 'NEGATIVO' | 'NEUTRO'; titulo: string }): string {
+  if (o.outcome === 'POSITIVO') return `Seguiste esto: ${o.titulo}. Funcionó.`;
+  if (o.outcome === 'NEGATIVO') return `La última vez no acerté con esto: ${o.titulo}.`;
+  return `Seguiste esto: ${o.titulo}. Sin cambios claros.`;
+}
+
+const GRUPOS_SITUACION: { nivel: NivelSituacion; titulo: string }[] = [
+  { nivel: 'ACCION_RECOMENDADA', titulo: 'Acción recomendada' },
+  { nivel: 'REVISAR', titulo: 'Revisar' },
+  { nivel: 'SENAL', titulo: 'Señal' },
+];
+
 export default function CentroDeControlPage() {
   const { data, loading, error, aprobar, rechazar, posponer, analizarAhora, recargar } = useDecisiones();
   const { socios, studio, dependencySnapshots } = useStudio();
+  const autonomiaConfig = useAutonomiaConfig();
   const hayCartera = dependencySnapshots.some(s => s.alumnasTotal > 0);
   const [procesandoId, setProcesandoId] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
   const toast = useToast();
+
+  const fechaHoy = new Date().toISOString().slice(0, 10);
+
+  // Reorganización §2/§7: partir "Más situaciones" en lo que ya se venía
+  // arrastrando desde un día anterior (Seguimiento) y lo genuinamente nuevo.
+  const { seguimiento: enSeguimiento, nuevas: situacionesNuevas } = useMemo(
+    () => data ? partirMasSituaciones(data.masSituaciones, fechaHoy) : { seguimiento: [], nuevas: [] },
+    [data, fechaHoy],
+  );
+
+  const gruposSituacion = useMemo(() => {
+    const grupos = new Map<NivelSituacion, RecomendacionAPI[]>([['ACCION_RECOMENDADA', []], ['REVISAR', []], ['SENAL', []]]);
+    for (const r of situacionesNuevas) grupos.get(nivelSituacion(r.prioridad))!.push(r);
+    return grupos;
+  }, [situacionesNuevas]);
+
+  // Reorganización §3: recomendaciones pendientes que el piloto automático
+  // ejecutaría en el próximo ciclo si sigue encendido — SOLO una referencia
+  // (icono + título + enlace a su tarjeta completa en Prioridades/Más
+  // situaciones), nunca una tarjeta duplicada.
+  const requiereAprobacion = useMemo(() => {
+    if (!data || !autonomiaConfig?.activa) return [];
+    return [...data.prioridades, ...situacionesNuevas]
+      .filter(r => elegibleParaAutonomia(r as unknown as Recomendacion, autonomiaConfig));
+  }, [data, situacionesNuevas, autonomiaConfig]);
+
+  // Reorganización §13: el antiguo "círculo de aprendizaje" (outcomes ya
+  // medidos, `data.seguimiento`) no desaparece — es historial de una decisión
+  // ya tomada, así que se une al feed de Actividad en vez de tener su propia
+  // sección arriba de todo.
+  const actividadCompleta = useMemo(() => {
+    if (!data) return [];
+    const outcomes = data.seguimiento
+      .filter(o => o.medidoEn)
+      .map((o, i) => ({
+        id: `outcome-${i}`, tipo: 'DECISION_OUTCOME', texto: frasesSeguimientoOutcome(o),
+        socioId: o.socioId, enlace: null, creadoEn: o.medidoEn!, actorNombre: null,
+      }));
+    return [...data.actividad, ...outcomes]
+      .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))
+      .slice(0, 10);
+  }, [data]);
 
   // Enlace de WhatsApp con el mensaje ORIENTADO A LA SOCIA prerrellenado, para
   // que el propietario pueda escribirle con un clic (además del email que se
@@ -114,6 +182,7 @@ export default function CentroDeControlPage() {
 
       <ContratoDecisionOS />
 
+      {/* 1. Estado global */}
       <VeredictoDelDia
         veredicto={data.veredicto}
         onHecho={() => data.veredicto.recomendacion && handleAprobar(data.veredicto.recomendacion.id)}
@@ -121,9 +190,11 @@ export default function CentroDeControlPage() {
         onPosponer={() => data.veredicto.recomendacion && handlePosponer(data.veredicto.recomendacion.id)}
         procesando={!!data.veredicto.recomendacion && procesandoId === data.veredicto.recomendacion.id}
         whatsappHref={data.veredicto.recomendacion ? whatsappHref(data.veredicto.recomendacion) : null}
+        nAutonomasHoy={data.nAutonomasHoy ?? 0}
       />
 
-      <Seguimiento items={data.seguimiento} />
+      {/* 2. Seguimiento — situaciones ya detectadas, sin cambios desde la última revisión */}
+      <SeguimientoPendiente items={enSeguimiento} />
 
       <button
         type="button"
@@ -136,20 +207,43 @@ export default function CentroDeControlPage() {
 
       {detalleAbierto && (
       <>
-      {/* Sin encabezado de grupo aquí a propósito: PilotoAutomatico y
-          BandejaHoy ya se etiquetan solos ("Piloto automático" / "Para hoy"),
-          y BandejaHoy ni siquiera es del Decision OS (lee recuperaciones/
-          recibos/plazasFijas/bloqueosMaquina, lib/bandeja-logic.ts) — un
-          título de grupo compartido las etiquetaría mal a las dos. */}
       <div className="flex justify-end">
         <Button variant="ghost" size="sm" onClick={handleAnalizar} disabled={analizando}>
           <RefreshCw size={14} className={analizando ? 'animate-spin' : ''} />
           Analizar ahora
         </Button>
       </div>
-      <PilotoAutomatico />
+
+      {/* 3. Piloto automático — ejecutado solo / pendiente de tu aprobación */}
+      <div className="flex flex-col gap-4">
+        <PilotoAutomatico />
+        {!modoAprendizaje && data.resumen!.mientrasDormias.length > 0 && (
+          <div className="flex flex-col gap-2 pl-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ejecutado automáticamente</p>
+            <WhileYouSlept items={data.resumen!.mientrasDormias} />
+          </div>
+        )}
+        {requiereAprobacion.length > 0 && (
+          <div className="flex flex-col gap-2 pl-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Requiere tu aprobación</p>
+            <ul className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-3">
+              {requiereAprobacion.map(r => (
+                <li key={r.id}>
+                  <a href="#recomendaciones" className="flex items-center justify-between gap-2 text-[13px] text-foreground hover:text-brand-secondary">
+                    <span className="truncate">{r.titulo}</span>
+                    <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Para hoy */}
       <BandejaHoy />
 
+      {/* 5. Recomendaciones de hoy */}
       <div className="flex flex-col gap-6">
         <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Recomendaciones de hoy
@@ -161,6 +255,7 @@ export default function CentroDeControlPage() {
             <ExecutiveSummary resumen={data.resumen!} />
 
             <div id="recomendaciones" className="flex flex-col gap-6">
+              {/* 6. Prioridades */}
               {data.prioridades.length > 0 && (
                 <div id="prioridades" className="flex flex-col gap-3">
                   <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -181,56 +276,70 @@ export default function CentroDeControlPage() {
                 </div>
               )}
 
-              {/* Todas las demás situaciones detectadas (MEDIA/BAJA) — también
-                  accionables, no solo un número en "Mi Equipo". */}
-              {data.masSituaciones.length > 0 && (
-                <div className="flex flex-col gap-3">
+              {/* 7. Más situaciones — 3 niveles: Acción recomendada / Revisar / Señal */}
+              {situacionesNuevas.length > 0 && (
+                <div className="flex flex-col gap-5">
                   <h3 className="font-heading text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {data.prioridades.length > 0 ? 'Más situaciones' : 'Situaciones a revisar'}
                   </h3>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    {data.masSituaciones.map(r => (
-                      <RecommendationCard
-                        key={r.id}
-                        recomendacion={r}
-                        onAprobar={() => handleAprobar(r.id)}
-                        onRechazar={() => handleRechazar(r.id)}
-                        procesando={procesandoId === r.id}
-                        whatsappHref={whatsappHref(r)}
-                      />
-                    ))}
-                  </div>
+                  {GRUPOS_SITUACION.map(({ nivel, titulo }) => {
+                    const items = gruposSituacion.get(nivel) ?? [];
+                    if (items.length === 0) return null;
+                    const info = NIVEL_SITUACION_INFO[nivel];
+                    return (
+                      <div key={nivel} className="flex flex-col gap-3">
+                        <span
+                          className="w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                          style={{ color: info.color, backgroundColor: info.bg }}
+                        >
+                          {titulo}
+                        </span>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                          {items.map(r => (
+                            <RecommendationCard
+                              key={r.id}
+                              recomendacion={r}
+                              onAprobar={() => handleAprobar(r.id)}
+                              onRechazar={() => handleRechazar(r.id)}
+                              procesando={procesandoId === r.id}
+                              whatsappHref={whatsappHref(r)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-
-            <WhileYouSlept items={data.resumen!.mientrasDormias} />
           </>
         )}
       </div>
 
-      {/* En MODO APRENDIZAJE no se pintan los especialistas.
-          Este bloque estaba fuera del ternario de arriba, y su guarda es siempre
-          cierta porque la API siembra los 7 especialistas aunque no haya
-          análisis. Resultado: la misma pantalla decía "Aún estoy conociendo tu
-          estudio, necesito semanas de datos" Y, debajo, siete tarjetas verdes
-          diciendo "Excelente · Todo en orden". Las dos cosas no pueden ser
-          verdad a la vez, y la segunda es la que se cree la dueña.
-          La cartera SÍ se mantiene: no sale del análisis diario, se calcula
-          sobre reservas reales, así que en modo aprendizaje sigue siendo cierta. */}
-      {((!modoAprendizaje && data.porEspecialista.length > 0) || hayCartera) && (
+      {/* 10. Tu equipo y tu cartera — solo el resumen por especialista */}
+      {!modoAprendizaje && data.porEspecialista.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Tu equipo y tu cartera
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {!modoAprendizaje && data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
-            <EspecialistaCartera />
+            {data.porEspecialista.map(pe => <SpecialistCard key={pe.especialista} data={pe} />)}
           </div>
-          <RiesgoPlanton />
         </div>
       )}
 
+      {/* 11. Riesgos — visión transversal, separada de las recomendaciones */}
+      <div className="flex flex-col gap-3">
+        <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Riesgos
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {hayCartera && <EspecialistaCartera />}
+        </div>
+        <RiesgoPlanton />
+      </div>
+
+      {/* 12. Accesos rápidos */}
       <div className="flex flex-col gap-3">
         <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Accesos rápidos
@@ -239,8 +348,8 @@ export default function CentroDeControlPage() {
         <QuickActions />
       </div>
 
-      {/* Sin encabezado de grupo: ActivityList ya se etiqueta sola ("Actividad"). */}
-      <ActivityList items={data.actividad} />
+      {/* 13. Actividad — historial/auditoría, siempre al final */}
+      <ActivityList items={actividadCompleta} />
       </>
       )}
       {toast.message && <Toast message={toast.message} onDismiss={toast.dismiss} />}

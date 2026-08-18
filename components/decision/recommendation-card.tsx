@@ -5,7 +5,7 @@ import { Clock, Check, X, Mail, Euro, MessageCircle, ChevronDown, TriangleAlert 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ESPECIALISTA_INFO } from './especialista-info';
-import { fraseConfianza } from '@/lib/decision/copy';
+import { etiquetaImpacto, fraseConfianza } from '@/lib/decision/copy';
 import { severidad, SEVERIDAD_INFO } from './severidad';
 import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
 
@@ -13,12 +13,18 @@ import type { ImpactoAPI, RecomendacionAPI } from './use-decisiones';
 // → impacto → confianza → tiempo → acción. Nunca cambia de orden entre
 // especialistas — es lo que hace la interfaz predecible (doc 5 regla de oro 12).
 
-function formatearImpacto(imp: ImpactoAPI | null): string | null {
+// Reorganización Centro de Control §9: nunca una cifra desnuda — siempre con
+// la etiqueta que dice si es riesgo, recuperable o una estimación, para que
+// no se lea como dinero garantizado. Separada de la cifra (no concatenada en
+// un solo string) para poder pintar la cifra grande y la etiqueta pequeña
+// debajo, sin romper el layout compacto título+cifra que ya existía.
+function formatearImpacto(imp: ImpactoAPI | null, riesgo: 'PERDIDA' | 'OPORTUNIDAD', tipo: string): { etiqueta: string; cifra: string } | null {
   if (!imp || imp.valor === 0) return null;
   const signo = imp.valor >= 0 ? '+' : '';
-  if (imp.unidad === 'EUR_MES') return `${signo}${imp.valor}€/mes`;
-  if (imp.unidad === 'EUR') return `${signo}${imp.valor}€`;
-  return `${signo}${imp.valor}%`;
+  const cifra = imp.unidad === 'EUR_MES' ? `${signo}${imp.valor}€/mes`
+    : imp.unidad === 'EUR' ? `${signo}${imp.valor}€`
+    : `${signo}${imp.valor}%`;
+  return { etiqueta: etiquetaImpacto(riesgo, tipo as Parameters<typeof etiquetaImpacto>[1]), cifra };
 }
 
 // Botón principal específico por tipo, no un "Hecho" genérico siempre —
@@ -40,7 +46,7 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
   whatsappHref?: string | null;
 }) {
   const [porQueAbierto, setPorQueAbierto] = useState(false);
-  const impactoTexto = formatearImpacto(recomendacion.impacto);
+  const impacto = formatearImpacto(recomendacion.impacto, recomendacion.riesgo, recomendacion.tipo);
   const esCritica = recomendacion.prioridad === 'CRITICA';
   const sev = SEVERIDAD_INFO[severidad(recomendacion.prioridad, recomendacion.riesgo, recomendacion.confianza.nivel)];
   const { label: labelPrincipal, Icon: IconPrincipal } = botonPrincipal(recomendacion.accion.tipo);
@@ -66,13 +72,16 @@ export function RecommendationCard({ recomendacion, onAprobar, onRechazar, proce
           <h3 className="font-heading text-[16px] leading-snug font-semibold text-foreground">
             {recomendacion.titulo}
           </h3>
-          {impactoTexto && (
-            <span
-              className="shrink-0 text-[15px] font-bold"
-              style={{ color: recomendacion.riesgo === 'PERDIDA' ? 'var(--foreground)' : 'var(--success)' }}
-            >
-              {impactoTexto}
-            </span>
+          {impacto && (
+            <div className="shrink-0 text-right">
+              <span
+                className="text-[15px] font-bold"
+                style={{ color: recomendacion.riesgo === 'PERDIDA' ? 'var(--foreground)' : 'var(--success)' }}
+              >
+                {impacto.cifra}
+              </span>
+              <p className="text-[10.5px] leading-tight text-muted-foreground">{impacto.etiqueta}</p>
+            </div>
           )}
         </div>
 

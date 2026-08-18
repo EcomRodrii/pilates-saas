@@ -174,3 +174,36 @@ export function seleccionarPrioridadesHome<T extends ConPrioridad>(puntuadas: T[
   }
   return resultado;
 }
+
+// Deliberadamente MÁS LAXO que `ConPrioridad`: el frontend consume
+// `RecomendacionAPI` (`components/decision/use-decisiones.ts`, `especialista`
+// es `string` ahí, no `EspecialistaId` — tipo del lado del cliente, distinto
+// a propósito del núcleo server-only) y esta función solo necesita
+// `prioridad`/`id`/`creadoEn`, así que no debe exigir más que eso.
+interface ParaPartir { id: string; prioridad: Prioridad; creadoEn: string }
+
+/**
+ * Reorganización del Centro de Control: parte "Más situaciones" (lo que NO
+ * cupo en Prioridades) en dos cubos EXCLUYENTES — nunca la misma fila en los
+ * dos — para que una situación tenga una única representación en pantalla:
+ *
+ * - `seguimiento`: prioridad MEDIA/BAJA que YA existía desde un día anterior
+ *   (mismo `dedupeKey` refrescado por el cron, `creadoEn` se conserva) — de
+ *   baja urgencia y sin ser nueva, no merece una tarjeta completa cada día.
+ * - `nuevas`: todo lo demás — ALTA/CRITICA que no cupo en el cap de
+ *   Prioridades (por severa que sea la antigüedad no la degrada), o
+ *   MEDIA/BAJA detectada HOY por primera vez (sí merece verse una vez).
+ *
+ * Puramente de presentación: no cambia qué se persiste ni el array que
+ * consume `/dashboard` (Action Center sigue viendo `masSituaciones` entero).
+ */
+export function partirMasSituaciones<T extends ParaPartir>(
+  masSituaciones: T[],
+  fechaHoy: string,
+): { seguimiento: T[]; nuevas: T[] } {
+  const seguimiento = masSituaciones.filter(r =>
+    (r.prioridad === 'MEDIA' || r.prioridad === 'BAJA') && r.creadoEn.slice(0, 10) < fechaHoy);
+  const idsSeguimiento = new Set(seguimiento.map(r => r.id));
+  const nuevas = masSituaciones.filter(r => !idsSeguimiento.has(r.id));
+  return { seguimiento, nuevas };
+}
