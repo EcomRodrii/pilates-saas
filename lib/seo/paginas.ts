@@ -588,10 +588,20 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/instructora',
   // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
   '/demo',
-  // Cara pública operativa de cada estudio (decisión: B2B primero, sin miles de URLs por estudio)
-  // '/i' es el enlace público de instructora freelance — mismo motor que
-  // /reservar (reexporta su layout/page tal cual), misma decisión de no-index.
-  '/portal', '/kiosk', '/reservar', '/i',
+  // Cara pública operativa de cada estudio.
+  //
+  // ⚠️ `/reservar` YA NO está aquí: decisión del fundador (2026-08-17) de abrir
+  // a indexación la página de reservas de cada estudio. Se levantan las DOS
+  // puertas a la vez —esta y el `robots` del layout— porque levantar solo una
+  // no hace nada: Google no puede leer una etiqueta de una URL que le hemos
+  // prohibido rastrear.
+  //
+  // '/i' SIGUE bloqueado, y no es un olvido: es el enlace público de
+  // instructora freelance y REEXPORTA el layout/page de /reservar tal cual. Si
+  // se abriera también, el mismo contenido viviría en dos URLs distintas y
+  // competirían entre sí. Abrirlo es una decisión aparte, y necesitaría su
+  // propio canonical.
+  '/portal', '/kiosk', '/i',
   // Enlaces firmados de un solo uso
   '/aceptar-sustitucion', '/confirmar-reserva', '/disponibilidad', '/no-puedo', '/valorar',
   // Panel de gestión — TODOS los segmentos de app/(dashboard)
@@ -628,6 +638,24 @@ export const PREFIJOS_NO_INDEXABLES = [
  * qué — mismo criterio que ya usaba este mecanismo antes del rediseño.
  */
 export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras'];
+
+/**
+ * Rutas que son un `redirect()` y no una página.
+ *
+ * Existe porque el registro solo contempla dos categorías —página pública
+ * registrada, o prefijo bloqueado— y un redirect no es ninguna de las dos:
+ * no tiene contenido que indexar, y Google no indexa la URL que redirige sino
+ * su destino. Meterlo en el registro lo colaría en el sitemap; bloquearlo por
+ * prefijo es imposible sin bloquear también a sus hijos (`/reservar` es prefijo
+ * de cadena de `/reservar/<slug>`, que SÍ queremos indexar).
+ *
+ * Solo para redirects de verdad: si algún día una de estas pinta algo, deja de
+ * pertenecer aquí.
+ */
+export const RUTAS_REDIRECCION: readonly string[] = [
+  // Compatibilidad con enlaces antiguos sin slug → /reservar/<estudio por defecto>.
+  '/reservar',
+];
 
 /** ¿Esta ruta cae bajo un prefijo bloqueado? Prefijo de cadena, como robots.txt. */
 export function esNoIndexable(path: string): boolean {
