@@ -280,30 +280,46 @@ jobs:
       #
       # Chromium sobrevivía porque el runner de Ubuntu ya trae casi todo lo suyo.
       #
-      # ⚠️ **Con tope y reintento, porque este paso SE CUELGA.** Por debajo es
-      # `apt-get`, y en un runner de GitHub compite con `unattended-upgrades`
-      # por el candado de dpkg: si lo pierde, se queda esperando sin fallar
-      # nunca. Medido la noche del 17-ago — normalmente tarda 100 s, y ese día
-      # se quedó parado 20 minutos, dos veces seguidas, en dos runners
-      # distintos. Al tercer intento tardó 100 s otra vez y pasó: es
-      # transitorio, no una avería.
+      # ⚠️ **Este paso se cuelga, y la causa tiene nombre: el candado de dpkg.**
       #
-      # Sin esto un cuelgue aquí no falla NUNCA: bloquea el merge del PR hasta
-      # el tope del job. Y un `timeout-minutes` de paso a secas tampoco bastaba
-      # —mataría el paso entero sin reintentar—, así que el tope va POR INTENTO
-      # con `timeout(1)`: un cuelgue aborta ese intento y el siguiente arranca
-      # limpio. Tres intentos de 3 min, y el `timeout-minutes` del paso como
-      # último cinturón por si el propio bucle se atasca.
+      # Por debajo es `apt-get`, y en un runner de GitHub compite con
+      # `unattended-upgrades`. Si lo pierde, espera sin fallar nunca. Medido la
+      # noche del 17-ago: normalmente tarda 100 s, y ese día se quedó parado 20
+      # minutos, dos veces, en dos runners distintos.
+      #
+      # ⚠️ **Lo que NO funciona, comprobado en CI (#1171):** poner un
+      # `timeout 180` por intento y reintentar. `timeout` mata a `npx`, pero el
+      # `apt-get` hijo SOBREVIVE huérfano y se queda con el candado — así que
+      # los intentos siguientes mueren en el acto contra el cadáver del primero:
+      #
+      #     E: Could not get lock /var/lib/dpkg/lock-frontend.
+      #        It is held by process 2742 (apt-get)
+      #
+      # Con eso, un cuelgue pasaba de «quizá se resuelve» a fallar SEGURO. Matar
+      # apt a media instalación no es una opción.
+      #
+      # Lo que sí: ESPERAR a que el candado quede libre antes de empezar, y
+      # reintentar solo ante un fallo de verdad, dejando que cada intento
+      # termine. `timeout-minutes` del paso queda como único cinturón duro — y
+      # es el que impide que un cuelgue bloquee un merge durante horas, que era
+      # el problema original.
       - name: Dependencias del sistema de los navegadores
         if: steps.cache-playwright.outputs.cache-hit == 'true'
         timeout-minutes: 12
         run: |
+          # 1) Esperar a que `unattended-upgrades` suelte el candado de dpkg.
+          for i in $(seq 1 60); do
+            sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || break
+            echo "Candado de dpkg ocupado; esperando… ($i/60)"
+            sleep 5
+          done
+          # 2) Instalar. Sin matar nada a medias: si falla, se reintenta entero.
           for intento in 1 2 3; do
-            if timeout 180 npx playwright install-deps chromium webkit; then
+            if npx playwright install-deps chromium webkit; then
               exit 0
             fi
-            echo "::warning::install-deps falló o se colgó (intento $intento/3). Reintentando…"
-            sleep 10
+            echo "::warning::install-deps falló (intento $intento/3). Reintentando en 15 s…"
+            sleep 15
           done
           echo "::error::install-deps no terminó en 3 intentos. Sin las librerías de WebKit los tests mueren con «Target page, context or browser has been closed», que NO es un fallo de test."
           exit 1
