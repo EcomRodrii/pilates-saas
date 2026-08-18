@@ -822,12 +822,101 @@ export function AjustesCategoriaPanel({
           ))}
         </div>
 
+        <div className="space-y-1.5 pt-1 border-t border-border">
+          <span className="text-[13px] font-medium text-foreground">Colores del widget</span>
+          <p className="text-[11px] text-muted-foreground">
+            Sin tocar nada, el widget usa los colores de siempre. Solo cambia lo que necesites — el
+            resto sigue igual.
+          </p>
+          {([
+            { k: 'widgetSuperficie' as const, label: 'Superficie (tarjetas/inputs)' },
+            { k: 'widgetTinta' as const, label: 'Texto principal' },
+            { k: 'widgetTextoSecundario' as const, label: 'Texto secundario' },
+            { k: 'widgetLinea' as const, label: 'Bordes y separadores' },
+            { k: 'widgetRelleno' as const, label: 'Relleno suave (chips)' },
+          ]).map((o) => {
+            const valor = draft[o.k];
+            const activo = typeof valor === 'string';
+            return (
+              <div key={o.k} className="flex items-center justify-between gap-2">
+                <span className="text-[12.5px] text-foreground">{o.label}</span>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="color"
+                    value={activo ? valor : '#FFFFFF'}
+                    onChange={(e) => setCampo(o.k, e.target.value)}
+                    className="w-8 h-8 rounded-md border border-border bg-background"
+                    aria-label={o.label}
+                  />
+                  {activo && (
+                    <button type="button" onClick={() => setCampo(o.k, null)}
+                      className="text-[11px] text-muted-foreground underline">
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {contraste.errores.some((e) => e.includes('widget')) && (
+            <p className="text-[11px] text-destructive">
+              {contraste.errores.find((e) => e.includes('widget'))}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border">
+          <label className="block space-y-1">
+            <span className="text-[13px] font-medium text-foreground">Radio de botones</span>
+            <input
+              type="number" min={0} max={32}
+              value={draft.widgetRadioBoton ?? ''}
+              placeholder="píldora"
+              onChange={(e) => setCampo('widgetRadioBoton', e.target.value.trim() === '' ? null : Number(e.target.value))}
+              className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[13px] font-medium text-foreground">Radio de inputs</span>
+            <input
+              type="number" min={0} max={32}
+              value={draft.widgetRadioInput ?? ''}
+              placeholder="el de tarjetas"
+              onChange={(e) => setCampo('widgetRadioInput', e.target.value.trim() === '' ? null : Number(e.target.value))}
+              className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+            />
+          </label>
+        </div>
+
+        <label className="block space-y-1">
+          <span className="text-[13px] font-medium text-foreground">Tipografía de titulares</span>
+          <input
+            type="text"
+            value={draft.widgetFuenteDisplay ?? ''}
+            maxLength={40}
+            onChange={(e) => setCampo('widgetFuenteDisplay', e.target.value.trim() === '' ? null : e.target.value)}
+            placeholder="Igual que la tipografía de arriba"
+            className="w-full text-[13px] px-2.5 py-2 rounded-lg border border-border bg-background"
+          />
+          <span className="block text-[11px] text-muted-foreground">
+            Para titulares, horas y precios — el resto del texto sigue usando la tipografía de arriba.
+          </span>
+        </label>
+
         <WidgetPreview
           slug={studio?.slug}
           fondo={typeof draft.widgetFondo === 'string' ? draft.widgetFondo : null}
           fuente={draft.widgetFuente ?? null}
           ocultarPie={draft.widgetOcultarPie === true}
           soloPestana={draft.widgetSoloPestana === true}
+          fuenteDisplay={draft.widgetFuenteDisplay ?? null}
+          radioBoton={draft.widgetRadioBoton ?? null}
+          radioInput={draft.widgetRadioInput ?? null}
+          superficie={typeof draft.widgetSuperficie === 'string' ? draft.widgetSuperficie : null}
+          tinta={typeof draft.widgetTinta === 'string' ? draft.widgetTinta : null}
+          textoSecundario={typeof draft.widgetTextoSecundario === 'string' ? draft.widgetTextoSecundario : null}
+          linea={typeof draft.widgetLinea === 'string' ? draft.widgetLinea : null}
+          relleno={typeof draft.widgetRelleno === 'string' ? draft.widgetRelleno : null}
         />
       </div>
     );
