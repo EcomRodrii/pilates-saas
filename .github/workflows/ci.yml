@@ -21,6 +21,19 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
   SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
   NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md):
+  # sin esto el paso 'pago' de /reservar/[slug] (y el checkout embebido de
+  # Modo B) nunca se monta en CI — STRIPE_PUBLISHABLE_KEY sale undefined del
+  # build y la página cae siempre a 'login'. Clave publicable: segura de
+  # exponer por diseño, no es un secreto real.
+  #
+  # ⚠️ Tiene que tener la FORMA real de una clave de Stripe. `loadStripe()`
+  # valida el formato y LANZA de forma síncrona con algo como
+  # `pk_test_dummy_for_ci` — eso tumbaba la página entera («Algo se ha roto»)
+  # en cuanto se montaba el paso 'pago', encontrado en CI (#1197). Este valor
+  # es la clave de ejemplo pública y documentada por el propio Stripe
+  # (docs.stripe.com), no un secreto de ninguna cuenta real.
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_TYooMQauvdEDq54NiTphI7jx
   # B0.3: siembra el estudio en la resolución server-side para que la E2E
   # (registro · reserva · pago) corra de verdad y bloquee el deploy.
   E2E_TEST: '1'
