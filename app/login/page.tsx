@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId, useRef } from 'react';
+import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
@@ -444,6 +445,18 @@ export default function LoginPage() {
               </button>
             </>
           )}
+        </p>
+
+        {/* Segunda vía, no la primera — esta pantalla es la puerta de un
+            equipo con invitación (ver el copy de "Crear cuenta" arriba), no
+            el sitio donde alguien sin estudio empieza. Enlace recíproco al
+            de NAV_NETWORK (components/landing/enlaces.ts) y al que ya tenía
+            /network/acceso hacia aquí — antes solo funcionaba en un sentido. */}
+        <p className="text-center text-[12px] text-[#A8A89F] mt-3">
+          ¿Eres instructora o profesor/a?{' '}
+          <Link href="/network/crear-perfil" className="font-semibold text-[#3A3A34] hover:underline">
+            Crea tu perfil en Tentare Network
+          </Link>
         </p>
         </>
         )}
