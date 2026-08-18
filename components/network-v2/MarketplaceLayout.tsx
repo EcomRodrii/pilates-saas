@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico, ciudadesConPerfilesPublicados, slugCiudadUrl } from '@/lib/network/publico';
 import type { FiltroBusquedaNetwork } from '@/lib/network/tipos';
@@ -10,6 +11,22 @@ import { FiltrosSidebar, ChipsActivos } from './FiltrosSidebar';
 import { HojaFiltrosMovil } from './HojaFiltrosMovil';
 import { ResultadosInstructoras } from './ResultadosInstructoras';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO } from './tokens';
+
+// Idéntica para cualquier combinación de filtro y para las 3 variantes de
+// ruta que usan este layout — no depende de `filtro` ni de sesión, así que
+// es un candidato limpio a caché con TTL corto (auditoría de performance,
+// 2026-08-18). `admin` no se pasa como argumento memoizado (un
+// SupabaseClient no es serializable, no tiene sentido como parte de la
+// clave de caché) — se resuelve DENTRO, `getSupabaseAdmin()` ya es un
+// singleton barato.
+const ciudadesConPerfilesPublicadosCache = unstable_cache(
+  async () => {
+    const admin = getSupabaseAdmin();
+    return admin ? ciudadesConPerfilesPublicados(admin) : [];
+  },
+  ['network-ciudades-publicadas'],
+  { revalidate: 300 },
+);
 
 // Layout compartido del marketplace (1b) — usado por /network/instructoras
 // Y por las variantes SEO /network/instructoras/[ciudad] y
@@ -30,7 +47,7 @@ export async function MarketplaceLayout({
   const admin = getSupabaseAdmin();
   const [resultado, ciudades] = await Promise.all([
     admin ? buscarPerfilesPublico(admin, filtro) : Promise.resolve(null),
-    admin ? ciudadesConPerfilesPublicados(admin) : Promise.resolve([]),
+    ciudadesConPerfilesPublicadosCache(),
   ]);
   const perfiles = resultado && 'perfiles' in resultado ? resultado.perfiles : [];
   // Otras ciudades reales (con perfiles) — enlazado interno hacia las
