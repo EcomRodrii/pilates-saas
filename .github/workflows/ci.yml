@@ -196,6 +196,22 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # `max-parallel: 6` — añadido el 2026-08-18. Los 12 shards sin tope
+      # están pensados para el caso de UN run aislado (ver el bloque de
+      # comentarios de arriba), pero no contemplan qué pasa con VARIOS runs
+      # a la vez: cada uno pide hasta 15 jobs de golpe (calidad + build + 12
+      # e2e + test), y con ~11 ramas en CI a la vez eso son ~165 jobs
+      # peleando por runner — muy por encima del cupo de concurrencia de
+      # cualquier plan no-Enterprise (que va por CUENTA, no por repo). El
+      # síntoma no era ningún job roto: los 12 shards de un run cualquiera
+      # se quedaban en cola sin arrancar mientras otras 10 ramas hacían lo
+      # mismo. Bajar a 6 no deshace la decisión de "12 shards" (sigue
+      # siendo el reparto correcto para un run aislado en un repo público)
+      # — solo limita cuántos de esos 12 compiten a la vez por runner, para
+      # que quepan más ramas en paralelo sin bloquearse todas entre sí. El
+      # coste es que un run aislado tarda más en el shard más lento (2
+      # tandas de 6 en vez de 1 de 12), pero deja de monopolizar el cupo.
+      max-parallel: 6
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
