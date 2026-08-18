@@ -153,6 +153,61 @@ export function tieneEntitlementActivo(
   });
 }
 
+// ── Cuánto le queda EN TOTAL, no cuánto le queda al bono de turno ────────────
+//
+// Una socia puede tener varios bonos vivos a la vez, y no es un caso raro: es
+// el diseño (ver el comentario de `asignarPlan` en studio-context — los bonos
+// con saldo TIENEN que convivir, si no, acotar un bono a ciertos tipos de clase
+// no serviría de nada). Comprar otro bono NO recarga el anterior: crea una fila
+// nueva.
+//
+// El problema es que casi toda la UI preguntaba por UNA suscripción
+// (`suscripciones.find(s => s.estado === 'ACTIVA')`) y enseñaba su saldo como
+// si fuera el de la socia. Como la consulta no lleva `order by`, "la primera"
+// la decide Postgres, así que el número ni siquiera era estable — y sobre todo
+// NO SE MOVÍA al comprar: la fila nueva se añadía detrás y la pantalla seguía
+// enseñando la vieja. Visto en producción el 2026-08-18: una socia con 6 bonos
+// activos y 17 sesiones pagadas compró 4 más y el panel siguió diciendo lo
+// mismo que antes. Nada se había perdido; simplemente no se sumaba en pantalla.
+//
+// `total` es el denominador honesto ("le quedan 17 de las 24 que ha pagado"),
+// mismo criterio que ya usa `bonos-portal.ts` para el portal: un bono agotado
+// pero vigente cuenta en los DOS lados de la fracción — pagó esas sesiones y ya
+// las gastó, que es justo lo que la fracción cuenta. Sacarlo del denominador
+// haría que el total comprado bajase solo al terminar un bono.
+//
+// Devuelve `null` cuando no tiene ningún bono que contar sesiones (solo
+// mensual, o nada): ahí no hay saldo, y un 0 se leería como "se le acabó".
+export function saldoSesionesBono(
+  socioId: string,
+  suscripciones: Suscripcion[],
+  planesTarifa: PlanTarifa[],
+  hoyISO: string = new Date().toISOString().slice(0, 10),
+  // Con una clase concreta delante solo cuentan los bonos que la cubren: sumar
+  // un bono de Reformer y otro de Mat en "te quedarán N" para una clase de Mat
+  // sería el mismo tipo de mentira, en la otra dirección.
+  tipoClaseId?: string | null,
+): { restantes: number; total: number; bonos: number } | null {
+  let restantes = 0;
+  let total = 0;
+  let bonos = 0;
+  for (const s of suscripciones) {
+    if (s.socioId !== socioId || s.estado !== 'ACTIVA' || s.sesionesRestantes === null) continue;
+    const plan = planesTarifa.find(p => p.id === s.planId);
+    if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) continue;
+    if (!planCubreTipoClase(plan, tipoClaseId)) continue;
+    // Mismo criterio de vigencia que `bonoConsumible`/`tieneEntitlementActivo`:
+    // un bono caducado no se puede gastar, así que no es saldo.
+    if (s.fechaFin && s.fechaFin < hoyISO) continue;
+    restantes += s.sesionesRestantes;
+    // Sin `sesiones` en el plan no hay total conocido; se usa lo que le queda
+    // para no inventar un denominador menor que el numerador.
+    total += plan.sesiones ?? s.sesionesRestantes;
+    bonos += 1;
+  }
+  return bonos > 0 ? { restantes, total, bonos } : null;
+}
+
 // ── F2 · Bonos con validez / límite / congelación (puras, testeables) ─────────
 
 // Fecha de caducidad de un bono al comprarlo: fecha_inicio + validez_dias, en

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { coberturaDeClase, estaCubierta, textoCobertura, precioDeCobertura } from './cobertura.ts';
-import { tieneEntitlementActivo } from '../bono-logic.ts';
+import { tieneEntitlementActivo, bonoConsumible } from '../bono-logic.ts';
 import type { PlanTarifa, Suscripcion } from '../types.ts';
 
 const HOY = '2026-08-17';
@@ -105,14 +105,54 @@ test('con mensual Y bono a la vez gana la mensual (no se descuenta nada)', () =>
   assert.equal(c.estado, 'MENSUAL');
 });
 
-test('entre dos bonos que cubren se enseña el de menos saldo, sin depender del orden', () => {
+test('con varios bonos que cubren, el saldo es la SUMA, sin depender del orden', () => {
   const otro = plan({ id: 'p-bono-2', nombre: 'Bono 5', tipo: 'BONO', tiposClaseIds: [REFORMER] });
   const a = [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 9 }), sus({ id: 'sus-b', planId: otro.id, sesionesRestantes: 2 })];
   const base = { socioId: SOCIA, planesTarifa: [BONO_REFORMER, otro], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15 };
   const c1 = coberturaDeClase({ ...base, suscripciones: a });
   const c2 = coberturaDeClase({ ...base, suscripciones: [...a].reverse() });
   assert.deepEqual(c1, c2, 'el resultado no puede depender del orden del array');
-  assert.equal(c1.estado === 'BONO' && c1.sesionesRestantes, 2);
+  assert.equal(c1.estado === 'BONO' && c1.sesionesRestantes, 11, 'tiene 9 + 2, no 2');
+});
+
+test('comprar otro bono SUBE lo que se le dice que le queda', () => {
+  // El fallo real (producción, 2026-08-18): con 3 sesiones vivas compró un bono
+  // de 4 y la pantalla siguió diciendo lo mismo, porque enseñaba UN bono en vez
+  // del saldo. Nada se perdía —la fila nueva estaba en la base— pero desde
+  // fuera es indistinguible de "he pagado y no me lo han dado".
+  const nuevo = plan({ id: 'p-bono-4', nombre: 'Bono 4 clases', tipo: 'BONO', sesiones: 4, tiposClaseIds: [REFORMER] });
+  const base = { socioId: SOCIA, planesTarifa: [BONO_REFORMER, nuevo], hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15 };
+  const antes = coberturaDeClase({
+    ...base, suscripciones: [sus({ planId: BONO_REFORMER.id, sesionesRestantes: 3, fechaFin: '2026-10-10' })],
+  });
+  const despues = coberturaDeClase({
+    ...base,
+    suscripciones: [
+      sus({ planId: BONO_REFORMER.id, sesionesRestantes: 3, fechaFin: '2026-10-10' }),
+      sus({ id: 'sus-nuevo', planId: nuevo.id, sesionesRestantes: 4, fechaFin: '2026-10-17' }),
+    ],
+  });
+  assert.equal(antes.estado === 'BONO' && antes.sesionesRestantes, 3);
+  assert.equal(despues.estado === 'BONO' && despues.sesionesRestantes, 7, '3 + 4, no 3');
+  assert.match(textoCobertura(despues)!, /te quedarán 6/);
+});
+
+test('se nombra el bono que de verdad se va a descontar, no otro', () => {
+  // El que caduca antes, aunque tenga MÁS saldo que el otro: es el que elige
+  // `bonoConsumible`. Nombrar uno y descontar de otro deja a la socia viendo
+  // bajar un bono que la pantalla no había mencionado.
+  const caducaAntes = plan({ id: 'p-urgente', nombre: 'Bono que caduca ya', tipo: 'BONO', tiposClaseIds: [REFORMER] });
+  const suscripciones = [
+    sus({ id: 'sus-largo', planId: BONO_REFORMER.id, sesionesRestantes: 2, fechaFin: '2026-12-31' }),
+    sus({ id: 'sus-urgente', planId: caducaAntes.id, sesionesRestantes: 8, fechaFin: '2026-08-20' }),
+  ];
+  const c = coberturaDeClase({
+    socioId: SOCIA, suscripciones, planesTarifa: [BONO_REFORMER, caducaAntes],
+    hoyISO: HOY, tipoClaseId: REFORMER, precioClaseSuelta: 15,
+  });
+  const elegido = bonoConsumible(SOCIA, suscripciones, [BONO_REFORMER, caducaAntes], HOY, REFORMER);
+  assert.equal(c.estado === 'BONO' && c.planNombre, 'Bono que caduca ya');
+  assert.equal(c.estado === 'BONO' && c.planNombre, elegido!.plan.nombre, 'la pantalla y el consumo, el mismo bono');
 });
 
 // ── Casos que no deben afirmar nada ──────────────────────────────────────────
