@@ -439,7 +439,7 @@ export function PortalProvider({
   aspecto,
   compra,
   pantalla,
-  pantallasDeRuta,
+  pantallasSinRuta,
   diaPorDefecto,
   cromoDemo = true,
   esDemo = true,
@@ -484,11 +484,13 @@ export function PortalProvider({
    *  interno nunca cambia de pantalla: la dice la ruta. */
   pantalla?: ScreenId;
   /**
-   * Qué pantallas SÍ son una ruta. Solo esas las manda `pantalla`; las que no
-   * (el detalle de una clase) las gobierna el estado, o abrir una clase se
-   * desharía en el mismo render.
+   * Las pantallas que este kit pinta SIN ruta propia (el detalle de una clase).
+   * Solo esas gobiernan por encima de `pantalla`, o abrir una clase se desharía
+   * en el mismo render. Cualquier otra cosa la manda la ruta — incluido el
+   * estado inicial del store, que si entrara aquí dejaría el portal congelado
+   * en `welcome`. Ver `mandaLaRuta`.
    */
-  pantallasDeRuta?: readonly ScreenId[];
+  pantallasSinRuta?: readonly ScreenId[];
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(
@@ -971,7 +973,7 @@ export function PortalProvider({
   // detalle de una clase —que no tiene ruta propia— pisarlo con la pantalla de
   // la ruta lo cerraría en el mismo render en el que se abre: el detalle
   // parpadearía y volvería al horario.
-  const gobiernaLaRuta = mandaLaRuta(state.screen, pantallasDeRuta);
+  const gobiernaLaRuta = mandaLaRuta(state.screen, pantallasSinRuta);
   const estado = pantalla && gobiernaLaRuta
     ? { ...state, screen: pantalla, ...(ES_PESTANA(pantalla) ? { tab: pantalla } : null) }
     : state;

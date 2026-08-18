@@ -194,11 +194,15 @@ export async function montarPortal(page: Page, opciones: {
    * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
    */
   tema?: string;
+  /** Monta el portal del KIT (`portalReact`) con este tema publicado. Sin esto
+   *  se monta el portal de siempre — que es lo que hacía SIEMPRE, y por eso
+   *  ninguna pantalla del kit tenía cobertura e2e en su ruta real. */
+  kit?: string;
 }) {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -322,7 +326,11 @@ export async function montarPortal(page: Page, opciones: {
     studio: {
       id: STUDIO_ID, nombre: 'Estudio Alma', ciudad: 'Marbella', slug: SLUG,
       colorPrimario: '#2C352C', temaPortal: 'oliva', logoUrl: null, fotoUrl, imagenBienvenidaUrl,
+      // `PortalShell` exige las DOS para montar el kit: sin `portalReact` cae
+      // al portal de siempre sin decir nada.
+      portalReact: !!kit,
     },
+    themeIdPublicado: kit ?? null,
     sesiones: [...SESIONES, ...HISTORIAL.map(h => h.ses)],
     tiposClase: TIPOS,
     salas: [{ id: 'sala-1', studioId: STUDIO_ID, nombre: 'Sala Norte', capacidad: 12 }],
