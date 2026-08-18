@@ -20,6 +20,7 @@ import type {
   VacanteNetwork, NuevaVacanteNetwork, CambiosVacanteNetwork, CandidaturaNetwork,
 } from '@/lib/network/tipos';
 import type { EncajeCandidatura } from '@/lib/network/encaje-candidatura';
+import type { CandidatoNetworkSustitucion } from '@/lib/network/tipos.ts';
 
 // Cabecera Authorization con el JWT de la sesión de staff (Supabase Auth). Las
 // rutas de servidor de staff la validan con verificarSesionStaff. Devuelve {}
@@ -412,6 +413,8 @@ export interface SustitucionPanel {
   instructor_original_id: string | null;
   sustituta_final_id: string | null;
   ranking: SustitucionCandidata[];
+  // Ausente en filas anteriores a la migración 20260818010000 → tratar como [].
+  candidatos_network?: CandidatoNetworkSustitucion[] | null;
   sesion_id: string;
   sesiones: { inicio: string; fin: string; tipo_clase_id: string | null; cancelada: boolean } | null;
   // Traza de contactos (embed). Ausente en respuestas antiguas → tratar como [].

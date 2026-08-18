@@ -193,6 +193,22 @@ export interface MensajeNetwork {
   leidoEn: string | null;
 }
 
+// Sugerencia sin puntuar de Tentare Network para cubrir un hueco de
+// sustitución (docs/NETWORK-SUSTITUCIONES-EXTENSION.md §2) — snapshot en el
+// momento de crear la baja, guardado aparte del ranking interno puntuado
+// (`sustituciones.candidatos_network`, migr 20260818010000). Sin
+// `compatibilidad`/`score`/`prob_aceptacion` a propósito: puntuar a alguien
+// sin historial en este estudio con la fórmula de SustitucionCandidata sería
+// un sesgo, no una medida — mismo principio que cerró el bug de
+// "Compatibilidad 87 %" fabricada.
+export interface CandidatoNetworkSustitucion {
+  perfilId: string;
+  slug: string | null;
+  nombre: string;
+  fotoUrl: string | null;
+  ciudad: string | null;
+}
+
 // Formalizar contratación (siguiente fase) — doble confirmación sobre el
 // hilo YA aceptado. `estado='confirmada'` solo cuando el alta real en
 // `instructores` se ejecutó; con las dos marcas rellenas pero `estado`

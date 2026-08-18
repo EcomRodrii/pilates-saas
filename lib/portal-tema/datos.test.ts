@@ -19,7 +19,7 @@ const tipo = (id: string, nombre: string, extra: Partial<TipoClase> = {}): TipoC
   nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null,
   reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null,
   requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null,
-  penalizacionImporteEur: null, ...extra,
+  penalizacionImporteEur: null, especialidadNetwork: null, ...extra,
 });
 
 const sala = (id: string, nombre: string): Sala => ({ id, studioId: 's1', nombre, capacidad: 10, color: '#000' });

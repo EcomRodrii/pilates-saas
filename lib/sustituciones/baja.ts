@@ -5,6 +5,8 @@ import { contactarDesde, alertarPropietaria, type RankingItem } from '@/lib/sust
 import { mensajeSeguro } from '@/lib/errores';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
+import { candidatosNetworkParaHueco } from '@/lib/network/candidatos-sustitucion.ts';
+import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
 
 // ── Núcleo de "marcar una baja" ─────────────────────────────────────────────
 //
@@ -87,7 +89,7 @@ export async function crearBaja(
   // el estudio bajó de plan con el modo puesto, el motor cae a asistido en vez
   // de operar una feature que ya no paga.
   const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+    .from('studios').select('modo_autonomia, plan, subscription_status, ciudad').eq('id', studioId).maybeSingle();
   let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
   if ((modo === 'autonomo' || modo === 'vacaciones') &&
       !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
@@ -100,6 +102,24 @@ export async function crearBaja(
     console.error('[crearBaja:rankear]', errRank.message);
     return { ok: false, error: mensajeSeguro(errRank.message,
       'No se han podido calcular las candidatas para cubrir esta clase. Inténtalo de nuevo en unos segundos.'), status: 500 };
+  }
+
+  // Sugerencia de Tentare Network (Fase 11, docs/NETWORK-SUSTITUCIONES-
+  // EXTENSION.md) — aparte del ranking interno, nunca fusionada. Best-effort:
+  // si falla, la baja se registra igual con el ranking interno solo (mismo
+  // criterio que emitirEscalado más abajo).
+  let candidatosNetwork: Awaited<ReturnType<typeof candidatosNetworkParaHueco>> = [];
+  try {
+    const tipoClase = clase.tipo_clase_id
+      ? await admin.from('tipos_clase').select('especialidad_network').eq('id', clase.tipo_clase_id).maybeSingle()
+      : { data: null };
+    candidatosNetwork = await candidatosNetworkParaHueco(admin, {
+      especialidadNetwork: (tipoClase.data?.especialidad_network as EspecialidadNetwork | null) ?? null,
+      ciudadEstudio: (estudio?.ciudad as string | null) ?? null,
+      inicioSesionISO: clase.inicio as string,
+    });
+  } catch (e) {
+    console.error('[crearBaja:candidatosNetwork]', e);
   }
 
   // asistido → espera el visto bueno de la propietaria; autonomo/vacaciones →
@@ -115,6 +135,7 @@ export async function crearBaja(
     estado,
     origen,
     ranking: ranking ?? [],
+    candidatos_network: candidatosNetwork,
     candidata_actual: 0,
   };
 

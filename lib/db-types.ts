@@ -714,6 +714,8 @@ export interface RowTiposClase {
   // nullable aquí porque una fila leída con un `select` que no la pida llega
   // sin ella, y el mapper ya lo tolera.
   objetivos: string[] | null;
+  // migr 20260818010000.
+  especialidad_network: string | null;
 }
 
 export interface RowUsuarios {
@@ -1033,6 +1035,8 @@ export interface RowSustituciones {
   creado_en: string | null;
   resuelto_en: string | null;
   origen: string | null;
+  // migr 20260818010000. Sugerencia sin puntuar, aparte de `ranking`.
+  candidatos_network: any;
 }
 
 export interface RowSustitucionContactos {
