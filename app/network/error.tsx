@@ -6,6 +6,19 @@
 // `/network` mostraba el error sin ninguna identidad de Network). `reset()`
 // reintenta el segmento sin recargar toda la pestaña — Next lo pasa siempre,
 // documentado en next/dist/docs/app/api-reference/file-conventions/error.
+//
+// ⚠️ A propósito NO hay un loading.tsx hermano en este segmento. Se probó
+// (mismo PR) y rompía `notFound()` en /network/instructoras/[slug]: con un
+// loading.tsx en un segmento padre, Next activa streaming para toda la rama
+// y envía la cabecera 200 del shell ANTES de que el `notFound()` async
+// resuelva — el body acaba mostrando el 404 pero el status HTTP queda en
+// 200 (capturado por e2e/network-marketplace-publico.spec.ts, que sí
+// comprueba el código real, no solo el contenido). Verificado en vivo con
+// `next build && next start` + curl, quitando/poniendo loading.tsx uno a
+// uno: solo loading.tsx lo rompe, error.tsx solo no. Next.js App Router no
+// permite acotar un loading.tsx a "esta ruta pero no sus hijas dinámicas" —
+// si se quiere loading para /network o /network/instructoras en el futuro,
+// tiene que vivir en esos segmentos SIN alcanzar a instructoras/[slug].
 import { useEffect } from 'react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_PRODUCTO } from '@/components/network-v2/tokens';
