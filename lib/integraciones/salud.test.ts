@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { saludIntegracion, textoSalud, cuando, acumuladorSalud, type FilaSalud } from './salud.ts';
+import { saludIntegracion, textoSalud, cuando, acumuladorSalud, integracionesCaidas, type FilaSalud } from './salud.ts';
 
 const fila = (f: Partial<FilaSalud>): FilaSalud => ({
   activo: true, ultimoOkEn: null, ultimoError: null, ultimoErrorEn: null, ...f,
@@ -90,4 +90,27 @@ test('acumulador: si TODO falla, se guarda el último motivo', () => {
   a.anota({ ok: false, error: 'primero' });
   a.anota({ ok: false, error: 'Session has expired' });
   assert.deepEqual(a.resultado(), { ok: false, error: 'Session has expired' });
+});
+
+// ── integracionesCaidas (aviso de la home) ───────────────────────────────────
+
+test('integracionesCaidas: solo las rotas, y con su motivo', () => {
+  const caidas = integracionesCaidas([
+    { tipo: 'RESEND', activo: true, ultimoOkEn: '2026-08-18T10:00:00Z' },
+    { tipo: 'WHATSAPP', activo: true, ultimoError: 'Session has expired', ultimoErrorEn: '2026-08-18T11:00:00Z' },
+    { tipo: 'KISI', activo: false, ultimoError: 'nope', ultimoErrorEn: '2026-08-18T11:00:00Z' },
+  ]);
+  assert.equal(caidas.length, 1);
+  assert.equal(caidas[0].integracion.tipo, 'WHATSAPP');
+  assert.equal(caidas[0].error, 'Session has expired');
+});
+
+test('integracionesCaidas: un dato con otra forma NO tumba el dashboard', () => {
+  // Esta pantalla es la principal del negocio: romperse aquí no cuesta una
+  // tarjeta, cuesta la pantalla entera. Ya pasó con `[...data.prioridades]`
+  // sobre una respuesta `{}`.
+  assert.deepEqual(integracionesCaidas(undefined), []);
+  assert.deepEqual(integracionesCaidas(null), []);
+  assert.deepEqual(integracionesCaidas({} as never), []);
+  assert.deepEqual(integracionesCaidas([undefined as never, { tipo: 'X' }]), []);
 });
