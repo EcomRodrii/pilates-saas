@@ -3,7 +3,7 @@
 .toast {
   position: absolute;
   left: 22px; right: 22px; bottom: 108px;
-  z-index: 9;
+  z-index: var(--z-aviso);
   padding: 13px 18px;
   border-radius: 18px;
   background: rgba(19,19,19,.94);

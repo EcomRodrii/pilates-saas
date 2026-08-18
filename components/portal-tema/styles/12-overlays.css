@@ -3,7 +3,7 @@
 
 .overlay {
   position: absolute; inset: 0;
-  z-index: 20;
+  z-index: var(--z-velo);
   background: rgba(18,20,16,.42);
   backdrop-filter: blur(3px);
   display: flex;
@@ -79,7 +79,7 @@
 .popover {
   position: absolute;
   top: calc(100% + 8px); left: 0;
-  z-index: 24;
+  z-index: var(--z-emergente);
   min-width: 208px;
   padding: 8px;
   border-radius: 18px;
@@ -111,7 +111,7 @@
   position: absolute;
   bottom: calc(100% + 8px); left: 50%;
   transform: translate(-50%, 4px);
-  z-index: 26;
+  z-index: var(--z-pista);
   padding: 7px 11px;
   border-radius: 10px;
   background: rgba(19,19,19,.94);
@@ -130,7 +130,7 @@
  * Un solo cascarón para las siete del prototipo: velo, panel que sube y asa.
  * Se pintan al final del árbol de la pantalla, así que tapan también la barra.
  */
-.hoja { position: absolute; inset: 0; z-index: 100; }
+.hoja { position: absolute; inset: 0; z-index: var(--z-hoja); }
 .hoja__velo {
   position: absolute; inset: 0;
   width: 100%; height: 100%;

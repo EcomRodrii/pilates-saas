@@ -103,7 +103,7 @@
   position: relative;
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  background: #E7DCEF;
+  background: var(--support-soft);
   overflow: hidden;
 }
 .session-photo__veil {

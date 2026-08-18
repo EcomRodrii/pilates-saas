@@ -9,6 +9,12 @@
 .tab-bar {
   flex: none;
   display: flex;
+  /* Es armazón, no contenido: va por encima de lo que rueda por debajo. Antes
+     no tenía ninguno, y el único motivo de que no la tapara nada era que nada
+     se superponía TODAVÍA. Un botón que deja de responder porque algo
+     transparente lo cubre es el bug más caro de diagnosticar del kit. */
+  position: relative;
+  z-index: var(--z-armazon);
   padding: 14px 16px calc(30px + env(safe-area-inset-bottom));
   background: var(--tab-bar-bg);
   border-top: var(--tab-bar-border);

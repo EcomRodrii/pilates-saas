@@ -87,6 +87,25 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   font-size: 13.5px; font-weight: 600;
 }
 
+/* ── Estado de error ──────────────────────────────────────────────────────
+ *
+ * Comparte cascarón con el vacío a propósito —misma caja, mismo ritmo— pero se
+ * distingue: vacío es «aquí no hay nada todavía» y error es «esto debería tener
+ * algo y no he podido traerlo». Sin esa diferencia, una red caída le dice a la
+ * socia que no tiene reservas cuando sí las tiene.
+ *
+ * La marca es un filo, no un fondo rojo: esto no es una alarma, es un aviso con
+ * una salida al lado. */
+.empty--error {
+  border-left-width: 3px;
+  /* `--warning` lo declaran los cinco temas; comprobado antes de usarlo. Un
+     token que no existe no falla, hereda — y el filo saldría del color de la
+     tinta sin que nadie se entere. */
+  border-left-color: var(--warning);
+}
+.empty--error .empty__title { font-size: 16.5px; }
+.empty__accion { margin-top: 14px; }
+
 /* ── Cifras ──────────────────────────────────────────────────────────────── */
 .metrics { display: flex; gap: 9px; }
 .metric {
