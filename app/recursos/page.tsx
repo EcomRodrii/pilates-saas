@@ -99,6 +99,13 @@ const ARTICLES: Article[] = [
     href: '/recursos/widget-vs-iframe-reservas-pilates',
     meta: '9 min · ago 2026',
   },
+  {
+    category: 'software',
+    title: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
+    body: 'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — sin folletos de marketing.',
+    href: '/comparativa/tentare-vs-glofox',
+    meta: '11 min · ago 2026',
+  },
 ];
 
 const FEATURED = {
