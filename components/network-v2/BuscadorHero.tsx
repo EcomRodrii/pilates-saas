@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { NW_TINTA, NW_GRIS_VERDOSO, NW_PRODUCTO } from './tokens';
+import { NW_TINTA, NW_GRIS_VERDOSO, NW_PRODUCTO, NW_BORDE } from './tokens';
 
 const POPULARES = [
   { label: 'Reformer', especialidad: 'reformer' },
@@ -45,7 +45,7 @@ export function BuscadorHero() {
             style={{ color: NW_TINTA }}
           />
         </label>
-        <div className="hidden sm:block w-px my-2" style={{ background: '#E5E3DA' }} />
+        <div className="hidden sm:block w-px my-2" style={{ background: NW_BORDE }} />
         <label className="flex-1 px-4 py-2.5">
           <span className="block text-[11px] font-bold uppercase tracking-wide" style={{ color: NW_GRIS_VERDOSO }}>¿Dónde?</span>
           <input

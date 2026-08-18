@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { NW_TINTA, NW_MUTED_2, NW_PRODUCTO } from './tokens';
+import { NW_TINTA, NW_MUTED_2, NW_PRODUCTO, NW_BORDE } from './tokens';
 
 // Cabecera pública compartida por /network, /network/instructoras(/[slug]) —
 // README 1a: logo 148px, nav "Explorar instructoras · Cómo funciona", derecha
@@ -10,7 +10,7 @@ import { NW_TINTA, NW_MUTED_2, NW_PRODUCTO } from './tokens';
 // página pública que la monta.
 export function NavPublico() {
   return (
-    <header style={{ borderBottom: `1px solid #E5E3DA` }}>
+    <header style={{ borderBottom: `1px solid ${NW_BORDE}` }}>
       <div className="max-w-[1240px] mx-auto px-6 py-4 flex items-center justify-between gap-6">
         <Link href="/network" className="flex items-center shrink-0" aria-label="Tentare Network — inicio">
           <LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={26} decorativo />

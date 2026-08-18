@@ -14,7 +14,7 @@ import {
   tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA, NW_ESTADO } from '@/components/network-v2/tokens';
 
 // Perfil público indexable (1c del rediseño) — Server Component puro, sin
 // 'use client': generateMetadata solo funciona así. Misma capa de datos que
@@ -132,7 +132,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
           <div>
             {badges.experienciaVerificada && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: '#EAF0E7', color: '#2E5A3A' }}>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color }}>
                 <BadgeCheck size={13} /> Perfil verificado
               </span>
             )}
@@ -295,7 +295,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
       {/* CTA sticky inferior en móvil (1e frame 2). */}
       <div
         className="lg:hidden fixed bottom-0 inset-x-0 p-4 pt-8"
-        style={{ background: 'linear-gradient(to top, #FAF9F5 55%, transparent)' }}
+        style={{ background: `linear-gradient(to top, ${NW_FONDO} 55%, transparent)` }}
       >
         <div className="bg-white rounded-2xl p-3 flex items-center justify-between gap-3" style={{ border: `1px solid ${NW_BORDE}`, boxShadow: '0 -8px 24px rgba(34,42,51,.1)' }}>
           <div className="min-w-0">
