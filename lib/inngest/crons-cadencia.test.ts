@@ -96,6 +96,23 @@ test('lista-espera-ofertas-expirar: no debe quedar registrada dos veces (Inngest
   );
 });
 
+// Bug (2026-08-18): una clase que se quedaba sin sustituta y ya había pasado
+// seguía apareciendo "activa" (contactando/esperando respuesta) en el panel
+// para siempre — nada cerraba la fila. Bucket A puro (SELECT+UPDATE, sin
+// step.sleep): mismo patrón pg_cron que el resto, nunca Inngest.
+test('sustituciones-cerrar-vencidas: cadencia de 30 min en la migración pg_cron', () => {
+  const migracion = leer('supabase/migrations/20260818120000_pg_cron_sustituciones_cerrar_vencidas.sql');
+  assert.equal(cronScheduleDeMigracion(migracion, 'sustituciones-cerrar-vencidas'), '*/30 * * * *');
+});
+
+test('sustituciones-cerrar-vencidas: no debe registrarse en Inngest', () => {
+  assert.ok(
+    !leer('app/api/inngest/route.ts').includes('cerrarSustitucionesVencidas') &&
+    !leer('lib/inngest/sustituciones.ts').includes('cerrarSustitucionesVencidas'),
+    'es un barrido sin step.sleep (bucket A) — registrarlo también en Inngest lo haría correr por duplicado',
+  );
+});
+
 // ── I-3 ──────────────────────────────────────────────────────────────────────
 
 test('la vigilancia de cobros detecta pero NO entrega', () => {

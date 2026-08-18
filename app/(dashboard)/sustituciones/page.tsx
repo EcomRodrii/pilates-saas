@@ -149,8 +149,13 @@ export default function SustitucionesPage() {
   // franja de alerta permanente se aprende a ignorar en dos días.
   const avisoEquipo = avisoEquipoIncompleto(equipo);
 
-  const activas = items.filter(s => ESTADO[s.estado]?.activa);
-  const resueltas = items.filter(s => !ESTADO[s.estado]?.activa);
+  // Defensa en profundidad: una clase que ya pasó sin resolverse no debe
+  // seguir mostrándose como "activa" aunque el barrido de cierre en BD
+  // (lib/inngest/sustituciones.ts) todavía no haya corrido — el `estado`
+  // por sí solo (p.ej. 'contactando') no basta.
+  const claseYaPaso = (s: SustitucionPanel) => !!ahoraMs && !!s.sesiones?.inicio && new Date(s.sesiones.inicio).getTime() <= ahoraMs;
+  const activas = items.filter(s => ESTADO[s.estado]?.activa && !claseYaPaso(s));
+  const resueltas = items.filter(s => !ESTADO[s.estado]?.activa || claseYaPaso(s));
   // P2-4: el "0 esperando respuesta" del panel de automatizaciones era una
   // cuenta de un estado que ningún camino de ejecución escribe — no tenía
   // nada que ver con sustituciones. Este SÍ es el dato real: candidatas
@@ -380,7 +385,7 @@ export default function SustitucionesPage() {
             <div className="space-y-2">
               <h2 className="text-[12px] font-bold uppercase tracking-wider text-muted-foreground pt-2">Historial</h2>
               {resueltas.map(s => (
-                <ResueltaRow key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} />
+                <ResueltaRow key={s.id} s={s} tipo={tipoDe(s.sesiones?.tipo_clase_id)} nombreInstructor={nombreInstructor} vencidaSinResolver={ESTADO[s.estado]?.activa && claseYaPaso(s)} />
               ))}
             </div>
           )}
@@ -1101,13 +1106,17 @@ function PedirDisponibilidadDialog({
 }
 
 function ResueltaRow({
-  s, tipo, nombreInstructor,
+  s, tipo, nombreInstructor, vencidaSinResolver,
 }: {
   s: SustitucionPanel;
   tipo: { nombre: string; color: string } | undefined;
   nombreInstructor: (id: string | null) => string;
+  vencidaSinResolver?: boolean;
 }) {
-  const meta = ESTADO[s.estado] ?? ESTADO.resuelta_fuera;
+  // Una sustitución que seguía en un estado "activo" (contactando, buscando...)
+  // cuando la clase ya pasó nunca llegó a marcarse `sin_sustituta` en BD —
+  // el badge lo refleja igual, aunque el barrido de cierre aún no haya corrido.
+  const meta = vencidaSinResolver ? ESTADO.sin_sustituta : (ESTADO[s.estado] ?? ESTADO.resuelta_fuera);
   return (
     <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
       {s.estado === 'confirmada' ? <CheckCircle2 size={16} className="text-success shrink-0" /> : <CalendarX2 size={16} className="text-muted-foreground shrink-0" />}
