@@ -10,6 +10,7 @@ import {
   Plus, Pencil, Trash2, Users, Mail, Phone, Calendar, Check, X, ShieldCheck, KeyRound, History,
   CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
   ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro, TrendingUp,
+  Network,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, uid as generarId } from '@/lib/utils';
@@ -408,6 +409,9 @@ export default function EquipoPage() {
           <div className="flex items-center gap-2">
             {puedeGestionarEquipo(miRol) && (
               <>
+                <Link href="/network/buscar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
+                  <Network size={16} /> Buscar en Tentare Network
+                </Link>
                 <Link href="/equipo/rendimiento" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-bold text-foreground hover:bg-muted transition-colors">
                   <TrendingUp size={16} /> Rendimiento
                 </Link>
