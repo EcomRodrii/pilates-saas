@@ -24,6 +24,18 @@ export interface StudioSeo {
   /** Solo si hay clave configurada. **El hash NUNCA sale de aquí**: se queda
    *  en el servidor, y lo que viaja es este booleano. */
   paginaTieneClave: boolean;
+  /**
+   * Datos de contacto y foto, para los datos estructurados de negocio local
+   * (`lib/seo/estudio-jsonld.ts`). Son columnas VIEJAS de `studios`, no de una
+   * migración reciente — por eso van en el `select` base y no en la consulta
+   * aparte de abajo, cuyo motivo es otro (ver su comentario).
+   */
+  telefono: string | null;
+  email: string | null;
+  codigoPostal: string | null;
+  descripcion: string | null;
+  /** Foto del local; el logo NO sirve como `image` de un negocio local. */
+  fotoUrl: string | null;
 }
 
 export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null> => {
@@ -37,6 +49,8 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     return {
       id: 'studio-test', nombre: 'Tentare', ciudad: 'Málaga', direccion: 'Calle Test 1',
       colorPrimario: '#1A1A1A', logoUrl: null, slug,
+      telefono: '+34 600 000 000', email: 'hola@studio-test.es',
+      codigoPostal: '29001', descripcion: 'Estudio de prueba.', fotoUrl: null,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
       // `page.route` no puede llegar a él y sin esto el camino de "oculta" no
@@ -63,7 +77,7 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
   const [base, visibilidad] = await Promise.all([
     admin
       .from('studios')
-      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug')
+      .select('id, nombre, ciudad, direccion, color_primario, logo_url, slug, telefono, email, codigo_postal, descripcion, foto_url')
       .eq('slug', slug)
       .maybeSingle(),
     // `.then(ok, ko)` y no `.catch`: el builder de supabase-js es un
@@ -89,6 +103,11 @@ export const getStudioSeo = cache(async (slug: string): Promise<StudioSeo | null
     colorPrimario: data.color_primario ?? '#1A1A1A',
     logoUrl: data.logo_url ?? null,
     slug: data.slug ?? slug,
+    telefono: data.telefono ?? null,
+    email: data.email ?? null,
+    codigoPostal: data.codigo_postal ?? null,
+    descripcion: data.descripcion ?? null,
+    fotoUrl: data.foto_url ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.
     paginaOculta: visibilidad?.pagina_publica_oculta === true,
