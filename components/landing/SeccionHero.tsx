@@ -94,8 +94,8 @@ export function SeccionHero() {
           style={{ objectFit: 'cover', objectPosition: 'center 42%' }} />
         <div className="v5-hero-velo" aria-hidden />
         <div className="v5-hero-wrap">
-          <p className="v5-hero-eyebrow">Software para estudios de Pilates</p>
-          <h1 className="v5-hero-h1">Tu estudio.<br />Bajo control.</h1>
+          <p className="v5-hero-eyebrow">Software para estudios de Pilates en Barcelona</p>
+          <h1 className="v5-hero-h1">Tu estudio de Pilates<br />en Barcelona, bajo control.</h1>
           <p className="v5-hero-lead">
             Reservas, alumnas, pagos, clases y equipo. Todo en un solo lugar.
           </p>
