@@ -105,6 +105,31 @@ jobs:
             eslintcache-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
             eslintcache-${{ runner.os }}-
 
+      # Guardia contra la deriva entre supabase/migrations/ y lib/db-types.ts.
+      #
+      # El fichero es autogenerado, pero durante meses se editó a mano porque se
+      # creía que regenerarlo destruía información (no era cierto: reordenaba).
+      # El resultado fue que el tipo dejó de describir el esquema real y NADIE se
+      # enteró: `tsc` no lo caza, porque la fila llega de Supabase como `any` en
+      # el punto del mapeo. Cuando se regeneró en serio (2026-08-19) aparecieron
+      # tres huecos vivos — la interfaz `RowTareas` entera,
+      # `recibos.checkout_session_id` y `widget_eventos.socio_id`, las tres en
+      # uso desde código.
+      #
+      # Cuesta ~1s y no necesita nada instalado: `python3` ya viene en la imagen.
+      - name: lib/db-types.ts coincide con supabase/migrations/
+        run: |
+          python3 scripts/gen-db-types.py
+          if ! git diff --quiet -- lib/db-types.ts; then
+            echo "::error::lib/db-types.ts no coincide con supabase/migrations/."
+            echo "Regenéralo y súbelo:  python3 scripts/gen-db-types.py" >&2
+            echo "Si el cambio que ves es una corrección tuya a mano, NO la pongas" >&2
+            echo "en el fichero: va en TIPOS_MANUALES/NOTAS_MANUALES del script." >&2
+            echo "--- lo que falta por regenerar ---" >&2
+            git --no-pager diff -- lib/db-types.ts
+            exit 1
+          fi
+
       - name: Typecheck
         run: npx tsc --noEmit
 

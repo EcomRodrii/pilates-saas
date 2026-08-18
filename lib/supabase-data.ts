@@ -371,7 +371,10 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
-  | 'entrega_estado_antes' | 'importe_devuelto'>;
+  | 'entrega_estado_antes' | 'importe_devuelto'
+  // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
+  // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
+  | 'checkout_session_id'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
