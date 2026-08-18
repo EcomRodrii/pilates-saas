@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortalTemaMarco } from './portal-tema-marco';
 import { useStudio } from '@/lib/studio-context';
@@ -25,21 +26,25 @@ export function PortalRaiz({ slug }: { slug: string }) {
   const { session, isLoading } = usePortalAuth();
   const acceso = `/portal/${slug}/acceso`;
 
-  // ⚠️ Nada hasta saber si hay sesión. `PortalShell` ya manda a /home a quien
-  // la tiene, pero la resuelve de forma asíncrona: sin esta guarda, quien entra
-  // todos los días veía la bienvenida ASOMARSE antes del salto. Añadirle un
-  // parpadeo a quien ya está dentro sería empeorarle la app para enseñarle una
-  // pantalla que no es para él.
+  // Sin tema del kit no se inventa nada: a `/acceso`, como siempre.
+  //
+  // ⚠️ En un EFECTO, no durante el render. Llamar al router mientras se renderiza
+  // es un antipatrón: React puede reintentar ese render, y entonces la
+  // navegación se dispara más de una vez. Se hace después, que es cuando el
+  // componente ya existe.
+  const sinKit = !isLoading && !session && dataLoaded
+    && (!portalReact || !esTemaPortal(themeIdPublicado));
+  useEffect(() => {
+    if (sinKit) router.replace(acceso);
+  }, [sinKit, router, acceso]);
+
+  // ⚠️ Nada hasta saber si hay sesión. `PortalShell` ya manda a /home a quien la
+  // tiene, pero la resuelve de forma asíncrona: sin esta guarda, quien entra
+  // todos los días veía la bienvenida ASOMARSE antes del salto.
   if (isLoading || session) return null;
-
-  // Mientras no se sabe qué tema hay, tampoco: enseñar la bienvenida de un tema
-  // y cambiarla al llegar el bueno es peor que esperar un instante.
-  if (!dataLoaded) return null;
-
-  if (!portalReact || !esTemaPortal(themeIdPublicado)) {
-    router.replace(acceso);
-    return null;
-  }
+  // Y mientras no se sabe qué tema hay, tampoco: enseñar la bienvenida de un
+  // tema y cambiarla al llegar el bueno es peor que esperar un instante.
+  if (!dataLoaded || sinKit) return null;
 
   return <PortalTemaMarco alEntrar={() => router.push(acceso)} />;
 }
