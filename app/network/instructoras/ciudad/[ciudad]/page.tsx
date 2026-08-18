@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ciudad: s
   const { ciudad } = await params;
   const nombre = ciudadDesdeParam(ciudad);
   return {
-    title: `Instructoras de Pilates y Yoga en ${nombre} | Tentare Network`,
+    title: `Instructoras de Pilates y Yoga en ${nombre}`,
     description: `Encuentra instructoras de Pilates y Yoga verificadas en ${nombre}. Filtra por especialidad y disponibilidad, contacta directamente.`,
   };
 }
