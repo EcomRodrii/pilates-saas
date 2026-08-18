@@ -258,19 +258,25 @@ async function detallePerfilDesdeFila(
 ): Promise<DetallePerfilPublico | { error: unknown }> {
   const id = data.id as string;
 
-  const { data: experienciasData, error: errExp } = await admin
-    .from('red_experiencias')
-    .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
-    .eq('perfil_id', id)
-    .order('fecha_inicio', { ascending: false });
-  if (errExp) return { error: errExp };
-
-  const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
-
-  // `auth_user_id` se pide APARTE (nunca en SELECT_COLUMNAS_PUBLICAS) solo
-  // para resolver si el email de la cuenta está confirmado — un único
-  // perfil, un único lookup, no el N+1 que sería hacerlo en un listado.
-  const [{ data: filaAuth }, { count: referenciasConfirmadas }, { data: resenasData }, { data: certificacionesData }] = await Promise.all([
+  // Las 5 queries son independientes entre sí (ninguna depende del
+  // resultado de otra, todas solo necesitan `id`) — antes `red_experiencias`
+  // iba en un `await` suelto ANTES del `Promise.all` de las otras 4, una
+  // ida-y-vuelta de red completa evitable (auditoría de performance,
+  // 2026-08-18). `auth_user_id` se pide APARTE (nunca en
+  // SELECT_COLUMNAS_PUBLICAS) solo para resolver si el email de la cuenta
+  // está confirmado — un único perfil, un único lookup, no el N+1 que sería
+  // hacerlo en un listado.
+  const [
+    { data: experienciasData, error: errExp },
+    { data: filaAuth },
+    { count: referenciasConfirmadas },
+    { data: resenasData },
+    { data: certificacionesData },
+  ] = await Promise.all([
+    admin.from('red_experiencias')
+      .select('id, studio_id, nombre_estudio, fecha_inicio, fecha_fin, especialidades, descripcion, estado_verificacion, creado_en')
+      .eq('perfil_id', id)
+      .order('fecha_inicio', { ascending: false }),
     admin.from('red_perfiles').select('auth_user_id').eq('id', id).maybeSingle(),
     admin.from('red_referencias').select('id', { count: 'exact', head: true }).eq('perfil_id', id).eq('estado', 'confirmada'),
     admin.from('red_resenas').select('id, puntuacion, comentario, creado_en, studios ( nombre )')
@@ -278,6 +284,9 @@ async function detallePerfilDesdeFila(
     admin.from('red_certificaciones').select('nombre, institucion, anio')
       .eq('perfil_id', id).eq('estado', 'verificado').order('anio', { ascending: false }),
   ]);
+  if (errExp) return { error: errExp };
+
+  const experiencias = ((experienciasData ?? []) as unknown as Omit<FilaRedExperiencia, 'perfil_id'>[]).map(mapFilaAExperienciaPublica);
   const certificaciones: CertificacionNetworkPublica[] = (certificacionesData ?? []) as CertificacionNetworkPublica[];
   const { data: userData } = filaAuth?.auth_user_id
     ? await admin.auth.admin.getUserById(filaAuth.auth_user_id as string)

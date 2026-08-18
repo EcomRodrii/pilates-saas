@@ -109,7 +109,7 @@ export default async function NetworkLandingPage() {
         </div>
         {destacadas[0]?.fotoUrl ? (
           <div className="relative">
-            <FotoInstructora fotoUrl={destacadas[0].fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} />
+            <FotoInstructora fotoUrl={destacadas[0].fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} eager />
             <div
               className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
               style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
