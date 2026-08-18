@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
+import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase } from "@/components/portal-tema/data/studio";
 import type { DatosPortal } from "@/lib/portal-tema/tipos";
 import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
 // La ÚNICA frase que `mensajeDeFalloAlGuardar` reserva para un fallo de red de
@@ -14,6 +14,7 @@ export type ScreenId =
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
   | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar" | "avisos"
+  | "favoritas"
   | "compra";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
@@ -372,6 +373,19 @@ export type AlPedirAvisosPortal = () => Promise<
 /** Abre un aviso: lo marca leído y navega a donde apunte. */
 export type AlAbrirAvisoPortal = (id: string) => void;
 
+/**
+ * Marcar o desmarcar un TIPO de clase como favorito, contra el servidor.
+ *
+ * ⚠️ Por tipo de clase, no por sesión. El kit guardaba el id de la SESIÓN en
+ * `localStorage` («el Reformer del martes a las 18») y el backend guarda
+ * `tipo_clase_id` («Reformer»): el corazón se apagaba solo al cambiar de
+ * semana y no llegaba nada al servidor. Devuelve el error si lo hubo.
+ */
+export type AlAlternarFavoritoPortal = (
+  tipoClaseId: string,
+  accion: 'marcar' | 'desmarcar',
+) => Promise<string | null>;
+
 export type AlPedirHistorialPortal = () => Promise<
   { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[]
 >;
@@ -432,6 +446,7 @@ export function PortalProvider({
   alCancelar,
   alReservar,
   alGuardarDatos,
+  alAlternarFavorito,
   alPedirHistorial,
   alPedirAvisos,
   alAbrirAviso,
@@ -471,6 +486,7 @@ export function PortalProvider({
   alPagar?: AlPagarPortal;
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
+  alAlternarFavorito?: AlAlternarFavoritoPortal;
   alPedirHistorial?: AlPedirHistorialPortal;
   alPedirAvisos?: AlPedirAvisosPortal;
   alAbrirAviso?: AlAbrirAvisoPortal;
@@ -508,6 +524,7 @@ export function PortalProvider({
     datosRef.current = datos;
   }, [datos]);
 
+
   // El espejo del estado para leerlo sin capturarlo en una clausura vieja: las
   // acciones se construyen una vez (`useMemo`) y el intervalo de la sesión
   // guiada corre fuera de React. Se actualiza en un efecto y no en el render
@@ -539,8 +556,12 @@ export function PortalProvider({
     // que algo lo refrescara, y encima metería sus clases en el
     // `localStorage` de un dispositivo compartido. Con `null` se vuelve a
     // pedir, que es barato y siempre cierto.
+    // ⚠️ `favourites` tampoco se persiste, por el mismo motivo que `historial`:
+    // desde que el corazón habla con `/api/public/favoritos`, la lista es del
+    // SERVIDOR. Guardarla dejaría a la socia viendo en un móvil las favoritas
+    // que quitó en otro, y encima ganando la copia vieja al llegar la buena.
     const { toast, toastId, loading, running, paying, authWorking, historial, historialCargando,
-            avisos, avisosCargando, ...rest } = state;
+            avisos, avisosCargando, favourites: _favoritasDelServidor, ...rest } = state;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
@@ -549,6 +570,18 @@ export function PortalProvider({
   }, [state]);
 
   const set = useCallback((patch: Partial<PortalState>) => dispatch({ type: "patch", patch }), []);
+
+  // Las favoritas las manda el catálogo. El corazón las cambia de forma
+  // optimista y `cargarPublico` re-sincroniza al terminar la escritura, así
+  // que esto es lo que devuelve el servidor a la última — y si rechazó algo,
+  // lo corrige solo.
+  const favoritasDeDatos = datos.favoritas.join("|");
+  useEffect(() => {
+    set({ favourites: favoritasDeDatos ? favoritasDeDatos.split("|") : [] });
+    // `favoritasDeDatos` es una CADENA a propósito: con el array, un catálogo
+    // nuevo con las mismas favoritas dispararía esto en cada refresco.
+  }, [favoritasDeDatos, set]);
+
 
   // Mismo motivo que `datosRef`: `navegar` cambia de identidad en cada render
   // del portal real (se construye con el router), y no puede reconstruir las
@@ -562,6 +595,9 @@ export function PortalProvider({
   useEffect(() => {
     alPagarRef.current = alPagar;
   }, [alPagar]);
+
+  const alAlternarFavoritoRef = useRef(alAlternarFavorito);
+  useEffect(() => { alAlternarFavoritoRef.current = alAlternarFavorito; }, [alAlternarFavorito]);
 
   const alPedirHistorialRef = useRef(alPedirHistorial);
   useEffect(() => { alPedirHistorialRef.current = alPedirHistorial; }, [alPedirHistorial]);
@@ -861,16 +897,37 @@ export function PortalProvider({
           notify(error ?? "Reserva cancelada");
         });
       },
+      /**
+       * El corazón del detalle.
+       *
+       * ⚠️ Guarda el TIPO de clase, no la sesión abierta. Antes escribía
+       * `classId` en `localStorage` y no llamaba a nadie: la socia marcaba «el
+       * Reformer del martes», el corazón se apagaba solo al cambiar de semana
+       * —porque la sesión ya era otra— y el servidor no se enteraba nunca. El
+       * backend (`/api/public/favoritos`) siempre guardó `tipo_clase_id`.
+       */
       toggleFavourite: () => {
         const s = stateRef.current;
-        const inside = s.favourites.includes(s.classId);
-        set({ favourites: inside ? s.favourites.filter((x) => x !== s.classId) : s.favourites.concat([s.classId]) });
-        notify(inside ? "Fuera de favoritas" : "Guardada en favoritas");
+        const cls = buscarClase(datosRef.current, s.classId);
+        // Sin clase abierta no hay tipo que marcar.
+        if (!cls) return;
+        const tipo = cls.type;
+        const dentro = s.favourites.includes(tipo);
+        // Optimista, como el resto del portal: se ve al instante y el servidor
+        // manda al final. Si dice que no, se deshace y se cuenta — nada de
+        // dejar el corazón encendido sobre un favorito que no existe.
+        set({ favourites: dentro ? s.favourites.filter((x) => x !== tipo) : s.favourites.concat([tipo]) });
+        const alternar = alAlternarFavoritoRef.current;
+        if (!alternar) return notify(dentro ? "Fuera de favoritas" : "Guardada en favoritas");
+        alternar(tipo, dentro ? 'desmarcar' : 'marcar').then((error) => {
+          if (!error) return notify(dentro ? "Fuera de favoritas" : "Guardada en favoritas");
+          const ahora = stateRef.current.favourites;
+          set({ favourites: dentro ? ahora.concat([tipo]) : ahora.filter((x) => x !== tipo) });
+          notify(error);
+        });
       },
-      showFavourites: () => {
-        const n = stateRef.current.favourites.length;
-        notify(n ? plural(n, "clase guardada", "clases guardadas") : "Aún no tienes favoritas");
-      },
+      /** Antes esto era un AVISO con el número. Ahora lleva a su pantalla. */
+      showFavourites: () => ir({ screen: "favoritas" }),
 
       toggleChallenge: (key) => {
         const s = stateRef.current;

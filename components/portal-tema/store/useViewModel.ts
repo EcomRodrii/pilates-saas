@@ -81,6 +81,52 @@ export function useViewModel() {
     const plan = datos.planes.find((p) => p.key === state.plan) ?? datos.planes[0] ?? null;
     const vat = plan ? Math.round(plan.price * 0.21 * 100) / 100 : 0;
 
+  // ⚠️ El mapeo de UNA fila, extraído para que Favoritas use EXACTAMENTE la
+    // misma. Copiarlo habría dado dos filas que se parecen hasta que una de
+    // las dos cambie — que es como aparecieron las tres variantes que costó
+    // unificar en la fase anterior.
+    const filaDeClase = (c: (typeof datos.clases)[number]) => {
+
+      const isBooked = idsReservados.includes(c.id);
+      return {
+        id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
+        teacherFoto: c.teacherFoto,
+        meta: c.room + " · " + c.level,
+        // «Emma · Sala A · Todos» — quién primero, que es lo que se busca al
+        // elegir clase. La fila de siempre lleva la instructora abajo con su
+        // avatar; esta la sube a la línea de metadatos.
+        metaLarga: [c.teacher.split(" ")[0], c.room, c.level].filter(Boolean).join(" · "),
+        // «4 plazas» junto al badge. Vacío cuando no quedan o ya es suya: ahí
+        // el badge («Completa», «Reservada») ya lo dice todo y repetirlo
+        // sobra.
+        plazas: !isBooked && !enCola(c.id) && c.seats > 0
+          ? c.seats + (c.seats === 1 ? " plaza" : " plazas")
+          : "",
+        // Sin el nivel: la fila de Tentada ya escribe «con {teacher} · {room}»
+        // y repetir «Intermedio» ahí la parte en tres líneas.
+        room: c.room,
+        booked: isBooked && !enCola(c.id),
+        waiting: enCola(c.id),
+        position: porClase.get(c.id)?.posicion ?? null,
+        full: !isBooked && c.seats === 0,
+        // ⚠️ En un estudio que asigna sitio, el atajo «Reservar» de la fila
+        // reservaría SIN plaza: no hay dónde elegirla ahí. Con esto lleva al
+        // detalle, que es donde está la rejilla — un toque más, pero sin
+        // perder la máquina, que es justo lo que la fila vieja no perdía.
+        eligeSitio: c.plazas.length > 0,
+        status: enCola(c.id)
+          ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
+          : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
+        statusTone: (isBooked ? "booked" : c.seats ? "free" : "full") as "booked" | "free" | "full",
+        // El badge de la fila de Sereno dice el ESTADO y nada más
+        // («Disponible»), porque las plazas van detrás en su propia línea.
+        // El de siempre mete el número dentro («3 libres») y ahí sí es lo
+        // único que hay, así que se conservan los dos.
+        estadoCorto: enCola(c.id) ? "En lista"
+          : isBooked ? "Reservada" : c.seats ? "Disponible" : "Completa",
+      };
+    };
+
     return {
       theme: cfg,
       features: f,
@@ -217,46 +263,35 @@ export function useViewModel() {
       // Sereno, donde el contador de la cabecera no existe.
       diaFrase: (state.day === datos.hoy.num ? "Hoy" : etiquetaDia(datos, state.day))
         + " · " + plural(dayList.length, "clase", "clases"),
-      classes: dayList.map((c) => {
-        const isBooked = idsReservados.includes(c.id);
+      classes: dayList.map(filaDeClase),
+
+      /**
+       * Favoritas: los TIPOS que ha marcado, y sus próximas clases.
+       *
+       * ⚠️ Las clases se filtran a las que TODAVÍA no han pasado. Una pantalla
+       * de favoritas llena de clases del lunes pasado no sirve para lo único
+       * que se hace en ella: encontrar la siguiente de las que le gustan.
+       */
+      favoritas: (() => {
+        const marcados = new Set(state.favourites);
+        // El nombre del tipo sale de una clase suya: `tipos_clase` no viaja
+        // suelto al kit, y no hace falta — si no hay ninguna clase de ese tipo
+        // en la semana, tampoco habría nada que enseñar debajo.
+        const nombres = new Map<string, string>();
+        for (const c of datos.clases) if (marcados.has(c.type) && !nombres.has(c.type)) nombres.set(c.type, c.name);
+        const proximas = datos.clases
+          .filter((c) => marcados.has(c.type) && c.startsAt >= datos.ahoraISO)
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
         return {
-          id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
-          teacherFoto: c.teacherFoto,
-          meta: c.room + " · " + c.level,
-          // «Emma · Sala A · Todos» — quién primero, que es lo que se busca al
-          // elegir clase. La fila de siempre lleva la instructora abajo con su
-          // avatar; esta la sube a la línea de metadatos.
-          metaLarga: [c.teacher.split(" ")[0], c.room, c.level].filter(Boolean).join(" · "),
-          // «4 plazas» junto al badge. Vacío cuando no quedan o ya es suya: ahí
-          // el badge («Completa», «Reservada») ya lo dice todo y repetirlo
-          // sobra.
-          plazas: !isBooked && !enCola(c.id) && c.seats > 0
-            ? c.seats + (c.seats === 1 ? " plaza" : " plazas")
-            : "",
-          // Sin el nivel: la fila de Tentada ya escribe «con {teacher} · {room}»
-          // y repetir «Intermedio» ahí la parte en tres líneas.
-          room: c.room,
-          booked: isBooked && !enCola(c.id),
-          waiting: enCola(c.id),
-          position: porClase.get(c.id)?.posicion ?? null,
-          full: !isBooked && c.seats === 0,
-          // ⚠️ En un estudio que asigna sitio, el atajo «Reservar» de la fila
-          // reservaría SIN plaza: no hay dónde elegirla ahí. Con esto lleva al
-          // detalle, que es donde está la rejilla — un toque más, pero sin
-          // perder la máquina, que es justo lo que la fila vieja no perdía.
-          eligeSitio: c.plazas.length > 0,
-          status: enCola(c.id)
-            ? (porClase.get(c.id)?.posicion ? porClase.get(c.id)!.posicion + "ª en lista" : "En lista de espera")
-            : isBooked ? "Reservada" : c.seats ? c.seats + " libres" : "Completa",
-          statusTone: (isBooked ? "booked" : c.seats ? "free" : "full") as "booked" | "free" | "full",
-          // El badge de la fila de Sereno dice el ESTADO y nada más
-          // («Disponible»), porque las plazas van detrás en su propia línea.
-          // El de siempre mete el número dentro («3 libres») y ahí sí es lo
-          // único que hay, así que se conservan los dos.
-          estadoCorto: enCola(c.id) ? "En lista"
-            : isBooked ? "Reservada" : c.seats ? "Disponible" : "Completa",
+          hayAlguna: marcados.size > 0,
+          tipos: [...marcados].map((id) => ({ id, nombre: nombres.get(id) ?? "" })).filter((t) => t.nombre),
+          clases: proximas.map(filaDeClase),
+          // Se dice CUÁNTAS hay, no solo que no hay: «ninguna esta semana» y
+          // «no tienes favoritas» son dos situaciones distintas y la salida no
+          // es la misma.
+          sinProximas: marcados.size > 0 && proximas.length === 0,
         };
-      }),
+      })(),
       classCount: plural(dayList.length, "clase", "clases"),
 
       // La cola de la socia, para la pestaña «Lista de espera». Sale de sus

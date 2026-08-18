@@ -273,6 +273,8 @@ export interface FuenteDatosPortal {
    */
   spots?: Spot[];
   instructores: Instructor[];
+  /** Sus favoritos, tal como los da el contexto (o ya normalizados). */
+  favoritas?: readonly (string | { tipoClaseId: string })[];
   /** Las secciones del Inicio que guardó la propietaria. Ver `bloquesInicio`. */
   bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean; fijo?: boolean }[];
   socio: Socio | null;
@@ -617,6 +619,9 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
     profesores: profesoresDe(f.instructores),
+    // Se normaliza a ids sueltos: al kit no le hace falta la fila entera, y
+    // así la pantalla compara contra `StudioClass.type` sin traducir nada.
+    favoritas: (f.favoritas ?? []).map((x) => (typeof x === 'string' ? x : x.tipoClaseId)),
     reservadas: f.reservasPropias && reservadasDe(f.reservasPropias, clases),
   };
 }

@@ -194,6 +194,8 @@ export async function montarPortal(page: Page, opciones: {
    * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
    */
   tema?: string;
+  /** Los tipos de clase que la socia ya tiene marcados como favoritos. */
+  favoritos?: string[];
   /** Catálogo correcto pero SIN socia: es lo que devuelve el servidor cuando el
    *  token de la socia ya no vale, mientras el navegador todavía cree que hay
    *  sesión. La app se monta entera y el perfil llega vacío. */
@@ -206,7 +208,7 @@ export async function montarPortal(page: Page, opciones: {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [] } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -372,7 +374,7 @@ export async function montarPortal(page: Page, opciones: {
       plazasFijas: [PLAZA_FIJA],
       memberCredits: [], rewardHistory: [], rewardRedemptions: [],
       achievementProgress: [], challengeProgress: [], creditTransactions: [], citas: [],
-      favoritos: [], retosApuntados: Array.from(retosApuntadosVivos),
+      favoritos: favoritos.map((tipoClaseId, i) => ({ id: `fav-${i}`, studioId: STUDIO_ID, socioId: SOCIA.socioId, tipoClaseId, creadoEn: '2026-08-01T00:00:00.000Z' })), retosApuntados: Array.from(retosApuntadosVivos),
     } : null,
   }));
 }
