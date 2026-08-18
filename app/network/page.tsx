@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { buscarPerfilesPublico } from '@/lib/network/publico';
-import { LogoTentare } from '@/components/marca/logo-tentare';
+import { HeroParallax } from '@/components/network-v2/HeroParallax';
 import { NavPublico } from '@/components/network-v2/NavPublico';
 import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
@@ -119,15 +119,12 @@ export default async function NetworkLandingPage() {
             </div>
           </div>
         ) : (
-          // Sin ninguna instructora destacada todavía (red nueva, sin
-          // fotos que mostrar): un panel de marca sólido, nunca el
-          // placeholder rayado de FotoInstructora — ese comunica "foto
-          // rota" a tamaño de tarjeta, y aquí ocupa media pantalla.
-          <div
-            className="hidden lg:flex items-center justify-center rounded-[26px]"
-            style={{ aspectRatio: '1 / 1.08', background: NW_VERDE_OSCURO }}
-          >
-            <LogoTentare formato="isotipo" tinta="blanco" alto={72} decorativo />
+          // Sin ninguna instructora destacada todavía (red nueva, sin fotos
+          // que mostrar): foto de marca del hero con efecto parallax sutil,
+          // en vez del placeholder rayado de FotoInstructora (ese comunica
+          // "foto rota" a tamaño de tarjeta, y aquí ocupa media pantalla).
+          <div className="hidden lg:block">
+            <HeroParallax src="/network/hero-reformer.webp" alt="" />
           </div>
         )}
       </section>
