@@ -365,6 +365,31 @@ export function useViewModel() {
       //
       // ⚠️ `vista` la usa solo el tema que la pide; los demás siguen viendo la
       // lista de siempre y ni pintan el segmentado.
+      /**
+       * El historial de verdad: lo que ya pasó, asistido o cancelado.
+       *
+       * ⚠️ «Historial de clases» del perfil llamaba a `goBookings`, o sea que
+       * llevaba a la AGENDA. La agenda mira hacia delante y el historial hacia
+       * atrás: son cosas distintas, y la socia que entra ahí busca lo segundo.
+       */
+      historial: {
+        cargando: state.historialCargando,
+        // `null` = todavía no se ha pedido. No es lo mismo que `[]`, que sí
+        // significa «no tienes nada»: con `null` se pinta el esqueleto, no el
+        // vacío.
+        filas: state.historial?.map((h) => ({
+          id: h.reservaId,
+          nombre: h.nombre,
+          cuando: fechaLarga(h.inicio),
+          instructora: h.instructora,
+          cancelada: h.estado !== 'ASISTIDA',
+          // Se distingue cancelar de no aparecer: si el estudio cobra el
+          // plantón, la socia tiene que poder ver cuál fue cuál.
+          etiqueta: h.estado === 'ASISTIDA' ? 'Asistida'
+            : h.estado === 'CANCELADA' ? 'Cancelada' : 'No asistida',
+        })) ?? null,
+      },
+
       agenda: (() => {
         const suyas = idsReservados
           .map((id) => buscarClase(datos, id))
@@ -399,7 +424,11 @@ export function useViewModel() {
            * pedido, y entonces la sección NO se pinta; `[]` = no ha asistido a
            * ninguna, y ahí sí se dice. Son cosas distintas.
            */
-          completadas: state.historial?.map((h) => ({
+          // ⚠️ SOLO las asistidas. Desde que el historial trae también las
+          // canceladas, sin este filtro una clase que la socia canceló
+          // aparecería en «Completadas» — que es exactamente lo contrario de lo
+          // que pasó, y encima le cuadraría mal el bono.
+          completadas: state.historial?.filter((h) => h.estado === 'ASISTIDA').map((h) => ({
             id: h.reservaId,
             nombre: h.nombre,
             // La fecha en palabras, en la zona del ESTUDIO — `fechaLarga` es la

@@ -30,6 +30,7 @@ import { GuidedSession } from "@/components/portal-tema/screens/GuidedSession";
 import { BonoActivado } from "@/components/portal-tema/screens/BonoActivado";
 import { Favoritas } from "@/components/portal-tema/screens/Favoritas";
 import { Avisos } from "@/components/portal-tema/screens/Avisos";
+import { Historial } from "@/components/portal-tema/screens/Historial";
 
 const SCREENS = {
   welcome: Welcome,
@@ -52,6 +53,7 @@ const SCREENS = {
   sesion: GuidedSession,
   compra: BonoActivado,
   avisos: Avisos,
+  historial: Historial,
   favoritas: Favoritas,
 } as const;
 

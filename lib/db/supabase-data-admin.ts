@@ -2495,6 +2495,21 @@ export async function toggleFavoritoPublico(params: {
 }
 
 /** Una clase a la que la socia YA asistió. Lo mínimo para pintar su fila. */
+/**
+ * El estado de la reserva embebida, normalizado.
+ *
+ * Con `!inner` sobre una relación uno-a-muchos PostgREST devuelve un ARRAY, y
+ * la forma cambia según cómo resuelva la relación: se normaliza en vez de
+ * asumirla. Sin estado reconocible se cae a `ASISTIDA`, que es lo que devolvía
+ * esta consulta cuando solo traía asistidas.
+ */
+function estadoDeReserva(
+  r: { estado?: string }[] | { estado?: string } | null,
+): ClaseAsistida['estado'] {
+  const bruto = Array.isArray(r) ? r[0]?.estado : r?.estado;
+  return bruto === 'CANCELADA' || bruto === 'NO_SHOW' ? bruto : 'ASISTIDA';
+}
+
 export interface ClaseAsistida {
   reservaId: string;
   sesionId: string;
@@ -2502,6 +2517,16 @@ export interface ClaseAsistida {
   inicio: string;
   nombre: string;
   instructora: string;
+  /**
+   * Cómo acabó.
+   *
+   * ⚠️ Esta consulta solo devolvía `ASISTIDA`, y por eso «Historial de clases»
+   * no podía ser un historial: enseñaba la mitad de lo que pasó. Una clase que
+   * la socia canceló también es su historial —y saber CUÁNDO canceló es justo
+   * lo que se va a mirar cuando discuta un cargo—. Se devuelve el estado en
+   * vez de tres listas: quien lo pinte decide si separa o mezcla.
+   */
+  estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
 }
 
 /**
@@ -2550,7 +2575,10 @@ export async function historialAsistidasPublico(params: {
     .eq('studio_id', params.studioId)
     .eq('reservas.studio_id', params.studioId)
     .eq('reservas.socio_id', params.socioId)
-    .eq('reservas.estado', 'ASISTIDA')
+    // ⚠️ Las tres, no solo las asistidas. «Completadas» de la agenda SÍ filtra
+    // a `ASISTIDA` al pintarlas: si no, una clase cancelada aparecería como
+    // completada, que es exactamente lo contrario de lo que pasó.
+    .in('reservas.estado', ['ASISTIDA', 'CANCELADA', 'NO_SHOW'])
     .lt('inicio', new Date().toISOString())
     .order('inicio', { ascending: false })
     .limit(limite);
@@ -2562,13 +2590,17 @@ export async function historialAsistidasPublico(params: {
   // por el propio Postgres, son más predecibles.
   const filas = (data as unknown as {
     id: string; inicio: string; tipo_clase_id: string; instructor_id: string;
-    reservas: { id: string }[] | { id: string } | null;
+    reservas: { id: string; estado?: string }[] | { id: string; estado?: string } | null;
   }[]).map((s) => ({
     // Con `!inner` sobre una relación uno-a-muchos, PostgREST devuelve un
     // ARRAY. Una socia no puede tener dos reservas ASISTIDA de la misma
     // sesión, así que se coge la primera — pero se normaliza en vez de
     // asumir la forma.
     reservaId: (Array.isArray(s.reservas) ? s.reservas[0]?.id : s.reservas?.id) ?? s.id,
+    // El estado sale de la MISMA fila de la que sale `reservaId`, no de otra
+    // lectura: normalizar por separado dejaría un estado que no es el de esa
+    // reserva en cuanto haya dos.
+    estado: estadoDeReserva(s.reservas),
     sesionId: s.id,
     inicio: s.inicio,
     tipoClaseId: s.tipo_clase_id,
@@ -2592,6 +2624,7 @@ export async function historialAsistidasPublico(params: {
     reservaId: f.reservaId,
     sesionId: f.sesionId,
     inicio: f.inicio,
+    estado: f.estado,
     nombre: nombreTipo.get(f.tipoClaseId) ?? 'Clase',
     instructora: nombreInstr.get(f.instructorId) ?? '',
   }));
