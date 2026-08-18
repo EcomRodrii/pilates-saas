@@ -34,6 +34,13 @@ jobs:
   calidad:
     name: Tipos · lint · tests unitarios
     runs-on: ubuntu-latest
+    # ⚠️ `timeout-minutes` en TODOS los jobs, y no es burocracia: sin él GitHub
+    # aplica su tope por defecto de SEIS HORAS. La noche del 17-ago un `apt`
+    # colgado en un solo shard dejó un PR sin poder mergearse durante 40
+    # minutos, y sin este límite habría seguido bloqueado hasta la madrugada.
+    # Un job colgado tiene que MORIR y dejar reintentarlo, no ocupar el hueco.
+    # Los valores salen de medir los runs reales de `main`, no de estimarlos.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -106,6 +113,7 @@ jobs:
   build:
     name: Build de producción
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -194,8 +202,38 @@ jobs:
     name: E2E ${{ matrix.shard }}/12
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Imagen OFICIAL de Playwright: trae los navegadores Y sus librerías de
+    # sistema ya dentro. Antes se descargaban a una caché y las librerías se
+    # instalaban con `apt` en cada uno de los 12 shards — 12 `apt-get` en
+    # paralelo contra los mirrors de Ubuntu, que se colgaron tres veces en una
+    # sola noche (17-ago) por el candado de dpkg peleado con
+    # `unattended-upgrades`, y costaron ~1h entre esperas y reintentos (uno de
+    # esos cuelgues es la ejecución de +12 min que se paró a mano). El paso
+    # más frágil de esta CI era instalar algo que la imagen ya podía traer
+    # hecho — se elimina la causa en vez de ponerle un reintento.
+    #
+    # ⚠️ La etiqueta va CLAVADA a la versión de @playwright/test del
+    # package-lock (hoy 1.61.1). Si se actualiza una y no la otra, el binario
+    # de la imagen no coincide con la librería y los tests mueren con
+    # «Executable doesn't exist» — el mismo síntoma engañoso que ya dio la
+    # clave de caché al añadir WebKit (#998). El paso «La imagen y el repo…»
+    # de abajo lo caza antes, con un mensaje que dice exactamente qué tocar.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
     strategy:
       fail-fast: false
+      # `max-parallel: 6` — los 12 shards sin tope están pensados para el
+      # caso de UN run aislado, pero no contemplan varios runs a la vez: cada
+      # uno pide hasta 15 jobs de golpe (calidad + build + 12 e2e + test), y
+      # con varias ramas en CI a la vez eso compite por el cupo de
+      # concurrencia de la cuenta (no del repo). El síntoma no es ningún job
+      # roto: los 12 shards de un run se quedan en cola sin arrancar mientras
+      # otras ramas hacen lo mismo. Bajar a 6 no deshace "12 shards" — sigue
+      # siendo el reparto correcto para un run aislado — solo limita cuántos
+      # de esos 12 compiten a la vez por runner, para que quepan más ramas en
+      # paralelo sin bloquearse todas entre sí.
+      max-parallel: 6
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
@@ -225,51 +263,19 @@ jobs:
       - name: Desempaquetar salida del build
         run: tar -xf build.tar && rm build.tar
 
-      # La versión de Playwright fija la del navegador: si no cambia el
-      # package-lock, el binario cacheado sirve tal cual.
-      #
-      # ⚠️ La clave lleva TAMBIÉN qué navegadores se instalan, y no es adorno:
-      # sin ese sufijo, añadir WebKit acertaba con la caché vieja —que solo
-      # tenía Chromium—, el paso de instalar se saltaba por su `if`, y los tests
-      # de WebKit morían con «Executable doesn't exist at .../webkit-2311».
-      # No es un fallo de test y se lee como si lo fuera. Si algún día se añade
-      # otro navegador, hay que tocar este sufijo además del comando de abajo.
-      - name: Restaurar navegadores de Playwright
-        id: cache-playwright
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-chromium-webkit
-
-      # WebKit además de Chromium: el proyecto `webkit-publico` de
-      # playwright.config.ts pasa las pantallas PÚBLICAS por Safari. El binario
-      # son ~90 MB más, pero la caché va por hash de `package-lock.json`, así
-      # que solo se descarga cuando cambia la versión de Playwright — no en cada
-      # ejecución.
-      - name: Instalar navegadores de Playwright
-        if: steps.cache-playwright.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium webkit
-
-      # ⚠️ Las librerías del SISTEMA que necesita WebKit (gstreamer, libwoff2,
-      # libopus, libharfbuzz-icu…) se instalan con apt en /usr — NO viven en
-      # ~/.cache/ms-playwright, así que la caché de arriba no las guarda. Con
-      # cache-hit el paso anterior se salta entero por su `if`, y con él se
-      # saltaba también el `--with-deps`: el binario de WebKit estaba, pero sin
-      # sus dependencias arrancaba y moría en el acto.
-      #
-      # El síntoma no dice nada de librerías: 36 tests fallando de golpe con
-      # «browserType.launch: Target page, context or browser has been closed» y
-      # «kill ESRCH», que se lee como un runner saturado o como un flake. Costó
-      # dos reintentos a ciegas antes de mirar el paso de la caché.
-      #
-      # Y no saltó al añadir WebKit (#998) porque ese run creó la caché: fue
-      # cache-MISS, instaló con deps y salió verde. Rompe a partir del run
-      # siguiente, en el primer PR que acierte con la caché.
-      #
-      # Chromium sobrevivía porque el runner de Ubuntu ya trae casi todo lo suyo.
-      - name: Dependencias del sistema de los navegadores
-        if: steps.cache-playwright.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium webkit
+      # Guardia barata contra el único fallo que introduce usar la imagen
+      # oficial en vez de instalar a mano: que su versión y la del repo se
+      # separen. Falla diciendo exactamente qué tocar, en vez de dejar que se
+      # manifieste como 36 tests muertos con «Executable doesn't exist».
+      - name: La imagen y el repo hablan de la misma versión de Playwright
+        run: |
+          DEL_REPO=$(node -p "require('@playwright/test/package.json').version")
+          DE_LA_IMAGEN=1.61.1
+          if [ "$DEL_REPO" != "$DE_LA_IMAGEN" ]; then
+            echo "Playwright del repo: $DEL_REPO · de la imagen: $DE_LA_IMAGEN" >&2
+            echo "Sube la etiqueta de 'container:' de este workflow a v$DEL_REPO-noble." >&2
+            exit 1
+          fi
 
       - name: E2E (registro · reserva · pago)
         # E2E_USA_BUILD=1 hace que el webServer de Playwright arranque
@@ -295,6 +301,7 @@ jobs:
     if: always() && needs.e2e.result == 'failure'
     needs: e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -349,6 +356,7 @@ jobs:
     if: always()
     needs: [calidad, build, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Comprobar que todo lo anterior ha pasado
         run: |
