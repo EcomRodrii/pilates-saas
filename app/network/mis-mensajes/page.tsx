@@ -28,7 +28,7 @@ export default function MensajesNetworkPage() {
   }, []);
 
   useEffect(() => {
-    if (!cargandoSesion && !user) router.replace('/network/unirse');
+    if (!cargandoSesion && !user) router.replace('/network/acceso');
   }, [cargandoSesion, user, router]);
 
   return (
