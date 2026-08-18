@@ -2649,22 +2649,33 @@ export default function ReservarPage() {
               </div>
             )}
 
-            {/* ── DATOS (pagar y reservar sin login previo) ── */}
+            {/* ── DATOS (pagar y reservar sin login previo) ──
+                Fase 2 del rediseño (docs/widget-reservas-theme-builder-diseno.md,
+                pantalla 03): resumen con precio a la derecha + eyebrow de paso.
+                Nuestro flujo son 2 pasos (datos → pago), no los 3 del handoff
+                (que incluye login/registro separado) — se rotula honesto a lo
+                que este camino realmente tiene. */}
             {loginStep === 'datos' && bookingSesion && datosPlan && (
               <div className="contenido-anim">
-                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Tus datos</h2>
+                <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase mb-2">Paso 1 de 2</p>
+                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)] flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
+                      <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
+                    </div>
+                    <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
+                    <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)}{bookingSesion.instructor?.nombre ? ` · ${bookingSesion.instructor.nombre}` : ''}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] text-xl leading-none">{datosPlan.precio} €</p>
+                    <p className="text-[11px] text-[var(--portal-muted)] mt-1">1 clase</p>
+                  </div>
+                </div>
+                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-2xl mb-1">Tus datos</h2>
                 <p className="text-[var(--portal-muted-2)] text-sm mb-4">
                   No necesitas crear una cuenta. Al completar tu reserva crearemos automáticamente tu acceso para que puedas gestionar tus próximas clases.
                 </p>
-                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
-                    <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
-                  </div>
-                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
-                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
-                  <p className="text-[var(--portal-ink)] text-sm font-bold mt-2">{datosPlan.precio} €</p>
-                </div>
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <input type="text" placeholder="Nombre"
                     value={loginForm.nombre}
@@ -2705,6 +2716,7 @@ export default function ReservarPage() {
             {/* ── PAGO (checkout embebido, "pagar y reservar sin login previo") ── */}
             {loginStep === 'pago' && bookingSesion && datosPlan && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
               <div className="contenido-anim">
+                <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase mb-2">Paso 2 de 2</p>
                 <CheckoutEmbebido
                   t={tokensCalendario}
                   plan={datosPlan}
@@ -2717,6 +2729,10 @@ export default function ReservarPage() {
                     hora: fmtTime(bookingSesion.inicio),
                     instructor: bookingSesion.instructor?.nombre ?? null,
                   }}
+                  // Misma cifra honesta que ya usa el paso 'confirm' (línea de
+                  // arriba) — no la fija del estudio a secas, la de SU tipo de
+                  // clase si tiene override.
+                  ventanaCancelacionHoras={bookingSesion.tipo?.ventanaCancelacionHoras ?? studio?.cancelacionVentanaHoras ?? 0}
                   textoBoton={`Pagar y reservar → ${datosPlan.precio} €`}
                   onExito={handlePagoExitoso}
                   onCerrar={() => setLoginStep('datos')}
