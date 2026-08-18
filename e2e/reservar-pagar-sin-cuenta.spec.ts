@@ -129,7 +129,7 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   // Llega al paso de pago — la cabecera del modal cambia y aparece el resumen
   // de la clase. No se comprueba el Payment Element de Stripe (límite de
   // entorno, ver cabecera del fichero).
-  await expect(page.getByRole('heading', { name: 'Pagar y reservar' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('dialog', { name: 'Pagar y reservar' })).toBeVisible({ timeout: 15_000 });
 });
 
 test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', async ({ page }) => {
@@ -150,7 +150,7 @@ test('⚠️ un 409 de checkout-embebido NO se anuncia como pago iniciado', asyn
   await page.waitForTimeout(1500);
 
   expect(intentos, 'el pago no llegó a intentarse: el test no prueba nada').toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Pagar y reservar' })).not.toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Pagar y reservar' })).not.toBeVisible();
   await expect(page.getByText('Esta clase ya ha empezado')).toBeVisible();
   // Reintentable: el botón no se queda inerte tras el fallo.
   await expect(page.getByRole('button', { name: /Continuar al pago/ })).toBeEnabled();
