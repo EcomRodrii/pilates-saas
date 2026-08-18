@@ -175,6 +175,12 @@ export interface ProfesorPortal {
    * por una inicial en todas partes.
    */
   foto: string;
+  /**
+   * Su nota, ya agregada. Ausente = nadie la ha valorado — y no es lo mismo que
+   * «tiene mala nota». Quien la pinta decide si se puede enseñar con
+   * `valoracionParaPantalla`, que exige un mínimo de valoraciones.
+   */
+  valoracion?: { media: number; total: number };
 }
 
 export interface SociaPortal {

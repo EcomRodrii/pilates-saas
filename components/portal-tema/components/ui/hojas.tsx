@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { Avatar, Button } from "@/components/portal-tema/components/ui/primitives";
+import { Avatar, Button, Valoracion } from "@/components/portal-tema/components/ui/primitives";
 import { useActions, usePortal } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
@@ -268,6 +268,8 @@ export function Hojas({ vm }: { vm: ViewModel }) {
         <Avatar foto={profe.foto}>{profe.inicial}</Avatar>
         <div>
           <p className="hoja__titulo" style={{ marginBottom: 0 }}>{profe.nombre}</p>
+          {/* Solo si hay muestra suficiente. Ver `valoracionParaPantalla`. */}
+          <Valoracion valoracion={profe.valoracion} />
         </div>
       </div>
       {/* Sin bio no se pinta un párrafo vacío: `instructores.bio` es nullable

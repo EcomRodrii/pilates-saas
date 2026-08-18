@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { usePortalAuth } from '@/lib/portal-auth';
@@ -164,12 +166,23 @@ export default function ClaseDetallePage() {
     return (
       <div style={{ background: t.bg, minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
         <p style={{ fontWeight: 800, color: t.ink, fontSize: 16 }}>Esta clase ya no está disponible</p>
-        <button
-          onClick={() => router.push(`/portal/${slug}/clases`)}
+        {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
+            había: un botón que navega con JavaScript NO HACE NADA hasta que la
+            página hidrata. En un móvil lento la socia toca la flecha de volver
+            y no pasa nada — la misma sensación de «la app no responde» que ya
+            costó otros arreglos. Un enlace navega igual sin JS, y Next lo
+            precarga.
+
+            Es también la causa de que `portal-bonos-compras` fallara en la
+            PRIMERA pasada de CI y pasara al relanzar: en frío la hidratación
+            llega tarde y el clic se pierde. Se arregla en la app, no en el
+            test. */}
+        <Link
+          href={`/portal/${slug}/clases`}
           style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: t.heroAccent, background: 'none', border: 'none' }}
         >
           Volver a Clases
-        </button>
+        </Link>
       </div>
     );
   }

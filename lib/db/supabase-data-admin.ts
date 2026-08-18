@@ -445,6 +445,7 @@ export async function fetchPublicStudioData(
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes, sustitucionesRes,
+      valoracionesRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -466,6 +467,11 @@ export async function fetchPublicStudioData(
       // misma transacción). Nunca `motivo`/`origen`/candidatas descartadas.
       admin.from('sustituciones').select('sesion_id, instructor_original_id')
         .eq('studio_id', studioId).eq('estado', 'confirmada'),
+      // Valoraciones para la nota de cada instructora. Solo `instructor_id` y
+      // `puntuacion`: el comentario y quién lo escribió NO salen del servidor —
+      // esto alimenta una media, no una lista de opiniones, y el comentario es
+      // de la socia que lo escribió, no del catálogo público.
+      admin.from('valoraciones').select('instructor_id, puntuacion').eq('studio_id', studioId),
     ]);
 
     // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
@@ -528,7 +534,25 @@ export async function fetchPublicStudioData(
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
-      instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
+      instructores: (() => {
+        // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
+        // llega la nota ya hecha con su número de valoraciones, y quien la pinta
+        // solo decide si la enseña (ver `valoracionParaPantalla`).
+        const suma = new Map<string, { total: number; puntos: number }>();
+        for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
+          if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
+          const a = suma.get(v.instructor_id) ?? { total: 0, puntos: 0 };
+          a.total += 1; a.puntos += v.puntuacion;
+          suma.set(v.instructor_id, a);
+        }
+        return (instructoresRes.data ?? []).map((r) => {
+          const base = mapInstructorPublico(r as RowInstructores);
+          const a = suma.get(base.id);
+          return a && a.total > 0
+            ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
+            : base;
+        });
+      })(),
       spots: (spotsRes.data ?? []).map(mapSpot),
       // El horario de apertura, para «Información del centro». Vacío en el
       // modo `liviano` (el widget no lo pide) — misma forma del objeto, como
