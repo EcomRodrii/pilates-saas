@@ -494,7 +494,7 @@ interface StudioContextValue {
   addPost: (texto: string) => void;
   toggleLikePost: (postId: string) => void;
   integraciones: Integracion[];
-  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>) => void;
+  upsertIntegracion: (tipo: TipoIntegracion, activo: boolean, config: Record<string, string>, configAnterior: Record<string, string>) => void;
   rewardRules: RewardRule[];
   rewardActions: RewardAction[];
   rewardHistory: RewardHistory[];

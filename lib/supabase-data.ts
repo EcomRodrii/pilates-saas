@@ -991,13 +991,15 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
   } as VentaPOS;
 }
 
-export function mapIntegracion(r: RowIntegraciones): Integracion {
+// `Omit<..., 'config'>` a propósito: la consulta del panel ya no pide `config`,
+// y declararlo así hace que el compilador cace cualquier intento de volver a
+// leer las credenciales desde aquí.
+export function mapIntegracion(r: Omit<RowIntegraciones, 'config'>): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
     tipo: r.tipo,
     activo: r.activo,
-    config: r.config ?? {},
     actualizadoEn: r.actualizado_en,
     ultimoOkEn: r.ultimo_ok_en ?? null,
     ultimoError: r.ultimo_error ?? null,
@@ -3429,13 +3431,19 @@ export async function dbDeletePostComunidad(id: string) {
   if (error) reportDbError('[dbDeletePostComunidad]', error);
 }
 
-export async function dbUpsertIntegracion(intg: Integracion, reiniciarSalud = false) {
+export async function dbUpsertIntegracion(
+  intg: Integracion,
+  // Aparte del registro porque `Integracion` ya no las lleva (ver lib/types.ts):
+  // las credenciales solo existen en el cliente mientras el modal está abierto.
+  config: Record<string, string>,
+  reiniciarSalud = false,
+) {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
     tipo: intg.tipo,
     activo: intg.activo,
-    config: intg.config ?? {},
+    config: config ?? {},
     actualizado_en: intg.actualizadoEn,
     // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
     // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
@@ -4339,7 +4347,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('notas_internas').select('*').eq('studio_id', sid),
     db.from('condiciones_salud').select('*').eq('studio_id', sid),
     db.from('respuestas_sesion').select('*').eq('studio_id', sid),
-    db.from('integraciones').select('*').eq('studio_id', sid),
+    // Columnas explícitas y SIN `config`: el arranque del panel no necesita el
+    // token de WhatsApp ni la clave de Kisi, y mandarlos en cada carga los deja
+    // en la memoria del navegador todo el día para nada. Se piden al abrir el
+    // modal (GET /api/integrations/config).
+    db.from('integraciones')
+      .select('id, studio_id, tipo, activo, actualizado_en, ultimo_ok_en, ultimo_error, ultimo_error_en')
+      .eq('studio_id', sid),
     // El chat de equipo ya NO se consume desde aquí (se carga bajo demanda en su
     // propia página vía dbListMensajesEquipo). Se mantiene la posición del array
     // para no romper el desestructurado posicional de abajo, pero acotado para
