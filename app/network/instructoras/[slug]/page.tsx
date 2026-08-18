@@ -62,19 +62,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-function FilaStat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
+// `destacado`: tarifa y estado de disponibilidad son los dos datos que de
+// verdad deciden un "me interesa" rápido — antes pesaban exactamente igual
+// que "nº de estudios" o "disponible para", cuatro stats idénticos en fila
+// sin ninguna jerarquía entre ellos (auditoría UX, 2026-08-18). El resto se
+// queda con el peso discreto de siempre.
+function FilaStat({ valor, etiqueta, destacado = false }: { valor: string; etiqueta: string; destacado?: boolean }) {
   return (
     <div>
-      <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>{valor}</p>
+      <p className={destacado ? 'text-[22px] font-extrabold' : 'text-[18px] font-bold'} style={{ color: destacado ? NW_PRODUCTO : NW_TINTA }}>{valor}</p>
       <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
     </div>
   );
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+// `compacta`: "Formación" es la única sección que no ayuda a decidir rápido
+// (certificaciones ya verificadas, información de refuerzo, no de
+// diagnóstico) — antes tenía el mismo H2 de 22px que "Sobre mí"/"Experiencia"/
+// "Opiniones", pesando igual que datos con más peso real para la decisión.
+function Seccion({ titulo, children, compacta = false }: { titulo: string; children: React.ReactNode; compacta?: boolean }) {
   return (
     <section>
-      <h2 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>{titulo}</h2>
+      <h2 className={compacta ? 'text-[15px] font-bold uppercase tracking-wide' : 'text-[22px] font-extrabold'} style={{ color: compacta ? NW_MUTED_2 : NW_TINTA }}>{titulo}</h2>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -162,8 +171,8 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                 />
               )}
               <FilaStat valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
-              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" />
-              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" />
+              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
+              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" destacado />
             </div>
           </div>
         </div>
@@ -185,6 +194,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                     </span>
                   ))}
                 </div>
+              </Seccion>
+            )}
+
+            {/* Dato ya existía en BD y en el filtro de búsqueda, pero nunca
+                se pintaba en el perfil (auditoría UX, 2026-08-18). En el
+                bloque de body (visible en mobile), no solo en el aside, que
+                está oculto ahí. */}
+            {perfil.idiomas.length > 0 && (
+              <Seccion titulo="Idiomas" compacta>
+                <p className="text-[14px]" style={{ color: NW_TINTA }}>{perfil.idiomas.join(', ')}</p>
               </Seccion>
             )}
 
@@ -214,7 +233,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {certificaciones.length > 0 && (
-              <Seccion titulo="Formación">
+              <Seccion titulo="Formación" compacta>
                 <div className="space-y-3">
                   {certificaciones.map((c, i) => (
                     <div key={`${c.nombre}-${i}`} className="flex items-start gap-3">
@@ -229,18 +248,19 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               </Seccion>
             )}
 
-            {(perfil.disponibilidadHorarios.length > 0 || perfil.tipoTrabajo.length > 0) && (
-              <Seccion titulo="Disponibilidad">
-                <p className="text-[14px] font-semibold" style={{ color: NW_TINTA }}>{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</p>
-                {perfil.disponibilidadHorarios.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2.5">
-                    {perfil.disponibilidadHorarios.map(h => (
-                      <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
-                        {HORARIO_LABEL[h]}
-                      </span>
-                    ))}
-                  </div>
-                )}
+            {/* El estado de disponibilidad y "disponible para" ya viven en
+                la fila de stats de cabecera — esta sección solo aporta dato
+                nuevo cuando hay franjas horarias (auditoría UX, 2026-08-18:
+                antes repetía el mismo estado dos veces en la misma pantalla). */}
+            {perfil.disponibilidadHorarios.length > 0 && (
+              <Seccion titulo="Horarios">
+                <div className="flex flex-wrap gap-2">
+                  {perfil.disponibilidadHorarios.map(h => (
+                    <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
+                      {HORARIO_LABEL[h]}
+                    </span>
+                  ))}
+                </div>
               </Seccion>
             )}
 
