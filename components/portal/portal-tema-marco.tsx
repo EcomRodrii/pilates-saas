@@ -54,6 +54,7 @@ import { Info } from '@/components/portal-tema/screens/Info';
 import { MyData } from '@/components/portal-tema/screens/MyData';
 import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
 import { Avisos } from '@/components/portal-tema/screens/Avisos';
+import { Favoritas } from '@/components/portal-tema/screens/Favoritas';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
@@ -147,6 +148,7 @@ const PANTALLAS = {
   misdatos: MyData,
   perfil: Profile,
   avisos: Avisos,
+  favoritas: Favoritas,
 } as const;
 
 /** Las que sí manda la URL. */
@@ -189,7 +191,7 @@ export function PortalTemaMarco() {
     // lo que este marco usa por su cuenta: el tema, las escrituras y el
     // refresco.
     studio, themeIdPublicado,
-    cancelarReserva, addReserva, updateSocio, recargarPublico,
+    cancelarReserva, addReserva, updateSocio, recargarPublico, toggleFavorito,
   } = useStudio();
 
   const slug = studio?.slug ?? '';
@@ -314,6 +316,20 @@ export function PortalTemaMarco() {
 
   // Guardar sus datos: la MISMA vía que el perfil de siempre (`updateSocio`),
   // esperando la respuesta del servidor antes de decir nada.
+  /**
+   * El corazón, contra el servidor.
+   *
+   * ⚠️ `toggleFavorito` ya era optimista y re-sincroniza desde el catálogo al
+   * terminar, así que aquí NO se toca nada más: solo se traduce su resultado al
+   * `string | null` que espera el kit.
+   */
+  const alAlternarFavorito = useCallback(async (
+    tipoClaseId: string, accion: 'marcar' | 'desmarcar',
+  ): Promise<string | null> => {
+    const r = await toggleFavorito(tipoClaseId, accion);
+    return r.ok ? null : (r.error ?? 'No hemos podido guardar tu favorita.');
+  }, [toggleFavorito]);
+
   const alGuardarDatos = useCallback(async (campos: {
     nombre: string; apellidos: string; email: string;
     telefono: string; fechaNacimiento: string; direccion: string;
@@ -404,6 +420,7 @@ export function PortalTemaMarco() {
         alPagar={alPagar}
         alCancelar={alCancelar}
         alReservar={alReservar}
+        alAlternarFavorito={alAlternarFavorito}
         alGuardarDatos={alGuardarDatos}
         alPedirHistorial={alPedirHistorial}
         alPedirAvisos={alPedirAvisos}

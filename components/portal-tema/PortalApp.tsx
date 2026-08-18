@@ -28,6 +28,7 @@ import { MyData } from "@/components/portal-tema/screens/MyData";
 import { ClassDetail } from "@/components/portal-tema/screens/ClassDetail";
 import { GuidedSession } from "@/components/portal-tema/screens/GuidedSession";
 import { BonoActivado } from "@/components/portal-tema/screens/BonoActivado";
+import { Favoritas } from "@/components/portal-tema/screens/Favoritas";
 import { Avisos } from "@/components/portal-tema/screens/Avisos";
 
 const SCREENS = {
@@ -51,6 +52,7 @@ const SCREENS = {
   sesion: GuidedSession,
   compra: BonoActivado,
   avisos: Avisos,
+  favoritas: Favoritas,
 } as const;
 
 function Portal() {

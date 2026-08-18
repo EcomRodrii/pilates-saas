@@ -320,6 +320,16 @@ export interface DatosPortal {
   /** Quien da clase, activas y que imparten. Mismo criterio que `/instructores`. */
   profesores: ProfesorPortal[];
   /**
+   * Los TIPOS de clase que la socia tiene marcados como favoritos.
+   *
+   * ⚠️ Por tipo de clase, no por sesión, y esto era un desencuentro real: el
+   * kit guardaba el id de LA SESIÓN («el Reformer del martes a las 18») en
+   * `localStorage` y el backend guarda `tipo_clase_id` («Reformer»). Marcar
+   * una cosa y guardar la otra hacía que el corazón se apagara solo al pasar
+   * de semana, y que nada llegara nunca al servidor.
+   */
+  favoritas: string[];
+  /**
    * Las reservas VIVAS de la socia.
    *
    * ⚠️ `undefined` = no hay nadie identificado (la previsualización de temas),

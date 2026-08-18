@@ -298,6 +298,10 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
     { id: "r2", concepto: "Plan Mensual", cuando: "Comprado el 1 de septiembre", importe: "189,00 €" },
   ],
   socia: MEMBER,
+  // Una favorita en la muestra para que la previsualización enseñe las DOS
+  // caras: la lista con algo y el corazón encendido. El estado vacío se ve
+  // igual en cuanto se quita.
+  favoritas: ["reformer"],
   profesores: [
     { id: "i1", nombre: "Marta Gómez", inicial: "M", bio: "Fundadora del estudio. Más de diez años enseñando método clásico y contemporáneo." },
     { id: "i2", nombre: "Emma Ruiz", inicial: "E", bio: "Formada en método clásico. Precisión técnica y muy buen ritmo." },
