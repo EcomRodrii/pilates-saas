@@ -85,6 +85,20 @@ const ARTICLES: Article[] = [
     body: 'El riesgo silencioso de todo estudio: cómo repartir el conocimiento y la carga entre tu equipo.',
     meta: 'En preparación',
   },
+  {
+    category: 'software',
+    title: 'Cómo integrar reservas de Pilates en tu propia web',
+    body: 'La alumna que sale de tu web para reservar, casi siempre no vuelve. Widget, plugin o API: qué opción encaja con tu estudio.',
+    href: '/recursos/reservas-en-tu-web',
+    meta: '8 min · ago 2026',
+  },
+  {
+    category: 'software',
+    title: 'Widget, iframe o redirección: cómo integrar reservas online',
+    body: 'Las tres formas técnicas comparadas de verdad: qué pierdes con cada una, cómo instalarlas y el checklist antes de publicar.',
+    href: '/recursos/widget-vs-iframe-reservas-pilates',
+    meta: '9 min · ago 2026',
+  },
 ];
 
 const FEATURED = {

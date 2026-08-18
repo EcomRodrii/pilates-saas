@@ -366,12 +366,12 @@ export const PAGINAS: PaginaSeo[] = [
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa: Tentare frente a los 7 software de gestión de Pilates',
+    titulo: 'Comparativa: Tentare frente a los 8 software de gestión de Pilates',
     descripcion:
-      'Compara Tentare con los 7 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
+      'Compara Tentare con los 8 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
     grupo: 'software',
     etiqueta: 'Comparativa',
-    resumen: 'Tentare frente a las siete plataformas con las que más se compara.',
+    resumen: 'Tentare frente a las ocho plataformas con las que más se compara.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
@@ -401,6 +401,8 @@ export const PAGINAS: PaginaSeo[] = [
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Lorari, punto por punto.'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
       'Precio, permanencia, facturación Veri*factu y sustitución de instructoras — Tentare frente a Bonsai, punto por punto.'],
+    ['tentare-vs-glofox', 'Glofox', ['/funcionalidades/sustituciones', '/precios'],
+      'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Tentare frente a Glofox, punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     titulo: `Tentare vs ${nombre}: comparativa para estudios de Pilates en España`,
@@ -469,6 +471,8 @@ export const PAGINAS: PaginaSeo[] = [
     ['ocupacion-clases-valle', '2026-08-06', 'Cómo subir la ocupación de tus clases valle'],
     ['reducir-cancelaciones-ultima-hora', '2026-08-06', 'Reduce las cancelaciones de última hora'],
     ['checklist-elegir-software-estudio', '2026-08-06', 'Checklist: cómo elegir el software de tu estudio'],
+    ['reservas-en-tu-web', '2026-08-18', 'Cómo integrar reservas de Pilates en tu propia web'],
+    ['widget-vs-iframe-reservas-pilates', '2026-08-18', 'Widget, iframe o redirección: cómo integrar reservas online en tu web'],
   ] as const).map(([slug, actualizado, titulo]): PaginaSeo => ({
     path: `/recursos/${slug}`,
     titulo,
