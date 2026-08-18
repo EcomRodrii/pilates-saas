@@ -19,6 +19,7 @@ import { semantic } from '@/lib/portal-tokens';
 
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
+  resumenClase, textoBoton,
 }: {
   t: ModoTokens;
   plan: PlanTarifa;
@@ -26,9 +27,25 @@ export function CheckoutEmbebido({
   publishableKey: string;
   stripeAccountId: string;
   onExito: () => void;
-  /** Fallback con redirect avisado — reutiliza /api/stripe/checkout tal cual. */
-  onBizum: () => void;
+  /**
+   * Fallback con redirect avisado — reutiliza /api/stripe/checkout tal cual.
+   * Opcional: el flujo "pagar y reservar sin login previo" no lo ofrece
+   * todavía (esa ruta de Stripe no sabe reservar una clase, solo comprar un
+   * plan — ofrecer Bizum ahí cobraría sin reservar, ver
+   * docs/reserva-sin-login-diseno.md §9, Ruta B/Bizum deferred). Sin
+   * `onBizum`, el botón no se pinta.
+   */
+  onBizum?: () => void;
   onCerrar: () => void;
+  /**
+   * "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+   * §3/§5): cuando el pago va atado a una clase concreta, un resumen breve
+   * de qué se está reservando — para que la pantalla de pago no sea solo
+   * "vas a pagar X €" sin contexto de qué clase es.
+   */
+  resumenClase?: { nombre: string; fecha: string; hora: string; instructor?: string | null };
+  /** Copy del botón de pago — "Pagar y reservar →" cuando hay clase de por medio. */
+  textoBoton?: string;
 }) {
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
@@ -59,6 +76,14 @@ export function CheckoutEmbebido({
         <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: t.muted }}>Confirmar compra</p>
         <p style={{ fontSize: 16, fontWeight: 800, color: t.ink, marginTop: 4 }}>{plan.nombre} · {plan.precio} €</p>
       </div>
+      {resumenClase && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '10px 12px', borderRadius: radius.cardSmall, background: t.surface2, border: `1px solid ${t.line}` }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.ink }}>{resumenClase.nombre}</p>
+          <p style={{ fontSize: 12, color: t.muted }}>
+            {resumenClase.fecha} · {resumenClase.hora}{resumenClase.instructor ? ` · ${resumenClase.instructor}` : ''}
+          </p>
+        </div>
+      )}
       <Elements
         stripe={stripePromise}
         options={{
@@ -75,16 +100,17 @@ export function CheckoutEmbebido({
           },
         }}
       >
-        <FormularioPago t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} />
+        <FormularioPago t={t} plan={plan} onExito={onExito} onBizum={onBizum} onCerrar={onCerrar} textoBoton={textoBoton} />
       </Elements>
     </div>
   );
 }
 
 function FormularioPago({
-  t, plan, onExito, onBizum, onCerrar,
+  t, plan, onExito, onBizum, onCerrar, textoBoton,
 }: {
-  t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum: () => void; onCerrar: () => void;
+  t: ModoTokens; plan: PlanTarifa; onExito: () => void; onBizum?: () => void; onCerrar: () => void;
+  textoBoton?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -130,17 +156,19 @@ function FormularioPago({
           cursor: (!stripe || enviando) ? 'default' : 'pointer', opacity: (!stripe || enviando) ? 0.6 : 1,
         }}
       >
-        {enviando ? 'Procesando…' : `Pagar ${plan.precio} €`}
+        {enviando ? 'Procesando…' : (textoBoton ?? `Pagar ${plan.precio} €`)}
       </button>
-      <button
-        type="button" onClick={onBizum} disabled={enviando}
-        style={{
-          background: 'none', border: `1px solid ${t.line}`, borderRadius: radius.pillBtnSm, height: 44,
-          color: t.ink, fontSize: 13, fontWeight: 700, cursor: enviando ? 'default' : 'pointer',
-        }}
-      >
-        Pagar con Bizum
-      </button>
+      {onBizum && (
+        <button
+          type="button" onClick={onBizum} disabled={enviando}
+          style={{
+            background: 'none', border: `1px solid ${t.line}`, borderRadius: radius.pillBtnSm, height: 44,
+            color: t.ink, fontSize: 13, fontWeight: 700, cursor: enviando ? 'default' : 'pointer',
+          }}
+        >
+          Pagar con Bizum
+        </button>
+      )}
       <button type="button" onClick={onCerrar} disabled={enviando} style={{
         background: 'none', border: 'none', color: t.muted, fontSize: 12.5, cursor: enviando ? 'default' : 'pointer',
         textDecoration: 'underline', textUnderlineOffset: 3, padding: 0, alignSelf: 'center',

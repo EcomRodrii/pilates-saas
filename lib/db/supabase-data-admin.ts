@@ -1588,6 +1588,100 @@ export async function crearReservaPublica(params: {
   return { ok: true as const, estado, reservaId, spotAsignado };
 }
 
+// "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.2):
+// variante de crearReservaPublica llamada DESDE EL WEBHOOK tras confirmar un
+// pago (nunca desde una ruta pública sin verificar) — el pago YA ES la
+// prueba de derecho a la clase, así que a diferencia de crearReservaPublica
+// esta función:
+//  · NO repite el gate de plan/bono (exigirPlanResuelto) — el plan que cubre
+//    esta sesión ya se entregó en entregarPlanComprado, en la MISMA llamada
+//    del webhook que dispara esto.
+//  · Deriva `p_reserva_id` de `paymentIntentId` (idsDe().reservaId), no de un
+//    uid() aleatorio — un reintento del webhook con el MISMO PaymentIntent
+//    tiene que reservar la MISMA plaza, nunca dos.
+// Sigue pasando por reservar_plaza (el candado de aforo real) SIN excepción:
+// si la clase se llenó entre que se creó el PaymentIntent y que el pago se
+// confirmó, el resultado puede ser LISTA_ESPERA o rechazo — el dinero ya se
+// cobró en ambos casos (el plan/bono queda entregado igual), esta función
+// solo decide si además hay plaza.
+export async function reservarPlazaTrasPagoPublico(params: {
+  studioId: string; sesionId: string; socioId: string; paymentIntentId: string;
+}): Promise<
+  | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
+  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'error'; detalle?: string }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  let tipoClaseId: string | null | undefined;
+  let inicioISO: string;
+  {
+    const { data: ses } = await admin
+      .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+      .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+    if (!ses) return { ok: false, motivo: 'sesion-no-encontrada' };
+    if (ses.cancelada || new Date(ses.inicio as string).getTime() <= Date.now()) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: ses.cancelada ? 'cancelada' : 'ya empezada' };
+    }
+    tipoClaseId = ses.tipo_clase_id as string | null | undefined;
+    inicioISO = ses.inicio as string;
+  }
+
+  const pol = await cargarPoliticaEstudio(admin, params.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, tipoClaseId);
+  const permiteListaEsperaResuelto = heredaOverride(reglasTipo.permiteListaEspera, pol.permiteListaEspera);
+  const requiereAprobacionResuelto = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
+
+  {
+    const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
+    if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana mínima' };
+    }
+    const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
+    if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana máxima' };
+    }
+  }
+
+  const { idsDe } = await import('@/lib/billing/entregar-plan-comprado');
+  const reservaId = idsDe(params.paymentIntentId).reservaId;
+  const { data, error } = await admin.rpc('reservar_plaza', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId, p_reserva_id: reservaId,
+    p_permite_lista_espera: permiteListaEsperaResuelto,
+    p_requiere_aprobacion: requiereAprobacionResuelto,
+  });
+  if (error) {
+    // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
+    // ya insertó — idempotente, se trata como éxito, no como fallo.
+    if (error.message.includes('YA_RESERVADA')) {
+      const { data: existente } = await admin.from('reservas').select('estado, spot_id').eq('id', reservaId).maybeSingle();
+      return { ok: true, estado: (existente?.estado as string) ?? 'CONFIRMADA', reservaId, spotAsignado: (existente?.spot_id as string | null) ?? null };
+    }
+    if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { ok: false, motivo: 'sesion-invalida', detalle: 'clase completa' };
+    return { ok: false, motivo: 'error', detalle: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CONFIRMADA';
+
+  if (estado === 'CONFIRMADA') {
+    await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
+    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: false } });
+  }
+  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
+
+  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
+    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+    if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
+  } else if (estado === 'PENDIENTE_APROBACION') {
+    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
+    await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
+  }
+
+  return { ok: true, estado, reservaId, spotAsignado: null };
+}
+
 // Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).
 // La autorización real vive en `app/api/reservas/resolver-pendiente/route.ts`
 // (verificarSesionStaff + puedeGestionarCalendario): esta función corre con

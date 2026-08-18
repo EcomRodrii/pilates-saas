@@ -39,10 +39,17 @@ import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } from '@/lib/reservar-publico-tokens';
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
+import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
 } from 'lucide-react';
+
+// "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
+// mismo patrón que app/widget-bundle/main.tsx — Modo A (esta página) nunca
+// había necesitado la clave publicable de Stripe en el cliente hasta ahora
+// (la compra de plan existente redirige a Checkout Session, todo en servidor).
+const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 // Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
 // de este widget (clases / citas 1:1 / mis reservas / planes) es
@@ -239,7 +246,13 @@ const TAB_IDS: readonly Tab[] = ['clases', 'citas', 'misreservas', 'estudio', 'c
 // 'pendiente' (Fase 2a, migr 20260730192445): la clase exige aprobación
 // manual — la reserva no queda confirmada ni en lista de espera, se avisa a
 // la socia por separado cuando la propietaria decida.
-type Step = 'login' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera' | 'pendiente';
+// 'datos'/'pago' ("pagar y reservar sin login previo",
+// docs/reserva-sin-login-diseno.md §3): alternativa a 'login' cuando la clase
+// exige plan y hay un plan PUNTUAL que la cubre — el pago sustituye al login,
+// nunca lo precede. Solo Ruta A (comprar el plan que cubre la clase); una
+// clase que no exige plan sigue yendo por 'login' como siempre (Fase 2,
+// deferred — ver nota en la implementación).
+type Step = 'login' | 'datos' | 'pago' | 'registro' | 'contrato' | 'confirm' | 'done' | 'espera' | 'pendiente';
 
 // Criterios de estado (mismos que el portal): qué reservas ocupan plaza y cuáles
 // cuentan como reserva activa de la propia socia.
@@ -531,8 +544,16 @@ export default function ReservarPage() {
   // antes de que el primer render se confirme.
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
-  const [loginForm, setLoginForm] = useState({ nombre: '', email: '', telefono: '' });
+  const [loginForm, setLoginForm] = useState({ nombre: '', apellidos: '', email: '', telefono: '' });
   const [loginStep, setLoginStep] = useState<Step>('login');
+  // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §3/§4).
+  const [datosPlan, setDatosPlan] = useState<PlanTarifa | null>(null);
+  const [datosClientSecret, setDatosClientSecret] = useState<string | null>(null);
+  const [datosError, setDatosError] = useState('');
+  const [datosCargando, setDatosCargando] = useState(false);
+  // Marca que la pantalla 'done' llegó vía este camino (pago sin login), para
+  // mostrar la mención de "hemos creado tu cuenta" en vez del copy genérico.
+  const [pagoWebSinLogin, setPagoWebSinLogin] = useState(false);
   const [enlaceEnviado, setEnlaceEnviado] = useState(false);
   // Login con contraseña (día a día, sin depender del viaje de email — ver
   // lib/use-socia-session.ts): alternativa al enlace mágico dentro del mismo
@@ -888,6 +909,15 @@ export default function ReservarPage() {
       }));
   }, [citas, citasServicios, instructores, socia]);
 
+  // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §2):
+  // el plan PUNTUAL (una sola sesión) que cubre esta clase, si existe. Mismo
+  // criterio de cobertura que el resto del repo (tiposClaseIds vacío/ausente
+  // = cubre todos los tipos, ver hidratarTiposDePlanes/tieneEntitlementActivo).
+  function planClaseSueltaPara(tipoClaseId: string | null | undefined, planes: PlanTarifa[]): PlanTarifa | null {
+    return planes.find(p => p.activo && p.tipo === 'PUNTUAL'
+      && (!p.tiposClaseIds || p.tiposClaseIds.length === 0 || (!!tipoClaseId && p.tiposClaseIds.includes(tipoClaseId)))) ?? null;
+  }
+
   // Gate de derechos (C-4): mismo criterio que el servidor, para avisar antes de
   // intentar la reserva. El servidor es la autoridad; esto es solo UX.
   function evaluarGate(socioId?: string, tipoClaseId?: string | null, inicioISO?: string): string | null {
@@ -978,8 +1008,27 @@ export default function ReservarPage() {
     setSelectedSpot(null);
     setMostrarPasswordLogin(false);
     setLoginPassword('');
+    setDatosPlan(null);
+    setDatosClientSecret(null);
+    setDatosError('');
+    setPagoWebSinLogin(false);
     if (!autenticado) {
-      setLoginStep('login');
+      // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+      // §2/§3): si esta clase exige plan y hay un plan de una sola sesión que
+      // la cubre, el pago sustituye al login — nunca lo precede. Una clase sin
+      // esa regla (o sin ese plan a la venta) sigue yendo por 'login' como
+      // siempre: es la Ruta A únicamente, no el camino "reservar gratis sin
+      // cuenta" (deferred a propósito, ver nota junto a handleDatosContinuar).
+      const sesionDelGate = sesionId ? sesiones.find(s => s.id === sesionId) : undefined;
+      const tipoDelGate = sesionDelGate?.tipoClaseId ? tiposClase.find(t => t.id === sesionDelGate.tipoClaseId) : undefined;
+      const exigePlan = studio && tipoDelGate ? heredaOverride(tipoDelGate.reservaExigirPlan, studio.reservaExigirPlan) : false;
+      const planDisponible = sesionId && exigePlan ? planClaseSueltaPara(sesionDelGate?.tipoClaseId, planesTarifa) : null;
+      if (sesionId && exigePlan && planDisponible && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY) {
+        setDatosPlan(planDisponible);
+        setLoginStep('datos');
+      } else {
+        setLoginStep('login');
+      }
     } else if (socia) {
       const found = socios.find(s => s.id === socia.socioId);
       const needsContract = !found?.aceptacionContrato;
@@ -1071,6 +1120,58 @@ export default function ReservarPage() {
     if (!loginForm.nombre.trim() || !telefonoValido(loginForm.telefono)) return;
     setLoginError('');
     setLoginStep('contrato');
+  }
+
+  // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
+  // crea el PaymentIntent para la clase elegida — precio SIEMPRE resuelto en
+  // servidor a partir de datosPlan.id (checkout-embebido/route.ts relee
+  // plan.precio, nunca confía en el body). Solo Ruta A (comprar el plan
+  // PUNTUAL que cubre la clase); no existe todavía un camino "reservar gratis
+  // sin cuenta" para clases que no exigen plan — deferred a propósito, fuera
+  // del alcance de esta pieza.
+  async function handleDatosContinuar() {
+    if (!bookingSesionId || !datosPlan || !studio?.id || datosCargando) return;
+    if (!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono)) return;
+    setDatosError('');
+    setDatosCargando(true);
+    try {
+      const res = await fetch('/api/public/checkout-embebido', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studioId: studio.id,
+          planId: datosPlan.id,
+          sesionId: bookingSesionId,
+          socioEmail: loginForm.email.trim(),
+          socioNombre: `${loginForm.nombre.trim()} ${loginForm.apellidos.trim()}`.trim(),
+          origenLead: searchParams.get('ref') ?? null,
+        }),
+      });
+      const data = await res.json() as { clientSecret?: string; error?: string };
+      if (!data.clientSecret) { setDatosError(data.error ?? 'No se ha podido iniciar el pago.'); return; }
+      setDatosClientSecret(data.clientSecret);
+      trackEventoWidget(studio.id, 'checkout_started', { origen: searchParams.get('ref'), socioId: null });
+      setLoginStep('pago');
+    } catch {
+      setDatosError('Error de conexión. Inténtalo de nuevo.');
+    } finally {
+      setDatosCargando(false);
+    }
+  }
+
+  // Tras un pago confirmado en el propio Shadow Root/iframe (sin salir de la
+  // página): la reserva y la ficha las crea el webhook de Stripe
+  // (reservarPlazaTrasPagoPublico, server-side, idempotente por PaymentIntent)
+  // — aquí solo se activa el acceso passwordless con el email que se acaba de
+  // usar para pagar, mismo mecanismo que el resto de esta página
+  // (enviarEnlace → signInWithOtp). Misma respuesta exista ya cuenta con ese
+  // email o no (portal-puerta-unica-acceso): nunca se revela cuál de las dos.
+  async function handlePagoExitoso() {
+    trackEventoWidget(studio?.id, 'booking_completed', { sesionClaseId: bookingSesionId ?? undefined, socioId: null });
+    const token = await pedirToken();
+    await enviarEnlace(loginForm.email, bookingSesionId || undefined, token || undefined);
+    setPagoWebSinLogin(true);
+    setLoginStep('done');
   }
 
   async function handleSignContract() {
@@ -2354,10 +2455,12 @@ export default function ReservarPage() {
         onClose={closeBooking}
         closeOnBackdropClick={false}
         label={
-          loginStep === 'done' ? (textosReservar.confirmacion || '¡Reserva confirmada!')
+          loginStep === 'done' ? (pagoWebSinLogin ? '¡Pago recibido!' : (textosReservar.confirmacion || '¡Reserva confirmada!'))
           : loginStep === 'espera' ? '¡En lista de espera!'
           : loginStep === 'pendiente' ? 'Pendiente de aprobación'
           : loginStep === 'login' ? (enlaceEnviado ? 'Revisa tu email' : 'Entra para reservar')
+          : loginStep === 'datos' ? 'Tus datos'
+          : loginStep === 'pago' ? 'Pagar y reservar'
           : loginStep === 'registro' ? '¿Cómo te llamas?'
           : loginStep === 'contrato' ? 'Acepta los términos'
           : 'Confirmar reserva'
@@ -2379,11 +2482,22 @@ export default function ReservarPage() {
                   <CheckCircle2 size={30} style={{ color: '#2F6B4F' }} />
                 </div>
                 <div>
-                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">{textosReservar.confirmacion || '¡Reserva confirmada!'}</p>
+                  <p className="text-[var(--portal-ink)] font-extrabold text-xl">
+                    {pagoWebSinLogin ? '¡Pago recibido!' : (textosReservar.confirmacion || '¡Reserva confirmada!')}
+                  </p>
                   <p className="text-[var(--portal-muted-2)] text-sm mt-1">
                     {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
                   </p>
                 </div>
+                {pagoWebSinLogin && (
+                  <div className="w-full rounded-2xl p-3.5 text-left bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
+                    <p className="text-[var(--portal-ink)] text-sm">
+                      Hemos creado automáticamente tu cuenta con{' '}
+                      <span className="font-semibold">{loginForm.email}</span>. Te llegará un email de
+                      confirmación en cuanto tu plaza quede asignada.
+                    </p>
+                  </div>
+                )}
                 <div className="w-full space-y-2.5 mt-1">
                   <p className="text-[var(--portal-muted)] text-xs font-semibold uppercase tracking-wide">Añadir a tu calendario</p>
                   <a href={makeGoogleCalUrl(bookingSesion, estudioNombre, estudioDireccion)} target="_blank" rel="noopener noreferrer"
@@ -2527,6 +2641,81 @@ export default function ReservarPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── DATOS (pagar y reservar sin login previo) ── */}
+            {loginStep === 'datos' && bookingSesion && datosPlan && (
+              <div className="contenido-anim">
+                <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Tus datos</h2>
+                <p className="text-[var(--portal-muted-2)] text-sm mb-4">
+                  No necesitas crear una cuenta. Al completar tu reserva crearemos automáticamente tu acceso para que puedas gestionar tus próximas clases.
+                </p>
+                <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bookingSesion.tipo?.color ?? PRIMARY }} />
+                    <p className="text-[var(--portal-ink)] font-bold">{bookingSesion.tipo?.nombre}</p>
+                  </div>
+                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtLong(new Date(bookingSesion.inicio))}</p>
+                  <p className="text-[var(--portal-muted-2)] text-sm">{fmtTime(bookingSesion.inicio)} · {bookingSesion.instructor?.nombre}</p>
+                  <p className="text-[var(--portal-ink)] text-sm font-bold mt-2">{datosPlan.precio} €</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <input type="text" placeholder="Nombre"
+                    value={loginForm.nombre}
+                    onChange={e => setLoginForm(f => ({ ...f, nombre: e.target.value }))}
+                    autoFocus
+                    className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
+                    style={{ backgroundColor: 'var(--portal-surface-2)' }} />
+                  <input type="text" placeholder="Apellidos"
+                    value={loginForm.apellidos}
+                    onChange={e => setLoginForm(f => ({ ...f, apellidos: e.target.value }))}
+                    className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors"
+                    style={{ backgroundColor: 'var(--portal-surface-2)' }} />
+                </div>
+                <input type="email" placeholder="Tu email"
+                  value={loginForm.email}
+                  onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setDatosError(''); }}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-2"
+                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
+                <input type="tel" placeholder="Tu teléfono (+34 600 000 000)"
+                  value={loginForm.telefono}
+                  onChange={e => setLoginForm(f => ({ ...f, telefono: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleDatosContinuar()}
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-1"
+                  style={{ backgroundColor: 'var(--portal-surface-2)' }} />
+                {datosError && <p className="text-destructive text-sm mb-3">{datosError}</p>}
+                <p className="text-[11px] text-[var(--portal-muted)] mb-4">
+                  ¿Ya tienes cuenta? <button type="button" onClick={() => setLoginStep('login')} className="underline font-semibold">Entra aquí</button>.
+                </p>
+                <button onClick={handleDatosContinuar}
+                  disabled={!loginForm.nombre.trim() || !loginForm.apellidos.trim() || !loginForm.email.trim() || !telefonoValido(loginForm.telefono) || datosCargando}
+                  className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                  style={{ backgroundColor: PRIMARY }}>
+                  {datosCargando ? 'Un momento…' : 'Continuar al pago →'}
+                </button>
+              </div>
+            )}
+
+            {/* ── PAGO (checkout embebido, "pagar y reservar sin login previo") ── */}
+            {loginStep === 'pago' && bookingSesion && datosPlan && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
+              <div className="contenido-anim">
+                <CheckoutEmbebido
+                  t={tokensCalendario}
+                  plan={datosPlan}
+                  clientSecret={datosClientSecret}
+                  publishableKey={STRIPE_PUBLISHABLE_KEY}
+                  stripeAccountId={studio.stripeAccountId}
+                  resumenClase={{
+                    nombre: bookingSesion.tipo?.nombre ?? '',
+                    fecha: fmtLong(new Date(bookingSesion.inicio)),
+                    hora: fmtTime(bookingSesion.inicio),
+                    instructor: bookingSesion.instructor?.nombre ?? null,
+                  }}
+                  textoBoton={`Pagar y reservar → ${datosPlan.precio} €`}
+                  onExito={handlePagoExitoso}
+                  onCerrar={() => setLoginStep('datos')}
+                />
               </div>
             )}
 

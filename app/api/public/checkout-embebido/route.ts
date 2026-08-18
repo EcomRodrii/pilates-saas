@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
     socioEmail?: string | null;
     socioNombre?: string;
     origenLead?: string | null;
+    // NUEVO — "pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+    // §4.1): la clase que se quiere reservar en cuanto el pago se confirme.
+    // Nunca decide el importe (siempre viene de plan.precio abajo) — solo
+    // marca qué reservar después.
+    sesionId?: string;
   } | null;
 
   if (!body?.studioId) {
@@ -89,7 +94,18 @@ export async function POST(req: NextRequest) {
   // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO no
   // se cobra a quien no se ha registrado — sin ficha no hay contrato aceptado,
   // así que cobrar antes sería cobrar sin consentimiento.
-  if (!socioId) {
+  //
+  // EXCEPCIÓN deliberada, "pagar y reservar sin login previo"
+  // (docs/reserva-sin-login-diseno.md §4.1/§8): con `sesionId`, esto YA NO es
+  // "compra cualquier bono de forma anónima" (lo que `compra_publica_modo`
+  // decide) — es "paga esta clase concreta", el flujo que el fundador pidió
+  // que SIEMPRE esté disponible sin registro previo, sea cual sea el ajuste
+  // del estudio. Mismo criterio de consentimiento diferido que ya usa
+  // CREAR_FICHA: `entregarPlanComprado` crea la ficha SIN `aceptacionContrato`
+  // a propósito, y el portal lo pide en la primera visita — no es una excepción
+  // nueva al criterio de consentimiento, es el mismo camino que CREAR_FICHA ya
+  // ofrecía, ahora incondicional para este caso concreto.
+  if (!socioId && !body.sesionId) {
     const { data: cfg } = await admin
       .from('studios')
       .select('compra_publica_modo')
@@ -106,6 +122,34 @@ export async function POST(req: NextRequest) {
   const importe = Number(plan.precio);
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
+  }
+
+  // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
+  // si viene sesionId, comprobar que la clase sigue viva y que el plan la
+  // cubre ANTES de generar una intención de cobro — pagar por una clase que
+  // ya no se puede reservar sería cobrar sin poder entregar nada.
+  if (body.sesionId) {
+    // Sin socioId (visitante nueva) hace falta email para poder crear la
+    // ficha/cuenta después del pago — sin él, entregarPlanComprado no tiene a
+    // quién entregarle nada (mismo motivo que 'sin-socia' en ese módulo).
+    if (!socioId && !body.socioEmail) {
+      return conCorsWidget(req, NextResponse.json({ error: 'Falta el email' }, { status: 400 }));
+    }
+    const { data: sesion } = await admin
+      .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+      .eq('id', body.sesionId).eq('studio_id', body.studioId).maybeSingle();
+    if (!sesion) return conCorsWidget(req, NextResponse.json({ error: 'Clase no encontrada' }, { status: 404 }));
+    if (sesion.cancelada) return conCorsWidget(req, NextResponse.json({ error: 'Esta clase está cancelada' }, { status: 409 }));
+    if (new Date(sesion.inicio as string).getTime() <= Date.now()) {
+      return conCorsWidget(req, NextResponse.json({ error: 'Esta clase ya ha empezado' }, { status: 409 }));
+    }
+    const { data: tiposDelPlan } = await admin
+      .from('plan_tipos_clase').select('tipo_clase_id').eq('plan_id', body.planId);
+    // Sin filas = el plan cubre TODOS los tipos (mismo criterio que
+    // hidratarTiposDePlanes/tieneEntitlementActivo en el resto del repo).
+    if (tiposDelPlan && tiposDelPlan.length > 0 && !tiposDelPlan.some(t => t.tipo_clase_id === sesion.tipo_clase_id)) {
+      return conCorsWidget(req, NextResponse.json({ error: 'Este plan no cubre el tipo de esta clase' }, { status: 400 }));
+    }
   }
 
   const { data: studio } = await admin
@@ -130,6 +174,7 @@ export async function POST(req: NextRequest) {
   if (body.origenLead) metadata.origenLead = body.origenLead;
   if (body.socioEmail) metadata.socioEmail = body.socioEmail;
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
+  if (body.sesionId) metadata.sesionId = body.sesionId;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({

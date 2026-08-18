@@ -21,6 +21,12 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key-for-ci
   SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key-for-ci
   NEXT_PUBLIC_APP_URL: http://localhost:3000
+  # "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md):
+  # sin esto el paso 'pago' de /reservar/[slug] (y el checkout embebido de
+  # Modo B) nunca se monta en CI — STRIPE_PUBLISHABLE_KEY sale undefined del
+  # build y la página cae siempre a 'login'. Clave publicable: segura de
+  # exponer por diseño, no es un secreto real.
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_dummy_for_ci
   # B0.3: siembra el estudio en la resolución server-side para que la E2E
   # (registro · reserva · pago) corra de verdad y bloquee el deploy.
   E2E_TEST: '1'

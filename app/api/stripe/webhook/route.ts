@@ -654,6 +654,29 @@ async function procesarEvento(
       const { enviarEmailReciboWebhook } = await import('@/lib/emails/enviar-recibo-webhook');
       await enviarEmailReciboWebhook(admin, { studioId, reciboId: entrega.reciboId });
 
+      // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+      // §4.2): si el checkout venía con una clase concreta, reservarla ahora
+      // que el plan que la cubre ya está entregado. Best-effort a propósito,
+      // igual que el guardado de tarjeta de arriba: el dinero y el plan ya
+      // se entregaron, un fallo aquí no debe hacer que Stripe reintente el
+      // cobro — se reporta a Sentry y queda para conciliación manual.
+      if (pi.metadata.sesionId) {
+        try {
+          const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+          const r = await reservarPlazaTrasPagoPublico({
+            studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+          });
+          if (!r.ok) {
+            Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero NO se pudo reservar la clase', {
+              level: 'warning',
+              extra: { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
+            });
+          }
+        } catch (e) {
+          Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: pi.metadata.sesionId, paymentIntentId: pi.id } });
+        }
+      }
+
       // R4: señal de GMV (analítica de producto, no-op si POSTHOG_KEY no está).
       capturar(studioId, { nombre: 'pago_completado', props: { importe_centimos: pi.amount_received ?? pi.amount ?? 0, via: 'checkout' } });
     }
