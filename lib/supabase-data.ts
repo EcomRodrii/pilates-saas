@@ -813,6 +813,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
+    especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
   } as TipoClase;
 }
 
@@ -3501,6 +3502,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
+    especialidad_network: t.especialidadNetwork ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3524,6 +3526,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
+  if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }

@@ -1,5 +1,7 @@
 // ─── Core types ──────────────────────────────────────────────────────────────
 
+import type { EspecialidadNetwork } from '@/lib/network/catalogo.ts';
+
 export type Rol = 'PROPIETARIO' | 'INSTRUCTOR' | 'RECEPCION' | 'MANAGER';
 export type EstadoSuscripcion = 'ACTIVA' | 'PAUSADA' | 'CANCELADA' | 'EXPIRADA';
 export type TipoPlan = 'MENSUAL' | 'BONO' | 'PUNTUAL';
@@ -653,6 +655,11 @@ export interface TipoClase {
   // Fase 3 (migr 20260730225253): mismo patrón de override, resuelto en SQL
   // directo dentro de cancelar_reserva_plaza (ver comentario en Studio).
   penalizacionImporteEur: number | null;
+  // Fase 11 de Network↔Sustituciones (migr 20260818010000): traduce este tipo
+  // de clase al catálogo fijo de Tentare Network (lib/network/catalogo.ts).
+  // null = sin mapear, no genera sugerencias de sustitutas de Network para
+  // este tipo de clase — nunca un matching aproximado por texto.
+  especialidadNetwork: EspecialidadNetwork | null;
 }
 
 export interface FavoritoClase {

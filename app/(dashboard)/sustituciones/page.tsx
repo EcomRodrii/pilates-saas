@@ -892,6 +892,36 @@ function SustitucionCard({
         </>
       )}
 
+      {/* Sección APARTE del ranking interno, nunca fusionada — sin puntuar
+          (docs/NETWORK-SUSTITUCIONES-EXTENSION.md §2). Solo aparece si el
+          tipo de clase tiene especialidad de Network mapeada Y hubo
+          resultados; nunca "0 candidatas de Network" como si fuera un fallo. */}
+      {(s.candidatos_network?.length ?? 0) > 0 && (
+        <div className="mt-4 rounded-2xl border border-border bg-muted/30 p-4">
+          <p className="text-[12px] font-bold text-foreground">Profesionales de Tentare Network</p>
+          <p className="text-[11.5px] text-muted-foreground mt-0.5">
+            Podrían encajar por especialidad y disponibilidad orientativa — confírmalo con ella antes de contar con su clase.
+          </p>
+          <div className="mt-3 space-y-2">
+            {s.candidatos_network!.map(c => (
+              <a
+                key={c.perfilId}
+                href={c.slug ? `/network/instructoras/${c.slug}` : '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-card transition-colors"
+              >
+                <ProfileAvatar avatarId={null} nombre={c.nombre} color="#343825" size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-foreground truncate">{c.nombre}</p>
+                  {c.ciudad && <p className="text-[11px] text-muted-foreground truncate">{c.ciudad}</p>}
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Traza: qué ha hecho el motor por su cuenta */}
       <TrazaContactos contactos={s.sustitucion_contactos ?? []} instructores={instructores} activa={contactada || s.estado === 'agotada'} />
 
