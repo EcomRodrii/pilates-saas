@@ -40,6 +40,7 @@ import { serif, sans, cq, radius as R, shadow as SH, eyebrow, containerRoot } fr
 import { resolverHrefBloque } from '@/lib/portal-home-bloques';
 import { imagenDeEstudio, alFallarImagen, IMAGENES_POR_DEFECTO } from '@/lib/imagenes-por-defecto';
 import { CheckoutEmbebido } from '@/components/checkout-widget/checkout-embebido';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import {
   Users, CheckCircle2, X, Calendar,
   CreditCard, FileText, Download, ExternalLink, Mail,
@@ -49,7 +50,12 @@ import {
 // mismo patrón que app/widget-bundle/main.tsx — Modo A (esta página) nunca
 // había necesitado la clave publicable de Stripe en el cliente hasta ahora
 // (la compra de plan existente redirige a Checkout Session, todo en servidor).
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Solo se acepta si TIENE forma publicable: una `sk_` mal puesta en la env var
+// se descarta aquí (cae al camino "pago no disponible") en vez de llegar a
+// Stripe.js y tumbar la pantalla — ver esClavePublicable.
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 // Code-splitting (audit de rendimiento de los widgets embebibles): cada tab
 // de este widget (clases / citas 1:1 / mis reservas / planes) es

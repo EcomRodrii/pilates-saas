@@ -36,6 +36,19 @@ export function modoDeClave(clave: string | undefined | null): ModoStripe {
   return 'sin-configurar';
 }
 
+/**
+ * ¿Es una clave que PUEDE ir al navegador? Solo la publicable (`pk_`) o la
+ * restringida (`rk_`). Una secreta (`sk_`) NUNCA: el bundle del cliente lo
+ * descarga cualquier visitante, así que una `sk_` ahí es una credencial
+ * filtrada (pasó en producción el 2026-08-18: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+ * tenía una `sk_live_`). `loadStripe()` valida la forma pero una `sk_` PASA su
+ * chequeo y revienta DESPUÉS, de forma asíncrona, tumbando la pantalla de pago
+ * entera — este guard la corta antes, dejando el aviso "pago no disponible".
+ */
+export function esClavePublicable(clave: string | undefined | null): clave is string {
+  return !!clave && /^(pk|rk)_/.test(clave);
+}
+
 export type EntornoDespliegue = 'produccion' | 'preview' | 'local';
 
 /**

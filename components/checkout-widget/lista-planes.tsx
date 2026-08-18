@@ -12,6 +12,7 @@ import type { ResultadoEscritura } from '@/lib/errores';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
 import { semantic } from '@/lib/portal-tokens';
 import { CheckoutEmbebido } from './checkout-embebido';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 
 type EstadoCompra =
   | { fase: 'lista' }
@@ -40,7 +41,10 @@ export function ListaPlanes({
   const [error, setError] = useState<string | null>(null);
   const activos = planes.filter(p => p.activo);
 
-  const configuracionIncompleta = !publishableKey || !stripeAccountId;
+  // `esClavePublicable`, no solo "no vacía": una `sk_` mal puesta en la env var
+  // (pasó en producción el 2026-08-18) tumbaría Stripe.js — aquí cae al aviso
+  // "compra no disponible" en vez de romper el paso de pago.
+  const configuracionIncompleta = !esClavePublicable(publishableKey) || !stripeAccountId;
 
   async function comprar(plan: PlanTarifa) {
     if (!socioId) return; // el caller gatea esto con el login; defensa en profundidad

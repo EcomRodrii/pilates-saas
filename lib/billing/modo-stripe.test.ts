@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { modoDeClave, entornoDespliegue, comprobarModoStripe } from './modo-stripe.ts';
+import { modoDeClave, entornoDespliegue, comprobarModoStripe, esClavePublicable } from './modo-stripe.ts';
 
 const env = (o: Record<string, string | undefined>) => o as NodeJS.ProcessEnv;
 
@@ -26,6 +26,27 @@ test('modoDeClave: el centinela `sk_test_XXXX` es SIN CONFIGURAR, no modo test',
 test('modoDeClave: una clave con forma desconocida NO se asume segura', () => {
   assert.equal(modoDeClave('pk_live_51abc'), 'sin-configurar');
   assert.equal(modoDeClave('vete-a-saber'), 'sin-configurar');
+});
+
+// ── Qué clave puede llegar al navegador ─────────────────────────────────────
+
+test('esClavePublicable: solo acepta pk_ y rk_', () => {
+  assert.equal(esClavePublicable('pk_live_51abc'), true);
+  assert.equal(esClavePublicable('pk_test_51abc'), true);
+  assert.equal(esClavePublicable('rk_live_51abc'), true);
+});
+
+test('esClavePublicable: rechaza una clave secreta (el bug del 2026-08-18)', () => {
+  // Una `sk_` en el bundle del cliente es una credencial filtrada.
+  assert.equal(esClavePublicable('sk_live_51abc'), false);
+  assert.equal(esClavePublicable('sk_test_51abc'), false);
+});
+
+test('esClavePublicable: rechaza vacío, nulo y forma desconocida', () => {
+  assert.equal(esClavePublicable(''), false);
+  assert.equal(esClavePublicable(undefined), false);
+  assert.equal(esClavePublicable(null), false);
+  assert.equal(esClavePublicable('vete-a-saber'), false);
 });
 
 // ── Dónde estamos ───────────────────────────────────────────────────────────

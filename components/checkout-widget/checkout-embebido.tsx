@@ -17,6 +17,7 @@ import type { ModoTokens } from '@/lib/portal-modo';
 import type { PlanTarifa } from '@/lib/types';
 import { sans, serif, radius } from '@/lib/reservar-publico-tokens';
 import { semantic } from '@/lib/portal-tokens';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 
 export function CheckoutEmbebido({
   t, plan, clientSecret, publishableKey, stripeAccountId, onExito, onBizum, onCerrar,
@@ -65,9 +66,18 @@ export function CheckoutEmbebido({
   // inválida tumbaba la página entera con el error boundary genérico, «Algo
   // se ha roto», en vez de quedarse solo sin pago). Sin try/catch aquí, un
   // typo o una env var mal puesta en un despliegue real haría lo mismo.
+  //
+  // ⚠️ Pero una clave SECRETA (`sk_`) PASA ese chequeo de forma y revienta
+  // DESPUÉS, de forma asíncrona, dentro de Stripe.js — la promesa RECHAZA en
+  // vez de lanzar síncrono, así que el try/catch no la ve y <Elements> la
+  // re-lanza, tumbando la página igual (pasó en producción el 2026-08-18). Dos
+  // defensas: descartar la clave que no sea publicable ANTES de loadStripe, y
+  // un `.catch` para que ningún rechazo posterior (fallo de red al cargar
+  // Stripe.js) llegue a <Elements>. Ambos caen al aviso "pago no disponible".
   const stripePromise = useMemo(() => {
+    if (!esClavePublicable(publishableKey)) return null;
     try {
-      return loadStripe(publishableKey, { stripeAccount: stripeAccountId });
+      return loadStripe(publishableKey, { stripeAccount: stripeAccountId }).catch(() => null);
     } catch {
       return null;
     }

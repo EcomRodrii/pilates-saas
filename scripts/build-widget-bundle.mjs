@@ -43,7 +43,16 @@ const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
 // Turnstile arriba — sin ella, <CheckoutEmbebido> no monta Stripe Elements y
 // cae al aviso "compra no disponible ahora mismo" en vez de romper el resto
 // del widget (calendario/reservas siguen funcionando).
-const STRIPE_PUBLISHABLE_KEY = leerEnvLocal('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+// ⚠️ widget.js es un fichero PÚBLICO que descarga cualquier visitante — todo lo
+// que se hornea aquí queda a la vista. Una clave que no sea publicable (`pk_`)
+// ni restringida (`rk_`) — sobre todo una secreta `sk_` — NO se hornea: sería
+// una credencial filtrada en el bundle (pasó en producción el 2026-08-18). Se
+// deja vacía y el widget cae al aviso "compra no disponible".
+let STRIPE_PUBLISHABLE_KEY = leerEnvLocal('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+if (STRIPE_PUBLISHABLE_KEY && !/^(pk|rk)_/.test(STRIPE_PUBLISHABLE_KEY)) {
+  console.error('✘ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY no tiene forma publicable (pk_/rk_) — NO se hornea en widget.js para no filtrarla. Revísala en .env.local.');
+  STRIPE_PUBLISHABLE_KEY = '';
+}
 
 await esbuild.build({
   entryPoints: [path.join(raiz, 'app/widget-bundle/main.tsx')],

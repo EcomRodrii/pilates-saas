@@ -27,6 +27,7 @@ import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
 import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta';
 import { ListaPlanes } from '@/components/checkout-widget/lista-planes';
+import { esClavePublicable } from '@/lib/billing/modo-stripe';
 import widgetCss from './widget.css';
 
 // Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
@@ -40,7 +41,12 @@ const TEMA = MODO_TOKENS.dia;
 // criterio que TURNSTILE_SITE_KEY en formulario-acceso.tsx — sin ella,
 // <ListaPlanes> se queda sin renderizar el paso de pago (el resto del
 // widget sigue funcionando).
-const STRIPE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Solo se acepta si TIENE forma publicable: una `sk_` mal puesta en la env var
+// se descarta aquí en vez de llegar a Stripe.js y tumbar el pago — ver
+// esClavePublicable.
+const STRIPE_PUBLISHABLE_KEY = esClavePublicable(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  : undefined;
 
 // Origen de Tentare, capturado del propio <script src="https://.../widget.js">
 // que está ejecutando este módulo — SÍNCRONO, a nivel de módulo: `document.
