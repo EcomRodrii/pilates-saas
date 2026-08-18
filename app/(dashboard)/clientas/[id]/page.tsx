@@ -10,6 +10,7 @@ import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
+import { saldoSesionesBono } from '@/lib/bono-logic';
 import type { LeadStage } from '@/lib/types';
 import { enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio } from '@/lib/api-client';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas } from '@/lib/permisos';
@@ -613,8 +614,23 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
   }
 
   // ── Sessions progress ──────────────────────────────────────────────────────
-  const sesionesRestantes = suscripcion?.sesionesRestantes ?? null;
-  const sesionesTotales = plan?.sesiones ?? null;
+  //
+  // El saldo de TODOS sus bonos vigentes, no el de la suscripción que haya
+  // caído en esta tarjeta. `resumenSocio` la elige con un `.find()` sobre un
+  // array que llega SIN `order by`, así que el número que salía aquí lo
+  // decidía Postgres — y, peor, no se movía al comprarle otro bono: la fila
+  // nueva se añadía detrás y la tarjeta seguía enseñando la vieja. Los bonos
+  // sueltos siguen listados debajo, en `otrosBonosActivos`.
+  //
+  // Solo cuando la tarjeta ya está enseñando un plan de sesiones: si la que
+  // salió es una MENSUAL ilimitada, pintarle debajo una fracción de bonos
+  // sería mezclar dos cosas distintas bajo el mismo título.
+  const tarjetaCuentaSesiones = suscripcion?.sesionesRestantes != null;
+  const saldoBonos = tarjetaCuentaSesiones
+    ? saldoSesionesBono(id, suscripciones, planesTarifa, localDate(now))
+    : null;
+  const sesionesRestantes = saldoBonos ? saldoBonos.restantes : (suscripcion?.sesionesRestantes ?? null);
+  const sesionesTotales = saldoBonos ? saldoBonos.total : (plan?.sesiones ?? null);
   // "Caduca en N días"/"Próxima renovación en N días" — mismo cálculo puro
   // reutilizado por la tabla de Clientas y por el portal de la socia.
   const estadoSus = calcularEstadoSuscripcion(suscripcion ?? null, plan ?? null);

@@ -273,6 +273,28 @@ export default function Socios() {
     }
     return m;
   }, [suscripciones]);
+  // Lo que de verdad le queda a cada socia, sumando TODOS sus bonos vigentes.
+  // `activeSusPorSocio` guarda la primera ACTIVA/PAUSADA que aparezca en el
+  // array, y ese array llega sin `order by`: con varios bonos vivos (que es el
+  // diseño, no una anomalía) la columna «Sesiones rest.» enseñaba el saldo de
+  // uno cualquiera de ellos, y no se movía al venderle otro.
+  //
+  // Mismos criterios que `saldoSesionesBono` (lib/bono-logic), pero en UNA
+  // pasada y no una por socia: esta tabla lista el estudio entero y el resto de
+  // índices de aquí arriba existen justo por eso. No es duplicación a la que
+  // haya que "sacar factor común" — si cambian los criterios, cambian los dos.
+  const saldoBonosPorSocio = useMemo(() => {
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    const m = new Map<string, number>();
+    for (const s of suscripciones) {
+      if (s.estado !== 'ACTIVA' || s.sesionesRestantes === null) continue;
+      if (s.fechaFin && s.fechaFin < hoyISO) continue;
+      const plan = planesTarifa.find((p) => p.id === s.planId);
+      if (!plan || (plan.tipo !== 'BONO' && plan.tipo !== 'PUNTUAL')) continue;
+      m.set(s.socioId, (m.get(s.socioId) ?? 0) + s.sesionesRestantes);
+    }
+    return m;
+  }, [suscripciones, planesTarifa]);
   const expiradaPorSocio = useMemo(() => {
     const m = new Set<string>();
     for (const s of suscripciones) if (s.estado === 'EXPIRADA') m.add(s.socioId);
@@ -423,8 +445,10 @@ export default function Socios() {
         else if (!lb) cmp = -1;
         else cmp = new Date(lb).getTime() - new Date(la).getTime();
       } else if (sortKey === 'sesiones_restantes') {
-        const sa = getActiveSus(a.id)?.sesionesRestantes ?? -1;
-        const sb = getActiveSus(b.id)?.sesionesRestantes ?? -1;
+        // Por saldo real, igual que la columna: ordenar por el bono de turno
+        // ponía arriba a quien tiene 20 sesiones repartidas en cuatro bonos.
+        const sa = saldoBonosPorSocio.get(a.id) ?? getActiveSus(a.id)?.sesionesRestantes ?? -1;
+        const sb = saldoBonosPorSocio.get(b.id) ?? getActiveSus(b.id)?.sesionesRestantes ?? -1;
         cmp = sb - sa;
       } else if (sortKey === 'fecha_registro') {
         cmp = new Date(b.fechaAlta).getTime() - new Date(a.fechaAlta).getTime();
@@ -892,7 +916,7 @@ export default function Socios() {
                 const sus = getActiveSus(s.id);
                 const plan = getPlan(sus?.planId);
                 const lastVisit = getLastVisit(s.id);
-                const sesRest = sus?.sesionesRestantes;
+                const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
                 const isSelected = selected.has(s.id);
                 const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
 
@@ -1041,7 +1065,7 @@ export default function Socios() {
               const sus = getActiveSus(s.id);
               const plan = getPlan(sus?.planId);
               const lastVisit = getLastVisit(s.id);
-              const sesRest = sus?.sesionesRestantes;
+              const sesRest = saldoBonosPorSocio.get(s.id) ?? sus?.sesionesRestantes;
               const [, avatarText] = avatarColor(`${s.nombre}${s.apellidos}`);
               return (
                 <div

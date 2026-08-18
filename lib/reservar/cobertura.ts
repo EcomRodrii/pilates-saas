@@ -38,7 +38,15 @@ export type Cobertura =
   | { estado: 'ANONIMA'; precio: number | null }
   /** Cuota mensual vigente que cubre esta clase: no descuenta sesiones. */
   | { estado: 'MENSUAL'; planNombre: string }
-  /** Bono con saldo: se descontará UNA sesión de este bono. */
+  /**
+   * Bono con saldo: se descontará UNA sesión.
+   *
+   * `planNombre` es el bono del que se va a descontar de verdad (el que elige
+   * `bonoConsumible`: el que caduca antes), y `sesionesRestantes` es el saldo
+   * TOTAL sumando todos los bonos que cubren esta clase — no el de ese bono
+   * suelto. Son dos cosas distintas a propósito: de qué bote sale, y cuánto le
+   * queda en la cartera.
+   */
   | { estado: 'BONO'; planNombre: string; sesionesRestantes: number }
   /** Tiene algún plan, pero ninguno cubre ESTE tipo de clase. */
   | { estado: 'NO_CUBRE_ESTA_CLASE'; precio: number | null }
@@ -82,7 +90,12 @@ export function coberturaDeClase(params: {
   // Se recorren todas las suscripciones ACTIVAS, no un índice de una por socia:
   // con planes por tipo de clase, una socia puede tener una MENSUAL y un bono a
   // la vez (mismo punto ciego que ya corrigió F1 del Decision OS).
-  let bonoElegido: { planNombre: string; sesionesRestantes: number } | null = null;
+  // El bono del que saldrá la sesión, y aparte el saldo total. Antes esto era
+  // un solo dato —el bono con MENOS saldo— y fallaba por los dos lados: no era
+  // el bono que `bonoConsumible` iba a descontar (ese es el que caduca antes),
+  // y el número que enseñaba no se movía al comprar otro bono.
+  let bonoElegido: { planNombre: string; fechaFin: string; id: string } | null = null;
+  let saldoTotal = 0;
 
   for (const sus of suscripciones) {
     if (sus.socioId !== socioId || sus.estado !== 'ACTIVA') continue;
@@ -101,14 +114,23 @@ export function coberturaDeClase(params: {
     if (plan.tipo === 'MENSUAL') {
       return { estado: 'MENSUAL', planNombre: plan.nombre };
     }
-    // Entre varios bonos que cubren, el de MENOS saldo: es el criterio que hace
-    // que el número que se le enseña sea el que de verdad se va a mover si el
-    // consumo elige ese. Determinista, no "el primero que aparezca en el array".
-    const cand = { planNombre: plan.nombre, sesionesRestantes: sus.sesionesRestantes ?? 0 };
-    if (!bonoElegido || cand.sesionesRestantes < bonoElegido.sesionesRestantes) bonoElegido = cand;
+    // Todo lo que cubra esta clase suma: es lo que la alumna tiene para
+    // gastarse en ella, esté repartido en un bono o en cinco.
+    saldoTotal += sus.sesionesRestantes ?? 0;
+    // Y el que se nombra es el que se va a descontar: el que caduca antes, con
+    // desempate por id. MISMO criterio y mismo desempate que `bonoConsumible`
+    // — si divergen, la pantalla nombra un bono y la reserva mueve otro (hay un
+    // test que los cruza).
+    const fechaFin = sus.fechaFin ?? '9999-12-31';
+    const ganaAlActual = !bonoElegido
+      || fechaFin < bonoElegido.fechaFin
+      || (fechaFin === bonoElegido.fechaFin && sus.id < bonoElegido.id);
+    if (ganaAlActual) bonoElegido = { planNombre: plan.nombre, fechaFin, id: sus.id };
   }
 
-  if (bonoElegido) return { estado: 'BONO', ...bonoElegido };
+  if (bonoElegido) {
+    return { estado: 'BONO', planNombre: bonoElegido.planNombre, sesionesRestantes: saldoTotal };
+  }
   return teniaAlgunPlanActivo
     ? { estado: 'NO_CUBRE_ESTA_CLASE', precio: precioClaseSuelta }
     : { estado: 'SIN_PLAN', precio: precioClaseSuelta };
