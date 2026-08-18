@@ -95,9 +95,9 @@ export function SeccionHero() {
         <div className="v5-hero-velo" aria-hidden />
         <div className="v5-hero-wrap">
           <p className="v5-hero-eyebrow">Software para estudios de Pilates en Barcelona</p>
-          <h1 className="v5-hero-h1">Tu estudio de Pilates<br />en Barcelona, bajo control.</h1>
+          <h1 className="v5-hero-h1">Software de gestión para estudios de Pilates</h1>
           <p className="v5-hero-lead">
-            Reservas, alumnas, pagos, clases y equipo. Todo en un solo lugar.
+            Gestiona reservas, clases, alumnos, pagos y profesores desde un solo lugar.
           </p>
           <a href="#producto" className="v5-hero-cta">Ver Tentare en acción</a>
         </div>
