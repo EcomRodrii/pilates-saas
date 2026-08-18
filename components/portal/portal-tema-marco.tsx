@@ -56,6 +56,7 @@ import { MyData } from '@/components/portal-tema/screens/MyData';
 import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
 import { Avisos } from '@/components/portal-tema/screens/Avisos';
 import { Historial } from '@/components/portal-tema/screens/Historial';
+import { Welcome } from '@/components/portal-tema/screens/Welcome';
 import { Favoritas } from '@/components/portal-tema/screens/Favoritas';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
@@ -151,11 +152,20 @@ const PANTALLAS = {
   perfil: Profile,
   avisos: Avisos,
   historial: Historial,
+  welcome: Welcome,
   favoritas: Favoritas,
 } as const;
 
-/** Las que sí manda la URL. */
-const PANTALLAS_DE_RUTA = Object.values(RUTA_A_PANTALLA);
+/**
+ * Las que sí manda la URL.
+ *
+ * ⚠️ `welcome` va explícita porque su ruta es la RAÍZ pelada, que no está en
+ * `RUTA_A_PANTALLA` (ese mapa va por segmento). Sin ella aquí, `welcome` caería
+ * en «pantallas sin ruta» — y como es el estado inicial del store, volvería a
+ * bloquear la URL desde el primer render: exactamente el congelado que costó
+ * #1176. Lo reintroduje al montar la bienvenida y lo cazó su propio test.
+ */
+const PANTALLAS_DE_RUTA = [...Object.values(RUTA_A_PANTALLA), 'welcome' as const];
 
 /**
  * Las que este kit pinta SIN ruta propia — el detalle de una clase y la
@@ -177,12 +187,20 @@ const PANTALLAS_SIN_RUTA = (Object.keys(PANTALLAS) as ScreenId[])
  * descubrir que no pinta nada.
  */
 export function pantallaDeRuta(pathname: string, slug: string): keyof typeof PANTALLAS | null {
+  // La raíz pelada (`/portal/<slug>`) es la BIENVENIDA del tema. El kit la trae
+  // desde el principio y el portal real no la montaba nunca: esa ruta redirigía
+  // en el servidor a `/acceso`, así que la primera impresión que diseñó el tema
+  // no la veía nadie. Se sigue acabando en `/acceso` — es lo que hace el botón.
+  if (pathname === `/portal/${slug}`) return 'welcome';
   const resto = pathname.replace(`/portal/${slug}/`, '').split('/')[0];
   const pantalla = RUTA_A_PANTALLA[resto];
   return pantalla && pantalla in PANTALLAS ? (pantalla as keyof typeof PANTALLAS) : null;
 }
 
-export function PortalTemaMarco() {
+export function PortalTemaMarco({ alEntrar }: {
+  /** Qué hace el botón de la bienvenida. Ver `AlEntrarPortal`. */
+  alEntrar?: () => void;
+} = {}) {
   const router = useRouter();
   const pathname = usePathname() ?? '';
   const { session, logout } = usePortalAuth();
@@ -460,6 +478,7 @@ export function PortalTemaMarco() {
         alCancelar={alCancelar}
         alReservar={alReservar}
         alAlternarFavorito={alAlternarFavorito}
+        alEntrar={alEntrar}
         alAnadirTarjeta={alAnadirTarjeta}
         alQuitarTarjeta={alQuitarTarjeta}
         alGuardarDatos={alGuardarDatos}
