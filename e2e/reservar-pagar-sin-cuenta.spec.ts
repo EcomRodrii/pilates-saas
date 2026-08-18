@@ -103,7 +103,11 @@ test('rellenar datos y continuar llama a checkout-embebido con nombre/email/tel�
   await page.route('**/api/public/checkout-embebido', (r) => {
     intentos += 1;
     ultimoBody = r.request().postDataJSON() as Record<string, unknown>;
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_e2e_dummy_secret_dummy' }) });
+    // Stripe Elements valida la FORMA de `clientSecret` (pi_<alfanumérico>_secret_<alfanumérico>,
+    // sin guiones bajos de más) y lanza de forma síncrona si no la reconoce —
+    // un valor con guiones bajos extra tumbaba la página entera (mismo tipo de
+    // fallo que loadStripe() con una clave inválida, ver checkout-embebido.tsx).
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ clientSecret: 'pi_3QeXaMPLe000000000000_secret_ExAmPle0000000000000000' }) });
   });
 
   await page.getByPlaceholder('Nombre').fill('Marta');
