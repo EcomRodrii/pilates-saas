@@ -36,6 +36,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { TabBar } from '@/components/portal-tema/components/layout/chrome';
 import { Hojas } from '@/components/portal-tema/components/ui/hojas';
+import { Toast } from '@/components/portal-tema/components/ui/overlays';
 import { useDatosPortal } from './usar-datos-portal';
 import { PortalProvider, usePortal, type AlCancelarPortal, type AlPagarPortal, type AlReservarPortal, type CompraPortalVuelta, type DestinoPortal, type ScreenId } from '@/components/portal-tema/store/PortalStore';
 import { TemaProvider } from '@/components/portal-tema/store/TemaContext';
@@ -494,6 +495,19 @@ function Pantalla() {
       {vm.showTabBar ? <TabBar tabs={vm.tabs} floating={vm.tabBarFloating} /> : null}
       {/* Al final del árbol: las hojas tapan también la barra. */}
       <Hojas vm={vm} />
+      {/* ⚠️ ESTO FALTABA, y no era un detalle de acabado: el portal real no
+          montaba `<Toast>` en ninguna parte —solo lo hacía la previsualización—
+          así que TODOS los avisos del store se descartaban en silencio.
+          «Reserva cancelada», «Datos guardados», «Guardada en favoritas»,
+          «Tarjeta quitada»… ninguno llegaba a la socia.
+
+          Y lo grave no es perderse una confirmación: `notify(error)` tampoco se
+          veía, así que un FALLO era indistinguible de un éxito. Toda la
+          disciplina de este kit —nada de escritura optimista, se avisa con lo
+          que responde el servidor— se apoyaba en un mensaje que no se pintaba.
+          Es también parte de por qué la app «no respondía»: tocabas y nunca
+          decía nada. */}
+      <Toast text={vm.toast} id={vm.toastId} />
     </div>
   );
 }
