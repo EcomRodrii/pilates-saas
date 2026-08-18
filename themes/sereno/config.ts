@@ -65,6 +65,7 @@ export const THEME: ThemeConfig = {
     "bookings-list",
     "studio-quote"
   ],
+  "next_class_label": "Tu próxima clase",
   "member_name": "Laura Gómez",
   "member_initial": "L",
   "greeting_note": "hoy toca cuidarte",

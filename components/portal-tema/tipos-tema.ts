@@ -213,6 +213,20 @@ export interface ThemeConfig {
    */
   greeting_note?: string;
   /**
+   * El rótulo sobre la tarjeta de la próxima clase. Ausente = «Próxima clase».
+   *
+   * ⚠️ Es COPY del tema, como `closing_quote`, y vive aquí porque ANTES vivía
+   * en un `cfg.id === "noir" || cfg.id === "tentada" || cfg.id === "sereno"`
+   * dentro del view model. Una lista de temas escrita a mano en el código: dar
+   * de alta un sexto obligaba a editar esa línea, y olvidarlo no fallaba —
+   * salía el rótulo del otro grupo y nadie se enteraba. En Tentada además no
+   * es un matiz: es el rótulo impreso en el billete.
+   */
+  next_class_label?: string;
+  /** El rótulo de los accesos rápidos. Ausente = «Accesos rápidos». Mismo
+   *  motivo que `next_class_label`: era un `cfg.id === "oliva"`. */
+  quick_links_heading?: string;
+  /**
    * La cita con la que el Inicio cierra. Es COPY del tema, no del estudio: el
    * bloque la firma con el nombre real y el año de apertura, que sí son datos.
    * Sin ella el bloque no se pinta.

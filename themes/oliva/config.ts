@@ -42,6 +42,7 @@ export const THEME: ThemeConfig = {
     "quick-links",
     "week-strip"
   ],
+  "quick_links_heading": "Mis accesos rápidos",
   "member_name": "Laura Ortega",
   "member_initial": "L",
   "welcome": {

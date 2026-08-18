@@ -36,3 +36,26 @@ for (const { tema, selector, nombre } of FORMAS) {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los rótulos del Inicio los pone el TEMA, no una lista de ids en el código.
+//
+// ⚠️ Antes vivían en `cfg.id === "noir" || cfg.id === "tentada" || cfg.id ===
+// "sereno"` y `cfg.id === "oliva"` dentro del view model. Dar de alta un sexto
+// tema obligaba a editar esas líneas, y olvidarlo NO fallaba: salía el rótulo
+// del otro grupo y nadie se enteraba. Esto fija lo que ve cada uno.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ROTULOS = [
+  { tema: 'oliva', accesos: 'Mis accesos rápidos' },
+  { tema: 'bloom', accesos: 'Accesos rápidos' },
+  { tema: 'sereno', accesos: 'Accesos rápidos' },
+];
+
+for (const { tema, accesos } of ROTULOS) {
+  test(`${tema} rotula los accesos rápidos como «${accesos}»`, async ({ page }) => {
+    await page.goto(`/portal-tema-preview/${tema}`);
+    await page.locator('.welcome__cta').click();
+    await expect(page.getByText(accesos, { exact: true })).toBeVisible({ timeout: 30_000 });
+  });
+}
