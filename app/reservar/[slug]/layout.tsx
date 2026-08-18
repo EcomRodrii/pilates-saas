@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
 import { BASE_URL } from '@/lib/seo/paginas';
+import { EstudioStructuredData } from '@/components/seo/estudio-structured-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { metadatosPublicos } from '@/lib/theme/seo-publico';
 import { cookies } from 'next/headers';
@@ -104,6 +105,28 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   const studio = await getStudioSeo(slug);
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
+      {/* Negocio local, para que Google sepa que detrás de esta página de
+          reservas hay un estudio con nombre, dirección y teléfono — lo que
+          decide si aparece en el paquete local de «pilates cerca de mí».
+          Solo si la página es indexable: describir como negocio abierto una
+          página que la propietaria tiene OCULTA sería anunciar lo que ella ha
+          decidido no publicar todavía. */}
+      {studio && !studio.paginaOculta && (
+        <EstudioStructuredData
+          estudio={{
+            nombre: studio.nombre,
+            url: `${BASE_URL}/reservar/${slug}`,
+            direccion: studio.direccion,
+            ciudad: studio.ciudad,
+            codigoPostal: studio.codigoPostal,
+            telefono: studio.telefono,
+            email: studio.email,
+            descripcion: studio.descripcion,
+            // La foto del local; el logo no sirve como `image` de un negocio.
+            imagenUrl: studio.fotoUrl,
+          }}
+        />
+      )}
       <ThemeStyle slug={slug} />
       <ThemePreviewListener />
       {children}
