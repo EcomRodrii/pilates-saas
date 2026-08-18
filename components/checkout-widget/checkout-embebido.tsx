@@ -50,10 +50,19 @@ export function CheckoutEmbebido({
   // `useMemo`, no una constante a nivel de módulo: `stripeAccount` cambia
   // según de qué estudio sea el widget (varios widgets, distintos estudios,
   // en la misma página con Modo B — ver comentario de montarUno en main.tsx).
-  const stripePromise = useMemo(
-    () => loadStripe(publishableKey, { stripeAccount: stripeAccountId }),
-    [publishableKey, stripeAccountId],
-  );
+  //
+  // ⚠️ `loadStripe()` valida la FORMA de `publishableKey` y lanza de forma
+  // SÍNCRONA si no la reconoce (encontrado en CI: una clave con forma
+  // inválida tumbaba la página entera con el error boundary genérico, «Algo
+  // se ha roto», en vez de quedarse solo sin pago). Sin try/catch aquí, un
+  // typo o una env var mal puesta en un despliegue real haría lo mismo.
+  const stripePromise = useMemo(() => {
+    try {
+      return loadStripe(publishableKey, { stripeAccount: stripeAccountId });
+    } catch {
+      return null;
+    }
+  }, [publishableKey, stripeAccountId]);
 
   // Stripe Elements NO resuelve custom properties de CSS — su `appearance`
   // exige valores de color literales, no `var(--portal-brand)` como string
@@ -69,6 +78,22 @@ export function CheckoutEmbebido({
     const valor = getComputedStyle(marcaRef.current).getPropertyValue('--portal-brand').trim();
     if (valor) setColorMarca(valor);
   }, []);
+
+  if (!stripePromise) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontFamily: sans }}>
+        <p style={{ fontSize: 13, color: semantic.warning.text, background: semantic.warning.soft, padding: '10px 12px', borderRadius: radius.cardSmall }}>
+          El pago online no está disponible ahora mismo en este estudio.
+        </p>
+        <button type="button" onClick={onCerrar} style={{
+          background: 'none', border: 'none', color: t.muted, fontSize: 12.5, cursor: 'pointer',
+          textDecoration: 'underline', textUnderlineOffset: 3, padding: 0, alignSelf: 'center',
+        }}>
+          Cerrar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div ref={marcaRef} style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: sans }}>
