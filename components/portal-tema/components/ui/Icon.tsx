@@ -14,6 +14,9 @@ export const ICON_PATHS = {
   pin: ["M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z", "M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"],
   person: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z", "M12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6.4 19a6 6 0 0 1 11.2 0"],
   heart: ["M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 0 0-7.1 7.1l8.8 8.8 8.8-8.8a5 5 0 0 0 0-7.1z", ""],
+  // La estrella de la nota de una instructora. Va rellena (`fill`), no de
+  // contorno: media estrella de contorno no se distingue de una vacía a 13 px.
+  star: ["M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z", ""],
   compass: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z", "m16.2 7.8-2.1 6.4-6.4 2.1z"],
   pass: ["M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z", "M7 10h4M7 14h8"],
   bolt: ["m13 2-8 12h6l-1 8 8-12h-6z", ""],

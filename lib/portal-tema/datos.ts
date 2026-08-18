@@ -245,6 +245,8 @@ export function profesoresDe(instructores: Instructor[]): ProfesorPortal[] {
     // `foto_url` primero y `avatar` de reserva: son dos columnas distintas de
     // la misma tabla y no todas las fichas usan la misma.
     foto: (i.fotoUrl ?? i.avatar ?? '').trim(),
+    // Se pasa tal cual: la decisión de enseñarla o no es de la pantalla.
+    ...(i.valoracion ? { valoracion: i.valoracion } : null),
   }));
 }
 

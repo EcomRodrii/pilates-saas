@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Icon, type IconName } from "./Icon";
+import { valoracionParaPantalla } from "@/lib/portal-tema/valoracion";
 
 /* ── Botón ──────────────────────────────────────────────────────────────── */
 
@@ -137,6 +138,31 @@ export function Spinner() {
 
 export function Skeleton({ width, height, radius = 12 }: { width?: number | string; height?: number; radius?: number }) {
   return <span className="skeleton" style={{ width, height, borderRadius: radius }}></span>;
+}
+
+/**
+ * La nota de una instructora. No pinta NADA si no hay muestra suficiente.
+ *
+ * ⚠️ El respaldo va SIEMPRE pegado a la nota, no como detalle opcional: una
+ * media sin el número de valoraciones detrás es un número con aspecto de dato y
+ * sin dato — el mismo fallo que el «Compatibilidad 87 %» de la tarjeta de
+ * sustituciones, que salía de un `clamp(score, 55, 99)`.
+ *
+ * Y cuando no se puede enseñar no se deja hueco ni «Sin valoraciones»: un
+ * espacio vacío en la ficha se lee como «mala», que es peor que no decir nada.
+ */
+export function Valoracion({ valoracion }: {
+  valoracion?: { media: number; total: number };
+}) {
+  const v = valoracionParaPantalla(valoracion);
+  if (!v) return null;
+  return (
+    <span className="valoracion">
+      <Icon name="star" size={13} fill="currentColor" stroke={0} />
+      <span className="valoracion__nota">{v.nota}</span>
+      <span className="valoracion__respaldo">{v.respaldo}</span>
+    </span>
+  );
 }
 
 export function Notice({ tone = "info", children }: { tone?: "info" | "warning" | "danger"; children: React.ReactNode }) {

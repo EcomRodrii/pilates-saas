@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
-import { Avatar, EmptyState } from "@/components/portal-tema/components/ui/primitives";
+import { Avatar, EmptyState, Valoracion } from "@/components/portal-tema/components/ui/primitives";
 import { StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
@@ -41,6 +41,8 @@ export function Teachers({ vm }: { vm: ViewModel }) {
                 <Avatar foto={t.foto}>{t.inicial}</Avatar>
                 <span className="profe__body">
                   <span className="profe__name">{t.nombre}</span>
+                  {/* Solo con muestra suficiente; si no, ni hueco. */}
+                  <Valoracion valoracion={t.valoracion} />
                   {/* En la lista, la bio recortada; entera en la hoja. */}
                   {t.bio ? <span className="profe__bio">{t.bio}</span> : null}
                 </span>
