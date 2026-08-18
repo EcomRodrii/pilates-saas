@@ -87,6 +87,12 @@ export function TabBar({
              vuelve a tocar, que es justo lo que provoca navegaciones dobles. */
           className={("tab is-pressable " + (item.active ? "is-active" : "")).trim()}
           aria-current={item.active ? "page" : undefined}
+          /* ⚠️ SIEMPRE etiquetado, aunque el texto no se vea. Las barras
+             flotantes que solo escriben la pestaña activa (Bloom) dejaban las
+             otras tres como botones SIN NOMBRE: un lector de pantalla anunciaba
+             «botón, botón, botón» en la navegación principal. El icono no
+             cuenta como nombre accesible. */
+          aria-label={item.label}
           onClick={() => actions.goTab(item.key as "inicio")}
         >
           <Icon name={item.icon} fill={item.fill} stroke={item.stroke} />

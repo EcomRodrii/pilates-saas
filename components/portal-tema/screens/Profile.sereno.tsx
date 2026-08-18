@@ -5,6 +5,7 @@ import { Button, Card, SectionTitle, Switch } from "@/components/portal-tema/com
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
+import { CuentaFilas } from "@/components/portal-tema/components/blocks/CuentaFilas";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
 /**
@@ -61,34 +62,10 @@ export function ProfileSereno({ vm }: { vm: ViewModel }) {
         <section>
           <SectionTitle>Cuenta</SectionTitle>
           <Card className="filas">
-            <button className="fila is-pressable" onClick={actions.goMisDatos}>
-              <span className="fila__label">Datos personales</span>
-              <Icon name="forward" size={12} stroke={1.8} />
-            </button>
-            <button className="fila is-pressable" onClick={actions.goPasses}>
-              <span className="fila__label">Mis bonos</span>
-              <span className="fila__valor">{vm.pass.left} {vm.pass.left === 1 ? "crédito" : "créditos"}</span>
-              <Icon name="forward" size={12} stroke={1.8} />
-            </button>
-            {/* ⚠️ Antes esto era `goBookings`, o sea que «Historial de clases»
-                llevaba a la AGENDA. La agenda mira hacia delante y el historial
-                hacia atrás: quien entra aquí busca lo segundo. */}
-            <button className="fila is-pressable" onClick={() => actions.goto("historial")}>
-              <span className="fila__label">Historial de clases</span>
-              {/* `null` = todavía no ha llegado; se calla en vez de decir «0». */}
-              {vm.agenda.completadas
-                ? <span className="fila__valor">{vm.agenda.completadas.length} clases</span>
-                : null}
-              <Icon name="forward" size={12} stroke={1.8} />
-            </button>
-            {/* El estado SEPA que ya enseñaba el perfil de siempre. `null` = no
-                está domiciliada, y entonces la fila va sin coletilla en vez de
-                con un «No domiciliado» que nadie ha pedido saber. */}
-            <button className="fila is-pressable" onClick={() => actions.abrirHoja({ tipo: 'pago' })}>
-              <span className="fila__label">Método de pago</span>
-              {vm.profile.metodoPago ? <span className="fila__valor">{vm.profile.metodoPago}</span> : null}
-              <Icon name="forward" size={12} stroke={1.8} />
-            </button>
+            {/* ⚠️ La MISMA lista que los otros temas (`CuentaFilas`): lo que
+                una socia puede hacer con su cuenta no puede depender del tema
+                que publicó su estudio. La forma sí es de cada uno. */}
+            <CuentaFilas vm={vm} />
           </Card>
         </section>
 
