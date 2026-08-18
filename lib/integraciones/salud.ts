@@ -124,3 +124,30 @@ export function acumuladorSalud() {
     },
   };
 }
+
+/**
+ * Las que están caídas AHORA, listas para pintar.
+ *
+ * Vive aquí y no en el componente por dos razones: es la única lógica del aviso
+ * de la home y así se puede probar sin montar el panel; y porque el aviso vive
+ * en `/dashboard`, donde romperse no cuesta una tarjeta sino la pantalla
+ * principal del negocio — de ahí que tolere `undefined` y filas a medias en vez
+ * de confiar en la forma del dato.
+ */
+export function integracionesCaidas<T extends { tipo: string } & Partial<FilaSalud>>(
+  integraciones: readonly T[] | null | undefined,
+): { integracion: T; desde: string; error: string }[] {
+  if (!Array.isArray(integraciones)) return [];
+  const caidas: { integracion: T; desde: string; error: string }[] = [];
+  for (const i of integraciones) {
+    if (!i) continue;
+    const salud = saludIntegracion({
+      activo: i.activo === true,
+      ultimoOkEn: i.ultimoOkEn ?? null,
+      ultimoError: i.ultimoError ?? null,
+      ultimoErrorEn: i.ultimoErrorEn ?? null,
+    });
+    if (salud.estado === 'FALLANDO') caidas.push({ integracion: i, desde: salud.desde, error: salud.error });
+  }
+  return caidas;
+}
