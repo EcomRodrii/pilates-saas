@@ -205,9 +205,11 @@ export default function AccesoNetworkPage() {
 
             {captcha}
 
+            {/* min-h-11 (44px): medido en ≈38px antes (auditoría
+                mobile-first) — py-3 solo, sin altura mínima garantizada. */}
             <button
               type="submit" disabled={submitting}
-              className="w-full py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-60"
+              className="w-full min-h-11 py-3 rounded-full text-[14px] font-bold text-white disabled:opacity-60"
               style={{ background: NW_PRODUCTO }}
             >
               {submitting ? 'Un momento…' : 'Iniciar sesión'}
