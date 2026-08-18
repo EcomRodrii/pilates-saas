@@ -155,11 +155,13 @@ export function useViewModel() {
         // lo lleva entero.
         quien: "Con " + next.teacher.split(" ")[0] + " · " + next.room,
       },
-      // «Tu» delante en Noir y Tentada, y en Tentada NO es un matiz: es el
-      // rótulo impreso en el billete, y el diseño lo escribe entero.
-      nextHeading: next
-        ? (cfg.id === "noir" || cfg.id === "tentada" || cfg.id === "sereno" ? "Tu próxima clase" : "Próxima clase")
-        : "Tu semana",
+      // ⚠️ El rótulo lo pone el TEMA (`next_class_label`), no una lista de ids
+      // escrita aquí. En Tentada no es un matiz: es el rótulo impreso en el
+      // billete, y el diseño lo escribe entero.
+      //
+      // Sin próxima clase el rótulo NO es el del tema: la tarjeta ya no habla
+      // de una clase concreta, así que se titula por lo que sí enseña.
+      nextHeading: next ? (cfg.next_class_label ?? "Próxima clase") : "Tu semana",
 
       progress: {
         done, goal,
@@ -202,7 +204,7 @@ export function useViewModel() {
         : null,
 
       quickLinks: QUICK_LINKS.map((q) => ({ label: q.label, action: q.action, icon: q.icon as IconName })),
-      quickLinksHeading: cfg.id === "oliva" ? "Mis accesos rápidos" : "Accesos rápidos",
+      quickLinksHeading: cfg.quick_links_heading ?? "Accesos rápidos",
 
       week: datos.dias.map((d) => ({
         label: d.label, num: d.num,

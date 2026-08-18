@@ -66,6 +66,7 @@ export const THEME: ThemeConfig = {
     "videos-cta",
     "studio-quote"
   ],
+  "next_class_label": "Tu próxima clase",
   "member_name": "Laura Gómez",
   "member_initial": "L",
   "greeting_note": "hoy toca cuidarte",
