@@ -124,6 +124,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
+    // @tentaresoftware es la cuenta real de la marca (el mismo handle que
+    // enlaza el pie de la landing, components/landing/SeccionCtaFinal.tsx) —
+    // sin `site` aquí, una tarjeta compartida no atribuye la mención a nadie.
+    site: '@tentaresoftware',
     title: 'Software para estudios de Pilates en Barcelona',
     description:
       'Todo tu estudio de Pilates en un solo software — y el que cubre las bajas de instructoras solo.',

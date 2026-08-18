@@ -5,7 +5,6 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
 import { ComparativaBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
@@ -85,7 +84,8 @@ function TablaComparativa() {
 export default function GlofoxVsTentarePage() {
   return (
     <PageShell>
-      <OrganizationStructuredData />
+      {/* Organization/WebSite ya los pinta ArticleShell (una sola vez, compartido
+          por las 9 guías de /recursos y esta página) — no lo dupliques aquí. */}
       <ComparativaBreadcrumb slug={SLUG} name={TITLE} />
       <script
         type="application/ld+json"
