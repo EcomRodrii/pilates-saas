@@ -79,7 +79,12 @@ export function TabBar({
       {tabs.map((item) => (
         <button
           key={item.key}
-          className={("tab " + (item.active ? "is-active" : "")).trim()}
+          /* ⚠️ `is-pressable` faltaba, y era lo ÚNICO del kit sin respuesta al
+             toque: todos los demás botones se hunden al pulsarlos menos la
+             navegación principal, que es la que más se usa. Un toque que no
+             acusa recibo se lee como que la app no lo ha cogido — y entonces se
+             vuelve a tocar, que es justo lo que provoca navegaciones dobles. */
+          className={("tab is-pressable " + (item.active ? "is-active" : "")).trim()}
           aria-current={item.active ? "page" : undefined}
           onClick={() => actions.goTab(item.key as "inicio")}
         >

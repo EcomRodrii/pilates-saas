@@ -77,8 +77,34 @@
 :where(.portal-tema) .link:hover { color: var(--ink); }
 
 /* ── Pulsación coherente ─────────────────────────────────────────────────── */
+/* ── Respuesta al toque ─────────────────────────────────────────────────────
+ *
+ * ⚠️ Esto estaba MUERTO. `is-pressable` solo declaraba la transición, y el
+ * estado hundido colgaba de `.is-pressed`, una clase que NO PONE NADIE: cero
+ * ocurrencias en todo el repo fuera de esta hoja. O sea que ningún botón del
+ * kit acusaba el toque — no la barra de pestañas, no las tarjetas, ninguno.
+ *
+ * Se pasa a `:active`, que lo resuelve el navegador sin JavaScript y vale para
+ * ratón y para dedo. `.is-pressed` se mantiene por si algún día algo la pone,
+ * pero ya no es el único camino.
+ *
+ * Un toque que no acusa recibo se lee como que la app no lo ha cogido, y
+ * entonces se vuelve a tocar — que es justo lo que provoca las navegaciones
+ * dobles y la sensación de que «a veces los botones no funcionan».
+ *
+ * ⚠️ Nada de `:hover` aquí: en un móvil el hover se queda PEGADO tras el toque
+ * y el botón se quedaría hundido hasta tocar otra cosa. */
 :where(.portal-tema) .is-pressable { transition: transform .12s ease, opacity .12s ease; }
+:where(.portal-tema) .is-pressable:active,
 :where(.portal-tema) .is-pressable.is-pressed { transform: scale(.965); opacity: .9; }
+
+/* Quien haya pedido menos movimiento no quiere que la pantalla dé saltos: se
+ * queda el cambio de opacidad, que sigue acusando el toque sin desplazar nada. */
+@media (prefers-reduced-motion: reduce) {
+  :where(.portal-tema) .is-pressable { transition: opacity .12s ease; }
+  :where(.portal-tema) .is-pressable:active,
+  :where(.portal-tema) .is-pressable.is-pressed { transform: none; }
+}
 
 :where(.portal-tema) .sr-only {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
