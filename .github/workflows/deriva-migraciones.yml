@@ -29,12 +29,29 @@ jobs:
         with:
           node-version: '22'
 
-      # Sin `npm ci`: el script es Node pelado, sin dependencias. Cuesta un
-      # segundo y no necesita el árbol de node_modules.
+      # Sin `npm ci`: el script es Node pelado, sin dependencias. Y sin cliente
+      # de Postgres en npm — `psql` ya viene en la imagen de ubuntu-latest, así
+      # que leer una tabla no justifica añadir una dependencia al repo.
       - name: Autocomprobación del propio check
         run: node scripts/comprobar-deriva-migraciones.mjs --autocomprobacion
 
+      # La credencial es la del rol `deriva_ci` (migr 20260818010000): SELECT
+      # sobre supabase_migrations.schema_migrations y NADA más. No es el
+      # service-role ni un token de Management API — si se filtrara, lo que se
+      # lleva es el catálogo de nombres de migraciones, que ya está en el repo.
+      #
+      # `-v ON_ERROR_STOP=1` es imprescindible: sin él, psql se traga el error de
+      # conexión, escupe vacío por stdout y el pipe le daría al script una lista
+      # de cero elementos. El script también lo rechaza por su cuenta, pero la
+      # primera línea de defensa es no producir basura.
       - name: Cruzar contra producción
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: node scripts/comprobar-deriva-migraciones.mjs
+          DERIVA_DATABASE_URL: ${{ secrets.DERIVA_DATABASE_URL }}
+        run: |
+          if [ -z "$DERIVA_DATABASE_URL" ]; then
+            echo "Falta el secreto DERIVA_DATABASE_URL (rol deriva_ci)." >&2
+            exit 1
+          fi
+          psql "$DERIVA_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
+            'select name from supabase_migrations.schema_migrations' \
+            | node scripts/comprobar-deriva-migraciones.mjs

@@ -74,28 +74,31 @@ export function normalizar(nombre) {
   return n
 }
 
-function proyecto() {
-  const toml = readFileSync(join(RAIZ, 'supabase', 'config.toml'), 'utf8')
-  const m = toml.match(/^project_id\s*=\s*"([^"]+)"/m)
-  if (!m) throw new Error('supabase/config.toml sin project_id')
-  return m[1]
-}
-
-async function nombresEnProduccion() {
-  const token = process.env.SUPABASE_ACCESS_TOKEN
-  if (!token) throw new Error('falta SUPABASE_ACCESS_TOKEN')
-  const res = await fetch(
-    `https://api.supabase.com/v1/projects/${proyecto()}/database/query`,
-    {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: 'select name from supabase_migrations.schema_migrations',
-      }),
-    },
-  )
-  if (!res.ok) throw new Error(`Management API ${res.status}: ${await res.text()}`)
-  return (await res.json()).map((f) => normalizar(f.name))
+// Los nombres llegan por la ENTRADA ESTÁNDAR, uno por línea: los vuelca `psql`
+// en el workflow. Antes esto llamaba a la Management API con un
+// `SUPABASE_ACCESS_TOKEN`, o sea una credencial con control TOTAL del proyecto
+// (crear y borrar ramas, aplicar migraciones, leer cualquier tabla) viviendo en
+// la CI de un repo público — para leer una lista de nombres.
+//
+// Ahora se conecta con el rol `deriva_ci` (migr 20260818010000), que solo puede
+// hacer SELECT sobre `supabase_migrations.schema_migrations` y nada más. Si esa
+// credencial se filtrara, lo que se llevan es el catálogo de nombres de
+// migraciones, que ya está en el repo, que es público.
+function nombresEnProduccion() {
+  let crudo;
+  try {
+    crudo = readFileSync(0, 'utf8');
+  } catch {
+    throw new Error('no se pudo leer la entrada estándar; ¿falta el `psql ... |` delante?');
+  }
+  const nombres = crudo.split('\n').map((l) => l.trim()).filter(Boolean).map(normalizar);
+  // Cero filas es imposible en un proyecto real y sí es el síntoma de que la
+  // conexión falló en silencio o la query no devolvió nada. Fallar aquí evita el
+  // peor desenlace posible: un check que da "todo bien" porque no leyó nada.
+  if (nombres.length === 0) {
+    throw new Error('producción devolvió CERO migraciones — eso no es "sin deriva", es que no se pudo leer');
+  }
+  return nombres;
 }
 
 function nombresEnRepo() {
@@ -175,7 +178,7 @@ async function main() {
 
   const { nuevasSinAplicar, nuevasSinFichero, heredadas, arregladas } = veredicto(
     nombresEnRepo(),
-    await nombresEnProduccion(),
+    nombresEnProduccion(),
   )
 
   if (arregladas.length) {
