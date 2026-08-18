@@ -5,6 +5,7 @@ import { Button } from "@/components/portal-tema/components/ui/primitives";
 import { StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions, useAspecto } from "@/components/portal-tema/store/PortalStore";
 import { PORTAL_VIDEOS_CONGELADO } from "@/lib/frozen-features";
+import { filasDeCuenta } from "@/components/portal-tema/components/blocks/CuentaFilas";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
 /**
@@ -56,10 +57,12 @@ export function ProfileTentada({ vm }: { vm: ViewModel }) {
 
         <div className="perfil__body">
           <div className="perfil__rows">
-            {fila("Mis datos", null, actions.goMisDatos)}
-            {/* El estado SEPA se conserva del perfil de siempre: es lo que le
-                dice a la socia que su recibo está domiciliado. */}
-            {fila("Métodos de pago", p.metodoPago, () => actions.abrirHoja({ tipo: "pago" }))}
+            {/* ⚠️ La MISMA lista que los otros temas (`filasDeCuenta`), pintada
+                con las filas de ESTE: lo que una socia puede hacer con su
+                cuenta no puede depender del tema que publicó su estudio.
+                Antes aquí faltaban «Mis bonos», «Historial» y «Favoritas», y
+                en el tema clásico faltaba casi todo. */}
+            {filasDeCuenta(vm, actions).map((f) => fila(f.label, f.valor, f.ir))}
             {fila("Avisos", null, actions.goPrefs)}
             {fila("Privacidad", null, () => actions.goInfo("privacidad"))}
             {/* El prototipo abre aquí una hoja con un código inventado. El
