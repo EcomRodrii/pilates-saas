@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Avatar, Button } from "@/components/portal-tema/components/ui/primitives";
 import { useActions, usePortal } from "@/components/portal-tema/store/PortalStore";
@@ -39,7 +40,15 @@ function Hoja({ children, onClose }: { children: React.ReactNode; onClose: () =>
 
 export function Hojas({ vm }: { vm: ViewModel }) {
   const actions = useActions();
-  const { hoja } = usePortal();
+  const { hoja, loading } = usePortal();
+  // ⚠️ Los hooks van ANTES del `if (!hoja) return null`: llamarlos después
+  // rompería la regla de orden de hooks en cuanto la hoja se cierre.
+  //
+  // Quitar la tarjeta pide confirmación, y el estado vive aquí y no en el store
+  // porque es de ESTA hoja: al cerrarla se desmonta y se olvida, que es justo lo
+  // que tiene que pasar — abrirla otra vez no debe encontrar el «¿seguro?» a
+  // medio contestar.
+  const [confirmandoQuitar, setConfirmandoQuitar] = useState(false);
   if (!hoja) return null;
 
   if (hoja.tipo === "cancelar") {
@@ -201,16 +210,49 @@ export function Hojas({ vm }: { vm: ViewModel }) {
             </div>
           </div>
         ) : null}
-        {/* ⚠️ El prototipo pone «+ Añadir tarjeta». Ese botón no existe aquí, y
-            no por olvido: la tarjeta se guarda sola al pagar por Checkout (el
-            webhook la persiste desde el SetupIntent de esa sesión). Un botón
-            que no lleva a ninguna parte sería peor que explicar dónde se
-            guarda. */}
+        {/* ⚠️ Aquí NO había botón de añadir, y un comentario lo justificaba
+            diciendo que la tarjeta «se guarda sola al pagar». Eso dejó de ser
+            cierto: `/api/stripe/setup-tarjeta` existe y es semipúblico a
+            propósito, justo para la socia que pagó por Bizum, en mostrador o
+            viene importada de otra plataforma — que hasta ahora no tenía
+            NINGUNA forma de dejar una tarjeta autorizada. */}
         <p className="hoja__texto" style={{ marginTop: tarjeta || domiciliado ? 14 : 8 }}>
-          {tarjeta
-            ? "Se guardó al pagar. Al comprar con otra tarjeta, esta se sustituye."
-            : "Todavía no hay ninguna tarjeta guardada. Se guarda sola la primera vez que compras un bono."}
+          {/* Se dice PARA QUÉ se usa, que es lo que faltaba. Sin inventar
+              comportamiento: son los cobros que este repo hace de verdad. */}
+          Tu método de pago se usa para cobrar los bonos y las cuotas que
+          contrates con el estudio, y las renovaciones automáticas si tu plan las
+          tiene. Nunca guardamos el número de tu tarjeta: lo custodia Stripe.
         </p>
+
+        <Button block style={{ marginTop: 16 }} loading={loading} onClick={actions.anadirTarjeta}>
+          {tarjeta ? "Cambiar de tarjeta" : "Añadir tarjeta"}
+        </Button>
+
+        {tarjeta ? (
+          /* ⚠️ Dos toques para quitarla, no uno. Es una acción irreversible con
+             consecuencias que la socia no tiene por qué anticipar — de ahí que
+             el aviso diga cuáles ANTES de confirmar, no después. */
+          confirmandoQuitar ? (
+            <>
+              <p className="hoja__texto" style={{ marginTop: 14 }}>
+                Si la quitas, tendrás que pagar a mano cada bono o cuota, y las
+                renovaciones automáticas dejarán de cobrarse.
+              </p>
+              <Button block variant="ghost" style={{ marginTop: 10 }} loading={loading}
+                onClick={actions.quitarTarjeta}>
+                Sí, quitar la tarjeta
+              </Button>
+              <Button block variant="ghost" style={{ marginTop: 6 }} onClick={() => setConfirmandoQuitar(false)}>
+                Mejor no
+              </Button>
+            </>
+          ) : (
+            <Button block variant="ghost" style={{ marginTop: 8 }} onClick={() => setConfirmandoQuitar(true)}>
+              Quitar esta tarjeta
+            </Button>
+          )
+        ) : null}
+
         <Button block variant="ghost" style={{ marginTop: 16 }} onClick={actions.cerrarHoja}>
           Cerrar
         </Button>

@@ -59,7 +59,7 @@ import { Favoritas } from '@/components/portal-tema/screens/Favoritas';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
-import { crearCheckoutPlan, fetchHistorialAsistidas, portalAuthHeader } from '@/lib/api-client';
+import { borrarTarjetaPublica, crearCheckoutPlan, fetchHistorialAsistidas, portalAuthHeader, urlParaGuardarTarjeta } from '@/lib/api-client';
 import { fetchNotificaciones, accionNotificacion } from '@/lib/notifications/client';
 import { selloTemporal } from '@/lib/avisos-portal';
 
@@ -332,6 +332,30 @@ export function PortalTemaMarco() {
     return r.ok ? null : (r.error ?? 'No hemos podido guardar tu favorita.');
   }, [toggleFavorito]);
 
+  /**
+   * Guardar una tarjeta: se sale a la página de Stripe.
+   *
+   * ⚠️ Es una navegación FUERA de la app, no un formulario nuestro: aquí no se
+   * pide nunca un número ni un CVC en nuestro DOM. La vuelta cae en
+   * `/compras?tarjeta=ok`, que es lo que ya monta `setup-tarjeta`.
+   */
+  const alAnadirTarjeta = useCallback(async (): Promise<string | null> => {
+    if (!studioId || !socioId) return 'Entra en tu cuenta para guardar una tarjeta.';
+    const r = await urlParaGuardarTarjeta(studioId, socioId, slug);
+    if ('error' in r) return r.error;
+    window.location.href = r.url;
+    return null;
+  }, [studioId, socioId, slug]);
+
+  const alQuitarTarjeta = useCallback(async (): Promise<string | null> => {
+    if (!studioId) return 'No hemos podido identificar el estudio.';
+    const error = await borrarTarjetaPublica(studioId);
+    // Se re-sincroniza para que la hoja deje de enseñar unos dígitos que ya no
+    // existen: el catálogo es quien trae la tarjeta.
+    if (!error) recargarRef.current();
+    return error;
+  }, [studioId]);
+
   const alGuardarDatos = useCallback(async (campos: {
     nombre: string; apellidos: string; email: string;
     telefono: string; fechaNacimiento: string; direccion: string;
@@ -423,6 +447,8 @@ export function PortalTemaMarco() {
         alCancelar={alCancelar}
         alReservar={alReservar}
         alAlternarFavorito={alAlternarFavorito}
+        alAnadirTarjeta={alAnadirTarjeta}
+        alQuitarTarjeta={alQuitarTarjeta}
         alGuardarDatos={alGuardarDatos}
         alPedirHistorial={alPedirHistorial}
         alPedirAvisos={alPedirAvisos}

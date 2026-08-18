@@ -194,6 +194,8 @@ export async function montarPortal(page: Page, opciones: {
    * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
    */
   tema?: string;
+  /** Con tarjeta guardada: la hoja de pago enseña quitarla y cambiarla. */
+  conTarjeta?: boolean;
   /** Los tipos de clase que la socia ya tiene marcados como favoritos. */
   favoritos?: string[];
   /** Catálogo correcto pero SIN socia: es lo que devuelve el servidor cuando el
@@ -208,7 +210,7 @@ export async function montarPortal(page: Page, opciones: {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [] } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false, favoritos = [], conTarjeta = false } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -359,7 +361,8 @@ export async function montarPortal(page: Page, opciones: {
          ...HISTORIAL.map(h => ({ id: h.res.id, sesion_id: h.ses.id, estado: 'ASISTIDA', spot_id: null }))]
       : [],
     socia: conSesion && !sinSocia ? {
-      socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
+      socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null,
+        ...(conTarjeta ? { tarjetaMarca: 'visa', tarjetaUltimos4: '4242', tarjetaExpMes: 9, tarjetaExpAnio: 2029 } : null) },
       reservas: [...(sinProximaReserva ? [] : [MI_RESERVA]), ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : variosBonos ? [
         // Cuatro bonos vigentes: 8+4+0+5 = 17 sesiones de 10+5+5+5 = 25.
