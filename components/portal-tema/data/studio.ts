@@ -72,9 +72,11 @@ export const CLASSES: StudioClass[] = [
  * sección «Completadas» no se podría revisar nunca al mirar un tema.
  */
 export const HISTORIAL_DE_MUESTRA = [
-  { reservaId: 'h1', sesionId: 's-h1', inicio: '2026-08-28T16:00:00.000Z', nombre: 'Pilates Reformer', instructora: 'Marta Gómez' },
-  { reservaId: 'h2', sesionId: 's-h2', inicio: '2026-08-21T08:00:00.000Z', nombre: 'Pilates de suelo', instructora: 'Emma Ruiz' },
-  { reservaId: 'h3', sesionId: 's-h3', inicio: '2026-08-14T17:00:00.000Z', nombre: 'Reformer suave', instructora: 'Marta Gómez' },
+  { reservaId: 'h1', sesionId: 's-h1', inicio: '2026-08-28T16:00:00.000Z', nombre: 'Pilates Reformer', instructora: 'Marta Gómez', estado: 'ASISTIDA' as const },
+  { reservaId: 'h2', sesionId: 's-h2', inicio: '2026-08-21T08:00:00.000Z', nombre: 'Pilates de suelo', instructora: 'Emma Ruiz', estado: 'ASISTIDA' as const },
+  // Una cancelada en la muestra: el historial tiene que enseñar las DOS caras,
+  // y «Completadas» de la agenda tiene que seguir sin contarla.
+  { reservaId: 'h3', sesionId: 's-h3', inicio: '2026-08-14T17:00:00.000Z', nombre: 'Reformer suave', instructora: 'Marta Gómez', estado: 'CANCELADA' as const },
 ];
 
 /**

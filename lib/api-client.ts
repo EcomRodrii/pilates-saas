@@ -2693,13 +2693,15 @@ export async function fetchMisCandidaturasNetwork(): Promise<CandidaturaNetwork[
   }
 }
 
-/** Una clase pasada a la que la socia asistió. Espejo de `ClaseAsistida`. */
+/** Una clase pasada de la socia. Espejo de `ClaseAsistida`. */
 export interface ClaseAsistidaCliente {
   reservaId: string;
   sesionId: string;
   inicio: string;
   nombre: string;
   instructora: string;
+  /** Cómo acabó. Ver `ClaseAsistida.estado`. */
+  estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
 }
 
 /**

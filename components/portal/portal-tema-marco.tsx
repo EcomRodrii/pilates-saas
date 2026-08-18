@@ -54,6 +54,7 @@ import { Info } from '@/components/portal-tema/screens/Info';
 import { MyData } from '@/components/portal-tema/screens/MyData';
 import { BonoActivado } from '@/components/portal-tema/screens/BonoActivado';
 import { Avisos } from '@/components/portal-tema/screens/Avisos';
+import { Historial } from '@/components/portal-tema/screens/Historial';
 import { useStudio } from '@/lib/studio-context';
 import { usePortalAuth } from '@/lib/portal-auth';
 import { useModo } from '@/lib/portal-modo';
@@ -147,6 +148,7 @@ const PANTALLAS = {
   misdatos: MyData,
   perfil: Profile,
   avisos: Avisos,
+  historial: Historial,
 } as const;
 
 /** Las que sí manda la URL. */

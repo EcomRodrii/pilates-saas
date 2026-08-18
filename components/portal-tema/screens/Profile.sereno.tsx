@@ -70,7 +70,10 @@ export function ProfileSereno({ vm }: { vm: ViewModel }) {
               <span className="fila__valor">{vm.pass.left} {vm.pass.left === 1 ? "crédito" : "créditos"}</span>
               <Icon name="forward" size={12} stroke={1.8} />
             </button>
-            <button className="fila is-pressable" onClick={actions.goBookings}>
+            {/* ⚠️ Antes esto era `goBookings`, o sea que «Historial de clases»
+                llevaba a la AGENDA. La agenda mira hacia delante y el historial
+                hacia atrás: quien entra aquí busca lo segundo. */}
+            <button className="fila is-pressable" onClick={() => actions.goto("historial")}>
               <span className="fila__label">Historial de clases</span>
               {/* `null` = todavía no ha llegado; se calla en vez de decir «0». */}
               {vm.agenda.completadas

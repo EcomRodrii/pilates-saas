@@ -14,6 +14,7 @@ export type ScreenId =
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
   | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar" | "avisos"
+  | "historial"
   | "compra";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
@@ -77,7 +78,7 @@ export interface PortalState {
    * única forma de tener historial sin meterlo en la carga de todo el mundo
    * (ver `fetchHistorialAsistidas`).
    */
-  historial: { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[] | null;
+  historial: Awaited<ReturnType<AlPedirHistorialPortal>> | null;
   historialCargando: boolean;
   /**
    * La bandeja de avisos. `null` = no se ha pedido todavía (o no hay de quién:
@@ -373,7 +374,11 @@ export type AlPedirAvisosPortal = () => Promise<
 export type AlAbrirAvisoPortal = (id: string) => void;
 
 export type AlPedirHistorialPortal = () => Promise<
-  { reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string }[]
+  {
+    reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string;
+    /** Cómo acabó: asistió, la canceló, o no apareció. */
+    estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
+  }[]
 >;
 
 /**
