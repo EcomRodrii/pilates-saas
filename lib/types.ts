@@ -247,7 +247,11 @@ export interface Integracion {
   studioId: string;
   tipo: TipoIntegracion;
   activo: boolean;
-  config: Record<string, string>;
+  // ⚠️ `config` NO viaja al navegador. Las credenciales (token de WhatsApp,
+  // clave de Kisi) solo llegan al abrir el modal de edición, vía
+  // GET /api/integrations/config — no en cada carga del panel. Si necesitas
+  // leerlas en cliente, pídelas ahí; que no estén en este tipo es a propósito,
+  // para que el compilador lo impida en vez de que se cuele otra vez.
   actualizadoEn: string;
   // Salud real del servicio, no del formulario (ver lib/integraciones/salud.ts).
   // `activo` solo dice que el estudio la encendió; estas tres dicen si el

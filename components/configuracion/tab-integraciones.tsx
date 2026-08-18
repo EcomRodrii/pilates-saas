@@ -597,10 +597,30 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     }
   };
 
-  const abrirConfig = (cat: CatalogoIntegracion) => {
-    const actual = getIntegracion(cat.tipo);
-    setForm(actual?.config ?? {});
-    setEditando(cat.tipo);
+  // Las credenciales ya no viajan en el arranque del panel, así que se piden al
+  // abrir el modal. `configOriginal` guarda lo que había, para saber después si
+  // de verdad se cambió algo (y solo entonces reiniciar la salud).
+  const [configOriginal, setConfigOriginal] = useState<Record<string, string>>({});
+  const [abriendo, setAbriendo] = useState<TipoIntegracion | null>(null);
+
+  const abrirConfig = async (cat: CatalogoIntegracion) => {
+    setAbriendo(cat.tipo);
+    try {
+      const res = await fetch(`/api/integrations/config?tipo=${cat.tipo}`, { headers: await authHeader() });
+      // ⚠️ Si no se pueden leer, NO se abre el modal. Abrirlo en blanco es el
+      // modo de fallo caro: la propietaria vería sus campos vacíos, pulsaría
+      // Guardar y se llevaría por delante un token que estaba bien.
+      if (!res.ok) { showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.'); return; }
+      const data = (await res.json()) as { config?: Record<string, string> };
+      const cfg = data.config ?? {};
+      setConfigOriginal(cfg);
+      setForm(cfg);
+      setEditando(cat.tipo);
+    } catch {
+      showToast('No se pudieron cargar las credenciales. Inténtalo otra vez.');
+    } finally {
+      setAbriendo(null);
+    }
   };
 
   const guardar = (cat: CatalogoIntegracion) => {
@@ -608,13 +628,13 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     // esto, marcarlo sin haber pegado token/phoneId activaría la integración
     // como si estuviera conectada.
     const rellenos = cat.campos.filter(c => c.tipo !== 'checkbox').some(c => (form[c.key] ?? '').trim() !== '');
-    upsertIntegracion(cat.tipo, rellenos, form);
+    upsertIntegracion(cat.tipo, rellenos, form, configOriginal);
     setEditando(null);
     showToast(`${cat.nombre} ${rellenos ? 'conectado' : 'actualizado'}`);
   };
 
   const desconectar = (cat: CatalogoIntegracion) => {
-    upsertIntegracion(cat.tipo, false, {});
+    upsertIntegracion(cat.tipo, false, {}, configOriginal);
     setEditando(null);
     showToast(`${cat.nombre} desconectado`);
   };
@@ -858,7 +878,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                   )
                 ) : (
                   <>
-                    <button onClick={() => abrirConfig(cat)} className={conectado ? btnSecondary : btnPrimary}>
+                    <button onClick={() => abrirConfig(cat)} disabled={abriendo === cat.tipo} className={cn(conectado ? btnSecondary : btnPrimary, abriendo === cat.tipo && 'opacity-60')}>
                       {conectado ? 'Gestionar' : 'Conectar'}
                     </button>
                     {conectado && cat.probarUrl && (
