@@ -362,6 +362,22 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'daily',
     relacionadas: ['/network', '/funcionalidades/sustituciones'],
   },
+  // Registrado tras la auditoría SEO 2026-08-18: ya estaba excepcionada en
+  // EXCEPCIONES_INDEXABLES (por eso es rastreable) pero faltaba en este
+  // registro, así que no entraba en el sitemap ni en el interlinking —
+  // paginas.test.ts lo caza. Prioridad menor que el marketplace: es el
+  // punto de conversión, no de descubrimiento.
+  {
+    path: '/network/crear-perfil',
+    titulo: 'Crea tu perfil de instructora | Tentare Network',
+    descripcion: 'Publica tu perfil una vez. Los estudios de Pilates y Yoga te contactan a ti cuando tu disponibilidad encaja.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Alta de instructora',
+    resumen: 'Publica tu perfil gratis en Tentare Network.',
+    prioridad: 0.5,
+    changeFrequency: 'monthly',
+    relacionadas: ['/network', '/network/instructoras'],
+  },
 
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
@@ -642,7 +658,18 @@ export const PREFIJOS_NO_INDEXABLES = [
  * privado de Network" tal cual, y aquí queda documentado qué se abrió y por
  * qué — mismo criterio que ya usaba este mecanismo antes del rediseño.
  */
-export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras'];
+// `/network/crear-perfil` es el wizard de alta — punto de entrada real con
+// tráfico entrante (enlaces compartidos, "Crea tu perfil" desde /login y
+// /network/acceso), no autoservicio privado como el resto de /network/*.
+// Auditoría SEO 2026-08-18: llevaba metadata propia (título/descripción,
+// app/network/crear-perfil/layout.tsx) desde una ronda anterior con la
+// intención explícita de que fuera indexable, pero el bloqueo de PREFIJOS_
+// NO_INDEXABLES ('/network/' entero) la dejaba fuera de rastreo igualmente
+// — "se queda indexable" nunca se cumplió porque nadie cruzó las dos
+// piezas. Solo el paso 1 (cuenta) es alcanzable sin sesión; los pasos
+// siguientes exigen auth, así que un rastreador sin sesión no ve nada
+// privado.
+export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras', '/network/crear-perfil'];
 
 /**
  * Rutas que son un `redirect()` y no una página.
