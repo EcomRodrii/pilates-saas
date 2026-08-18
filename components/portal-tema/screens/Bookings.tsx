@@ -104,7 +104,7 @@ export function Bookings({ vm }: { vm: ViewModel }) {
         ) : null}
 
         {conVistas && vista === "semana"
-          ? <DayStrip week={vm.agenda.semana} boxed={vm.features.day_strip_style === "cajas"} />
+          ? <DayStrip week={vm.agenda.semana} boxed={vm.features.day_strip_style === "cajas"} inicial />
           : null}
 
         {conVistas && vista === "mes" ? (

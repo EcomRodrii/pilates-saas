@@ -59,3 +59,25 @@ for (const { tema, accesos } of ROTULOS) {
     await expect(page.getByText(accesos, { exact: true })).toBeVisible({ timeout: 30_000 });
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las dos tiras de días NO escriben igual, y es del diseño, no un descuido.
+//
+// El horario (`05-clases.jpg`) pone tres letras — LUN MAR MIÉ — y la agenda
+// (`10-agenda-semana.jpg`) una — L M M J V S D. Se recorta en el componente en
+// vez de tener dos listas de días: dos fuentes para el mismo dato es como se
+// acaba con el lunes en una pantalla y el martes en otra.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('el horario escribe tres letras y la agenda una', async ({ page }) => {
+  await page.goto('/portal-tema-preview/sereno');
+  await page.locator('.welcome__cta').click();
+
+  await page.locator('.tab', { hasText: 'Clases' }).click();
+  await expect(page.locator('.day__label').first()).toHaveText('LUN', { timeout: 30_000 });
+
+  await page.locator('.tab', { hasText: 'Agenda' }).click();
+  await expect(page.locator('.day__label').first()).toHaveText('L');
+  // Y las siete, no solo la primera: recortar mal daría «L» y luego «MAR».
+  await expect(page.locator('.day__label')).toHaveText(['L', 'M', 'M', 'J', 'V', 'S', 'D']);
+});
