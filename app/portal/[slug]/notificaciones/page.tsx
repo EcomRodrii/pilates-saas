@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 // AVISOS — pantalla del prototipo navegable de Claude Design.
 //
 // La fuente de datos no cambia: sigue siendo la tabla `notification` del motor
@@ -81,8 +83,19 @@ export default function AvisosPage() {
   return (
     <div style={{ minHeight: '100%', background: t.bg, color: t.ink }}>
       <div style={{ padding: '62px 24px 24px' }}>
-        <button
-          onClick={() => router.push(`/portal/${slug}/home`)}
+        {/* ⚠️ `<Link>` y no un `<button onClick={router.push}>`, que es lo que
+            había: un botón que navega con JavaScript NO HACE NADA hasta que la
+            página hidrata. En un móvil lento la socia toca la flecha de volver
+            y no pasa nada — la misma sensación de «la app no responde» que ya
+            costó otros arreglos. Un enlace navega igual sin JS, y Next lo
+            precarga.
+
+            Es también la causa de que `portal-bonos-compras` fallara en la
+            PRIMERA pasada de CI y pasara al relanzar: en frío la hidratación
+            llega tarde y el clic se pierde. Se arregla en la app, no en el
+            test. */}
+        <Link
+          href={`/portal/${slug}/home`}
           aria-label="Volver a Inicio"
           style={{
             width: 38, height: 38, borderRadius: '50%',
@@ -94,7 +107,7 @@ export default function AvisosPage() {
           }}
         >
           ←
-        </button>
+        </Link>
 
         <h1 style={{ ...display(50), color: t.ink, marginTop: 20 }}>Avisos</h1>
         <p style={{ ...display(19, true), color: t.muted, marginTop: 10 }}>
