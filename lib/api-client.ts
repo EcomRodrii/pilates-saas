@@ -2717,6 +2717,53 @@ export interface ClaseAsistidaCliente {
  * eso es una lista vacía, no un error en pantalla: la sección simplemente no
  * se pinta.
  */
+/**
+ * Quita la tarjeta guardada de la socia en sesión.
+ *
+ * Devuelve `null` si el servidor lo confirmó, o el mensaje de error si no.
+ * ⚠️ Nada de escritura optimista: quitar un método de pago se anuncia con lo
+ * que responde el servidor, no antes — es el mismo criterio que el resto de los
+ * flujos de dinero de este repo.
+ */
+export async function borrarTarjetaPublica(studioId: string): Promise<string | null> {
+  try {
+    const res = await fetch('/api/public/tarjeta', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId }),
+    });
+    if (res.ok) return null;
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    return data.error ?? 'No se ha podido quitar la tarjeta.';
+  } catch {
+    return 'No hemos podido conectar. Inténtalo de nuevo.';
+  }
+}
+
+/**
+ * Abre la página de Stripe para guardar una tarjeta. Devuelve la URL, o el
+ * mensaje de error.
+ *
+ * ⚠️ La UI de tarjeta la aloja STRIPE: aquí no se pide nunca un número ni un
+ * CVC en nuestro propio DOM. Ver el comentario de `/api/stripe/setup-tarjeta`.
+ */
+export async function urlParaGuardarTarjeta(
+  studioId: string, socioId: string, slug: string,
+): Promise<{ url: string } | { error: string }> {
+  try {
+    const res = await fetch('/api/stripe/setup-tarjeta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
+      body: JSON.stringify({ studioId, socioId, slug }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+    if (res.ok && data.url) return { url: data.url };
+    return { error: data.error ?? 'No se ha podido abrir la página para guardar la tarjeta.' };
+  } catch {
+    return { error: 'No hemos podido conectar. Inténtalo de nuevo.' };
+  }
+}
+
 export async function fetchHistorialAsistidas(
   studioId: string, limite?: number,
 ): Promise<ClaseAsistidaCliente[]> {

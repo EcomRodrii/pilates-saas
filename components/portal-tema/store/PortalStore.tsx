@@ -231,6 +231,8 @@ export interface PortalActions {
   goInvitar(): void;
   logout(): void;
   guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
+  anadirTarjeta(): void;
+  quitarTarjeta(): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
   /**
@@ -387,6 +389,11 @@ export type AlAlternarFavoritoPortal = (
   accion: 'marcar' | 'desmarcar',
 ) => Promise<string | null>;
 
+/** Abre la página de Stripe para guardar una tarjeta. `null` = no se pudo. */
+export type AlAnadirTarjetaPortal = () => Promise<string | null>;
+/** Quita la tarjeta guardada. `null` = hecho; si no, el mensaje del servidor. */
+export type AlQuitarTarjetaPortal = () => Promise<string | null>;
+
 export type AlPedirHistorialPortal = () => Promise<
   {
     reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string;
@@ -452,6 +459,8 @@ export function PortalProvider({
   alReservar,
   alGuardarDatos,
   alAlternarFavorito,
+  alAnadirTarjeta,
+  alQuitarTarjeta,
   alPedirHistorial,
   alPedirAvisos,
   alAbrirAviso,
@@ -492,6 +501,8 @@ export function PortalProvider({
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
   alAlternarFavorito?: AlAlternarFavoritoPortal;
+  alAnadirTarjeta?: AlAnadirTarjetaPortal;
+  alQuitarTarjeta?: AlQuitarTarjetaPortal;
   alPedirHistorial?: AlPedirHistorialPortal;
   alPedirAvisos?: AlPedirAvisosPortal;
   alAbrirAviso?: AlAbrirAvisoPortal;
@@ -603,6 +614,11 @@ export function PortalProvider({
 
   const alAlternarFavoritoRef = useRef(alAlternarFavorito);
   useEffect(() => { alAlternarFavoritoRef.current = alAlternarFavorito; }, [alAlternarFavorito]);
+
+  const alAnadirTarjetaRef = useRef(alAnadirTarjeta);
+  useEffect(() => { alAnadirTarjetaRef.current = alAnadirTarjeta; }, [alAnadirTarjeta]);
+  const alQuitarTarjetaRef = useRef(alQuitarTarjeta);
+  useEffect(() => { alQuitarTarjetaRef.current = alQuitarTarjeta; }, [alQuitarTarjeta]);
 
   const alPedirHistorialRef = useRef(alPedirHistorial);
   useEffect(() => { alPedirHistorialRef.current = alPedirHistorial; }, [alPedirHistorial]);
@@ -752,6 +768,36 @@ export function PortalProvider({
           .catch(() => set({ avisosCargando: false }));
       },
       abrirAviso: (id) => { alAbrirAvisoRef.current?.(id); },
+
+      /** Lleva a la página de Stripe. La UI de tarjeta la alojan ELLOS. */
+      anadirTarjeta: () => {
+        const abrir = alAnadirTarjetaRef.current;
+        if (!abrir) return notify("Vista previa: aquí se abriría la página de Stripe");
+        if (stateRef.current.loading) return;
+        set({ loading: true });
+        abrir().then((error) => {
+          set({ loading: false });
+          if (error) notify(error);
+        });
+      },
+
+      /**
+       * Quita la tarjeta guardada.
+       *
+       * ⚠️ Sin escritura optimista: se anuncia con lo que responde el servidor.
+       * Decir «quitada» y que siguiera ahí es el patrón que ya costó un bug en
+       * reservas, y aquí es peor: la socia creería que ya no se le puede cobrar.
+       */
+      quitarTarjeta: () => {
+        const quitar = alQuitarTarjetaRef.current;
+        if (!quitar) return notify("Vista previa: esto no quita nada de verdad");
+        if (stateRef.current.loading) return;
+        set({ loading: true });
+        quitar().then((error) => {
+          set({ loading: false, hoja: null });
+          notify(error ?? "Tarjeta quitada");
+        });
+      },
 
       cargarHistorial: () => {
         const pedir = alPedirHistorialRef.current;
