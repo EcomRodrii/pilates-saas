@@ -85,7 +85,7 @@
   width: 116px; height: 34px;
   border-radius: 20px;
   background: #0D100B;
-  z-index: 8;
+  z-index: var(--z-armazon);
 }
 
 .status-bar {
@@ -102,7 +102,7 @@
   color: var(--ink);
 }
 .status-bar__signal { letter-spacing: .1em; }
-.status-bar--over { z-index: 3; color: #FFFFFF; }
+.status-bar--over { z-index: var(--z-contenido); color: #FFFFFF; }
 [data-theme="bloom"] .status-bar--over { color: #3B2A3F; }
 
 .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }

@@ -150,6 +150,33 @@ export function Field({
   );
 }
 
+/**
+ * Algo ha fallado y se puede reintentar.
+ *
+ * ⚠️ Distinto de `EmptyState` a propósito, aunque se parezcan: vacío significa
+ * «aquí no hay nada todavía» y error significa «esto debería tener algo y no he
+ * podido traerlo». Enseñar el vacío cuando la red ha fallado le dice a la socia
+ * que no tiene reservas cuando sí las tiene.
+ *
+ * Siempre con salida: un error sin botón deja a la socia sin nada que hacer más
+ * que cerrar la app.
+ */
+export function ErrorState({ title = "No hemos podido cargarlo", text, onRetry, cta = "Reintentar" }: {
+  title?: string; text?: string; onRetry?: () => void; cta?: string;
+}) {
+  return (
+    <div className="empty empty--error" role="alert">
+      <p className="empty__title">{title}</p>
+      {/* Sin detalle no se inventa uno: un «Error desconocido» no ayuda a nadie
+          y suena a que la app no sabe lo que le pasa. */}
+      {text ? <p className="empty__text">{text}</p> : null}
+      {onRetry ? (
+        <Button variant="ghost" size="sm" className="empty__accion" onClick={onRetry}>{cta}</Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function Input({ className = "", ...rest }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input className={("input " + className).trim()} {...rest} />;
 }

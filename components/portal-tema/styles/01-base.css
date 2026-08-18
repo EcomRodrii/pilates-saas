@@ -15,6 +15,42 @@
 
 :where(.portal-tema), :where(.portal-tema) *, :where(.portal-tema) *::before, :where(.portal-tema) *::after { box-sizing: border-box; }
 
+/* ── La escala de apilado ───────────────────────────────────────────────────
+ *
+ * Diez valores sueltos (1, 2, 3, 8, 9, 20, 24, 26, 30, 100) repartidos por seis
+ * hojas, y la barra de pestañas SIN ninguno. Hoy no chocan porque el layout es
+ * flex y casi nada se superpone — pero no hay nada que lo garantice: el primer
+ * `position: absolute` nuevo lo rompe, y el síntoma de un apilado mal puesto es
+ * un botón que deja de responder porque algo transparente lo tapa.
+ *
+ * Cinco escalones con nombre, separados por 100 para que quepa lo que venga sin
+ * volver a renumerar. El orden es el de «quién tapa a quién» leído de abajo
+ * arriba, que es la única pregunta que hay que responder al añadir algo.
+ *
+ * ⚠️ Un valor nuevo se añade AQUÍ con su nombre, no a pelo en su hoja. Si no
+ * encaja en ningún escalón, es que hace falta un escalón, no un número suelto. */
+.portal-tema {
+  /* Dentro del flujo: un realce sobre lo que tiene al lado (el velo de una foto
+     bajo su texto, una tarjeta que se levanta). */
+  --z-contenido: 1;
+  /* Se queda quieto mientras el resto rueda: cabeceras pegajosas. */
+  --z-pegajoso: 100;
+  /* El armazón de la pantalla: la barra de pestañas y la barra de estado. Por
+     encima del contenido que rueda por debajo. */
+  --z-armazon: 200;
+  /* Lo que habla por encima de todo sin bloquear: avisos flotantes. */
+  --z-aviso: 300;
+  /* La banda de lo que BLOQUEA. Mientras algo de aquí está abierto, nada de
+     debajo debe poder pulsarse — y el orden DENTRO de la banda importa: un
+     desplegable tiene que salir por encima del velo que lo acompaña, y la hoja
+     por encima de todo lo demás. Eran 20 / 24 / 26 / 100; los números cambian,
+     el orden no. */
+  --z-velo: 400;
+  --z-emergente: 410;
+  --z-pista: 420;
+  --z-hoja: 430;
+}
+
 .portal-tema {
   background: var(--desk);
   color: var(--ink);
