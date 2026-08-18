@@ -135,6 +135,21 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 18px;
+  /* Para colocar la foto encima del monograma sin sacarla del círculo. */
+  position: relative;
+  overflow: hidden;
+}
+/* ⚠️ La foto va ENCIMA del monograma, ocupando exactamente el mismo círculo, y
+ * no en su lugar: si no carga se retira y debajo sigue estando la inicial. Con
+ * un `<img>` en el flujo, una imagen rota deja un hueco y descoloca la fila —
+ * que es peor que no tener foto. Y `object-fit: cover` porque las fotos de
+ * perfil vienen de todos los tamaños: sin él se estiran las caras. */
+.avatar__foto {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 .avatar--sm {
   flex: 0 0 34px; width: 34px; height: 34px; font-size: 13px;

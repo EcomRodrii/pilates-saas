@@ -98,12 +98,22 @@ export function TabBar({
 }
 
 export function DayStrip({
-  week, tight, boxed,
+  week, tight, boxed, inicial,
 }: {
   week: { label: string; num: number; active: boolean; hasClass: boolean }[];
   tight?: boolean;
   /** La tira de la pantalla de Reservas de Tentada: cajas, no círculos. */
   boxed?: boolean;
+  /**
+   * Una sola letra por día (L M M J V S D) en vez de tres (LUN MAR MIÉ).
+   *
+   * ⚠️ Es la diferencia entre las dos capturas del tema: el horario
+   * (`05-clases.jpg`) escribe tres letras y la agenda (`10-agenda-semana.jpg`)
+   * una. Se RECORTA aquí en vez de crear una segunda lista de días: dos
+   * fuentes para el mismo dato es como se acaba con el lunes en un sitio y el
+   * martes en otro.
+   */
+  inicial?: boolean;
 }) {
   const actions = useActions();
   return (
@@ -114,7 +124,7 @@ export function DayStrip({
           className={("day " + (day.active ? "is-active" : "")).trim()}
           onClick={() => actions.selectDay(day.num)}
         >
-          <span className="day__label">{day.label}</span>
+          <span className="day__label">{inicial ? day.label.charAt(0) : day.label}</span>
           <span className="day__num">{day.num}</span>
           {day.hasClass ? <i className="day__dot"></i> : null}
         </button>
@@ -137,6 +147,8 @@ export interface ClassRowData {
    */
   eligeSitio?: boolean;
   id: string; name: string; time: string; duration: string; initial: string; teacher: string;
+  /** Su foto. Vacía = se queda el monograma, que es lo que pintan las capturas. */
+  teacherFoto: string;
   meta: string; room: string; booked: boolean; status: string; statusTone: "booked" | "free" | "full";
   /** «Emma · Sala A · Todos» — la instructora subida a la línea de metadatos. */
   metaLarga: string;
@@ -209,7 +221,7 @@ export function ClassRow({ row }: { row: ClassRowData }) {
         <span className="class-row__name">{row.name}</span>
         <span className="class-row__meta">{row.meta}</span>
         <span className="class-row__foot">
-          <Avatar size="xs">{row.initial}</Avatar>
+          <Avatar size="xs" foto={row.teacherFoto}>{row.initial}</Avatar>
           <span className="class-row__teacher">{row.teacher}</span>
           <Status tone={row.statusTone}>{row.status}</Status>
         </span>

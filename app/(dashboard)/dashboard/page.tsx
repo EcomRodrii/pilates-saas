@@ -17,6 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { OnboardingChecklist } from '@/components/dashboard/onboarding-checklist';
+import { AvisoIntegracionesCaidas } from '@/components/dashboard/aviso-integraciones-caidas';
 import { ActionCenter } from '@/components/decision/action-center';
 import { CustomChartsSection } from '@/components/dashboard/custom-charts';
 import { fetchLayout, authHeader } from '@/lib/api-client';
@@ -808,6 +809,14 @@ export default function Dashboard() {
             ) : null
           }
         />
+
+        {/* ── Una integración caída ───────────────────────────────────────────
+            Fuera de `wrap(...)` a propósito: no es una sección reordenable, es
+            un aviso de estado que aparece y se va solo (misma categoría que el
+            Header). Sin rol que comprobar: la RLS de `integraciones` solo
+            devuelve filas a la propietaria, así que para el resto llega vacío.
+            Se pinta solo si hay algo roto de verdad. */}
+        <AvisoIntegracionesCaidas />
 
         {/* ── Lo que necesita su atención (Decision OS) ──────────────────────── */}
         {/* El Brain vivía entero en /centro-de-control y esta pantalla —la que

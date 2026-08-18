@@ -10,6 +10,8 @@ import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -1179,6 +1181,13 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     }
   }
 
+  // Cómo le fue a WhatsApp en ESTA tanda. Antes los fallos solo subían un
+  // contador que acababa en un log: con el token de Meta caducado, la
+  // propietaria seguía viendo «conectado» mientras sus clientas dejaban de
+  // recibir recordatorios, sin un solo aviso. Se acumula aquí y se guarda UNA
+  // vez al final (ver `registrarSaludIntegracion`).
+  const saludWhatsapp = acumuladorSalud();
+
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
   const [{ data: sociosR }, { data: prefsR }, { data: excR }] = socioIds.length
@@ -1269,11 +1278,17 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
               whatsapp, socia.telefono,
               `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
             );
+        saludWhatsapp.anota(res);
         if (res.ok) enviadosWhatsapp++;
         else fallidosWhatsapp++;
       }
     }
   }
+
+  // `null` cuando no se intentó ningún envío: entonces no hay noticia nueva del
+  // servicio y sobrescribir la salud borraría la que sí valía.
+  const resultadoWhatsapp = saludWhatsapp.resultado();
+  if (resultadoWhatsapp) await registrarSaludIntegracion(admin, studioId, 'WHATSAPP', resultadoWhatsapp);
 
   return { sesiones: sesiones.length, enviados, fallidos, sinEmail, enviadosWhatsapp, fallidosWhatsapp };
 }

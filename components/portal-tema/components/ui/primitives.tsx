@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Icon, type IconName } from "./Icon";
 
 /* ── Botón ──────────────────────────────────────────────────────────────── */
@@ -79,8 +80,43 @@ export function Divider() {
 
 /* ── Piezas pequeñas ────────────────────────────────────────────────────── */
 
-export function Avatar({ children, size }: { children: React.ReactNode; size?: "xs" | "sm" }) {
-  return <span className={("avatar " + (size ? "avatar--" + size : "")).trim()}>{children}</span>;
+/**
+ * El avatar de una persona: su foto si la hay, su monograma si no.
+ *
+ * ⚠️ La foto va DEBAJO del monograma, no en su lugar. Así una imagen que no
+ * carga —enlace roto, red caída, el bucket sin permiso— deja ver la inicial en
+ * vez de un hueco, y el encuadre no se mueve ni un píxel: el `<img>` se
+ * posiciona sobre el mismo círculo. Es la diferencia entre «no se ve su foto» y
+ * «esta fila se ha descolocado».
+ *
+ * `alt=""` a propósito: al lado SIEMPRE va su nombre escrito, y repetirlo se lo
+ * leería dos veces a quien use lector de pantalla.
+ */
+export function Avatar({ children, size, foto }: {
+  children: React.ReactNode;
+  size?: "xs" | "sm";
+  /** Vacío = sin foto; se queda el monograma, que es lo que pintan las capturas. */
+  foto?: string;
+}) {
+  const [rota, setRota] = useState(false);
+  return (
+    <span className={("avatar " + (size ? "avatar--" + size : "")).trim()}>
+      {children}
+      {foto && !rota ? (
+        // `<img>` crudo y no `next/image`, por la MISMA decisión ya documentada
+        // en `FotoTema` y en `public/por-defecto/README.md`: es un fondo con
+        // `position:absolute` + `object-fit:cover`, donde el optimizador no
+        // aporta y sí obliga a medidas fijas.
+        //
+        // ⚠️ No se reutiliza `FotoTema` porque su respaldo cambia a OTRA
+        // IMAGEN, y aquí el respaldo es el monograma que ya está debajo:
+        // cargar una imagen de reserva taparía la inicial con un dibujo
+        // genérico en vez de dejar ver quién es.
+        // eslint-disable-next-line @next/next/no-img-element -- ver comentario de arriba
+        <img className="avatar__foto" src={foto} alt="" loading="lazy" onError={() => setRota(true)} />
+      ) : null}
+    </span>
+  );
 }
 
 export function Chip({ active, children, ...rest }: { active?: boolean } & React.ButtonHTMLAttributes<HTMLButtonElement>) {

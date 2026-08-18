@@ -90,6 +90,7 @@ export function useViewModel() {
       const isBooked = idsReservados.includes(c.id);
       return {
         id: c.id, name: c.name, time: c.time, duration: c.duration, initial: c.initial, teacher: c.teacher,
+        teacherFoto: c.teacherFoto,
         meta: c.room + " · " + c.level,
         // «Emma · Sala A · Todos» — quién primero, que es lo que se busca al
         // elegir clase. La fila de siempre lleva la instructora abajo con su
@@ -556,6 +557,7 @@ export function useViewModel() {
       // estudio real la semana puede venir vacía o la clase estar cancelada.
       detail: !cls ? null : {
         id: cls.id, name: cls.name, teacher: cls.teacher, initial: cls.initial, foto: cls.fotoUrl,
+        teacherFoto: cls.teacherFoto,
         // Las plazas de la sala. Vacío = este estudio NO asigna sitio (la
         // mayoría), y entonces el detalle no pinta ninguna rejilla — que no es
         // lo mismo que «la sala está llena».

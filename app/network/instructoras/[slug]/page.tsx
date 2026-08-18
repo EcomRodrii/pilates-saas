@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap } from 'lucide-react';
@@ -33,13 +34,19 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, N
 // calendario por día — fabricar esa vista sería inventar un dato que no
 // existe.
 
-async function cargar(slug: string) {
+// cache(): generateMetadata() y PerfilInstructoraPage() llaman los dos a
+// cargar() para el mismo slug — sin memoizar por request, Next ejecuta las
+// ~6-7 queries de obtenerPerfilPublicoPorSlug DOS VECES por carga de página
+// (auditoría de performance, 2026-08-18). A diferencia de fetch(), las
+// llamadas de supabase-js no se dedupean solas; React.cache() sí lo hace
+// dentro del mismo render.
+const cargar = cache(async (slug: string) => {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const detalle = await obtenerPerfilPublicoPorSlug(admin, slug);
   if (!detalle || 'error' in detalle) return null;
   return detalle;
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -136,7 +143,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
         <div className="grid lg:grid-cols-[420px_1fr] gap-10">
           <div>
-            <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} />
+            <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} eager />
           </div>
 
           <div>

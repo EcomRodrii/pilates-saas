@@ -999,6 +999,9 @@ export function mapIntegracion(r: RowIntegraciones): Integracion {
     activo: r.activo,
     config: r.config ?? {},
     actualizadoEn: r.actualizado_en,
+    ultimoOkEn: r.ultimo_ok_en ?? null,
+    ultimoError: r.ultimo_error ?? null,
+    ultimoErrorEn: r.ultimo_error_en ?? null,
   } as Integracion;
 }
 
@@ -3426,7 +3429,7 @@ export async function dbDeletePostComunidad(id: string) {
   if (error) reportDbError('[dbDeletePostComunidad]', error);
 }
 
-export async function dbUpsertIntegracion(intg: Integracion) {
+export async function dbUpsertIntegracion(intg: Integracion, reiniciarSalud = false) {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
@@ -3434,6 +3437,16 @@ export async function dbUpsertIntegracion(intg: Integracion) {
     activo: intg.activo,
     config: intg.config ?? {},
     actualizado_en: intg.actualizadoEn,
+    // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
+    // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
+    // escrito la salud entre que se cargó la pantalla y se pulsó Guardar no se
+    // pisa con el valor viejo que tuviera el navegador.
+    //
+    // Sí se reinician cuando cambian las credenciales: un token nuevo no ha
+    // fallado todavía, y dejar el error del anterior pintaría en rojo algo
+    // recién arreglado. Vuelve a SIN_PROBAR, que es la verdad hasta que alguien
+    // hable con el servicio.
+    ...(reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
   };
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) reportDbError('[dbUpsertIntegracion]', error);

@@ -94,7 +94,7 @@ export function ClassDetail({ vm }: { vm: ViewModel }) {
               <h1 className="detail-hero__title">{d.name}</h1>
               <Pill glass>{d.pill}</Pill>
               <div className="detail-hero__teacher">
-                <Avatar size="sm">{d.initial}</Avatar>
+                <Avatar size="sm" foto={d.teacherFoto}>{d.initial}</Avatar>
                 <span className="detail-hero__name">{d.teacher}</span>
               </div>
             </div>

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, profesoresDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
 // La misma regla que ejecuta la RPC al cancelar, y la que el kit usa para
 // redactar la hoja. Se prueba AQUÍ, junto al dato que la alimenta.
@@ -24,9 +24,9 @@ const tipo = (id: string, nombre: string, extra: Partial<TipoClase> = {}): TipoC
 
 const sala = (id: string, nombre: string): Sala => ({ id, studioId: 's1', nombre, capacidad: 10, color: '#000' });
 
-const instructor = (id: string, nombre: string): Instructor => ({
+const instructor = (id: string, nombre: string, extra: Partial<Instructor> = {}): Instructor => ({
   id, studioId: 's1', nombre, email: null, telefono: null, color: '#000', activo: true,
-  rol: 'INSTRUCTOR', authUserId: null,
+  rol: 'INSTRUCTOR', authUserId: null, ...extra,
 });
 
 const sesion = (id: string, inicio: string, fin: string, extra: Partial<Sesion> = {}): Sesion => ({
@@ -113,6 +113,9 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
     // porque ya traían texto humano.
     room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
+    // Sin `foto_url` en su ficha, cadena vacía: quien la pinte se queda con el
+    // monograma en vez de intentar cargar una imagen que no existe.
+    teacherFoto: '',
     seats: 10, plazas: [], // «Reformer» en el nombre → la foto de SU familia, no la genérica.
         fotoUrl: '/por-defecto/clase-reformer.webp', description: 'Fuerza y control',
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
@@ -453,6 +456,7 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 function clase(id: string): StudioClass {
   return {
     id, name: 'Reformer', type: 't1', day: 7, fecha: '2026-09-07', time: '18:15', end: '19:10',
+    teacherFoto: '',
     startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
     level: 'Todos los niveles', seats: 3, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
@@ -723,7 +727,7 @@ test('sociaDe: «Domiciliado» exige mandato SEPA, no solo el método preferido'
 // `useViewModel`. Punto 4 de `themes/RETOMAR.md`.
 
 const claseEn = (iso: string): StudioClass => ({
-  id: `c-${iso}`, name: 'Reformer', type: 'reformer',
+  id: `c-${iso}`, name: 'Reformer', type: 'reformer', teacherFoto: '',
   day: Number(iso.slice(8, 10)), fecha: iso.slice(0, 10), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
   level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
@@ -869,4 +873,47 @@ test('columnasDeSala cuenta columnas distintas, no el máximo', () => {
   // Una sala mal rellenada no revienta la pantalla.
   assert.equal(columnasDeSala(Array.from({ length: 20 }, (_, i) => pl(i))), 8);
   assert.equal(columnasDeSala([pl(0), pl(0), pl(0)]), 1);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La foto de la instructora.
+//
+// ⚠️ El dato SIEMPRE llegó al portal (`mapInstructorPublico` lo incluye) y este
+// adaptador lo tiraba: `profesoresDe` construía {id, nombre, inicial, bio} y
+// nada más. En producción 7 de las 9 instructoras del estudio piloto tienen
+// foto, así que se estaba sustituyendo una cara real por una inicial en todas
+// las pantallas donde aparece.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('profesoresDe conserva la foto, y `avatar` sirve de reserva', () => {
+  const [conFoto, conAvatar, sinNada] = profesoresDe([
+    instructor('i1', 'Marta Gómez', { fotoUrl: 'https://cdn/marta.webp' }),
+    // Son dos columnas distintas de la misma tabla y no todas las fichas usan
+    // la misma: si solo se mirara `foto_url`, media plantilla saldría sin cara.
+    instructor('i2', 'Emma Ruiz', { avatar: 'https://cdn/emma.webp' }),
+    instructor('i3', 'Nuria Peña'),
+  ]);
+  assert.equal(conFoto.foto, 'https://cdn/marta.webp');
+  assert.equal(conAvatar.foto, 'https://cdn/emma.webp');
+  // Vacía, NO `undefined`: quien la pinta comprueba `foto &&`, y un `undefined`
+  // colándose en un `src` intenta cargar la página actual como imagen.
+  assert.equal(sinNada.foto, '');
+});
+
+test('la clase resuelve la foto de QUIEN la da, no por nombre', () => {
+  // ⚠️ Se cruza por id en el adaptador y no por nombre en la pantalla: dos
+  // instructoras que se llamen igual son raras, pero cruzar personas por su
+  // nombre es un error que solo se descubre el día que pasa.
+  const clases = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-03T16:00:00.000Z', '2026-09-03T16:50:00.000Z', { instructorId: 'i2' })],
+    tiposClase: [tipo('t1', 'Reformer')],
+    salas: [sala('sa1', 'Sala 2')],
+    instructores: [
+      instructor('i1', 'Marta Gómez', { fotoUrl: 'https://cdn/marta.webp' }),
+      instructor('i2', 'Emma Ruiz', { fotoUrl: 'https://cdn/emma.webp' }),
+    ],
+  });
+  assert.equal(clases[0].teacherFoto, 'https://cdn/emma.webp');
 });

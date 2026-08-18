@@ -38,7 +38,7 @@ export function Teachers({ vm }: { vm: ViewModel }) {
                 className="profe is-pressable" key={t.id}
                 onClick={() => actions.abrirHoja({ tipo: 'profesor', id: t.id })}
               >
-                <Avatar>{t.inicial}</Avatar>
+                <Avatar foto={t.foto}>{t.inicial}</Avatar>
                 <span className="profe__body">
                   <span className="profe__name">{t.nombre}</span>
                   {/* En la lista, la bio recortada; entera en la hoja. */}
