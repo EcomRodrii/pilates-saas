@@ -194,6 +194,10 @@ export async function montarPortal(page: Page, opciones: {
    * se pusiera rojo — se veían los cuatro temas con la misma píldora blanca.
    */
   tema?: string;
+  /** Catálogo correcto pero SIN socia: es lo que devuelve el servidor cuando el
+   *  token de la socia ya no vale, mientras el navegador todavía cree que hay
+   *  sesión. La app se monta entera y el perfil llega vacío. */
+  sinSocia?: boolean;
   /** Monta el portal del KIT (`portalReact`) con este tema publicado. Sin esto
    *  se monta el portal de siempre — que es lo que hacía SIEMPRE, y por eso
    *  ninguna pantalla del kit tenía cobertura e2e en su ruta real. */
@@ -202,7 +206,7 @@ export async function montarPortal(page: Page, opciones: {
   const { conSesion, fotoUrl = null, imagenBienvenidaUrl = null, sinPlazas = false, sinHistorial = false, sinAvisos = false, reservaRechazada,
           sinBono = false, sinProximaReserva = false, variosBonos = false, planMasElegidoId = null, entraTrasPeticiones,
           portalHome = { orden: [], ocultos: [] }, homeBloques, tabBarStyle = 'clasica', variantes,
-          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit } = opciones;
+          retoConteos = {}, retosApuntados = [], recibos = RECIBOS, tema, kit, sinSocia = false } = opciones;
 
   // Un tema de la galería decide DOS cosas por caminos distintos: los ejes JS
   // (studio-data, más abajo) y las CSS vars (aquí). Hay que montar los dos o
@@ -352,7 +356,7 @@ export async function montarPortal(page: Page, opciones: {
       ? [...(sinProximaReserva ? [] : [{ id: MI_RESERVA.id, sesion_id: 'ses-1', estado: 'CONFIRMADA', spot_id: null }]),
          ...HISTORIAL.map(h => ({ id: h.res.id, sesion_id: h.ses.id, estado: 'ASISTIDA', spot_id: null }))]
       : [],
-    socia: conSesion ? {
+    socia: conSesion && !sinSocia ? {
       socio: { id: SOCIA.socioId, studioId: STUDIO_ID, nombre: 'Marta', apellidos: 'Ruiz', email: SOCIA.email, activo: true, fechaAlta: '2026-01-10', telefono: null, nif: null },
       reservas: [...(sinProximaReserva ? [] : [MI_RESERVA]), ...HISTORIAL.map(h => h.res)],
       suscripciones: sinBono ? [] : variosBonos ? [
