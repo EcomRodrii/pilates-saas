@@ -17,6 +17,7 @@ const raiz = join(import.meta.dirname, '..');
 const css = readFileSync(join(raiz, 'app/globals.css'), 'utf8');
 const paginaAutomatizaciones = readFileSync(join(raiz, 'app/(dashboard)/automatizaciones/page.tsx'), 'utf8');
 const paginaDashboard = readFileSync(join(raiz, 'app/(dashboard)/dashboard/page.tsx'), 'utf8');
+const sidebar = readFileSync(join(raiz, 'components/layout/sidebar.tsx'), 'utf8');
 
 const TONOS = 9;
 
@@ -195,3 +196,32 @@ for (const [modo, selector] of [['claro', ':root'], ['oscuro', '.dark']] as cons
     assert.ok(r !== null && r >= 2, `--muted-foreground ya no se distingue de --foreground (${r?.toFixed(2)}:1)`);
   });
 }
+
+
+// ─── Superficies del sidebar en modo oscuro ──────────────────────────────────
+// Las dos barras MÓVILES llevaban '#ffffff' fijo: en modo oscuro se quedaban
+// blancas, y con ellas el logo en tinta `auto`, que ahí pinta su versión
+// negativa y desaparecía. El cajón "Más" era peor — iba sobre --foreground, que
+// se INVIERTE en oscuro, así que el menú entero quedaba blanco sobre blanco con
+// todo su texto en text-white. En móvil ese cajón es la única navegación.
+
+test('las barras móviles siguen el modo del panel, no un blanco fijo', () => {
+  // Las dos barras (superior y inferior) son los únicos backgroundColor
+  // var(--card) del fichero; el resto de superficies de aquí son siempre
+  // oscuras y van con sus propios valores.
+  const conCard = sidebar.match(/backgroundColor: 'var\(--card\)'/g) ?? [];
+  assert.equal(conCard.length, 2, `esperaba 2 barras móviles con --card, encontré ${conCard.length}`);
+  assert.equal(
+    sidebar.match(/backgroundColor: '#(?:fff|ffffff|FFF|FFFFFF)'/g), null,
+    'una barra móvil vuelve a tener el fondo blanco fijo',
+  );
+});
+
+test('el cajón "Más" es una superficie siempre oscura', () => {
+  // --foreground NO vale aquí: se invierte con el modo y su contenido es
+  // text-white incondicional.
+  assert.ok(
+    sidebar.includes("className=\"fixed inset-0 z-50 flex flex-col\" style={{ backgroundColor: 'var(--sidebar)' }}"),
+    'el cajón "Más" ya no usa --sidebar como fondo',
+  );
+});
