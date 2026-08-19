@@ -137,13 +137,14 @@ export default function CrearPerfilNetworkPage() {
     if (pendiente) setEmailOtp(pendiente);
   }, []);
 
-  // Igual que en /network/acceso: vuelve siempre a /login (redirectPath por
-  // defecto de signInWithGoogle), así que el error de vuelta de Google se ve
-  // ahí — aquí solo se captura el rechazo síncrono previo al redirect.
+  // Vuelve a /network/acceso — el punto de retorno propio de Network (ver
+  // lib/db/supabase.ts, RUTAS_RETORNO_AUTH_STAFF), no a /login. Ese efecto
+  // resuelve la cuenta con `producto=network` y, si es un alta nueva sin
+  // perfil todavía, manda de vuelta aquí mismo a seguir el asistente.
   async function conectarConGoogle() {
     setErrorCuenta('');
     setConectandoGoogle(true);
-    const { error } = await signInWithGoogle();
+    const { error } = await signInWithGoogle('/network/acceso');
     if (error) { setErrorCuenta(error); setConectandoGoogle(false); }
   }
 

@@ -33,7 +33,15 @@ function clienteStaff(): SupabaseClient {
   // contraseña (`redirectTo` → `/clave-nueva`, ver `recuperarPassword`). Son las
   // DOS únicas rutas top-level a las que puede volver un enlace de staff — así
   // que activamos la detección solo ahí, no en todas partes.
-  const RUTAS_RETORNO_AUTH_STAFF = new Set(['/login', '/clave-nueva']);
+  //
+  // ⚠️ '/network/acceso' se añadió el 2026-08-19 (separación Software/Network).
+  // Es el equivalente de '/login' para el producto Network: el ÚNICO punto de
+  // retorno legítimo de un enlace de auth de Tentare Network (Google OAuth,
+  // que solo puede volver a una ruta de esta lista — ver el comentario de
+  // arriba). No reabre el hallazgo #9: sigue siendo una ruta de STAFF con
+  // nombre explícito en la lista, no un valor por defecto ni una página
+  // pública de cliente — mismo nivel de confianza que '/login'.
+  const RUTAS_RETORNO_AUTH_STAFF = new Set(['/login', '/clave-nueva', '/network/acceso']);
   const detectSessionInUrl =
     typeof window !== 'undefined' && RUTAS_RETORNO_AUTH_STAFF.has(window.location.pathname);
   cliente = createClient(url, anon, { auth: { detectSessionInUrl } });

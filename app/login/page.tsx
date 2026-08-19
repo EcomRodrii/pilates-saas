@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useId, useRef } from 'react';
 import Link from 'next/link';
+import { ArrowLeftRight } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
@@ -13,6 +14,7 @@ import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
+import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
 
 export default function LoginPage() {
   const uid = useId();
@@ -25,6 +27,10 @@ export default function LoginPage() {
   // campo del formulario) para poder volver a "cambiar correo" sin perder lo
   // que la persona ya había escrito antes de enviarlo.
   const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  // Autenticó bien, pero esta identidad no tiene NADA en Software — sí tiene
+  // perfil de Network. Nunca se le concede el panel: se le dice la verdad y
+  // se cierra la sesión que se acaba de abrir (ver el bloque de abajo).
+  const [cuentaDeNetwork, setCuentaDeNetwork] = useState(false);
   // Recarga/atrás/pestaña cerrada y reabierta a medio verificar: el email
   // pendiente sobrevive en sessionStorage (lib/auth/otp-pendiente.ts) — sin
   // esto, un F5 en plena verificación devolvía sin más al formulario de
@@ -123,18 +129,10 @@ export default function LoginPage() {
     yaArrancado.current = true;
 
     (async () => {
-      // `user_metadata.nombre` es lo que leen sidebar, menú de perfil,
-      // notificaciones y los formularios de Network (7 sitios, ver grep) —
-      // pero Google nunca rellena esa clave, pone `full_name`/`name`. Sin
-      // esto, cualquier alta por Google se vería como "Instructora" o en
-      // blanco en todo el panel. Se normaliza aquí, una sola vez y para
-      // TODOS los puntos de entrada de Google (Manager y Network pasan por
-      // este mismo efecto, ya que signInWithGoogle() siempre vuelve a
-      // /login) — no en cada sitio que lo lee.
-      if (!user.user_metadata?.nombre) {
-        const nombreGoogle = user.user_metadata?.full_name || user.user_metadata?.name;
-        if (nombreGoogle) await supabase.auth.updateUser({ data: { nombre: nombreGoogle } });
-      }
+      // Ver lib/auth/normalizar-nombre-google.ts — se llama también desde
+      // /network/acceso, que desde 2026-08-19 tiene su propio retorno de
+      // Google en vez de pasar siempre por aquí.
+      await normalizarNombreDeGoogle(user);
       // Alta pendiente de /crear-estudio (el proyecto exigía confirmar el
       // email antes de tener sesión): crea el negocio real ahora que ya hay
       // sesión. Los datos viajan en la metadata del usuario (no localStorage),
@@ -230,10 +228,27 @@ export default function LoginPage() {
       // §2). /api/auth/destino-post-login es la única fuente de verdad de
       // "a dónde pertenece esta cuenta"; fail-open a /dashboard si la llamada
       // falla, que es el comportamiento de siempre.
-      const destinoResuelto = await fetch('/api/auth/destino-post-login', { headers: await authHeader() })
+      // `producto=software`: el contexto lo fija ESTA página, no se adivina de
+      // la cuenta (regla central del cambio de 2026-08-19 — Software/Network
+      // son dos productos, el contexto lo decide la puerta por la que se
+      // entra). Antes esta llamada no llevaba `producto` y priorizaba
+      // "¿tiene estudio?" diera igual desde dónde se hubiera entrado: una
+      // instructora con self-claim (ficha de Software + perfil de Network)
+      // que entrara aquí SÍ pertenece a Software, así que sigue yendo a
+      // /dashboard igual que siempre — lo nuevo es la cuenta que NO tiene
+      // nada aquí, que antes se colaba igual.
+      const resultado = await fetch('/api/auth/destino-post-login?producto=software', { headers: await authHeader() })
         .then(r => (r.ok ? r.json() : null))
         .catch(() => null);
-      window.location.href = destinoResuelto?.destino ?? '/dashboard';
+
+      if (resultado?.tipo === 'cuenta-de-otro-producto') {
+        // No se deja una sesión válida abierta mostrando un mensaje de
+        // bloqueo: eso es justo el estado ambiguo que se quiere evitar.
+        await supabase.auth.signOut();
+        setCuentaDeNetwork(true);
+        return;
+      }
+      window.location.href = resultado?.destino ?? '/dashboard';
     });
   }, [session, user, loading]);
 
@@ -329,10 +344,36 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <LogoTentare formato="vertical" alto={76} className="mb-2" />
-          <p className="text-[14px] text-[#8E8E86] mt-1">Panel de gestión</p>
+          <p className="text-[14px] font-semibold text-[#8E8E86] mt-1">Tentare Software</p>
+          <p className="text-[12.5px] text-[#A8A89F]">Gestión de tu estudio de Pilates</p>
         </div>
 
-        {emailOtp ? (
+        {cuentaDeNetwork ? (
+          <div className="bg-white rounded-2xl p-6 text-center" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'var(--accent)' }}>
+              <ArrowLeftRight size={18} style={{ color: 'var(--accent-foreground)' }} aria-hidden="true" />
+            </div>
+            <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1.5">Esta cuenta es de Tentare Network</h2>
+            <p className="text-[13.5px] leading-relaxed text-[#6C6C64] mb-5">
+              El email y la contraseña son correctos, pero esta cuenta pertenece a Tentare Network, no a Tentare
+              Software — son dos productos independientes. Para gestionar un estudio necesitas una cuenta de
+              Software.
+            </p>
+            <Link
+              href="/network/acceso"
+              className="block w-full rounded-xl bg-brand px-4 py-2.5 text-center text-[13.5px] font-semibold text-brand-foreground transition-colors hover:brightness-95"
+            >
+              Ir a Tentare Network
+            </Link>
+            <button
+              type="button"
+              onClick={() => { setCuentaDeNetwork(false); setEmail(''); setPassword(''); }}
+              className="mt-3 text-[13px] font-medium text-[#8E8E86] hover:text-[#3A3A34] transition-colors"
+            >
+              Volver a intentarlo con otra cuenta
+            </button>
+          </div>
+        ) : emailOtp ? (
           <OtpVerificacion
             email={emailOtp}
             onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
