@@ -563,7 +563,6 @@ export default function ReservarPage() {
   // embebido en un <iframe> de tercero no puede fiarse de que el navegador
   // comparta sesión entre pestañas (Safari/Chrome recortan ese acceso cada
   // vez más), así que esto es lo que hace viable volver sin salir del widget.
-  const [mostrarPasswordLogin, setMostrarPasswordLogin] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
   const [enviandoLoginPassword, setEnviandoLoginPassword] = useState(false);
   // Si ya tiene contraseña propia (entró con loginConPassword, o la fijó
@@ -1031,7 +1030,6 @@ export default function ReservarPage() {
     setLoginError('');
     setGateError('');
     setSelectedSpot(null);
-    setMostrarPasswordLogin(false);
     setLoginPassword('');
     setDatosPlan(null);
     setDatosClientSecret(null);
@@ -1085,7 +1083,7 @@ export default function ReservarPage() {
       trackEventoWidget(studio?.id, 'booking_abandoned', { sesionClaseId: bookingSesionId, socioId: socia?.socioId ?? null });
     }
     setBookingSesionId(null); setLoginStep('login'); setTerminosAceptados(false); setEnlaceEnviado(false);
-    setMostrarPasswordLogin(false); setLoginPassword('');
+    setLoginPassword('');
   }
 
   // Magic link: envía el enlace de acceso al email (ya no mete dentro con solo
@@ -1111,6 +1109,20 @@ export default function ReservarPage() {
       trackEventoWidget(studio?.id, 'lead_started', { sesionClaseId: bookingSesionId || null });
     } finally {
       setEnviandoEnlace(false);
+    }
+  }
+
+  // Un solo formulario, no dos pantallas: email y contraseña van SIEMPRE
+  // juntos (la contraseña es opcional). Un único botón decide el camino —
+  // sin contraseña escrita, pide el enlace; con contraseña, entra directa.
+  // Antes `mostrarPasswordLogin` alternaba entre dos vistas con un enlace
+  // ("¿Ya tienes contraseña?"/"Prefiero el enlace"), lo que se leía como
+  // dos pantallas de acceso en vez de una.
+  async function handleContinuarAcceso() {
+    if (loginPassword.trim()) {
+      await handleLoginConPassword();
+    } else {
+      await handleEnviarEnlace();
     }
   }
 
@@ -2778,48 +2790,32 @@ export default function ReservarPage() {
                   <>
                     <h2 className="text-[var(--portal-ink)] font-[var(--font-display),Georgia,serif] font-normal text-lg mb-1">Entra para reservar</h2>
                     <p className="text-[var(--portal-muted-2)] text-sm mb-5">
-                      {mostrarPasswordLogin ? 'Entra con tu email y contraseña.' : 'Te enviamos un enlace de acceso a tu email. Sin contraseñas.'}
+                      Escribe tu contraseña si ya la tienes, o solo tu email y te enviamos un enlace de acceso.
                     </p>
                     <input type="email"
                       placeholder="Tu email"
                       value={loginForm.email}
                       onChange={e => { setLoginForm(f => ({ ...f, email: e.target.value })); setLoginError(''); }}
-                      onKeyDown={e => e.key === 'Enter' && (mostrarPasswordLogin ? handleLoginConPassword() : handleEnviarEnlace())}
+                      onKeyDown={e => e.key === 'Enter' && handleContinuarAcceso()}
                       autoFocus
                       className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
                       style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                    {mostrarPasswordLogin && (
-                      <input type="password"
-                        placeholder="Tu contraseña"
-                        value={loginPassword}
-                        onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
-                        onKeyDown={e => e.key === 'Enter' && handleLoginConPassword()}
-                        autoComplete="current-password"
-                        className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
-                        style={{ backgroundColor: 'var(--portal-surface-2)' }} />
-                    )}
+                    <input type="password"
+                      placeholder="Tu contraseña (si la tienes)"
+                      value={loginPassword}
+                      onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleContinuarAcceso()}
+                      autoComplete="current-password"
+                      className="w-full rounded-xl px-4 py-3 text-sm text-[var(--portal-ink)] placeholder:text-[var(--portal-muted)] outline-none border border-[var(--portal-line)] focus:border-[var(--portal-ink)] transition-colors mb-3"
+                      style={{ backgroundColor: 'var(--portal-surface-2)' }} />
                     {loginError && <p className="text-destructive text-sm mb-3">{loginError}</p>}
                     {/* Sin margen propio: mide 0 px salvo que Cloudflare pida
                         resolver algo a mano. */}
                     {captcha}
-                    {mostrarPasswordLogin ? (
-                      <button onClick={handleLoginConPassword} disabled={!loginForm.email || !loginPassword || enviandoLoginPassword}
-                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
-                        style={{ backgroundColor: PRIMARY }}>
-                        {enviandoLoginPassword ? 'Entrando…' : 'Iniciar sesión →'}
-                      </button>
-                    ) : (
-                      <button onClick={handleEnviarEnlace} disabled={!loginForm.email || enviandoEnlace}
-                        className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
-                        style={{ backgroundColor: PRIMARY }}>
-                        {enviandoEnlace ? 'Enviando…' : 'Enviar enlace de acceso →'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => { setMostrarPasswordLogin(m => !m); setLoginError(''); }}
-                      className="w-full text-center text-[12px] text-[var(--portal-muted-2)] underline mt-3"
-                    >
-                      {mostrarPasswordLogin ? 'Prefiero el enlace por email' : '¿Ya tienes contraseña? Inicia sesión'}
+                    <button onClick={handleContinuarAcceso} disabled={!loginForm.email || enviandoEnlace || enviandoLoginPassword}
+                      className="w-full py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-40"
+                      style={{ backgroundColor: PRIMARY }}>
+                      {enviandoLoginPassword ? 'Entrando…' : enviandoEnlace ? 'Enviando…' : loginPassword.trim() ? 'Iniciar sesión →' : 'Continuar →'}
                     </button>
                   </>
                 ) : (
