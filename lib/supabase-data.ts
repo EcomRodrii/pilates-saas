@@ -2,6 +2,7 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
+import type { Plan } from '@/lib/billing/entitlements';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
@@ -3900,7 +3901,20 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string; tipoCuenta?: 'ESTUDIO' | 'FREELANCE' }): Promise<{ id: string; slug: string } | null> {
+export async function dbCreateStudio(fields: {
+  nombre: string;
+  // Opcionales desde la apertura al público: la BD solo exige `nombre`, y el
+  // alta dejó de pedir el teléfono (no hace falta para empezar; se rellena en
+  // Configuración cuando toque). Se mantienen en la firma porque el alta de
+  // freelance y el camino de `pending_studio` antiguo siguen mandándolos.
+  ciudad?: string;
+  telefono?: string;
+  ownerAuthUserId: string;
+  comoNosConocio?: string;
+  tipoCuenta?: 'ESTUDIO' | 'FREELANCE';
+  /** Plan elegido en el alta. Es el que se disfruta durante la prueba. */
+  plan?: Plan;
+}): Promise<{ id: string; slug: string } | null> {
   // Carreras que se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
   //    después; DOS PROPIETARIAS DISTINTAS con el mismo nombre de estudio pueden
@@ -3931,9 +3945,18 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
     const { error } = await supabase.from('studios').insert({
       id,
       nombre: fields.nombre,
-      ciudad: fields.ciudad,
-      telefono: fields.telefono,
-      plan: 'BASE',
+      ciudad: fields.ciudad ?? null,
+      telefono: fields.telefono ?? null,
+      // El plan que eligió en el alta: durante la prueba se disfruta ESE, no
+      // siempre BASE. Los valores posibles los acota un CHECK en la BD
+      // (`studios_plan_valido`), porque este INSERT lo hace el cliente.
+      //
+      // ⚠️ NO se manda `trial_ends_at` ni `subscription_status`: los fija el
+      // trigger `trg_arrancar_prueba_gratuita` en la propia base. Mandarlos
+      // desde aquí no serviría de nada (el trigger los pisa) y sugeriría que
+      // el cliente puede decidir cuánto dura su prueba, que es justo lo que
+      // ese trigger existe para impedir.
+      plan: fields.plan ?? 'BASE',
       owner_auth_user_id: fields.ownerAuthUserId,
       slug,
       como_nos_conocio: fields.comoNosConocio || null,
@@ -4111,6 +4134,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
     currentPeriodEnd: r.current_period_end ?? null,
+    trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,

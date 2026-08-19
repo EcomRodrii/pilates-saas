@@ -3,30 +3,36 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLANES, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
+import { SelectorPlan } from '@/components/planes/selector-plan';
+import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { TZ_ESTUDIO } from '@/lib/utils';
 
-const ACC = '#FFC8E2';
-
-// Bullets por plan (derivadas del catálogo de entitlements, en lenguaje de la clienta).
-const BULLETS: Record<Plan, string[]> = {
-  BASE: ['Reservas y agenda', 'Cobros y bonos', 'Check-in y portal de socias', 'Hasta 150 socias'],
-  ESTUDIO: ['Todo lo de Base', 'Socias ilimitadas', 'Gamificación y retención', 'Marketing e IA'],
-  CADENA: ['Todo lo de Estudio', 'Varios centros', 'Todo incluido', 'Soporte dedicado'],
-};
+// Suscripción del estudio a Tentare.
+//
+// ⚠️ Esta pantalla tenía su propia paleta: `const ACC = '#FFC8E2'` y un
+// `#F7A6C4` sueltos —restos de la plantilla anterior al cambio de identidad—
+// que pintaban el botón principal, la etiqueta «POPULAR» y los checks. Era el
+// caso más claro de «un botón que parece de otra aplicación»: el rosa no está
+// en ninguna de las cuatro fuentes de verdad del color de Tentare. Ahora todo
+// sale de los tokens (`bg-brand`, `text-brand-medio`, `border-border`…), que
+// además es lo único que respeta el modo oscuro y el tema del estudio.
+//
+// Los planes tampoco se describen aquí: los pinta `SelectorPlan` /
+// `ComparativaPlanes` desde `lib/billing/catalogo-planes.ts`, la misma fuente
+// que /precios y el alta. Antes esta página tenía sus propios 4 bullets por
+// plan escritos a mano, y ya no coincidían con los de /precios.
 
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoBilling | null>(null);
-  const [cargandoEstado, setCargandoEstado] = useState(true);
-  // Los días de prueba que quedan se calculan aquí y no abajo con el resto de
-  // derivados: abajo ya se ha pasado por `if (loading || !session) return null`,
-  // así que no cabe ningún hook, y leer el reloj en render es impuro. La
-  // granularidad es de días: no hace falta refrescarlo mientras la página vive.
-  const [diasPrueba, setDiasPrueba] = useState<number | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [elegido, setElegido] = useState<Plan>('ESTUDIO');
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,43 +44,30 @@ export default function SuscripcionPage() {
     if (!session) return;
     let vivo = true;
     estadoBilling().then((e) => {
-      if (vivo) {
-        setEstado(e);
-        setDiasPrueba(e?.pruebaTermina
-          ? Math.max(0, Math.ceil((new Date(e.pruebaTermina).getTime() - Date.now()) / 86400000))
-          : null);
-        setCargandoEstado(false);
-      }
+      if (!vivo) return;
+      setEstado(e);
+      // Se preselecciona el plan que ya está probando: es el que ha estado
+      // usando estos días, y el que menos sorpresas le va a dar.
+      if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
+      setCargando(false);
     });
     return () => { vivo = false; };
   }, [session]);
 
-  async function suscribir(plan: Plan) {
+  async function suscribir() {
     setError(null);
-    setAccion(plan);
-    const r = await iniciarSuscripcion(plan);
-    if ('url' in r) {
-      // `assign()` en vez de `href = …`: mismo salto de página, pero es una
-      // llamada y no la mutación de un global, que es lo que marcaba
-      // `react-hooks/immutability`. Es además lo que ya usa portal/compras
-      // para estas mismas redirecciones a Stripe Checkout.
-      window.location.assign(r.url);
-    } else {
-      setError(r.error);
-      setAccion(null);
-    }
+    setAccion('suscribir');
+    const r = await iniciarSuscripcion(elegido);
+    if ('url' in r) window.location.assign(r.url);
+    else { setError(r.error); setAccion(null); }
   }
 
   async function abrirPortal() {
     setError(null);
     setAccion('portal');
     const r = await gestionarSuscripcion();
-    if ('url' in r) {
-      window.location.assign(r.url);
-    } else {
-      setError(r.error);
-      setAccion(null);
-    }
+    if ('url' in r) window.location.assign(r.url);
+    else { setError(r.error); setAccion(null); }
   }
 
   if (loading || !session) return null;
@@ -82,167 +75,177 @@ export default function SuscripcionPage() {
   const activo = estado?.activo ?? false;
   const esPropietaria = estado?.esPropietaria ?? true;
   const stripeListo = estado?.configurado ?? false;
-  const enPrueba = estado?.enPrueba ?? false;
-  // Primera suscripción (nunca se ha suscrito) → tiene derecho a la prueba gratis.
-  const primeraVez = !estado?.subscriptionStatus;
-  // Fecha del próximo cobro, en cristiano. Durante la prueba es el primer cargo.
-  const proximoCobro = estado?.periodoTermina
-    ? new Date(estado.periodoTermina).toLocaleDateString('es-ES', {
-        day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO,
-      })
-    : null;
+  const trial = estado?.trial;
+  const status = estado?.subscriptionStatus ?? null;
+
+  // ⚠️ `trial` es un campo NUEVO de /api/billing/status. Si no viene —un
+  // cliente con el bundle viejo en caché, o el endpoint todavía sin desplegar—
+  // esta pantalla NO puede quedarse enseñando el estado equivocado: es la
+  // factura del estudio. De ahí el respaldo sobre los campos de siempre, que
+  // llevan ahí desde el principio.
+  const yaPaga = trial
+    ? trial.fase === 'SUSCRITO'
+    : status === 'active' || status === 'past_due' || status === 'trialing';
+  const enPrueba = trial
+    ? trial.fase !== 'SUSCRITO' && trial.fase !== 'EXPIRADA' && trial.fase !== 'SIN_PRUEBA'
+    : false;
+  const pruebaAgotada = trial?.fase === 'EXPIRADA';
+  // Prueba de STRIPE (con tarjeta ya dada): todavía no ha pagado ni un euro, así
+  // que su fecha es el PRIMER cobro, no el próximo. Son las suscripciones
+  // anteriores a que la prueba pasara a ser local — ya no se crean nuevas, pero
+  // las que hay siguen vivas y esta pantalla es donde las mira su dueña.
+  const primerCobro = !!estado?.enPrueba;
+
+  const fecha = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO }) : null;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#EEEEE8', color: '#1A1A1A' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '56px 24px 80px' }}>
-        <header style={{ textAlign: 'center', marginBottom: 40 }}>
-          <div style={{ fontSize: 13, letterSpacing: '.14em', textTransform: 'uppercase', color: '#5A6142', fontWeight: 600, marginBottom: 12 }}>
-            Suscripción de tu estudio
-          </div>
-          <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-.03em', margin: '0 0 10px' }}>
-            {activo ? 'Tu estudio está activo' : 'Elige el plan de tu estudio'}
+    <div className="min-h-dvh bg-background">
+      <div className="mx-auto max-w-4xl px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
+        <Link
+          href="/dashboard"
+          className="mb-6 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <ArrowLeft size={15} aria-hidden="true" /> Volver al panel
+        </Link>
+
+        {/* ── Encabezado: una sola frase que dice dónde está ─────────────── */}
+        <header className="mb-7">
+          <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
+            {yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
           </h1>
-          <p style={{ fontSize: 18, color: '#5A5A52', margin: 0 }}>
-            {activo
-              ? 'Tu suscripción está al día. Puedes cambiar de plan o gestionar tu facturación cuando quieras.'
-              : primeraVez
-                ? `Empieza con ${TRIAL_DIAS} días gratis. Sin permanencia, cancela cuando quieras.`
-                : 'Sin permanencia. Cancela cuando quieras. Precios con todo incluido.'}
+          <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+            {yaPaga
+              ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
+              : pruebaAgotada
+                ? 'Tus datos están intactos: no se ha borrado nada. Elige un plan y sigues justo donde lo dejaste.'
+                : enPrueba
+                  ? `Estás en tu prueba gratuita. Elige plan cuando quieras — si no lo haces, no se te cobra nada: la prueba simplemente termina.`
+                  : 'Sin permanencia. Cancela cuando quieras.'}
           </p>
         </header>
 
-        {error && (
-          <div role="alert" style={{ maxWidth: 640, margin: '0 auto 24px', background: '#FFF0F0', border: '1px solid #F3C4C4', color: '#8A2E2E', borderRadius: 12, padding: '12px 16px', fontSize: 14 }}>
-            {error}
-          </div>
-        )}
-
-        {!cargandoEstado && !stripeListo && !activo && (
-          <div style={{ maxWidth: 640, margin: '0 auto 24px', background: '#FFF8E6', border: '1px solid #F0E0A8', color: '#6B551A', borderRadius: 12, padding: '12px 16px', fontSize: 14 }}>
-            Todavía no se puede contratar desde aquí: estamos terminando de configurar los pagos por nuestro lado. Escríbenos a soporte@tentare.app y lo activamos contigo.
-          </div>
-        )}
-
-        {activo ? (
-          <div style={{ maxWidth: 460, margin: '0 auto', background: '#FFFFFF', border: '1px solid #E7E7E0', borderRadius: 20, padding: 32, textAlign: 'center' }}>
-            {/* Esta pantalla decía el nombre del plan y nada más. Es la factura
-                mensual del estudio: hay que ver el importe y cuándo se cobra,
-                que son datos que ya teníamos —el precio está en el catálogo y
-                la fecha la lee /api/billing/status de la BD—. La tarjeta vive
-                en Stripe, así que a eso se llega por el portal. */}
-            <div style={{ fontSize: 13, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8E8E86', marginBottom: 8 }}>Plan actual</div>
-            <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].nombre}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-              {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€
-              <span style={{ fontSize: 14, fontWeight: 500, color: '#8E8E86' }}> al mes, IVA incluido</span>
+        {/* ── Avisos ─────────────────────────────────────────────────────── */}
+        <div aria-live="polite">
+          {error && (
+            <div role="alert" className="mb-5 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-[13.5px] font-medium text-destructive">
+              {error}
             </div>
-            <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: proximoCobro ? 12 : 24 }}>{PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].resumen}</div>
-            {proximoCobro && (
-              <div style={{ fontSize: 14, color: '#5A5A52', marginBottom: 24 }}>
-                {enPrueba ? 'Primer cobro el ' : 'Próximo cobro el '}
-                <strong style={{ color: '#1A1A1A' }}>{proximoCobro}</strong>
-              </div>
+          )}
+        </div>
+
+        {!cargando && !stripeListo && !activo && (
+          <div className="mb-5 rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-[13.5px] text-warning">
+            Todavía no se puede contratar desde aquí: estamos terminando de configurar los pagos por nuestro lado.
+            Escríbenos a soporte@tentare.app y lo activamos contigo.
+          </div>
+        )}
+
+        {enPrueba && trial && (
+          <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-brand/25 bg-brand/[0.06] px-4 py-3 text-[13.5px]">
+            <span className="font-bold text-foreground">
+              Te quedan {trial.diasRestantes} {trial.diasRestantes === 1 ? 'día' : 'días'} de prueba
+            </span>
+            {fecha(trial.finaliza) && (
+              <span className="text-muted-foreground">· termina el {fecha(trial.finaliza)}</span>
             )}
-            {enPrueba && diasPrueba !== null && (
-              <div style={{ background: '#E7F6EC', border: '1px solid #B6E0C4', color: '#1E7A43', borderRadius: 10, padding: '10px 14px', fontSize: 13.5, marginBottom: 20 }}>
-                Prueba gratuita — te quedan <strong>{diasPrueba} día{diasPrueba === 1 ? '' : 's'}</strong>. Después se activará tu plan automáticamente.
+          </div>
+        )}
+
+        {cargando ? (
+          <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-8 text-[14px] text-muted-foreground">
+            <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            Cargando tu suscripción…
+          </div>
+        ) : yaPaga ? (
+          /* ── Ya paga ──────────────────────────────────────────────────── */
+          <div className="rounded-2xl border border-border bg-card p-6 sm:p-7">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Plan actual</div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-[26px] font-extrabold tracking-tight text-foreground">
+                    {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].nombre}
+                  </span>
+                  <span className="text-[15px] font-semibold text-muted-foreground tabular-nums">
+                    {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€
+                  </span>
+                </div>
+                {/* «al mes, IVA incluido» literal: es la frase que pidió P2-20
+                    («es mi factura mensual, quiero ver 149 €, la fecha y la
+                    tarjeta») y que su test fija. */}
+                <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
               </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
+                <Check size={13} strokeWidth={3} aria-hidden="true" /> Activa
+              </span>
+            </div>
+
+            {fecha(estado?.periodoTermina) && (
+              <p className="mt-4 border-t border-border pt-4 text-[13.5px] text-muted-foreground">
+                {primerCobro ? 'Primer cobro el ' : 'Próximo cobro el '}
+                <strong className="text-foreground">{fecha(estado?.periodoTermina)}</strong>
+              </p>
             )}
+
             {esPropietaria ? (
               <>
-                <button onClick={abrirPortal} disabled={accion === 'portal'} style={btnPrimary}>
-                  {accion === 'portal' ? 'Abriendo…' : 'Ver facturas y método de pago'}
+                <button
+                  onClick={abrirPortal}
+                  disabled={accion === 'portal'}
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:w-auto"
+                >
+                  {accion === 'portal' && <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                  {accion === 'portal' ? 'Abriendo…' : 'Facturas, tarjeta y cambio de plan'}
                 </button>
-                <p style={{ fontSize: 13, color: '#8E8E86', margin: '10px 0 0' }}>
-                  Ahí puedes cambiar la tarjeta, descargar tus facturas o cambiar de plan.
-                </p>
+                <p className="mt-2 text-[12.5px] text-muted-foreground">Se abre el portal seguro de Stripe.</p>
               </>
             ) : (
-              <p style={{ fontSize: 14, color: '#8E8E86', margin: 0 }}>Solo la propietaria puede gestionar la facturación.</p>
+              <p className="mt-5 rounded-xl bg-muted px-4 py-3 text-[13.5px] text-muted-foreground">
+                Solo la propietaria puede gestionar la facturación.
+              </p>
             )}
-            <div style={{ marginTop: 20 }}>
-              <Link href="/dashboard" style={{ fontSize: 14, color: '#5A6142', textDecoration: 'none' }}>Volver al panel →</Link>
-            </div>
           </div>
         ) : (
+          /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, alignItems: 'stretch' }} className="susc-grid">
-              {PLANES.map((plan) => {
-                const info = PLAN_INFO[plan];
-                const destacado = plan === 'ESTUDIO';
-                return (
-                  <div
-                    key={plan}
-                    style={{
-                      background: destacado ? '#0F0F0F' : '#FFFFFF',
-                      color: destacado ? '#E8E8E4' : '#1A1A1A',
-                      border: destacado ? 'none' : '1px solid #E7E7E0',
-                      borderRadius: 22,
-                      padding: 30,
-                      position: 'relative',
-                      display: 'flex',
-                      flexDirection: 'column',
-                    }}
+            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} />
+
+            <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
+              {esPropietaria ? (
+                <>
+                  <button
+                    onClick={suscribir}
+                    disabled={accion !== null || !stripeListo}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                   >
-                    {destacado && (
-                      <div style={{ position: 'absolute', top: -12, left: 30, background: ACC, color: '#171717', fontSize: 11, fontWeight: 700, letterSpacing: '.06em', padding: '5px 12px', borderRadius: 999 }}>
-                        POPULAR
-                      </div>
-                    )}
-                    <div style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#F7A6C4' : '#8E8E86', marginBottom: 14 }}>{info.nombre}</div>
-                    <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: '-.03em' }}>
-                      {info.precioMes}€<span style={{ fontSize: 16, fontWeight: 500, color: '#8E8E86' }}>/mes</span>
-                    </div>
-                    <p style={{ fontSize: 13.5, color: destacado ? '#8E8E86' : '#5A5A52', margin: '6px 0 20px' }}>{info.resumen}</p>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', fontSize: 14.5, lineHeight: 1.9, color: destacado ? '#D8D8D2' : '#5A5A52', flex: 1 }}>
-                      {BULLETS[plan].map((b) => (
-                        <li key={b} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                          <span style={{ color: destacado ? ACC : '#5A6142', flexShrink: 0 }}>✓</span> {b}
-                        </li>
-                      ))}
-                    </ul>
-                    {esPropietaria ? (
-                      <button
-                        onClick={() => suscribir(plan)}
-                        disabled={accion !== null || !stripeListo}
-                        style={{
-                          ...btnPrimary,
-                          background: destacado ? ACC : '#0F0F0F',
-                          color: destacado ? '#171717' : '#FFFFFF',
-                          opacity: !stripeListo ? 0.5 : 1,
-                          cursor: !stripeListo || accion !== null ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        {accion === plan ? 'Redirigiendo…' : primeraVez ? `Probar ${info.nombre} gratis` : `Suscribirme a ${info.nombre}`}
-                      </button>
-                    ) : (
-                      <div style={{ fontSize: 13, color: '#8E8E86', textAlign: 'center' }}>Pídeselo a la propietaria</div>
-                    )}
-                  </div>
-                );
-              })}
+                    {accion === 'suscribir' && <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Continuar con ${PLAN_INFO[elegido].nombre} · ${PLAN_INFO[elegido].precioMes}€/mes`}
+                  </button>
+                  <p className="mt-2.5 text-center text-[12.5px] text-muted-foreground">
+                    {enPrueba
+                      ? `El cobro empieza hoy y tu prueba de ${TRIAL_DIAS} días se da por terminada. Puedes cancelar cuando quieras.`
+                      : 'Puedes cancelar cuando quieras desde esta misma pantalla.'}
+                  </p>
+                </>
+              ) : (
+                <p className="text-center text-[13.5px] text-muted-foreground">
+                  Solo la propietaria puede contratar el plan.
+                </p>
+              )}
             </div>
-            <p style={{ textAlign: 'center', fontSize: 13, color: '#8E8E86', marginTop: 28 }}>
-              Los pagos de tus socias van directos a tu cuenta de Stripe — Tentare no cobra comisión sobre ellos.
+
+            <section className="mt-9">
+              <h2 className="mb-3 text-[19px] font-extrabold tracking-tight text-foreground">Qué incluye cada plan</h2>
+              <ComparativaPlanes destacado={elegido} />
+            </section>
+
+            <p className="mt-6 text-center text-[12.5px] text-muted-foreground">
+              Los pagos de tus alumnas van directos a tu cuenta de Stripe — Tentare no cobra comisión sobre ellos.
             </p>
           </>
         )}
       </div>
-      <style>{`
-        @media (max-width: 820px) { .susc-grid { grid-template-columns: 1fr !important; } }
-      `}</style>
     </div>
   );
 }
-
-const btnPrimary: React.CSSProperties = {
-  width: '100%',
-  border: 'none',
-  borderRadius: 12,
-  padding: '13px 18px',
-  fontSize: 15,
-  fontWeight: 700,
-  cursor: 'pointer',
-  background: '#0F0F0F',
-  color: '#FFFFFF',
-};

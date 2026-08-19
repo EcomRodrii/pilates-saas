@@ -15,6 +15,9 @@ export function SeccionPrecio() {
         <div className="v5-pre-cabecera">
           <h2 id="v5-pre-h" className="v5-pre-h2">Precio público. Sin permanencia. Sin sorpresas.</h2>
           <p className="v5-pre-lead">Sustituciones incluidas desde el primer plan. Sin comisión sobre tus cobros.</p>
+          {/* La promesa que quita el freno, justo encima de los importes: es
+              donde se decide si se sigue leyendo o se cierra la pestaña. */}
+          <p className="v5-pre-prueba">7 días gratis · Sin tarjeta de crédito</p>
         </div>
         <div className="v5-pre-grid">
           {PLANS.map((plan) => (
@@ -43,6 +46,8 @@ export function SeccionPrecio() {
         .v5-pre-cabecera { text-align: center; margin-bottom: 44px; }
         .v5-pre-h2 { font-size: clamp(28px,4.6vw,50px); font-weight: 800; line-height: 1; letter-spacing: -.04em; margin: 0 0 14px; }
         .v5-pre-lead { font-size: 16px; font-weight: 500; color: #5A5A52; margin: 0; }
+        .v5-pre-prueba { display: inline-block; margin: 16px 0 0; padding: 7px 15px; border-radius: 999px;
+          background: #343825; color: #D9C29E; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
         .v5-pre-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; align-items: stretch; }
         .v5-pre-card { position: relative; background: #fff; border: 1px solid #E7E7E0; border-radius: 20px; padding: 32px; display: flex; flex-direction: column; }
         .v5-pre-card-dark { background: #131313; border: none; box-shadow: 0 40px 90px rgba(26,26,26,.3); }

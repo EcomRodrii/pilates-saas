@@ -105,6 +105,9 @@ export interface Studio {
   subscriptionId: string | null;
   subscriptionStatus: string | null;
   currentPeriodEnd: string | null;
+  /** Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). null = sin prueba
+   *  local. Lo fija un trigger de la BD al crear el estudio, nunca el cliente. */
+  trialEndsAt: string | null;
   // Política de reservas y cancelaciones (auditoría C-2/C-4).
   cancelacionVentanaHoras: number;
   cancelacionDevolverBonoTardia: boolean;

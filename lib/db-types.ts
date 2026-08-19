@@ -612,6 +612,9 @@ export interface RowStudios {
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
+  // migr 20260819103000. Fin de la prueba gratuita LOCAL de 7 días (sin
+  // tarjeta). Lo fija un trigger de la BD al crear el estudio, nunca el cliente.
+  trial_ends_at: string | null;
   kiosk_token: string | null;
   stripe_terminal_reader_id: string | null;
   stripe_terminal_location_id: string | null;

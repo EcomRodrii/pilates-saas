@@ -88,9 +88,10 @@ test.describe('Nada de jerga técnica en pantalla', () => {
 
   test('Suscripción sin pagos configurados: le decimos qué hacer, no qué claves poner', async ({ page }) => {
     await montar(page, '/suscripcion');
-    await expect(page.getByText(/Elige el plan de tu estudio|Tu estudio está activo/)).toBeVisible({ timeout: 30_000 });
+    // Titulares nuevos desde el rediseño de la pantalla (apertura al público).
+    await expect(page.getByText(/Elige tu plan|Tu suscripción|Tu prueba ha terminado/)).toBeVisible({ timeout: 30_000 });
 
-    const texto = await textoVisible(page, /Elige el plan de tu estudio|Tu estudio está activo/);
+    const texto = await textoVisible(page, /Elige tu plan|Tu suscripción|Tu prueba ha terminado/);
     for (const patron of JERGA) {
       expect(texto, `se coló jerga técnica: ${patron}`).not.toMatch(patron);
     }
