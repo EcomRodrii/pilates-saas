@@ -1706,11 +1706,15 @@ export default function ReservarPage() {
             ancla a la que salta el botón de la portada y el que usan los tests.
             Lo que desaparece con `soloPestana` son los botones de dentro. */}
         <div id="horario" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: cq(18, 3.4, 42), borderBottom: '1px solid rgba(34,38,31,.12)', marginTop: embedMode ? cq(16, 1.6, 20) : cq(28, 3.6, 46), overflowX: 'auto', padding: `0 ${cq(20, 3.8, 48)}` }}>
-          {/* Con `solo-pestana=1` se enseña únicamente la que pidió `?tab=`, sin
-              barra: quien incrusta «Horario y reserva de clases» no espera que
-              su visitante se vaya a «El estudio» dentro de un recuadro de su
-              propia web. */}
-          {(apariencia.soloPestana ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
+          {/* Un widget embebido es 1 propósito, no un portal en miniatura:
+              en `embedMode` se enseña SIEMPRE únicamente la pestaña que pidió
+              `?tab=`, sin barra — quien incrusta «Horario y reserva de
+              clases» no espera que su visitante se vaya a «El estudio»
+              dentro de un recuadro de su propia web. `solo-pestana=1` en la
+              URL sigue aceptándose (snippets ya pegados no cambian) pero ya
+              no hace falta: fuera de `embedMode` (la página completa
+              /reservar/[slug]) la barra se ve entera como siempre. */}
+          {((embedMode || apariencia.soloPestana) ? tabs.filter(([t]) => t === tab) : tabs).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               style={{
                 flex: '0 0 auto', padding: '0 2px 16px', marginBottom: -1, background: 'none', border: 'none', cursor: 'pointer',
@@ -1768,7 +1772,7 @@ export default function ReservarPage() {
               precio={plan?.precio ?? null}
               yaReservada={!!miReservaPorSesion.get(s.id)}
               onReservar={() => { setFichaSesionId(null); openBooking(s.id); }}
-              onVerMisReservas={() => { setFichaSesionId(null); setTab('misreservas'); }}
+              onVerMisReservas={embedMode ? undefined : () => { setFichaSesionId(null); setTab('misreservas'); }}
               onVerHorario={() => setFichaSesionId(null)}
             />
           );
@@ -1951,7 +1955,12 @@ export default function ReservarPage() {
                   <p style={{ fontFamily: serif, fontSize: 21, marginTop: 14, color: 'var(--portal-ink)' }}>
                     {misReservasTab === 'proximas' ? 'No tienes reservas próximas' : 'Aún no tienes reservas pasadas'}
                   </p>
-                  {misReservasTab === 'proximas' && (
+                  {/* Fuera de `embedMode` esto es la página completa (barra de
+                      pestañas visible) y saltar a «Clases» tiene sentido. En
+                      el widget embebido «Mis reservas» no existe una pestaña
+                      «Clases» a la que saltar — es un widget de un solo
+                      propósito, no el portal entero. */}
+                  {misReservasTab === 'proximas' && !embedMode && (
                     <button onClick={() => setTab('clases')} style={{
                       marginTop: 16, height: 42, padding: '0 20px', borderRadius: 999, border: 'none', cursor: 'pointer',
                       background: PRIMARY, color: PRIMARY_FG, fontFamily: sans, fontWeight: 700, fontSize: 13,
@@ -2138,13 +2147,19 @@ export default function ReservarPage() {
               </div>
             </>)}
 
-            <button type="button" onClick={() => setTab('clases')} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 320,
-              height: 50, marginTop: 38, borderRadius: R.pillBtnMd, border: 'none',
-              background: PRIMARY, color: PRIMARY_FG, fontFamily: sans, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-            }}>
-              Ver horario y reservar
-            </button>
+            {/* Igual que en «Mis reservas»: fuera de `embedMode` saltar a
+                «Clases» tiene sentido (misma página, otra pestaña). El widget
+                embebido «El estudio» es solo la ficha pública — no lleva a
+                otro widget. */}
+            {!embedMode && (
+              <button type="button" onClick={() => setTab('clases')} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: 320,
+                height: 50, marginTop: 38, borderRadius: R.pillBtnMd, border: 'none',
+                background: PRIMARY, color: PRIMARY_FG, fontFamily: sans, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+              }}>
+                Ver horario y reservar
+              </button>
+            )}
           </div>
         )}
 

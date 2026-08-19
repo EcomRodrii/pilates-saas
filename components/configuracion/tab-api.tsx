@@ -20,6 +20,11 @@ import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-we
 // grandes) y abierta directamente en una de sus pestañas reales (?tab=…).
 // Cero backend nuevo, cero maqueta: es la reserva, el calendario, "Mis
 // reservas" y la ficha del estudio de siempre — solo cambia dónde se pintan.
+// ⚠️ 1 widget = 1 propósito: en `?embed=1`, app/reservar/[slug]/page.tsx
+// oculta SIEMPRE la barra de las otras cuatro pestañas y las salidas
+// internas que saltaban de sección (antes eran opt-in vía `solo-pestana=1`,
+// hoy es el comportamiento fijo) — quien incrusta "Mis reservas" no quiere
+// que su visitante acabe en "El estudio" dentro del mismo recuadro.
 // A propósito NO hay widget de vídeos ni de comunidad (ambos módulos están
 // congelados, ver lib/frozen-features.ts) ni de tarjetas regalo (no existe
 // esa función en el producto) — un widget que no hace nada de verdad es
@@ -188,11 +193,6 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // Compacto (480px, pensado para una barra lateral) vs ancho completo (100%
   // del contenedor anfitrión) — antes venía fijo a 480px sin más opción.
   const [anchoCompleto, setAnchoCompleto] = useState(false);
-  // Fase 7 "Widget Experience Builder": `solo-pestana=1` ya existe y ya lo
-  // respeta app/reservar/[slug]/page.tsx — solo faltaba un checkbox aquí para
-  // activarlo sin editar el HTML a mano. Nace en `false` para no cambiar
-  // ningún snippet ya pegado en una web real.
-  const [soloEstaPestana, setSoloEstaPestana] = useState(false);
   const widget = WIDGETS.find(w => w.id === activo)!;
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -219,8 +219,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
 
   const maxWidth = anchoCompleto ? '100%' : '480px';
   const sesionQuery = widget.requiereSesion && sesionElegida ? `&sesion=${encodeURIComponent(sesionElegida)}` : '';
-  const soloPestanaQuery = widget.modo !== 'script' && soloEstaPestana ? '&solo-pestana=1' : '';
-  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}${soloPestanaQuery}`;
+  const src = `${origen}/reservar/${slug}?embed=1&tab=${widget.tabParam}${sesionQuery}`;
   // Id único por widget (no solo por estudio): una web puede embeber varios
   // widgets del mismo estudio a la vez (clases + citas), y el listener de
   // abajo necesita distinguir qué iframe redimensionar. Para "Reserva esta
@@ -367,38 +366,6 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
         >
           Ancho completo
         </button>
-      </div>
-      )}
-      {widget.modo !== 'script' && (
-      <div className="mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] text-muted-foreground">Pestañas:</span>
-          <button
-            onClick={() => setSoloEstaPestana(false)}
-            className={cn(
-              'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
-              !soloEstaPestana ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-            )}
-          >
-            Todas
-          </button>
-          <button
-            onClick={() => setSoloEstaPestana(true)}
-            className={cn(
-              'px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors',
-              soloEstaPestana ? 'border-brand bg-brand/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted',
-            )}
-          >
-            Solo esta pestaña
-          </button>
-        </div>
-        {soloEstaPestana && (
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            Enseña solo esta pestaña, sin las otras cuatro — para cuando el
-            widget va dentro de una sección de tu web y no quieres que la
-            visitante se vaya a Mi cuenta sin querer.
-          </p>
-        )}
       </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
