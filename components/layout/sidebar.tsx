@@ -16,6 +16,7 @@ import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
+import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -294,6 +295,11 @@ export function Sidebar() {
         style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
       >
         <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={30} />
+        {/* La píldora de la prueba también en móvil. `ml-auto` y no un
+            `justify-between` en el contenedor: la píldora no se pinta si el
+            estudio no está en prueba, y con justify-between el logo se
+            quedaría centrado a veces y a la izquierda otras. */}
+        <PildoraPrueba className="ml-auto" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}

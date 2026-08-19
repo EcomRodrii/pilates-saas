@@ -44,6 +44,12 @@ const SPECS_WEBKIT = [
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/network-marketplace-publico.spec.ts',
+  // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
+  // sufre un fallo es alguien de fuera —una propietaria que todavía no es
+  // clienta y que, si el formulario no le funciona, no llama: se va a otra
+  // plataforma y no nos enteramos. Además llega casi siempre desde el móvil
+  // (un enlace de Instagram, un WhatsApp), o sea Safari de iPhone.
+  '**/alta-estudio.spec.ts',
 ];
 
 export default defineConfig({

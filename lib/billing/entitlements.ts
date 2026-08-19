@@ -2,15 +2,20 @@
 // Entitlements: qué puede hacer un estudio según su PLAN de suscripción del SaaS.
 // Fuente de verdad única, sin React ni Supabase (testeable).
 //
-// Modelo de negocio: prueba gratuita de TRIAL_DIAS días (con tarjeta, vía Stripe
-// Checkout) en la PRIMERA suscripción del estudio; después se cobra. Un estudio
-// sin suscripción activa NI en prueba no tiene acceso al producto (accesoProducto()).
+// Modelo de negocio: prueba gratuita de TRIAL_DIAS días SIN TARJETA, que arranca
+// al crear el estudio (no en Stripe — ver lib/billing/trial.ts); después se
+// elige plan y se cobra. Un estudio sin suscripción activa NI en prueba no tiene
+// acceso al producto (accesoProducto()).
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { TRIAL_DIAS } from './trial.ts';
 
 export type Plan = 'BASE' | 'ESTUDIO' | 'CADENA';
 
-/** Días de prueba gratuita de la primera suscripción del estudio al SaaS. */
-export const TRIAL_DIAS = 14;
+// Re-exportado para no partir en dos el sitio desde el que se importa: la
+// definición vive junto al resto de la lógica de la prueba, pero quien ya
+// pedía `TRIAL_DIAS` a este módulo lo sigue teniendo aquí.
+export { TRIAL_DIAS };
 
 export interface Entitlements {
   /** Tope de socias activas. Infinity = ilimitado. */
@@ -53,7 +58,20 @@ export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resume
 
 export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
 
-/** Estados de suscripción de Stripe que dan acceso al producto. */
+/**
+ * Estados de suscripción que dan acceso al producto.
+ *
+ * ⚠️ 'trialing' cubre DOS cosas desde que la prueba es local y sin tarjeta: la
+ * prueba de Stripe (la cierra Stripe) y la nuestra (no la cierra nadie solo).
+ * Aquí las dos pasan a propósito — quien tiene que distinguirlas es
+ * `estadoTrial()` (lib/billing/trial.ts), que compara contra `trial_ends_at`.
+ * Esta función no puede hacerlo: recibe un string, no el estudio.
+ *
+ * Por eso el gate de verdad (`/api/billing/status`) deriva el vencimiento en
+ * vivo en cada petición, y el barrido `cerrar_pruebas_vencidas()` deja la
+ * columna en 'trial_expirado' —que NO está en esta lista— para que el resto de
+ * consumidores vean la verdad sin tener que derivar nada.
+ */
 export function suscripcionActiva(status: string | null | undefined): boolean {
   // 'past_due': Stripe reintenta el cobro; damos periodo de gracia corto para no
   // cortar el servicio por un fallo puntual de tarjeta.

@@ -9,6 +9,7 @@ import { resolverBloques, type BloqueHome, type PantallaId, conFijos, PANTALLA_I
 import { mensajeSeguro, mensajeHttp, type ResultadoEscritura } from '@/lib/errores';
 import { leerAvisoCobro, type CobroAprobado } from '@/lib/billing/resultado-cobro';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
+import type { FaseTrial } from '@/lib/billing/trial';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -897,6 +898,10 @@ export interface EstadoBilling {
   // Fin del periodo facturado = fecha del próximo cobro (ISO). Fuera de la
   // prueba es lo que la dueña quiere ver: cuándo se le pasa el recibo.
   periodoTermina?: string | null;
+  /** Estado de la prueba ya derivado EN SERVIDOR. La píldora del panel lo pinta
+   *  tal cual: si contara los días con el reloj del navegador, un portátil con
+   *  la hora desfasada enseñaría una cuenta atrás distinta a la real. */
+  trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve

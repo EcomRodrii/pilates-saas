@@ -828,6 +828,12 @@ export interface RowStudios {
   klaviyo_account_name: string | null;
   // migr 20260814140800.
   widget_dominios_autorizados: string[] | null;
+  // migr 20260819110611. Fin de la prueba gratuita LOCAL de 7 días (sin
+  // tarjeta). La fija el trigger `trg_arrancar_prueba_gratuita` al crear el
+  // estudio, NUNCA el cliente. NULL = sin prueba local (los estudios
+  // anteriores a la apertura al público), que no es lo mismo que una prueba
+  // agotada — ver `estadoTrial()` en lib/billing/trial.ts.
+  trial_ends_at: string | null;
 }
 
 export interface RowSuscripciones {

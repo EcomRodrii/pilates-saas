@@ -140,8 +140,12 @@ export default function LoginPage() {
       // sesión. Los datos viajan en la metadata del usuario (no localStorage),
       // así que esto funciona aunque el email se confirme desde otro
       // dispositivo distinto al que hizo el alta.
+      // `plan` desde que el alta pública deja elegirlo (es el que se disfruta
+      // durante la prueba). `ciudad`/`telefono` son opcionales: el alta nueva
+      // ya no pide teléfono, pero las metadatas escritas por la versión
+      // anterior siguen llegando con él hasta que se consuman.
       const pending = user.user_metadata?.pending_studio as
-        | { nombre: string; ciudad: string; telefono: string; comoNosConocio?: string }
+        | { nombre: string; ciudad?: string; telefono?: string; comoNosConocio?: string; plan?: 'BASE' | 'ESTUDIO' | 'CADENA' }
         | undefined;
       if (pending) {
         const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
