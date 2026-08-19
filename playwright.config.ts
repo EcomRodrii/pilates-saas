@@ -60,9 +60,18 @@ export default defineConfig({
   // Los runners de GitHub tienen 4 vCPU y Playwright, por defecto, usa la
   // MITAD (medido: "Running 59 tests using 2 workers"). Sirviendo desde el
   // build ya no hay compilación que sature la CPU — el servidor solo entrega
-  // páginas ya construidas — así que caben los 4. En local se deja el
-  // automático para no acaparar la máquina mientras se programa.
-  workers: process.env.CI ? 4 : undefined,
+  // páginas ya construidas — así que en teoría caben los 4.
+  //
+  // ⚠️ En la práctica, 4 workers en 4 vCPU no dejaban NINGÚN núcleo libre para
+  // el propio `next start` (webServer) contra el que pegan los 4 a la vez —
+  // el servidor competía por CPU con quien lo estaba probando. Bajo esa
+  // saturación, una navegación o transición de estado que normalmente es
+  // instantánea podía superar hasta el timeout de TEST completo (30s), no
+  // solo el de un `expect` — visto en shards y specs distintos sin relación
+  // entre sí (WebKit y Chromium, `alta-estudio`, `portal-bonos-compras`,
+  // `portal-clase-detalle-cancelar-recuperacion`), así que no era un bug de
+  // ninguno de esos tests. A 3 le queda un núcleo libre para el servidor.
+  workers: process.env.CI ? 3 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: BASE_URL,
