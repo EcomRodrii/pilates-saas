@@ -17,6 +17,7 @@ import {
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { localDayKey } from '@/lib/reserva-calendario-logic';
+import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { RejillaSemana } from '@/components/reserva/rejilla-semana';
@@ -1462,6 +1463,19 @@ export default function ReservarPage() {
   // de «hasta 12 h» a «hasta 24 h, según la clase» depende de una tabla de
   // casos (heredan / no heredan / coinciden / ninguna tiene plazo) que no se
   // puede comprobar a ojo mirando una sola pantalla.
+  // ⚠️ NO quitar: es el aviso honesto de cancelación/antelación por TIPO DE
+  // CLASE, no del estudio a secas — sin esto, un estudio con el Reformer a
+  // 24h pero el estudio a 12h prometía 12 y alguien cancelaba tarde creyendo
+  // que llegaba (e2e/reservar-ventana-por-tipo.spec.ts lo vigila).
+  const reglasEstudio = {
+    cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
+    reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
+    reservaAntelacionMaximaDias: studio?.reservaAntelacionMaximaDias ?? null,
+  };
+  const plazoCancelacion = frasePlazoCancelacion(reglasEstudio, tiposClase);
+  const antelacionMinima = fraseAntelacionMinima(reglasEstudio, tiposClase);
+  const antelacionMaxima = fraseAntelacionMaxima(reglasEstudio, tiposClase);
+
   const tabsTodas = [['clases', 'Clases'], ['citas', 'Citas'], ['misreservas', 'Mis reservas'], ['estudio', 'El estudio'], ['cuenta', 'Mi cuenta']] as const;
   const tabs = tabsTodas.filter(([t]) => tabHabilitada(t));
 
@@ -2079,11 +2093,6 @@ export default function ReservarPage() {
                   esta columna tiene que ser lo que se USA, no lo que se lee una
                   vez. Se pinta solo si algún filtro tiene de verdad más de una
                   opción (ver RailFiltros). */}
-              {/* «Cómo funciona» vivía aquí — quitado del todo (Fase 4 del
-                  rediseño, docs/widget-reservas-fase4-brief-diseno.md): el
-                  handoff no tiene esa tarjeta, y con los chips de tipo ya en
-                  línea arriba, este rail se queda solo con lo que SÍ filtra
-                  de verdad (instructora/nivel/horario/sala). */}
               <RailFiltros
                 clases={slotsParaFiltros}
                 estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
@@ -2105,6 +2114,30 @@ export default function ReservarPage() {
                 horarioDe={(c) => (c as { horario?: string | null }).horario ?? null}
                 fontFamily={sans}
               />
+
+              {/* Restaurado tras romper e2e/reservar-ventana-por-tipo.spec.ts:
+                  no es solo copy decorativa, es el aviso honesto de
+                  cancelación/antelación por TIPO DE CLASE (frasePlazoCancelacion
+                  y compañía, lib/reservar/promesas.ts) — quitarlo del todo por
+                  no estar en el handoff habría reabierto un bug ya cerrado. */}
+              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
+                <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
+                {[
+                  'Elige el día y la clase.',
+                  ...(antelacionMinima ? [antelacionMinima] : ['Reserva tu plaza en la sala.']),
+                  plazoCancelacion,
+                ].map((paso, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 14, marginTop: i === 0 ? 18 : 12 }}>
+                    <span style={{ fontFamily: serif, fontSize: 18, color: 'var(--portal-accent)', lineHeight: 1.2 }}>{i + 1}</span>
+                    <span style={{ fontSize: 12, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>{paso}</span>
+                  </div>
+                ))}
+                {antelacionMaxima && (
+                  <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--portal-line)' }}>
+                    {antelacionMaxima}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
