@@ -21,6 +21,7 @@ export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'resumen', label: 'Hoy de un vistazo' },
   { id: 'automatizaciones', label: 'Resumen de automatizaciones' },
   { id: 'ingresos', label: 'Ingresos del mes' },
+  { id: 'crecimiento', label: 'Crecimiento web (embudo del widget)' },
   { id: 'kpis', label: 'Indicadores (KPIs)' },
   { id: 'graficos', label: 'Gráficas personalizadas' },
   { id: 'principal', label: 'Clases, pagos y actividad' },

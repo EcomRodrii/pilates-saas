@@ -35,6 +35,7 @@ import { NoPuedoAsistirDialog } from '@/components/calendario/no-puedo-asistir-d
 import { DevolucionesPendientes } from '@/components/dashboard/devoluciones-pendientes';
 import { PenalizacionesPendientes } from '@/components/dashboard/penalizaciones-pendientes';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
+import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -995,6 +996,13 @@ export default function Dashboard() {
         </Card>
         </div>
         )}
+
+        {/* ── Crecimiento web (embudo del widget) ─────────────────────────────── */}
+        {/* Se pinta sola (EmbudoWidgetCard devuelve null sin rol o sin visitas
+            este mes) — mismo criterio que Ingresos, gateado dentro del
+            componente porque el rol que aplica aquí es puedeGestionarPortalHome
+            (marketing/captación), no puedeVerFinanzas. */}
+        <div {...wrap('crecimiento')}><EmbudoWidgetCard /></div>
 
         {/* ── KPI row ────────────────────────────────────────────────────────── */}
         <div {...wrap('kpis')}>
