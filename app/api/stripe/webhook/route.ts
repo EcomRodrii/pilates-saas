@@ -707,6 +707,12 @@ async function procesarEvento(
               level: 'error',
               extra: { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
             });
+            // I-3 (auditoría 19-ago): además de la alerta de Sentry, avisa al
+            // mostrador dentro del propio panel — Sentry lo ve el equipo
+            // técnico, esto lo ve quien puede llamar a la socia hoy mismo.
+            // Best-effort: que falle este aviso no debe tumbar el webhook.
+            const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+            await emitirReservaPagadaSinPlaza(admin, { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
           }
         } catch (e) {
           Sentry.captureException(e, { extra: { contexto: 'reservarPlazaTrasPagoPublico', studioId, sesionId: pi.metadata.sesionId, paymentIntentId: pi.id } });

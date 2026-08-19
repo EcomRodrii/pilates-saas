@@ -194,6 +194,31 @@ export async function emitirReservaPendienteAprobacion(
   }
 }
 
+// I-3: pagado por el checkout embebido pero la clase concreta no se pudo
+// reservar (aforo lleno/cancelada entre crear el PaymentIntent y confirmar
+// el pago) — avisa al mostrador para que lo resuelva a mano con la socia.
+export async function emitirReservaPagadaSinPlaza(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.RESERVA_PAGADA_SIN_PLAZA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, socia },
+      resource: { type: 'sesion', id: p.sesionId },
+      // Sin dedup por paymentIntentId a propósito: si el webhook reintenta el
+      // MISMO evento no debe duplicarse, y no hay más de un pago por
+      // (sesión, socia) en este camino — reservarPlazaTrasPagoPublico ya lo
+      // impide (mismo criterio que emitirReservaPendienteAprobacion).
+      dedupKey: `reserva-pagada-sin-plaza:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirReservaPagadaSinPlaza:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Plaza liberada: a la socia promovida de la lista de espera.
 export async function emitirPlazaLiberada(
   admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },

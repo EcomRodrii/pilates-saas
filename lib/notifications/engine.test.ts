@@ -121,6 +121,19 @@ test('red.candidatura_recibida: plantilla para PROPIETARIO y MANAGER (gerencia),
   assert.equal(pl.deepLink!({ vacanteId: 'redvac-1' }), '/network/vacantes/redvac-1');
 });
 
+test('reserva.pagada_sin_plaza (I-3): ALTA + PUSH al mostrador, con plantilla en sus tres roles', () => {
+  const r = REGLAS[EVENTOS.RESERVA_PAGADA_SIN_PLAZA];
+  assert.equal(r.priority, 'ALTA');
+  assert.deepEqual(r.canales, ['PUSH']);
+  assert.equal(r.audiencia, 'mostrador');
+  for (const rol of ROLES_POR_AUDIENCIA[r.audiencia]) {
+    assert.ok(plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, rol), `falta plantilla reserva.pagada_sin_plaza#${rol}`);
+  }
+  const pl = plantillaDe(EVENTOS.RESERVA_PAGADA_SIN_PLAZA, 'PROPIETARIO')!;
+  assert.match(render(pl.body, { socia: 'María', clase: 'Reformer', cuando: 'hoy a las 18:00' }), /María.*Reformer.*hoy a las 18:00/);
+  assert.equal(pl.deepLink!({ sesionId: 'ses1' }), '/calendario?sesion=ses1');
+});
+
 test('red.vacante_encaja: solo PUSH (único push no solicitado de Network), plantilla INSTRUCTOR', () => {
   const regla = REGLAS[EVENTOS.RED_VACANTE_ENCAJA];
   assert.deepEqual(regla.canales, ['PUSH']);
