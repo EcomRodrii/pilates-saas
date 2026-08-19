@@ -1951,15 +1951,23 @@ export async function aceptarOfertaListaEspera(params: {
 // criterio que expirarReservaPendiente.
 export async function expirarOfertaListaEspera(params: {
   studioId: string; reservaId: string; sesionId: string; socioId: string;
-}): Promise<void> {
+  // Devuelve si la oferta se expiró DE VERDAD. Antes era `Promise<void>` y el
+  // fallo de la RPC se quedaba en un `console.error`: el barrido que la llama
+  // (cada 5 minutos) contaba esa oferta como expirada, devolvía 200 y nadie se
+  // enteraba nunca de que la plaza seguía bloqueada y la siguiente de la cola
+  // no la recibía jamás.
+}): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId
   });
   if (error) {
-    console.error('[expirarOfertaListaEspera]', error.message);
-    return;
+    capturarExcepcion(error, {
+      tags: { contexto: 'expirarOfertaListaEspera' },
+      extra: { studioId: params.studioId, reservaId: params.reservaId, sesionId: params.sesionId },
+    });
+    return false;
   }
   const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
   await emitirReservaCancelada(admin, {
@@ -1975,6 +1983,7 @@ export async function expirarOfertaListaEspera(params: {
       socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string
     });
   }
+  return true;
 }
 
 // Fase 2c: cancela una sesión completa porque no alcanzó el mínimo de

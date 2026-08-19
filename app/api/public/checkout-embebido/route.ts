@@ -6,6 +6,9 @@ import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
+import { verificarUsuarioSupabase } from '@/lib/auth-server';
+import { socioAutenticado } from '@/lib/db/supabase-data-admin';
+import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -24,10 +27,9 @@ export async function OPTIONS(req: NextRequest) {
   return respuestaPreflightWidget(req);
 }
 
-/** Ventana de un minuto para la clave de idempotencia — ver §1/§9.4 del diseño. */
-function ventanaMinuto(): number {
-  return Math.floor(Date.now() / 60000);
-}
+// La clave de idempotencia vive en lib/billing/clave-checkout-embebido.ts —
+// tiene su propia batería de tests, porque decide si dos intentos de pago son
+// "el mismo" y eso es dinero.
 
 export async function POST(req: NextRequest) {
   // Bucket dedicado, no 'stripe-checkout': un checkout embebido tiene más idas
@@ -74,6 +76,16 @@ export async function POST(req: NextRequest) {
   if (!body.planId) {
     return conCorsWidget(req, NextResponse.json({ error: 'Falta el plan a comprar' }, { status: 400 }));
   }
+  // El email se valida AQUÍ, antes de que llegue a ningún sitio: sin socioId,
+  // `entregarPlanComprado` busca la ficha con `.ilike('email', compra.email)`,
+  // y en PostgREST `%` y `_` de `ilike` son COMODINES. Un `socioEmail` con
+  // comodines que emparejara una sola fila haría que el bono —y con él la
+  // tarjeta guardada— se asociaran a una socia ajena sin conocer su id. Mismo
+  // patrón de validación que public/interes-lanzamiento y migracion-concierge.
+  const EMAIL_RE = /^[^\s@%_]+@[^\s@%_]+\.[^\s@%_]+$/;
+  if (body.socioEmail != null && !EMAIL_RE.test(body.socioEmail.trim())) {
+    return conCorsWidget(req, NextResponse.json({ error: 'Email no válido' }, { status: 400 }));
+  }
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
@@ -90,7 +102,36 @@ export async function POST(req: NextRequest) {
     return conCorsWidget(req, NextResponse.json({ error: 'Ese plan ya no está disponible' }, { status: 409 }));
   }
 
-  const socioId = body.socioId ?? null;
+  // ⚠️ El `socioId` NUNCA se toma del body.
+  //
+  // Antes era `body.socioId ?? null` sin comprobar nada: era el único endpoint
+  // de app/api/public/** con service role que no derivaba la identidad del JWT.
+  // Ese valor viaja por `metadata` hasta `entregarPlanComprado`, que lo usa tal
+  // cual para insertar `suscripciones` y `recibos`, y hasta el webhook, que
+  // escribe `stripe_customer_id`/`stripe_payment_method_id` sobre esa fila. Y
+  // `suscripciones_socio_id_fkey` es una FK SIMPLE a `socios(id)`, no compuesta
+  // con `studio_id` (verificado en producción), así que la BD tampoco lo
+  // impedía. Resultado: pagando con tarjeta propia se podía escribir bono,
+  // recibo y suscripción a nombre de otra socia —incluso de OTRO estudio— y,
+  // peor, sobrescribir el método de pago guardado de una socia ajena, con lo
+  // que los cobros off-session posteriores irían a la tarjeta del atacante.
+  //
+  // Los dos llamantes reales siguen funcionando igual:
+  //  - widget con sesión (lib/widget/usar-datos-widget.ts → postPublicoWidget)
+  //    manda el Bearer del portal, así que el socioId se deriva del token;
+  //  - "pagar y reservar sin login" (app/reservar/[slug]/page.tsx) no manda
+  //    socioId, solo email + sesionId → camino de invitada, intacto.
+  let socioId: string | null = null;
+  if (body.socioId) {
+    const usuario = await verificarUsuarioSupabase(req);
+    if (!usuario) {
+      return conCorsWidget(req, NextResponse.json({ error: 'Inicia sesión para comprar.' }, { status: 401 }));
+    }
+    socioId = await socioAutenticado(usuario.userId, body.studioId);
+    if (!socioId) {
+      return conCorsWidget(req, NextResponse.json({ error: 'No autorizado' }, { status: 403 }));
+    }
+  }
   // Comprar un plan sin ficha: decide el estudio (0110). En EXIGIR_REGISTRO no
   // se cobra a quien no se ha registrado — sin ficha no hay contrato aceptado,
   // así que cobrar antes sería cobrar sin consentimiento.
@@ -193,8 +234,14 @@ export async function POST(req: NextRequest) {
       stripeAccount: studio.stripe_account_id,
       // Mejora respecto al camino existente (Checkout Session no la lleva):
       // dos pestañas del mismo intento legítimo no generan dos PaymentIntents
-      // cobrables — ver §1/§9.4 del diseño.
-      idempotencyKey: `checkout-embebido-${body.studioId}-${body.planId}-${socioId ?? 'guest'}-${ventanaMinuto()}`,
+      // cobrables — ver §1/§9.4 del diseño y `claveIdempotencia` arriba.
+      idempotencyKey: claveCheckoutEmbebido({
+        studioId: body.studioId,
+        planId: body.planId,
+        socioId,
+        socioEmail: body.socioEmail ?? null,
+        sesionId: body.sesionId ?? null,
+      }),
     });
 
     return conCorsWidget(req, NextResponse.json({ clientSecret: paymentIntent.client_secret }));

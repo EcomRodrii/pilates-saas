@@ -1335,7 +1335,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // que un DELETE no puede cumplir. El mecanismo correcto ya existe
     // (`activo`): degradar a desactivación cuando esté contratada, en vez de
     // intentar un borrado que la propia BD va a rechazar.
-    const contratada = suscripciones.some(s => s.planId === id && s.estado === 'ACTIVA');
+    //
+    // ⚠️ El guardia mira CUALQUIER suscripción, de cualquier estado, no solo
+    // las ACTIVAS. `suscripciones_plan_id_fkey` es RESTRICT y las bajas NO se
+    // borran: se quedan como CANCELADA/EXPIRADA/PAUSADA apuntando al plan (ver
+    // dbCancelarSuscripcion). Con el filtro `estado === 'ACTIVA'`, un plan que
+    // solo tuvo socias ya dadas de baja se saltaba el archivado, caía al DELETE
+    // duro y la BD lo rechazaba con 23503: la propietaria veía "no se ha podido
+    // eliminar" sin ninguna explicación y el plan seguía en el catálogo. La
+    // suite no lo ve porque `page.route` nunca devuelve el 4xx real de la RPC.
+    const contratada = suscripciones.some(s => s.planId === id);
     if (contratada) {
       const res = await dbUpdatePlanTarifa(id, { activo: false });
       if (!res.ok) return res;
