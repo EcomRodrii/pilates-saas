@@ -201,6 +201,82 @@ export async function POST(req: NextRequest) {
   if (!studio?.stripe_account_id) {
     return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
   }
+  const stripeAccount = studio.stripe_account_id;
+  // Base de idempotencia de ESTE intento — la reutiliza el PaymentIntent de
+  // abajo. La creación del Customer usa un sufijo propio: Stripe scopea las
+  // claves de idempotencia por cuenta y comprueba que los parámetros
+  // coincidan, así que compartir la MISMA clave entre dos llamadas con forma
+  // distinta (customers.create vs paymentIntents.create) rompería en el
+  // segundo reintento legítimo del mismo intento.
+  const idemKey = claveCheckoutEmbebido({
+    studioId: body.studioId, planId: body.planId, socioId,
+    socioEmail: body.socioEmail ?? null, sesionId: body.sesionId ?? null,
+  });
+
+  // I-2 (auditoría 19-ago): el PaymentIntent se creaba con
+  // `setup_future_usage: 'off_session'` pero SIN `customer` — Stripe crea el
+  // Customer automáticamente en una Checkout Session, pero NO en un
+  // PaymentIntent suelto como este. El webhook (`stripe webhook, rama
+  // plan_web_embebido`) solo guarda la tarjeta si `typeof pi.customer ===
+  // 'string'`, así que nunca guardaba nada: toda socia captada por este
+  // camino se quedaba sin método de pago reutilizable, y "Cobrar online" y
+  // las renovaciones automáticas fallaban después con "no tiene tarjeta ni
+  // mandato SEPA". Mismo patrón que ya usa app/api/stripe/setup-tarjeta —
+  // reutilizar el Customer si la socia ya tiene uno, crearlo si no.
+  //
+  // Fail-open a propósito: esto es una tarjeta GUARDABLE, no el cobro en sí.
+  // Que Stripe falle al crear el Customer no debe bloquear el pago — se
+  // pierde la posibilidad de guardar la tarjeta esta vez, no el cobro.
+  let customerId: string | null = null;
+  if (socioId) {
+    const { data: socio } = await admin
+      .from('socios').select('nombre, email, stripe_customer_id')
+      .eq('id', socioId).eq('studio_id', body.studioId).maybeSingle();
+    customerId = (socio?.stripe_customer_id as string | null) ?? null;
+    if (!customerId) {
+      try {
+        const customer = await stripe.customers.create(
+          {
+            name: (socio?.nombre as string | null) ?? undefined,
+            email: (socio?.email as string | null) ?? body.socioEmail ?? undefined,
+            metadata: { socioId, studioId: body.studioId },
+          },
+          { stripeAccount, idempotencyKey: `${idemKey}:customer` },
+        );
+        customerId = customer.id;
+        const { error: updErr } = await admin
+          .from('socios').update({ stripe_customer_id: customerId })
+          .eq('id', socioId).eq('studio_id', body.studioId);
+        // Si no se persiste, un Customer que no sabemos que existe se
+        // duplicaría en el siguiente intento — mismo motivo que setup-tarjeta
+        // aborta aquí en vez de seguir con un id que se va a perder.
+        if (updErr) {
+          console.error('[checkout-embebido] no se pudo guardar el customer', updErr);
+          customerId = null;
+        }
+      } catch (e) {
+        console.error('[checkout-embebido] no se pudo crear el customer de Stripe', e);
+        customerId = null;
+      }
+    }
+  } else if (body.socioEmail) {
+    // Camino de invitada (sin socioId todavía: la ficha la crea
+    // entregarPlanComprado DESPUÉS del pago). No hay fila `socios` donde
+    // persistir nada aquí — se crea el Customer igualmente y viaja en el
+    // PaymentIntent; el webhook ya escribe `stripe_customer_id: pi.customer`
+    // sobre la socia recién creada en la rama de guardado de tarjeta, así
+    // que con `customer` presente en el PI ese camino empieza a funcionar
+    // solo, sin tocar el webhook.
+    try {
+      const customer = await stripe.customers.create(
+        { name: body.socioNombre, email: body.socioEmail, metadata: { socioEmail: body.socioEmail, studioId: body.studioId } },
+        { stripeAccount, idempotencyKey: `${idemKey}:customer` },
+      );
+      customerId = customer.id;
+    } catch (e) {
+      console.error('[checkout-embebido] no se pudo crear el customer de Stripe (invitada)', e);
+    }
+  }
 
   const amountCentimos = Math.round(importe * 100);
   const fee = applicationFeeAmount(amountCentimos);
@@ -232,22 +308,17 @@ export async function POST(req: NextRequest) {
       // menos fricción.
       automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       setup_future_usage: 'off_session',
+      ...(customerId ? { customer: customerId } : {}),
       receipt_email: body.socioEmail ?? undefined,
       description: plan.nombre,
       ...(fee !== undefined ? { application_fee_amount: fee } : {}),
       metadata,
     }, {
-      stripeAccount: studio.stripe_account_id,
+      stripeAccount,
       // Mejora respecto al camino existente (Checkout Session no la lleva):
       // dos pestañas del mismo intento legítimo no generan dos PaymentIntents
       // cobrables — ver §1/§9.4 del diseño y `claveIdempotencia` arriba.
-      idempotencyKey: claveCheckoutEmbebido({
-        studioId: body.studioId,
-        planId: body.planId,
-        socioId,
-        socioEmail: body.socioEmail ?? null,
-        sesionId: body.sesionId ?? null,
-      }),
+      idempotencyKey: idemKey,
     });
 
     return conCorsWidget(req, NextResponse.json({ clientSecret: paymentIntent.client_secret }));
