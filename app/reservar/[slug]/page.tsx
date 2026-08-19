@@ -1701,10 +1701,13 @@ export default function ReservarPage() {
                 )}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--success)' }} />
-              {socia ? socia.email : 'Reserva sin registro'}
-            </div>
+            {/* El prototipo no lleva esta píldora en la cabecera de "El estudio". */}
+            {tab !== 'estudio' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--success)' }} />
+                {socia ? socia.email : 'Reserva sin registro'}
+              </div>
+            )}
           </div>
         )}
 
