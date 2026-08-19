@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
-import { CANALES } from './channels.ts';
+import { CANALES, type ResultadoCanal } from './channels.ts';
 import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
@@ -130,7 +130,7 @@ async function entregarCanales(
     const deliveryId = await reclamarODejarConstancia(admin, fila.id, fila.studioId, ch);
     if (!deliveryId) continue;
 
-    let res: { status: 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED'; error?: string; providerId?: string };
+    let res: ResultadoCanal;
     try {
       const canal = CANALES[ch];
       res = canal
