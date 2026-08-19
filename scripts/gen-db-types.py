@@ -119,6 +119,11 @@ NOTAS_MANUALES = {
         "`text[] not null default '{}'` — pero se declara nullable aquí porque una "
         'fila leída con un `select` que no la pida llega sin ella, y el mapper ya lo tolera.',
     ('sustituciones', 'candidatos_network'): 'Sugerencia sin puntuar, aparte de `ranking`.',
+    ('studios', 'trial_ends_at'):
+        'Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). La fija el trigger '
+        '`trg_arrancar_prueba_gratuita` al crear el estudio, NUNCA el cliente. NULL = '
+        'sin prueba local (los estudios anteriores a la apertura al público), que no '
+        'es lo mismo que una prueba agotada — ver `estadoTrial()` en lib/billing/trial.ts.',
 }
 
 def envolver(texto, ancho=76):
