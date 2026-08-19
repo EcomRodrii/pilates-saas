@@ -96,6 +96,15 @@ export function TiraDias({
                 background: activo ? tokens.acento : tokens.surface,
                 cursor: 'pointer', scrollSnapAlign: 'start', flexShrink: 0,
                 transition: 'border-color .4s ease, background .4s ease',
+                // Sin esto, un toque en móvil dentro de esta tira con scroll
+                // horizontal se interpreta a veces como selección de texto en
+                // vez de tap — el día se resalta en azul y `onClick` nunca
+                // llega. Verificado en producción (tentare.app/reservar, día
+                // 20 de agosto): el toque seleccionaba el número «20» sin
+                // cambiar de día. `touchAction: manipulation` además evita el
+                // delay de doble-tap-para-zoom sobre estos botones.
+                WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
               <span style={{

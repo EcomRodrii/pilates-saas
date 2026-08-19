@@ -43,6 +43,7 @@ const SPECS_WEBKIT = [
   '**/reservar-el-servidor-dice-no.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
+  '**/reservar-selector-fecha-movil.spec.ts',
   '**/network-marketplace-publico.spec.ts',
   // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
   // sufre un fallo es alguien de fuera —una propietaria que todavía no es
