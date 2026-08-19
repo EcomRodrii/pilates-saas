@@ -234,8 +234,11 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await page.goto(`/reservar/${SLUG}`);
     await abrirYReservar(page);
     // Paso de login por magic link (email), NO el flujo antiguo de nombre+email.
+    // El acceso es un único formulario (email + contraseña opcional, un solo
+    // botón) — sin contraseña escrita el propio texto lo dice.
     await expect(page.getByPlaceholder(/tu email/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /enlace de acceso/i })).toBeVisible();
+    await expect(page.getByText(/te enviamos un enlace de acceso/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /continuar/i })).toBeVisible();
   });
 
   test('pago: "Contratar" plan llama al checkout con planId + studioId (sin importe)', async ({ page }) => {
