@@ -188,7 +188,7 @@ function Comprobando() {
  * ⚠️ El texto NO distingue entre «ha caducado», «ya se usó» y «tu email no es
  * de ninguna socia de este centro», aunque el código sí sabría cuál es: decir
  * el tercero confirmaría a un desconocido que ese email NO está dado de alta,
- * y eso es la misma enumeración de cuentas que el paso 2 evita. Un solo
+ * y eso es la misma enumeración de cuentas que la puerta evita. Un solo
  * mensaje para los tres casos, y salida a pedir otro enlace.
  */
 function Caducado({ onPedir }: { onPedir: () => void }) {
