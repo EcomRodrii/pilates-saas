@@ -148,7 +148,7 @@ export default function AccesoNetworkPage() {
             Entra en <span style={{ color: NW_PRODUCTO }}>Tentare Network</span>
           </h1>
           <p className="mt-2 text-[14.5px]" style={{ color: NW_MUTED }}>
-            La red profesional para instructoras y profesionales de Pilates.
+            La red profesional de Pilates y Yoga.
           </p>
 
           <div className="mt-8 space-y-4">

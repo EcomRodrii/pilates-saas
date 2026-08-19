@@ -176,7 +176,7 @@ const PASOS: Paso[] = [
     // la prioridad elegida (lib/home-sections.ts). Se matiza el "ordenamos"
     // porque no todas las prioridades tienen hoy una sección que mover.
     nota: 'Elige hasta dos. Subimos a lo primero de tu panel lo que más te importe.',
-    opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de profesoras', 'Automatizar tareas', 'Marketing', 'Otro'],
+    opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras', 'Automatizar tareas', 'Marketing', 'Otro'],
     multi: 2,
   },
   {
