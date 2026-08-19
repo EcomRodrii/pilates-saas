@@ -29,8 +29,18 @@ interface Resultado {
   error?: string;
 }
 
-// `BarcodeDetector` es nativo en Chrome/Android y en Safari 17+. No está en los
-// tipos de TS, de ahí la declaración mínima.
+// `BarcodeDetector` es nativo en Chrome y Edge (escritorio y Android). **Safari
+// NO lo implementa en ninguna versión**, y como en iOS todos los navegadores
+// usan WebKit, en iPhone y iPad no existe — tampoco en "Chrome para iPhone".
+// Firefox tampoco. Verificado 2026-07-30 tras probarlo en vivo; el comentario
+// anterior decía "y Safari 17+" y era FALSO, escrito de memoria.
+//
+// Consecuencia real, no académica: el mostrador de un estudio de Pilates es un
+// iPad con mucha frecuencia, así que en el dispositivo más probable la cámara
+// NUNCA lee y el código de 6 caracteres deja de ser el plan B para ser el
+// único plan. La pantalla tiene que estar a la altura de eso.
+//
+// No está en los tipos de TS, de ahí la declaración mínima.
 interface DetectorCodigos {
   detect(fuente: CanvasImageSource): Promise<{ rawValue: string }[]>;
 }
