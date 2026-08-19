@@ -40,7 +40,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FichaClaseUnica } from '@/components/reserva/ficha-clase-unica';
 import {
   Users, CheckCircle2, X, Calendar,
-  CreditCard, FileText, Download, ExternalLink, Mail,
+  CreditCard, FileText, Download, ExternalLink, Mail, ChevronLeft,
 } from 'lucide-react';
 
 // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
@@ -2438,15 +2438,25 @@ export default function ReservarPage() {
           : loginStep === 'contrato' ? 'Acepta los términos'
           : 'Confirmar reserva'
         }
-        sheetClassName="bg-white w-full max-w-sm rounded-3xl p-6 relative shadow-2xl"
+        // "Datos"/"pago" calcan el asistente de 2 pasos del prototipo real
+        // (Claude Design, no la copia local desfasada del handoff) — ese
+        // asistente es más ancho que el resto de pasos de este modal (login,
+        // confirmar, etc.), así que la hoja crece solo para esos dos.
+        sheetClassName={`bg-white w-full ${loginStep === 'datos' || loginStep === 'pago' ? 'max-w-lg' : 'max-w-sm'} rounded-3xl p-6 relative shadow-2xl`}
         sheetStyle={{ maxHeight: '90vh', overflowY: 'auto' }}
       >
         {bookingSesionId !== null && (
           <>
-            <button onClick={closeBooking} aria-label="Cerrar"
-              className="absolute top-4 right-4 text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
-              <X size={18} />
-            </button>
+            {/* "Datos"/"pago" llevan su propio "‹ atrás" arriba del contenido
+                (mismo patrón que el prototipo: "‹ Clases" / "‹ Datos"), así
+                que ahí no hace falta la X flotante — evita dos controles de
+                cierre a la vez. */}
+            {loginStep !== 'datos' && loginStep !== 'pago' && (
+              <button onClick={closeBooking} aria-label="Cerrar"
+                className="absolute top-4 right-4 text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
+                <X size={18} />
+              </button>
+            )}
 
             {/* ── DONE ── */}
             {loginStep === 'done' && bookingSesion && (
@@ -2609,7 +2619,13 @@ export default function ReservarPage() {
                 que este camino realmente tiene. */}
             {loginStep === 'datos' && bookingSesion && datosPlan && (
               <div className="contenido-anim">
-                <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase mb-2">Paso 1 de 2</p>
+                <div className="flex items-center justify-between mb-3">
+                  <button type="button" onClick={closeBooking}
+                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
+                    <ChevronLeft size={13} strokeWidth={2.5} />Clases
+                  </button>
+                  <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 1 de 2</p>
+                </div>
                 <div className="rounded-2xl p-4 mb-4 bg-[var(--portal-surface-2)] border border-[var(--portal-line)] flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
@@ -2668,7 +2684,13 @@ export default function ReservarPage() {
             {/* ── PAGO (checkout embebido, "pagar y reservar sin login previo") ── */}
             {loginStep === 'pago' && bookingSesion && datosPlan && datosClientSecret && studio?.stripeAccountId && STRIPE_PUBLISHABLE_KEY && (
               <div className="contenido-anim">
-                <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase mb-2">Paso 2 de 2</p>
+                <div className="flex items-center justify-between mb-3">
+                  <button type="button" onClick={() => setLoginStep('datos')}
+                    className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--portal-muted)] hover:text-[var(--portal-ink)] transition-colors">
+                    <ChevronLeft size={13} strokeWidth={2.5} />Datos
+                  </button>
+                  <p className="text-[10.5px] font-bold tracking-[0.14em] text-[var(--portal-muted)] uppercase">Paso 2 de 2</p>
+                </div>
                 <CheckoutEmbebido
                   t={tokensCalendario}
                   plan={datosPlan}
