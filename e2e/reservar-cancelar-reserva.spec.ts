@@ -117,12 +117,13 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
 
     // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): la
     // confirmación de cancelar ya no es un modal aparte, es una caja inline
-    // bajo la fila misma.
+    // bajo la fila — pero HERMANA del contenedor que resuelve `fila` (que
+    // solo llega hasta la fila de datos+acciones), así que se busca en la
+    // página: hay una sola reserva en la fixture, sin ambigüedad posible.
     await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
-    const confirmacion = fila.getByText(/¿Quieres cancelar esta reserva\?/);
-    await expect(confirmacion).toBeVisible();
+    await expect(page.getByText(/¿Quieres cancelar esta reserva\?/)).toBeVisible();
 
-    await fila.getByRole('button', { name: 'Sí, cancelar' }).click();
+    await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 
     // La petición real salió, con el id de ESTA reserva — nunca uno inventado
     // por el cliente ni tomado de otra fila.
@@ -149,12 +150,12 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
     const fila = page.getByText('Reformer', { exact: true }).locator('..').locator('..');
     await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible({ timeout: 30_000 });
     await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
-    await fila.getByRole('button', { name: 'Sí, cancelar' }).click();
+    await page.getByRole('button', { name: 'Sí, cancelar' }).click();
 
     // NO se cierra sola: es la única superficie que la socia está mirando en
     // ese momento, así que el motivo se enseña ahí mismo, y la reserva sigue
     // en la lista (petición real: la reserva NO desaparece).
-    await expect(fila.getByText('Esa reserva ya no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Esa reserva ya no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
     await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible();
   });
 });
