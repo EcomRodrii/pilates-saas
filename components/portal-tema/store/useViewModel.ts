@@ -13,8 +13,13 @@ import { fechaLarga, rejillaMesPortal } from "@/lib/portal-tema/datos";
 import { debeDevolverBono } from "@/lib/booking-logic";
 import { usePortal, useDatos } from "./PortalStore";
 import { useTema } from "./TemaContext";
+import { formatEuro } from "@/lib/utils";
 
-const money = (n: number) => n.toFixed(2).replace(".", ",") + " €";
+// Formateo de importes centralizado en `formatEuro` (es-ES: coma decimal +
+// separador de miles + " €"). Antes se reimplementaba a mano con
+// `toFixed(2).replace(".", ",")`, que perdía el separador de miles y podía
+// divergir del resto del panel.
+const money = (n: number) => formatEuro(n);
 
 /**
  * Traduce el estado a lo que pinta cada pantalla. Toda la lógica de
