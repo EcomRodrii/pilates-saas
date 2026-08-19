@@ -124,13 +124,44 @@ export function HomePreview({
   // `useStudio()` resolvía —63 peticiones más tarde— y se veía un hueco vacío
   // entre 4 y 7 segundos. El slug de la prop se sigue aceptando como respaldo.
   const [slugToken, setSlugToken] = useState<string | null>(null);
+  // ⚠️ El token dura 20 min (`lib/theme/home-preview-token.ts`) y antes se
+  // pedía UNA sola vez, al montar. En una sesión de edición normal —más larga
+  // que eso— cualquier cambio de pantalla pasado ese tiempo mandaba un token
+  // ya caducado y la vista previa se quedaba muda ("Recarga la vista previa
+  // desde el editor."), sin que nada en la barra superior avisara de por qué.
+  // Se renueva aquí abajo (efecto de `vista`, no un timer aparte) SOLO
+  // cuando toca: renovar en un timer independiente cambiaría `token` —y por
+  // tanto el `src` del iframe— MIENTRAS la propietaria mira algo, recargando
+  // el iframe de golpe y perdiendo cualquier navegación que hubiera hecho a
+  // mano dentro de él. Enganchado al cambio de `vista` no añade ningún
+  // recargo: ese cambio YA fuerza un `src` nuevo (por la ruta), así que de
+  // paso se aprovecha para que lleve un token fresco.
+  const tokenObtenidoEn = useRef(0);
   useEffect(() => {
     let vivo = true;
     fetchHomePreviewToken()
-      .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); } })
+      .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
       .catch(() => {});
     return () => { vivo = false; };
   }, []);
+  // La renovación de verdad: si han pasado más de 10 min desde el último
+  // token (la mitad del TTL de 20, con margen de sobra) y la vista acaba de
+  // cambiar, se pide uno nuevo ANTES de que `src` se recomponga con la ruta
+  // nueva — así el salto de pantalla que la propietaria ya estaba haciendo
+  // lleva un token fresco en vez de arrastrar el viejo hasta que caduque de
+  // verdad. Sin el `if`, esto pediría un token en cada cambio de pantalla,
+  // aunque acabara de pedirse uno hace un segundo.
+  useEffect(() => {
+    if (Date.now() - tokenObtenidoEn.current < 10 * 60 * 1000) return;
+    let vivo = true;
+    fetchHomePreviewToken()
+      .then(({ token: t, slug: s }) => { if (vivo) { setToken(t); setSlugToken(s); tokenObtenidoEn.current = Date.now(); } })
+      .catch(() => {});
+    return () => { vivo = false; };
+    // Se dispara con CADA cambio de vista a propósito (es la señal de "va a
+    // haber un `src` nuevo igualmente"); el guard de arriba decide si hace
+    // falta pedir un token o no.
+  }, [vista]);
   const slugEfectivo = slugToken ?? slug ?? null;
 
   function enviar() {

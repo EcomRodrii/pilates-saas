@@ -481,9 +481,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, layout, retoParticipRes, horarioRes,
+      contenidoPortalRes, bannersPortalRes, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -499,11 +499,8 @@ export async function fetchPublicStudioData(
         admin.from('contenido_portal_banners').select('*')
           .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
           .order('orden', { ascending: true }),
-        // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
-        // editor de temas) — getLayout ya es una función pública sin auth
-        // (service-role, cacheada con React cache), así que se llama tal cual,
-        // sin RLS/endpoint nuevo.
-        getLayout(studioId),
+        // `getLayout` YA NO va aquí — ver el comentario junto a `temaPublicado`
+        // más abajo, donde se pide FUERA de este caché de 60s.
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
@@ -572,22 +569,9 @@ export async function fetchPublicStudioData(
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
-      portalHome: layout?.portalHome ?? null,
-      // Orden/visibilidad LEGACY de las secciones de /reservar — ya no la usa
-      // app/reservar/[slug]/page.tsx (lee `bloquesReservar`, más abajo, ya
-      // resuelto). Se mantiene expuesta por si algún consumidor viejo la
-      // sigue leyendo; `resolveLayout` es quien la sintetiza a bloques.
-      reservar: layout?.reservar ?? null,
-      // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
-      // borrador — solo lo publicado llega al portal en vivo.
-      homeBloques: layout?.bloques.home.publicado ?? [],
-      bloquesClases: layout?.bloques.clases.publicado ?? [],
-      bloquesBonos: layout?.bloques.bonos.publicado ?? [],
-      // /reservar (Fase 2 de su generalización a bloques): MISMO patrón que
-      // las tres de arriba — `resolveLayout` ya sintetiza esto desde el
-      // legado (`reservar.orden/ocultos`) cuando nadie ha guardado bloques
-      // todavía, así que la página no tiene que volver a resolverlo.
-      bloquesReservar: layout?.bloques.reservar.publicado ?? [],
+      // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/
+      // `bloquesReservar` YA NO viven aquí — ver `camposLayout` más abajo,
+      // construido con un `getLayout` pedido FUERA de este caché de 60s.
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -613,6 +597,19 @@ export async function fetchPublicStudioData(
   // petición), así que esto no reintroduce las 13 queries que este caché
   // existe para evitar — es una query, no trece.
   const temaPublicado = liviano ? null : await getThemePublicado(studioId);
+
+  // Mismo motivo, mismo arreglo — pero para los BLOQUES (Inicio/Clases/Bonos/
+  // Reservar), no el tema. Antes `getLayout` vivía DENTRO de `conCacheCatalogo`
+  // junto al resto (una sala, un plan, sí pueden esperar 60s), así que publicar
+  // una reorganización de bloques —o simplemente activar/desactivar una
+  // sección— tardaba hasta 60s por instancia caliente en reflejarse en el
+  // portal real, mientras que un cambio de COLOR se veía al instante desde que
+  // se sacó `temaPublicado` de aquí arriba. Esa asimetría es exactamente lo que
+  // el fundador reportó como "lo publicado no siempre coincide con lo que
+  // estaba editando" (2026-08-19): dependía de QUÉ se acabara de publicar.
+  // `getLayout` ya está en `cache()` de React (mismo criterio que
+  // `getThemePublicado`), así que esto tampoco reintroduce queries de más.
+  const layout = liviano ? null : await getLayout(studioId);
 
   // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del tema
   // sigue siendo puramente CSS server-rendered (ThemeStyle), esto es la
@@ -661,6 +658,27 @@ export async function fetchPublicStudioData(
     variantes: temaPublicado?.variantes ?? null,
   };
 
+  // Los 6 campos que antes salían de `layout` DENTRO del catálogo cacheado —
+  // ver el comentario junto a `const layout = ...` arriba.
+  const camposLayout = {
+    portalHome: layout?.portalHome ?? null,
+    // Orden/visibilidad LEGACY de las secciones de /reservar — ya no la usa
+    // app/reservar/[slug]/page.tsx (lee `bloquesReservar`, más abajo, ya
+    // resuelto). Se mantiene expuesta por si algún consumidor viejo la
+    // sigue leyendo; `resolveLayout` es quien la sintetiza a bloques.
+    reservar: layout?.reservar ?? null,
+    // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
+    // borrador — solo lo publicado llega al portal en vivo.
+    homeBloques: layout?.bloques.home.publicado ?? [],
+    bloquesClases: layout?.bloques.clases.publicado ?? [],
+    bloquesBonos: layout?.bloques.bonos.publicado ?? [],
+    // /reservar (Fase 2 de su generalización a bloques): MISMO patrón que
+    // las tres de arriba — `resolveLayout` ya sintetiza esto desde el
+    // legado (`reservar.orden/ocultos`) cuando nadie ha guardado bloques
+    // todavía, así que la página no tiene que volver a resolverlo.
+    bloquesReservar: layout?.bloques.reservar.publicado ?? [],
+  };
+
   // Fuera del caché a propósito (ver comentario arriba): disponibilidad real.
   // fetchAllRows (no un .select('*') a secas): sin paginar, PostgREST corta en
   // 1000 filas — un estudio con histórico real perdía en silencio las
@@ -682,6 +700,7 @@ export async function fetchPublicStudioData(
     sesiones: (sesionesData ?? []).map(mapSesion),
     ...catalogo,
     ...camposTema,
+    ...camposLayout,
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
   };
 

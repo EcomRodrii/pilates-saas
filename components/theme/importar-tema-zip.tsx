@@ -188,12 +188,12 @@ export function ImportarTemaZip({ slug }: { slug: string | null }) {
   return (
     <Card className="p-5 space-y-4">
       <div>
-        <p className="text-[15px] font-bold text-foreground">Importar tema desde ZIP</p>
+        <p className="text-[15px] font-bold text-foreground">Importar un tema desde un fichero</p>
         <p className="text-[13px] text-muted-foreground mt-1">
-          Sube el .zip exportado de Claude Design. Se importa tal cual — HTML, CSS, imágenes y
-          tipografías originales, sin recrearlo con los componentes de Tentare. Para que se vea
-          en tu portal de verdad, pulsa <strong>«Extraer a tema nativo»</strong> y publícalo desde
-          el editor — el «Publicar» de cada ZIP de aquí abajo es solo una vista previa aparte.
+          Sube un .zip con tu diseño (HTML, CSS, imágenes y tipografías). Se importa tal cual, sin
+          recrearlo con los componentes de Tentare. Para que se vea en tu portal de verdad, pulsa{' '}
+          <strong>«Extraer a tema nativo»</strong> y publícalo desde el editor — el «Publicar» de
+          cada tema de aquí abajo es solo una vista previa aparte.
         </p>
       </div>
 
