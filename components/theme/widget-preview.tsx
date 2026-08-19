@@ -88,6 +88,7 @@ export function WidgetPreview({
           key={`${p.toString()}-${cual}`}
           src={`/reservar/${slug}?${p.toString()}`}
           title="Vista previa del widget"
+          allow="payment *"
           style={{ width: '100%', height: 320, border: 0, display: 'block' }}
         />
       </div>
