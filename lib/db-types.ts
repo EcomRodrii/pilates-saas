@@ -408,6 +408,8 @@ export interface RowPlanesTarifa {
   validez_dias: number | null;
   // migr 0079.
   limite_semanal: number | null;
+  // Fecha de fin de una oferta temporal (informativa, no cambia `precio`).
+  oferta_hasta: string | null;
 }
 
 export interface RowPostsComunidad {

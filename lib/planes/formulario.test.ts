@@ -62,7 +62,7 @@ test('editar y volver a guardar sin tocar nada no cambia el plan', () => {
   const guardado = {
     id: 'plan-1', studioId: 's-1', nombre: 'Bono 10 clases', descripcion: 'Diez sesiones',
     precio: 120, tipo: 'BONO', sesiones: 10, validezDias: 60, limiteSemanal: null,
-    tiposClaseIds: ['tc-1'], activo: true,
+    tiposClaseIds: ['tc-1'], activo: true, ofertaHasta: null,
   } as PlanTarifa;
 
   const vuelta = formularioAPlan(planAFormulario(guardado));

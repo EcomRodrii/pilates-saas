@@ -63,14 +63,6 @@ import { CampoImagen } from '@/components/ui/campo-imagen';
 // tenerlo en dos sitios dejaba dos galerías distintas para lo mismo.
 export const AJUSTES_CATEGORIAS = [
   { id: 'paleta', label: 'Empieza con una paleta' },
-  { id: 'color-marca', label: 'Color de marca' },
-  { id: 'tipografia', label: 'Tipografía' },
-  { id: 'esquinas', label: 'Esquinas' },
-  { id: 'boton', label: 'Botón principal' },
-  { id: 'tarjetas', label: 'Tarjetas' },
-  { id: 'forma-portal', label: 'Forma del portal' },
-  { id: 'navegacion-portal', label: 'Navegación del portal' },
-  { id: 'redes-sociales', label: 'Redes sociales' },
   // ⚠️ Se llamaba "Logo y favicon", y ese nombre escondía lo más buscado de
   // toda la categoría: la FOTO del portal. El feedback fue literal — «no se
   // puede poner imagen en la bienvenida ni en las tarjetas» — cuando sí se
@@ -79,7 +71,20 @@ export const AJUSTES_CATEGORIAS = [
   // (`conFoto` en portal-home-view.tsx). No faltaba la función, faltaba
   // encontrarla. Nombrar la categoría por lo que la propietaria viene a hacer
   // —poner sus fotos— y no por los dos ficheros técnicos que también lleva.
+  //
+  // P2 (auditoría "Veredicto de Marta"): subir el logo es de lo primero que
+  // busca una propietaria nueva el día 1, y estaba enterrado en la posición
+  // 10 de ~13. Adelantada aquí, justo tras elegir paleta — decisión de
+  // producto confirmada explícitamente, no una limpieza de paso.
   { id: 'logo-favicon', label: 'Imágenes de tu marca' },
+  { id: 'color-marca', label: 'Color de marca' },
+  { id: 'tipografia', label: 'Tipografía' },
+  { id: 'esquinas', label: 'Esquinas' },
+  { id: 'boton', label: 'Botón principal' },
+  { id: 'tarjetas', label: 'Tarjetas' },
+  { id: 'forma-portal', label: 'Forma del portal' },
+  { id: 'navegacion-portal', label: 'Navegación del portal' },
+  { id: 'redes-sociales', label: 'Redes sociales' },
   // Lo que se ve al pegar tu enlace en un grupo de WhatsApp o en Instagram, y
   // en el resultado de Google. Va al final porque no es aspecto, pero está
   // aquí y no en Configuración a propósito: se decide mirando la misma página

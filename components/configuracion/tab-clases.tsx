@@ -9,7 +9,7 @@ import { colorSalaPorDefecto } from '@/components/configuracion/tab-salas';
 import { useStudio } from '@/lib/studio-context';
 import { OBJETIVOS, resolverObjetivos } from '@/lib/reservar/objetivos';
 import type { TipoClase } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, formatEuro } from '@/lib/utils';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { imagenDeClase } from '@/lib/imagenes-por-defecto';
 import { CampoImagen } from '@/components/ui/campo-imagen';
@@ -91,6 +91,25 @@ function claseToForm(t: TipoClase): ClaseForm {
     penalizacionImporteEur: t.penalizacionImporteEur != null ? String(t.penalizacionImporteEur) : '',
     especialidadNetwork: t.especialidadNetwork ?? '',
   };
+}
+
+// P2 (auditoría "Veredicto de Marta"): la card solo enseñaba la ventana de
+// cancelación de las 8 reglas configurables — con 3-5 tipos de clase, tocaba
+// reabrir cada modal para ver qué se había fijado en cada uno. Un chip por
+// regla ACTIVA (null = hereda del estudio, no se enseña aquí: la card es solo
+// para lo que este tipo de clase SOBRESCRIBE).
+function overridesDeTipoClase(tc: TipoClase): string[] {
+  const chips: string[] = [];
+  if (tc.ventanaCancelacionHoras != null) chips.push(`Cancela ${tc.ventanaCancelacionHoras}h antes`);
+  if (tc.reservaExigirPlan != null) chips.push(tc.reservaExigirPlan ? 'Exige plan/bono' : 'No exige plan/bono');
+  if (tc.reservaVentanaMinimaMinutos != null) chips.push(`Reserva hasta ${tc.reservaVentanaMinimaMinutos} min antes`);
+  if (tc.reservaAntelacionMaximaDias != null) chips.push(`Se abre ${tc.reservaAntelacionMaximaDias}d antes`);
+  if (tc.permiteListaEspera != null) chips.push(tc.permiteListaEspera ? 'Con lista de espera' : 'Sin lista de espera');
+  if (tc.requiereAprobacion) chips.push('Aprobación manual');
+  if (tc.listaEsperaPlazoAceptacionMinutos != null) chips.push(`Plazo espera: ${tc.listaEsperaPlazoAceptacionMinutos} min`);
+  if (tc.minimoAsistentesPorClase != null) chips.push(`Mín. ${tc.minimoAsistentesPorClase} asistentes`);
+  if (tc.penalizacionImporteEur != null) chips.push(`Penalización ${formatEuro(tc.penalizacionImporteEur)}`);
+  return chips;
 }
 
 const NIVEL_LABELS: Record<TipoClase['nivel'], string> = {
@@ -244,10 +263,17 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                 </p>
               )}
             </div>
-            {tc.ventanaCancelacionHoras != null && (
-              <p className="text-[11px] text-muted-foreground">
-                Cancelación: {tc.ventanaCancelacionHoras}h de antelación (propia de este tipo)
-              </p>
+            {overridesDeTipoClase(tc).length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {overridesDeTipoClase(tc).map(chip => (
+                  <span
+                    key={chip}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-background text-muted-foreground"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
             )}
             {/* Actions */}
             <div className="flex items-center gap-1 pt-1 border-t border-background">

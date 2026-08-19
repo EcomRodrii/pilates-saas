@@ -684,6 +684,7 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     validezDias: r.validez_dias ?? null,
     limiteSemanal: r.limite_semanal ?? null,
     activo: r.activo,
+    ofertaHasta: r.oferta_hasta ?? null,
   } as PlanTarifa;
 }
 
@@ -1315,6 +1316,7 @@ function planTarifaToDb(plan: PlanTarifa) {
     validez_dias: plan.validezDias ?? null,
     limite_semanal: plan.limiteSemanal ?? null,
     activo: plan.activo,
+    oferta_hasta: plan.ofertaHasta ?? null,
   };
 }
 

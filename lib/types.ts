@@ -508,6 +508,12 @@ export interface PlanTarifa {
   // Permite el "Bono 10 Reformer" que no sirve para Mat.
   tiposClaseIds?: string[];
   activo: boolean;
+  // P2 (auditoría "Veredicto de Marta"): fecha de fin de una oferta temporal
+  // sobre `precio` — PURAMENTE informativa, no cambia ningún cálculo de
+  // dinero. La propietaria sigue fijando el precio rebajado a mano en
+  // `precio`; esto solo pinta un aviso para que se acuerde de subirlo de
+  // vuelta al pasar la fecha. null = sin oferta activa.
+  ofertaHasta?: string | null;
 }
 
 export interface Suscripcion {
