@@ -1537,7 +1537,26 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // promovida (igual que cancelarReserva).
     setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'CANCELADA' as const } : r));
     const res = await dbCancelarReservaPlaza(getCurrentStudioId(), reservaId);
-    if (res && !('error' in res) && res.promovidaSocioId && sesionId) {
+    // Si la BD rechaza la cancelación hay que deshacer las DOS cosas que ya se
+    // hicieron: el optimista y —sobre todo— la recuperación, que se concedió
+    // arriba. Antes no había esta rama: se devolvía 'CREADA' pasara lo que
+    // pasara, así que un fallo de la RPC dejaba a la socia con una recuperación
+    // regalada, la reserva viva en BD (la plaza no se libera ni promociona la
+    // lista de espera) y la pantalla pintándola cancelada. La propietaria
+    // además le mandaba el WhatsApp de «Recuperación guardada» por algo que no
+    // había ocurrido.
+    if (!res || 'error' in res) {
+      setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: cancelada.estado } : r));
+      // La recuperación se identifica por `origenReservaId`, que es justo el
+      // `reservaId` con el que se creó arriba. `lista` ya está cargada.
+      const recienCreada = lista.find(x => x.origenReservaId === reservaId && x.estado === 'DISPONIBLE');
+      if (recienCreada) {
+        await dbAnularRecuperacion(recienCreada.id);
+        setRecuperaciones(await dbListRecuperaciones(getCurrentStudioId()));
+      }
+      return { recuperacion: 'ERROR', caduca: null };
+    }
+    if (res.promovidaSocioId && sesionId) {
       const promovidaSocioId = res.promovidaSocioId;
       setReservas(prev => prev.map(r =>
         (r.sesionId === sesionId && r.socioId === promovidaSocioId && r.estado === 'LISTA_ESPERA')
@@ -2033,8 +2052,22 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const cpub = ctxPublico();
     if (cpub) {
       // La socia edita su propio perfil vía endpoint (whitelist de campos).
+      //
+      // Se espera la respuesta y solo se pinta si el servidor la acepta. Antes
+      // era fire-and-forget con `return { ok: true }` fijo: /api/public/socio
+      // rechaza con 400/401/429 (actualizarSociaPublica), y ese rechazo no
+      // llegaba a nadie. Como PortalStore.guardarDatos decide el aviso con lo
+      // que devuelve esto, la socia cambiaba su email o su teléfono, leía
+      // «Datos guardados» y volvía atrás sin que se hubiera guardado nada.
+      // Mismo patrón que ya se corrigió en addReserva y cancelarReserva.
+      const anterior = socios.find(s => s.id === id);
       setSocios(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s)); // optimista
-      postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      const r = await postPublico('/api/public/socio', { accion: 'actualizar', studioId: cpub.studioId, socioId: cpub.socioId, email: cpub.email, cambios: changes });
+      if (!r.ok) {
+        // Revierte: la fila vuelve a lo que había antes del optimista.
+        if (anterior) setSocios(prev => prev.map(s => s.id === id ? anterior : s));
+        return r;
+      }
       // El portal re-sincroniza contra el servidor al terminar (cargarPublico).
       return { ok: true };
     }
@@ -2842,7 +2875,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // del tipo, así que la misma cancelación salía tardía o a tiempo según por
     // dónde entrara la socia. Recalcular una regla en cada superficie es cómo
     // se llega a eso; ahora hay una sola respuesta y esto la obedece.
-    if (eraConfirmada && cancelada && devolverBono) {
+    //
+    // Y las plazas fijas quedan fuera: `materializar_plazas_fijas` las inserta
+    // CONFIRMADAS sin consumir bono, así que devolver una sesión al cancelarlas
+    // crea saldo de la nada (su compensación es la recuperación, no el bono).
+    // El camino servidor ya tenía este guard —supabase-data-admin.ts:1860,
+    // `const esPlazaFija = params.reservaId.startsWith('res-pf-')`— y a este le
+    // faltaba: cancelar la MISMA reserva desde el panel regalaba una sesión que
+    // por el portal no se regalaba. Es la misma asimetría panel↔portal que ya
+    // causó el bug de la ventana de cancelación; se cierra copiando el guard.
+    const esPlazaFija = reservaId.startsWith('res-pf-');
+    if (eraConfirmada && cancelada && devolverBono && !esPlazaFija) {
       void devolverSesionBono(cancelada.socioId, sesionId);
     }
 
