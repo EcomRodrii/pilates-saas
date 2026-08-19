@@ -59,8 +59,9 @@ test('el horario no anuncia días que ya no se dan', async ({ page }) => {
   // exige coincidencia completa, así que casaba también el botón «Ver el
   // horario» de la portada en cuanto se añadió — dos elementos, y el localizador
   // se rompe en modo estricto. El rótulo que este test busca es el de la
-  // sección de El estudio, que es exactamente «HORARIO».
-  const horario = page.getByText('HORARIO', { exact: true }).locator('..');
+  // sección de El estudio — Fase 4 del rediseño lo renombró a «HORARIO DE
+  // APERTURA» (docs/widget-reservas-fase4-brief-diseno.md, formato 04).
+  const horario = page.getByText('HORARIO DE APERTURA', { exact: true }).locator('..');
   await expect(horario).toBeVisible();
   // La sesión de hace un año era en sábado a las 07:00. Ni el día ni la hora
   // pueden aparecer: el cargador público trae TODAS las sesiones sin ventana.

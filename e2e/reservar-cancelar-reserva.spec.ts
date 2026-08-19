@@ -115,13 +115,14 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
     const fila = page.getByText('Reformer', { exact: true }).locator('..').locator('..');
     await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible({ timeout: 30_000 });
 
-    await fila.getByRole('button', { name: 'Cancelar' }).click();
+    // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): la
+    // confirmación de cancelar ya no es un modal aparte, es una caja inline
+    // bajo la fila misma.
+    await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
+    const confirmacion = fila.getByText(/¿Quieres cancelar esta reserva\?/);
+    await expect(confirmacion).toBeVisible();
 
-    const modal = page.getByRole('dialog');
-    await expect(modal.getByText('¿Cancelar tu plaza?')).toBeVisible();
-    await expect(modal.getByText('Liberarás tu plaza para otra persona.')).toBeVisible();
-
-    await modal.getByRole('button', { name: 'Cancelar plaza' }).click();
+    await fila.getByRole('button', { name: 'Sí, cancelar' }).click();
 
     // La petición real salió, con el id de ESTA reserva — nunca uno inventado
     // por el cliente ni tomado de otra fila.
@@ -130,11 +131,10 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
 
     // Tras re-sincronizar con el servidor, la reserva cancelada ya no aparece
     // en "Mis reservas" (misReservas filtra estado !== 'CANCELADA').
-    await expect(page.getByText('No tienes reservas todavía')).toBeVisible({ timeout: 30_000 });
-    await expect(modal).toBeHidden();
+    await expect(page.getByText('No tienes reservas próximas')).toBeVisible({ timeout: 30_000 });
   });
 
-  test('si el servidor rechaza la cancelación, el modal se queda abierto con el motivo', async ({ page }) => {
+  test('si el servidor rechaza la cancelación, la caja inline se queda abierta con el motivo', async ({ page }) => {
     await seedSession(page);
     await mockRedComun(page);
 
@@ -148,14 +148,13 @@ test.describe('Cancelar una reserva desde el widget (/reservar/[slug])', () => {
 
     const fila = page.getByText('Reformer', { exact: true }).locator('..').locator('..');
     await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible({ timeout: 30_000 });
-    await fila.getByRole('button', { name: 'Cancelar' }).click();
-
-    const modal = page.getByRole('dialog');
-    await modal.getByRole('button', { name: 'Cancelar plaza' }).click();
+    await fila.getByRole('button', { name: 'Cancelar reserva' }).click();
+    await fila.getByRole('button', { name: 'Sí, cancelar' }).click();
 
     // NO se cierra sola: es la única superficie que la socia está mirando en
-    // ese momento, así que el motivo se enseña ahí mismo.
-    await expect(modal.getByText('Esa reserva ya no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
-    await expect(modal.getByText('¿Cancelar tu plaza?')).toBeVisible();
+    // ese momento, así que el motivo se enseña ahí mismo, y la reserva sigue
+    // en la lista (petición real: la reserva NO desaparece).
+    await expect(fila.getByText('Esa reserva ya no se puede cancelar.')).toBeVisible({ timeout: 30_000 });
+    await expect(fila.getByText('Confirmada', { exact: true })).toBeVisible();
   });
 });
