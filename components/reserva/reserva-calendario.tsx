@@ -143,6 +143,14 @@ export interface ReservaCalendarioProps {
   ventanaPorTipo?: Record<string, number>;
   /** Copys de estado vacío. */
   vacio?: { titulo: string; cuerpo: string };
+  /**
+   * Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): la carga
+   * pública falló de verdad (red/servidor), a diferencia de "cero clases" —
+   * antes ambos casos eran indistinguibles (`cargarPublico` fallaba en
+   * silencio a un catálogo vacío). Presente = pinta el estado de error en vez
+   * del vacío, con el mismo hueco visual, en TODAS las variantes.
+   */
+  error?: { onReintentar: () => void; titulo?: string };
   fontFamily?: string;
   /**
    * Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md): la
@@ -152,9 +160,27 @@ export interface ReservaCalendarioProps {
    * reservas", vista Mes...). Solo Modo A la activa hoy, y solo en la tab
    * "Clases"; el resto del componente (spot picker, hoja, estados vacíos,
    * variant='lista') es idéntico en ambos estilos.
+   *
+   * `'grid'` (Fase 4, formato 06 "Calendario embebido"): rejilla de 7
+   * columnas con TODOS los días a la vez, en vez de tira+un-día. Solo la usa
+   * Modo B (`app/widget-bundle/main.tsx`) — es la única variante cuyos
+   * colores NO salen de `t`: el brief de diseño fija neutros de verdad
+   * (`docs/widget-reservas-fase4-brief-diseno.md`, formato 06) porque el
+   * widget corre en Shadow DOM dentro de la web de un tercero, sin el resto
+   * del tema del estudio alrededor. El único punto de marca sigue siendo
+   * `--portal-brand` (la hora de cada chip), que SÍ llega aquí — main.tsx ya
+   * lo fija en la raíz del shadow root.
    */
-  estiloDias?: 'semana' | 'dias';
+  estiloDias?: 'semana' | 'dias' | 'grid';
 }
+
+// Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
+const GRID_NEUTROS = {
+  bg: '#FFFFFF', ink: '#1A1A1A', mut: '#8A8A8A', mut2: '#6E6E6E',
+  linea: '#E8E8E8', linea2: '#ECECEC', radio: 8,
+};
+const GRID_FUENTE = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+const DOW_GRID = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'];
 
 function fmtHora(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -192,7 +218,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
-  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, fontFamily = FUENTE,
+  variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
   irADia, estiloDias = 'semana',
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
@@ -241,6 +267,18 @@ export function ReservaCalendario({
   // no paginación por semana. Independiente de `weekAnchor`/`navegarSemana`,
   // que siguen existiendo tal cual para `estiloDias === 'semana'`.
   const diez = useMemo(() => Array.from({ length: 10 }, (_, i) => addDays(hoy, i)), [hoy]);
+  // `estiloDias === 'grid'`: 7 días rodantes desde hoy (no semana natural
+  // lunes-domingo) — mismo criterio de ventana rodante que `diez`, solo que
+  // más corta porque aquí los 7 caben a la vez en pantalla.
+  const siete = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(hoy, i)), [hoy]);
+  const slotsPorDiaGrid = useMemo(() => {
+    if (estiloDias !== 'grid') return new Map<string, ReservaSlot[]>();
+    const m = new Map<string, ReservaSlot[]>();
+    for (const dia of siete) {
+      m.set(localDayKey(dia), slotsDelDia(slots, localDayKey(dia)).sort((a, b) => a.inicio.localeCompare(b.inicio)));
+    }
+    return m;
+  }, [estiloDias, siete, slots]);
   const conteoPorDia = useMemo(() => contarSlotsPorDia(slots), [slots]);
   const slotsDia = useMemo(() => slotsDelDia(slots, selectedDayKey), [slots, selectedDayKey]);
   const gruposLista = useMemo(() => (variant === 'lista' ? agruparPorDia(slots) : []), [variant, slots]);
@@ -389,10 +427,58 @@ export function ReservaCalendario({
         </>
       )}
 
-      {variant === 'calendario' && (
+      {variant === 'calendario' && estiloDias === 'grid' && (
+        error ? (
+          <RejillaGridError titulo={error.titulo} onReintentar={error.onReintentar} />
+        ) : siete.every(d => (slotsPorDiaGrid.get(localDayKey(d)) ?? []).length === 0) ? (
+          <RejillaGridVacio titulo="Sin clases esta semana" cuerpo="Vuelve a mirar en unos días." />
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700 }}>
+              {siete.map(dia => {
+                const key = localDayKey(dia);
+                const slotsDelDiaGrid = slotsPorDiaGrid.get(key) ?? [];
+                return (
+                  <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontFamily: GRID_FUENTE, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: GRID_NEUTROS.mut, paddingBottom: 4 }}>
+                      {DOW_GRID[dia.getDay()]} {dia.getDate()}
+                    </div>
+                    {slotsDelDiaGrid.length === 0 ? (
+                      <div style={{ height: 1 }} />
+                    ) : slotsDelDiaGrid.map(slot => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => abrirSlot(slot)}
+                        title={slot.claseNombre}
+                        style={{
+                          textAlign: 'left', border: `1px solid ${GRID_NEUTROS.linea}`, borderRadius: GRID_NEUTROS.radio,
+                          padding: '7px 9px', background: GRID_NEUTROS.bg, cursor: 'pointer',
+                          fontFamily: GRID_FUENTE, fontSize: 11.5, fontWeight: 600, color: GRID_NEUTROS.mut2,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          transition: 'background .15s ease',
+                        }}
+                      >
+                        <span style={{ color: 'var(--portal-brand)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                          {new Date(slot.inicio).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                        </span>{' '}
+                        {slot.claseNombre}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )
+      )}
+
+      {variant === 'calendario' && estiloDias !== 'grid' && (
         <>
           {/* ── Horarios del día ─────────────────────────────────────────── */}
-          {slotsDia.length === 0 ? (
+          {error ? (
+            <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+          ) : slotsDia.length === 0 ? (
             <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -405,7 +491,9 @@ export function ReservaCalendario({
       )}
 
       {variant === 'lista' && (
-        gruposLista.length === 0 ? (
+        error ? (
+          <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+        ) : gruposLista.length === 0 ? (
           <EstadoVacio t={t} titulo={emptyCopy.titulo} cuerpo={emptyCopy.cuerpo} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -860,14 +948,87 @@ function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
   );
 }
 
-function EstadoVacio({ t, titulo, cuerpo }: { t: ModoTokens; titulo: string; cuerpo: string }) {
+// Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md): patrón
+// único de estado no feliz — icono circular 52px, título display, cuerpo
+// acotado a 300px, CTA outline opcional. Compartido por los 6 formatos porque
+// todos montan `ReservaCalendario` en algún momento (Modo B incluido).
+function EstadoVacio({ t, titulo, cuerpo, ctaLabel, onCta }: {
+  t: ModoTokens; titulo: string; cuerpo: string; ctaLabel?: string; onCta?: () => void;
+}) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '28px 16px', gap: 8, borderRadius: 18, background: t.surface, border: `1px solid ${t.line}` }}>
-      <div style={{ width: 44, height: 44, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.ink }}>
-        <Clock size={18} />
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px' }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.surface2, color: t.muted }}>
+        <Clock size={22} />
       </div>
-      <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>{titulo}</p>
-      <p style={{ fontSize: 12.5, color: t.muted, maxWidth: 240 }}>{cuerpo}</p>
+      <p style={{ fontFamily: serif, fontSize: 21, marginTop: 16, color: t.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: t.muted, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
+      {ctaLabel && onCta && (
+        <button type="button" onClick={onCta} style={{
+          marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer',
+          background: 'transparent', border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)',
+          color: 'var(--portal-brand)', fontFamily: sans, fontWeight: 700, fontSize: 13,
+        }}>
+          {ctaLabel}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Mismo hueco visual que `EstadoVacio`, para cuando la carga falló de verdad
+ *  (red/servidor) en vez de simplemente no haber nada que mostrar. */
+function EstadoErrorRed({ t, titulo = 'No hemos podido cargar el horario', onReintentar }: {
+  t: ModoTokens; titulo?: string; onReintentar: () => void;
+}) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px' }} role="alert">
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+        <AlertCircle size={22} />
+      </div>
+      <p style={{ fontFamily: serif, fontSize: 21, marginTop: 16, color: t.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: t.muted, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
+        Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
+      </p>
+      <button type="button" onClick={onReintentar} style={{
+        marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer', border: 'none',
+        background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontFamily: sans, fontWeight: 700, fontSize: 13,
+      }}>
+        Reintentar
+      </button>
+    </div>
+  );
+}
+
+// Versiones en neutros FIJOS de arriba, solo para `estiloDias === 'grid'`
+// (formato 06, Modo B) — "los estados de carga/vacío/error usan los mismos
+// patrones en neutros y fuente de sistema" (brief de diseño Fase 4).
+function RejillaGridVacio({ titulo, cuerpo }: { titulo: string; cuerpo: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }}>
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: GRID_NEUTROS.linea2, color: GRID_NEUTROS.mut }}>
+        <Clock size={22} />
+      </div>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>{cuerpo}</p>
+    </div>
+  );
+}
+function RejillaGridError({ titulo = 'No hemos podido cargar el horario', onReintentar }: { titulo?: string; onReintentar: () => void }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '52px 24px 56px', fontFamily: GRID_FUENTE }} role="alert">
+      <div style={{ width: 52, height: 52, borderRadius: 999, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: semantic.danger.soft, color: semantic.danger.text }}>
+        <AlertCircle size={22} />
+      </div>
+      <p style={{ fontSize: 17, fontWeight: 700, marginTop: 16, color: GRID_NEUTROS.ink }}>{titulo}</p>
+      <p style={{ fontSize: 13, color: GRID_NEUTROS.mut, marginTop: 6, maxWidth: 300, marginInline: 'auto' }}>
+        Parece un problema de conexión. Inténtalo de nuevo en unos segundos.
+      </p>
+      <button type="button" onClick={onReintentar} style={{
+        marginTop: 18, height: 42, padding: '0 20px', borderRadius: 999, cursor: 'pointer', border: 'none',
+        background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', fontFamily: GRID_FUENTE, fontWeight: 700, fontSize: 13,
+      }}>
+        Reintentar
+      </button>
     </div>
   );
 }

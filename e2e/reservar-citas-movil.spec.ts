@@ -79,6 +79,9 @@ test('en móvil: elegir servicio, instructora y hueco reserva la cita de verdad'
   await page.getByText('Evaluación inicial').click();
   await page.getByRole('button', { name: /Ana/ }).click();
   await page.getByRole('button', { name: HORA_HUECO }).click();
+  // Fase 4 del rediseño (formato 02): elegir la hora ya no abre la hoja
+  // directamente — solo la selecciona. "Continuar" es lo que la abre.
+  await page.getByRole('button', { name: /^Continuar/ }).click();
 
   await expect(page.getByRole('button', { name: 'Confirmar cita' })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Confirmar cita' }).click();
@@ -102,6 +105,7 @@ test('en móvil: un hueco que ya no está disponible se rechaza con el motivo re
   await page.getByText('Evaluación inicial').click();
   await page.getByRole('button', { name: /Ana/ }).click();
   await page.getByRole('button', { name: HORA_HUECO }).click();
+  await page.getByRole('button', { name: /^Continuar/ }).click();
   await page.getByRole('button', { name: 'Confirmar cita' }).click();
 
   await expect(page.getByText('Ese hueco ya no está disponible')).toBeVisible({ timeout: 15_000 });
