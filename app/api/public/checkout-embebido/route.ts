@@ -221,10 +221,16 @@ export async function POST(req: NextRequest) {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCentimos,
       currency: 'eur',
-      // Explícito, no automatic_payment_methods: Bizum exige salir del widget
-      // (acción externa en la app del banco) y se ofrece aparte, con redirect
-      // avisado (§4 del diseño) — nunca dentro del Payment Element.
-      payment_method_types: ['card'],
+      // `allow_redirects: 'never'` en vez de una lista fija con solo 'card':
+      // así Stripe sigue excluyendo automáticamente todo lo que exige salir
+      // del widget (Bizum incluido — acción externa en la app del banco, se
+      // ofrece aparte con redirect avisado, §4 del diseño), pero SÍ deja
+      // pasar los métodos "de tarjeta" que no navegan a ningún sitio: Link,
+      // Apple Pay, Google Pay. Con `payment_method_types: ['card']` a secas
+      // (como estaba antes) esos tres desaparecían del Payment Element sin
+      // que hiciera falta — no son un redirect, son la misma tarjeta con
+      // menos fricción.
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       setup_future_usage: 'off_session',
       receipt_email: body.socioEmail ?? undefined,
       description: plan.nombre,
