@@ -5,6 +5,7 @@ import { RotateCcw } from 'lucide-react';
 import { dbListarDevolucionesPendientes, type DevolucionPendiente } from '@/lib/supabase-data';
 import { calcularReversion, huellaDe } from '@/lib/billing/preview-reversion';
 import { resolverDevolucion } from '@/lib/api-client';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 // Devoluciones que hace falta revisar: se ha devuelto dinero (o se ha perdido
@@ -66,7 +67,7 @@ export function DevolucionesPendientes({ onToast }: { onToast: (m: string) => vo
                 <div className="min-w-0">
                   <p className="truncate text-[13px] text-foreground">{d.socioNombre}</p>
                   <p className="text-[11px] text-muted-foreground">
-                    {ETIQUETA_ORIGEN[d.origen]} · {d.importeDevuelto.toFixed(2)} € de {d.importeCobrado.toFixed(2)} €
+                    {ETIQUETA_ORIGEN[d.origen]} · {formatEuro(d.importeDevuelto)} de {formatEuro(d.importeCobrado)}
                     {d.planNombre ? ` · ${d.planNombre}` : ''}
                   </p>
                 </div>
