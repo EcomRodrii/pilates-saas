@@ -1630,6 +1630,36 @@ export default function ReservarPage() {
         </div>
         )}
 
+        {/* ── CABECERA COMPACTA (embebido) ─────────────────────────────────
+            Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md):
+            en iframe (`embedMode`) la barra de arriba se OCULTA entera (la
+            web anfitriona ya tiene la suya) y no queda ningún rastro de qué
+            estudio es este — el handoff sí pinta una identidad mínima:
+            avatar+nombre+ciudad a la izquierda, "reserva sin registro" (o el
+            email si ya hay sesión) a la derecha. */}
+        {embedMode && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: `${cq(18, 2, 24)} ${cq(20, 3.8, 48)} 0` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+              {estudioLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={estudioLogo} alt={estudioNombre} style={{ width: 36, height: 36, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 36, height: 36, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: serif, fontSize: 17, background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }}>
+                  {estudioNombre[0]}
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estudioNombre}</div>
+                {studio?.ciudad && <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 1 }}>{studio.ciudad}{estudioDireccion ? ` · ${estudioDireccion.split(',')[0]}` : ''}</div>}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: 'var(--success)' }} />
+              {socia ? socia.email : 'Reserva sin registro'}
+            </div>
+          </div>
+        )}
+
         {/* ── PORTADA ───────────────────────────────────────────────────────
             Se OCULTA (lo que pide quien incrusta esto bajo la cabecera que ya
             tiene su web), pero no se mueve — ver la nota del degradado arriba. */}
@@ -1775,6 +1805,22 @@ export default function ReservarPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: cq(24, 4, 56), alignItems: 'flex-start', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
             <div style={{ flex: '1 1 480px', minWidth: 0 }}>
 
+              {/* Título + mes — Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md,
+                  formato 01): esta tab no tenía ninguna cabecera propia, solo
+                  la pestaña de arriba decía "Clases". */}
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
+                <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
+                {/* Solo en Lista/Día: la vista Mes ya trae su propia
+                    navegación de mes (RejillaMes), y mostrar los dos a la vez
+                    duplica el mismo texto en pantalla (y en el DOM — rompía
+                    reservar-vista-mes.spec.ts, que busca "AGOSTO DE 2026"). */}
+                {(vistaClases === 'dia' || vistaClases === 'lista') && (
+                  <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4, textTransform: 'capitalize' }}>
+                    {now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+
               {/* Discovery quiz — ver components/reserva/discovery-quiz.tsx. Un
                   filtro más sobre los mismos slots ya cargados (nivel/tipo/
                   horario/día), no un motor de recomendación nuevo. Apagable
@@ -1885,6 +1931,44 @@ export default function ReservarPage() {
                   </button>
                 ))}
               </div>
+
+              {/* Chips de filtro por tipo de clase, en línea — Fase 4 del
+                  rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+                  01). Habían salido de aquí (ver RailFiltros más abajo) porque
+                  con 5+ tipos se salían de la pantalla; el diseño del handoff
+                  los quiere de vuelta, esta vez con `flex-wrap:wrap` — el
+                  motivo original de quitarlos ya no aplica. El rail lateral
+                  se queda (cubre instructora/nivel/horario/sala, que esta fila
+                  no toca), así que no hay filtro duplicado, solo ampliado. */}
+              {tiposClase.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }} role="group" aria-label="Filtrar por tipo de clase">
+                  {/* Mismo patrón que el selector Lista/Mes/Semana/Día de
+                      arriba (`PRIMARY`/`transparent`, nunca `--portal-surface`
+                      como relleno del no-seleccionado): ese token es blanco
+                      en modo día, y un fondo claro fijo pintado sobre una web
+                      oscura es justo lo que reservar-acoplar-widget.spec.ts
+                      vigila. `transparent` dejaba pasar el fondo real por
+                      debajo, sea cual sea. */}
+                  <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
+                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                    background: filtroTipo === '' ? PRIMARY : 'transparent',
+                    color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
+                    borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
+                  }}>
+                    Todas
+                  </button>
+                  {tiposClase.map(t => (
+                    <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
+                      padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                      background: filtroTipo === t.id ? PRIMARY : 'transparent',
+                      color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
+                      borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
+                    }}>
+                      {t.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div style={{ marginTop: 24 }}>
                 {vistaClases === 'mes' ? (

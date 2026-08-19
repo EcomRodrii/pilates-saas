@@ -473,9 +473,42 @@ export function ReservaCalendario({
         )
       )}
 
-      {variant === 'calendario' && estiloDias !== 'grid' && (
+      {variant === 'calendario' && estiloDias === 'dias' && (() => {
+        const diaSel = new Date(`${selectedDayKey}T12:00:00`);
+        const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${selectedDayKey === hoyKey ? ' — hoy' : ''}`;
+        const countLabel = error ? '—' : (slotsDia.length ? `${slotsDia.length} ${slotsDia.length === 1 ? 'clase' : 'clases'}` : 'Sin clases');
+        return (
+          // Contenedor con cabecera «día · nº de clases» (Fase 4 del rediseño,
+          // docs/widget-reservas-fase4-brief-diseno.md, formato 01) — solo en
+          // Modo A (única consumidora de `estiloDias='dias'`). Las filas siguen
+          // siendo `SlotRow` tal cual, con su propia sombra/tarjeta: no se toca
+          // ese componente porque también lo usa el portal privado
+          // (`estiloDias='semana'`), fuera del alcance de este rediseño.
+          <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${t.line}`, background: t.surface2 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
+              <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
+            </div>
+            <div style={{ padding: 14 }}>
+              {error ? (
+                <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+              ) : slotsDia.length === 0 ? (
+                <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {slotsDia.map(slot => (
+                    <SlotRow key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {variant === 'calendario' && estiloDias === 'semana' && (
         <>
-          {/* ── Horarios del día ─────────────────────────────────────────── */}
+          {/* ── Horarios del día (portal privado) ───────────────────────── */}
           {error ? (
             <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
           ) : slotsDia.length === 0 ? (
