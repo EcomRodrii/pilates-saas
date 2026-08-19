@@ -2188,12 +2188,13 @@ export async function fetchVerificacionIdentidadNetwork(): Promise<VerificacionI
 
 export async function enviarVerificacionIdentidadNetwork(
   documentoPath: string,
+  documentoPathReverso: string | null = null,
 ): Promise<{ ok: true; verificacion: VerificacionIdentidadNetwork } | { ok: false; error: string }> {
   try {
     const res = await fetch('/api/network/perfil/verificacion-identidad', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ documentoPath }),
+      body: JSON.stringify({ documentoPath, documentoPathReverso }),
     });
     const data = (await res.json().catch(() => ({}))) as { verificacion?: VerificacionIdentidadNetwork; error?: string };
     if (!res.ok || !data.verificacion) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };

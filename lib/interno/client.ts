@@ -208,6 +208,8 @@ export const moderarResenaNetworkInterno = (id: string, estado: 'publicada' | 'o
 export interface VerificacionIdentidadNetworkInterna {
   id: string; estado: string; motivoRechazo: string | null;
   creadoEn: string; resueltoEn: string | null;
+  /** DNI/NIE llevan reverso, Pasaporte no — decide si se pinta el botón "Ver reverso". */
+  tieneReverso: boolean;
   perfilId: string | null; perfilNombre: string; perfilSlug: string | null;
 }
 export const fetchVerificacionesIdentidadNetworkInterno = (estado: string) =>
@@ -228,8 +230,8 @@ export const resolverCertificacionNetworkInterno = (id: string, aprobar: boolean
 // URL firmada de 5 min — se pide bajo demanda (clic en "Ver documento"), no
 // al cargar la lista: el bucket no tiene SELECT para nadie salvo
 // service-role, así que cada vista del documento es una llamada nueva.
-export const obtenerUrlDocumentoNetworkInterno = (id: string, tipo: 'identidad' | 'certificacion') =>
-  pedir<{ url: string }>(`/network/verificaciones-identidad/documento?id=${encodeURIComponent(id)}&tipo=${tipo}`);
+export const obtenerUrlDocumentoNetworkInterno = (id: string, tipo: 'identidad' | 'certificacion', cara?: 'anverso' | 'reverso') =>
+  pedir<{ url: string }>(`/network/verificaciones-identidad/documento?id=${encodeURIComponent(id)}&tipo=${tipo}${cara ? `&cara=${cara}` : ''}`);
 
 export interface AnaliticaNetwork {
   perfiles: {

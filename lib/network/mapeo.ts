@@ -193,6 +193,7 @@ export interface FilaRedVerificacionIdentidad {
   estado: string;
   motivo_rechazo: string | null;
   documento_path: string;
+  documento_path_reverso: string | null;
   creado_en: string;
   resuelto_en: string | null;
 }
@@ -204,6 +205,7 @@ export function mapFilaAVerificacionIdentidad(f: FilaRedVerificacionIdentidad): 
     estado: f.estado as VerificacionIdentidadNetwork['estado'],
     motivoRechazo: f.motivo_rechazo,
     documentoPath: f.documento_path,
+    documentoPathReverso: f.documento_path_reverso,
     creadoEn: f.creado_en,
     resueltoEn: f.resuelto_en,
   };

@@ -14,7 +14,7 @@ import { mapFilaAVerificacionIdentidad, type FilaRedVerificacionIdentidad } from
 // (Tentare Interno), no aquí — este endpoint nunca escribe `estado` a otra
 // cosa que 'pendiente'.
 
-const SELECT_COLUMNAS = 'id, perfil_id, estado, motivo_rechazo, documento_path, creado_en, resuelto_en';
+const SELECT_COLUMNAS = 'id, perfil_id, estado, motivo_rechazo, documento_path, documento_path_reverso, creado_en, resuelto_en';
 
 async function propioPerfilId(admin: ReturnType<typeof getSupabaseAdmin>, authUserId: string): Promise<string | null> {
   const { data } = await admin!.from('red_perfiles').select('id').eq('auth_user_id', authUserId).maybeSingle();
@@ -58,13 +58,32 @@ export async function POST(req: NextRequest) {
   const perfilId = await propioPerfilId(admin, usuario.userId);
   if (!perfilId) return errorPeticion('Crea tu perfil (paso 1) antes de continuar.', 404);
 
-  const body = (await req.json().catch(() => null)) as { documentoPath?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { documentoPath?: unknown; documentoPathReverso?: unknown } | null;
   const documentoPath = typeof body?.documentoPath === 'string' ? body.documentoPath : '';
+  const documentoPathReverso = typeof body?.documentoPathReverso === 'string' && body.documentoPathReverso
+    ? body.documentoPathReverso
+    : null;
   if (!documentoPath) return errorPeticion('Falta el documento subido.');
   // El path lo sube el propio dueño a su carpeta (RLS de storage.objects
   // exige que el primer segmento sea su auth.uid()) — se revalida aquí para
   // no confiar en lo que mande el cliente sin más.
   if (!documentoPath.startsWith(`${usuario.userId}/`)) return errorPeticion('Ruta de documento no válida.');
+  if (documentoPathReverso && !documentoPathReverso.startsWith(`${usuario.userId}/`)) {
+    return errorPeticion('Ruta de documento no válida.');
+  }
+
+  // El tipo de documento decide si el reverso es obligatorio (DNI/NIE) o no
+  // (Pasaporte, sin reverso) — se lee de la fuente de verdad real
+  // (red_perfiles_identidad), nunca de lo que mande el cliente en este body.
+  const { data: identidad } = await admin
+    .from('red_perfiles_identidad')
+    .select('tipo_documento')
+    .eq('perfil_id', perfilId)
+    .maybeSingle();
+  const requiereReverso = identidad?.tipo_documento !== 'Pasaporte';
+  if (requiereReverso && !documentoPathReverso) {
+    return errorPeticion('Falta el reverso del documento. Los DNI y NIE necesitan las dos caras.');
+  }
 
   // Solo una fila "viva" a la vez (índice único parcial en la migración) —
   // si ya hay una pendiente/en_revision, no se crea otra; el wizard debe
@@ -79,7 +98,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await admin
     .from('red_verificaciones_identidad')
-    .insert({ id: `redveri-${uid()}`, perfil_id: perfilId, documento_path: documentoPath })
+    .insert({ id: `redveri-${uid()}`, perfil_id: perfilId, documento_path: documentoPath, documento_path_reverso: documentoPathReverso })
     .select(SELECT_COLUMNAS)
     .single();
   if (error) return errorInterno('network:verificacion-identidad:POST', error, 'No se ha podido enviar tu documento.');

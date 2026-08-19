@@ -263,6 +263,8 @@ export interface VerificacionIdentidadNetwork {
   estado: EstadoVerificacionDocumento;
   motivoRechazo: string | null;
   documentoPath: string;
+  /** Reverso — null si el tipo de documento es Pasaporte (sin reverso) o si es una fila histórica anterior a este campo. */
+  documentoPathReverso: string | null;
   creadoEn: string;
   resueltoEn: string | null;
 }
