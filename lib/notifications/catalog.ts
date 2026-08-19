@@ -91,6 +91,16 @@ export const EVENTOS = {
   // de RESERVA_CANCELADA: ahí existió una reserva y se deshizo; aquí no llegó
   // a crearse ninguna, así que ese evento mentiría.
   RESERVA_PLAZA_FIJA_NO_MATERIALIZADA: 'reserva.plaza_fija_no_materializada',
+  // I-3 (auditoría 19-ago): checkout embebido — el pago se confirmó y el
+  // plan ya se entregó, pero la clase concreta que la socia intentaba
+  // reservar no se pudo confirmar (aforo lleno/cancelada entre crear el
+  // PaymentIntent y que Stripe confirmara el pago). La UI del widget ya
+  // había dado la reserva por hecha (handlePagoExitoso, optimista, sin
+  // volver a preguntar al servidor), así que sin este aviso nadie del
+  // estudio se entera y la socia se queda creyendo que tiene plaza.
+  // Distinto de RESERVA_PENDIENTE_APROBACION (aquí no hay nada que aprobar,
+  // hay que resolver el error a mano: ofrecer otra clase o compensar).
+  RESERVA_PAGADA_SIN_PLAZA: 'reserva.pagada_sin_plaza',
   CLASE_CANCELADA: 'clase.cancelada',
   CLASE_MODIFICADA: 'clase.modificada',
   // Cubrir NO es mover: la clase se queda donde está y solo cambia quién la da.
@@ -196,6 +206,10 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // esta requiere una acción de la propietaria/mostrador antes de que empiece
   // la clase.
   [EVENTOS.RESERVA_PENDIENTE_APROBACION]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
+  // ALTA + PUSH, mismo criterio que RESERVA_PENDIENTE_APROBACION: hay dinero
+  // ya cobrado y una clienta que cree tener plaza sin tenerla — el mostrador
+  // tiene que resolverlo hoy, no cuando alguien mire el panel por casualidad.
+  [EVENTOS.RESERVA_PAGADA_SIN_PLAZA]: { category: 'reservas', priority: 'ALTA', canales: ['PUSH'], audiencia: 'mostrador' },
   // ALTA + PUSH: la socia tiene un plazo real para aceptar antes de que se
   // ofrezca a la siguiente — mismo criterio que RESERVA_PLAZA_LIBERADA, pero
   // aquí SÍ hace falta que actúe (no basta con enterarse).
@@ -419,6 +433,22 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.RESERVA_PENDIENTE_APROBACION}#RECEPCION`]: {
     title: 'Reserva pendiente de aprobar',
     body: '{socia} quiere reservar {clase} el {cuando}. Requiere tu aprobación.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  // Pagado pero sin plaza (checkout embebido) → mostrador
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#PROPIETARIO`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#MANAGER`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
+    deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
+  },
+  [`${EVENTOS.RESERVA_PAGADA_SIN_PLAZA}#RECEPCION`]: {
+    title: 'Cobrado pero sin plaza',
+    body: '{socia} pagó {clase} el {cuando} pero no se pudo confirmar su plaza. Contacta con ella para resolverlo.',
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   // Clase cancelada → cada socia apuntada
