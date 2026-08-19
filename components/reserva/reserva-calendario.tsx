@@ -172,6 +172,16 @@ export interface ReservaCalendarioProps {
    * lo fija en la raíz del shadow root.
    */
   estiloDias?: 'semana' | 'dias' | 'grid';
+  /**
+   * Fase 4 del rediseño: las clases de HOY que ya empezaron/terminaron, para
+   * pintarlas en gris con "FINALIZADA" en la tarjeta del día — `slots`
+   * arriba las excluye a propósito (filtra `inicio > ahora`, y de eso
+   * dependen Mes/Semana/RailFiltros, así que esa regla no se toca). Solo se
+   * pintan cuando `estiloDias === 'dias'` y el día elegido es hoy. Sin
+   * acción — no llevan `miReservaId`/aforo/precio, no se puede reservar algo
+   * que ya pasó.
+   */
+  finalizadasHoy?: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null }[];
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -219,7 +229,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
-  irADia, estiloDias = 'semana',
+  irADia, estiloDias = 'semana', finalizadasHoy,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -475,8 +485,11 @@ export function ReservaCalendario({
 
       {variant === 'calendario' && estiloDias === 'dias' && (() => {
         const diaSel = new Date(`${selectedDayKey}T12:00:00`);
-        const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${selectedDayKey === hoyKey ? ' — hoy' : ''}`;
-        const countLabel = error ? '—' : (slotsDia.length ? `${slotsDia.length} ${slotsDia.length === 1 ? 'clase' : 'clases'}` : 'Sin clases');
+        const esHoy = selectedDayKey === hoyKey;
+        const finalizadas = esHoy ? (finalizadasHoy ?? []) : [];
+        const totalDia = slotsDia.length + finalizadas.length;
+        const dayLabel = `${capitaliza(diaSel.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}${esHoy ? ' — hoy' : ''}`;
+        const countLabel = error ? '—' : (totalDia ? `${totalDia} ${totalDia === 1 ? 'clase' : 'clases'}` : 'Sin clases');
         return (
           // Contenedor con cabecera «día · nº de clases» (Fase 4 del rediseño,
           // docs/widget-reservas-fase4-brief-diseno.md, formato 01) — solo en
@@ -492,10 +505,15 @@ export function ReservaCalendario({
             <div style={{ padding: 14 }}>
               {error ? (
                 <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
-              ) : slotsDia.length === 0 ? (
+              ) : totalDia === 0 ? (
                 <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Las de hoy que ya pasaron van PRIMERO — es el orden
+                      cronológico del día, y coincide con el handoff. */}
+                  {finalizadas.map(f => (
+                    <FilaFinalizada key={f.id} t={t} slot={f} />
+                  ))}
                   {slotsDia.map(slot => (
                     <SlotRow key={slot.id} t={t} slot={slot} onOpen={() => abrirSlot(slot)} />
                   ))}
@@ -601,6 +619,42 @@ export function ReservaCalendario({
 }
 
 // ── Fila de slot (tarjeta de horario) ────────────────────────────────────────
+
+/** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
+ *  que `SlotRow` (misma tarjeta, mismo hueco de hora/nombre/instructora),
+ *  pero sin `onClick` ni CTA: no se puede reservar algo que ya pasó. */
+function FilaFinalizada({ t, slot }: {
+  t: ModoTokens;
+  slot: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null };
+}) {
+  const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  return (
+    <div style={{
+      display: 'flex', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
+      background: 'var(--portal-velo-suave)', borderRadius: radius.card,
+      padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
+    }}>
+      <div style={{ flex: '0 0 auto' }}>
+        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: t.muted }}>{fmtHora(slot.inicio)}</div>
+        <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>{duracionMin} min</div>
+      </div>
+      <div style={{ flex: '1 1 150px', minWidth: 0 }}>
+        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slot.claseNombre}
+        </div>
+      </div>
+      {slot.instructorNombre && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto', opacity: 0.7 }}>
+          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={32} />
+          <span style={{ fontSize: 12, fontWeight: 500, color: t.muted, whiteSpace: 'nowrap' }}>{slot.instructorNombre}</span>
+        </div>
+      )}
+      <span style={{ flex: '0 0 auto', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted, marginLeft: 'auto' }}>
+        FINALIZADA
+      </span>
+    </div>
+  );
+}
 
 function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen: () => void }) {
   const libres = Math.max(0, slot.aforoMaximo - slot.ocupadas);
