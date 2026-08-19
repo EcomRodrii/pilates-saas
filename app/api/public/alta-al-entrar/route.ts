@@ -6,12 +6,22 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Volver de Google: enlazar o dar de alta.
+// Al entrar: enlazar la ficha de la socia, o darla de alta.
 //
-// Decisión de producto explícita del fundador: quien entra con Google y todavía
-// no es socia de ese estudio SE DA DE ALTA SOLA. Se le advirtió del efecto
-// —cualquiera con cuenta de Google queda dada de alta sin que la propietaria lo
-// apruebe— y lo confirmó.
+// Decisión de producto explícita del fundador: quien entra y todavía no es
+// socia de ese estudio SE DA DE ALTA SOLA. Se le advirtió del efecto
+// —cualquiera queda dada de alta sin que la propietaria lo apruebe— y lo
+// confirmó.
+//
+// ⚠️ Sirve a las DOS puertas, y tiene que ser así: con Google se daba de alta y
+// por email no —quien pedía el enlace sin ser socia acababa en «el enlace ya no
+// vale», un callejón—. Dos comportamientos distintos para la misma decisión de
+// producto es como se acaba con la mitad de las socias entrando por un sitio y
+// la otra mitad sin poder.
+//
+// En las dos vías la persona ha PROBADO que controla ese email: Google lo
+// verifica, y el enlace del correo también. Esa prueba es la que autoriza el
+// alta, no el proveedor.
 //
 // ⚠️ Va en un endpoint PROPIO y no dentro de `/api/public/session`, y la
 // diferencia importa: `session` se llama en CADA carga del portal, así que
@@ -25,13 +35,15 @@ import { errorInterno } from '@/lib/errores-servidor';
 // en el primer cambio.
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const limited = await enforceRateLimit(req, 'public-alta-google', { max: 10, windowSeconds: 60 });
+  const limited = await enforceRateLimit(req, 'public-alta-al-entrar', { max: 10, windowSeconds: 60 });
   if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as {
     slug?: string;
-    /** Su nombre según Google. Se usa solo si hay que crear la ficha. */
+    /** Su nombre, si el proveedor lo da. Se usa solo si hay que crear la ficha. */
     nombre?: string;
+    /** Por qué puerta entró. Solo cambia lo que se anota como origen. */
+    via?: 'google' | 'enlace';
   } | null;
   if (!body?.slug) return NextResponse.json({ error: 'Falta el estudio' }, { status: 400 });
 
@@ -61,12 +73,14 @@ export async function POST(req: NextRequest) {
       authUserId: user.userId,
       // Queda anotado de dónde salió: la propietaria tiene que poder distinguir
       // a quien dio de alta ella de quien entró sola con Google.
-      origenLead: 'google',
+      // De dónde salió, para que la propietaria pueda distinguir a quien dio
+      // de alta ella de quien entró sola, y por qué puerta.
+      origenLead: body.via === 'google' ? 'google' : 'enlace-email',
     });
     if ('error' in r) return NextResponse.json({ error: r.error }, { status: 400 });
     return NextResponse.json({ socioId: r.socioId, creada: true });
   } catch (err) {
-    return errorInterno('public/alta-google:POST', err, 'No se ha podido completar el acceso.');
+    return errorInterno('public/alta-al-entrar:POST', err, 'No se ha podido completar el acceso.');
   }
 }
 

@@ -14,6 +14,12 @@ export interface PortalSession {
 
 interface PortalAuthContextValue {
   session: PortalSession | null;
+  /**
+   * Vuelve a preguntar quién es. Se usa tras dar de alta a alguien que acaba de
+   * entrar y todavía no era socia: la sesión se resolvió a `null` porque no lo
+   * era, y ahora sí lo es.
+   */
+  revalidarSesion: () => Promise<void>;
   isLoading: boolean;
   // Envía el magic link / OTP al email. La sesión NO se establece aquí, sino
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
@@ -160,7 +166,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );

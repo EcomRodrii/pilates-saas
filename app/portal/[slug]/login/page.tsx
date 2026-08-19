@@ -29,6 +29,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio } from '@/lib/studio-context';
 import { useModo } from '@/lib/portal-modo';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { GoogleLogo } from '@/components/portal/google-logo';
 import { EASE, dur, display, micro, texto } from '@/lib/portal-design';
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada,
@@ -38,7 +39,7 @@ export default function PortalLogin() {
   const { slug } = useParams<{ slug: string }>();
   const params = useSearchParams();
   const router = useRouter();
-  const { loginConPassword, enviarEnlace } = usePortalAuth();
+  const { loginConPassword, enviarEnlace, entrarConGoogle } = usePortalAuth();
   const { studio } = useStudio();
   const { t } = useModo();
 
@@ -48,6 +49,14 @@ export default function PortalLogin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
+  const [googleTrabajando, setGoogleTrabajando] = useState(false);
+  const conGoogle = async () => {
+    setError('');
+    setGoogleTrabajando(true);
+    const r = await entrarConGoogle();
+    // Si sale bien el navegador ya se va a Google: no se apaga el estado.
+    if ('error' in r) { setError(r.error); setGoogleTrabajando(false); }
+  };
   const [entrando, setEntrando] = useState(false);
 
   // Sin email en la URL no hay paso 2 que valga: se vuelve al paso 1. Pasa si
@@ -168,6 +177,30 @@ export default function PortalLogin() {
             <BotonCta listo={listo} cargando={loading} onClick={entrar}>Entrar</BotonCta>
           </div>
 
+          {/* Google también AQUÍ, no solo en el paso 1: quien llega hasta la
+              contraseña y se acuerda de que entró con Google tiene que poder
+              cambiar de idea sin retroceder. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0 14px' }}>
+            <span style={{ flex: 1, height: 1, background: t.line }} />
+            <span style={{ ...micro(10, 0.14, 500), color: t.micro }}>o</span>
+            <span style={{ flex: 1, height: 1, background: t.line }} />
+          </div>
+          <button
+            onClick={conGoogle}
+            disabled={googleTrabajando}
+            style={{
+              width: '100%', height: 52, borderRadius: 26,
+              border: `1px solid ${t.line}`, background: t.surface, color: t.ink,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              fontSize: 15, fontWeight: 500,
+              cursor: googleTrabajando ? 'default' : 'pointer',
+              opacity: googleTrabajando ? 0.6 : 1,
+            }}
+          >
+            <GoogleLogo />
+            {googleTrabajando ? 'Abriendo Google…' : 'Continuar con Google'}
+          </button>
+
           {/* La otra salida. Nunca oculta, nunca condicionada: ver arriba. */}
           <div style={{ textAlign: 'center', marginTop: 20 }}>
             <button
@@ -179,7 +212,13 @@ export default function PortalLogin() {
                 borderBottom: `1px solid ${t.line}`, paddingBottom: 2,
               }}
             >
-              Nunca he creado una — mándame un enlace
+              {/* ⚠️ El rótulo nombra LAS DOS cosas a propósito. Es la misma vía
+                  —un enlace al correo— para quien nunca tuvo contraseña y para
+                  quien la ha olvidado, y tiene que serlo: preguntar al servidor
+                  cuál de las dos es filtraría quién está dada de alta. Antes
+                  solo decía «nunca he creado una», así que quien la olvidaba no
+                  se reconocía y se quedaba sin salida. */}
+              No tengo contraseña o la he olvidado — mándame un enlace
             </button>
           </div>
 
