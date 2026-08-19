@@ -19,11 +19,13 @@ import { GoogleIcon } from '@/components/auth/google-icon';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
+import { ArrowLeftRight } from 'lucide-react';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_BORDE } from '@/components/network-v2/tokens';
 
 export default function AccesoNetworkPage() {
   const uid = useId();
-  const { signIn, signInWithGoogle, session, user, loading, verificarOtpSignup, reenviarConfirmacion } = useAuth();
+  const { signIn, signInWithGoogle, session, user, loading, verificarOtpSignup, reenviarConfirmacion, signOut } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mostrarPassword, setMostrarPassword] = useState(false);
@@ -37,6 +39,10 @@ export default function AccesoNetworkPage() {
   // manda a la misma pantalla de código que ven esas dos altas — mismo
   // patrón que app/login/page.tsx.
   const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  // Autenticó bien, pero esta identidad no tiene NADA en Network — sí tiene
+  // estudio/ficha de Software. Nunca se le concede el autoservicio: se le
+  // dice la verdad y se cierra la sesión que se acaba de abrir.
+  const [cuentaDeSoftware, setCuentaDeSoftware] = useState(false);
   useEffect(() => {
     const pendiente = leerEmailOtpPendiente();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -53,24 +59,61 @@ export default function AccesoNetworkPage() {
   async function conectarConGoogle() {
     setError('');
     setConectandoGoogle(true);
-    const { error } = await signInWithGoogle();
+    // '/network/acceso' — el punto de retorno propio de Network (añadido a
+    // RUTAS_RETORNO_AUTH_STAFF en lib/db/supabase.ts). Antes esto volvía
+    // siempre a /login porque era la única ruta que sabía leer el fragmento
+    // de la URL; con dos productos independientes, Network necesita el suyo
+    // — si no, cualquier alta/entrada por Google acababa procesada por el
+    // efecto de /login, con su propia lógica de pending_studio/invitación.
+    const { error } = await signInWithGoogle('/network/acceso');
     if (error) { setError(error); setConectandoGoogle(false); }
   }
 
   // Misma cola de resolución que /login: destino-post-login es la única
-  // fuente de verdad de a dónde pertenece esta cuenta (estudio real →
-  // /dashboard; Network sin estudio → su perfil). Hard navigation, no
+  // fuente de verdad de a dónde pertenece esta cuenta. Hard navigation, no
   // router.replace: mismo motivo que /login (StudioProvider ya resolvió con
   // el studio_id anterior al login).
+  //
+  // ⚠️ `producto=network` — EL BUG REAL que motivó separar Software/Network
+  // (2026-08-19): esta llamada antes NO llevaba `producto`, y la resolución
+  // miraba "¿tiene estudio?" ANTES que nada, sin saber que se había entrado
+  // por AQUÍ. Una identidad con self-claim (ficha de instructora de Software
+  // + perfil de Network) que entrara en esta página para ver sus mensajes de
+  // Network acababa SIEMPRE en /dashboard — la puerta por la que entraba
+  // dejaba de importar. Con el contexto como parámetro de entrada, cada
+  // puerta respeta lo suyo.
   useEffect(() => {
     if (loading || !session || !user || yaResuelto.current) return;
     yaResuelto.current = true;
     (async () => {
-      const destino = await fetch('/api/auth/destino-post-login', { headers: await authHeader() })
+      // Ahora este efecto también recibe la vuelta de Google directamente
+      // (ver conectarConGoogle) — la normalización de nombre que antes solo
+      // corría dentro del efecto de /login tiene que correr aquí también.
+      await normalizarNombreDeGoogle(user);
+
+      const resultado = await fetch('/api/auth/destino-post-login?producto=network', { headers: await authHeader() })
         .then(r => (r.ok ? r.json() : null))
         .catch(() => null);
-      window.location.href = destino?.destino ?? '/dashboard';
+
+      if (resultado?.tipo === 'cuenta-de-otro-producto') {
+        // No se deja una sesión válida abierta enseñando un mensaje de
+        // bloqueo: eso es justo el estado ambiguo que se quiere evitar.
+        await signOut();
+        setCuentaDeSoftware(true);
+        return;
+      }
+      if (resultado?.tipo === 'cuenta-nueva') {
+        // Sin estudio y sin perfil de Network: alta por Google recién hecha,
+        // sin fila en red_perfiles todavía — se manda a crear el perfil en
+        // vez de a un /dashboard que no le pertenece (fallback de siempre).
+        window.location.href = '/network/crear-perfil';
+        return;
+      }
+      window.location.href = resultado?.destino ?? '/network/reanudar';
     })();
+    // signOut recibido de useAuth() se recrea cada render (no está memoizado);
+    // yaResuelto ya evita que el efecto se re-ejecute tras la primera resolución.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, user, loading]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,8 +145,11 @@ export default function AccesoNetworkPage() {
             <LogoTentare formato="horizontal" tinta="tinta" producto="network" titulo="Tentare Network" alto={24} decorativo />
           </Link>
           <h1 className="text-[34px] font-extrabold leading-[1.05] tracking-tight" style={{ color: NW_TINTA }}>
-            ¿Cómo entras en <span style={{ color: NW_PRODUCTO }}>Tentare</span>?
+            Entra en <span style={{ color: NW_PRODUCTO }}>Tentare Network</span>
           </h1>
+          <p className="mt-2 text-[14.5px]" style={{ color: NW_MUTED }}>
+            La red profesional para instructoras y profesionales de Pilates.
+          </p>
 
           <div className="mt-8 space-y-4">
             <div className="bg-white rounded-2xl p-6" style={{ border: `1px solid ${NW_BORDE}` }}>
@@ -125,13 +171,17 @@ export default function AccesoNetworkPage() {
             <div className="rounded-2xl p-6" style={{ background: NW_VERDE_OSCURO }}>
               <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,.6)' }}>Soy propietaria</p>
               <p className="mt-1.5 text-[15px] font-bold text-white">Gestiono un estudio con Tentare</p>
-              <a
-                href="#login"
-                className="inline-block mt-4 px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white"
+              {/* Enlace al OTRO producto, no un login compartido aquí: Tentare
+                  Network y Tentare Software son dos cuentas independientes —
+                  una cuenta de estudio no entra por esta puerta. */}
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 mt-4 px-5 py-2.5 rounded-full text-[13.5px] font-bold text-white"
                 style={{ border: '1.5px solid rgba(255,255,255,.5)' }}
               >
-                Entrar en mi estudio
-              </a>
+                Ir a Tentare Software
+                <ArrowLeftRight size={13} aria-hidden="true" />
+              </Link>
             </div>
           </div>
         </div>
@@ -139,7 +189,34 @@ export default function AccesoNetworkPage() {
 
       <div id="login" className="p-10 lg:p-16 flex flex-col justify-center scroll-mt-6">
         <div className="max-w-[380px] mx-auto w-full">
-        {emailOtp ? (
+        {cuentaDeSoftware ? (
+          <div className="bg-white rounded-2xl p-6 text-center" style={{ border: `1px solid ${NW_BORDE}` }}>
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: NW_SAGE }}>
+              <ArrowLeftRight size={18} style={{ color: NW_PRODUCTO }} aria-hidden="true" />
+            </div>
+            <p className="text-[16px] font-bold" style={{ color: NW_TINTA }}>Esta cuenta es de Tentare Software</p>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed" style={{ color: NW_MUTED }}>
+              El email y la contraseña son correctos, pero esta cuenta pertenece a Tentare Software, no a Tentare
+              Network — son dos productos independientes. Para tu perfil profesional necesitas una cuenta de
+              Network.
+            </p>
+            <Link
+              href="/login"
+              className="block w-full mt-5 rounded-xl py-2.5 text-center text-[13.5px] font-bold text-white"
+              style={{ background: NW_PRODUCTO }}
+            >
+              Ir a Tentare Software
+            </Link>
+            <button
+              type="button"
+              onClick={() => { setCuentaDeSoftware(false); setEmail(''); setPassword(''); }}
+              className="mt-3 text-[13px] font-medium"
+              style={{ color: NW_MUTED }}
+            >
+              Volver a intentarlo con otra cuenta
+            </button>
+          </div>
+        ) : emailOtp ? (
           <OtpVerificacion
             email={emailOtp}
             onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
@@ -219,7 +296,7 @@ export default function AccesoNetworkPage() {
             <Link href="/login" className="font-semibold" style={{ color: NW_TINTA }}>¿Has olvidado tu clave?</Link>
           </div>
           <div className="mt-8 rounded-xl p-4 text-[12.5px]" style={{ background: NW_SAGE, color: NW_TINTA }}>
-            Al entrar te llevamos a tu sitio: las instructoras a Tentare Network, las propietarias a su estudio. Nunca al panel equivocado.
+            Esta cuenta es solo de Tentare Network. Si gestionas un estudio, entra en tentare.app.
           </div>
         </>
         )}
