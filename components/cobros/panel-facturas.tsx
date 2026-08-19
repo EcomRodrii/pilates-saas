@@ -226,10 +226,17 @@ export function PanelFacturas() {
           {verifactuActivo ? <ShieldCheck size={15} className="text-brand-medio" /> : <FileText size={15} className="text-brand-medio" />}
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-foreground">{verifactuActivo ? 'Verifactu — Activo' : 'Verifactu — Próximamente'}</p>
+          {/* P1 (auditoría "Veredicto de Marta"): el texto de "Activo" decía
+              "se firman y se envían a la AEAT automáticamente", y eso todavía
+              no es cierto — lib/verifactu.ts es el CIMIENTO (huella SHA-256 +
+              QR encadenado, verificado contra los vectores de la AEAT) pero
+              no hay envío SOAP real. El copy anterior prometía más de lo que
+              el sistema hace hoy; este dice exactamente lo que sí es cierto
+              sin sonar a que no hay nada construido. */}
+          <p className="text-sm font-bold text-foreground">{verifactuActivo ? 'Verifactu — Huella activa' : 'Verifactu — Próximamente'}</p>
           <p className="text-xs font-medium mt-0.5 text-brand-medio">
             {verifactuActivo
-              ? 'Tus facturas se firman y se envían a la AEAT automáticamente al cobrar un recibo.'
+              ? 'Cada factura lleva su huella verificable (registro encadenado + QR) desde que se cobra. El envío automático a la AEAT está en camino.'
               : 'Integración con AEAT en desarrollo. Las facturas se generan automáticamente al cobrar un recibo.'}
           </p>
         </div>

@@ -47,6 +47,10 @@ export type FormularioPlan = {
   /** Vacío = el plan vale para todas las clases (lo de siempre). */
   tiposClaseIds: string[];
   activo: boolean;
+  // P2 (auditoría "Veredicto de Marta"): fecha 'YYYY-MM-DD' de fin de una
+  // oferta temporal sobre `precio`, o '' = sin oferta. Puramente informativa
+  // (ver comentario en lib/types.ts) — no participa en ningún cálculo aquí.
+  ofertaHasta: string;
 };
 
 /** Lo que se guarda: un plan sin los campos que pone el sistema. */
@@ -69,6 +73,7 @@ export function planVacio(): FormularioPlan {
     limiteSemanal: '',
     tiposClaseIds: [],
     activo: true,
+    ofertaHasta: '',
   };
 }
 
@@ -95,6 +100,7 @@ export function planAFormulario(p: PlanTarifa): FormularioPlan {
     limiteSemanal: texto(p.limiteSemanal),
     tiposClaseIds: p.tiposClaseIds ?? [],
     activo: p.activo,
+    ofertaHasta: p.ofertaHasta ?? '',
   };
 }
 
@@ -123,6 +129,7 @@ export function formularioAPlan(f: FormularioPlan): DatosPlan {
     limiteSemanal: enteroPositivo(f.limiteSemanal),
     tiposClaseIds: f.tiposClaseIds,
     activo: f.activo,
+    ofertaHasta: f.ofertaHasta.trim() || null,
   };
 }
 

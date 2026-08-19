@@ -409,6 +409,11 @@ export function ReservaCalendario({
                     boxShadow: isSel ? shadow.headerBtn : undefined,
                     opacity: vacío && !isSel ? 0.55 : 1,
                     transition: `background .5s ${EASE}, box-shadow .5s ${EASE}`,
+                    // Mismo gotcha que tira-dias.tsx: sin esto, un toque en
+                    // móvil puede leerse como selección de texto en vez de
+                    // tap y `onClick` no llega.
+                    WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
                   }}
                 >
                   <span style={{

@@ -43,6 +43,7 @@ const SPECS_WEBKIT = [
   '**/reservar-el-servidor-dice-no.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
+  '**/reservar-selector-fecha-movil.spec.ts',
   '**/network-marketplace-publico.spec.ts',
   // El alta pública. Cumple el criterio de arriba de sobra: es PÚBLICA y quien
   // sufre un fallo es alguien de fuera —una propietaria que todavía no es
@@ -84,6 +85,17 @@ export default defineConfig({
       name: 'webkit-publico',
       use: { ...devices['iPhone 13'] },
       testMatch: SPECS_WEBKIT,
+      // ⚠️ Medido en CI (PR #1257, 19-ago): con los 4 workers a tope, un
+      // shard que agrupa varios specs de este proyecto renderiza bajo
+      // contención de CPU real — una transición SÍNCRONA de React (sin red,
+      // sin captcha; `siguiente()` en app/crear-estudio/page.tsx) tardó más
+      // de 5s en pintar en 4 pasadas seguidas, siempre en webkit-publico,
+      // nunca en chromium con el MISMO test. No es un timeout demasiado
+      // corto para lo que tarda la app — es contención del runner al
+      // emular un iPhone completo en paralelo. El timeout por defecto de
+      // `expect` (5000ms) se queda corto solo aquí; chromium mantiene el
+      // default estricto para no esconder regresiones reales ahí.
+      expect: { timeout: 15_000 },
     },
   ],
   // Arranca el servidor (build o dev, ver USA_BUILD) si no hay ya uno en el

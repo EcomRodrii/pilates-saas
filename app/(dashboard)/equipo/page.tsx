@@ -13,7 +13,7 @@ import {
   Network,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
-import { formatFechaHora, uid as generarId } from '@/lib/utils';
+import { formatFechaHora, formatFechaLarga, uid as generarId } from '@/lib/utils';
 import { subirFotoInstructor, eliminarFotoInstructor, validarFotoPerfil } from '@/lib/portal-storage';
 import {
   generarEnlaceDisponibilidad, listarValoraciones, listarAusencias, crearAusencia, borrarAusencia,
@@ -1014,6 +1014,16 @@ function TarjetaMiembro({
       >
         <AccIcono size={14} />{acc.texto}
       </button>
+      {/* P3 (auditoría "Veredicto de Marta"): "Pedirle disponibilidad" solo
+          decía "Enlace copiado" al pulsar, sin indicar si la instructora
+          había respondido alguna vez. */}
+      {acc.tipo === 'pedir' && (
+        <p className="text-[11px] text-muted-foreground/70 text-center -mt-1">
+          {m.disponibilidadActualizadaEn
+            ? `Respondió el ${formatFechaLarga(m.disponibilidadActualizadaEn)}`
+            : 'Todavía no ha respondido'}
+        </p>
+      )}
 
       {(gestiona || m.esYo) && (m.email || m.telefono) && (
         <p className="flex items-center gap-2 text-[11.5px] text-muted-foreground/70 truncate">

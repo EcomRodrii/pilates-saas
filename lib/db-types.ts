@@ -408,6 +408,8 @@ export interface RowPlanesTarifa {
   validez_dias: number | null;
   // migr 0079.
   limite_semanal: number | null;
+  // migr 20260819202520.
+  oferta_hasta: string | null;
 }
 
 export interface RowPostsComunidad {

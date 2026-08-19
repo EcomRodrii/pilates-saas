@@ -4,9 +4,30 @@ import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { InfoTip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
+import { cn, formatFechaLarga } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import type { PlanTarifa, TipoClase } from '@/lib/types';
+
+// P2 (auditoría "Veredicto de Marta"): el alta de un estudio nuevo precrea
+// "Bono 10 sesiones"/"Cuota mensual" a 0€ e inactivos como plantilla de
+// arranque (lib/onboarding/plan-configuracion.ts) — sin ninguna etiqueta que
+// lo diga, durante unos segundos parece un bono gratuito ya activo por error.
+// Heurística por nombre+precio+inactivo (no hay campo "es plantilla" en BD, y
+// añadir uno para dos filas de onboarding sería sobre-ingeniería): coincidir
+// las tres a la vez en un plan real y editado a mano es extremadamente
+// improbable.
+const NOMBRES_PLANTILLA_ONBOARDING = ['Bono 10 sesiones', 'Cuota mensual'];
+function esPlantillaOnboarding(plan: PlanTarifa): boolean {
+  return !plan.activo && plan.precio === 0 && NOMBRES_PLANTILLA_ONBOARDING.includes(plan.nombre);
+}
+
+// `ofertaHasta` es puramente informativa (ver lib/types.ts): esto solo decide
+// qué aviso pintar, nunca toca `plan.precio`.
+function estadoOferta(plan: PlanTarifa): 'activa' | 'caducada' | null {
+  if (!plan.ofertaHasta) return null;
+  const hoy = new Date().toISOString().slice(0, 10);
+  return plan.ofertaHasta >= hoy ? 'activa' : 'caducada';
+}
 import {
   planVacio, planAFormulario, formularioAPlan, motivoNoGuardable,
   NOMBRE_TIPO_PLAN, EXPLICACION_TIPO_PLAN,
@@ -154,7 +175,24 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                       !plan.activo && 'opacity-50'
                     )}
                   >
-                    <td className="px-5 py-3 font-medium text-foreground">{plan.nombre}</td>
+                    <td className="px-5 py-3 font-medium text-foreground">
+                      {plan.nombre}
+                      {esPlantillaOnboarding(plan) && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground align-middle">
+                          Ejemplo — edítalo o bórralo
+                        </span>
+                      )}
+                      {estadoOferta(plan) === 'activa' && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand/10 text-brand align-middle">
+                          Oferta hasta {formatFechaLarga(plan.ofertaHasta!)}
+                        </span>
+                      )}
+                      {estadoOferta(plan) === 'caducada' && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/10 text-destructive align-middle">
+                          Oferta caducada — revisa el precio
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       <TipoPlanBadge tipo={plan.tipo} />
                     </td>
@@ -204,7 +242,24 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-foreground text-[14px]">{plan.nombre}</p>
-                      <div className="mt-1"><TipoPlanBadge tipo={plan.tipo} /></div>
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                        <TipoPlanBadge tipo={plan.tipo} />
+                        {esPlantillaOnboarding(plan) && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-muted text-muted-foreground">
+                            Ejemplo — edítalo o bórralo
+                          </span>
+                        )}
+                        {estadoOferta(plan) === 'activa' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-brand/10 text-brand">
+                            Oferta hasta {formatFechaLarga(plan.ofertaHasta!)}
+                          </span>
+                        )}
+                        {estadoOferta(plan) === 'caducada' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-destructive/10 text-destructive">
+                            Oferta caducada
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openEditar(plan)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar plan">
@@ -410,6 +465,22 @@ export function TabPlanes({ showToast }: { showToast: (m: string) => void }) {
                 siguen igual y se les sigue cobrando.
               </p>
             </div>
+            {/* P2 (auditoría "Veredicto de Marta"): antes, un precio de
+                lanzamiento obligaba a crear un plan aparte y borrarlo después.
+                Puramente informativa — no cambia el precio solo, la
+                propietaria sigue bajándolo/subiéndolo a mano en "Precio"; esto
+                solo avisa cuándo tiene que volver a subirlo. */}
+            <Field label="Oferta hasta (opcional)">
+              <input
+                type="date"
+                className={inputCls}
+                value={form.ofertaHasta}
+                onChange={e => setForm(f => ({ ...f, ofertaHasta: e.target.value }))}
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground mt-1 text-balance">
+                Si vas a poner un precio de lanzamiento temporal, fija aquí hasta cuándo — la lista te avisará cuando pase esa fecha para que subas el precio de vuelta. No cambia el precio automáticamente.
+              </p>
+            </Field>
           </div>
           {falta && <p className="text-[12px] text-muted-foreground mt-4 -mb-1" role="status">{falta}</p>}
           <div className="flex gap-2 mt-4">
