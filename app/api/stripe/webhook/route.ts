@@ -621,6 +621,37 @@ async function procesarEvento(
         return NextResponse.json({ error: 'Fallo al entregar el plan comprado' }, { status: 500 });
       }
 
+      // Sella el recibo en la metadata del PaymentIntent. SIN ESTO, una compra
+      // por el checkout embebido es INVISIBLE a reembolsos y disputas: sus tres
+      // handlers filtran por `pi.metadata.reciboId && ORIGENES_CON_RECIBO.has(
+      // pi.metadata.origen)`, y aunque 'plan_web_embebido' SÍ está en esa lista
+      // —lo que daba una falsa sensación de cobertura— el `reciboId` no se
+      // escribía nunca aquí, porque el recibo `rec-web-…` no existe hasta que
+      // `entregarPlanComprado` lo crea. La condición era siempre falsa: se
+      // devolvía el dinero (o se perdía un chargeback) y el recibo se quedaba
+      // COBRADO para siempre, con el bono activo y los ingresos inflados.
+      //
+      // Es exactamente el mismo olvido que documenta el comentario de
+      // ORIGENES_CON_RECIBO, ahora en el sentido contrario: allí se añadió la
+      // metadata y se olvidó la lista; aquí se añadió la lista y se olvidó la
+      // metadata. Al añadir un origen nuevo hay que tocar LOS DOS SITIOS.
+      //
+      // Best-effort igual que en checkout.session.completed: el bono ya está
+      // entregado, así que un fallo aquí no puede tumbar el evento — pero queda
+      // en Sentry.
+      try {
+        await stripe.paymentIntents.update(
+          pi.id,
+          { metadata: { ...pi.metadata, reciboId: entrega.reciboId } },
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+      } catch (err) {
+        Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero sin reciboId en el PaymentIntent', {
+          level: 'warning',
+          extra: { paymentIntentId: pi.id, reciboId: entrega.reciboId, studioId, detalle: String(err) },
+        });
+      }
+
       // Guardado de tarjeta (§6 del diseño): con PaymentIntent directo, el
       // propio evento YA ES el PaymentIntent — a diferencia de
       // checkout.session.completed no hace falta expandir/recuperar nada.
@@ -667,8 +698,13 @@ async function procesarEvento(
             studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
           });
           if (!r.ok) {
+            // `error`, no `warning`: la socia ha PAGADO por una clase concreta
+            // y se ha quedado sin plaza. La pantalla ya le ha dicho que estaba
+            // reservada (handlePagoExitoso pasa a 'done' sin volver a preguntar
+            // al servidor), así que nadie más se va a enterar. Con `warning` no
+            // saltaba ninguna alerta y esto se descubría por la socia.
             Sentry.captureMessage('[stripe webhook] checkout embebido: plan entregado pero NO se pudo reservar la clase', {
-              level: 'warning',
+              level: 'error',
               extra: { studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
             });
           }
