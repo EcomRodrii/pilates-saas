@@ -2328,17 +2328,26 @@ export default function Calendario() {
                   <UserCheck size={12} />No puedo asistir
                 </button>
               ) : (
+                // P2 (auditoría "Veredicto de Marta"): en el momento de más
+                // urgencia (baja de última hora) este botón se confundía con
+                // "Incidencia" de al lado — mismo estilo, mismo tamaño. Le
+                // damos el acento de aviso para que destaque como la acción
+                // de la instructora ausente, no de la sala.
                 <button
                   onClick={() => setShowCobertura(true)}
                   disabled={sesionYaEmpezada(sesionActual.inicio)}
-                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : undefined}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  title={sesionYaEmpezada(sesionActual.inicio) ? MENSAJE_CLASE_YA_EMPEZADA : 'La instructora no puede dar esta clase: buscar quién la sustituya'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20 transition-colors disabled:opacity-40 disabled:pointer-events-none"
                 >
                   <UserCheck size={12} />Buscar sustituta
                 </button>
               )}
-              <button onClick={() => abrirIncidencia(sesionActual.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors">
-                <AlertTriangle size={12} />Incidencia
+              <button
+                onClick={() => abrirIncidencia(sesionActual.id)}
+                title="Anotar un problema de sala o equipo en esta clase (no es para avisar de una instructora ausente)"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                <AlertTriangle size={12} />Incidencia de sala
               </button>
               <button onClick={cancelarSesion} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">
                 <X size={12} />Cancelar

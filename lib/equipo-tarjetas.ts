@@ -111,6 +111,10 @@ export interface MiembroCompleto {
   costeMes: number | null;
   /** Con qué días coincide con quien mira, en texto — solo relevante en vista de compañeras. */
   coincideContigo: string | null;
+  /** ISO del último guardado de su disponibilidad semanal, o null si nunca la
+   * ha guardado (o la guardó completamente vacía — ver comentario en el
+   * endpoint). Solo relevante para quien gestiona equipo. */
+  disponibilidadActualizadaEn: string | null;
 }
 
 function gestiona(rolViewer: Rol): boolean {
