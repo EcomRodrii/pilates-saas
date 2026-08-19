@@ -34,10 +34,13 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Seguir' })).toBeVisible();
 
-    // Ni Apple ni Google: no hay OAuth social en este repo, y un botón que
-    // promete entrar con Apple y no entra es una mentira en la pantalla de
-    // acceso.
-    await expect(page.getByText(/continuar con (apple|google)/i)).toHaveCount(0);
+    // ⚠️ La regla no ha cambiado —nada que prometa algo que no funciona— pero
+    // el hecho sí: el proveedor de GOOGLE está activo en el proyecto, así que
+    // ese botón entra de verdad y aquí se exige que esté.
+    await expect(page.getByRole('button', { name: /continuar con google/i })).toBeVisible();
+    // APPLE sigue fuera: exige cuenta de desarrollador de pago y no está
+    // configurado. Un botón suyo hoy seguiría siendo una mentira.
+    await expect(page.getByText(/continuar con apple/i)).toHaveCount(0);
 
     await expect(page.getByRole('link', { name: /reserva tu primera clase/i })).toHaveAttribute('href', `/reservar/${SLUG}`);
   });
