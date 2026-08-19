@@ -84,7 +84,20 @@
   --secondary: #F3F3EF;
   --secondary-foreground: #1A1A1A;
   --muted: #F5F5F1;
-  --muted-foreground: #8E8E86;
+  /* Este gris estaba en #8E8E86 y NO cumplía AA sobre NINGUNA superficie clara:
+     3,30:1 sobre --card, 2,83:1 sobre --background, ~2,95:1 sobre muted/
+     secondary/accent. Con ~2.100 usos de text-muted-foreground en 207 ficheros,
+     era el fallo de contraste más extendido del panel — y no de unos cuantos
+     sitios mal escritos, sino del token.
+     #6B6B64 es el MISMO gris cálido (mismo tono 107°, mismo croma), solo más
+     oscuro: cumple 4,5:1 sobre las cinco superficies claras y sigue a 3,24:1 de
+     --foreground, así que se sigue leyendo como gris apagado y no como tinta.
+     ⚠️ Se comprobó antes de tocarlo que ninguna superficie SIEMPRE-oscura lo usa
+     (el sidebar de escritorio va con --sidebar-foreground; las barras móviles,
+     que sí llevan text-muted-foreground, son blancas). Oscurecerlo sin mirar eso
+     habría cambiado un fallo de AA por otro en la navegación principal.
+     En oscuro no se toca: ahí ya daba 5,2-6,8:1. */
+  --muted-foreground: #6B6B64;
   --accent: #F1F2EA;
   --accent-foreground: #4A5330;
   /* Terracota en vez del rojo genérico: es el error, pero de esta familia. */

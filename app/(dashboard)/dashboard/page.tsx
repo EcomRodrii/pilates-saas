@@ -93,7 +93,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   CITA_CREADA:        { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Cita' },
   CITA_COMPLETADA:    { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cita ✓' },
   VENTA_POS:          { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Venta' },
-  MENSAJE_ENVIADO:    { color: 'var(--foreground)', bg: 'var(--muted)', label: 'Email' },
+  MENSAJE_ENVIADO:    { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Email' },
   SOCIA_EDITADA:      { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Edición' },
   SOCIA_ELIMINADA:    { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja' },
   PLAN_CREADO:        { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan nuevo' },
@@ -104,7 +104,7 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   EQUIPO_ALTA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta equipo' },
   EQUIPO_EDITADO:     { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Equipo editado' },
   EQUIPO_BAJA:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja equipo' },
-  AUTOMATIZACION_CAMBIO: { color: 'var(--foreground)', bg: 'var(--muted)', label: 'Automatización' },
+  AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
   DECISION_GESTIONADA: { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Centro de Control' },
   SESION_REASIGNADA:  { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Sustitución' },
 };

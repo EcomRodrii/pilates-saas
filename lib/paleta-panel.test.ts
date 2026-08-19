@@ -164,3 +164,34 @@ test('el mapa de actividad no lleva hex sueltos', () => {
   // chips casi blancos sobre la tarjeta negra.
   assert.equal(MAPA_ACTIVIDAD.match(/#[0-9A-Fa-f]{6}/g), null, 'ha vuelto un hex suelto a actividadConfig');
 });
+
+
+// ─── Grises de texto sobre las superficies del panel ─────────────────────────
+// --muted-foreground no era un caso puntual: con ~2.100 usos de
+// text-muted-foreground, fallaba AA sobre TODAS las superficies claras a la vez.
+// Eso lo convierte en un problema del token, no de los sitios que lo llaman, y
+// por eso se arregla en un valor y no con un barrido de 207 ficheros.
+
+const SUPERFICIES = ['card', 'background', 'muted', 'secondary', 'accent'] as const;
+
+for (const [modo, selector] of [['claro', ':root'], ['oscuro', '.dark']] as const) {
+  test(`--muted-foreground (${modo}): legible sobre todas las superficies`, () => {
+    const T = TOKENS[selector];
+    const tinta = T['muted-foreground'];
+    assert.ok(tinta, `${selector} no define --muted-foreground`);
+    for (const sup of SUPERFICIES) {
+      const fondo = T[sup];
+      assert.ok(fondo, `${selector} no define --${sup}`);
+      const r = ratioContraste(tinta, fondo);
+      assert.ok(r !== null && r >= 4.5, `--muted-foreground (${tinta}) sobre --${sup} (${fondo}) da ${r?.toFixed(2)}:1, AA pide 4.5`);
+    }
+  });
+
+  test(`--muted-foreground (${modo}): sigue siendo un gris apagado, no tinta`, () => {
+    // Si acaba pegado a --foreground deja de distinguir texto secundario de
+    // principal, que es justo para lo que existe.
+    const T = TOKENS[selector];
+    const r = ratioContraste(T['muted-foreground'], T['foreground']);
+    assert.ok(r !== null && r >= 2, `--muted-foreground ya no se distingue de --foreground (${r?.toFixed(2)}:1)`);
+  });
+}
