@@ -205,6 +205,28 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
       });
     }
 
+    // C-5 (auditoría 19-ago): deja una fila PENDING por cada canal externo
+    // AQUÍ, en el mismo INSERT síncrono que ya garantiza la in-app — no cuando
+    // se intenta entregar. Antes, si el salto HTTP a /api/notifications/deliver
+    // nunca llegaba a ejecutarse (timeout, 500, arranque en frío), no quedaba
+    // NINGÚN rastro: ni fila, ni Sentry, ni nada que un cron pudiera barrer. Y
+    // el dedup_key de arriba lo hacía permanente — un replay del mismo evento
+    // choca con 23505 y no vuelve a intentarlo jamás. `entregarCanales`
+    // (process.ts) reclama esta fila antes de enviar; si nadie la reclama a
+    // tiempo, `barrerEntregasPendientes` la encuentra y lo intenta.
+    if (canalesExtra.length > 0) {
+      await admin.from('notification_delivery').insert(
+        canalesExtra.map(ch => ({
+          id: `del-${crypto.randomUUID()}`,
+          notification_id: id,
+          studio_id: event.studioId,
+          channel: ch,
+          status: 'PENDING',
+          attempts: 0,
+        })),
+      );
+    }
+
     creadas.push({
       id, destinatario: dest, canalesExtra,
       fila: {

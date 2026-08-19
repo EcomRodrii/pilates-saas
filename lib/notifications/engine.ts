@@ -11,7 +11,10 @@
 //      dejó sin ninguna notificación en producción.
 //   2. Entrega los canales EXTERNOS (push/email/WhatsApp/SMS) llamando a la ruta
 //      interna /api/notifications/deliver. Tampoco pasa por la cola. Best-effort
-//      y con timeout: si tarda o falla, la in-app ya está escrita.
+//      y con timeout: si tarda o falla, la in-app ya está escrita — y también
+//      queda una fila PENDING por canal externo (crearInApp, C-5), así que un
+//      cron (app/api/cron/notif-entregas-pendientes) puede encontrarla y
+//      reintentarla aunque este salto HTTP no llegara ni a ejecutarse.
 //
 // El PROCESAMIENTO de canales vive en process.ts (importa web-push → módulos de
 // Node) y solo lo carga esa ruta; este módulo es alcanzable desde el bundle de
