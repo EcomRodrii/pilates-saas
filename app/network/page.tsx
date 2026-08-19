@@ -9,6 +9,7 @@ import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
 import { TarjetaInstructora } from '@/components/network-v2/TarjetaInstructora';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
 import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
+import { Reveal } from '@/components/network-v2/Reveal';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
 
 // Landing pública de Tentare Network (1a del rediseño) — Server Component:
@@ -99,29 +100,29 @@ export default async function NetworkLandingPage() {
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
         <div>
           <span
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] font-extrabold uppercase tracking-[.1em]"
+            className="nw-fade-up inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] font-extrabold uppercase tracking-[.1em]"
             style={{ background: NW_SAGE, color: NW_TINTA }}
           >
-            <span className="w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
+            <span className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
             Beta · Empezando en Barcelona y Madrid
           </span>
-          <p className="mt-4 text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
+          <p className="nw-fade-up mt-4 text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO, animationDelay: '60ms' }}>
             Red profesional de instructoras de Pilates y Yoga
           </p>
-          <h1 className="mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance">
+          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance" style={{ animationDelay: '120ms' }}>
             Encuentra la{' '}
             <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span>{' '}
             que necesitas.
           </h1>
-          <p className="mt-5 text-[17.5px]" style={{ color: NW_MUTED }}>
+          <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '190ms' }}>
             Publica lo que buscas o explora perfiles verificados directamente. Sin comisiones, sin intermediarios.
           </p>
-          <div className="mt-8">
+          <div className="nw-fade-up mt-8" style={{ animationDelay: '260ms' }}>
             <BuscadorHero />
           </div>
         </div>
         {destacadas[0]?.fotoUrl ? (
-          <div className="relative">
+          <div className="nw-fade-up relative" style={{ animationDelay: '140ms' }}>
             <FotoInstructora fotoUrl={destacadas[0].fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} eager />
             <div
               className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
@@ -136,7 +137,7 @@ export default async function NetworkLandingPage() {
           // que mostrar): foto de marca del hero con efecto parallax sutil,
           // en vez del placeholder rayado de FotoInstructora (ese comunica
           // "foto rota" a tamaño de tarjeta, y aquí ocupa media pantalla).
-          <div className="hidden lg:block">
+          <div className="nw-fade-up hidden lg:block" style={{ animationDelay: '140ms' }}>
             <HeroParallax src="/network/hero-reformer.webp" alt="" />
           </div>
         )}
@@ -144,28 +145,34 @@ export default async function NetworkLandingPage() {
 
       {destacadas.length > 0 && (
         <section className="max-w-[1240px] mx-auto px-6 pb-20">
-          <div className="flex items-end justify-between mb-6">
+          <Reveal className="flex items-end justify-between mb-6">
             <h2 className="text-[26px] font-extrabold tracking-tight">Descubre instructoras de Pilates y Yoga</h2>
             <Link href="/network/instructoras" className="text-[13.5px] font-bold hover:opacity-70" style={{ color: NW_PRODUCTO }}>
               Ver todas →
             </Link>
-          </div>
+          </Reveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {destacadas.map(p => <TarjetaInstructora key={p.id} perfil={p} />)}
+            {destacadas.map((p, i) => (
+              <Reveal key={p.id} delayMs={i * 60}>
+                <TarjetaInstructora perfil={p} />
+              </Reveal>
+            ))}
           </div>
         </section>
       )}
 
       <section id="problema" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
-        <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
-          Buscar trabajo como instructora
-        </p>
-        <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[16ch] text-balance">
-          Esto es lo que hay hoy.
-        </h2>
+        <Reveal>
+          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
+            Buscar trabajo como instructora
+          </p>
+          <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[16ch] text-balance">
+            Esto es lo que hay hoy.
+          </h2>
+        </Reveal>
         <div className="mt-10 flex flex-col gap-3.5">
-          {PROBLEMA_ITEMS.map(item => (
-            <div key={item.sin} className="grid sm:grid-cols-2 gap-3.5">
+          {PROBLEMA_ITEMS.map((item, i) => (
+            <Reveal key={item.sin} delayMs={i * 70} className="grid sm:grid-cols-2 gap-3.5">
               <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: NW_PROBLEMA.fondo, color: NW_PROBLEMA.texto }}>
                 <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PROBLEMA.icono }}>✕</span>
                 <p className="text-[14.5px] leading-[1.55] m-0">{item.sin}</p>
@@ -174,13 +181,13 @@ export default async function NetworkLandingPage() {
                 <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PRODUCTO }}>✓</span>
                 <p className="text-[14.5px] leading-[1.55] m-0">{item.con}</p>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       <section id="como-funciona" className="max-w-[1240px] mx-auto px-6 pb-20 scroll-mt-6">
-        <div className="rounded-[26px] p-12" style={{ background: NW_SAGE }}>
+        <Reveal className="rounded-[26px] p-12" style={{ background: NW_SAGE }}>
           <div className="grid sm:grid-cols-3 gap-10">
             {PASOS_COMO_FUNCIONA.map(paso => (
               <div key={paso.n}>
@@ -190,11 +197,11 @@ export default async function NetworkLandingPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <section className="max-w-[1240px] mx-auto px-6 pb-24 grid sm:grid-cols-2 gap-6">
-        <div className="rounded-[24px] p-10" style={{ background: NW_VERDE_OSCURO }}>
+        <Reveal className="rounded-[24px] p-10 transition-transform duration-300 hover:-translate-y-1" style={{ background: NW_VERDE_OSCURO }}>
           <h2 className="text-[24px] font-extrabold text-white leading-tight">
             Soy instructora — Deja que los estudios te encuentren.
           </h2>
@@ -203,13 +210,13 @@ export default async function NetworkLandingPage() {
           </p>
           <Link
             href="/network/crear-perfil"
-            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold"
+            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold transition-transform hover:scale-[1.04]"
             style={{ background: NW_SAND, color: NW_VERDE_OSCURO }}
           >
             Crear perfil gratis
           </Link>
-        </div>
-        <div className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+        </Reveal>
+        <Reveal delayMs={80} className="rounded-[24px] p-10 bg-white transition-transform duration-300 hover:-translate-y-1" style={{ border: `1px solid ${NW_BORDE}` }}>
           <h2 className="text-[24px] font-extrabold leading-tight">
             Soy propietaria — Encuentra a tu <span style={{ color: NW_PRODUCTO }}>próxima instructora</span>.
           </h2>
@@ -218,16 +225,16 @@ export default async function NetworkLandingPage() {
           </p>
           <Link
             href="/network/instructoras"
-            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold text-white"
+            className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold text-white transition-transform hover:scale-[1.04]"
             style={{ background: NW_TINTA }}
           >
             Explorar la network
           </Link>
-        </div>
+        </Reveal>
       </section>
 
       <section id="estudios" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
-        <div className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+        <Reveal className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
           <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
             Para estudios
           </p>
@@ -242,32 +249,42 @@ export default async function NetworkLandingPage() {
           <div className="mt-6">
             <FormularioInteresEstudio variante="completo" />
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <section id="confianza" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
-        <h2 className="text-[26px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
+        <Reveal>
+          <h2 className="text-[26px] font-extrabold tracking-tight">Por qué puedes fiarte de un perfil</h2>
+        </Reveal>
         <div className="mt-8 grid sm:grid-cols-3 gap-6">
-          {CONFIANZA_ITEMS.map(item => (
-            <div key={item.titulo} className="rounded-2xl p-6 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+          {CONFIANZA_ITEMS.map((item, i) => (
+            <Reveal
+              key={item.titulo} delayMs={i * 80}
+              className="rounded-2xl p-6 bg-white transition-transform duration-300 hover:-translate-y-1"
+              style={{ border: `1px solid ${NW_BORDE}` }}
+            >
               <h3 className="text-[16px] font-extrabold">{item.titulo}</h3>
               <p className="mt-2 text-[14px]" style={{ color: NW_MUTED }}>{item.texto}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
       <section id="faq" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
-        <h2 className="text-[26px] font-extrabold tracking-tight">Preguntas frecuentes</h2>
+        <Reveal>
+          <h2 className="text-[26px] font-extrabold tracking-tight">Preguntas frecuentes</h2>
+        </Reveal>
         <div className="mt-8 flex flex-col gap-3">
-          {FAQ_ITEMS.map(item => (
-            <details key={item.q} className="group rounded-2xl px-5 py-4 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
-              <summary className="text-[15px] font-bold cursor-pointer list-none flex items-center justify-between gap-4">
-                {item.q}
-                <span className="text-[18px] font-normal group-open:rotate-45 transition-transform" style={{ color: NW_PRODUCTO }}>+</span>
-              </summary>
-              <p className="mt-3 text-[14px] leading-[1.6]" style={{ color: NW_MUTED }}>{item.a}</p>
-            </details>
+          {FAQ_ITEMS.map((item, i) => (
+            <Reveal key={item.q} delayMs={Math.min(i, 6) * 45}>
+              <details className="group rounded-2xl px-5 py-4 bg-white transition-colors" style={{ border: `1px solid ${NW_BORDE}` }}>
+                <summary className="text-[15px] font-bold cursor-pointer list-none flex items-center justify-between gap-4">
+                  {item.q}
+                  <span className="text-[18px] font-normal group-open:rotate-45 transition-transform" style={{ color: NW_PRODUCTO }}>+</span>
+                </summary>
+                <p className="mt-3 text-[14px] leading-[1.6]" style={{ color: NW_MUTED }}>{item.a}</p>
+              </details>
+            </Reveal>
           ))}
         </div>
       </section>
