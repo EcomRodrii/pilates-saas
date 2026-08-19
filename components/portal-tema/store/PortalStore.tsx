@@ -389,6 +389,17 @@ export type AlAlternarFavoritoPortal = (
   accion: 'marcar' | 'desmarcar',
 ) => Promise<string | null>;
 
+/**
+ * Qué hace el botón de la bienvenida.
+ *
+ * ⚠️ Inyectable porque el destino depende de dónde se monte: en la
+ * previsualización entra al Inicio, y en el portal real —donde la bienvenida es
+ * lo PRIMERO que ve alguien SIN sesión— tiene que llevar a `/acceso`, que es la
+ * puerta que funciona igual para quien tiene contraseña y para quien no. Ver el
+ * comentario de `app/portal/[slug]/page.tsx`.
+ */
+export type AlEntrarPortal = () => void;
+
 /** Abre la página de Stripe para guardar una tarjeta. `null` = no se pudo. */
 export type AlAnadirTarjetaPortal = () => Promise<string | null>;
 /** Quita la tarjeta guardada. `null` = hecho; si no, el mensaje del servidor. */
@@ -459,6 +470,7 @@ export function PortalProvider({
   alReservar,
   alGuardarDatos,
   alAlternarFavorito,
+  alEntrar,
   alAnadirTarjeta,
   alQuitarTarjeta,
   alPedirHistorial,
@@ -501,6 +513,7 @@ export function PortalProvider({
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
   alAlternarFavorito?: AlAlternarFavoritoPortal;
+  alEntrar?: AlEntrarPortal;
   alAnadirTarjeta?: AlAnadirTarjetaPortal;
   alQuitarTarjeta?: AlQuitarTarjetaPortal;
   alPedirHistorial?: AlPedirHistorialPortal;
@@ -615,6 +628,9 @@ export function PortalProvider({
   const alAlternarFavoritoRef = useRef(alAlternarFavorito);
   useEffect(() => { alAlternarFavoritoRef.current = alAlternarFavorito; }, [alAlternarFavorito]);
 
+  const alEntrarRef = useRef(alEntrar);
+  useEffect(() => { alEntrarRef.current = alEntrar; }, [alEntrar]);
+
   const alAnadirTarjetaRef = useRef(alAnadirTarjeta);
   useEffect(() => { alAnadirTarjetaRef.current = alAnadirTarjeta; }, [alAnadirTarjeta]);
   const alQuitarTarjetaRef = useRef(alQuitarTarjeta);
@@ -660,11 +676,21 @@ export function PortalProvider({
     // el día seleccionado no se movía y sus clases del 7 y del 8 —que existen
     // en la base de datos— parecían no existir.
     const { estado } = repartirDestino(destino);
-    if (estado) set(estado);
-    // Si fuera no sabe llevarla ahí, la abrimos aquí. La ruta sigue siendo la
-    // de la sección (Clases), y el detalle vive dentro — igual que la hoja de
-    // reserva del portal de siempre, que tampoco tiene URL propia.
-    if (!fuera(destino)) set({ screen: destino.screen });
+    // ⚠️ La pantalla se aplica SIEMPRE, no solo cuando el de fuera dice que no
+    // ha navegado. Esto era un CALLEJÓN SIN SALIDA en toda la app.
+    //
+    // Las pantallas sin ruta propia (Favoritas, Historial, el detalle) mandan
+    // sobre la ruta mientras están abiertas — si no, se cerrarían en el mismo
+    // render en que se abren. Pero con la regla anterior, `back()` navegaba a
+    // `/home` y NO tocaba el store: la pantalla seguía siendo «favoritas», y
+    // como «favoritas» manda sobre la ruta, seguía mandando. Para siempre. La
+    // socia se quedaba encerrada y la flecha no hacía nada.
+    //
+    // Aplicándola siempre, el orden se resuelve solo: el store apunta al
+    // destino, y si ese destino SÍ tiene ruta, el override de la ruta lo
+    // confirma. Ponerle el valor que ya tenía no hace nada.
+    set({ ...(estado ?? {}), screen: destino.screen });
+    fuera(destino);
   }, [set]);
 
   const notify = useCallback(
@@ -706,7 +732,11 @@ export function PortalProvider({
     };
 
     const self: PortalActions = {
-      enter: () => ir({ screen: "inicio", tab: "inicio" }),
+      enter: () => {
+        const fuera = alEntrarRef.current;
+        if (fuera) return fuera();
+        ir({ screen: "inicio", tab: "inicio" });
+      },
       goTab: (tab) => ir({ tab, screen: tab }),
       goSchedule: () => ir({ tab: "clases", screen: "clases" }),
       goBookings: () => ir({ tab: "reservas", screen: "reservas" }),

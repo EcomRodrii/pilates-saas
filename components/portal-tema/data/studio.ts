@@ -305,8 +305,9 @@ export const DATOS_DE_MUESTRA: DatosPortal = {
   // igual en cuanto se quita.
   favoritas: ["reformer"],
   profesores: [
-    { id: "i1", nombre: "Marta Gómez", inicial: "M", bio: "Fundadora del estudio. Más de diez años enseñando método clásico y contemporáneo.", foto: "" },
-    { id: "i2", nombre: "Emma Ruiz", inicial: "E", bio: "Formada en método clásico. Precisión técnica y muy buen ritmo.", foto: "" },
+    { id: "i1", nombre: "Marta Gómez", inicial: "M", bio: "Fundadora del estudio. Más de diez años enseñando método clásico y contemporáneo.", foto: "", valoracion: { media: 4.625, total: 12 } },
+    // Dos valoraciones: por debajo del mínimo, así que NO se le pinta nota.
+    { id: "i2", nombre: "Emma Ruiz", inicial: "E", bio: "Formada en método clásico. Precisión técnica y muy buen ritmo.", foto: "", valoracion: { media: 5, total: 2 } },
     // Sin bio: la ficha no pinta un párrafo vacío ni texto de relleno.
     { id: "i3", nombre: "Nuria Peña", inicial: "N", bio: "", foto: "" },
   ],

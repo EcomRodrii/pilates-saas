@@ -1,6 +1,16 @@
 import { LEGAL } from '@/lib/legal-info';
 import { NAV_LINKS } from './landing/data';
 
+// Mismos 3 perfiles reales que enlaza el pie de la landing
+// (components/landing/SeccionCtaFinal.tsx, REDES_TENTARE) — verificados
+// uno a uno antes de publicarlos, 2026-08-18. No añadir ninguno aquí que
+// no esté también enlazado ahí.
+const REDES_SOCIALES_TENTARE = [
+  'https://x.com/tentaresoftware',
+  'https://www.instagram.com/tentareapp/',
+  'https://www.linkedin.com/company/tentare/',
+];
+
 // JSON-LD sitewide (Organization + WebSite con SearchAction) — vive en el
 // root layout porque aplica a todo tentare.app, a diferencia del
 // SoftwareApplication/FAQPage de la home (components/landing/StructuredData.tsx),
@@ -12,6 +22,7 @@ export function OrganizationStructuredData() {
     name: LEGAL.marca,
     url: LEGAL.url,
     email: LEGAL.email,
+    sameAs: REDES_SOCIALES_TENTARE,
     contactPoint: {
       '@type': 'ContactPoint',
       email: LEGAL.email,

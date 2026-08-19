@@ -735,6 +735,15 @@ export interface Instructor {
   // muestra nada. Pasa a mapInstructorPublico() sin filtrar: es un dato
   // pensado para mostrarse a visitantes anónimos.
   bio?: string | null;
+  /**
+   * Su nota, agregada de `valoraciones`. Ausente = nadie la ha valorado.
+   *
+   * ⚠️ Va la MEDIA y el TOTAL, nunca la media sola: quien la pinte necesita el
+   * total para decidir si se puede enseñar. Con dos valoraciones un «5,0» dice
+   * que es perfecta cuando lo que pasa es que la han puntuado dos veces. Ver
+   * `lib/portal-tema/valoracion.ts`.
+   */
+  valoracion?: { media: number; total: number };
 }
 
 // P1 auditoría Momence-vs-Tentare: una sustitución YA confirmada para una

@@ -78,7 +78,9 @@ test.describe('Campana del Inicio del portal', () => {
     // no es adorno: el `read-all` sale del efecto que corre DESPUÉS de pintar
     // la lista, así que volver antes de eso se lleva por delante el PATCH.
     await verSubtitulo(page, 'Dos cosas nuevas.');
-    await page.getByRole('button', { name: 'Volver a Inicio' }).click();
+    // `link`, no `button`: la flecha pasó a ser un enlace de verdad para que
+    // navegue sin depender de la hidratación.
+    await page.getByRole('link', { name: 'Volver a Inicio' }).click();
 
     const campana = page.getByRole('link', { name: CAMPANA_SIN, exact: true });
     await expect(campana).toBeVisible({ timeout: 30_000 });

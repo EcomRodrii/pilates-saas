@@ -14,12 +14,20 @@ export interface PortalSession {
 
 interface PortalAuthContextValue {
   session: PortalSession | null;
+  /**
+   * Vuelve a preguntar quién es. Se usa tras dar de alta a alguien que acaba de
+   * entrar y todavía no era socia: la sesión se resolvió a `null` porque no lo
+   * era, y ahora sí lo es.
+   */
+  revalidarSesion: () => Promise<void>;
   isLoading: boolean;
   // Envía el magic link / OTP al email. La sesión NO se establece aquí, sino
   // cuando la socia abre el enlace y vuelve al portal (onAuthStateChange).
   // Se usa SOLO para verificar la propiedad del email (primer acceso o
   // recuperación de contraseña) — el día a día se hace con loginConPassword.
   enviarEnlace: (email: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
+  /** Entrar con Google. Vuelve a `/acceso?oauth=1`, que es lo que dispara el alta. */
+  entrarConGoogle: () => Promise<{ ok: true } | { error: string }>;
   // Login del día a día. Requiere que la socia ya haya creado su contraseña
   // (vía el flujo de enviarEnlace → establecerPassword).
   loginConPassword: (email: string, password: string, captchaToken?: string) => Promise<{ ok: true } | { error: string }>;
@@ -110,6 +118,29 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
     return error ? { error: mensajeSeguro(error.message, 'No se ha podido enviar el enlace. Inténtalo de nuevo en unos segundos.') } : { ok: true };
   }, [slug]);
 
+  /**
+   * Entrar con Google.
+   *
+   * ⚠️ Vuelve a `/acceso?oauth=1`, NO al home. Ese parámetro es lo que dispara
+   * el alta: quien entra con Google y todavía no es socia de ESTE estudio se da
+   * de alta sola (decisión de producto explícita del fundador). Volver directo
+   * al home dejaría a esa persona autenticada y sin ficha — el estado «sesión
+   * sin socia» que ya costó el bug de «Mis datos».
+   *
+   * Sin captcha: en OAuth la prueba de que hay una persona la hace Google en su
+   * propia pantalla. Turnstile se exige en las vías de email, que son las que
+   * un robot puede intentar en bucle.
+   */
+  const entrarConGoogle = useCallback(async (): Promise<{ ok: true } | { error: string }> => {
+    const { error } = await supabasePortal.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/portal/${slug}/acceso?oauth=1` },
+    });
+    return error
+      ? { error: mensajeSeguro(error.message, 'No se ha podido abrir el acceso con Google.') }
+      : { ok: true };
+  }, [slug]);
+
   const loginConPassword = useCallback(async (email: string, password: string, captchaToken?: string): Promise<{ ok: true } | { error: string }> => {
     const { error } = await supabasePortal.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
     if (captchaToken) captchaGastado();
@@ -135,7 +166,7 @@ export function PortalAuthProvider({ slug, children }: { slug: string; children:
   }, []);
 
   return (
-    <PortalAuthContext.Provider value={{ session, isLoading, enviarEnlace, loginConPassword, establecerPassword, logout }}>
+    <PortalAuthContext.Provider value={{ session, isLoading, revalidarSesion: resolver, enviarEnlace, entrarConGoogle, loginConPassword, establecerPassword, logout }}>
       {children}
     </PortalAuthContext.Provider>
   );

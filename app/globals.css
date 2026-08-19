@@ -84,7 +84,20 @@
   --secondary: #F3F3EF;
   --secondary-foreground: #1A1A1A;
   --muted: #F5F5F1;
-  --muted-foreground: #8E8E86;
+  /* Este gris estaba en #8E8E86 y NO cumplía AA sobre NINGUNA superficie clara:
+     3,30:1 sobre --card, 2,83:1 sobre --background, ~2,95:1 sobre muted/
+     secondary/accent. Con ~2.100 usos de text-muted-foreground en 207 ficheros,
+     era el fallo de contraste más extendido del panel — y no de unos cuantos
+     sitios mal escritos, sino del token.
+     #6B6B64 es el MISMO gris cálido (mismo tono 107°, mismo croma), solo más
+     oscuro: cumple 4,5:1 sobre las cinco superficies claras y sigue a 3,24:1 de
+     --foreground, así que se sigue leyendo como gris apagado y no como tinta.
+     ⚠️ Se comprobó antes de tocarlo que ninguna superficie SIEMPRE-oscura lo usa
+     (el sidebar de escritorio va con --sidebar-foreground; las barras móviles,
+     que sí llevan text-muted-foreground, son blancas). Oscurecerlo sin mirar eso
+     habría cambiado un fallo de AA por otro en la navegación principal.
+     En oscuro no se toca: ahí ya daba 5,2-6,8:1. */
+  --muted-foreground: #6B6B64;
   --accent: #F1F2EA;
   --accent-foreground: #4A5330;
   /* Terracota en vez del rojo genérico: es el error, pero de esta familia. */
@@ -159,6 +172,46 @@
          AA. Al 35 % se ve de sobra y el peor sube a 5,4:1. */
   --calendario-tinte-clase: 50%;
 
+  /* ── Paleta CATEGÓRICA ─────────────────────────────────────────────────────
+     Nueve tonos para distinguir COSAS, no para significar nada: acciones de
+     una automatización, series de una gráfica. No confundir con los semánticos
+     (--success / --warning / --destructive), que sí dicen "bien" o "mal".
+
+     Por qué existe: los nueve tipos de acción de /automatizaciones se pintaban
+     con una mezcla de tokens y hex sueltos, y ya no distinguían. Había dos
+     colisiones reales (--warning repetido en dos acciones, y #35785A junto a
+     --success: 3° de tono entre ambos, indistinguibles) y dos supervivientes
+     del morado anterior — magenta #DB2777 y rosa #F7A6C4 — fuera de la
+     identidad oliva/arena. Sustituir los dos hex a ojo habría empeorado las
+     colisiones, así que la paleta se generó, no se eligió.
+
+     Cómo se generó (scripts de un solo uso, el método es lo que importa):
+     nueve tonos a 40° EXACTOS en OKLCH — la separación máxima posible con
+     nueve categorías, frente a los 3° del peor par de antes. Croma fijo y
+     contenido (0.10) para que sean terrosos y nunca griten por encima de los
+     semánticos, y luminosidad resuelta por tono para que los nueve tengan el
+     MISMO contraste sobre --card (~5.6:1 aquí, ~6.6:1 en oscuro): ninguno pesa
+     más que otro en la lista. Verificado también contra el fondo REAL del
+     icono, que es su propio color al 12% sobre la tarjeta — ahí el peor caso
+     es 4.69:1, por encima de AA.
+
+     El anillo está anclado en 118° (el tono del oliva de la marca), así que
+     cat-1 cae en familia y cat-2 / cat-9 caen cerca de --success / --warning:
+     es a propósito, mantiene la continuidad con lo que ya pintaba cada acción.
+
+     ⚠️ Esto NO es para las paletas que elige la USUARIA (color de sala, de tipo
+     de clase, avatar de equipo, temas del portal). Ahí el color es un dato
+     suyo, no la marca — no lo tokenices. */
+  --cat-1: #616E22; /* musgo, familia de la marca */
+  --cat-2: #25754E; /* verde */
+  --cat-3: #067477; /* teal */
+  --cat-4: #1F6E99; /* azul acero */
+  --cat-5: #5C63A2; /* índigo */
+  --cat-6: #835790; /* ciruela */
+  --cat-7: #99516B; /* rosa teja */
+  --cat-8: #9B553F; /* caramelo */
+  --cat-9: #886116; /* ocre */
+
   /* Marca de la app de socias — sobreescrito por lib/portal-theme.tsx según
      studio.temaPortal (compartido, Supabase, solo editable por el propietario). */
   --portal-brand: #343825;
@@ -215,6 +268,27 @@
   --accent-foreground: #A8B37A;
   --ring: #8A9165;
   --brand-medio: #A8B37A;
+
+  /* Paleta categórica en oscuro: mismos nueve tonos, re-resueltos contra
+     --card: #1E1E22 en vez de contra el blanco. No es la versión clara
+     "aclarada a ojo" — es la misma construcción (40° de separación) buscando
+     el contraste equivalente sobre el fondo oscuro. Mismo motivo por el que
+     --success y compañía tampoco se heredan de :root.
+
+     El croma sube aquí a 0.11 (en claro basta 0.10) y no por gusto: al aclarar
+     los nueve para que contrasten sobre #1E1E22, la mitad cálida se junta
+     —caramelo y ocre quedaban a 37 de distancia en RGB, y el test los cazó—.
+     A 0.11 el peor par se va a 46, y es justo el croma que ya tienen --warning
+     y --destructive en oscuro, así que no desentona. */
+  --cat-1: #9BAB58;
+  --cat-2: #5EB485;
+  --cat-3: #2DB4B8;
+  --cat-4: #58ABDE;
+  --cat-5: #959EE9;
+  --cat-6: #C491D4;
+  --cat-7: #DF8AA7;
+  --cat-8: #E28E73;
+  --cat-9: #CA9B4E;
   /* Ver la nota del valor en claro: aquí menos mezcla se ve MÁS, y el 50 %
      rompía el contraste AA del texto sobre el bloque. */
   --calendario-tinte-clase: 35%;
@@ -321,6 +395,14 @@ nextjs-portal { display: none !important; }
 @keyframes portal-page-out { from { opacity: 1; } to { opacity: 0; } }
 .portal-page-in { animation: portal-page-in .22s ease both; }
 .portal-page-out { animation: portal-page-out .2s ease both; }
+
+/* Skeleton compartido del widget de reservas (Fase 4 del rediseño,
+   docs/widget-reservas-fase4-brief-diseno.md) — barrido de brillo horizontal
+   sobre un bloque, no un `animate-pulse` de opacidad. */
+@keyframes widget-skeleton-shimmer {
+  0%   { background-position: 130% 0; }
+  100% { background-position: -130% 0; }
+}
 
 /* El brillo que cruza el pase de acceso (components/portal/hoja-pase.tsx).
    Solo `transform`: lo resuelve el compositor y no repinta el QR en cada

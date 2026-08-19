@@ -835,6 +835,25 @@ CLASES**, que es una funcionalidad viva del producto y no se toca.
   tema Bloom): ahí el color distingue, no marca — misma trampa que ya documenta
   [[identidad-visual-oliva]].
 
+⚠️ **Aviso heredado de #1222, con su premisa ya cumplida.** Ese documento decía
+que el endpoint estaba «vivo y con consumidor» y que por eso no se retirara
+ninguna de las dos primitivas. Lo escribió para frenar justo eso, y hacía bien:
+el grep que las daba por huérfanas venía de otro worktree. Pero contemplaba el
+caso de hoy —«si algún día se abre el alta de verdad y el endpoint muere»— y ese
+día es este: el alta pública está abierta y `/api/public/interes-lanzamiento`
+**ya no existe**.
+
+Lo que sigue vigente de aquel aviso, y es lo que de verdad importaba:
+**conservar `captcha-servidor.ts` antes que rehacerla.** Es la única pieza del
+repo que sabe llamar al `siteverify` de Cloudflare, y reescribirla a mano es
+exactamente cómo apareció #847. Igual con `trampa-bots.ts`: el honeypot protege
+**sin depender de ninguna clave ni servicio externo**, que es justo lo que hace
+falta cuando `TURNSTILE_SECRET_KEY` no está puesta. Las dos se quedan.
+
+Y lo que también sigue vigente es el método: **no declares nada huérfano con un
+grep de un solo worktree** — cruza contra `origin/main` primero. Mismo error de
+categoría que [[colisiones-entre-sesiones-paralelas]].
+
 ## ⚠️ Un merge de solo documentación NO despliega
 
 `vercel.json` lleva un `ignoreCommand` que **cancela el build** cuando el diff
