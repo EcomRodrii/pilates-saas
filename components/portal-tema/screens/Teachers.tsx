@@ -27,7 +27,7 @@ export function Teachers({ vm }: { vm: ViewModel }) {
           <button className="icon-btn is-pressable" onClick={actions.back} aria-label="Atrás">
             <Icon name="back" stroke={1.9} />
           </button>
-          <p className="topbar__title">Profesores</p>
+          <p className="topbar__title">Instructores</p>
           <span style={{ width: 40 }}></span>
         </div>
 
@@ -51,7 +51,7 @@ export function Teachers({ vm }: { vm: ViewModel }) {
             ))
           ) : (
             <EmptyState
-              title="Todavía no hay profesoras publicadas"
+              title="Todavía no hay instructoras publicadas"
               text="En cuanto el estudio dé de alta a su equipo, lo verás aquí."
             />
           )}

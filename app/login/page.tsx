@@ -498,7 +498,7 @@ export default function LoginPage() {
             de NAV_NETWORK (components/landing/enlaces.ts) y al que ya tenía
             /network/acceso hacia aquí — antes solo funcionaba en un sentido. */}
         <p className="text-center text-[12px] text-[#A8A89F] mt-3">
-          ¿Eres instructora o profesor/a?{' '}
+          ¿Das clases de Pilates o Yoga?{' '}
           <Link href="/network/crear-perfil" className="font-semibold text-[#3A3A34] hover:underline">
             Crea tu perfil en Tentare Network
           </Link>
