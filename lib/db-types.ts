@@ -2129,3 +2129,10 @@ export interface RowRedCandidaturas {
   actualizado_en: string;
   resuelto_en: string | null;
 }
+
+export interface RowRecordatorioEnvios {
+  sesion_id: string;
+  socio_id: string;
+  canal: string;
+  enviado_en: string;
+}

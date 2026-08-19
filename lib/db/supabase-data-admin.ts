@@ -1322,17 +1322,28 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 
       const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
       if (quiereWhatsapp && whatsapp && socia.telefono) {
-        const res = whatsapp.plantillaAprobada
-          ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
-              datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
-            ])
-          : await enviarWhatsAppTexto(
-              whatsapp, socia.telefono,
-              `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
-            );
-        saludWhatsapp.anota(res);
-        if (res.ok) enviadosWhatsapp++;
-        else fallidosWhatsapp++;
+        // C-6: reclama (sesión, socia, WHATSAPP) ANTES de enviar. Si el step
+        // de Inngest falla a mitad y reintenta (retries: 3), este insert
+        // choca (23505) para quien ya recibió el mensaje en un intento
+        // previo — no se reenvía. El email ya tiene su propio dedupe
+        // (idempotencyKey de Resend); WhatsApp no tenía ninguno.
+        const { error: dedupError } = await admin
+          .from('recordatorio_envios')
+          .insert({ sesion_id: ses.id as string, socio_id: r.socio_id, canal: 'WHATSAPP' });
+        if (dedupError && dedupError.code !== '23505') throw new Error(dedupError.message);
+        if (!dedupError) {
+          const res = whatsapp.plantillaAprobada
+            ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
+                datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
+              ])
+            : await enviarWhatsAppTexto(
+                whatsapp, socia.telefono,
+                `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
+              );
+          saludWhatsapp.anota(res);
+          if (res.ok) enviadosWhatsapp++;
+          else fallidosWhatsapp++;
+        }
       }
     }
   }
