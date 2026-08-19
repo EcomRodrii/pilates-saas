@@ -28,7 +28,10 @@ export function FichaClaseUnica({
   precio: number | null;
   yaReservada: boolean;
   onReservar: () => void;
-  onVerMisReservas: () => void;
+  /** Sin ella, el botón "Ver mis reservas" no se pinta — el widget embebido
+      "Reserva esta clase" no debe saltar a la sección "Mis reservas" (otro
+      widget con otro propósito). Solo se pasa fuera de `embedMode`. */
+  onVerMisReservas?: () => void;
   onVerHorario: () => void;
 }) {
   const fecha = new Date(inicio).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -83,12 +86,14 @@ export function FichaClaseUnica({
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 999, background: 'color-mix(in oklab, var(--portal-accent) 10%, var(--portal-surface))', color: 'var(--portal-accent)', fontSize: 12.5, fontWeight: 700 }}>
               ✓ Reservada
             </span>
-            <button type="button" onClick={onVerMisReservas} style={{
-              height: 44, padding: '0 20px', borderRadius: radius.pillBtnXs, border: '1px solid var(--portal-line)',
-              background: 'transparent', color: 'var(--portal-ink)', fontFamily: sans, fontWeight: 700, fontSize: 13, cursor: 'pointer',
-            }}>
-              Ver mis reservas
-            </button>
+            {onVerMisReservas && (
+              <button type="button" onClick={onVerMisReservas} style={{
+                height: 44, padding: '0 20px', borderRadius: radius.pillBtnXs, border: '1px solid var(--portal-line)',
+                background: 'transparent', color: 'var(--portal-ink)', fontFamily: sans, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              }}>
+                Ver mis reservas
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ borderTop: '1px dashed var(--portal-line)', background: 'color-mix(in oklab, var(--portal-surface) 55%, var(--portal-velo))', padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', borderRadius: `0 0 ${radius.card}px ${radius.card}px` }}>
