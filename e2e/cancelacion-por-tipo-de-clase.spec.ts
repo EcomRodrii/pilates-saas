@@ -106,12 +106,12 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     expect(tipos[0]).toMatchObject({ nombre: 'Reformer', ventana_cancelacion_horas: 24 });
 
     // Y se ve en la tarjeta sin tener que abrir el modal.
-    await expect(page.getByText('Cancelación: 24h de antelación (propia de este tipo)')).toBeVisible();
+    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
 
     // La comprobación de la dueña: recargar y ver si le dijimos la verdad.
     await page.reload();
     await expect(page.getByRole('button', { name: 'Nuevo tipo de clase' })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Cancelación: 24h de antelación (propia de este tipo)')).toBeVisible();
+    await expect(page.getByText('Cancela 24h antes')).toBeVisible();
   });
 
   test('sin marcar nada, sigue heredando la ventana del estudio', async ({ page }) => {
@@ -121,9 +121,9 @@ test.describe('Ventana de cancelación por tipo de clase', () => {
     await seedSesionDeDuena(page);
     await abrirClases(page);
 
-    // No hay ninguna nota de "propia de este tipo" para Mat: hereda la del estudio.
+    // Ningún chip de "Cancela Xh antes" para Mat: hereda la del estudio.
     await expect(page.getByText('Mat')).toBeVisible();
-    await expect(page.getByText(/propia de este tipo/)).toHaveCount(0);
+    await expect(page.getByText(/Cancela \d+h antes/)).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Editar' }).first().click();
     await expect(page.getByPlaceholder('Ventana del estudio')).toHaveValue('');
