@@ -502,13 +502,13 @@ export function ReservaCalendario({
               <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.02em', color: t.ink }}>{dayLabel}</span>
               <span style={{ fontSize: 11.5, color: t.muted }}>{countLabel}</span>
             </div>
-            <div style={{ padding: 14 }}>
+            <div>
               {error ? (
-                <EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} />
+                <div style={{ padding: 14 }}><EstadoErrorRed t={t} titulo={error.titulo} onReintentar={error.onReintentar} /></div>
               ) : totalDia === 0 ? (
-                <EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" />
+                <div style={{ padding: 14 }}><EstadoVacio t={t} titulo="Sin clases este día" cuerpo="Prueba otro día de la semana" /></div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
                   {/* Las de hoy que ya pasaron van PRIMERO — es el orden
                       cronológico del día, y coincide con el handoff. */}
                   {finalizadas.map(f => (
@@ -623,6 +623,33 @@ export function ReservaCalendario({
 /** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
  *  que `SlotRow` (misma tarjeta, mismo hueco de hora/nombre/instructora),
  *  pero sin `onClick` ni CTA: no se puede reservar algo que ya pasó. */
+/** Iniciales de un nombre — mismo criterio simple que el resto del kit
+ *  (dos primeras letras significativas, sin acentos raros que resolver). */
+function iniciales(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/);
+  return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase();
+}
+
+/** Avatar de instructora en iniciales — más compacto que `RoundPhoto`, es el
+ *  formato del handoff (design_handoff_widget_reservas) para la fila de
+ *  lista: una foto de 32px por fila competía visualmente con la hora/nombre
+ *  de la clase, que es lo que de verdad hay que leer de un vistazo. */
+function AvatarIniciales({ nombre, opaco }: { nombre: string; opaco?: boolean }) {
+  return (
+    <span style={{
+      width: 20, height: 20, borderRadius: 999, background: 'var(--portal-velo-suave)',
+      border: '1px solid var(--portal-line)', display: 'inline-flex', alignItems: 'center',
+      justifyContent: 'center', fontSize: 8.5, fontWeight: 800, letterSpacing: '.03em',
+      color: 'var(--portal-muted)', flexShrink: 0, opacity: opaco ? 0.7 : 1,
+    }}>
+      {iniciales(nombre)}
+    </span>
+  );
+}
+
+/** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
+ *  que `SlotRow` (misma tarjeta, mismo hueco de hora/nombre/instructora),
+ *  pero sin `onClick` ni CTA: no se puede reservar algo que ya pasó. */
 function FilaFinalizada({ t, slot }: {
   t: ModoTokens;
   slot: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null };
@@ -630,26 +657,25 @@ function FilaFinalizada({ t, slot }: {
   const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
   return (
     <div style={{
-      display: 'flex', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
-      background: 'var(--portal-velo-suave)', borderRadius: radius.card,
-      padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
+      display: 'flex', width: '100%', alignItems: 'center', flexWrap: 'wrap', gap: 14,
+      borderTop: `1px solid ${t.line}`, padding: '18px 4px', opacity: 0.5,
     }}>
-      <div style={{ flex: '0 0 auto' }}>
-        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: t.muted }}>{fmtHora(slot.inicio)}</div>
-        <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>{duracionMin} min</div>
+      <div style={{ flex: '0 0 auto', width: 62 }}>
+        <div style={{ fontFamily: serif, fontSize: 23, lineHeight: 1 }}>{fmtHora(slot.inicio)}</div>
+        <div style={{ fontSize: 11, color: t.muted, marginTop: 5, letterSpacing: '.03em' }}>{duracionMin} min</div>
       </div>
       <div style={{ flex: '1 1 150px', minWidth: 0 }}>
-        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {slot.claseNombre}
         </div>
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+            <AvatarIniciales nombre={slot.instructorNombre} />
+            <span style={{ fontSize: 12.5, color: t.muted }}>{slot.instructorNombre}</span>
+          </div>
+        )}
       </div>
-      {slot.instructorNombre && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto', opacity: 0.7 }}>
-          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={32} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: t.muted, whiteSpace: 'nowrap' }}>{slot.instructorNombre}</span>
-        </div>
-      )}
-      <span style={{ flex: '0 0 auto', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted, marginLeft: 'auto' }}>
+      <span style={{ flex: '0 0 auto', marginLeft: 'auto', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: t.muted }}>
         FINALIZADA
       </span>
     </div>
@@ -662,6 +688,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
   const capColor = colorOcupacion(ratio);
   const lleno = libres <= 0;
   const duracionMin = Math.round((new Date(slot.fin).getTime() - new Date(slot.inicio).getTime()) / 60000);
+  const yaMia = slot.miEstado === 'CONFIRMADA' || slot.miEstado === 'LISTA_ESPERA';
 
   return (
     <button
@@ -672,87 +699,71 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
         : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
         : lleno ? 'completa' : `${libres} plazas`}`}
       style={{
-        display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none',
-        alignItems: 'center', flexWrap: 'wrap', gap: cq(12, 1.8, 24),
-        background: lleno ? 'var(--portal-velo-suave)' : (slot.miEstado === 'CONFIRMADA' ? 'var(--portal-surface-2)' : t.surface),
-        borderRadius: radius.card, padding: `${cq(20, 2.2, 26)} ${cq(20, 2.6, 30)}`,
-        boxShadow: lleno ? undefined : shadow.card,
+        display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent',
+        alignItems: 'center', flexWrap: 'wrap', gap: 14, borderTop: `1px solid ${t.line}`, padding: '18px 4px',
       }}
     >
-      {/* La foto del tipo de clase, si la propietaria subió una.
-          ⚠️ Aquí NO entra la foto por defecto, y es deliberado: en un listado
-          la misma imagen repetida en ocho filas se lee como un error, mientras
-          que en la cabecera del detalle —donde se pinta grande y sola— sí
-          ayuda. Este `claseFotoUrl` llevaba tiempo viajando hasta aquí sin que
-          nadie lo pintara, y el panel prometía que salía en esta página. */}
-      {slot.claseFotoUrl && (
-        <div style={{ flex: '0 0 auto', width: 52, height: 52, borderRadius: 14, overflow: 'hidden' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={slot.claseFotoUrl}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: lleno ? 0.6 : 1 }}
-          />
-        </div>
-      )}
-
       {/* Hora + duración */}
-      <div style={{ flex: '0 0 auto' }}>
-        <div style={{ fontFamily: serif, fontSize: cq(24, 2.4, 30), lineHeight: 1, color: lleno ? t.muted : t.ink }}>
+      <div style={{ flex: '0 0 auto', width: 62 }}>
+        <div style={{ fontFamily: serif, fontSize: 23, lineHeight: 1, color: t.ink, fontVariantNumeric: 'tabular-nums' }}>
           {fmtHora(slot.inicio)}
         </div>
-        <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>{duracionMin} min</div>
+        <div style={{ fontSize: 11, color: t.muted, marginTop: 5, letterSpacing: '.03em' }}>{duracionMin} min</div>
       </div>
 
-      {/* Nombre + nivel/instructora */}
+      {/* Nombre + instructora + disponibilidad */}
       <div style={{ flex: '1 1 150px', minWidth: 0 }}>
-        {slot.miEstado && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
-            <EstadoIcono estado={slot.miEstado} />
-            <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.2em', color: t.ink }}>
-              {slot.miEstado === 'CONFIRMADA' ? 'RESERVADA' : 'EN LISTA DE ESPERA'}
+        <div style={{ fontFamily: serif, fontSize: 18.5, lineHeight: 1.2, color: t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {slot.claseNombre}
+        </div>
+        {slot.instructorNombre && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+            <AvatarIniciales nombre={slot.instructorNombre} />
+            <span style={{ fontSize: 12.5, color: t.muted }}>{slot.instructorNombre}</span>
+          </div>
+        )}
+        {!yaMia && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: lleno ? t.muted : capColor, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: ratio >= 0.85 && !lleno ? 700 : 500, color: lleno ? t.muted : capColor, letterSpacing: '.01em' }}>
+              {lleno ? 'Completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'plaza libre' : 'plazas libres'}`}
             </span>
           </div>
         )}
-        <div style={{ fontFamily: serif, fontSize: cq(21, 2.2, 27), lineHeight: 1.05, color: lleno ? t.muted : t.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {slot.claseNombre}
-        </div>
-        <div style={{ fontSize: 11.5, color: t.muted, marginTop: 8 }}>
-          {NIVEL_LABEL[slot.nivel]}{slot.salaNombre ? ` · ${slot.salaNombre}` : ''} · {slot.aforoMaximo} plazas
-          {/* Antes el precio solo se veía al abrir el detalle — para comparar
-              clases hay que abrir cada una. null = cubierta por plan, no "gratis". */}
-          {slot.precio != null && ` · ${slot.precio} €`}
-        </div>
       </div>
 
-      {/* Instructora */}
-      {slot.instructorNombre && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>
-          <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={32} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: t.ink, whiteSpace: 'nowrap' }}>{slot.instructorNombre}</span>
-        </div>
-      )}
-
-      {/* Plazas libres. `etiquetaOcupacion` ya existía (lib/ocupacion.ts, misma
-          semántica de color que `capColor`) sin ningún caller aquí — el color
-          ya avisaba de "casi lleno", pero sin texto alguien mirando rápido en
-          móvil no lo lee como urgencia. */}
-      <div style={{ flex: '0 0 auto', fontSize: 11.5, fontWeight: 500, color: lleno ? t.muted : capColor, whiteSpace: 'nowrap' }}>
-        {lleno ? 'completa' : ratio >= 0.85 ? `¡${etiquetaOcupacion(ratio).toLowerCase()}!` : `${libres} ${libres === 1 ? 'libre' : 'libres'}`}
+      {/* Acción — checkmark si ya es mía, botón sólido si se puede reservar,
+          botón de contorno si está completa (lista de espera). Mismo criterio
+          que el handoff (design_handoff_widget_reservas): tres estados
+          visuales distintos, no un único CTA genérico. */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>
+        {yaMia ? (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 14px', borderRadius: radius.pillBtnSm - 2,
+            background: 'color-mix(in oklab, var(--portal-brand) 10%, var(--portal-surface))', color: 'var(--portal-brand)',
+            fontSize: 12.5, fontWeight: 700,
+          }}>
+            <EstadoIcono estado={slot.miEstado as 'CONFIRMADA' | 'LISTA_ESPERA'} />
+            {slot.miEstado === 'CONFIRMADA' ? 'Reservada' : 'En espera'}
+          </span>
+        ) : lleno ? (
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 16px',
+            border: '1px solid color-mix(in oklab, var(--portal-brand) 40%, transparent)', borderRadius: radius.pillBtnSm - 2,
+            color: 'var(--portal-brand)', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            Lista de espera
+          </span>
+        ) : (
+          <span aria-hidden="true" style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 40, padding: '0 18px',
+            background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)', borderRadius: radius.pillBtnSm - 2,
+            fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            Reservar
+          </span>
+        )}
       </div>
-
-      {/* CTA visual (decorativo: toda la fila es el control clicable) */}
-      <span aria-hidden="true" style={{
-        flex: '0 0 auto', height: 44, padding: '0 22px', borderRadius: radius.pillBtnSm - 2,
-        display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
-        ...(slot.miEstado === 'CONFIRMADA'
-          ? { border: `1px solid ${t.line}`, color: t.ink }
-          : lleno
-            ? { border: `1px solid ${t.line}`, color: t.ink }
-            : { background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)' }),
-      }}>
-        {slot.miEstado === 'CONFIRMADA' ? 'Ver reserva' : slot.miEstado === 'LISTA_ESPERA' ? 'En espera' : lleno ? 'Lista de espera' : 'Reservar'}
-      </span>
     </button>
   );
 }

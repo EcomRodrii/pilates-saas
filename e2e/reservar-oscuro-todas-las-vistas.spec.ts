@@ -118,24 +118,9 @@ for (const tab of ['clases', 'citas', 'reservas', 'estudio'] as const) {
   });
 }
 
-for (const vista of ['Lista', 'Mes', 'Semana'] as const) {
-  test(`la vista ${vista} no deja ninguna superficie clara`, async ({ page }) => {
-    // La vista Día ya la cubre `reservar-acoplar-widget.spec.ts`; estas tres son
-    // componentes DISTINTOS (`RejillaMes`, `RejillaSemana`, la lista del
-    // calendario), cada uno con su propio color. Que una esté bien no dice nada
-    // de las otras.
-    await abrirOscuro(page, 'clases');
-    await page.locator('#horario').waitFor({ timeout: 150_000 });
-    const boton = page.getByRole('button', { name: vista, exact: true });
-    await boton.click();
-    // Igual que en la hoja: si el clic no cambiara de vista, este test contaría
-    // la vista Día tres veces y saldría verde sin haber visto ni Mes ni Semana.
-    await expect(boton).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
-    await page.waitForTimeout(700);
-    const claras = await clarasEn(page);
-    expect(claras, `vista ${vista}:\n${claras.join('\n')}`).toEqual([]);
-  });
-}
+// Las vistas Lista/Mes/Semana ya no son alcanzables desde el widget público
+// (rediseño sobre el handoff design_handoff_widget_reservas: solo queda la
+// vista Día) — sus tests de superficies claras se retiraron con ellas.
 
 test('la hoja de reserva no deja ninguna superficie clara', async ({ page }) => {
   // La superficie más grande que se abre ENCIMA de todo, y la única que la
