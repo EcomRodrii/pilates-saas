@@ -18,12 +18,7 @@ import {
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { localDayKey } from '@/lib/reserva-calendario-logic';
 import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
-import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
-import { RejillaSemana } from '@/components/reserva/rejilla-semana';
-import { RejillaMes } from '@/components/reserva/rejilla-mes';
-import { RailFiltros } from '@/components/reserva/rail-filtros';
-import { cuantosFiltros } from '@/lib/reservar/filtros-clases';
 import { claseSirvePara } from '@/lib/reservar/objetivos';
 import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
@@ -409,67 +404,28 @@ export default function ReservarPage() {
   }, [studio?.id, searchParams]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
-  // Filtros del discovery quiz (ver components/reserva/discovery-quiz.tsx) —
-  // se aplican en el mismo useMemo de `slots` que ya filtraba por
-  // `filtroTipo`, sin fetch nuevo: son comparaciones directas sobre campos
-  // que sesionesRich ya trae (nivel de tipo, hora/día de `inicio`).
-  const [filtroNivel, setFiltroNivel] = useState('');
-  const [filtroHorario, setFiltroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
-  const [filtroDias, setFiltroDias] = useState<number[]>([]);
-  // Filtrar por instructora faltaba, y es de las tres formas en que se elige
-  // cuando ya conoces el estudio (con quién, qué día, a qué hora).
-  const [filtroInstructor, setFiltroInstructor] = useState('');
-  // Filtrar por sala: el dato (`slot.salaNombre`) ya viajaba en el payload
-  // para pintarse en la fila — faltaba solo la UI (Fase 1 del Booking Engine).
-  const [filtroSala, setFiltroSala] = useState('');
-  // Buscar por texto libre (Fase 1): nombre de clase o de instructora, sobre
-  // los mismos slots ya cargados — sin fetch nuevo, comparación directa como
-  // el resto de filtros de esta página.
-  const [busqueda, setBusqueda] = useState('');
-  // Objetivo del asistente. No está en el rail a propósito: el rail filtra por
-  // hechos de la clase (tipo, quién, nivel, hora); el objetivo es una pregunta
-  // sobre la clienta, y solo tiene sentido dentro del asistente que la hace.
-  const [filtroObjetivo, setFiltroObjetivo] = useState('');
-  // `null` hasta que el efecto de sessionStorage decida (evita el flash de
-  // "mostrar banner → ocultarlo" en cada carga si ya se descartó antes).
-  const [bannerQuizVisible, setBannerQuizVisible] = useState<boolean | null>(null);
-  const [quizAbierto, setQuizAbierto] = useState(false);
-  const [quizCompletado, setQuizCompletado] = useState(false);
-  const [quizPaso, setQuizPaso] = useState(0);
-  // Descartar el banner ("No, gracias") lo oculta solo para esta VISITA —
-  // sessionStorage, no localStorage: no hay razón para esconder algo útil
-  // para siempre en visitas futuras.
-  const bannerQuizKey = `tentare-discovery-oculto-${slug}`;
-  useEffect(() => {
-    // Esta página se embebe por <iframe> en la web de cada estudio (modo
-    // widget). Un `sandbox` sin `allow-same-origin` —config habitual, no un
-    // caso raro— hace que LEER `sessionStorage` lance `SecurityError` en vez
-    // de devolver null: sin el try/catch, esta línea reventaba el efecto y
-    // rompía el widget entero para esos estudios (visto en Sentry,
-    // JAVASCRIPT-NEXTJS-1C). `bannerQuizVisible` se queda en `null` —el
-    // banner simplemente no aparece—, mismo criterio que ya usan
-    // `sede-activa.tsx` y `lib/equipo/invitacion-pendiente.ts` para el mismo
-    // problema.
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee sessionStorage (no disponible en SSR) tras montar; el segundo render es el objetivo.
-      setBannerQuizVisible(sessionStorage.getItem(bannerQuizKey) !== '1');
-    } catch { /* iframe sandboxed, modo privado */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  function descartarQuizBanner() {
-    try { sessionStorage.setItem(bannerQuizKey, '1'); } catch { /* ídem */ }
-    setBannerQuizVisible(false);
-  }
-  // Solo los niveles que ESTE estudio ofrece de verdad — nunca mostrar
-  // "Avanzado" en el quiz si ninguna de sus clases lo es.
-  const nivelesDisponibles = useMemo(
-    () => [...new Set(tiposClase.map(t => t.nivel).filter(n => !!n && n !== 'TODOS'))],
-    [tiposClase],
-  );
+  // Filtros de nivel/horario/día/instructora/sala — sin UI propia hoy (vivían
+  // en el rail lateral y el quiz de descubrimiento, quitados al adoptar el
+  // handoff design_handoff_widget_reservas), pero `slots` sigue filtrando por
+  // ellos si algún día se reconecta un control.
+  const [filtroNivel] = useState('');
+  const [filtroHorario] = useState<'' | 'manana' | 'mediodia' | 'tarde'>('');
+  const [filtroDias] = useState<number[]>([]);
+  const [filtroInstructor] = useState('');
+  const [filtroSala] = useState('');
+  // Buscar por texto libre — nombre de clase o de instructora, sobre los
+  // mismos slots ya cargados. Sin UI propia hoy (el handoff
+  // design_handoff_widget_reservas no trae buscador), pero `slots` sigue
+  // filtrando por él si algún día se reconecta una entrada de texto.
+  const [busqueda] = useState('');
+  // Objetivo de la clase — sin UI propia hoy (era del quiz de descubrimiento,
+  // quitado al adoptar el handoff design_handoff_widget_reservas), pero
+  // `slots` sigue filtrando por él si algún día se reconecta un selector.
+  const [filtroObjetivo] = useState('');
   // Especialidades de cada instructora (P1 auditoría Momence-vs-Tentare) —
   // NO es un campo nuevo, se deriva de qué tipos de clase imparte de verdad
-  // con los datos que esta página ya carga (sesiones/tiposClase), igual que
-  // ya se hizo con nivelesDisponibles arriba: nunca inventar una categoría.
+  // con los datos que esta página ya carga (sesiones/tiposClase) — nunca
+  // inventar una categoría.
   const especialidadesPorInstructor = useMemo(() => {
     const tiposById = new Map(tiposClase.map(t => [t.id, t.nombre]));
     const porInstructor = new Map<string, Set<string>>();
@@ -483,27 +439,7 @@ export default function ReservarPage() {
     }
     return porInstructor;
   }, [sesiones, tiposClase]);
-  const hayFiltrosQuizActivos = filtroNivel !== '' || filtroHorario !== '' || filtroDias.length > 0 || filtroInstructor !== '' || filtroSala !== '' || busqueda !== '' || filtroObjetivo !== '';
-  function reiniciarFiltrosQuiz() {
-    // Tiene que limpiar los MISMOS 7 filtros que `hayFiltrosQuizActivos`
-    // comprueba arriba — antes solo limpiaba 4 (los del quiz), así que
-    // "Ver todas" no quitaba un filtro de instructora/sala/búsqueda puesto
-    // desde el rail lateral, y el propio aviso "Filtrado según tus
-    // preferencias" se quedaba en pantalla después de pulsar el botón que
-    // decía limpiarlo.
-    setFiltroTipo(''); setFiltroNivel(''); setFiltroHorario(''); setFiltroDias([]);
-    setFiltroInstructor(''); setFiltroSala(''); setBusqueda(''); setFiltroObjetivo('');
-    setQuizCompletado(false);
-  }
   const tabInicial = searchParams.get('tab');
-  // Lista / Semana / Día, como en el diseño. Las tres pintan LOS MISMOS slots
-  // ya cargados y filtrados: no hay una carga por vista, solo una forma
-  // distinta de leer lo mismo.
-  const [vistaClases, setVistaClases] = useState<'lista' | 'semana' | 'mes' | 'dia'>('dia');
-  // Orden puntual al calendario para que salte al día elegido en la vista Mes.
-  // Lleva `nonce` porque el mismo día puede elegirse dos veces seguidas — ver
-  // la prop `irADia` de ReservaCalendario.
-  const [comandoDia, setComandoDia] = useState<{ fecha: string; nonce: number } | null>(null);
   const [tab, setTab] = useState<Tab>(
     TAB_IDS.includes(tabInicial as Tab) && tabHabilitada(tabInicial as Tab) ? (tabInicial as Tab) : 'clases',
   );
@@ -731,20 +667,6 @@ export default function ReservarPage() {
       ocupadas: ocupadasPorSesion.get(s.id) ?? 0,
     }));
   }, [sesiones, tiposClase, salas, instructores, reservas, sustitucionesConfirmadas]);
-
-  // ⚠️ Las opciones del rail salen de las clases SIN filtrar. Contándolas sobre
-  // las ya filtradas, elegir «Laura» dejaría su desplegable con una sola opción
-  // —ella— y no habría forma de volver a ver el resto: el filtro se cerraría
-  // sobre sí mismo.
-  const slotsParaFiltros = useMemo(() => sesionesRich
-    .filter(s => new Date(s.inicio).getTime() > nowMs && !s.cancelada)
-    .map(s => ({
-      tipoClaseId: s.tipoClaseId,
-      nivel: s.tipo?.nivel ?? 'TODOS',
-      instructorNombre: s.instructor?.nombre ?? null,
-      salaNombre: s.sala?.nombre ?? null,
-      horario: horarioDeSesion(s.inicio),
-    })), [sesionesRich, nowMs]);
 
   // La banda de cifras. Solo se cuentan datos que YA viajan en la carga
   // pública — nada se escribe a mano, y lo que no se puede contar no se pinta
@@ -1853,294 +1775,110 @@ export default function ReservarPage() {
         })()}
 
         {tab === 'clases' && !fichaSesionId && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: cq(24, 4, 56), alignItems: 'flex-start', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-            <div style={{ flex: '1 1 480px', minWidth: 0 }}>
+          <div style={{ maxWidth: 760, marginInline: 'auto', width: '100%', padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
 
-              {/* Título + mes — Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md,
-                  formato 01): esta tab no tenía ninguna cabecera propia, solo
-                  la pestaña de arriba decía "Clases". */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
-                <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
-                {/* Solo en Lista/Día: la vista Mes ya trae su propia
-                    navegación de mes (RejillaMes), y mostrar los dos a la vez
-                    duplica el mismo texto en pantalla (y en el DOM — rompía
-                    reservar-vista-mes.spec.ts, que busca "AGOSTO DE 2026"). */}
-                {(vistaClases === 'dia' || vistaClases === 'lista') && (
-                  <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4 }}>
-                    {/* Primera letra a mano, no `textTransform:capitalize`:
-                        ese pone mayúscula en CADA palabra ("Agosto De 2026"),
-                        y en español solo el mes va en mayúscula al empezar
-                        frase — "de" se queda en minúscula. */}
-                    {(() => {
-                      const s = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-                      return s.charAt(0).toUpperCase() + s.slice(1);
-                    })()}
-                  </span>
-                )}
-              </div>
+            {/* Título + mes — formato 01 del handoff
+                (design_handoff_widget_reservas/Tentare Widget.dc.html). */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
+              <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
+              <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4 }}>
+                {/* Primera letra a mano, no `textTransform:capitalize`:
+                    ese pone mayúscula en CADA palabra ("Agosto De 2026"),
+                    y en español solo el mes va en mayúscula al empezar
+                    frase — "de" se queda en minúscula. */}
+                {(() => {
+                  const s = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                  return s.charAt(0).toUpperCase() + s.slice(1);
+                })()}
+              </span>
+            </div>
 
-              {/* Discovery quiz — ver components/reserva/discovery-quiz.tsx. Un
-                  filtro más sobre los mismos slots ya cargados (nivel/tipo/
-                  horario/día), no un motor de recomendación nuevo. Apagable
-                  entero desde Apariencia (Fase 7): un estudio con 2-3 tipos
-                  de clase no tiene nada que "descubrir" — el quiz es ruido. */}
-              {configHorario.mostrarQuiz === false ? null : quizAbierto ? (
-                <div style={{ marginBottom: 20 }}>
-                  <DiscoveryQuiz
-                    nivelesDisponibles={nivelesDisponibles}
-                    nivelLabel={NIVEL_LABEL}
-                    paso={quizPaso}
-                    setPaso={setQuizPaso}
-                    filtroObjetivo={filtroObjetivo}
-                    setFiltroObjetivo={setFiltroObjetivo}
-                    nResultados={slots.length}
-                    filtroNivel={filtroNivel}
-                    setFiltroNivel={setFiltroNivel}
-                    filtroHorario={filtroHorario}
-                    setFiltroHorario={setFiltroHorario}
-                    filtroDias={filtroDias}
-                    setFiltroDias={setFiltroDias}
-                    onCompletar={() => { setQuizAbierto(false); setQuizCompletado(true); trackEventoWidget(studio?.id, 'recommendation_completed', {}); }}
-                    onCerrar={() => setQuizAbierto(false)}
-                  />
-                </div>
-              ) : quizCompletado || hayFiltrosQuizActivos ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, fontSize: 12, color: 'var(--portal-muted-2)' }}>
-                  Filtrado según tus preferencias
-                  <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); trackEventoWidget(studio?.id, 'recommendation_started', {}); }}
-                    style={{ color: PRIMARY_FG, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0 }}>
-                    Cambiar
-                  </button>
-                  <button type="button" onClick={reiniciarFiltrosQuiz}
-                    style={{ color: 'var(--portal-muted-2)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
-                    Ver todas
-                  </button>
-                </div>
-              ) : bannerQuizVisible ? (
-                <div style={{
-                  display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between',
-                  borderRadius: R.chipCard, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)',
-                  padding: '14px 18px', marginBottom: 18,
+            {/* Chips de filtro por tipo de clase, en línea — mismo patrón que
+                el handoff: `PRIMARY`/`transparent`, nunca `--portal-surface`
+                como relleno del no-seleccionado (ese token es blanco en modo
+                día, y un fondo claro fijo pintado sobre una web oscura es
+                justo lo que reservar-acoplar-widget.spec.ts vigila). */}
+            {tiposClase.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 18 }} role="group" aria-label="Filtrar por tipo de clase">
+                <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
+                  padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                  background: filtroTipo === '' ? PRIMARY : 'transparent',
+                  color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
+                  borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
                 }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--portal-ink)' }}>{textosReservar.avisoQuiz || '¿Primera vez en el estudio? Te ayudamos a encontrar tu clase.'}</span>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" onClick={() => { setQuizPaso(0); setQuizAbierto(true); trackEventoWidget(studio?.id, 'recommendation_started', {}); }}
-                      style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: PRIMARY, color: PRIMARY_FG, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      Sí, ayúdame
-                    </button>
-                    <button type="button" onClick={descartarQuizBanner}
-                      style={{ height: 34, padding: '0 16px', borderRadius: R.pill, background: 'transparent', color: 'var(--portal-muted-2)', border: '1px solid var(--portal-line)', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      No, gracias
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Los filtros ya no viven aquí: están en el rail de la columna
-                  lateral (RailFiltros). La fila de chips solo filtraba por
-                  TIPO y se salía de la pantalla en cuanto un estudio tenía
-                  cinco tipos de clase — y tener el mismo filtro en dos sitios
-                  es lo que hace dudar de cuál manda. */}
-
-              {/* Calendario de reservas — componente compartido (estilo Acuity), el
-                  mismo que usa el portal de socias, re-vestido con el lenguaje
-                  visual de esta pantalla (ver reserva-calendario.tsx). La reserva
-                  se enruta por handleReservarCalendario, que respeta el
-                  step-machine de acceso. */}
-              {/* Lista · Semana · Día.
-                  ⚠️ El día sigue siendo la vista de llegada. Poner Semana por
-                  defecto cambiaba el camino de entrada de TODA visitante —y lo
-                  cazó CI, con los tests de reserva entrando por las pestañas de
-                  día—. Cambiar por dónde se reserva es una decisión de producto
-                  aparte, no un efecto colateral de añadir una vista. */}
-              {/* Buscar por texto libre (Fase 1 del Booking Engine) — nombre de
-                  clase o de instructora. Separado del rail de filtros: es una
-                  entrada de texto, no una elección entre opciones cerradas. */}
-              <div style={{ marginTop: 20, position: 'relative', maxWidth: 360 }}>
-                <input
-                  type="search"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar clase o instructora…"
-                  aria-label="Buscar clase o instructora"
-                  style={{
-                    width: '100%', fontSize: 13, padding: '10px 14px', borderRadius: R.pill,
-                    border: '1px solid var(--portal-line)', background: 'var(--portal-surface)',
-                    color: 'var(--portal-ink)',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 4, marginTop: 12, padding: 3, borderRadius: R.pill, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', width: 'fit-content' }} role="group" aria-label="Cómo ver el horario">
-                {([['lista', 'Lista'], ['mes', 'Mes'], ['semana', 'Semana'], ['dia', 'Día']] as const).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setVistaClases(id)}
-                    aria-pressed={vistaClases === id}
-                    style={{
-                      padding: '7px 16px', borderRadius: R.pill, border: 'none', cursor: 'pointer',
-                      fontSize: 12.5, fontWeight: 600,
-                      background: vistaClases === id ? PRIMARY : 'transparent',
-                      color: vistaClases === id ? PRIMARY_FG : 'var(--portal-muted)',
-                    }}
-                  >
-                    {label}
+                  Todas
+                </button>
+                {tiposClase.map(t => (
+                  <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
+                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                    background: filtroTipo === t.id ? PRIMARY : 'transparent',
+                    color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
+                    borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
+                  }}>
+                    {t.nombre}
                   </button>
                 ))}
               </div>
+            )}
 
-              {/* Chips de filtro por tipo de clase, en línea — Fase 4 del
-                  rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
-                  01). Habían salido de aquí (ver RailFiltros más abajo) porque
-                  con 5+ tipos se salían de la pantalla; el diseño del handoff
-                  los quiere de vuelta, esta vez con `flex-wrap:wrap` — el
-                  motivo original de quitarlos ya no aplica. El rail lateral
-                  se queda (cubre instructora/nivel/horario/sala, que esta fila
-                  no toca), así que no hay filtro duplicado, solo ampliado. */}
-              {tiposClase.length > 0 && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }} role="group" aria-label="Filtrar por tipo de clase">
-                  {/* Mismo patrón que el selector Lista/Mes/Semana/Día de
-                      arriba (`PRIMARY`/`transparent`, nunca `--portal-surface`
-                      como relleno del no-seleccionado): ese token es blanco
-                      en modo día, y un fondo claro fijo pintado sobre una web
-                      oscura es justo lo que reservar-acoplar-widget.spec.ts
-                      vigila. `transparent` dejaba pasar el fondo real por
-                      debajo, sea cual sea. */}
-                  <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
-                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                    background: filtroTipo === '' ? PRIMARY : 'transparent',
-                    color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
-                    borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
-                  }}>
-                    Todas
-                  </button>
-                  {tiposClase.map(t => (
-                    <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
-                      padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
-                      background: filtroTipo === t.id ? PRIMARY : 'transparent',
-                      color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
-                      borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
-                    }}>
-                      {t.nombre}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div style={{ marginTop: 24 }}>
-                {vistaClases === 'mes' ? (
-                  <RejillaMes
-                    slots={slots}
-                    // Elegir un día NO reserva: lleva a la vista Día, que es
-                    // donde están los horarios. Un calendario de mes no tiene
-                    // sitio para decidir una clase concreta, y fingir que sí
-                    // acabaría en un clic que reserva algo sin querer — el
-                    // mismo fallo que ya se corrigió en la rejilla semanal.
-                    onElegirDia={(fecha) => {
-                      setComandoDia({ fecha, nonce: (comandoDia?.nonce ?? 0) + 1 });
-                      setVistaClases('dia');
-                    }}
-                    fontFamily={sans}
-                  />
-                ) : vistaClases === 'semana' ? (
-                  <RejillaSemana
-                    slots={slots}
-                    permiteListaEspera={studio?.permiteListaEspera}
-                    // ⚠️ `openBooking`, NUNCA `handleReservarCalendario`. Esa
-                    // función, para una socia ya identificada y sin gate,
-                    // llama a `addReserva` DIRECTAMENTE: un clic en la rejilla
-                    // reservaba al instante, sin confirmar y con `spotId: null`
-                    // —o sea, sin elegir reformer—. Un clic accidental te
-                    // apuntaba a una clase. La rejilla decide qué se ve; quien
-                    // decide si se reserva es la hoja.
-                    onElegir={(slot) => openBooking(slot.id)}
-                    fontFamily={sans}
-                  />
-                ) : (
-                <ReservaCalendario
-                  t={tokensCalendario}
-                  slots={slots}
-                  variant={vistaClases === 'lista' ? 'lista' : 'calendario'}
-                  // Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md,
-                  // pantallas 01/02): tira de 10 días con scroll en vez de
-                  // paginación por semana. Único caller de Modo A que la activa —
-                  // el portal privado (app/portal/[slug]/clases) sigue en 'semana'.
-                  estiloDias="dias"
-                  irADia={comandoDia ?? undefined}
-                  onReservar={handleReservarCalendario}
-                  onCancelar={cancelarReserva}
-                  onAceptarOferta={aceptarOfertaEspera}
-                  cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
-                  ventanaPorTipo={ventanaPorTipo}
-                  vacio={hayFiltrosQuizActivos
-                    ? { titulo: 'No encontramos clases con estos filtros', cuerpo: 'Prueba a ampliarlos, o usa "Ver todas" arriba.' }
-                    : {
-                        titulo: textosReservar.vacioTitulo || 'Sin clases disponibles',
-                        cuerpo: textosReservar.vacioTexto || 'Prueba con otra semana o cambia el filtro',
-                      }}
-                  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md,
-                  // captura 21): la carga pública falló de verdad, no es que no
-                  // haya clases — antes ambos casos eran indistinguibles.
-                  error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
-                  finalizadasHoy={slotsFinalizadosHoy}
-                />
-                )}
-              </div>
+            {/* Calendario de reservas — componente compartido (estilo Acuity), el
+                mismo que usa el portal de socias, re-vestido con el lenguaje
+                visual de esta pantalla (ver reserva-calendario.tsx). La reserva
+                se enruta por handleReservarCalendario, que respeta el
+                step-machine de acceso.
+                ⚠️ Único caller de Modo A que activa `estiloDias='dias'` (tira de
+                10 días con scroll) — el portal privado sigue en 'semana'. */}
+            <div style={{ marginTop: 20 }}>
+              <ReservaCalendario
+                t={tokensCalendario}
+                slots={slots}
+                variant="calendario"
+                estiloDias="dias"
+                onReservar={handleReservarCalendario}
+                onCancelar={cancelarReserva}
+                onAceptarOferta={aceptarOfertaEspera}
+                cancelacionVentanaHoras={studio?.cancelacionVentanaHoras}
+                ventanaPorTipo={ventanaPorTipo}
+                vacio={{
+                  titulo: textosReservar.vacioTitulo || 'Sin clases disponibles',
+                  cuerpo: textosReservar.vacioTexto || 'Prueba con otra semana o cambia el filtro',
+                }}
+                // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md,
+                // captura 21): la carga pública falló de verdad, no es que no
+                // haya clases — antes ambos casos eran indistinguibles.
+                error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
+                finalizadasHoy={slotsFinalizadosHoy}
+              />
             </div>
 
-            {/* Columna lateral: explicación del flujo (copy fijo, sin datos que
-                puedan quedar desactualizados). */}
-            <div style={{ flex: '0 1 320px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {/* El rail de filtros, encima del «cómo funciona»: lo primero de
-                  esta columna tiene que ser lo que se USA, no lo que se lee una
-                  vez. Se pinta solo si algún filtro tiene de verdad más de una
-                  opción (ver RailFiltros). */}
-              <RailFiltros
-                clases={slotsParaFiltros}
-                estado={{ tipo: filtroTipo, instructor: filtroInstructor, nivel: filtroNivel, horario: filtroHorario, sala: filtroSala }}
-                onCambiar={(campo, valor) => {
-                  if (campo === 'tipo') setFiltroTipo(valor);
-                  else if (campo === 'instructor') setFiltroInstructor(valor);
-                  else if (campo === 'nivel') setFiltroNivel(valor);
-                  else if (campo === 'sala') setFiltroSala(valor);
-                  else setFiltroHorario(valor as '' | 'manana' | 'mediodia' | 'tarde');
-                }}
-                onLimpiar={() => {
-                  setFiltroTipo(''); setFiltroInstructor(''); setFiltroNivel(''); setFiltroObjetivo('');
-                  setFiltroHorario(''); setFiltroDias([]); setFiltroSala('');
-                }}
-                nCuantos={cuantosFiltros({ tipo: filtroTipo, nivel: filtroNivel, horario: filtroHorario, instructor: filtroInstructor, sala: filtroSala, dias: filtroDias })}
-                nResultados={slots.length}
-                etiquetaTipo={(id) => tiposClase.find(t => t.id === id)?.nombre ?? id}
-                etiquetaNivel={(n) => NIVEL_LABEL[n] ?? n}
-                horarioDe={(c) => (c as { horario?: string | null }).horario ?? null}
-                fontFamily={sans}
-              />
-
-              {/* Restaurado tras romper e2e/reservar-ventana-por-tipo.spec.ts:
-                  no es solo copy decorativa, es el aviso honesto de
-                  cancelación/antelación por TIPO DE CLASE (frasePlazoCancelacion
-                  y compañía, lib/reservar/promesas.ts) — quitarlo del todo por
-                  no estar en el handoff habría reabierto un bug ya cerrado. */}
-              <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
-                <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
+            {/* Restaurado tras romper e2e/reservar-ventana-por-tipo.spec.ts: no
+                es copy decorativa, es el aviso honesto de cancelación/antelación
+                por TIPO DE CLASE (frasePlazoCancelacion y compañía,
+                lib/reservar/promesas.ts) — quitarlo del todo habría reabierto un
+                bug ya cerrado. El handoff (design_handoff_widget_reservas) no
+                trae esta caja porque ese plazo lo enseña en la hoja de detalle
+                de cada clase (SlotRow → BookingSheet) — pero el tope de
+                ANTELACIÓN MÁXIMA solo se anuncia aquí, así que se queda, ahora
+                en columna única bajo la lista en vez de en un rail lateral. */}
+            <div style={{ marginTop: 20, borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '22px 24px' }}>
+              <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 28px', marginTop: 16 }}>
                 {[
                   'Elige el día y la clase.',
                   ...(antelacionMinima ? [antelacionMinima] : ['Reserva tu plaza en la sala.']),
                   plazoCancelacion,
                 ].map((paso, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 14, marginTop: i === 0 ? 18 : 12 }}>
-                    <span style={{ fontFamily: serif, fontSize: 18, color: 'var(--portal-accent)', lineHeight: 1.2 }}>{i + 1}</span>
+                  <div key={i} style={{ display: 'flex', gap: 10, flex: '1 1 200px', minWidth: 0 }}>
+                    <span style={{ fontFamily: serif, fontSize: 16, color: 'var(--portal-accent)', lineHeight: 1.3, flexShrink: 0 }}>{i + 1}</span>
                     <span style={{ fontSize: 12, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>{paso}</span>
                   </div>
                 ))}
-                {antelacionMaxima && (
-                  <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--portal-line)' }}>
-                    {antelacionMaxima}
-                  </p>
-                )}
               </div>
+              {antelacionMaxima && (
+                <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', lineHeight: 1.5, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--portal-line)' }}>
+                  {antelacionMaxima}
+                </p>
+              )}
             </div>
           </div>
         )}
