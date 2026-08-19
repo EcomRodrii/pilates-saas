@@ -1810,9 +1810,15 @@ export default function ReservarPage() {
                   la pestaña de arriba decía "Clases". */}
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
                 <h2 style={{ fontFamily: serif, fontSize: cq(30, 7, 38), lineHeight: 1 }}>Clases</h2>
-                <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4, textTransform: 'capitalize' }}>
-                  {now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                </span>
+                {/* Solo en Lista/Día: la vista Mes ya trae su propia
+                    navegación de mes (RejillaMes), y mostrar los dos a la vez
+                    duplica el mismo texto en pantalla (y en el DOM — rompía
+                    reservar-vista-mes.spec.ts, que busca "AGOSTO DE 2026"). */}
+                {(vistaClases === 'dia' || vistaClases === 'lista') && (
+                  <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4, textTransform: 'capitalize' }}>
+                    {now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                  </span>
+                )}
               </div>
 
               {/* Discovery quiz — ver components/reserva/discovery-quiz.tsx. Un
@@ -1936,20 +1942,27 @@ export default function ReservarPage() {
                   no toca), así que no hay filtro duplicado, solo ampliado. */}
               {tiposClase.length > 0 && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }} role="group" aria-label="Filtrar por tipo de clase">
+                  {/* Mismo patrón que el selector Lista/Mes/Semana/Día de
+                      arriba (`PRIMARY`/`transparent`, nunca `--portal-surface`
+                      como relleno del no-seleccionado): ese token es blanco
+                      en modo día, y un fondo claro fijo pintado sobre una web
+                      oscura es justo lo que reservar-acoplar-widget.spec.ts
+                      vigila. `transparent` dejaba pasar el fondo real por
+                      debajo, sea cual sea. */}
                   <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
-                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-                    background: filtroTipo === '' ? 'var(--portal-ink)' : 'var(--portal-surface)',
-                    color: filtroTipo === '' ? 'var(--portal-bg)' : 'var(--portal-muted)',
-                    border: `1px solid ${filtroTipo === '' ? 'var(--portal-ink)' : 'var(--portal-line)'}`,
+                    padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                    background: filtroTipo === '' ? PRIMARY : 'transparent',
+                    color: filtroTipo === '' ? PRIMARY_FG : 'var(--portal-muted)',
+                    borderColor: filtroTipo === '' ? 'transparent' : 'var(--portal-line)',
                   }}>
                     Todas
                   </button>
                   {tiposClase.map(t => (
                     <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
-                      padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer',
-                      background: filtroTipo === t.id ? 'var(--portal-ink)' : 'var(--portal-surface)',
-                      color: filtroTipo === t.id ? 'var(--portal-bg)' : 'var(--portal-muted)',
-                      border: `1px solid ${filtroTipo === t.id ? 'var(--portal-ink)' : 'var(--portal-line)'}`,
+                      padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
+                      background: filtroTipo === t.id ? PRIMARY : 'transparent',
+                      color: filtroTipo === t.id ? PRIMARY_FG : 'var(--portal-muted)',
+                      borderColor: filtroTipo === t.id ? 'transparent' : 'var(--portal-line)',
                     }}>
                       {t.nombre}
                     </button>
