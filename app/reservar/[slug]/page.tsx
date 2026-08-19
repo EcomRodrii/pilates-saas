@@ -1650,7 +1650,13 @@ export default function ReservarPage() {
               )}
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estudioNombre}</div>
-                {studio?.ciudad && <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 1 }}>{studio.ciudad}{estudioDireccion ? ` · ${estudioDireccion.split(',')[0]}` : ''}</div>}
+                {studio?.ciudad && (
+                  <div style={{ fontSize: 11.5, color: 'var(--portal-muted)', marginTop: 1 }}>
+                    {/* `estudioDireccion` ya es "ciudad · dirección" — usarlo
+                        aquí habría repetido la ciudad dos veces. */}
+                    {studio.ciudad}{studio.direccion ? ` · ${studio.direccion}` : ''}
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11.5, color: 'var(--portal-muted)', whiteSpace: 'nowrap' }}>
@@ -1815,8 +1821,15 @@ export default function ReservarPage() {
                     duplica el mismo texto en pantalla (y en el DOM — rompía
                     reservar-vista-mes.spec.ts, que busca "AGOSTO DE 2026"). */}
                 {(vistaClases === 'dia' || vistaClases === 'lista') && (
-                  <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4, textTransform: 'capitalize' }}>
-                    {now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                  <span style={{ fontSize: 12, color: 'var(--portal-muted)', paddingBottom: 4 }}>
+                    {/* Primera letra a mano, no `textTransform:capitalize`:
+                        ese pone mayúscula en CADA palabra ("Agosto De 2026"),
+                        y en español solo el mes va en mayúscula al empezar
+                        frase — "de" se queda en minúscula. */}
+                    {(() => {
+                      const s = now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                      return s.charAt(0).toUpperCase() + s.slice(1);
+                    })()}
                   </span>
                 )}
               </div>
