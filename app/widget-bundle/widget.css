@@ -22,3 +22,10 @@
 .animate-spin {
   animation: animate-spin-kf 1s linear infinite;
 }
+/* Skeleton de la rejilla semanal (Fase 4, formato 06) — duplicado de
+   app/globals.css a propósito, mismo motivo que animate-spin-kf arriba: el
+   shadow root no ve la hoja global de Next. */
+@keyframes widget-skeleton-shimmer {
+  0%   { background-position: 130% 0; }
+  100% { background-position: -130% 0; }
+}

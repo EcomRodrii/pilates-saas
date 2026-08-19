@@ -592,6 +592,14 @@ interface StudioContextValue {
   // Studio management
   resetDatosPilates: () => void;
   dataLoaded: boolean;
+  /**
+   * La carga pública falló de verdad (red/servidor) — distinto de `dataLoaded`
+   * con catálogo vacío, que hoy es indistinguible de "0 clases" para quien
+   * pinta la pantalla. Fase 4 del rediseño del widget
+   * (docs/widget-reservas-fase4-brief-diseno.md): antes cualquier fallo se
+   * tragaba en `console.error` y el visitante veía un vacío mentiroso.
+   */
+  errorPublico: boolean;
   // Recarga los datos en ruta pública (tras el login de la socia).
   recargarPublico: () => void;
   /**
@@ -638,6 +646,7 @@ export function useStudio(): StudioContextValue {
 
 export function StudioProvider({ children, studioIdOverride, publicSlug }: { children: ReactNode; studioIdOverride?: string; publicSlug?: string }) {
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [errorPublico, setErrorPublico] = useState(false);
   const [dbError, setDbError] = useState<{ msg: string; key: number } | null>(null);
 
   // /portal, /reservar y /kiosk montan SU PROPIO StudioProvider (con
@@ -896,6 +905,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // traer sus datos una vez identificada.
   function cargarPublico() {
     if (!publicSlug) return;
+    setErrorPublico(false);
     setCurrentStudioId(studioIdOverride ?? '');
     // La socia se deriva del JWT en el servidor (cargarDatosPublicos manda el
     // Bearer); ya no se pasa {socioId,email} desde el cliente.
@@ -906,7 +916,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // que `shadowedByPublicRoute` arriba, basado en el pathname real).
     const liviano = (pathname ?? '').startsWith('/reservar/');
     cargarDatosPublicos(publicSlug, { liviano }).then(pub => {
-      if (!pub || pub.error) { setDataLoaded(true); return; }
+      if (!pub || pub.error) { setErrorPublico(true); setDataLoaded(true); return; }
       // El horario de apertura viaja aparte (sale de `studio_horario`, no de
       // una columna de `studios`) y se pega aquí para que el portal lo lea
       // donde ya lo espera: `studio.horarioSemana`, la misma forma que usa el
@@ -1027,7 +1037,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setFavoritos(socia?.favoritos ?? []);
       setRetosApuntados(socia?.retosApuntados ?? []);
       setDataLoaded(true);
-    }).catch(err => { console.error('Error cargando datos públicos:', err); setDataLoaded(true); });
+    }).catch(err => { console.error('Error cargando datos públicos:', err); setErrorPublico(true); setDataLoaded(true); });
   }
 
   /**
@@ -1093,6 +1103,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // servidor scopeado (service-role), NO del acceso anónimo directo. Solo el
     // catálogo del estudio + los datos de la socia en sesión.
     if (publicSlug) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos públicos: el estado viene de la red (o de un reintento explícito vía recargarPublico). No hay nada que sincronizar sin llamarla.
       cargarPublico();
       return;
     }
@@ -1108,7 +1119,6 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // como un toast de error real a cualquier visitante de la home pública.
     if (!studioIdOverride && !authUserId) {
       setCurrentStudioId('');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Carga de datos del estudio: marca dataLoaded para los casos en que no hay nada que pedir. El estado viene de la red.
       setDataLoaded(true);
       return;
     }
@@ -4530,6 +4540,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     dismissLog,
     actualizarLog,
     dataLoaded,
+    errorPublico,
     planMasElegidoId,
     sustitucionesConfirmadas,
     recargarPublico: cargarPublico,
@@ -4569,7 +4580,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     backups,
     studioConfig,
     automationRules, automationLogs, progressNotesStore.notasProgreso,
-    dataLoaded, planMasElegidoId, sustitucionesConfirmadas,
+    dataLoaded, errorPublico, planMasElegidoId, sustitucionesConfirmadas,
     studio,
     authUserId, publicSlug, studioIdOverride,
   ]);

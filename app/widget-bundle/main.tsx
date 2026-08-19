@@ -133,11 +133,19 @@ function WidgetApp({ slug }: { slug: string }) {
 
   const hayPlanesActivos = planesTarifa.some(p => p.activo);
 
-  if (error) {
-    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>{error}</div>;
-  }
+  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+  // 06): antes un fallo de carga sustituía TODO el widget por un párrafo
+  // suelto, sin forma de reintentar salvo recargar la página del estudio
+  // entera. Ahora usa el mismo patrón de error-con-reintentar que el resto
+  // de formatos (en neutros fijos, vía `estiloDias="grid"` más abajo).
   if (cargando) {
-    return <div style={{ padding: 24, textAlign: 'center', color: TEMA.muted, fontSize: 14 }}>Cargando clases…</div>;
+    return (
+      <div style={{ padding: '52px 24px', display: 'grid', gridTemplateColumns: 'repeat(7, minmax(96px, 1fr))', gap: 8, minWidth: 700, overflowX: 'auto' }} aria-busy="true">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} style={{ height: 96, borderRadius: 8, background: 'linear-gradient(100deg, #ECECEC 40%, #E0E0E0 50%, #ECECEC 60%)', backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite' }} />
+        ))}
+      </div>
+    );
   }
   return (
     <div>
@@ -223,6 +231,11 @@ function WidgetApp({ slug }: { slug: string }) {
         onCancelar={onCancelar}
         onAceptarOferta={onAceptarOferta}
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
+        // Fase 4 del rediseño, formato 06: rejilla de 7 columnas en neutros
+        // fijos (ver comentario de `estiloDias` en reserva-calendario.tsx) en
+        // vez de tira+un-día — es lo único que cambia respecto a Modo A.
+        estiloDias="grid"
+        error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
       />
     </div>
   );

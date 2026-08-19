@@ -322,6 +322,14 @@ nextjs-portal { display: none !important; }
 .portal-page-in { animation: portal-page-in .22s ease both; }
 .portal-page-out { animation: portal-page-out .2s ease both; }
 
+/* Skeleton compartido del widget de reservas (Fase 4 del rediseño,
+   docs/widget-reservas-fase4-brief-diseno.md) — barrido de brillo horizontal
+   sobre un bloque, no un `animate-pulse` de opacidad. */
+@keyframes widget-skeleton-shimmer {
+  0%   { background-position: 130% 0; }
+  100% { background-position: -130% 0; }
+}
+
 /* El brillo que cruza el pase de acceso (components/portal/hoja-pase.tsx).
    Solo `transform`: lo resuelve el compositor y no repinta el QR en cada
    fotograma, que es un SVG de varios cientos de rectángulos. */
