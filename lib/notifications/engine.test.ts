@@ -151,22 +151,83 @@ function fakeAdmin() {
   const notifs: Record<string, unknown>[] = [];
   const deliveries: Record<string, unknown>[] = [];
   const dedup = new Set<string>();
-  const chain = {
-    select() { return chain; }, eq() { return chain; }, is() { return chain; }, limit() { return chain; },
+
+  function insertarUna(row: Record<string, unknown>): { error: { code: string } | null } {
+    // Detecta la tabla por una columna característica de la fila.
+    if ('recipient_role' in row) {
+      const k = row.dedup_key as string | null;
+      if (k && dedup.has(k)) return { error: { code: '23505' } };
+      if (k) dedup.add(k);
+      notifs.push(row); return { error: null };
+    }
+    if ('channel' in row) { deliveries.push(row); return { error: null }; }
+    return { error: null };
+  }
+
+  // Genérico: vale para `notification`/`notification_preference`/etc, donde
+  // `maybeSingle()` sin más contexto que devolver null es lo correcto (no hay
+  // fixtures de preferencias en estos tests → siempre cae a PREF_DEFECTO).
+  const chainGenerico = {
+    select() { return chainGenerico; }, eq() { return chainGenerico; }, is() { return chainGenerico; },
+    limit() { return chainGenerico; }, neq() { return chainGenerico; }, lt() { return chainGenerico; },
     maybeSingle: async () => ({ data: null }),
-    async insert(row: Record<string, unknown>) {
-      // Detecta la tabla por una columna característica de la fila.
-      if ('recipient_role' in row) {
-        const k = row.dedup_key as string | null;
-        if (k && dedup.has(k)) return { error: { code: '23505' } };
-        if (k) dedup.add(k);
-        notifs.push(row); return { error: null };
+    async insert(row: Record<string, unknown> | Record<string, unknown>[]) {
+      const filas = Array.isArray(row) ? row : [row];
+      for (const r of filas) {
+        const res = insertarUna(r);
+        if (res.error) return res;
       }
-      if ('channel' in row) { deliveries.push(row); return { error: null }; }
       return { error: null };
     },
   };
-  const admin = { from: () => chain } as unknown as Parameters<typeof procesarEvento>[0];
+
+  // C-5: SOLO para `notification_delivery` — `reclamarODejarConstancia`
+  // busca la fila PENDING que `crearInApp` ya escribió (por notification_id +
+  // channel). Este fake no filtra por columna (no lleva `eq()` con estado
+  // real), así que busca la ÚLTIMA fila insertada que siga en PENDING — es
+  // lo mismo que "la que crearInApp acaba de dejar y nadie ha resuelto
+  // todavía". Aislado en su PROPIA tabla (`from('notification_delivery')`)
+  // para no interferir con `maybeSingle()` de otras tablas como
+  // `notification_preference` (`preferenciaDe`), que deben seguir viendo
+  // `{data: null}` sin fixtures.
+  const chainDelivery = {
+    select() { return chainDelivery; }, eq() { return chainDelivery; }, is() { return chainDelivery; },
+    limit() { return chainDelivery; }, neq() { return chainDelivery; }, lt() { return chainDelivery; },
+    maybeSingle: async () => {
+      const pendiente = [...deliveries].reverse().find(d => d.status === 'PENDING');
+      return { data: pendiente ?? null };
+    },
+    update(cambios: Record<string, unknown>) {
+      const upd = {
+        eq() { return upd; },
+        select() { return upd; },
+        maybeSingle: async () => {
+          const fila = [...deliveries].reverse().find(d => d.status === 'PENDING');
+          if (!fila) return { data: null };
+          Object.assign(fila, cambios);
+          return { data: { id: fila.id } };
+        },
+        then: (res: (v: { data: null; error: null }) => unknown) => {
+          const fila = [...deliveries].reverse().find(d => d.status === 'PENDING');
+          if (fila) Object.assign(fila, cambios);
+          return res({ data: null, error: null });
+        },
+      };
+      return upd;
+    },
+    async insert(row: Record<string, unknown> | Record<string, unknown>[]) {
+      const filas = Array.isArray(row) ? row : [row];
+      for (const r of filas) {
+        const res = insertarUna(r);
+        if (res.error) return res;
+      }
+      return { error: null };
+    },
+  };
+
+  const admin = {
+    from: (tabla: string) => (tabla === 'notification_delivery' ? chainDelivery : chainGenerico),
+  } as unknown as Parameters<typeof procesarEvento>[0];
   return { admin, notifs, deliveries };
 }
 
@@ -318,8 +379,11 @@ test('crearInApp escribe la notificación y su entrega in-app, sin canales exter
   assert.equal(r.creadas.length, 1);
   assert.equal(notifs.length, 1);
   assert.equal(notifs[0].title, 'Reserva confirmada');
-  // Solo la entrega in-app; el push queda pendiente para la cola.
-  assert.deepEqual(deliveries.map(d => `${d.channel}:${d.status}`), ['INAPP:SENT']);
+  // La entrega in-app se resuelve en el acto; el push queda como fila PENDING
+  // durable (C-5) — antes no existía ninguna hasta que el salto HTTP a
+  // /api/notifications/deliver se ejecutaba de verdad; ahora sobrevive aunque
+  // ese salto nunca llegue a intentarse.
+  assert.deepEqual(deliveries.map(d => `${d.channel}:${d.status}`).sort(), ['INAPP:SENT', 'PUSH:PENDING']);
   assert.deepEqual(r.creadas[0].canalesExtra, ['PUSH']);
   // Devuelve la fila lista para entregar, sin volver a leer de BD.
   assert.equal(r.creadas[0].fila.id, r.creadas[0].id);

@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '../db/supabase-admin.ts';
 import { REGLAS } from './catalog.ts';
-import { CANALES } from './channels.ts';
+import { CANALES, type ResultadoCanal } from './channels.ts';
 import { crearInApp, canalesExtraDe, preferenciaDe, PREF_DEFECTO, type Preferencia } from './inapp.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
@@ -87,6 +87,38 @@ export function resumenFallos(fallos: FalloEnvio[]): {
   };
 }
 
+// C-5: reclama atómicamente la fila PENDING de (notificación, canal) ANTES de
+// enviar — `crearInApp` ya la dejó escrita con attempts=0. `UPDATE ... WHERE
+// status='PENDING' AND attempts=0` es el mutex: Postgres serializa dos UPDATE
+// concurrentes sobre la misma fila por el lock de fila, así que como mucho uno
+// ve attempts=0 y gana. "Como mucho un intento automático" es deliberado — un
+// FAILED no se reintenta solo (evita una tormenta de reintentos sin backoff);
+// sigue disponible el reintento manual ya existente (`retry()`, Notification
+// Center). Si por lo que sea no existe fila previa (rutas de test, o un evento
+// creado antes de este cambio), se crea aquí mismo con attempts ya en 1 —
+// mismo comportamiento que tenía el INSERT ciego de antes.
+async function reclamarODejarConstancia(
+  admin: SupabaseClient, notificationId: string, studioId: string, ch: NotificationChannel,
+): Promise<string | null> {
+  const { data: existente } = await admin.from('notification_delivery')
+    .select('id, status, attempts').eq('notification_id', notificationId).eq('channel', ch).maybeSingle();
+
+  if (!existente) {
+    const id = `del-${randomUUID()}`;
+    const { error } = await admin.from('notification_delivery').insert({
+      id, notification_id: notificationId, studio_id: studioId, channel: ch, status: 'PENDING', attempts: 1,
+    });
+    return error ? null : id;
+  }
+  if (existente.status !== 'PENDING' || (existente.attempts as number) !== 0) return null; // ya resuelta o reclamada
+
+  const { data: claimed } = await admin.from('notification_delivery')
+    .update({ attempts: 1 })
+    .eq('id', existente.id as string).eq('status', 'PENDING').eq('attempts', 0)
+    .select('id').maybeSingle();
+  return (claimed?.id as string | undefined) ?? null; // null = alguien se adelantó
+}
+
 // Envía los canales EXTERNOS de una notificación ya creada y registra su delivery.
 async function entregarCanales(
   admin: SupabaseClient, fila: NotificationRow, dest: Recipient, canales: NotificationChannel[],
@@ -95,21 +127,27 @@ async function entregarCanales(
   if (canales.length === 0) return 0;
   let n = 0;
   for (const ch of canales) {
-    const canal = CANALES[ch];
-    const res = canal
-      ? await canal.enviar({ admin, notificacion: fila, destinatario: dest })
-      : { status: 'SKIPPED' as const, error: `canal ${ch} no implementado` };
-    await admin.from('notification_delivery').insert({
-      id: `del-${randomUUID()}`,
-      notification_id: fila.id,
-      studio_id: fila.studioId,
-      channel: ch,
+    const deliveryId = await reclamarODejarConstancia(admin, fila.id, fila.studioId, ch);
+    if (!deliveryId) continue;
+
+    let res: ResultadoCanal;
+    try {
+      const canal = CANALES[ch];
+      res = canal
+        ? await canal.enviar({ admin, notificacion: fila, destinatario: dest })
+        : { status: 'SKIPPED', error: `canal ${ch} no implementado` };
+    } catch (e) {
+      // Un canal que lanza (en vez de devolver FAILED) no debe tumbar el resto
+      // del lote — con este barrido corriendo por cron, un solo canal roto no
+      // puede llevarse por delante el resto de entregas pendientes.
+      res = { status: 'FAILED', error: e instanceof Error ? e.message : String(e) };
+    }
+    await admin.from('notification_delivery').update({
       status: res.status,
-      attempts: res.status === 'SENT' || res.status === 'DELIVERED' ? 1 : res.status === 'FAILED' ? 1 : 0,
       error: res.error ?? null,
       provider_id: res.providerId ?? null,
       sent_at: res.status === 'SENT' || res.status === 'DELIVERED' ? new Date().toISOString() : null,
-    });
+    }).eq('id', deliveryId);
     if (res.status === 'FAILED') fallos?.push({ canal: ch, error: res.error ?? 'sin detalle' });
     n++;
   }
@@ -152,12 +190,21 @@ export async function entregarExternos(
 
   const [notis, previos] = await Promise.all([
     enLotes<Record<string, unknown>>(ids, lote => admin.from('notification').select('*').in('id', lote)),
-    // Misma guarda de siempre: si una notificación ya tiene algún delivery que
-    // no sea INAPP, no se repite. La ruta es pública para el propio servidor y
-    // `publish()` podría llamarla dos veces por el mismo hecho; esto es lo que
-    // evita el push duplicado.
+    // Misma guarda de siempre: si una notificación ya tiene algún delivery
+    // externo YA RESUELTO (no PENDING), no se repite. La ruta es pública para
+    // el propio servidor y `publish()` podría llamarla dos veces por el mismo
+    // hecho; esto es lo que evita el push duplicado.
+    //
+    // ⚠️ C-5: antes bastaba con "existe cualquier delivery no-INAPP" — pero
+    // desde que `crearInApp` deja SIEMPRE una fila PENDING por canal externo,
+    // esa fila existiría para TODA notificación con canal externo, y esta
+    // guarda descartaría el 100% de los envíos reales. Por eso ahora exige
+    // además `status != 'PENDING'`: una fila PENDING no cuenta como entregada,
+    // solo como reclamable — el filtro grueso de aquí es solo una
+    // optimización; la seguridad real (nunca dos envíos del mismo canal) la
+    // da el claim atómico por canal dentro de `entregarCanales`.
     enLotes<Record<string, unknown>>(ids, lote => admin.from('notification_delivery')
-      .select('notification_id').in('notification_id', lote).neq('channel', 'INAPP')),
+      .select('notification_id').in('notification_id', lote).neq('channel', 'INAPP').neq('status', 'PENDING')),
   ]);
 
   const yaEntregadas = new Set(previos.map(p => p.notification_id as string));
@@ -233,6 +280,31 @@ export async function entregarExternos(
   }
   avisarFallos('entregarExternos', (pendientes[0]?.studio_id as string | null) ?? null, fallos);
   return { entregadas, deliveries };
+}
+
+// C-5: barrido periódico (cron, ver app/api/cron/notif-entregas-pendientes)
+// de entregas que NUNCA llegaron a intentarse — el salto HTTP síncrono de
+// engine.ts falló antes de ejecutar nada. `attempts=0` es justo esa señal: si
+// ya se intentó (attempts=1, con éxito o fallo), este barrido no vuelve a
+// tocarla — un FAILED se reintenta a mano, no aquí (ver reclamarODejarConstancia).
+//
+// Query GLOBAL, sin fan-out por estudio (mismo criterio que el resto del
+// bucket A de pg_cron): el volumen medido es de unas pocas filas al día.
+// Ventana de 2 minutos: el salto síncrono tiene 10s de timeout, así que 2 min
+// es de sobra para no pisarle una entrega que sigue en vuelo de verdad.
+export async function barrerEntregasPendientes(
+  admin: SupabaseClient, limite = 500,
+): Promise<{ intentadas: number }> {
+  const antes = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const { data: rows } = await admin.from('notification_delivery')
+    .select('notification_id')
+    .eq('status', 'PENDING').eq('attempts', 0).neq('channel', 'INAPP')
+    .lt('created_at', antes)
+    .limit(limite);
+  const ids = [...new Set((rows ?? []).map(r => r.notification_id as string))];
+  if (ids.length === 0) return { intentadas: 0 };
+  await entregarExternos(admin, ids);
+  return { intentadas: ids.length };
 }
 
 function mapRow(row: Record<string, unknown>): NotificationRow {
