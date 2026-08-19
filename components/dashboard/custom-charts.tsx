@@ -11,7 +11,15 @@ import { cn } from '@/lib/utils';
 const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10';
 const labelCls = 'text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block';
 
-const COLORES = ['#F7A6C4', '#7AA80E', '#0369A1', '#D97706', '#7C3AED', '#DC2626'];
+// Seis de los nueve tonos de la paleta categórica (--cat-*, app/globals.css),
+// repartidos por el anillo para que dos gráficas seguidas no se parezcan.
+// ⚠️ Van como hex y no como var(--cat-N) por dos motivos, los dos reales:
+// el color lo elige la usuaria y se GUARDA en dashboard_charts.color (una
+// variable ahí dependería de un CSS que puede cambiar bajo los datos), y
+// ChartLine deriva el id del degradado del propio color — `url(#chart-var(--cat-1))`
+// no es un selector válido. Son los valores del modo claro; las gráficas ya
+// guardadas conservan el suyo, esto solo cambia lo que se ofrece a elegir.
+const COLORES = ['#616E22', '#067477', '#1F6E99', '#835790', '#99516B', '#886116'];
 
 // Exportados (Fase 8, CRO): genéricos de verdad — {label, value}[] + color,
 // sin depender de useStudio() ni de DashboardChart — la pantalla de

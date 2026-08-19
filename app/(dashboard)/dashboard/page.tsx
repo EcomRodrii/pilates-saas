@@ -72,31 +72,41 @@ function limpiarActividad(texto: string): string {
   return texto.replace(/^.*?\bdio de (?:alta|baja) a\s+/i, '').trim() || texto;
 }
 
+// Color por tipo de actividad. ⚠️ NO usa la paleta categórica (--cat-*): esto
+// es un mapa SEMÁNTICO, no categórico. Los 23 tipos se agrupan a propósito en
+// seis lecturas —verde algo salió bien, terracota algo se borró, ocre algo
+// queda pendiente, marca las cosas de plan/reserva, azul algo cambió, gris el
+// ruido de fondo— y darle un tono distinto a cada tipo rompería justo eso.
+// Que varias filas compartan color aquí es la intención, no una colisión.
+//
+// Todas las parejas texto/fondo se miden contra --card en claro y en oscuro
+// (lib/paleta-panel.test.ts). La etiqueta es texto de 10px en negrita, así que
+// le aplica el 4.5:1 de AA — "es solo un chip" no la exime.
 const actividadConfig: Record<TipoActividad, { color: string; bg: string; label: string }> = {
   NUEVA_SOCIA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta' },
-  NUEVA_RESERVA:      { color: 'var(--brand)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
+  NUEVA_RESERVA:      { color: 'var(--brand-medio)', bg: 'color-mix(in srgb, var(--brand) 10%, var(--card))', label: 'Reserva' },
   CANCELACION:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Cancelación' },
   PAGO_COBRADO:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro' },
   PAGO_PENDIENTE:     { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pendiente' },
-  NUEVA_SUSCRIPCION:  { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan' },
+  NUEVA_SUSCRIPCION:  { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan' },
   SUSCRIPCION_PAUSADA:{ color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Pausa' },
-  CITA_CREADA:        { color: '#0891B2', bg: '#ECFEFF', label: 'Cita' },
+  CITA_CREADA:        { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Cita' },
   CITA_COMPLETADA:    { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cita ✓' },
   VENTA_POS:          { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Venta' },
-  MENSAJE_ENVIADO:    { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Email' },
-  SOCIA_EDITADA:      { color: '#0891B2', bg: '#ECFEFF', label: 'Edición' },
+  MENSAJE_ENVIADO:    { color: 'var(--foreground)', bg: 'var(--muted)', label: 'Email' },
+  SOCIA_EDITADA:      { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Edición' },
   SOCIA_ELIMINADA:    { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja' },
-  PLAN_CREADO:        { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan nuevo' },
-  PLAN_EDITADO:       { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan editado' },
+  PLAN_CREADO:        { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan nuevo' },
+  PLAN_EDITADO:       { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan editado' },
   PLAN_ELIMINADO:     { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Plan borrado' },
-  PLAN_ASIGNADO:      { color: 'var(--brand)', bg: 'var(--accent)', label: 'Plan asignado' },
+  PLAN_ASIGNADO:      { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Plan asignado' },
   COBRO_MANUAL:       { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Cobro manual' },
   EQUIPO_ALTA:        { color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', label: 'Alta equipo' },
-  EQUIPO_EDITADO:     { color: '#0891B2', bg: '#ECFEFF', label: 'Equipo editado' },
+  EQUIPO_EDITADO:     { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Equipo editado' },
   EQUIPO_BAJA:        { color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', label: 'Baja equipo' },
-  AUTOMATIZACION_CAMBIO: { color: 'var(--muted-foreground)', bg: 'var(--muted)', label: 'Automatización' },
-  DECISION_GESTIONADA: { color: 'var(--brand)', bg: 'var(--accent)', label: 'Centro de Control' },
-  SESION_REASIGNADA:  { color: '#0891B2', bg: '#ECFEFF', label: 'Sustitución' },
+  AUTOMATIZACION_CAMBIO: { color: 'var(--foreground)', bg: 'var(--muted)', label: 'Automatización' },
+  DECISION_GESTIONADA: { color: 'var(--brand-medio)', bg: 'var(--accent)', label: 'Centro de Control' },
+  SESION_REASIGNADA:  { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'Sustitución' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -1228,14 +1238,14 @@ export default function Dashboard() {
                 )}
                 <Link
                   href="/calendario"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-secondary transition-colors"
                 >
                   <CalendarPlus size={14} /> Nueva reserva
                 </Link>
                 {mueveDinero && (
                 <Link
                   href="/cobros?tab=pendientes"
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-[#E9EAEC] transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-foreground bg-background hover:bg-secondary transition-colors"
                 >
                   <CreditCard size={14} /> Cobrar
                 </Link>
