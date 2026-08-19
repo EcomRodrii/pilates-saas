@@ -12,7 +12,7 @@ import { enviarEmailBienvenida } from '@/lib/api-client';
 import { textoLegalCompleto } from '@/lib/legal-textos';
 import { ERROR_GENERICO } from '@/lib/errores';
 import { calcularEstadoSuscripcion, textoCaducidad } from '@/lib/suscripcion-estado';
-import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa } from '@/lib/types';
+import type { Socio, NivelSemaforo, Suscripcion, PlanTarifa, LeadStage } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   Search, Plus, Users, UserCheck, AlertCircle, Clock,
@@ -201,6 +201,11 @@ export default function Socios() {
   // Filter & sort state
   const [busqueda, setBusqueda] = useState('');
   const [smartFilter, setSmartFilter] = useState<SmartFilter>('todas');
+  // P1 (auditoría "Veredicto de Marta"): la etapa del embudo y las etiquetas
+  // solo se veían/editaban dentro de cada ficha — sin forma de ver "todas mis
+  // Interesadas" juntas. '' = sin filtrar por esa dimensión.
+  const [filtroEtapa, setFiltroEtapa] = useState<LeadStage | ''>('');
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState('');
   // P0-34: paginación — no montar miles de filas (× 2 variantes responsive) a la
   // vez en el DOM. Se muestran de PAGE en PAGE con "Ver más".
   const PAGE = 50;
@@ -430,7 +435,9 @@ export default function Socios() {
       if (smartFilter === 'sin_bono') matchF = !getActiveSus(s.id);
       if (smartFilter === 'bono_expirado') matchF = isBonoExpirado(s.id);
       if (smartFilter === 'inactivas_30d') matchF = isInactiva30d(s.id, s);
-      return matchB && matchF;
+      const matchEtapa = !filtroEtapa || s.leadStage === filtroEtapa;
+      const matchEtiqueta = !filtroEtiqueta || (s.tags ?? []).includes(filtroEtiqueta);
+      return matchB && matchF && matchEtapa && matchEtiqueta;
     });
 
     return [...filtered].sort((a, b) => {
@@ -456,7 +463,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, sortKey, sortDir, ahoraMs]);
+  }, [socios, suscripciones, reservas, sesiones, busqueda, smartFilter, filtroEtapa, filtroEtiqueta, sortKey, sortDir, ahoraMs]);
 
   // ── Sort toggle ────────────────────────────────────────────────────────────
   function toggleSort(key: SortKey) {
@@ -473,7 +480,7 @@ export default function Socios() {
   // todavía la paginación y la selección viejas, y el reset entraba en un
   // segundo render. Así React descarta el render en curso y rehace antes de
   // tocar el DOM: ese frame intermedio no llega a existir.
-  const filtroActual = `${busqueda} ${smartFilter} ${sortKey} ${sortDir}`;
+  const filtroActual = `${busqueda} ${smartFilter} ${filtroEtapa} ${filtroEtiqueta} ${sortKey} ${sortDir}`;
   const [filtroPrevio, setFiltroPrevio] = useState(filtroActual);
   if (filtroActual !== filtroPrevio) {
     setFiltroPrevio(filtroActual);
@@ -657,6 +664,14 @@ export default function Socios() {
     setShowForm('editar');
   }
 
+  // Etiquetas realmente en uso, no el catálogo completo de TAGS_OPTIONS de la
+  // ficha: un estudio que nunca haya puesto "Embarazo" no necesita verlo en
+  // este desplegable.
+  const etiquetasDisponibles = useMemo(
+    () => Array.from(new Set(socios.flatMap((s) => s.tags ?? []))).sort((a, b) => a.localeCompare(b, 'es')),
+    [socios],
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
   const SMART_FILTERS: { id: SmartFilter; label: string }[] = [
     { id: 'todas', label: 'Todas' },
@@ -664,6 +679,18 @@ export default function Socios() {
     { id: 'sin_bono', label: 'Sin bono' },
     { id: 'bono_expirado', label: 'Bono expirado' },
     { id: 'inactivas_30d', label: 'Sin asistencia 30d' },
+  ];
+
+  // Mismas etiquetas de texto que el selector de la ficha individual
+  // (clientas/[id]/page.tsx) — una propietaria que vea "Interesada" en un
+  // sitio y "INTERESADA" en otro pensaría que son cosas distintas.
+  const ETAPA_OPTIONS: { id: LeadStage; label: string }[] = [
+    { id: 'LEAD', label: 'Lead (primer contacto)' },
+    { id: 'INTERESADA', label: 'Interesada' },
+    { id: 'PRUEBA', label: 'En prueba' },
+    { id: 'ACTIVA', label: 'Activa (convertida)' },
+    { id: 'EN_RIESGO', label: 'En riesgo' },
+    { id: 'PERDIDA', label: 'Perdida' },
   ];
 
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -755,6 +782,34 @@ export default function Socios() {
               </button>
             ))}
           </div>
+
+          {/* Filtro por etapa del embudo y por etiqueta — antes solo se veían
+              dentro de cada ficha, sin forma de ver "todas mis Interesadas"
+              juntas (P1, auditoría "Veredicto de Marta"). */}
+          <select
+            value={filtroEtapa}
+            onChange={(e) => setFiltroEtapa(e.target.value as LeadStage | '')}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground focus:outline-none appearance-none cursor-pointer shrink-0"
+            aria-label="Filtrar por etapa del embudo"
+          >
+            <option value="">Toda etapa</option>
+            {ETAPA_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>{o.label}</option>
+            ))}
+          </select>
+          {etiquetasDisponibles.length > 0 && (
+            <select
+              value={filtroEtiqueta}
+              onChange={(e) => setFiltroEtiqueta(e.target.value)}
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground focus:outline-none appearance-none cursor-pointer shrink-0"
+              aria-label="Filtrar por etiqueta"
+            >
+              <option value="">Toda etiqueta</option>
+              {etiquetasDisponibles.map((tag) => (
+                <option key={tag} value={tag}>{tag}</option>
+              ))}
+            </select>
+          )}
 
           {/* Sort select */}
           <div className="flex items-center gap-1.5 shrink-0">
