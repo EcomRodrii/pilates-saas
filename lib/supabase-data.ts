@@ -3753,7 +3753,7 @@ export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
       body: JSON.stringify({ token }),
     });
     const cuerpo = await res.json().catch(() => null) as { vinculadas?: number } | null;
-    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', cuerpo ?? { status: res.status }); return 0; }
+    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return 0; }
     return cuerpo?.vinculadas ?? 0;
   } catch (e) {
     reportDbError('[dbReclamarAccesoEquipo]', e);
@@ -4053,9 +4053,21 @@ export interface SedeSeleccionable {
 // — nunca una policy de fila sobre `studios`, que expone columnas sensibles
 // (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
 export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {
-  const { data, error } = await supabase.rpc('mis_estudios');
-  if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
-  return (data as SedeSeleccionable[]) ?? [];
+  // ⚠️ Sin try/catch, un fallo de RED (no un error de Postgres/PostgREST)
+  // hace que `await` LANCE en vez de resolver con `{ error }` — el `if
+  // (error)` de abajo nunca se alcanza, y la excepción sale sin capturar
+  // hasta el `.then()` de cada llamador (ninguno tiene `.catch()`), que
+  // Sentry ve como rejection global: "TypeError: Load failed" en Safari
+  // (JAVASCRIPT-NEXTJS-R/-18), ruido de red ya filtrado en todo lo demás por
+  // `reportDbError`/`esErrorDeRedCliente`, colándose aquí por esta vía.
+  try {
+    const { data, error } = await supabase.rpc('mis_estudios');
+    if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
+    return (data as SedeSeleccionable[]) ?? [];
+  } catch (e) {
+    reportDbError('[fetchMisEstudios]', e);
+    return [];
+  }
 }
 
 // Cambia la sede activa de la sesión actual (selector "cambiar de sede").

@@ -1467,8 +1467,11 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   }).then(({ error }) => {
     // FK inválida (studio_id/sesion_id/socio_id inexistentes desde un
     // cliente con datos corruptos) no es un fallo del sistema — no genera
-    // ruido en Sentry.
-    if (error && error.code !== '23503') {
+    // ruido en Sentry. Un `fetch failed` (blip de red Node→Supabase, sin
+    // código de Postgres) tampoco: es la versión servidor del mismo ruido que
+    // `esErrorDeRedCliente` ya filtra en el cliente (JAVASCRIPT-NEXTJS-1Q, un
+    // solo evento aislado, nunca recurrió).
+    if (error && error.code !== '23503' && !/fetch failed/i.test(error.message)) {
       capturarExcepcion(new Error(`registrarEventoWidget: ${error.message}`), { tags: { area: 'analitica-widget' } });
     }
   });

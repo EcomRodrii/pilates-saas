@@ -161,9 +161,15 @@ function FormularioPago({
   const elements = useElements();
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // `stripe` (useStripe) se pone en verdad en cuanto carga el SDK — antes de
+  // que el PaymentElement (su propio iframe) termine de montarse y emita
+  // `ready`. Con conexión lenta el botón quedaba pulsable en ese hueco:
+  // `confirmPayment` reventaba con "We could not retrieve data from the
+  // specified Element" (Sentry JAVASCRIPT-NEXTJS-1S, tráfico real embebido).
+  const [elementoListo, setElementoListo] = useState(false);
 
   async function pagar() {
-    if (!stripe || !elements || enviando) return;
+    if (!stripe || !elements || !elementoListo || enviando) return;
     setEnviando(true);
     setError(null);
     // El 3DS que SÍ exige salir (banco sin soporte para el modal embebido,
@@ -186,7 +192,7 @@ function FormularioPago({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <PaymentElement />
+      <PaymentElement onReady={() => setElementoListo(true)} />
       {error && (
         // Pantalla 06 del handoff (pago fallido) — SIN prometer un hold de
         // plaza que este flujo no tiene: aquí no se ha reservado nada
@@ -202,12 +208,12 @@ function FormularioPago({
         </div>
       )}
       <button
-        type="button" disabled={!stripe || enviando} onClick={pagar}
+        type="button" disabled={!stripe || !elementoListo || enviando} onClick={pagar}
         aria-busy={enviando}
         style={{
           width: '100%', height: 52, borderRadius: radius.pillBtnSm, border: 'none', fontSize: 14, fontWeight: 800,
           background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
-          cursor: (!stripe || enviando) ? 'default' : 'pointer', opacity: (!stripe || enviando) ? 0.6 : 1,
+          cursor: (!stripe || !elementoListo || enviando) ? 'default' : 'pointer', opacity: (!stripe || !elementoListo || enviando) ? 0.6 : 1,
         }}
       >
         {enviando ? 'Procesando…' : (textoBoton ?? `Pagar ${plan.precio} €`)}
