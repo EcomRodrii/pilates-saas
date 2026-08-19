@@ -41,10 +41,19 @@ function suscripcion(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'pl
 function planTarifa(p: Partial<PlanTarifa> & Pick<PlanTarifa, 'id' | 'tipo'>): PlanTarifa {
   return { studioId: 'e1', nombre: 'Plan', descripcion: null, precio: 50, sesiones: null, validezDias: null, limiteSemanal: null, activo: true, ...p };
 }
+const TEXTO_CONSENTIMIENTO_TEST = 'texto-vigente-test';
+// Por defecto, cada socia que el test provea YA tiene consentimiento vigente
+// (I-5) — así los tests existentes de AUSENCIA_DIAS/NUEVA_SOCIA no tienen que
+// saber nada de consentimiento salvo los que prueban el guard explícitamente
+// (esos pasan su propio `consentimientosMarketing`).
 function input(over: Partial<AutomationEngineInput>): AutomationEngineInput {
+  const socios = over.socios ?? [];
   return {
     automationRules: [], automationLogs: [], socios: [], reservas: [], recibos: [] as Recibo[], sesiones: [], tiposClase: [tipo],
-    suscripciones: [], planesTarifa: [], ...over,
+    suscripciones: [], planesTarifa: [],
+    consentimientosMarketing: new Map(socios.map(s => [s.id, TEXTO_CONSENTIMIENTO_TEST])),
+    textoConsentimientoVigente: TEXTO_CONSENTIMIENTO_TEST,
+    ...over,
   };
 }
 
@@ -60,6 +69,39 @@ test('AUSENCIA_DIAS: socia con última asistencia hace 10d → recordatorio (ENV
   // ENVIAR_EMAIL se manda tal cual: debe llevar mensajeCliente, nunca notaInterna.
   assert.ok(c[0].mensajeCliente, 'ENVIAR_EMAIL debe traer mensajeCliente');
   assert.equal(c[0].notaInterna, undefined);
+  // I-5: es un re-enganche comercial de verdad, y por tanto exige consentimiento.
+  assert.equal(c[0].comercial, true);
+});
+
+// I-5 (auditoría 19-ago): el ENVIAR_EMAIL de re-enganche es COMERCIAL — sin
+// consentimiento vigente no debe generarse candidato en absoluto (ni
+// intentarlo ni loguear un fallo), igual criterio que ya aplica el motor de
+// marketing (marketing-automation-engine.ts).
+test('AUSENCIA_DIAS: socia sin consentimiento de marketing vigente → sin candidato', () => {
+  const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21 } });
+  const s = socio({ id: 'a' });
+  const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
+  const c = computeAutomationCandidatos(
+    input({ automationRules: [r], socios: [s], reservas: [res], consentimientosMarketing: new Map() }),
+    NOW,
+  );
+  assert.equal(c.length, 0);
+});
+
+test('AUSENCIA_DIAS: consentimiento guardado pero con un texto DISTINTO al vigente → sin candidato', () => {
+  // El texto legal cambió desde que la socia aceptó — mismo criterio que
+  // AceptacionContrato.versionTexto: deja de contar como vigente.
+  const r = rule({ trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCritico: 21 } });
+  const s = socio({ id: 'a' });
+  const res = reserva({ socioId: 'a', sesionId: 'x', estado: 'ASISTIDA', creadoEn: diasAntes(10) });
+  const c = computeAutomationCandidatos(
+    input({
+      automationRules: [r], socios: [s], reservas: [res],
+      consentimientosMarketing: new Map([['a', 'un texto legal antiguo, ya no vigente']]),
+    }),
+    NOW,
+  );
+  assert.equal(c.length, 0);
 });
 
 test('AUSENCIA_DIAS: hace 25d (>= crítico) → OFRECER_DESCUENTO', () => {
@@ -312,6 +354,18 @@ test('NUEVA_SOCIA: alta hace 3 días, sin reservar → ENVIAR_EMAIL suave', () =
   assert.equal(c.length, 1);
   assert.equal(c[0].accion, 'ENVIAR_EMAIL');
   assert.match(c[0].mensajeCliente ?? '', /horarios/i);
+  // I-5: mismo criterio que AUSENCIA_DIAS — es una invitación a comprar/reservar.
+  assert.equal(c[0].comercial, true);
+});
+
+test('NUEVA_SOCIA: alta hace 3 días, sin consentimiento vigente → sin candidato (el NOTIFICAR_ADMIN de otras ramas no exige consentimiento)', () => {
+  const r = rule({ trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 } });
+  const s = socio({ id: 'a', fechaAlta: diasAntes(3) });
+  const c = computeAutomationCandidatos(
+    input({ automationRules: [r], socios: [s], consentimientosMarketing: new Map() }),
+    NOW,
+  );
+  assert.equal(c.length, 0);
 });
 
 test('NUEVA_SOCIA: alta hace 10 días, nunca asistió → NOTIFICAR_ADMIN', () => {
