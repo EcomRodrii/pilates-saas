@@ -10,7 +10,8 @@ import { PieNetwork } from './PieNetwork';
 import { FiltrosSidebar, ChipsActivos } from './FiltrosSidebar';
 import { HojaFiltrosMovil } from './HojaFiltrosMovil';
 import { ResultadosInstructoras } from './ResultadosInstructoras';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO } from './tokens';
+import { FormularioInteresEstudio } from './FormularioInteresEstudio';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAND_2, NW_PRODUCTO, NW_BORDE } from './tokens';
 
 // Idéntica para cualquier combinación de filtro y para las 3 variantes de
 // ruta que usan este layout — no depende de `filtro` ni de sesión, así que
@@ -105,6 +106,13 @@ export async function MarketplaceLayout({
                 <Link href="/network/crear-perfil" className="px-5 py-2.5 rounded-full text-[13.5px] font-bold" style={{ border: `1px solid ${NW_TINTA}`, color: NW_TINTA }}>
                   Crear perfil de instructora
                 </Link>
+              </div>
+              <div className="mt-8 pt-7 max-w-[420px] mx-auto text-left" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
+                <p className="text-[14.5px] font-extrabold text-center">¿Eres un estudio y buscas instructora?</p>
+                <p className="mt-1 mb-4 text-[13px] text-center" style={{ color: NW_MUTED }}>
+                  Cuéntanos qué necesitas y te avisamos en cuanto encaje un perfil.
+                </p>
+                <FormularioInteresEstudio variante="compacto" ciudadSugerida={tituloCiudad ?? undefined} />
               </div>
             </div>
           ) : (

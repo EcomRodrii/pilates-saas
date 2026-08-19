@@ -8,6 +8,7 @@ import { PieNetwork } from '@/components/network-v2/PieNetwork';
 import { BuscadorHero } from '@/components/network-v2/BuscadorHero';
 import { TarjetaInstructora } from '@/components/network-v2/TarjetaInstructora';
 import { FotoInstructora } from '@/components/network-v2/FotoInstructora';
+import { FormularioInteresEstudio } from '@/components/network-v2/FormularioInteresEstudio';
 import { NW_FONDO, NW_TINTA, NW_MUTED, NW_SAGE, NW_SAND, NW_BORDE, NW_VERDE_OSCURO, NW_PRODUCTO, NW_ESTADO, NW_PROBLEMA } from '@/components/network-v2/tokens';
 
 // Landing pública de Tentare Network (1a del rediseño) — Server Component:
@@ -58,12 +59,17 @@ const CONFIANZA_ITEMS = [
 ] as const;
 
 const FAQ_ITEMS = [
-  { q: '¿Cuesta dinero crear mi perfil?', a: 'No. Publicar tu perfil en Tentare Network es gratis y sin comisión sobre lo que cobres a los estudios.' },
+  { q: '¿Cuesta dinero crear mi perfil?', a: 'No. Publicar tu perfil en Tentare Network es gratis y sin comisión sobre lo que cobres a los estudios. Durante la beta no hay ningún plan de pago activo; si eso cambia alguna vez, te avisaremos antes de aplicar cualquier condición nueva a tu cuenta.' },
   { q: '¿Tengo que dejar mi trabajo actual?', a: 'No. Puedes marcarte como "disponible para sustituciones" aunque ya trabajes en otro estudio, o "buscando trabajo" si es lo que necesitas ahora mismo. Cambias el estado cuando quieras.' },
   { q: '¿Quién ve mi teléfono y mi email?', a: 'Nadie, hasta que tú aceptas una solicitud de contacto de un estudio. Antes de eso, solo ven tu perfil público: especialidad, experiencia, disponibilidad y tarifa orientativa.' },
   { q: '¿Cómo saben los estudios que mi experiencia es real?', a: 'Puedes pedir que un estudio donde trabajaste, si usa Tentare, confirme esa experiencia desde su propia cuenta — se marca como verificada en tu perfil, no es algo que rellenes tú misma.' },
   { q: '¿Puedo ocultar mi perfil si dejo de buscar?', a: 'Sí, en cualquier momento, sin perder los datos que ya rellenaste. Vuelves a publicarlo cuando quieras.' },
   { q: '¿Necesito que mi estudio use Tentare para unirme?', a: 'No. Tu perfil en Network es una cuenta independiente, sin ningún estudio detrás. Da igual el software que use el estudio donde trabajas.' },
+  { q: '¿Qué significa que Tentare Network está en beta?', a: 'Que acabamos de abrir la red y estamos incorporando a las primeras instructoras y estudios. No hay una comunidad grande todavía — entrar ahora significa formar parte desde el principio, no llegar tarde a algo ya lleno.' },
+  { q: '¿En qué ciudades está disponible?', a: 'Empezamos con las primeras instructoras en Barcelona y Madrid, y vamos a sumar más ciudades según se una gente. Si tu ciudad todavía no tiene perfiles, puedes dejarnos tu email y te avisamos.' },
+  { q: '¿Qué pasa si busco y todavía no hay perfiles en mi zona o especialidad?', a: 'Te lo decimos con claridad en vez de enseñarte una página vacía, y puedes dejarnos tu email o crear tu propio perfil para ser de las primeras.' },
+  { q: '¿Cómo elimino mi cuenta o mi perfil?', a: 'Escríbenos a hola@tentare.app y lo borramos. Mientras tanto puedes ocultar tu perfil tú misma desde "Mi perfil" cuando quieras, sin perder tus datos.' },
+  { q: '¿Cómo denuncio un perfil o un mensaje?', a: 'Desde cualquier perfil o conversación hay un botón de "Reportar" que llega directamente al equipo de Tentare, no a la otra persona.' },
 ] as const;
 
 export default async function NetworkLandingPage() {
@@ -92,7 +98,14 @@ export default async function NetworkLandingPage() {
 
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
         <div>
-          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
+          <span
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] font-extrabold uppercase tracking-[.1em]"
+            style={{ background: NW_SAGE, color: NW_TINTA }}
+          >
+            <span className="w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
+            Beta · Empezando en Barcelona y Madrid
+          </span>
+          <p className="mt-4 text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
             Red profesional de instructoras de Pilates y Yoga
           </p>
           <h1 className="mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance">
@@ -210,6 +223,25 @@ export default async function NetworkLandingPage() {
           >
             Explorar la network
           </Link>
+        </div>
+      </section>
+
+      <section id="estudios" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
+        <div className="rounded-[24px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
+            Para estudios
+          </p>
+          <h2 className="mt-3 text-[24px] font-extrabold tracking-tight">
+            ¿Eres un estudio y estás buscando instructoras?
+          </h2>
+          <p className="mt-2 text-[14.5px]" style={{ color: NW_MUTED }}>
+            Todavía estamos incorporando las primeras instructoras. Cuéntanos qué perfil necesitas
+            — especialidad, ciudad, tipo de colaboración — y te avisamos en cuanto encontremos
+            alguien que pueda encajar.
+          </p>
+          <div className="mt-6">
+            <FormularioInteresEstudio variante="completo" />
+          </div>
         </div>
       </section>
 
