@@ -2726,19 +2726,20 @@ export interface ClaseAsistidaCliente {
  * flujos de dinero de este repo.
  */
 /**
- * Al volver de Google: enlaza la ficha de la socia, o la crea si no la tiene.
+ * Al entrar (por Google o por el enlace del correo): enlaza la ficha de la
+ * socia, o la crea si no la tiene.
  *
  * ⚠️ Va contra un endpoint PROPIO y no contra `/api/public/session`: esa se
  * llama en cada carga del portal, así que meter el alta ahí daría de alta a
  * cualquiera con una sesión de Supabase por el mero hecho de VISITAR el portal
  * de un estudio.
  */
-export async function altaConGoogle(slug: string): Promise<{ error?: string; creada?: boolean }> {
+export async function altaAlEntrar(slug: string, via: 'google' | 'enlace'): Promise<{ error?: string; creada?: boolean }> {
   try {
-    const res = await fetch('/api/public/alta-google', {
+    const res = await fetch('/api/public/alta-al-entrar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await portalAuthHeader()) },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify({ slug, via }),
     });
     const data = (await res.json().catch(() => ({}))) as { error?: string; creada?: boolean };
     if (res.ok) return { creada: data.creada };

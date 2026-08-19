@@ -26,19 +26,10 @@ import { display, micro, texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import { usePortalAuth } from '@/lib/portal-auth';
-import { altaConGoogle } from '@/lib/api-client';
+import { esTemaPortal } from '@/themes/registro';
+import { GoogleLogo } from '@/components/portal/google-logo';
+import { altaAlEntrar } from '@/lib/api-client';
 
-/** El logotipo de Google, en línea: son sus colores oficiales y no hay que teñirlos. */
-function GoogleLogo() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.7-.4-3.9H24v7.1h12.1c-.2 1.8-1.6 4.6-4.5 6.4l6.9 5.3c4.1-3.8 6.6-9.3 6.6-14.9z" />
-      <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.3c-1.8 1.3-4.3 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.700000000000001l-7.1 5.5C7.9 40.8 15.4 46 24 46z" />
-      <path fill="#FBBC05" d="M11.5 27.9c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4l-7.1-5.5C2.9 16.5 2 20.1 2 23.5s.9 7 2.4 9.9z" />
-      <path fill="#EA4335" d="M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.1-6C34.9 3.4 29.9 1 24 1 15.4 1 7.9 6.2 4.4 13.6l7.1 5.5C13.3 13.3 18.2 9.5 24 9.5z" />
-    </svg>
-  );
-}
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA_FG,
 } from '@/components/portal/acceso/piezas';
@@ -51,7 +42,7 @@ function pareceEmail(v: string) {
 export default function PortalAcceso() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { studio, dataLoaded, tabBarStyle, variantes } = useStudio();
+  const { studio, dataLoaded, tabBarStyle, variantes, portalReact, themeIdPublicado } = useStudio();
   const { t } = useModo();
   // ⚠️ El estado «enviado» y el email llegan por la URL desde el paso 2, que
   // es donde vive el botón que pide el enlace. El primer intento fue
@@ -62,6 +53,9 @@ export default function PortalAcceso() {
   //
   // `params` va ANTES que los estados que lo leen: declararlo debajo compila
   // igual y revienta en runtime por zona muerta temporal.
+  // ¿Este estudio publicó un tema del kit? Entonces la bienvenida es la suya.
+  const hayTemaDelKit = portalReact && esTemaPortal(themeIdPublicado);
+
   const params = useSearchParams();
   const [email, setEmail] = useState(() => params.get('email') ?? '');
   const [error, setError] = useState('');
@@ -85,7 +79,7 @@ export default function PortalAcceso() {
   useEffect(() => {
     if (!vueltaDeGoogle || !session) return;
     let vivo = true;
-    altaConGoogle(slug).then((r) => {
+    altaAlEntrar(slug, 'google').then((r) => {
       if (!vivo) return;
       // El error se enseña; no se deja a la persona autenticada y en blanco.
       if (r.error) return setError(r.error);
@@ -108,7 +102,14 @@ export default function PortalAcceso() {
   // instalaron Editorial tienen `tabBarStyle: 'pestanaActiva'` guardado y
   // ningún `variantes` (`defaults` no es retroactivo). Sin él perderían la
   // bienvenida en silencio.
-  const quiereBienvenida = variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva';
+  //
+  // ⚠️ Con un tema del KIT no se pinta: la bienvenida de ese tema ya la enseña
+  // la raíz del portal (`/portal/<slug>`), y salían DOS seguidas — «Tu espacio
+  // para sentirte bien» → Empezar → «Empieza donde estás» → Siguiente → la
+  // puerta. Lo reportó el fundador entrando en la app, y es culpa de haber
+  // añadido la del kit sin mirar que esta ya existía.
+  const quiereBienvenida = !hayTemaDelKit
+    && (variantes.bienvenida !== 'ninguna' || tabBarStyle === 'pestanaActiva');
   // Empieza en `true` —se ve la puerta, el comportamiento de siempre— a
   // propósito: bloquear la pantalla entera hasta resolver tema y localStorage
   // la dejaba a merced de la latencia de red, y eso ya rompió CI una vez.
