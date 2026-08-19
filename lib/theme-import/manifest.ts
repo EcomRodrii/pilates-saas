@@ -118,8 +118,8 @@ function incompatibilidadesDe(
     motivos.push(
       `El ZIP es un proyecto ${framework === 'next' ? 'Next.js' : 'Vite'} — necesita un paso de ` +
       'compilación (bundler) que esta versión del importador todavía no ejecuta. Exporta el ' +
-      'diseño como HTML/CSS estático desde Claude Design, o pide el modo "compilar en servidor" ' +
-      '(fuera de esta primera versión).',
+      'diseño como HTML/CSS estático desde tu herramienta de diseño, o pide el modo "compilar en ' +
+      'servidor" (fuera de esta primera versión).',
     );
   }
   const tieneTsxOJsx = ficheros.some((f) => /\.(tsx|jsx)$/.test(f.ruta));

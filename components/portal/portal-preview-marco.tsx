@@ -36,7 +36,19 @@ export function PortalPreviewMarco({ slug, children }: { slug: string; children:
   // La pestaña marcada. En la miniatura de la biblioteca siempre es la
   // primera (solo se previsualiza el Inicio); en el editor a pantalla completa
   // sigue a la ruta, igual que en el portal.
-  const activo = NAV.findIndex(({ seg }) => pathname.startsWith(`/portal-preview/${slug}/${seg}`));
+  //
+  // ⚠️ Inicio es un caso aparte: vive en la RAÍZ de `/portal-preview/[slug]`
+  // (no en `/portal-preview/[slug]/home` — esa sub-ruta no existe, ver el
+  // comentario de `usePortalHref` en `portal-preview-bridge.ts`), así que
+  // `pathname.startsWith(".../home")` nunca casa ahí y NINGUNA pestaña se
+  // marcaba activa al volver a Inicio desde otra pantalla — medido: 100 %
+  // (`activo=-1`, `aria-current` ausente en las cuatro). Se compara con
+  // IGUALDAD exacta para la raíz (no `startsWith`, que también "matchearía"
+  // por accidente cualquier ruta que EMPEZARA por el slug del estudio).
+  const rutaBase = `/portal-preview/${slug}`;
+  const activo = pathname === rutaBase
+    ? NAV.findIndex(({ seg }) => seg === 'home')
+    : NAV.findIndex(({ seg }) => pathname.startsWith(`${rutaBase}/${seg}`));
 
   if (esBienvenida) {
     return <div style={{ height: '100dvh', overflow: 'hidden' }}>{children}</div>;

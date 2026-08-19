@@ -196,8 +196,15 @@ export interface AccesoRapido {
  * cambiar CUÁLES son es una decisión de producto, no del tema, así que aquí se
  * mantienen los de la app y solo cambia la FORMA.
  */
-export function accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras }: {
+export function accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras }: {
   slug: string;
+  /**
+   * Construye el enlace completo (base `/portal` o `/portal-preview`, y el
+   * token si aplica) — ver `usePortalHref` en `portal-preview-bridge.ts`. Se
+   * pasa desde fuera porque este módulo es puro (sin hooks de React) y no
+   * puede saber por sí solo si está montado dentro del editor de temas.
+   */
+  portalHref: (ruta: string) => string;
   proximas: number;
   totalAsistidas: number;
   /**
@@ -212,13 +219,13 @@ export function accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nIns
   const plural = (n: number, sing: string, pl = `${sing}s`) => `${n} ${n === 1 ? sing : pl}`;
   const hayNuevos = sinLeer !== null && sinLeer > 0;
   return [
-    { etiqueta: 'Mis reservas', icono: 'CalendarDays', href: `/portal/${slug}/reservas`,
+    { etiqueta: 'Mis reservas', icono: 'CalendarDays', href: portalHref(`/${slug}/reservas`),
       valor: proximas > 0 ? plural(proximas, 'próxima') : 'Ninguna' },
-    { etiqueta: 'Mi progreso', icono: 'Sparkles', href: `/portal/${slug}/progreso`,
+    { etiqueta: 'Mi progreso', icono: 'Sparkles', href: portalHref(`/${slug}/progreso`),
       valor: plural(totalAsistidas, 'clase') },
-    { etiqueta: 'Notificaciones', icono: 'Bell', href: `/portal/${slug}/notificaciones`,
+    { etiqueta: 'Notificaciones', icono: 'Bell', href: portalHref(`/${slug}/notificaciones`),
       valor: hayNuevos ? plural(sinLeer, 'nueva') : sinLeer === null ? '—' : 'Al día', punto: hayNuevos },
-    { etiqueta: 'El equipo', icono: 'User', href: `/portal/${slug}/instructores`,
+    { etiqueta: 'El equipo', icono: 'User', href: portalHref(`/${slug}/instructores`),
       valor: plural(nInstructoras, 'instructora') },
   ];
 }
