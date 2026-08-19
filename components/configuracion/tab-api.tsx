@@ -254,7 +254,13 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // documento aparte con su propia altura que comunicar).
   const codigoScript = `<div data-tentare-booking data-studio="${slug}" data-color="TU-COLOR-HEX"></div>
 <script src="${origen}/widget.js" async></script>`;
-  const codigoIframe = `<iframe id="${iframeId}" src="${src}" style="width:100%;max-width:${maxWidth};height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}"></iframe>
+  // `allow="payment *"` delega el permiso Permissions-Policy `payment` al
+  // iframe. Sin él, Safari de iPhone corta la detección de Apple Pay/Google Pay
+  // con `SecurityError: Third-party iframes are not allowed to request payments`
+  // — el pago con tarjeta sigue, pero se pierden las carteras (los métodos de
+  // menos fricción en iOS). Hace falta también en las dos vistas previas de
+  // abajo para que el panel enseñe lo que de verdad verá la socia.
+  const codigoIframe = `<iframe id="${iframeId}" src="${src}" allow="payment *" style="width:100%;max-width:${maxWidth};height:${widget.alto}px;border:0;border-radius:12px;" title="${widget.nombre}"></iframe>
 <script>window.addEventListener('message',function(e){if(e.data&&e.data.tentareEmbedAltura&&e.data.tentareSlug==='${slug}'){var f=document.getElementById('${iframeId}');if(f)f.style.height=e.data.tentareEmbedAltura+'px';}});</script>`;
   const codigo = widget.modo === 'script' ? codigoScript : codigoIframe;
 
@@ -401,7 +407,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
               Pega el código y ábrela para verlo.
             </div>
           ) : listo ? (
-            <iframe ref={previewRef} key={`${activo}-${sesionElegida}`} src={src} title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} />
+            <iframe ref={previewRef} key={`${activo}-${sesionElegida}`} src={src} allow="payment *" title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} />
           ) : (
             <div className="flex items-center justify-center h-40 text-[12px] text-muted-foreground text-center px-4">
               Elige una clase arriba para generar la vista previa.
