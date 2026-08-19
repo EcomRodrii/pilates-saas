@@ -16,6 +16,8 @@ import {
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
 import type { ReservaSlot } from '@/components/reserva/reserva-calendario';
+import { localDayKey } from '@/lib/reserva-calendario-logic';
+import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { DiscoveryQuiz } from '@/components/reserva/discovery-quiz';
 import { PublicSheet } from '@/components/ui/public-sheet';
 import { RejillaSemana } from '@/components/reserva/rejilla-semana';
@@ -27,7 +29,6 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { frasePlazoCancelacion, fraseAntelacionMinima, fraseAntelacionMaxima } from '@/lib/reservar/promesas';
 import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
@@ -897,6 +898,31 @@ export default function ReservarPage() {
       });
   }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
+  // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
+  // 01): las clases de HOY que ya empezaron/terminaron se ven en gris con
+  // "FINALIZADA" — `slots` de arriba las excluye a propósito (filtra
+  // `inicio > nowMs`, y de ahí beben Mes/Semana/RailFiltros: no se toca esa
+  // regla). Esta es una lista aparte, solo para el día de hoy, solo para
+  // pintar — sin `miReservaId`/aforo/precio, porque no se puede actuar sobre
+  // ellas.
+  const slotsFinalizadosHoy = useMemo(() => {
+    const hoyKey = localDayKey(now);
+    return sesionesRich
+      .filter(s => !s.cancelada && new Date(s.fin).getTime() <= nowMs && localDayKey(new Date(s.inicio)) === hoyKey)
+      .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
+      .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
+      .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
+      .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
+      .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      .map(s => ({
+        id: s.id, inicio: s.inicio, fin: s.fin,
+        claseNombre: s.tipo?.nombre ?? 'Clase',
+        instructorNombre: s.instructor?.nombre ?? null,
+        instructorColor: s.instructor?.color ?? null,
+        instructorFotoUrl: s.instructor?.fotoUrl ?? null,
+      }));
+  }, [sesionesRich, now, nowMs, filtroTipo, filtroNivel, filtroInstructor, filtroSala]);
+
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
     return reservas
@@ -1437,6 +1463,10 @@ export default function ReservarPage() {
   // de «hasta 12 h» a «hasta 24 h, según la clase» depende de una tabla de
   // casos (heredan / no heredan / coinciden / ninguna tiene plazo) que no se
   // puede comprobar a ojo mirando una sola pantalla.
+  // ⚠️ NO quitar: es el aviso honesto de cancelación/antelación por TIPO DE
+  // CLASE, no del estudio a secas — sin esto, un estudio con el Reformer a
+  // 24h pero el estudio a 12h prometía 12 y alguien cancelaba tarde creyendo
+  // que llegaba (e2e/reservar-ventana-por-tipo.spec.ts lo vigila).
   const reglasEstudio = {
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? 0,
     reservaVentanaMinimaMinutos: studio?.reservaVentanaMinimaMinutos ?? 0,
@@ -2050,6 +2080,7 @@ export default function ReservarPage() {
                   // captura 21): la carga pública falló de verdad, no es que no
                   // haya clases — antes ambos casos eran indistinguibles.
                   error={dataLoaded && errorPublico ? { onReintentar: recargarPublico } : undefined}
+                  finalizadasHoy={slotsFinalizadosHoy}
                 />
                 )}
               </div>
@@ -2084,16 +2115,13 @@ export default function ReservarPage() {
                 fontFamily={sans}
               />
 
+              {/* Restaurado tras romper e2e/reservar-ventana-por-tipo.spec.ts:
+                  no es solo copy decorativa, es el aviso honesto de
+                  cancelación/antelación por TIPO DE CLASE (frasePlazoCancelacion
+                  y compañía, lib/reservar/promesas.ts) — quitarlo del todo por
+                  no estar en el handoff habría reabierto un bug ya cerrado. */}
               <div style={{ borderRadius: R.hero, background: 'var(--portal-velo)', border: '1px solid var(--portal-line)', padding: '26px 28px' }}>
                 <div style={eyebrow(9)}>{textosReservar.comoFunciona || 'CÓMO FUNCIONA'}</div>
-                {/* ⚠️ Estas frases salen de `lib/reservar/promesas.ts`, no de
-                    `studio.cancelacionVentanaHoras` a secas. Aquí se leía el
-                    valor del ESTUDIO mientras la hoja de reserva ya resolvía el
-                    plazo por TIPO DE CLASE: en un estudio con el Reformer a
-                    24 h, esta caja prometía 12 y alguien cancelaba tarde
-                    creyendo que llegaba. Y la antelación mínima solo aparecía
-                    como error DESPUÉS de intentar reservar — decirlo entonces
-                    no es informar, es corregir. */}
                 {[
                   'Elige el día y la clase.',
                   ...(antelacionMinima ? [antelacionMinima] : ['Reserva tu plaza en la sala.']),
@@ -2104,10 +2132,6 @@ export default function ReservarPage() {
                     <span style={{ fontSize: 12, color: 'var(--portal-muted-2)', lineHeight: 1.5 }}>{paso}</span>
                   </div>
                 ))}
-                {/* Fuera de la lista numerada a propósito: «el horario se abre
-                    30 días antes» no es un paso que se dé, es la condición bajo
-                    la que el paso 1 tiene sentido. Meterlo como «4» obligaría a
-                    leerlo como algo que hacer. */}
                 {antelacionMaxima && (
                   <p style={{ fontSize: 11.5, color: 'var(--portal-muted)', lineHeight: 1.5, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--portal-line)' }}>
                     {antelacionMaxima}
