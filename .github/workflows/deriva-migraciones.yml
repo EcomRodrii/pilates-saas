@@ -36,6 +36,49 @@ jobs:
       - name: Autocomprobación del propio check
         run: node scripts/comprobar-deriva-migraciones.mjs --autocomprobacion
 
+      # Los ficheros de migración que viven en un PR ABIERTO y todavía no en
+      # main. Aquí la migración se aplica a producción ANTES de mergear su PR,
+      # así que durante esa ventana el check vería "aplicada, sin fichero" —
+      # rojo por el flujo normal. Ver el comentario de `nombresEnPRsAbiertos`
+      # en el script para por qué esto y no una ventana de tiempo.
+      #
+      # ⚠️ Se piden los PR ABIERTOS por número y se traen SOLO esas cabezas.
+      # El atajo `+refs/pull/*/head:...` parece equivalente y no lo es: trae
+      # TODOS los PR de la historia del repo (medido: 1220 aquí), incluidos los
+      # cerrados sin mergear. Con eso, una migración aplicada en producción cuyo
+      # fichero se quedó en un PR abandonado quedaría indultada PARA SIEMPRE —
+      # justo el fallo que este check existe para cazar, y en silencio.
+      #
+      # `--depth=1`: basta el árbol de la punta para listar nombres, no hace
+      # falta historia. Si algo falla aquí, la variable se queda vacía y el check
+      # vuelve a ser estricto — nunca al revés.
+      - name: Migraciones que vienen en un PR abierto
+        id: en_prs
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          nums=$(gh pr list --state open --limit 100 --json number --jq '.[].number') || exit 0
+          [ -z "$nums" ] && exit 0
+          refs=""
+          for n in $nums; do refs="$refs +refs/pull/$n/head:refs/remotes/pr/$n"; done
+          git fetch -q --depth=1 origin $refs || exit 0
+          # ⚠️ `ls-tree` lista TODAS las migraciones de esa rama, no las que el PR
+          # aporta: en una rama vieja son ~300 ficheros. Hay que restar las que
+          # ya están en main para quedarse con las que el PR trae de nuevo. Sin
+          # esta resta el indulto se vuelve casi universal.
+          #
+          # Se resta por lista local en vez de `git diff main...pr`: eso exigiría
+          # historia (merge-base) y aquí se traen las puntas con --depth=1.
+          ls supabase/migrations/ | sed 's#.*/##' | sort -u > /tmp/migs_main
+          {
+            echo 'lista<<FIN'
+            for n in $nums; do
+              git ls-tree -r --name-only "refs/remotes/pr/$n" -- supabase/migrations/ 2>/dev/null || true
+            done | sed 's#.*/##' | sort -u | comm -23 - /tmp/migs_main
+            echo 'FIN'
+          } >> "$GITHUB_OUTPUT"
+
       # La credencial es la del rol `deriva_ci` (migr 20260818010000): SELECT
       # sobre supabase_migrations.schema_migrations y NADA más. No es el
       # service-role ni un token de Management API — si se filtrara, lo que se
@@ -48,6 +91,7 @@ jobs:
       - name: Cruzar contra producción
         env:
           DERIVA_DATABASE_URL: ${{ secrets.DERIVA_DATABASE_URL }}
+          MIGRACIONES_EN_PRS_ABIERTOS: ${{ steps.en_prs.outputs.lista }}
         run: |
           if [ -z "$DERIVA_DATABASE_URL" ]; then
             echo "Falta el secreto DERIVA_DATABASE_URL (rol deriva_ci)." >&2

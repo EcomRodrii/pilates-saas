@@ -101,6 +101,31 @@ function nombresEnProduccion() {
   return nombres;
 }
 
+// Nombres cuyo fichero vive en un PR ABIERTO pero todavía no en main. Los
+// vuelca el workflow (ver el paso "Migraciones que vienen en un PR abierto").
+//
+// POR QUÉ HACE FALTA. Aquí la migración se aplica a producción ANTES de mergear
+// el PR que trae su fichero — es el flujo normal, no un descuido. Durante esa
+// ventana, este check corre en main y en cron y ve "aplicada en producción, sin
+// fichero en el repo", que es exactamente la firma del fallo que existe para
+// cazar. Da rojo por un motivo legítimo, y un check que canta lobo acaba
+// ignorado: lo dice el comentario de ACEPTADAS unas líneas más arriba.
+//
+// POR QUÉ NO UNA VENTANA DE TIEMPO. Se consideró "ignora lo aplicado en las
+// últimas N horas". Ciega el check durante N horas pase lo que pase, y aun así
+// falla con un PR que tarde más de N en mergearse — que los hay. "Su fichero
+// está en un PR abierto" es la señal exacta de EN VUELO, sin ceguera temporal.
+//
+// Si la variable no llega, no se relaja nada: todo cuenta como fallo, igual que
+// antes. La ausencia endurece, nunca ablanda — un check que se vuelve permisivo
+// cuando su insumo falla es el mismo agujero que `nombresEnProduccion` ya cierra
+// al rechazar una lista vacía.
+function nombresEnPRsAbiertos() {
+  const crudo = process.env.MIGRACIONES_EN_PRS_ABIERTOS
+  if (!crudo) return []
+  return crudo.split('\n').map((l) => l.trim()).filter(Boolean).map(normalizar)
+}
+
 function nombresEnRepo() {
   return readdirSync(join(RAIZ, 'supabase', 'migrations'))
     .filter((f) => f.endsWith('.sql'))
@@ -137,6 +162,38 @@ function autocomprobacion() {
   )
   deep(fantasmaNueva.nuevasSinFichero, ['embudo_widget_revoca_anon'])
 
+  // EN VUELO: aplicada en producción, sin fichero en main, pero su fichero viene
+  // en un PR abierto. No falla — es el flujo normal a mitad de camino.
+  const enVuelo = veredicto(
+    ['comun', 'vieja_sin_aplicar'],
+    ['comun', 'vieja_fantasma', 'prueba_gratuita_local_sin_tarjeta'],
+    base,
+    ['prueba_gratuita_local_sin_tarjeta'],
+  )
+  deep(enVuelo.nuevasSinFichero, [])
+  deep(enVuelo.enVuelo, ['prueba_gratuita_local_sin_tarjeta'])
+
+  // Lo que NO puede pasar: que el nuevo insumo apague el check. Sin PRs, la
+  // misma migración vuelve a ser un fallo.
+  const sinPRs = veredicto(
+    ['comun', 'vieja_sin_aplicar'],
+    ['comun', 'vieja_fantasma', 'prueba_gratuita_local_sin_tarjeta'],
+    base,
+    [],
+  )
+  deep(sinPRs.nuevasSinFichero, ['prueba_gratuita_local_sin_tarjeta'])
+
+  // Y que el indulto NO se extienda al otro sentido: una migración mergeada y
+  // sin aplicar sigue fallando aunque su nombre ande por un PR abierto. Ahí el
+  // código ya puede estar desplegado contra un esquema que no existe.
+  const mergeadaYEnPR = veredicto(
+    ['comun', 'vieja_sin_aplicar', 'red_formalizaciones'],
+    ['comun', 'vieja_fantasma'],
+    base,
+    ['red_formalizaciones'],
+  )
+  deep(mergeadaYEnPR.nuevasSinAplicar, ['red_formalizaciones'])
+
   // Y que arreglar una divergencia heredada avise en vez de fallar:
   const arreglada = veredicto(['comun', 'vieja_sin_aplicar'], ['comun', 'vieja_fantasma', 'vieja_sin_aplicar'], base)
   deep(arreglada.arregladas, ['vieja_sin_aplicar'])
@@ -158,11 +215,18 @@ const nuevas = (encontradas, aceptadas) => encontradas.filter((n) => !aceptadas.
 
 // Toda la decisión, sin red ni proceso: es lo único con lógica, así que es lo
 // único que hay que poder probar.
-export function veredicto(repo, prod, aceptadas = ACEPTADAS) {
+export function veredicto(repo, prod, aceptadas = ACEPTADAS, enPRs = []) {
   const { sinAplicar, sinFichero } = diferencia(repo, prod)
+  // Aplicada, sin fichero en main, pero SU FICHERO VIENE EN UN PR ABIERTO: eso
+  // no es deriva, es el flujo normal a mitad de camino. Se informa y no se
+  // falla. Solo aplica en este sentido: una migración mergeada y sin aplicar
+  // sigue siendo un fallo duro aunque ande en un PR — ahí el código ya puede
+  // estar desplegado contra un esquema que no existe.
+  const enVuelo = nuevas(sinFichero, aceptadas.sinFichero).filter((n) => enPRs.includes(n))
   return {
     nuevasSinAplicar: nuevas(sinAplicar, aceptadas.sinAplicar),
-    nuevasSinFichero: nuevas(sinFichero, aceptadas.sinFichero),
+    nuevasSinFichero: nuevas(sinFichero, aceptadas.sinFichero).filter((n) => !enPRs.includes(n)),
+    enVuelo,
     heredadas: sinAplicar.length + sinFichero.length,
     // Una aceptada que ya no aparece es una divergencia ARREGLADA. Se avisa sin
     // fallar: que a nadie le toque pelearse con el check por hacer lo correcto.
@@ -176,10 +240,18 @@ export function veredicto(repo, prod, aceptadas = ACEPTADAS) {
 async function main() {
   if (process.argv.includes('--autocomprobacion')) return autocomprobacion()
 
-  const { nuevasSinAplicar, nuevasSinFichero, heredadas, arregladas } = veredicto(
+  const { nuevasSinAplicar, nuevasSinFichero, heredadas, arregladas, enVuelo } = veredicto(
     nombresEnRepo(),
     nombresEnProduccion(),
+    ACEPTADAS,
+    nombresEnPRsAbiertos(),
   )
+
+  if (enVuelo.length) {
+    console.log(
+      `Aplicadas en producción y con su fichero en un PR abierto (normal, no es deriva):\n  ${enVuelo.join('\n  ')}\n`,
+    )
+  }
 
   if (arregladas.length) {
     console.log(`Arregladas desde el último baseline (bórralas de ACEPTADAS):\n  ${arregladas.join('\n  ')}\n`)
