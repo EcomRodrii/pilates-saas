@@ -14,6 +14,32 @@ a.card:hover, button.card:hover, .card--interactive:hover {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* ── El levante en el hover ────────────────────────────────────────────────
+ *
+ * Acotado a `(hover: hover) and (pointer: fine)` a propósito: en táctil el
+ * hover se queda PEGADO tras el toque (mismo motivo que ya documenta
+ * `.is-pressable` en `01-base.css`), y una tarjeta que se «levanta» y se
+ * queda levantada hasta el siguiente toque se lee como que se ha quedado
+ * enganchada. En ratón sí hay un puntero de verdad saliendo de la tarjeta al
+ * dejar de pasar por encima, así que el gesto tiene sentido ahí.
+ *
+ * Es una capa NUEVA sobre el borde/sombra que ya cambiaban en cualquier
+ * dispositivo — no los sustituye. */
+@media (hover: hover) and (pointer: fine) {
+  a.card:hover, button.card:hover, .card--interactive:hover,
+  a.class-row:hover, button.class-row:hover {
+    transform: translateY(-2px);
+  }
+}
+/* Quien haya pedido menos movimiento no lo quiere aquí tampoco: el color de
+ * borde y la sombra ya avisan del hover sin desplazar nada. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  a.card:hover, button.card:hover, .card--interactive:hover,
+  a.class-row:hover, button.class-row:hover {
+    transform: none;
+  }
+}
+
 .card--pad { padding: 18px; }
 .card--pad-lg { padding: 24px; }
 

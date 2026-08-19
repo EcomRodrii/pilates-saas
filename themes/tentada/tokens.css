@@ -116,7 +116,12 @@ html[data-theme="tentada"] {
   --radius-quick-link: 18px;
 
   /* ── Sombras ───────────────────────────────────────────────────────── */
-  --shadow-card: none;
+  /* ⚠️ Antes `none`, medido tal cual del prototipo — pero ese prototipo se vio
+   * en escritorio, donde el hover existe. Aquí el 100% del uso real es
+   * táctil, y `:hover` no dispara nunca: sin resto, la tarjeta no tenía NINGUNA
+   * sombra en el sitio donde la socia la mira. Reposo suave con el mismo
+   * tinte que ya usa `--shadow-card-hover`, solo más corto y más tenue. */
+  --shadow-card: 0 10px 22px -18px rgba(24,27,15,.26);
   --shadow-card-hover: 0 20px 44px -24px rgba(24,27,15,.42);
   --shadow-float: 0 22px 48px -22px rgba(24,27,15,.5);
   --shadow-control: 0 10px 28px -8px rgba(24,27,17,.5);

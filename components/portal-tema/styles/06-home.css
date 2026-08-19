@@ -200,7 +200,21 @@
   transition: border-color .2s ease, box-shadow .2s ease;
 }
 .quick-link:hover { border-color: var(--card-hover-border); box-shadow: var(--shadow-card-hover); }
-.quick-link__icon { color: var(--ink); display: grid; place-items: center; }
+/* Círculo con la tinta de marca detrás del icono, en vez del icono a pelo:
+ * es lo que distingue «una tarjeta con un icono dentro» de «un icono con
+ * texto debajo» — el mismo icono de 21px se leía perdido en una caja de
+ * 104px. `--accent-soft`/`--accent-ink` ya los declaran los cinco temas
+ * (son la base común, no un color nuevo), así que el tinte sigue siendo el
+ * de cada tema. Solo en la variante «cards»: Noir ya resuelve esto con su
+ * propio círculo con borde en `.quick-links--bare` y no hay que tocarlo. */
+.quick-link__icon {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink, var(--brand));
+  display: grid; place-items: center;
+}
 .quick-link__label { display: block; font-size: 10.5px; font-weight: 500; color: var(--ink); line-height: 1.3; }
 
 /* Noir: círculos sin tarjeta. */

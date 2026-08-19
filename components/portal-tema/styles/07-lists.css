@@ -10,7 +10,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
 .class-row:hover { border-color: var(--card-hover-border); box-shadow: var(--shadow-card-hover); }
 .class-row.is-booked { border-color: var(--dot); }
