@@ -3882,7 +3882,15 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
   const base = slugify(nombre);
   let candidate = base;
   let n = 2;
-  while (true) {
+  // ⚠️ Bucle ACOTADO. Era `while (true)` y su única salida era que la RPC
+  // devolviera exactamente `true`: si fallaba —red caída, RLS, la función aún
+  // sin desplegar— no salía nunca. Y el precio no era un error, era peor: el
+  // alta se quedaba colgada para siempre, sin mensaje, girando peticiones. Lo
+  // destapó un e2e cuyo mock devolvía `[]` a todo.
+  // 60 intentos es de sobra para un choque real de nombres (haría falta que 60
+  // estudios se llamaran igual); pasar de ahí solo puede significar que la RPC
+  // no está contestando lo que se espera.
+  for (let intentos = 0; intentos < 60; intentos++) {
     // Un estudio llamado "Admin", "Reservar" o "Login" generaba ese slug tal
     // cual: nadie lo comprobaba contra las rutas propias de la app en el alta
     // (solo el renombrado posterior, en /api/estudio/direccion, llamaba a
@@ -3892,11 +3900,20 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
     // P-2: vía RPC SECURITY DEFINER. Leer `studios` directamente exigía una
     // política que dejaba ver TODAS las filas (y con ellas nif, stripe_account_id
     // y kiosk_token de cualquier estudio). Esto devuelve solo un booleano.
-    const { data } = reservado ? { data: false } : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    const { data, error } = reservado
+      ? { data: false, error: null }
+      : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    // Un error de la RPC no es "ese slug está pillado": es que no sabemos si lo
+    // está. Reintentar con otro sufijo no arregla nada y disfraza el fallo.
+    if (error) break;
     if (data === true) return candidate;
     candidate = `${base}-${n}`;
     n++;
   }
+  // Sin respuesta fiable, se devuelve un candidato con sufijo aleatorio en vez
+  // de colgarse. El INSERT lleva su propio reintento por choque de slug
+  // (`23505`), así que si aun así colisiona, se resuelve allí.
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo

@@ -571,7 +571,8 @@ export default function MiPerfilNetworkPage() {
               <ListaBadgesNetwork badges={badges} />
               {!badges.emailVerificado && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  Confirma tu email desde el enlace que te enviamos al crear tu cuenta para conseguir este badge.
+                  Confirma tu email con el código de 6 dígitos que te enviamos al crear tu cuenta
+                  para conseguir este badge.
                 </p>
               )}
             </div>

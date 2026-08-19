@@ -57,5 +57,5 @@ test('crear-estudio: sin clave de Turnstile, el alta llega hasta el backend', as
   await submit.click();
 
   await expect.poll(() => altasPedidas).toBeGreaterThan(0);
-  await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
 });

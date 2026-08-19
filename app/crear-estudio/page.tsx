@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { HojaComparativa } from '@/components/planes/comparativa-planes';
@@ -40,9 +42,19 @@ import {
 // obligaría a inventar un almacén intermedio para datos a medio confirmar.
 // De regalo, es también el orden de menos fricción: se pide la contraseña
 // cuando ya se ha invertido algo, no en la primera pantalla.
+//
+// ⚠️ EL CORREO LLEVA UN CÓDIGO DE 6 DÍGITOS, NO UN ENLACE. La plantilla de
+// confirmación (`supabase/templates/confirmation.html`, asunto «Tu código de
+// verificación de Tentare») pinta `{{ .Token }}` y ni siquiera incluye botón.
+// Esta pantalla llegó a decir «te hemos enviado un enlace» y a rematar con un
+// «Ir a iniciar sesión»: quien se registraba recibía un código, no tenía dónde
+// escribirlo, y solo lo conseguía si adivinaba que /login sí tenía el campo.
+// El alta y el correo tienen que contar la MISMA historia, así que aquí se
+// monta el mismo `<OtpVerificacion>` que ya usan /login y el alta de Network
+// — no una copia, el mismo componente.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Fase = 'formulario' | 'confirmar-email' | 'listo';
+type Fase = 'formulario' | 'codigo' | 'listo';
 
 const PASOS = [
   { n: 1, titulo: 'Tu estudio', sub: 'Cómo se llama' },
@@ -52,7 +64,7 @@ const PASOS = [
 
 export default function CrearEstudioPage() {
   const uid = useId();
-  const { signUp } = useAuth();
+  const { signUp, verificarOtpSignup, reenviarConfirmacion } = useAuth();
   const { widget: captcha, pedirToken } = useCaptcha();
 
   const [paso, setPaso] = useState(1);
@@ -63,6 +75,11 @@ export default function CrearEstudioPage() {
   const [tocado, setTocado] = useState(false);
   const [comparativaAbierta, setComparativaAbierta] = useState(false);
   const [slugCreado, setSlugCreado] = useState<string | null>(null);
+  // El email al que se mandó el código. Fuente ÚNICA: se fija con el valor que
+  // se usó en `signUp()`, no se vuelve a leer del formulario. Si se leyera de
+  // `datos.email`, cambiarlo en el campo después de enviar haría que la
+  // pantalla dijera un correo al que no se ha mandado nada.
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
   const [borradorRecuperado, setBorradorRecuperado] = useState(false);
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const yaMontado = useRef(false);
@@ -83,10 +100,22 @@ export default function CrearEstudioPage() {
   // pasar después de montar. Mismo patrón, y mismo `disable`, que el resto de
   // pantallas del repo que rehidratan desde disco (portal/acceso, interno/*).
   useEffect(() => {
+    // Si había una verificación por código a medias, se vuelve A ELLA y no al
+    // formulario: la cuenta YA está creada y el correo YA se ha enviado, así
+    // que devolver a alguien al paso 1 le haría intentar registrarse otra vez
+    // con un email que gotrue ya tiene — y acabaría en «ya hay una cuenta».
+    const otpPendiente = leerEmailOtpPendiente();
     const guardado = leerBorrador();
-    if (!guardado) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDatos((d) => ({ ...d, ...guardado, contrasena: '' }));
+    if (!guardado && !otpPendiente) return;
+    if (guardado) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDatos((d) => ({ ...d, ...guardado, contrasena: '' }));
+    }
+    if (otpPendiente) {
+      setEmailOtp(otpPendiente);
+      setFase('codigo');
+      return;
+    }
     setBorradorRecuperado(true);
   }, []);
 
@@ -122,6 +151,46 @@ export default function CrearEstudioPage() {
     setPaso((p) => Math.max(1, p - 1));
   }
 
+  // Crea el estudio con la sesión ya abierta. Lo llaman los DOS caminos: el
+  // directo (proyecto sin confirmación de email) y el de después de verificar
+  // el código. Antes esta lógica solo existía en el camino directo, y el otro
+  // acababa en una pantalla sin salida.
+  //
+  // Si falla, NO se pierde nada: `pending_studio` sigue en la metadata del
+  // usuario, así que el siguiente inicio de sesión lo reintenta solo
+  // (`dbCreateStudio` es idempotente por su id determinista). Por eso el
+  // mensaje invita a volver a entrar, en vez de dar el alta por perdida.
+  async function montarEstudio() {
+    // `getSession()` y no `getUser()`: el primero lee la sesión que acabamos de
+    // recibir SIN salir a la red; el segundo hace un viaje al servidor para
+    // revalidar el token. Aquí esa validación no aporta —la sesión la acaba de
+    // emitir nuestro propio `/api/auth/otp/verificar`, no viene del usuario— y
+    // sí añade un punto donde colgarse justo en el momento más frágil del alta.
+    // Quien de verdad decide si este INSERT vale es la RLS, no esta llamada.
+    const { data: { session: sesion } } = await supabase.auth.getSession();
+    const user = sesion?.user ?? null;
+    if (!user) {
+      setError('Tu cuenta está verificada, pero no hemos podido abrir la sesión. Entra desde «Iniciar sesión» y terminamos.');
+      return;
+    }
+    const estudio = await dbCreateStudio({
+      nombre: datos.estudio.trim(),
+      ciudad: datos.ciudad.trim(),
+      plan: datos.plan,
+      comoNosConocio: datos.comoNosConocio || undefined,
+      ownerAuthUserId: user.id,
+    });
+    if (!estudio) {
+      setError('Tu cuenta está creada, pero no hemos podido montar el estudio. Vuelve a entrar en un minuto y lo terminamos.');
+      return;
+    }
+    setCurrentStudioId(estudio.id);
+    setSlugCreado(estudio.slug);
+    olvidarBorrador();
+    olvidarEmailOtpPendiente();
+    setFase('listo');
+  }
+
   async function crear() {
     setTocado(true);
     if (!puedeSeguir || enviando) return;
@@ -144,8 +213,9 @@ export default function CrearEstudioPage() {
         comoNosConocio: datos.comoNosConocio || undefined,
       };
 
+      const emailUsado = datos.email.trim();
       const { error: errorAlta, needsConfirmation, yaRegistrado } = await signUp(
-        datos.email.trim(),
+        emailUsado,
         datos.contrasena,
         { nombre: datos.persona.trim(), pending_studio: pendiente },
         token ?? undefined,
@@ -161,30 +231,18 @@ export default function CrearEstudioPage() {
       if (errorAlta) { setError(errorAlta); return; }
 
       if (needsConfirmation) {
-        // El estudio se creará en /login al volver del enlace del correo.
-        // El borrador se conserva a propósito hasta entonces.
-        setFase('confirmar-email');
+        // Se ha enviado un CÓDIGO de 6 dígitos. Se recuerda en sessionStorage
+        // (misma clave que usan /login y el alta de Network) para que recargar
+        // en mitad de la verificación no devuelva al formulario. El borrador
+        // se conserva a propósito hasta que el estudio exista de verdad.
+        recordarEmailOtpPendiente(emailUsado);
+        setEmailOtp(emailUsado);
+        setFase('codigo');
         return;
       }
 
-      // Confirmación de email desactivada: ya hay sesión, se crea ahora.
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Tu cuenta se ha creado, pero no hemos podido abrir la sesión. Entra desde «Iniciar sesión».');
-        return;
-      }
-      const estudio = await dbCreateStudio({ ...pendiente, ownerAuthUserId: user.id });
-      if (!estudio) {
-        // La cuenta SÍ existe. No se pierde nada: `pending_studio` sigue en la
-        // metadata, así que el próximo login lo reintenta solo (dbCreateStudio
-        // es idempotente por su id determinista).
-        setError('Tu cuenta está creada, pero no hemos podido montar el estudio. Vuelve a entrar en un minuto y lo terminamos.');
-        return;
-      }
-      setCurrentStudioId(estudio.id);
-      setSlugCreado(estudio.slug);
-      olvidarBorrador();
-      setFase('listo');
+      // Confirmación de email desactivada en el proyecto: ya hay sesión.
+      await montarEstudio();
     } catch {
       setError('No hemos podido crear tu estudio. Revisa tu conexión e inténtalo otra vez.');
     } finally {
@@ -193,25 +251,56 @@ export default function CrearEstudioPage() {
   }
 
   // ── Pantallas finales ────────────────────────────────────────────────────
-  if (fase === 'confirmar-email') {
+  if (fase === 'codigo' && emailOtp) {
     return (
       <Marco>
-        <div className="text-center">
+        <div className="mb-5 text-center">
           <IconoGrande><Mail size={22} aria-hidden="true" /></IconoGrande>
-          <h1 className="mt-4 text-[22px] font-extrabold tracking-tight text-foreground">Confirma tu email</h1>
+          <h1 className="mt-4 text-[22px] font-extrabold tracking-tight text-foreground">
+            Escribe el código que te hemos enviado
+          </h1>
           <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-            Te hemos enviado un enlace a <strong className="text-foreground">{datos.email}</strong>. En cuanto lo
-            abras, montamos <strong className="text-foreground">{datos.estudio}</strong> y empiezan tus {TRIAL_DIAS} días
-            de prueba.
+            Son 6 dígitos y van en un correo a <strong className="text-foreground">{emailOtp}</strong>. Al validarlo
+            montamos <strong className="text-foreground">{datos.estudio}</strong> y empiezan tus {TRIAL_DIAS} días de
+            prueba.
           </p>
-          <p className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">
-            Puedes abrirlo desde el móvil aunque hayas empezado aquí: tus datos van con tu cuenta, no con este
-            navegador.
-          </p>
-          <Link href="/login" className="mt-5 inline-block text-[14px] font-semibold text-brand-medio hover:underline">
-            Ir a iniciar sesión
-          </Link>
         </div>
+
+        {/* El MISMO componente que /login y el alta de Network, no una copia:
+            trae el campo de 6 dígitos, el botón de verificar, el reenvío con
+            su cuenta atrás real (60 s, el cooldown del servidor), el cambio de
+            email, los estados de carga/error/éxito y el bloqueo por demasiados
+            intentos. `sinTarjeta` porque `Marco` ya pinta la tarjeta. */}
+        <OtpVerificacion
+          email={emailOtp}
+          onVerificar={(codigo) => verificarOtpSignup(emailOtp, codigo)}
+          onReenviar={async () => {
+            const token = await pedirToken();
+            if (token === null) return { error: ERROR_CAPTCHA };
+            return reenviarConfirmacion(emailOtp, token || undefined);
+          }}
+          // Volver al paso de la cuenta con todo lo escrito intacto: el
+          // borrador sigue guardado, así que corregir una letra del correo no
+          // obliga a repetir el estudio ni el plan.
+          onCambiarEmail={() => {
+            olvidarEmailOtpPendiente();
+            setEmailOtp(null);
+            setError('');
+            setFase('formulario');
+            setPaso(3);
+          }}
+          // Ya hay sesión: se crea el estudio aquí mismo. Nada de mandar a
+          // nadie a /login a terminar su propio registro.
+          onVerificado={() => { void montarEstudio(); }}
+          sinTarjeta
+        />
+
+        <div aria-live="polite" className="mt-4 empty:mt-0">
+          {error && (
+            <p className="rounded-xl bg-destructive/10 px-3.5 py-2.5 text-[13px] font-medium text-destructive">{error}</p>
+          )}
+        </div>
+        {captcha}
       </Marco>
     );
   }
