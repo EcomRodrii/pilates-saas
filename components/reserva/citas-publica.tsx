@@ -151,10 +151,13 @@ export function CitasPublica({
 
   if (servicios.length === 0) {
     return (
-      <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm">
-        <Clock size={28} className="text-[var(--portal-micro)]" />
-        <p className="text-muted-foreground font-medium">Este estudio aún no ofrece citas reservables online</p>
-        <p className="text-[#B0B0A8] text-sm max-w-xs">Escríbeles para reservar una sesión individual.</p>
+      <div>
+        <CabeceraCitas />
+        <div className="bg-white rounded-2xl flex flex-col items-center py-16 gap-3 text-center shadow-sm" style={{ marginTop: 18 }}>
+          <Clock size={28} className="text-[var(--portal-micro)]" />
+          <p className="text-muted-foreground font-medium">Este estudio aún no ofrece citas reservables online</p>
+          <p className="text-[#B0B0A8] text-sm max-w-xs">Escríbeles para reservar una sesión individual.</p>
+        </div>
       </div>
     );
   }
@@ -201,10 +204,7 @@ export function CitasPublica({
       {/* Paso 1 — servicio */}
       {paso === 'servicio' && (
         <div>
-          <div style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Citas</div>
-          <p style={{ fontSize: 13, color: 'var(--portal-muted)', marginTop: 8, maxWidth: 460 }}>
-            Sesiones individuales con el equipo. Elige un servicio para ver los huecos disponibles.
-          </p>
+          <CabeceraCitas />
           <div style={{ display: 'grid', gap: 10, margin: '18px 0 16px' }}>
             {servicios.map(s => (
               <button key={s.id}
@@ -422,4 +422,19 @@ function botonVacio(lleno: boolean) {
     color: lleno ? 'var(--portal-brand-foreground)' : 'var(--portal-ink)',
     border: lleno ? 'none' : '1px solid var(--portal-line)',
   };
+}
+
+/** Título + subtítulo de la pestaña, iguales tanto con servicios configurados
+ *  como en el estado vacío — calca el handoff (design_handoff_widget_reservas):
+ *  "Citas" a secas, sin el "UNO A UNO"/"Citas privadas" que pintaba page.tsx
+ *  por fuera y quedaba duplicado con este cuando sí había servicios. */
+function CabeceraCitas() {
+  return (
+    <>
+      <div style={{ fontFamily: serif, fontSize: cq(28, 6.5, 34), lineHeight: 1 }}>Citas</div>
+      <p style={{ fontSize: 13, color: 'var(--portal-muted)', marginTop: 8, maxWidth: 460 }}>
+        Sesiones individuales con el equipo. Elige un servicio para ver los huecos disponibles.
+      </p>
+    </>
+  );
 }

@@ -1884,25 +1884,26 @@ export default function ReservarPage() {
         )}
 
         {/* ── TAB: CITAS 1:1 ──────────────────────────────────────────────── */}
+        {/* Sin cabecera propia aquí: CitasPublica ya pinta "Citas" + el
+            subtítulo (calcando design_handoff_widget_reservas) tanto con
+            servicios configurados como en su estado vacío — una cabecera
+            aparte aquí quedaba duplicada en el primer caso y con el título
+            equivocado ("Citas privadas") en el segundo. */}
         {tab === 'citas' && (
           <div style={{ padding: `${cq(28, 3.4, 44)} 0 ${cq(50, 7, 90)}` }}>
-            <div style={eyebrow(9)}>UNO A UNO</div>
-            <h2 style={{ fontFamily: serif, fontSize: cq(30, 3.6, 44), lineHeight: 1, marginTop: 12 }}>Citas privadas</h2>
-            <div style={{ marginTop: 24 }}>
-              <CitasPublica
-                studioId={studio?.id ?? ''}
-                servicios={citasServicios}
-                instructores={instructores}
-                disponibilidad={citasDisponibilidad}
-                misCitas={misCitas}
-                autenticada={!!socia}
-                onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
-                onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
-                onCancelar={cancelarCita}
-                primary={PRIMARY}
-                primaryFg={PRIMARY_FG}
-              />
-            </div>
+            <CitasPublica
+              studioId={studio?.id ?? ''}
+              servicios={citasServicios}
+              instructores={instructores}
+              disponibilidad={citasDisponibilidad}
+              misCitas={misCitas}
+              autenticada={!!socia}
+              onNeedLogin={() => { setBookingSesionId(''); setLoginStep('login'); }}
+              onReservar={(servicioId, instructorId, inicioISO) => reservarCitaPublica({ servicioId, instructorId, inicioISO })}
+              onCancelar={cancelarCita}
+              primary={PRIMARY}
+              primaryFg={PRIMARY_FG}
+            />
           </div>
         )}
 
