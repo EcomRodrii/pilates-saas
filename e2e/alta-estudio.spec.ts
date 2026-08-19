@@ -10,6 +10,8 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // diga que no, y que un email ya registrado no reciba un «revisa tu correo»
 // que es mentira.
 //
+// El tramo del CÓDIGO de verificación vive en e2e/alta-otp.spec.ts.
+//
 // ⚠️ Los caminos de fallo llevan CONTADOR de peticiones. Sin él, un test que
 // solo mira que no aparece un mensaje verde pasaría igual si el formulario no
 // hubiera llegado a enviar nada — el punto ciego que ya costó dos tests en
@@ -69,7 +71,7 @@ test.describe('Crear un estudio de principio a fin', () => {
     await page.getByRole('button', { name: /días gratis/ }).click();
 
     await expect.poll(() => altas).toBe(1);
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
 
     // El estudio y el plan viajan en la metadata del usuario: es lo único que
     // hace que el alta sobreviva a confirmar el email desde OTRO dispositivo.
@@ -92,7 +94,7 @@ test.describe('Crear un estudio de principio a fin', () => {
     await rellenarPaso3(page);
     await page.getByRole('button', { name: /días gratis/ }).click();
 
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
     const pendiente = (metadata as { pending_studio?: Record<string, unknown> } | null)?.pending_studio;
     expect(pendiente).toMatchObject({ plan: 'BASE' });
   });
@@ -170,7 +172,7 @@ test.describe('Cuando algo va mal', () => {
     // El contador es lo que hace este test real: sin él, «no dijo éxito»
     // también sería cierto si el botón no hubiera enviado nada.
     await expect.poll(() => intentos).toBeGreaterThan(0);
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Tu cuenta' })).toBeVisible();
   });
 
@@ -185,7 +187,7 @@ test.describe('Cuando algo va mal', () => {
     await page.getByRole('button', { name: /días gratis/ }).click();
 
     await expect.poll(() => intentos).toBeGreaterThan(0);
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toHaveCount(0);
     // Y el botón vuelve a estar disponible: un alta que falla y deja el botón
     // girando para siempre es un abandono garantizado.
     await expect(page.getByRole('button', { name: /días gratis/ })).toBeEnabled();
@@ -204,7 +206,7 @@ test.describe('Cuando algo va mal', () => {
     await page.getByRole('button', { name: /días gratis/ }).click();
 
     await expect(page.getByText(/Ya hay una cuenta con este email/)).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toHaveCount(0);
   });
 });
 
@@ -227,7 +229,7 @@ test.describe('En el móvil', () => {
     const boton = page.getByRole('button', { name: /días gratis/ });
     await expect(boton).toBeVisible();
     await boton.click();
-    await expect(page.getByRole('heading', { name: 'Confirma tu email' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Escribe el código/ })).toBeVisible();
   });
 
   test('la página no se desborda a lo ancho', async ({ page }) => {
