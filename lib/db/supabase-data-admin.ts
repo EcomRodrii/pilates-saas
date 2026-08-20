@@ -12,7 +12,7 @@ import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/sen
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
@@ -21,7 +21,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, generaRenovacionAlAgotarse, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -863,8 +863,19 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
     );
     return false;
   }
-  if (nuevoSaldo === 0) {
-    const hoy = new Date().toISOString().slice(0, 10);
+  // ⚠️ `PUNTUAL` NO se renueva: es una clase suelta, una compra única. Aquí no
+  // se miraba el tipo de plan, así que agotar la única sesión —o sea, usarla,
+  // que es todo su ciclo de vida— generaba un recibo «Renovación Clase suelta»
+  // PENDIENTE con su primer reintento de cobro ya programado. La clienta
+  // compraba una clase y se le quedaba una deuda a nombre de algo que nunca
+  // pidió, y la propietaria veía dos cobros donde solo hubo una compra.
+  //
+  // `BONO` sí sigue renovando: ahí agotarse es el final de un ciclo y avisar
+  // con el recibo es el comportamiento pretendido. El cron de renovaciones
+  // (`lib/inngest/renovaciones.ts`) ya aplicaba este mismo criterio filtrando
+  // por `MENSUAL`; este camino era el que se había quedado sin él.
+  if (nuevoSaldo === 0 && generaRenovacionAlAgotarse(plan)) {
+    const hoy = hoyEnEstudio();
     // Dunning (0041): el recibo entra al ciclo con su primer reintento programado
     // al día +1 del vencimiento (= hoy + 1 día). El barrido diario lo cobrará.
     const primerReintento = new Date(new Date(hoy).getTime() + 24 * 60 * 60 * 1000).toISOString();

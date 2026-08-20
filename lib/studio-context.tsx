@@ -173,7 +173,7 @@ import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
-import { uid, uuidV4, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
+import { uid, uuidV4, fechaLargaEstudio, horaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { DEFAULT_LAYOUT, type OrdenVisibilidad } from '@/lib/layout-runtime';
 import type { BloqueHome } from '@/lib/portal-home-bloques';
 import type { TabBarStyleId, RedSocialId } from '@/lib/theme-schema';
@@ -187,7 +187,7 @@ import {
   decidirReservaNueva,
   decidirPremioReferido,
 } from '@/lib/booking-logic';
-import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, calcularFechaFinBono, calcularReactivacion, generaRenovacionAlAgotarse } from '@/lib/bono-logic';
 import { useContentStore } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -2663,10 +2663,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     ));
 
     // Bono agotado (transición autoritativa a 0) → recibo de renovación + notificación
-    if (nuevasRestantes === 0) {
+    //
+    // ⚠️ `PUNTUAL` queda fuera: una clase suelta es una compra única y agotar su
+    // única sesión es usarla, no terminar un ciclo. Sin este filtro se generaba
+    // «Renovación Clase suelta» PENDIENTE y la clienta acababa debiendo algo que
+    // nunca pidió. Mismo arreglo, y por el mismo motivo, que en
+    // `consumirBonoServidor` (supabase-data-admin.ts) — son dos caminos gemelos
+    // para lo mismo y hay que tocar los dos o vuelve por el otro lado.
+    if (nuevasRestantes === 0 && generaRenovacionAlAgotarse(plan)) {
       const socio = socios.find(s => s.id === socioId);
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = hoyEnEstudio();
       const reciboRenovacion: Recibo = {
         id: `rec-renov-${uid()}`,
         studioId: getCurrentStudioId(),

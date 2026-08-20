@@ -7,8 +7,7 @@ import {
   bonoConsumible, bonoDevolvible, calcularConsumoBono, tieneEntitlementActivo,
   calcularFechaFinBono, superaLimiteSemanal, nuevaFechaFinTrasCongelar, planCubreTipoClase,
   seArreglaComprando, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE, calcularReactivacion,
-  saldoSesionesBono,
-} from './bono-logic.ts';
+  saldoSesionesBono, generaRenovacionAlAgotarse } from './bono-logic.ts';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 function sus(p: Partial<Suscripcion> & Pick<Suscripcion, 'socioId' | 'planId'>): Suscripcion {
@@ -497,4 +496,24 @@ test('saldoSesionesBono respeta los tipos de clase del bono', () => {
   ];
   assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S, 'tc-mat')?.restantes, 2);
   assert.equal(saldoSesionesBono('a', suscripciones, planes, HOY_S)?.restantes, 8, 'sin clase concreta, todo');
+});
+
+test('⚠️ una clase suelta NO genera renovación al usarse', () => {
+  // El bug de producción del 2026-08-20: comprar «Clase suelta» (PUNTUAL, 1
+  // sesión) y reservarla dejaba 0 sesiones, y eso disparaba un recibo
+  // «Renovación Clase suelta» PENDIENTE con reintento de cobro programado. Una
+  // compra única no se renueva: gastar su única sesión ES usarla.
+  assert.equal(generaRenovacionAlAgotarse({ tipo: 'PUNTUAL' }), false);
+});
+
+test('un bono agotado SÍ sigue generando su renovación', () => {
+  // Esto no se toca: quedarse a cero en un bono es el final de un ciclo y el
+  // recibo es el aviso pretendido.
+  assert.equal(generaRenovacionAlAgotarse({ tipo: 'BONO' }), true);
+});
+
+test('un mensual no pasa por aquí, y si pasara no renovaría por esta vía', () => {
+  // Su renovación la lleva el cron (lib/inngest/renovaciones.ts), que filtra
+  // por MENSUAL. Duplicarla aquí cobraría dos veces.
+  assert.equal(generaRenovacionAlAgotarse({ tipo: 'MENSUAL' }), false);
 });

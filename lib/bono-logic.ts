@@ -6,7 +6,7 @@
 // sesiones al reservar/cancelar y para detectar el bono agotado.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { Suscripcion, PlanTarifa } from '@/lib/types';
+import type { Suscripcion, PlanTarifa, TipoPlan } from '@/lib/types';
 
 // ── ¿Este plan cubre ESTA clase? ─────────────────────────────────────────────
 //
@@ -300,4 +300,28 @@ export const ERROR_BONO_NO_CUBRE = 'Tu bono no incluye este tipo de clase';
  */
 export function seArreglaComprando(mensajeError: string): boolean {
   return mensajeError.includes(ERROR_SIN_PLAN) || mensajeError.includes(ERROR_BONO_NO_CUBRE);
+}
+
+/**
+ * ¿Agotar este plan debe generar un recibo de RENOVACIÓN pendiente?
+ *
+ * ⚠️ `PUNTUAL` no. Una clase suelta es una compra única: agotar su única sesión
+ * es USARLA, que es todo su ciclo de vida — no el final de un ciclo que haya que
+ * empezar otra vez. Sin esta regla, comprar una clase suelta y reservarla
+ * generaba «Renovación Clase suelta» en estado PENDIENTE, con su primer
+ * reintento de cobro ya programado: la clienta acababa debiendo algo que nunca
+ * pidió y la propietaria veía dos cobros donde solo hubo una compra (visto en
+ * producción el 2026-08-20).
+ *
+ * `BONO` sí: ahí quedarse a cero es el final de un ciclo y el recibo es el aviso
+ * pretendido. `MENSUAL` no llega por aquí (no consume sesiones); su renovación
+ * la lleva el cron `lib/inngest/renovaciones.ts`, que ya filtraba por tipo — era
+ * este camino el que se había quedado sin el filtro.
+ *
+ * Vive aquí, en la lógica pura, porque hay DOS caminos gemelos que la aplican
+ * —`consumirBonoServidor` (servidor) y `consumirSesionBono` (cliente)— y
+ * repetir la condición en los dos es exactamente cómo se vuelven a separar.
+ */
+export function generaRenovacionAlAgotarse(plan: { tipo: TipoPlan }): boolean {
+  return plan.tipo === 'BONO';
 }
