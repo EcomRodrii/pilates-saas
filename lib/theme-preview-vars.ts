@@ -124,6 +124,10 @@ export const CLAVES_KIT_PERMITIDAS: ReadonlySet<string> = new Set([
   '--size-section', '--size-section-title', '--size-screen-title',
   '--size-greeting', '--size-hero-title', '--size-pass-name',
   '--size-detail-label', '--size-welcome', '--size-welcome-text',
+  // `cardStyle` → sombra (`varsSombraSobreTema`): 'flat' no las declara, así
+  // que se borran igual que el resto — la tarjeta vuelve a la sombra propia
+  // del fichero del tema, no a un `initial` sin respaldo.
+  '--shadow-card', '--shadow-card-hover',
 ]);
 
 /** Las que vienen, filtradas. Las que no vienen NO salen: se borran. */

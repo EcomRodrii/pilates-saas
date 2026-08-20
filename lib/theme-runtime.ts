@@ -19,7 +19,7 @@
 import type { CSSProperties } from 'react';
 import { resolveTheme, FUENTES, RADIOS, DEFAULT_THEME, type ThemeConfig, POSICION_FOTO } from './theme-schema.ts';
 // El vocabulario del kit de temas vive con los temas, no aquí.
-import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, type TemaPortalId } from '../themes/registro.ts';
+import { TEMAS_PORTAL, varsColorSobreTema, varsEscalaSobreTema, varsRadioSobreTema, varsSombraSobreTema, type TemaPortalId } from '../themes/registro.ts';
 import { getPreset } from './theme-presets.ts';
 import { cumpleContraste, foregroundParaFondo, hexARgb } from './wcag-contrast.ts';
 import { colorLegibleSobreClaro } from './color-utils.ts';
@@ -343,6 +343,7 @@ export function varsKitMap(raw: unknown): Record<string, string> {
     }),
     ...varsRadioSobreTema(t.radioTema),
     ...varsEscalaSobreTema(t.escalaTexto as Record<string, number | undefined> | undefined, tema),
+    ...varsSombraSobreTema(t.cardStyle, t.text),
   };
 }
 
