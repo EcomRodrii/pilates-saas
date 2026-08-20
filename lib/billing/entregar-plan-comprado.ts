@@ -37,6 +37,14 @@ export interface CompraPlan {
   /** Nombre que puso en Stripe, si lo puso. */
   nombre: string | null;
   /**
+   * Teléfono del paso de datos del widget (metadata.socioTelefono, ya saneado
+   * en checkout-embebido). Opcional a propósito: el Modo A (Checkout Session)
+   * y el conciliador no lo tienen. Solo se escribe al crear ficha NUEVA —
+   * una ficha existente no se pisa con el dato de una compra posterior,
+   * mismo criterio que `origenLead`.
+   */
+  telefono?: string | null;
+  /**
    * Lo que Stripe cobró DE VERDAD, en céntimos (`session.amount_total`).
    *
    * El recibo se registraba con `plan.precio`, releído en el momento del
@@ -165,6 +173,7 @@ export async function entregarPlanComprado(
         nombre: partes[0] || 'Clienta',
         apellidos: partes.slice(1).join(' ') || '',
         email: compra.email,
+        telefono: compra.telefono ?? null,
         activo: true,
         fecha_alta: ahora,
         campos_extra: {},

@@ -692,6 +692,9 @@ async function procesarEvento(
         socioId: pi.metadata.socioId ?? null,
         email: pi.metadata.socioEmail ?? null,
         nombre: pi.metadata.socioNombre ?? null,
+        // Saneado en checkout-embebido antes de entrar en la metadata; la
+        // ficha nueva ya no se crea sin el teléfono que la persona escribió.
+        telefono: pi.metadata.socioTelefono ?? null,
         // Lo cobrado DE VERDAD, no el precio de catálogo releído ahora.
         importeCobradoCentimos: pi.amount_received ?? pi.amount ?? null,
         // El cargo real, para poder devolverlo después desde el panel sin

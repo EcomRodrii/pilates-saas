@@ -229,3 +229,18 @@ test('un fallo al guardar el snapshot NO tumba la entrega', async () => {
   const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-existente' });
   assert.equal(r.ok, true);
 });
+
+// P0 checkout — el teléfono ya no se tira: la ficha nueva lo persiste.
+test('la ficha nueva guarda el teléfono del paso de datos', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, { ...COMPRA, telefono: '+34 600 123 456' });
+  assert.equal(r.ok, true);
+  assert.equal(insertado.socios[0].telefono, '+34 600 123 456');
+});
+
+test('sin teléfono (Modo A / conciliador): la ficha se crea igual, con null', async () => {
+  const { admin, insertado } = fakeAdmin();
+  const r = await entregarPlanComprado(admin, COMPRA);
+  assert.equal(r.ok, true);
+  assert.equal(insertado.socios[0].telefono, null);
+});
