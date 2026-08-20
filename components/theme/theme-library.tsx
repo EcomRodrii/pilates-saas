@@ -20,6 +20,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useThemeEditor } from './theme-editor';
 import { useStudio } from '@/lib/studio-context';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
@@ -99,6 +100,12 @@ export function ThemeLibrary() {
   // cada tema siembra los suyos para la miniatura.
   const [bloquesActuales, setBloquesActuales] = useState<BloqueHome[] | null>(null);
   const [errorInstalar, setErrorInstalar] = useState<string | null>(null);
+  // Instalar un tema SUSTITUYE (ver instalarTema): si el borrador actual tiene
+  // cambios sin publicar, pulsar "Usar"/"Personalizar" en OTRO tema los tira
+  // sin avisar y sin vuelta atrás — "Volver a lo publicado" no rescata nada
+  // que nunca llegó a publicarse. Este estado retiene qué tema se pidió
+  // mientras se confirma, para no perder trabajo en silencio.
+  const [pendiente, setPendiente] = useState<{ def: ThemeDefinition; irAlEditor: boolean } | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -160,6 +167,20 @@ export function ThemeLibrary() {
     } finally {
       setInstalando(null);
     }
+  }
+
+  /**
+   * Puerta de entrada de "Usar"/"Personalizar" en la Biblioteca: si el
+   * borrador actual tiene cambios sin publicar, pide confirmación antes de
+   * llamar a `instalar()` — que los sustituye sin preguntar. Sin cambios que
+   * perder, instala directo: no hay nada real detrás del aviso.
+   */
+  function pedirInstalar(def: ThemeDefinition, irAlEditor = false) {
+    if (cambios > 0) {
+      setPendiente({ def, irAlEditor });
+      return;
+    }
+    void instalar(def, irAlEditor);
   }
 
   // ⚠️ Solo se niega el acceso cuando el rol se CONOCE.
@@ -353,14 +374,14 @@ export function ThemeLibrary() {
                       variant="outline"
                       size="sm"
                       disabled={instalando !== null}
-                      onClick={() => instalar(def, true)}
+                      onClick={() => pedirInstalar(def, true)}
                       title={`Pone ${def.label} en tu borrador y abre el editor. No publica nada.`}
                     >
                       {instalando === def.id ? 'Abriendo…' : 'Personalizar'}
                     </Button>
                   )}
                   {!enUso && (
-                    <Button size="sm" disabled={instalando !== null} onClick={() => instalar(def)}>
+                    <Button size="sm" disabled={instalando !== null} onClick={() => pedirInstalar(def)}>
                       {instalando === def.id ? 'Instalando…' : 'Usar'}
                     </Button>
                   )}
@@ -381,6 +402,16 @@ export function ThemeLibrary() {
           `app/tema-publicado/[slug]/[[...ruta]]/route.ts`) — nunca bajo
           `tentare.app`, que es el origen de confianza del panel. */}
       <ImportarTemaZip slug={hook.studio?.slug ?? null} />
+
+      <ConfirmDialog
+        open={pendiente !== null}
+        onOpenChange={(v) => { if (!v) setPendiente(null); }}
+        titulo={`Cambiar a «${pendiente?.def.label ?? ''}»`}
+        descripcion={`Tienes ${cambios} ${cambios === 1 ? 'cambio' : 'cambios'} sin publicar en tu tema actual. Se pierden al instalar este — no hay vuelta atrás porque nunca llegaron a publicarse.`}
+        textoConfirmar="Cambiar de todos modos"
+        destructivo
+        onConfirm={() => { if (pendiente) void instalar(pendiente.def, pendiente.irAlEditor); setPendiente(null); }}
+      />
     </div>
   );
 }

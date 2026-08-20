@@ -247,6 +247,44 @@ test.describe('Biblioteca de temas', () => {
     expect(body.themeVersion).toBe(5);
   });
 
+  // ⚠️ instalarTema() SUSTITUYE (ver theme-schema.ts) — cambiar de tema sin
+  // publicar antes tira lo que hubiera sin avisar y sin vuelta atrás
+  // ("Volver a lo publicado" no rescata nada que nunca se publicó). Bug real
+  // encontrado auditando el flujo de ZIP: la Biblioteca nunca preguntaba.
+  test('cambiar de tema con cambios sin publicar pide confirmación — y respeta cancelar', async ({ page }) => {
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    // Primer "Usar": nada que perder todavía (borrador == publicado en el
+    // mock), así que instala directo, sin diálogo.
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      filaTema(page, 'oliva').getByRole('button', { name: 'Usar' }).click(),
+    ]);
+    expect(puts).toHaveLength(1);
+    await expect(page.getByText(/cambios sin publicar/)).toBeVisible();
+
+    // Segundo "Usar", sobre OTRO tema: ahora sí hay cambios sin publicar de
+    // Oliva de por medio — tiene que pedir confirmación antes de tirarlos.
+    await filaTema(page, 'noir').getByRole('button', { name: 'Usar' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByText('Cambiar a «Noir»')).toBeVisible();
+
+    // Cancelar: nada se instala, Oliva sigue siendo "en uso".
+    await page.getByRole('button', { name: 'Volver' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(puts).toHaveLength(1);
+    await expect(filaTema(page, 'oliva').getByText('En uso')).toBeVisible();
+
+    // Confirmar: ahora sí instala Noir.
+    await filaTema(page, 'noir').getByRole('button', { name: 'Usar' }).click();
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      page.getByRole('button', { name: 'Cambiar de todos modos' }).click(),
+    ]);
+    expect(puts.at(-1)!.themeId).toBe('noir');
+  });
+
   test('"Usar" en Oliva siembra el Inicio: tiraSemana visible, estaSemana/invitarAmiga ocultos, catálogo intacto', async ({ page }) => {
     const { putsBloquesHome } = await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
