@@ -100,6 +100,13 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (e.name === 'AbortError' || /load failed|failed to fetch|networkerror|network request failed|the operation was aborted/i.test(msg)) {
     return ERROR_RED;
   }
+  // A-3: el token de la sesión caducó (pestaña dormida). No es un problema de
+  // permisos: en cuanto ocurre, el recuperador de auth-context refresca la
+  // sesión en segundo plano, así que reintentar el clic suele bastar. Va ANTES
+  // del caso 401/403 para no confundirlo con «no tienes permiso».
+  if (code === 'PGRST303' || /\bjwt expired\b/i.test(msg)) {
+    return 'Tu sesión había caducado y se está renovando. Vuelve a intentarlo.';
+  }
   if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(msg)) {
     return 'No tienes permiso para hacer este cambio. Vuelve a entrar e inténtalo otra vez.';
   }

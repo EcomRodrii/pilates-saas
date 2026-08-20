@@ -1,4 +1,5 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { esJwtCaducado } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
@@ -236,7 +237,11 @@ export function getCurrentStudioId() {
 // resolver sedes distintas para el mismo usuario.
 export async function resolveStudioId(): Promise<string | null> {
   const { data, error } = await supabase.rpc('current_studio_id');
-  if (error) { reportDbError('[resolveStudioId]', error); return null; }
+  // A-3: la ÚNICA lectura que pide recarga tras refrescar la sesión — si esto
+  // falla en el arranque, STUDIO_ID queda null y TODO lo demás devuelve []
+  // hasta recargar; el resto de lecturas se recuperan solas con el siguiente
+  // sondeo/clic una vez la sesión está renovada.
+  if (error) { reportDbError('[resolveStudioId]', error, { recargaTrasSesion: true }); return null; }
   return (data as string | null) ?? null;
 }
 
@@ -255,6 +260,22 @@ let dbErrorListener: DbErrorListener | null = null;
 
 export function setDbErrorListener(fn: DbErrorListener | null) {
   dbErrorListener = fn;
+}
+
+// A-3 (auditoría 20-ago): un PGRST303 (JWT caducado) NO es un error de BD
+// accionable — es la sesión, y tiene arreglo automático. Quien sabe arreglarlo
+// es auth-context (refrescar la sesión; recargar solo si `recargable`, o
+// mandar a /login si el refresh token también murió): se le avisa por aquí.
+// `recargable: true` lo pide únicamente la lectura crítica del arranque
+// (resolveStudioId) — para el resto, con la sesión renovada basta el siguiente
+// clic o sondeo, y recargar en mitad de un modal borraría lo que la usuaria
+// estaba haciendo. La tabla de decisión vive en lib/recuperar-sesion.ts, con
+// tests.
+type JwtCaducadoListener = (p: { recargable: boolean }) => void;
+let jwtCaducadoListener: JwtCaducadoListener | null = null;
+
+export function setJwtCaducadoListener(fn: JwtCaducadoListener | null) {
+  jwtCaducadoListener = fn;
 }
 
 // Fallos de RED del cliente (fetch abortado al cambiar de app en el móvil, red
@@ -288,8 +309,43 @@ function esConflictoDeNegocioEsperado(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 409;
 }
 
-export function reportDbError(tag: string, error: unknown) {
+export function reportDbError(tag: string, error: unknown, opts?: { escrituraVisible?: boolean; recargaTrasSesion?: boolean }) {
   console.error(tag, error);
+  // A-3: sesión caducada. Antes esto seguía el camino normal (Sentry + toast
+  // genérico) y la UI se quedaba con un `[]` — la propietaria con la pestaña
+  // dormida veía su estudio VACÍO sin explicación. Ahora se avisa al
+  // recuperador (que refresca la sesión) y se corta: ni Sentry (condición
+  // esperada con arreglo automático; si la recuperación falla, ESA sí se
+  // reporta desde auth-context) ni el toast genérico — salvo en una escritura
+  // que la usuaria está mirando, donde el mensaje traducido («tu sesión había
+  // caducado…») le dice que su clic no se guardó y que reintente.
+  //
+  // `recargaTrasSesion` lo pide SOLO la lectura que deja el panel entero
+  // irrecuperable (resolveStudioId: sin STUDIO_ID todo lo demás devuelve []
+  // para siempre). El default es NO recargar (hallazgo de la revisión: hay
+  // decenas de escrituras que llaman aquí sin flag y una recarga en mitad de
+  // un modal borra lo que la usuaria estaba haciendo) — con la sesión ya
+  // refrescada, el siguiente clic o el siguiente sondeo funcionan.
+  //
+  // Solo en NAVEGADOR con el recuperador registrado (sesión de staff viva):
+  // en servidor `jwtCaducadoListener` es siempre null (auth-context es 'use
+  // client') y un jwt caducado ahí es una clave mal configurada — un fallo de
+  // clase "outage" que DEBE seguir cayendo al camino de Sentry de abajo.
+  if (esJwtCaducado(error) && jwtCaducadoListener) {
+    try {
+      jwtCaducadoListener({ recargable: opts?.recargaTrasSesion === true });
+    } catch {
+      /* nunca dejar que el recuperador rompa nada */
+    }
+    if (opts?.escrituraVisible) {
+      try {
+        dbErrorListener?.(tag, error);
+      } catch {
+        /* never let the listener break a write */
+      }
+    }
+    return;
+  }
   // A-6: los fallos de escritura de DB llegan a Sentry (antes solo console.error
   // + un toast → invisibles en producción). Tag por estudio para agrupar por
   // tenant. No-op si Sentry no está inicializado (DSN sin definir).
@@ -321,7 +377,10 @@ export function reportDbError(tag: string, error: unknown) {
 const ESCRITURA_OK: ResultadoEscritura = { ok: true };
 
 function falloEscritura(tag: string, error: unknown): ResultadoEscritura {
-  reportDbError(tag, error);
+  // `escrituraVisible`: si el fallo es un JWT caducado, aquí NO se recarga la
+  // página (borraría el formulario que la usuaria estaba rellenando) — se
+  // refresca la sesión en silencio y el mensaje le dice que reintente el clic.
+  reportDbError(tag, error, { escrituraVisible: true });
   return { ok: false, error: mensajeDeFalloAlGuardar(error) };
 }
 

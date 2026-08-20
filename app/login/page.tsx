@@ -114,6 +114,17 @@ export default function LoginPage() {
     window.history.replaceState(null, '', url.pathname + (url.searchParams.get('alta') ? '?alta=1' : ''));
   }, []);
 
+  // A-3: la recuperación de sesión (auth-context) manda aquí cuando el refresh
+  // token también murió. Sin este mensaje, aterrizar en /login desde un panel
+  // que "de repente se vació" parece un fallo — con él, es lo esperable.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('motivo') !== 'sesion-caducada') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInfo('Tu sesión ha caducado por inactividad. Vuelve a entrar para seguir donde estabas.');
+    window.history.replaceState(null, '', url.pathname);
+  }, []);
+
   async function conectarConGoogle() {
     setError(''); setInfo('');
     setConectandoGoogle(true);
