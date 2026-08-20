@@ -34,10 +34,20 @@ export function horarioDeSesion(iso: string): 'manana' | 'mediodia' | 'tarde' {
 export interface FiltrosSlots {
   tipo?: string | null;
   nivel?: string | null;
-  instructorNombre?: string | null;
+  // Por ID, no por nombre: dos instructoras pueden llamarse igual y un nombre
+  // se renombra sin avisar al snippet. Migrado de `instructorNombre` — nadie
+  // externo lo pasaba todavía (el tercer parámetro de useDatosWidget no tenía
+  // callers), así que el cambio no rompe nada.
+  instructorId?: string | null;
+  salaId?: string | null;
   objetivo?: string | null;
   horario?: 'manana' | 'mediodia' | 'tarde' | null;
   dias?: number[];
+  // Listas del snippet embebido (config-widget.ts): mismo criterio que los
+  // `teacher_ids=[]` de Momence — multi-selección, vacío = sin filtro.
+  tipos?: string[];
+  instructoras?: string[];
+  salas?: string[];
 }
 
 export interface EntradaConstruirSlots {
@@ -127,8 +137,12 @@ export function construirSlots(entrada: EntradaConstruirSlots): ReservaSlot[] {
   return sesionesRich
     .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
     .filter(s => !filtros.tipo || s.tipoClaseId === filtros.tipo)
+    .filter(s => !filtros.tipos?.length || filtros.tipos.includes(s.tipoClaseId))
     .filter(s => !filtros.nivel || (s.tipo?.nivel ?? 'TODOS') === filtros.nivel)
-    .filter(s => !filtros.instructorNombre || s.instructor?.nombre === filtros.instructorNombre)
+    .filter(s => !filtros.instructorId || s.instructorId === filtros.instructorId)
+    .filter(s => !filtros.instructoras?.length || filtros.instructoras.includes(s.instructorId))
+    .filter(s => !filtros.salaId || s.salaId === filtros.salaId)
+    .filter(s => !filtros.salas?.length || filtros.salas.includes(s.salaId))
     .filter(s => claseSirvePara({ objetivos: s.tipo?.objetivos ?? null }, filtros.objetivo ?? ''))
     .filter(s => !filtros.horario || horarioDeSesion(s.inicio) === filtros.horario)
     .filter(s => !filtros.dias?.length || filtros.dias.includes(new Date(s.inicio).getDay()))

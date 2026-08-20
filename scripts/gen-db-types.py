@@ -106,6 +106,7 @@ TIPOS_MANUALES = {
     # `jsonb not null default '[]'` — se declara sin `| null` a propósito: el
     # mapper siempre la escribe, y el `| null` obligaba a comprobarla en cada uso.
     ('sustituciones', 'candidatos_network'): 'any',
+    ('studios', 'widget_builder'): 'Record<string, unknown> | null',
 }
 for (tabla, col), ts in TIPOS_MANUALES.items():
     if tabla in tables and col in tables[tabla]:
@@ -124,6 +125,10 @@ NOTAS_MANUALES = {
         '`trg_arrancar_prueba_gratuita` al crear el estudio, NUNCA el cliente. NULL = '
         'sin prueba local (los estudios anteriores a la apertura al público), que no '
         'es lo mismo que una prueba agotada — ver `estadoTrial()` en lib/billing/trial.ts.',
+    ('studios', 'widget_builder'):
+        'Última config del Widget Builder por tipo de widget (solo comodidad del '
+        'panel — la config efectiva viaja congelada en el snippet copiado). '
+        'NUNCA en studioPublico().',
 }
 
 def envolver(texto, ancho=76):

@@ -836,6 +836,10 @@ export interface RowStudios {
   // anteriores a la apertura al público), que no es lo mismo que una prueba
   // agotada — ver `estadoTrial()` en lib/billing/trial.ts.
   trial_ends_at: string | null;
+  // migr 20260820103000. Última config del Widget Builder por tipo de
+  // widget (solo comodidad del panel — la config efectiva viaja congelada
+  // en el snippet copiado). NUNCA en studioPublico().
+  widget_builder: Record<string, unknown> | null;
 }
 
 export interface RowSuscripciones {

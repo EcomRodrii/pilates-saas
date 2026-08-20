@@ -40,6 +40,9 @@ const USA_BUILD = process.env.E2E_USA_BUILD === '1';
 // ahí hay alguien que puede avisar; una socia con el widget roto se va.
 const SPECS_WEBKIT = [
   '**/reservar-acoplar-widget.spec.ts',
+  // Misma pantalla y mismo criterio que acoplar-widget: los parámetros del
+  // snippet embebido los sufre la visitante de la web del estudio.
+  '**/widget-config-params.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',

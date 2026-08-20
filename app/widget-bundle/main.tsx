@@ -21,7 +21,9 @@
 import { createRoot } from 'react-dom/client';
 import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
-import { MODO_TOKENS } from '@/lib/portal-modo';
+import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
+import { resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
 import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
@@ -29,11 +31,12 @@ import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta
 import { ListaPlanes } from '@/components/checkout-widget/lista-planes';
 import widgetCss from './widget.css';
 
-// Tema fijo (modo día): el widget no lee el editor de Apariencia del panel —
+// Tema base (modo día): el widget no lee el editor de Apariencia del panel —
 // eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
-// mucho mayor que "un calendario embebido". Personalización de color mínima
-// vía `data-color` (ver abajo) es lo que sí pide el brief ("colores del
-// estudio"); tipografía/fondo/textos quedan fuera de este primer bundle.
+// mucho mayor que "un calendario embebido". La personalización viaja CONGELADA
+// en los atributos del snippet (config-widget.ts): `data-color`/`data-marca`
+// para el primario, `data-fondo`/`data-negro` que derivan un tema desde este
+// (ver montarUno). Tipografía sigue fuera de este bundle.
 const TEMA = MODO_TOKENS.dia;
 
 // Fase 3 (Booking Engine — checkout embebido): opcional a propósito, mismo
@@ -59,13 +62,18 @@ const ORIGEN_TENTARE = (() => {
   }
 })();
 
-function WidgetApp({ slug }: { slug: string }) {
+// `tema`/`config`/`filtros` llegan resueltos desde montarUno (una vez por
+// montaje, así que son referencias estables — importa para el useMemo de
+// `slots` en useDatosWidget, que tiene `filtros` en sus deps).
+function WidgetApp({ slug, tema = TEMA, config = CONFIG_WIDGET_POR_DEFECTO, filtros }: {
+  slug: string; tema?: ModoTokens; config?: ConfigWidget; filtros?: FiltrosSlots;
+}) {
   const {
     slots, cargando, error, studioId, socia, autenticado, refrescarSesion,
     politicaPrivacidad, terminosServicio, onReservar, onCancelar, onAceptarOferta,
     sesiones, tiposClase, salas, instructores, misReservas, suscripciones, planesTarifa, socio,
     stripeAccountId, onActualizarPerfil, logout, crearCheckoutEmbebido, comprarConBizum, recargar,
-  } = useDatosWidget(slug, ORIGEN_TENTARE);
+  } = useDatosWidget(slug, ORIGEN_TENTARE, filtros);
   const trackedRef = useRef(false);
   useEffect(() => {
     if (!studioId || trackedRef.current) return;
@@ -150,19 +158,19 @@ function WidgetApp({ slug }: { slug: string }) {
   return (
     <div>
       {avisoPago === 'retorno' && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: TEMA.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>Si has confirmado el pago con tu banco, en unos segundos verás el plan activo en Mi cuenta.</span>
-          <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: TEMA.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+          <button type="button" onClick={() => setAvisoPago(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
       {avisoReservaPendiente && (
-        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: TEMA.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 12, background: 'var(--portal-velo-suave)', fontSize: 12.5, color: tema.ink, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span>
             {avisoReservaPendiente === 'CONFIRMADA' ? 'Reserva confirmada.'
               : avisoReservaPendiente === 'LISTA_ESPERA' ? 'Te hemos apuntado a la lista de espera.'
                 : avisoReservaPendiente}
           </span>
-          <button type="button" onClick={() => setAvisoReservaPendiente(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: TEMA.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+          <button type="button" onClick={() => setAvisoReservaPendiente(null)} aria-label="Cerrar aviso" style={{ background: 'none', border: 'none', color: tema.muted, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
       )}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginBottom: 10 }}>
@@ -177,7 +185,7 @@ function WidgetApp({ slug }: { slug: string }) {
           </button>
         ) : mostrarFormulario ? (
           !walkInSinFicha && (
-            <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: TEMA.muted, fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setAccesoAbierto(false)} style={{ background: 'none', border: 'none', color: tema.muted, fontSize: 12.5, cursor: 'pointer' }}>
               Ver clases sin iniciar sesión
             </button>
           )
@@ -188,9 +196,9 @@ function WidgetApp({ slug }: { slug: string }) {
         )}
       </div>
       {cuentaAbierta && socio && (
-        <HojaCuentaWidget t={TEMA} onClose={() => setCuentaAbierta(false)}>
+        <HojaCuentaWidget t={tema} onClose={() => setCuentaAbierta(false)}>
           <MiCuenta
-            t={TEMA} socio={socio}
+            t={tema} socio={socio}
             reservas={misReservas} sesiones={sesiones} tiposClase={tiposClase} salas={salas} instructores={instructores}
             suscripciones={suscripciones} planesTarifa={planesTarifa}
             onCancelar={onCancelar} onAceptarOferta={onAceptarOferta}
@@ -200,9 +208,9 @@ function WidgetApp({ slug }: { slug: string }) {
         </HojaCuentaWidget>
       )}
       {planesAbiertos && (
-        <HojaCuentaWidget t={TEMA} onClose={() => setPlanesAbiertos(false)}>
+        <HojaCuentaWidget t={tema} onClose={() => setPlanesAbiertos(false)}>
           <ListaPlanes
-            t={TEMA} planes={planesTarifa} socioId={socia?.socioId ?? null}
+            t={tema} planes={planesTarifa} socioId={socia?.socioId ?? null}
             publishableKey={STRIPE_PUBLISHABLE_KEY ?? ''} stripeAccountId={stripeAccountId}
             onCrearIntento={crearCheckoutEmbebido} onBizum={comprarConBizum}
             onCerrar={() => setPlanesAbiertos(false)} onComprado={recargar}
@@ -213,7 +221,7 @@ function WidgetApp({ slug }: { slug: string }) {
       {mostrarFormulario && (
         <div style={{ marginBottom: 16 }}>
           <FormularioAccesoWidget
-            t={TEMA}
+            t={tema}
             slug={slug}
             baseUrl={ORIGEN_TENTARE}
             studioId={studioId ?? ''}
@@ -225,7 +233,7 @@ function WidgetApp({ slug }: { slug: string }) {
         </div>
       )}
       <ReservaCalendario
-        t={TEMA}
+        t={tema}
         slots={slots}
         onReservar={manejarReservar}
         onCancelar={onCancelar}
@@ -233,8 +241,14 @@ function WidgetApp({ slug }: { slug: string }) {
         vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
         // Fase 4 del rediseño, formato 06: rejilla de 7 columnas en neutros
         // fijos (ver comentario de `estiloDias` en reserva-calendario.tsx) en
-        // vez de tira+un-día — es lo único que cambia respecto a Modo A.
-        estiloDias="grid"
+        // vez de tira+un-día. `data-diseno="completo"` (config-widget.ts)
+        // cambia a la tira+día de Modo A; sin atributo se queda la rejilla
+        // de siempre — un snippet viejo se ve EXACTAMENTE igual que hoy.
+        estiloDias={config.diseno === 'completo' ? 'dias' : 'grid'}
+        vistaInicial={config.vistaInicial}
+        ocultarPrecio={config.ocultarPrecio}
+        ocultarNivel={config.ocultarNivel}
+        ocultarSustituta={config.ocultarSustituta}
         error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
       />
     </div>
@@ -247,7 +261,14 @@ function montarUno(host: HTMLElement) {
     console.error('[tentare-widget] Falta data-studio en el contenedor.');
     return;
   }
-  const color = host.dataset.color?.trim();
+  // Vocabulario nuevo del snippet (config-widget.ts): data-tipos,
+  // data-instructoras, data-salas, data-vista, data-ocultar-precio,
+  // data-ocultar-nivel, data-ocultar-sustituta, data-diseno, data-fondo,
+  // data-marca, data-negro. `data-color` sigue siendo el primario de siempre
+  // (retrocompatible, sin validar, como estaba); `data-marca` gana si vienen
+  // los dos porque pasa por el filtro anti-basura del parser.
+  const config = resolverConfigWidget(fuenteDeDataset(host.dataset as Record<string, string | undefined>));
+  const color = config.colorPrimario ?? host.dataset.color?.trim();
   const shadow = host.attachShadow({ mode: 'open' });
   const style = document.createElement('style');
   style.textContent = widgetCss;
@@ -258,8 +279,23 @@ function montarUno(host: HTMLElement) {
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');
+  // data-fondo pinta el lienzo del widget (por defecto es transparente y se ve
+  // la web anfitriona, como siempre). data-negro cambia la tinta del tema.
+  // No es un filtro CSS por encima: <ReservaCalendario> pinta por tokens
+  // (`t=`), así que el override honesto es un tema derivado de MODO_TOKENS.dia
+  // con esos dos tokens pisados — y el fondo del tema también, para que la
+  // hoja de reserva no se quede con el blanco de siempre sobre un lienzo
+  // oscuro.
+  if (config.colorFondo) raiz.style.background = config.colorFondo;
+  const tema: ModoTokens = {
+    ...TEMA,
+    ...(config.colorNegro ? { ink: config.colorNegro } : {}),
+    ...(config.colorFondo ? { bg: config.colorFondo } : {}),
+  };
+  // Referencia estable a propósito (ver comentario de WidgetApp).
+  const filtros: FiltrosSlots = { tipos: config.tipos, instructoras: config.instructoras, salas: config.salas };
   shadow.appendChild(raiz);
-  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} /></StrictMode>);
+  createRoot(raiz).render(<StrictMode><WidgetApp slug={slug} tema={tema} config={config} filtros={filtros} /></StrictMode>);
 }
 
 function iniciar() {
