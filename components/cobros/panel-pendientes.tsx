@@ -594,6 +594,10 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
     const r = recibos.find(x => x.id === reciboId);
     const socio = r ? socios.find(s => s.id === r.socioId) : null;
     const factura = facturas.find(f => f.reciboId === reciboId);
+    // Sin esto la fila desaparecía de "Quién me debe" en silencio y parecía
+    // que el clic no había hecho nada — el estado sí se actualizaba, solo
+    // faltaba decirlo.
+    setStripeToast({ tipo: 'ok', msg: r ? `Cobro registrado: ${formatEuro(r.importe)} de ${socioName(r.socioId)}.` : 'Cobro registrado.' });
     if (socio?.email && r) {
       enviarEmailRecibo({
         to: socio.email,
@@ -1708,6 +1712,14 @@ export function PanelPendientes({ vista = 'deudas' }: { vista?: 'deudas' | 'cobr
         <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-foreground">¿Cómo lo has cobrado?</DialogTitle>
+            {cobrandoRecibo && (() => {
+              const r = recibos.find(x => x.id === cobrandoRecibo);
+              return r ? (
+                <p className="text-sm text-muted-foreground">
+                  {socioName(r.socioId)} — <span className="font-semibold text-foreground">{formatEuro(r.importe)}</span>
+                </p>
+              ) : null;
+            })()}
           </DialogHeader>
           <div className="grid grid-cols-2 gap-2 mt-2">
             {([['BIZUM', 'Bizum'], ['EFECTIVO', 'Efectivo'], ['TRANSFERENCIA', 'Transferencia'], ['TARJETA', 'Tarjeta']] as [MetodoCobro, string][]).map(([m, label]) => (
