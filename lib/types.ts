@@ -673,6 +673,12 @@ export interface TipoClase {
   // null = sin mapear, no genera sugerencias de sustitutas de Network para
   // este tipo de clase — nunca un matching aproximado por texto.
   especialidadNetwork: EspecialidadNetwork | null;
+  // Clase online con Zoom (migr 20260820150000): por TIPO de clase, no por
+  // sesión suelta — una propietaria crea "Pilates Online" y todas sus
+  // sesiones son online, mismo patrón operativo que el resto de reglas de
+  // tipo de clase. Sin override en Sesion: híbridas puntuales quedan fuera
+  // de esta primera entrega a propósito.
+  esOnline: boolean;
 }
 
 export interface FavoritoClase {
@@ -775,6 +781,11 @@ export interface Sesion {
   // Opcional (no obligatorio en cada fixture/factory de Sesion del repo, que
   // son muchos): quien lo necesite lee `sesion.incidenciaTexto ?? null`.
   incidenciaTexto?: string | null;
+  // Reunión de Zoom (migr 20260820150000), rellenada por el cron
+  // lib/zoom-sync.ts cuando tipos_clase.esOnline=true. Mismo patrón opcional
+  // que googleEventId: null/undefined = todavía sin crear (o no aplica).
+  zoomMeetingId?: number | null;
+  zoomJoinUrl?: string | null;
 }
 
 export interface Reserva {

@@ -153,21 +153,17 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'ZOOM',
     nombre: 'Zoom',
-    // Estaba ofreciéndose como conectable y conectarla NO HACÍA NADA: el OAuth,
-    // el "probar conexión" y hasta `crearReunionZoom()` existen, pero esa
-    // función no tiene ni un llamador en todo el repo, así que ninguna clase
-    // llega a tener reunión. Pasa a "Próximamente" (mismo patrón que
-    // Mailchimp/Brevo) en vez de dejar un botón que promete y no entrega.
-    // Cero estudios la tienen conectada en producción, así que nadie pierde
-    // nada; y las rutas OAuth se quedan, listas para cuando se cablee de verdad
-    // — hoy las clases online están en feature-freeze (lib/frozen-features.ts).
+    // Cableada de verdad (2026-08-20, pedido explícito del fundador):
+    // crearReunionZoom() ya tiene llamador — lib/zoom-sync.ts, cron cada
+    // 15 min (app/api/cron/zoom-sync/route.ts) — para cada tipo de clase con
+    // esOnline=true (Configuración → Clases). Antes estaba en "Próximamente"
+    // porque conectar Zoom no hacía nada; ya no es el caso.
     descripcion: 'Clases online con su enlace de Zoom en cada sesión del calendario.',
     Icon: ZoomIcon,
     color: '#0B5CFF',
     bg: '#F5F5F5',
     categoria: 'Contenido digital',
     campos: [],
-    proximamente: true,
   },
   {
     tipo: 'KISI',
@@ -468,7 +464,12 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!res.ok) { showToast('No se pudo iniciar la conexión con Zoom'); return; }
     const { state } = await res.json() as { state: string };
     const redirect = encodeURIComponent(`${appUrl}/api/integrations/zoom/callback`);
-    window.location.href = `https://zoom.us/oauth/authorize?response_type=code&client_id=${zoomClientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}`;
+    // v2/authorize (marketplace.zoom.us), NO el endpoint legacy zoom.us/oauth/authorize:
+    // verificado en vivo el 2026-08-20 — el legacy devuelve "Redirección no válida (4.700)"
+    // para cualquier app que no esté publicada en el Marketplace (nuestro caso: solo
+    // instalable desde este botón, nunca desde el directorio público). v2/authorize
+    // funciona sin exigir esa publicación, con el mismo Client ID/redirect_uri.
+    window.location.href = `https://marketplace.zoom.us/v2/authorize?response_type=code&client_id=${zoomClientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}`;
   }
 
   useEffect(() => {

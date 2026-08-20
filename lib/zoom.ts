@@ -151,6 +151,35 @@ export async function crearReunionZoom(
   return { ok: true, joinUrl: data.join_url, id: data.id ?? 0 };
 }
 
+/** Actualiza la hora de una reunión ya creada (sesión reprogramada) — nunca crea una nueva. */
+export async function actualizarReunionZoom(
+  accessToken: string,
+  meetingId: number,
+  inicioISO: string,
+  duracionMin: number,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetchExterno(`${API_BASE}/meetings/${meetingId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start_time: inicioISO, duration: duracionMin, timezone: 'Europe/Madrid' }),
+  });
+  // PATCH de Zoom responde 204 sin cuerpo si va bien.
+  if (res.ok) return { ok: true };
+  const data = (await res.json().catch(() => null)) as { message?: string } | null;
+  return { ok: false, error: data?.message ?? `Zoom API ${res.status}` };
+}
+
+/** Borra la reunión (sesión cancelada). Idempotente: 404 cuenta como éxito. */
+export async function eliminarReunionZoom(accessToken: string, meetingId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetchExterno(`${API_BASE}/meetings/${meetingId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.ok || res.status === 404) return { ok: true };
+  const data = (await res.json().catch(() => null)) as { message?: string } | null;
+  return { ok: false, error: data?.message ?? `Zoom API ${res.status}` };
+}
+
 export async function probarZoom(studioId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const token = await getValidAccessToken(studioId);
   if (!token) return { ok: false, error: 'Zoom no conectado' };

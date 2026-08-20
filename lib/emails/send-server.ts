@@ -27,6 +27,10 @@ export interface DatosClaseEmail {
   colorPrimario?: string | null;
   bonoConsumido?: boolean;
   bonoDevuelto?: boolean;
+  // Solo presente si tipos_clase.es_online=true y el cron de zoom-sync ya
+  // generó la reunión (lib/zoom-sync.ts). undefined = clase presencial, o
+  // online pero la reunión aún no se ha creado (no bloquea el envío).
+  zoomJoinUrl?: string | null;
 }
 
 export type TipoEmailTransaccional = 'promocion' | 'cancelacion' | 'recordatorio' | 'reserva';
