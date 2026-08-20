@@ -848,6 +848,9 @@ export interface Recibo {
   reembolsoSolicitadoEn?: string | null;
   /** Id del refund de Stripe (`re_…`), para seguir una que se atasque. */
   reembolsoStripeId?: string | null;
+  /** D-8: cuándo FALLÓ la devolución (la clienta NO recibió el dinero). */
+  reembolsoFallidoEn?: string | null;
+  reembolsoFalloMotivo?: string | null;
 }
 
 // Fase 3: penalización por cancelación tardía/no-show — detección + ciclo de

@@ -21,13 +21,22 @@ import { formatEuro } from '@/lib/utils';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function BotonDevolverRecibo({
-  recibo, politica, onHecho, onEnviada, yaEnviada,
+  recibo, politica, onHecho, onEnviada, yaEnviada, bypassPolitica,
 }: {
   recibo: ReciboParaReembolso & { id: string };
   politica: PoliticaReembolso;
   onHecho: (mensaje: string) => void;
   /** Se llama al enviarla, para que la fila cambie sin esperar a recargar. */
   onEnviada?: () => void;
+  /**
+   * D-8: reintento de una devolución que Stripe comunicó como FALLIDA. La
+   * decisión de política ya se tomó al pedirla la primera vez — el servidor
+   * la salta (`esReintentoTrasFallo` en /api/reembolsos) y este espejo evita
+   * que el veredicto de cliente pinte gris el botón justo en los dos casos
+   * del reintento: plazo vencido (SEPA falla días después) y la REVERTIDA
+   * leída como «bono ya usado».
+   */
+  bypassPolitica?: boolean;
   /** Ya hay una devolución en vuelo para este recibo: no se ofrece otra. */
   yaEnviada?: boolean;
 }) {
@@ -45,7 +54,9 @@ export function BotonDevolverRecibo({
   // sí invita a intentarlo, que es justo lo que no queremos con dinero.
   if (yaEnviada) return null;
 
-  const veredicto = evaluarReembolso(politica, recibo, new Date());
+  const veredicto = bypassPolitica
+    ? { permitido: true as const }
+    : evaluarReembolso(politica, recibo, new Date());
 
   if (!veredicto.permitido) {
     return (

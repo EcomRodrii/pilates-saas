@@ -356,6 +356,34 @@ export async function emitirDevolucion(
   }
 }
 
+// D-8: la devolución FALLÓ días después de crearse — la clienta NO recibió el
+// dinero. `dedupKey` por refund.id: los DOS tipos de evento de Stripe
+// (`refund.failed` y `charge.refund.updated`) llegan con event.id distintos y
+// la reclamación de idempotencia no los dedupea entre sí — el dedupKey sí.
+export async function emitirDevolucionFallida(
+  admin: SupabaseClient,
+  p: {
+    studioId: string; socioId: string | null; reciboId: string; refundId: string;
+    importe: number; sesionesTexto: string;
+  },
+): Promise<void> {
+  try {
+    const { data: socio } = p.socioId
+      ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
+      : { data: null };
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta';
+    await publish({
+      type: EVENTOS.PAGO_DEVOLUCION_FALLIDA,
+      studioId: p.studioId,
+      data: { importe: p.importe, socia, socioId: p.socioId, sesionesTexto: p.sesionesTexto },
+      resource: { type: 'recibo', id: p.reciboId },
+      dedupKey: `devolucion-fallida:${p.refundId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirDevolucionFallida:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Disputa/chargeback de Stripe: el cargo ya se había cobrado y ahora la
 // socia lo impugna ante su banco. `plazoUnix` es evidence_details.due_by de
 // Stripe (segundos epoch, puede venir null si Stripe aún no lo ha fijado).

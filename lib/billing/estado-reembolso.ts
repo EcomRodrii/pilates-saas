@@ -29,7 +29,7 @@
  */
 export const MINUTOS_HASTA_SOSPECHAR = 5;
 
-export type FaseReembolso = 'EN_CAMINO' | 'ATASCADA' | 'DEVUELTA';
+export type FaseReembolso = 'EN_CAMINO' | 'ATASCADA' | 'DEVUELTA' | 'FALLIDA';
 
 export interface EstadoReembolso {
   fase: FaseReembolso;
@@ -45,6 +45,8 @@ export interface ReciboConDevolucion {
   reembolsoSolicitadoEn?: string | null;
   /** Cuándo lo confirmó Stripe (lo escribe el webhook). */
   fechaDevolucion?: string | null;
+  /** D-8: cuándo FALLÓ el reembolso (lo escribe el webhook de refund.failed). */
+  reembolsoFallidoEn?: string | null;
 }
 
 export function estadoReembolso(
@@ -58,6 +60,21 @@ export function estadoReembolso(
       // Se dice SIEMPRE, también en las devoluciones hechas desde Stripe (sin
       // `reembolsoSolicitadoEn`): la pregunta de la socia es la misma.
       detalle: 'El dinero tarda entre 5 y 10 días hábiles en aparecer en el banco de la clienta. Eso lo marca su banco, no el estudio.',
+    };
+  }
+
+  // D-8: la devolución FALLÓ días después de crearse (SEPA sobre todo). Va
+  // ANTES de EN_CAMINO/ATASCADA — con `reembolsoSolicitadoEn` aún puesto, sin
+  // esta fase la fila diría "sin confirmar: el dinero puede haber salido
+  // igualmente", que es exactamente la mentira. Gana también a un DEVUELTO ya
+  // flipado a COBRADO (estado ≠ DEVUELTO ⇒ cae aquí). Si un reintento triunfa,
+  // el webhook vuelve a marcar DEVUELTO (que se evalúa arriba) y el endpoint
+  // de reembolsos limpia la marca al crear el refund nuevo.
+  if (r.reembolsoFallidoEn) {
+    return {
+      fase: 'FALLIDA',
+      etiqueta: 'Devolución fallida',
+      detalle: 'La devolución falló: la clienta NO ha recibido el dinero. Puedes volver a intentarla desde aquí.',
     };
   }
 

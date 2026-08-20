@@ -495,6 +495,10 @@ export interface RowRecibos {
   reembolso_stripe_id: string | null;
   // migr 20260817214500.
   checkout_session_id: string | null;
+  // migr 20260820182934.
+  reembolso_fallido_en: string | null;
+  // migr 20260820182934.
+  reembolso_fallo_motivo: string | null;
 }
 
 export interface RowRewardActions {
@@ -1758,6 +1762,10 @@ export interface RowDevoluciones {
   detectada_en: string;
   resuelta_en: string | null;
   resuelta_por: string | null;
+  // migr 20260820182934.
+  fallo_en: string | null;
+  // migr 20260820182934.
+  fallo_motivo: string | null;
 }
 
 export interface RowCadenaTiposClase {

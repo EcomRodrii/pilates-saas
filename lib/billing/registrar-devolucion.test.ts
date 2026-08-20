@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  referenciaDevolucion, origenDeReembolso, estadoInicialDevolucion, registrarDevolucion,
+  referenciaDevolucion, origenDeReembolso, estadoInicialDevolucion, registrarDevolucion, resolverFalloDevolucion,
 } from './registrar-devolucion.ts';
 
 // Lo que estos tests fijan es lo que decide si la propietaria se entera de una
@@ -154,4 +154,63 @@ test('el estado inicial sale del recibo, no de quien llama', async () => {
   const r = await registrarDevolucion(admin, BASE);
   assert.equal(r?.estado, 'OMITIDA_SIN_INSTRUMENTAR');
   assert.equal(insertado[0].estado, 'OMITIDA_SIN_INSTRUMENTAR');
+});
+
+// ── D-8: resolverFalloDevolucion — tabla de verdad del reembolso fallido ────
+
+test('⚠️ D-8, el caso central: reembolso total fallido → flip a COBRADO', () => {
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'DEVUELTO', disputaEstado: null, esSepa: false,
+    chargeId: 'ch_1', refunded: false, acumuladoCentimos: 0, totalCentimos: 5000, refundCentimos: 5000,
+  });
+  assert.equal(plan.flipar, true);
+  assert.equal(plan.sepaEstadoRestaurado, null);
+  assert.equal(plan.referenciaOriginal, 'ch_1:5000', 'el acumulado del momento de anotarse: fresco + lo que intentaba devolver');
+  assert.equal(plan.importeDevueltoFresco, 0);
+});
+
+test('D-8: en SEPA el flip restaura sepa_estado a succeeded', () => {
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'DEVUELTO', disputaEstado: null, esSepa: true,
+    chargeId: 'ch_1', refunded: false, acumuladoCentimos: 0, totalCentimos: 5000, refundCentimos: 5000,
+  });
+  assert.equal(plan.sepaEstadoRestaurado, 'succeeded');
+});
+
+test('⚠️ D-8: si OTRO reembolso mantiene el cargo totalmente devuelto, NO se flipa', () => {
+  // Dos parciales de 25 €; falla el segundo pero un tercero ya lo re-cubrió:
+  // el charge fresco dice refunded=true y el DEVUELTO sigue siendo verdad.
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'DEVUELTO', disputaEstado: null, esSepa: false,
+    chargeId: 'ch_1', refunded: true, acumuladoCentimos: 5000, totalCentimos: 5000, refundCentimos: 2500,
+  });
+  assert.equal(plan.flipar, false);
+});
+
+test('⚠️ D-8: un DEVUELTO por chargeback perdido NUNCA se resucita por un refund fallido aparte', () => {
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'DEVUELTO', disputaEstado: 'lost', esSepa: false,
+    chargeId: 'ch_1', refunded: false, acumuladoCentimos: 0, totalCentimos: 5000, refundCentimos: 1000,
+  });
+  assert.equal(plan.flipar, false);
+});
+
+test('D-8: un parcial fallido sobre recibo COBRADO solo anota (no había nada que flipar)', () => {
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'COBRADO', disputaEstado: null, esSepa: false,
+    chargeId: 'ch_1', refunded: false, acumuladoCentimos: 1000, totalCentimos: 5000, refundCentimos: 1500,
+  });
+  assert.equal(plan.flipar, false);
+  assert.equal(plan.referenciaOriginal, 'ch_1:2500');
+  assert.equal(plan.importeDevueltoFresco, 10, 'el acumulado fresco en euros, valor absoluto');
+});
+
+test('D-8: reprocesar tras un reintento de reembolso que YA triunfó no flipa (charge fresco manda)', () => {
+  // Reenvío manual del evento viejo después de que el panel reintentara con
+  // éxito: el charge fresco vuelve a estar totalmente devuelto → no tocar.
+  const plan = resolverFalloDevolucion({
+    estadoRecibo: 'DEVUELTO', disputaEstado: null, esSepa: false,
+    chargeId: 'ch_1', refunded: true, acumuladoCentimos: 5000, totalCentimos: 5000, refundCentimos: 5000,
+  });
+  assert.equal(plan.flipar, false);
 });

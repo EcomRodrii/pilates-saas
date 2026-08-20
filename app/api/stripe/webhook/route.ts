@@ -8,7 +8,7 @@ import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarCaducidadTarjeta } from '@/lib/billing/caducidad-tarjeta';
 import { metodoReutilizableDe } from '@/lib/billing/metodo-reutilizable';
-import { registrarDevolucion, referenciaDevolucion, origenDeReembolso } from '@/lib/billing/registrar-devolucion';
+import { registrarDevolucion, referenciaDevolucion, origenDeReembolso, resolverFalloDevolucion } from '@/lib/billing/registrar-devolucion';
 import { registrarFalloCobro, confirmarCobroExitoso } from '@/lib/billing/dunning-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
@@ -185,9 +185,16 @@ async function recuperarPaymentIntent(
   piId: string,
   event: Stripe.Event,
   tipo: 'reembolso-perdido' | 'disputa-perdida',
+  // D-8: el manejador de refund fallido necesita también el charge FRESCO
+  // (amount_refunded ya decrementado) — expandirlo aquí ahorra una llamada.
+  opts?: { expand?: string[] },
 ): Promise<Stripe.PaymentIntent | null> {
   try {
-    return await stripe.paymentIntents.retrieve(piId, {}, event.account ? { stripeAccount: event.account } : undefined);
+    return await stripe.paymentIntents.retrieve(
+      piId,
+      opts?.expand ? { expand: opts.expand } : {},
+      event.account ? { stripeAccount: event.account } : undefined,
+    );
   } catch (e) {
     Sentry.captureMessage('[stripe webhook] reversión de dinero SIN aplicar: no se pudo recuperar el PaymentIntent', {
       level: 'error',
@@ -1151,6 +1158,226 @@ async function procesarEvento(
               devolucionId: dev.id, importe: dev.importeDevuelto, origen: 'CHARGEBACK',
             });
           }
+        }
+      }
+    }
+  }
+
+  // D-8 (auditoría 20-ago) — el reembolso que FALLA días después de crearse.
+  // `charge.refunded` ya marcó el recibo DEVUELTO, anotó la devolución y quizá
+  // la propietaria ya REVERTIÓ la entrega — y ahora Stripe comunica que el
+  // dinero NUNCA salió (SEPA sobre todo; también tarjeta). Los dos tipos de
+  // evento llegan por el mismo hecho, así que el manejador es idempotente por
+  // valor absoluto + guards, y el aviso dedupea por refund.id.
+  //
+  // Las DECISIONES (flip DEVUELTO→COBRADO, restaurar sepa_estado, referencia
+  // de la fila original, importe fresco) viven en `resolverFalloDevolucion`
+  // (lib/billing/registrar-devolucion.ts, puro y con tests) y se toman con el
+  // charge FRESCO — tras el fallo, `amount_refunded` ya está decrementado, y
+  // es lo único que dice la verdad si hubo varios parciales o un reintento que
+  // ya triunfó (reenvío tardío del evento viejo → el fresco dice "sigue
+  // devuelto" → no se toca nada).
+  if (event.type === 'refund.failed' || event.type === 'charge.refund.updated') {
+    const refund = event.data.object as Stripe.Refund;
+    const piId = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+    const chargeId = typeof refund.charge === 'string' ? refund.charge : refund.charge?.id;
+    if (refund.status === 'failed' && piId && chargeId) {
+      const pi = await recuperarPaymentIntent(stripe, piId, event, 'reembolso-perdido', { expand: ['latest_charge'] });
+      if (!pi) return NextResponse.json({ error: 'No se pudo recuperar el PaymentIntent' }, { status: 500 });
+      const reciboId = pi.metadata?.reciboId;
+      const esRecibo = ORIGENES_CON_RECIBO.has(pi.metadata?.origen ?? '');
+      if (reciboId && esRecibo) {
+        const admin = getSupabaseAdmin();
+        if (!admin) {
+          console.error('[stripe webhook] service role no configurada (refund failed)');
+          return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+        }
+        const studioId = await studioDeCuentaConnect(admin, event.account);
+        if (!studioId) {
+          Sentry.captureMessage('[stripe webhook] refund fallido de una cuenta Connect no reconocida', {
+            level: 'error', extra: { reciboId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Cuenta Connect no reconocida' }, { status: 403 });
+        }
+
+        // El charge fresco: el expand de arriba casi siempre lo trae; si el
+        // refund es de un charge anterior del mismo PI, se pide aparte.
+        let charge = typeof pi.latest_charge === 'object' && pi.latest_charge && pi.latest_charge.id === chargeId
+          ? pi.latest_charge as Stripe.Charge
+          : null;
+        if (!charge) {
+          try {
+            charge = await stripe.charges.retrieve(chargeId, {}, event.account ? { stripeAccount: event.account } : undefined);
+          } catch (e) {
+            Sentry.captureMessage('[stripe webhook] refund fallido: no se pudo leer el charge fresco', {
+              level: 'error',
+              tags: { area: 'cobros', tipo: 'reembolso-perdido' },
+              extra: {
+                eventId: event.id, eventType: event.type, chargeId, reciboId,
+                detalle: e instanceof Error ? e.message : String(e),
+                queHacer: 'Esperar ~2 min y reenviar el evento desde el Dashboard de Stripe: la reclamación de idempotencia expira sola.',
+              },
+            });
+            return NextResponse.json({ error: 'No se pudo leer el charge' }, { status: 500 });
+          }
+        }
+
+        const { data: rec } = await admin.from('recibos')
+          .select('estado, disputa_estado, socio_id, importe, entrega_tipo, entrega_sesiones_antes, entrega_sesiones_despues')
+          .eq('id', reciboId).eq('studio_id', studioId).maybeSingle();
+        if (!rec) {
+          Sentry.captureMessage('[stripe webhook] refund fallido apunta a recibo inexistente o de otro estudio', {
+            level: 'error', extra: { reciboId, studioId, eventAccount: event.account },
+          });
+          return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+        }
+
+        const plan = resolverFalloDevolucion({
+          estadoRecibo: rec.estado as string,
+          disputaEstado: (rec.disputa_estado as string | null) ?? null,
+          esSepa: pi.metadata?.origen === 'sepa_recibo',
+          chargeId,
+          refunded: charge.refunded === true,
+          acumuladoCentimos: charge.amount_refunded ?? 0,
+          totalCentimos: charge.amount ?? 0,
+          refundCentimos: refund.amount ?? 0,
+        });
+
+        // 1. El flip, con guard: DEVUELTO → COBRADO solo si sigue siendo verdad.
+        if (plan.flipar) {
+          const { error } = await admin.from('recibos')
+            .update({
+              estado: 'COBRADO', fecha_devolucion: null,
+              ...(plan.sepaEstadoRestaurado ? { sepa_estado: plan.sepaEstadoRestaurado } : {}),
+            })
+            .eq('id', reciboId).eq('studio_id', studioId).eq('estado', 'DEVUELTO');
+          if (error) {
+            console.error('[stripe webhook] refund fallido: no se pudo restaurar el recibo', reciboId, error);
+            return NextResponse.json({ error: 'Fallo al restaurar el recibo' }, { status: 500 });
+          }
+        }
+
+        // 2. La marca del fallo (enciende la fase FALLIDA del panel y el botón
+        // de reintentar) + el acumulado fresco. Valores absolutos: reprocesar
+        // cualquiera de los dos tipos de evento deja lo mismo.
+        const ahoraISO = new Date().toISOString();
+        const { error: errMarca } = await admin.from('recibos')
+          .update({
+            reembolso_fallido_en: ahoraISO,
+            reembolso_fallo_motivo: refund.failure_reason ?? null,
+            importe_devuelto: plan.importeDevueltoFresco,
+          })
+          .eq('id', reciboId).eq('studio_id', studioId);
+        if (errMarca) {
+          console.error('[stripe webhook] refund fallido: sin marcar en el recibo', reciboId, errMarca);
+          return NextResponse.json({ error: 'Fallo al marcar el reembolso fallido' }, { status: 500 });
+        }
+
+        // 3. La fila de `devoluciones`: anotar el fallo y, si seguía ofreciendo
+        // «revertir la entrega», cerrarla — por dinero que nunca salió no se
+        // revierte nada. REVERTIDA se conserva (la reversión SÍ se aplicó; el
+        // aviso de abajo lleva ese dato). Localización por la referencia
+        // computada (acumulado fresco + lo que intentaba este refund); fallback
+        // por recibo+charge para parciales intercalados. No encontrarla NO
+        // bloquea: la fila es contabilidad, el flip de arriba es la verdad.
+        let fila: { id: string; estado: string } | null = null;
+        {
+          const { data } = await admin.from('devoluciones')
+            .select('id, estado').eq('studio_id', studioId)
+            .eq('referencia', plan.referenciaOriginal).maybeSingle();
+          fila = (data as { id: string; estado: string } | null) ?? null;
+          if (!fila) {
+            const { data: porRecibo } = await admin.from('devoluciones')
+              .select('id, estado').eq('studio_id', studioId)
+              .eq('recibo_id', reciboId).eq('stripe_charge_id', chargeId)
+              .like('origen', 'REEMBOLSO%')
+              .order('detectada_en', { ascending: false }).limit(1).maybeSingle();
+            fila = (porRecibo as { id: string; estado: string } | null) ?? null;
+            if (fila) {
+              Sentry.captureMessage('[stripe webhook] refund fallido: fila localizada por fallback, no por referencia', {
+                level: 'warning', tags: { area: 'cobros', tipo: 'reembolso-perdido' },
+                extra: { reciboId, referencia: plan.referenciaOriginal, filaId: fila.id },
+              });
+            }
+          }
+        }
+        if (fila) {
+          await admin.from('devoluciones')
+            .update({
+              fallo_en: ahoraISO,
+              fallo_motivo: refund.failure_reason ?? null,
+              ...(fila.estado === 'PENDIENTE_REVISION'
+                ? {
+                    estado: 'ANULADA_REEMBOLSO_FALLIDO',
+                    resuelta_en: ahoraISO,
+                    // ⚠️ B2 (revisión): al anular hay que LIBERAR la clave
+                    // natural. Un reintento que triunfe recalcula la MISMA
+                    // referencia (el acumulado vuelve al valor original) y el
+                    // UNIQUE (studio_id, referencia) haría que
+                    // registrarDevolucion chocara (23505 → null): sin fila
+                    // nueva, sin aviso PAGO_DEVUELTO y sin card de revertir —
+                    // la socia cobraría la devolución Y conservaría lo
+                    // entregado, el espejo exacto del bug que D-8 arregla.
+                    // El sufijo con el refund fallido mantiene la unicidad y
+                    // deja rastro de POR QUÉ esta fila quedó anulada.
+                    referencia: `${plan.referenciaOriginal}:fallida:${refund.id}`,
+                  }
+                : {}),
+            })
+            .eq('id', fila.id).eq('studio_id', studioId);
+        } else {
+          Sentry.captureMessage('[stripe webhook] refund fallido sin fila de devoluciones que anotar', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'reembolso-perdido' },
+            extra: { reciboId, referencia: plan.referenciaOriginal },
+          });
+        }
+
+        // 4. El aviso al mostrador. Si la entrega ya estaba REVERTIDA, la
+        // clienta pagó Y perdió lo entregado: el texto lo dice, con el delta
+        // cuando el snapshot lo tiene.
+        let sesionesTexto = '';
+        if (fila?.estado === 'REVERTIDA') {
+          const delta = rec.entrega_tipo === 'BONO'
+            && typeof rec.entrega_sesiones_antes === 'number'
+            && typeof rec.entrega_sesiones_despues === 'number'
+            ? rec.entrega_sesiones_despues - rec.entrega_sesiones_antes
+            : null;
+          sesionesTexto = delta
+            ? ` Además ya habías revertido la entrega (−${delta} sesiones): devuélveselas a mano.`
+            : ' Además ya habías revertido la entrega de este cobro: devuélvesela a mano.';
+        }
+        const { emitirDevolucionFallida } = await import('@/lib/notifications/emit');
+        await emitirDevolucionFallida(admin, {
+          studioId, socioId: (rec.socio_id as string | null) ?? null, reciboId,
+          refundId: refund.id, importe: Number(refund.amount ?? 0) / 100, sesionesTexto,
+        });
+      }
+    }
+  }
+
+  // D-8 · `charge.dispute.funds_reinstated`: mínimo honesto. El caso común
+  // (disputa GANADA con los fondos retirados al abrirse) no toca nada aquí —
+  // `dispute.created` nunca marca DEVUELTO. El caso raro (un DEVUELTO por
+  // chargeback cuyo dinero vuelve) se REPORTA para decidirlo una persona, sin
+  // cambiar estado: en prod hay 0 disputas y una plantilla/estado nuevo para
+  // esto hoy sería bulto.
+  if (event.type === 'charge.dispute.funds_reinstated') {
+    const dispute = event.data.object as Stripe.Dispute;
+    const admin = getSupabaseAdmin();
+    if (admin && event.account) {
+      const studioId = await studioDeCuentaConnect(admin, event.account);
+      if (studioId) {
+        const { data: rec } = await admin.from('recibos')
+          .select('id, estado').eq('studio_id', studioId)
+          .eq('disputa_stripe_id', dispute.id).maybeSingle();
+        if (rec?.estado === 'DEVUELTO') {
+          Sentry.captureMessage('[stripe webhook] fondos de una disputa reinstaurados sobre un recibo DEVUELTO', {
+            level: 'warning', tags: { area: 'cobros', tipo: 'disputa-reinstaurada' },
+            extra: {
+              reciboId: rec.id, studioId, disputeId: dispute.id,
+              queHacer: 'El dinero ha vuelto al estudio pero el recibo sigue DEVUELTO. Revisar a mano si procede restaurarlo (y si se había revertido la entrega).',
+            },
+          });
         }
       }
     }

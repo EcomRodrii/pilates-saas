@@ -1262,15 +1262,21 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                     // "Cobrado" y eso es justo lo que confundía.
                                     const dev = estadoReembolso({
                                       estado: r.estado,
+                                      // `enviadas` (este render) gana a la marca de fallo: acaba de
+                                      // reintentarse y vuelve a estar "devolviendo…".
                                       reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
                                       fechaDevolucion: r.fechaDevolucion,
+                                      reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
                                     }, ahoraDev);
                                     if (dev && dev.fase !== 'DEVUELTA') {
                                       return (
                                         <span
                                           title={dev.detalle}
                                           className={cn('text-xs font-bold px-2.5 py-1 rounded-full',
-                                            dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info')}
+                                            // FALLIDA es un fallo de dinero (la clienta NO cobró la
+                                            // devolución) — nunca en el azul informativo.
+                                            dev.fase === 'FALLIDA' ? 'bg-destructive/10 text-destructive'
+                                              : dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-info/10 text-info')}
                                         >
                                           {dev.etiqueta}
                                         </span>
@@ -1314,7 +1320,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                                       }}
                                       politica={politicaReembolso}
                                       onHecho={setToast}
-                                      yaEnviada={enviadas.has(r.id) || !!r.reembolsoSolicitadoEn}
+                                      yaEnviada={enviadas.has(r.id) || (!!r.reembolsoSolicitadoEn && !r.reembolsoFallidoEn)}
+                                      bypassPolitica={!!r.reembolsoFallidoEn && !!r.reembolsoStripeId}
                                       onEnviada={() => setEnviadas(prev => new Set(prev).add(r.id))}
                                     />
                                   )}
@@ -1343,6 +1350,7 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           estado: r.estado,
                           reembolsoSolicitadoEn: enviadas.has(r.id) ? new Date().toISOString() : r.reembolsoSolicitadoEn,
                           fechaDevolucion: r.fechaDevolucion,
+                          reembolsoFallidoEn: enviadas.has(r.id) ? null : r.reembolsoFallidoEn,
                         }, ahoraDev);
                         // La nota del plazo del banco solo se enseña mientras sea
                         // reciente: en un recibo devuelto hace meses es ruido.
@@ -1354,7 +1362,8 @@ export default function DetalleSocio({ params }: { params: Promise<{ id: string 
                           <div
                             key={`dev-${r.id}`}
                             className={cn('mt-3 rounded-lg px-3 py-2 text-[12px] leading-snug',
-                              dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground')}
+                              dev.fase === 'FALLIDA' ? 'bg-destructive/10 text-destructive'
+                                : dev.fase === 'ATASCADA' ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground')}
                           >
                             <strong className="font-semibold">{r.concepto} · {formatEuro(r.importe)}</strong> — {dev.detalle}
                           </div>

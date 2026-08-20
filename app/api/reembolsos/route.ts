@@ -57,9 +57,17 @@ export async function POST(req: NextRequest) {
   // de endpoints de dinero del repo.
   const { data: recibo } = await admin
     .from('recibos')
-    .select('id, estado, importe, fecha_cobro, suscripcion_id, entrega_sesiones_despues, stripe_payment_intent_id')
+    .select('id, estado, importe, fecha_cobro, suscripcion_id, entrega_sesiones_despues, stripe_payment_intent_id, reembolso_fallido_en, reembolso_stripe_id')
     .eq('id', body.reciboId).eq('studio_id', sesion.studioId).maybeSingle();
   if (!recibo) return NextResponse.json({ error: 'Recibo no encontrado' }, { status: 404 });
+
+  // D-8: ¿esto es el REINTENTO de una devolución que Stripe comunicó como
+  // fallida? La decisión de política ya se tomó al pedirla la primera vez; el
+  // reintento la COMPLETA, no la reabre — sin este bypass se bloquearía solo:
+  // `plazoDias` habrá vencido (SEPA falla días después de fecha_cobro) y, si
+  // hubo REVERTIDA, `soloSinUsar` vería menos sesiones y lo leería como "ya
+  // usó el bono".
+  const esReintentoTrasFallo = !!recibo.reembolso_fallido_en && !!recibo.reembolso_stripe_id;
 
   // Sesiones que le quedan HOY al bono de ese recibo: la otra mitad de la regla
   // `soloSinUsar`. Si el recibo no tiene suscripción (una cita suelta), se
@@ -77,15 +85,17 @@ export async function POST(req: NextRequest) {
     plazoDias: studio.reembolso_plazo_dias ?? 14,
     soloSinUsar: studio.reembolso_solo_sin_usar ?? true,
   };
-  const veredicto = evaluarReembolso(politica, {
-    estado: recibo.estado as string,
-    importe: Number(recibo.importe ?? 0),
-    fechaCobro: (recibo.fecha_cobro as string | null) ?? null,
-    sesionesAlEntregar: (recibo.entrega_sesiones_despues as number | null) ?? null,
-    sesionesRestantesHoy,
-  }, new Date());
-  if (!veredicto.permitido) {
-    return NextResponse.json({ error: veredicto.mensaje, motivo: veredicto.motivo }, { status: 409 });
+  if (!esReintentoTrasFallo) {
+    const veredicto = evaluarReembolso(politica, {
+      estado: recibo.estado as string,
+      importe: Number(recibo.importe ?? 0),
+      fechaCobro: (recibo.fecha_cobro as string | null) ?? null,
+      sesionesAlEntregar: (recibo.entrega_sesiones_despues as number | null) ?? null,
+      sesionesRestantesHoy,
+    }, new Date());
+    if (!veredicto.permitido) {
+      return NextResponse.json({ error: veredicto.mensaje, motivo: veredicto.motivo }, { status: 409 });
+    }
   }
 
   const key = process.env.STRIPE_SECRET_KEY;
@@ -141,7 +151,15 @@ export async function POST(req: NextRequest) {
         // de los intentos que murieron por el fallo de arriba devolverían ese
         // mismo error para siempre. Si alguna vez vuelve a cambiar la FORMA de
         // esta petición, sube el número.
-        idempotencyKey: `reembolso-v2-${recibo.id}`,
+        //
+        // D-8: en un reintento tras un refund FALLIDO, la clave lleva el id
+        // del refund anterior. Con la clave de siempre, Stripe devolvería la
+        // respuesta CACHEADA de aquel refund (ok, ningún refund nuevo) durante
+        // 24 h — y sigue siendo determinista: el doble clic del reintento
+        // comparte clave.
+        idempotencyKey: esReintentoTrasFallo
+          ? `reembolso-v2-${recibo.id}-tras-${recibo.reembolso_stripe_id}`
+          : `reembolso-v2-${recibo.id}`,
       },
     );
 
@@ -157,6 +175,11 @@ export async function POST(req: NextRequest) {
     const { error: errMarca } = await admin.from('recibos').update({
       reembolso_solicitado_en: new Date().toISOString(),
       reembolso_stripe_id: refund.id,
+      // D-8: el refund nuevo sustituye al fallido — la marca de fallo se
+      // limpia para que la fila vuelva a "devolviendo…" y el ciclo pueda
+      // repetirse si este también fallara (la clave llevaría el id nuevo).
+      reembolso_fallido_en: null,
+      reembolso_fallo_motivo: null,
     }).eq('id', recibo.id).eq('studio_id', sesion.studioId);
     if (errMarca) {
       Sentry.captureMessage('[reembolsos] devolución hecha pero sin marcar como solicitada', {

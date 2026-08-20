@@ -146,6 +146,12 @@ export const EVENTOS = {
   // (que ya pasó) y su dedupKey es por recibo, así que el segundo aviso del
   // mismo recibo se tragaría en silencio.
   PAGO_CHARGEBACK_PERDIDO: 'pago.chargeback_perdido',
+  // D-8: la devolución FALLÓ días después de crearse (SEPA sobre todo) — la
+  // clienta NO ha recibido el dinero aunque el panel dijera "devuelto".
+  // Evento propio por las mismas dos razones mecánicas de siempre: reusar
+  // PAGO_DEVUELTO se tragaría el aviso (su dedupKey es por devolucionId, ya
+  // gastado) y su copy/prioridad dicen lo contrario de la verdad aquí.
+  PAGO_DEVOLUCION_FALLIDA: 'pago.devolucion_fallida',
   SISTEMA_ERROR: 'sistema.error',
   // Automatizaciones (cron → publish)
   RECORDATORIO_24H: 'reserva.recordatorio_24h',
@@ -254,6 +260,9 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // ALTA + EMAIL: el dinero se ha perdido definitivamente y encima la socia
   // conserva lo entregado hasta que alguien lo revise.
   [EVENTOS.PAGO_CHARGEBACK_PERDIDO]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
+  // ALTA + EMAIL: la clienta cree que le devolvieron el dinero y NO es verdad —
+  // alguien del mostrador tiene que reintentarlo (o llamarla) hoy.
+  [EVENTOS.PAGO_DEVOLUCION_FALLIDA]: { category: 'pagos', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   [EVENTOS.PAGO_DISPUTADO]:        { category: 'pagos',    priority: 'ALTA',   canales: ['PUSH', 'EMAIL'], audiencia: 'mostrador' },
   // CRÍTICAS: declaran TODOS sus canales explícitamente. Antes bastaba con ser
   // CRÍTICA para que el motor forzara email/WA/SMS aunque la regla solo pusiera
@@ -557,6 +566,18 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     title: 'Has devuelto un cobro',
     body: 'Se han devuelto {importe} € a {socia}{tipoTexto}. Revisa si hay que retirarle lo que pagó.',
     deepLink: () => `/dashboard`,
+  },
+  // {sesionesTexto} solo se rellena si la entrega ya se había REVERTIDO: ahí la
+  // clienta pagó Y perdió lo entregado, y hay que devolvérselo a mano.
+  [`${EVENTOS.PAGO_DEVOLUCION_FALLIDA}#PROPIETARIO`]: {
+    title: 'Una devolución ha fallado',
+    body: 'La devolución de {importe} € a {socia} ha fallado: la clienta NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
+    deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
+  },
+  [`${EVENTOS.PAGO_DEVOLUCION_FALLIDA}#RECEPCION`]: {
+    title: 'Una devolución ha fallado',
+    body: 'La devolución de {importe} € a {socia} ha fallado: la clienta NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
+    deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
   },
   [`${EVENTOS.PAGO_CHARGEBACK_PERDIDO}#PROPIETARIO`]: {
     title: 'Has perdido una disputa',
