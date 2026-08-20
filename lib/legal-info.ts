@@ -55,3 +55,20 @@ export const PROVEEDORES: { nombre: string; uso: string; ubicacion: string }[] =
   { nombre: 'Google (opcional)', uso: 'Integración con Google Calendar / Gmail, si la activas', ubicacion: 'UE / EE. UU.' },
   { nombre: 'Zoom (opcional)', uso: 'Integración de videollamadas, si la activas', ubicacion: 'UE / EE. UU.' },
 ];
+
+// ⚠️ El apex (`tentare.app` a secas) redirige 308 al host canónico con www —
+// ver el comentario de `dominio` arriba. Un <script> sigue redirects, pero un
+// preflight CORS NO: el bundle embebible cargado desde el apex se pintaba y
+// todas sus llamadas a la API morían en silencio (prueba de campo 2026-08-20).
+// Vive aquí y no en el bundle porque este fichero es la fuente ÚNICA del
+// origen (hay un test que prohíbe escribir el dominio a mano en otro sitio);
+// el apex se DERIVA del canónico quitando el prefijo www, nunca se escribe.
+export function canonicalizarOrigen(origen: string): string {
+  const canonico = new URL(LEGAL.url);
+  const apex = canonico.hostname.replace(/^www\./, '');
+  try {
+    const u = new URL(origen);
+    if (u.protocol === 'https:' && u.hostname === apex) return canonico.origin;
+  } catch { /* origen raro: se devuelve tal cual */ }
+  return origen;
+}

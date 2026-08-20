@@ -30,6 +30,7 @@ import { FormularioAccesoWidget } from '@/components/widget/formulario-acceso';
 import { MiCuenta, HojaCuentaWidget } from '@/components/cuenta-widget/mi-cuenta';
 import { ListaPlanes } from '@/components/checkout-widget/lista-planes';
 import widgetCss from './widget.css';
+import { canonicalizarOrigen } from '@/lib/legal-info';
 
 // Tema base (modo día): el widget no lee el editor de Apariencia del panel —
 // eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
@@ -57,15 +58,12 @@ const ORIGEN_TENTARE = (() => {
   try {
     const src = (document.currentScript as HTMLScriptElement | null)?.src;
     const origen = src ? new URL(src).origin : window.location.origin;
-    // ⚠️ El apex redirige 308 a www a nivel de dominio (Vercel), y un
-    // preflight CORS NO sigue redirects: con `src="https://tentare.app/..."`
-    // el script carga (los <script> sí siguen redirects) pero TODAS las
-    // llamadas a la API mueren con "Redirect is not allowed for a preflight
-    // request" — el widget se pinta y se queda sin datos, en silencio.
-    // Encontrado en la prueba de campo del 2026-08-20, no en ningún e2e:
-    // el snippet generado por el panel siempre lleva www, pero basta que un
-    // estudio recorte la URL a mano para caer aquí.
-    return origen === 'https://tentare.app' ? 'https://www.tentare.app' : origen;
+    // ⚠️ Sin canonicalizar, un snippet con el src en el apex (sin www) pinta
+    // el widget y todas sus llamadas a la API mueren en silencio: el 308 del
+    // apex lo siguen los <script>, pero un preflight CORS no. Encontrado en
+    // la prueba de campo del 2026-08-20, no en ningún e2e — el panel genera
+    // los snippets con www, pero recortar la URL a mano es un error natural.
+    return canonicalizarOrigen(origen);
   } catch {
     return window.location.origin;
   }
