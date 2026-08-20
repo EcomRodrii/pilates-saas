@@ -24,7 +24,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia, radiosDe } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
@@ -2687,6 +2687,16 @@ export default function ReservarPage() {
                     {bookingSesion.tipo?.nombre} · {fmtLong(new Date(bookingSesion.inicio))} a las {fmtTime(bookingSesion.inicio)}
                   </p>
                 </div>
+                {/* Cierre digno del pago (P1-confianza): resumen de LO COMPRADO
+                    — qué plan y cuánto se ha cobrado — encima del copy honesto
+                    de "estamos confirmando". El recibo formal llega por email;
+                    esto es el eco inmediato de que el cargo es el esperado. */}
+                {pagoWebSinLogin && datosPlan && (
+                  <div className="w-full flex items-baseline justify-between gap-3 rounded-2xl px-3.5 py-2.5 bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
+                    <span className="text-[var(--portal-muted-2)] text-xs font-semibold text-left">{datosPlan.nombre}</span>
+                    <span className="text-[var(--portal-ink)] text-sm font-extrabold whitespace-nowrap">{datosPlan.precio} €</span>
+                  </div>
+                )}
                 {pagoWebSinLogin && (
                   <div className="w-full rounded-2xl p-3.5 text-left bg-[var(--portal-surface-2)] border border-[var(--portal-line)]">
                     {/* Copy honesto (P0): la reserva y la cuenta las crea el
@@ -2992,6 +3002,11 @@ export default function ReservarPage() {
                   // (appearance no resuelve var(--font-ui)); sin fuente
                   // personalizada, el componente cae a Instrument Sans.
                   fuentePago={apariencia.fuente && cssFuente ? { familia: apariencia.fuente, cssSrc: cssFuente } : undefined}
+                  // El radio de input del Widget Builder, para que los campos
+                  // de la tarjeta (iframe de Stripe) redondeen igual que los
+                  // inputs del paso 'datos'. Mismos defaults que
+                  // `resolverTokensReservar`.
+                  radioInput={radiosDe(apariencia, { tarjeta: R.card, boton: R.pill, input: R.spot }).input}
                   onExito={handlePagoExitoso}
                   onCerrar={() => setLoginStep('datos')}
                 />
