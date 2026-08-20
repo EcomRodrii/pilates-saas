@@ -16,6 +16,7 @@ import { Lock, AlertTriangle } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { PlanTarifa } from '@/lib/types';
 import { sans, serif, radius } from '@/lib/reservar-publico-tokens';
+import { fuenteValida, urlFuenteGoogle } from '@/lib/reservar/config-widget';
 import { semantic } from '@/lib/portal-tokens';
 
 export function CheckoutEmbebido({
@@ -140,17 +141,41 @@ export function CheckoutEmbebido({
   // fallback razonable en vez de dejar el pago sin marca.
   const marcaRef = useRef<HTMLDivElement>(null);
   const [colorMarca, setColorMarca] = useState(t.ink);
-  // Fallback: la fuente base del widget (Instrument Sans, la de `sans`),
-  // pedida a Google Fonts porque dentro del iframe la copia self-hosted de
-  // next/font no existe.
-  const fuenteCheckout = fuentePago ?? {
+  // La fuente elegida por el estudio, deducida del DOM igual que el color de
+  // marca y por el mismo motivo.
+  //
+  // ⚠️ Existe la prop `fuentePago`, pero SOLO la pasaba un caller de tres
+  // (el checkout de clase de Modo A). El de planes/bonos y todo Modo B caían
+  // al literal de abajo, así que el bloque de tarjeta salía en Instrument Sans
+  // por mucho que el snippet llevara `data-fuente`. Leerlo de `--font-ui` —que
+  // los dos modos ya fijan— arregla los tres de una vez y deja la prop como
+  // lo que debe ser: un override explícito, no el único camino.
+  const [fuenteAuto, setFuenteAuto] = useState<{ familia: string; cssSrc: string | null } | null>(null);
+  const fuenteCheckout = fuentePago ?? fuenteAuto ?? {
+    // Último recurso: la fuente base del widget (Instrument Sans, la de
+    // `sans`), pedida a Google Fonts porque dentro del iframe la copia
+    // self-hosted de next/font no existe.
     familia: 'Instrument Sans',
     cssSrc: 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap',
   };
   useEffect(() => {
     if (!marcaRef.current) return;
-    const valor = getComputedStyle(marcaRef.current).getPropertyValue('--portal-brand').trim();
+    const estilo = getComputedStyle(marcaRef.current);
+    const valor = estilo.getPropertyValue('--portal-brand').trim();
     if (valor) setColorMarca(valor);
+
+    // Del `font-family` resuelto solo interesa la PRIMERA familia. Y se exige
+    // que sea un nombre limpio: sin fuente elegida, `--font-ui` la define
+    // next/font y vale algo como `__Instrument_Sans_e8ce9c` —un alias local
+    // con guiones bajos que Google Fonts no conoce—, así que pedirle esa URL
+    // daría un 404 y el checkout se quedaría sin fuente. `fuenteValida` deja
+    // fuera justo esos alias, y entonces cae al literal de arriba, que es el
+    // comportamiento de siempre.
+    const familia = (estilo.getPropertyValue('--font-ui').split(',')[0] ?? '')
+      .trim().replace(/^['"]|['"]$/g, '');
+    if (familia && fuenteValida(familia)) {
+      setFuenteAuto({ familia, cssSrc: urlFuenteGoogle(familia) });
+    }
   }, []);
 
   if (!stripePromise || stripeKo) {
@@ -282,11 +307,41 @@ function FormularioPago({
     url.searchParams.set('tentare_pago', 'retorno');
     const { error: err, paymentIntent } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: url.toString() },
+      confirmParams: {
+        return_url: url.toString(),
+        // Obligatorio en cuanto la dirección es `never` en el Element: Stripe
+        // exige que la aporte quien la ocultó. Se manda SOLO el país, que es
+        // lo único que este flujo sabe de verdad — nunca un código postal
+        // heredado de otro sitio, que es justo el bug que se está cerrando.
+        //
+        // España fija, igual que `TZ_ESTUDIO`: el producto es presencial y
+        // solo se vende en España (mismo criterio ya cerrado que dejó fuera
+        // el selector de idioma y el de huso horario). Si algún día hay un
+        // estudio fuera, esto sale de su ficha, no de aquí.
+        payment_method_data: { billing_details: { address: { country: 'ES' } } },
+      },
       redirect: 'if_required',
     });
     setEnviando(false);
-    if (err) { setError(err.message ?? 'No se ha podido procesar el pago.'); return; }
+    if (err) {
+      // El motivo REAL del rechazo, que hasta ahora se perdía: `err.message`
+      // es el texto para la persona, pero `decline_code` es lo único que
+      // distingue «tarjeta sin fondos» de «el banco no acepta el código
+      // postal». Sin esto, diagnosticar este bug exigía reproducirlo en
+      // producción a ciegas. No cambia nada de lo que ve la clienta.
+      //
+      // ⚠️ Por consola y no con `Sentry.captureException`: este componente
+      // TAMBIÉN se compila dentro de public/widget.js (esbuild, sin externals),
+      // así que importar `@sentry/nextjs` aquí se llevaría medio SDK de Next al
+      // bundle que se carga en la web del estudio. En Modo A la consola la
+      // recoge el SDK del navegador igual, y es la misma vía que ya delató la
+      // clave de Stripe mal puesta unas líneas más arriba.
+      console.error('[checkout-embebido] pago rechazado', {
+        type: err.type, code: err.code, declineCode: err.decline_code,
+      });
+      setError(err.message ?? 'No se ha podido procesar el pago.');
+      return;
+    }
     if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
       onExito();
     }
@@ -318,15 +373,35 @@ function FormularioPago({
             y el teléfono que la persona acababa de escribir en el paso 1. */}
         <PaymentElement
           onReady={() => setElementoListo(true)}
-          options={datosPago ? {
-            defaultValues: {
-              billingDetails: {
-                name: datosPago.nombre || undefined,
-                email: datosPago.email || undefined,
-                phone: datosPago.telefono || undefined,
+          options={{
+            // ⚠️ NO pedimos dirección de facturación en ningún paso de este
+            // flujo — y hasta ahora no lo decíamos, que no es lo mismo. Sin
+            // `fields`, regía el default de Stripe (`auto`): era ÉL quien
+            // decidía pintar un campo de código postal dentro del bloque de
+            // tarjeta. Con `labels: 'floating'` ese campo va sin rótulo
+            // visible una vez escrito, así que se rellenaba (a mano o por el
+            // autocompletar del navegador) sin que la persona registrara que
+            // había introducido un código postal — y el banco lo rechazaba
+            // por no coincidir con el de la tarjeta. De ahí el error absurdo:
+            // «el código postal no coincide» en un formulario que, hasta
+            // donde se ve, no pide ninguno.
+            //
+            // `never` lo quita del formulario Y de lo que se envía. No es
+            // esconder el error: es dejar de mandar un dato que nunca
+            // pedimos, con lo que la comprobación pasa a «no disponible» en
+            // vez de «no coincide». La verificación antifraude real en España
+            // es 3DS/SCA, que no depende de esto.
+            fields: { billingDetails: { address: 'never' } },
+            ...(datosPago ? {
+              defaultValues: {
+                billingDetails: {
+                  name: datosPago.nombre || undefined,
+                  email: datosPago.email || undefined,
+                  phone: datosPago.telefono || undefined,
+                },
               },
-            },
-          } : undefined}
+            } : {}),
+          }}
         />
       </div>
       {error && (
