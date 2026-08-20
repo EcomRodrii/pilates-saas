@@ -24,7 +24,8 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe, luminancia } from '@/lib/reservar/apariencia-widget';
+import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
 import { semantic } from '@/lib/portal-tokens';
@@ -344,6 +345,26 @@ export default function ReservarPage() {
     () => resolverApariencia(embedMode ? aparienciaWidget : null, embedMode ? searchParams : null),
     [embedMode, aparienciaWidget, searchParams],
   );
+  // El resto del snippet (filtros/vista/toggles/diseño/marca), también SOLO
+  // incrustado — la página suelta /reservar/<slug> es de Tentare y no cambia.
+  // `fondo`/`tinta` los sigue resolviendo `resolverApariencia` de arriba
+  // (mismos nombres de param de siempre); de aquí solo se consume lo nuevo.
+  const configWidget = useMemo(
+    () => (embedMode ? resolverConfigWidget(searchParams) : null),
+    [embedMode, searchParams],
+  );
+  // `marca=` pisa `--portal-brand` en el subárbol del widget. El foreground se
+  // deriva por luminancia — dejar el crema del tema sobre una marca clara
+  // dejaría el texto de los botones ilegible.
+  const varsMarca = useMemo(() => {
+    const marca = configWidget?.colorPrimario;
+    if (!marca) return null;
+    const l = luminancia(marca.slice(0, 7));
+    return {
+      '--portal-brand': marca,
+      '--portal-brand-foreground': l != null && l < 0.45 ? '#FFFFFF' : '#22261F',
+    };
+  }, [configWidget]);
   // ⚠️ Solo se pisan las variables cuando hace falta. Emitirlas SIEMPRE dejaría
   // el widget con la paleta en línea aunque nadie la haya tocado, y a partir de
   // ahí un cambio del tema del portal ya no llegaría aquí.
@@ -404,6 +425,12 @@ export default function ReservarPage() {
   }, [studio?.id, searchParams]);
 
   const [filtroTipo, setFiltroTipo] = useState('');
+  // Con `?tipos=` en el snippet, los chips solo enseñan ese subconjunto: un
+  // chip de un tipo que el snippet excluye daría siempre cero resultados.
+  const tiposClaseVisibles = useMemo(
+    () => (configWidget?.tipos.length ? tiposClase.filter(t => configWidget.tipos.includes(t.id)) : tiposClase),
+    [tiposClase, configWidget],
+  );
   // Filtros de nivel/horario/día/instructora/sala — sin UI propia hoy (vivían
   // en el rail lateral y el quiz de descubrimiento, quitados al adoptar el
   // handoff design_handoff_widget_reservas), pero `slots` sigue filtrando por
@@ -778,6 +805,13 @@ export default function ReservarPage() {
     return sesionesRich
       .filter(s => !s.cancelada && new Date(s.inicio).getTime() > nowMs)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
+      // Filtros CONGELADOS en el snippet del iframe (config-widget.ts):
+      // ?tipos=/?instructoras=/?salas= por id, listas = multi-selección.
+      // Se aplican ADEMÁS de los chips: el snippet acota el catálogo y la
+      // visitante elige dentro de él.
+      .filter(s => !configWidget?.tipos.length || configWidget.tipos.includes(s.tipoClaseId))
+      .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
+      .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
@@ -818,7 +852,7 @@ export default function ReservarPage() {
           coberturaTexto: textoCobertura(cobertura(s.tipoClaseId)),
         } satisfies ReservaSlot;
       });
-  }, [sesionesRich, nowMs, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
+  }, [sesionesRich, nowMs, configWidget, filtroTipo, filtroNivel, filtroHorario, filtroDias, filtroInstructor, filtroSala, busqueda, filtroObjetivo, miReservaPorSesion, ocupadasPorSesion, spotsActivosPorSala, spotsOcupadosPorSesion, cobertura]);
 
   // Fase 4 del rediseño (docs/widget-reservas-fase4-brief-diseno.md, formato
   // 01): las clases de HOY que ya empezaron/terminaron se ven en gris con
@@ -832,6 +866,11 @@ export default function ReservarPage() {
     return sesionesRich
       .filter(s => !s.cancelada && new Date(s.fin).getTime() <= nowMs && localDayKey(new Date(s.inicio)) === hoyKey)
       .filter(s => !filtroTipo || s.tipoClaseId === filtroTipo)
+      // Mismos filtros del snippet que `slots` — una FINALIZADA de un tipo
+      // excluido tampoco debe verse.
+      .filter(s => !configWidget?.tipos.length || configWidget.tipos.includes(s.tipoClaseId))
+      .filter(s => !configWidget?.instructoras.length || configWidget.instructoras.includes(s.instructorId))
+      .filter(s => !configWidget?.salas.length || configWidget.salas.includes(s.salaId))
       .filter(s => !filtroNivel || (s.tipo?.nivel ?? 'TODOS') === filtroNivel)
       .filter(s => !filtroInstructor || s.instructor?.nombre === filtroInstructor)
       .filter(s => !filtroSala || s.sala?.nombre === filtroSala)
@@ -843,7 +882,7 @@ export default function ReservarPage() {
         instructorColor: s.instructor?.color ?? null,
         instructorFotoUrl: s.instructor?.fotoUrl ?? null,
       }));
-  }, [sesionesRich, now, nowMs, filtroTipo, filtroNivel, filtroInstructor, filtroSala]);
+  }, [sesionesRich, now, nowMs, configWidget, filtroTipo, filtroNivel, filtroInstructor, filtroSala]);
 
   const misReservas = useMemo(() => {
     if (!socia?.socioId) return [];
@@ -1529,6 +1568,9 @@ export default function ReservarPage() {
       // Custom properties en línea: cascadean a todo el subárbol, así que con
       // esto el widget entero pasa a letra clara sin tocar un solo componente.
       ...(varsTexto ?? {}),
+      // `?marca=` (snippet): pisa el primario en el mismo canal — solo existe
+      // con embed=1 (configWidget es null fuera), la página suelta no cambia.
+      ...(varsMarca ?? {}),
     } as React.CSSProperties}>
       {/* React 19 sube un `<link rel="stylesheet">` al `<head>` desde donde se
           declare, así que la fuente se pide sin tocar el layout ni meter un
@@ -1802,7 +1844,7 @@ export default function ReservarPage() {
                 como relleno del no-seleccionado (ese token es blanco en modo
                 día, y un fondo claro fijo pintado sobre una web oscura es
                 justo lo que reservar-acoplar-widget.spec.ts vigila). */}
-            {tiposClase.length > 0 && (
+            {tiposClaseVisibles.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 18 }} role="group" aria-label="Filtrar por tipo de clase">
                 <button type="button" onClick={() => setFiltroTipo('')} aria-pressed={filtroTipo === ''} style={{
                   padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
@@ -1812,7 +1854,7 @@ export default function ReservarPage() {
                 }}>
                   Todas
                 </button>
-                {tiposClase.map(t => (
+                {tiposClaseVisibles.map(t => (
                   <button key={t.id} type="button" onClick={() => setFiltroTipo(t.id)} aria-pressed={filtroTipo === t.id} style={{
                     padding: '8px 14px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', border: '1px solid transparent',
                     background: filtroTipo === t.id ? PRIMARY : 'transparent',
@@ -1837,7 +1879,14 @@ export default function ReservarPage() {
                 t={tokensCalendario}
                 slots={slots}
                 variant="calendario"
-                estiloDias="dias"
+                // `?diseno=ligero` (snippet, solo llega con embed=1) cambia a
+                // la rejilla compacta del bundle; el default sigue siendo la
+                // tira de 10 días.
+                estiloDias={configWidget?.diseno === 'ligero' ? 'grid' : 'dias'}
+                vistaInicial={configWidget?.vistaInicial ?? 'todo'}
+                ocultarPrecio={configWidget?.ocultarPrecio ?? false}
+                ocultarNivel={configWidget?.ocultarNivel ?? false}
+                ocultarSustituta={configWidget?.ocultarSustituta ?? false}
                 loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
