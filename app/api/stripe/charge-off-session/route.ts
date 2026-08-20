@@ -20,6 +20,10 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   SIN_STRIPE_CONECTADO: 409,
   CUENTA_NO_LISTA: 409,
   FALLO_COBRO: 402,
+  // D-5: desenlace desconocido (red caída, 5xx de Stripe) — NO es un rechazo
+  // de la tarjeta. Reintentar es seguro: la Idempotency-Key no cambió, así que
+  // Stripe deduplica. 503 y no 402 para que no se lea como "la socia no pagó".
+  ERROR_TRANSITORIO: 503,
   SUSCRIPCION_PAUSADA: 409,
   // Mal configurado el entorno, no culpa de quien pulsa: 503, como el resto de
   // "esto no está listo para cobrar" (ver lib/billing/modo-stripe.ts).

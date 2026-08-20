@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { applicationFeeAmount } from '@/lib/billing/stripe-fees';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { elegirMetodoCobro } from '@/lib/billing/metodo-cobro';
+import { clasificarErrorCobro } from '@/lib/billing/clasificar-error-cobro';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
 import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 
@@ -20,7 +21,7 @@ import { sellarFacturaDeRecibo } from '@/lib/billing/sellar-factura-server';
 // idempotencyKey de Stripe: un reintento del step de Inngest tras un fallo de
 // red nunca duplica el cargo.
 
-export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO';
+export type CobroErrorCode = 'NO_CONFIGURADO' | 'NO_ENCONTRADO' | 'NO_PENDIENTE' | 'SIN_TARJETA' | 'SIN_STRIPE_CONECTADO' | 'CUENTA_NO_LISTA' | 'FALLO_COBRO' | 'ERROR_TRANSITORIO' | 'SUSCRIPCION_PAUSADA' | 'MODO_STRIPE_CRUZADO';
 
 export interface ResultadoCobro {
   ok: boolean;
@@ -231,6 +232,26 @@ export async function cobrarReciboOffSession(params: {
       ? err.message
       : (err instanceof Error ? err.message : 'Error desconocido al cobrar');
     console.error('[cobrarReciboOffSession]', detalle);
+
+    // D-5 (auditoría 20-ago): un fallo de infraestructura NO es un rechazo del
+    // cobro. El porqué completo (y la trampa del doble cargo real que había
+    // aquí: contador arriba → clave de idempotencia nueva → si el cargo
+    // original entró y se perdió la respuesta, segundo cargo) está en
+    // lib/billing/clasificar-error-cobro.ts, que es donde la regla se fija con
+    // tests. El dunning ya trata cualquier código distinto de FALLO_COBRO como
+    // "omitido, se reintenta el siguiente barrido sin contar intento" — que
+    // con la MISMA clave de idempotencia es exactamente el reintento seguro.
+    if (clasificarErrorCobro(err) === 'ERROR_TRANSITORIO') {
+      Sentry.captureMessage('[cobrarReciboOffSession] fallo transitorio: el desenlace del cargo es DESCONOCIDO', {
+        level: 'warning',
+        tags: { area: 'cobros', tipo: 'cobro-transitorio' },
+        extra: { reciboId: params.reciboId, socioId: params.socioId, studioId: params.studioId, idempotencyKey, detalle },
+      });
+      return {
+        ok: false, errorCode: 'ERROR_TRANSITORIO',
+        error: 'Stripe no respondió y el cobro quedó sin confirmar. Se reintentará solo con la misma clave, sin riesgo de doble cargo.',
+      };
+    }
     return { ok: false, error: 'No se pudo completar el cobro. Inténtalo de nuevo más tarde.', errorCode: 'FALLO_COBRO' };
   }
 }

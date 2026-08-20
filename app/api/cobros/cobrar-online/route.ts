@@ -23,6 +23,9 @@ const STATUS_POR_ERROR: Record<CobroErrorCode, number> = {
   SIN_STRIPE_CONECTADO: 409,
   CUENTA_NO_LISTA: 409,
   FALLO_COBRO: 402,
+  // D-5: desenlace desconocido (red/5xx de Stripe) — no es un rechazo de la
+  // tarjeta, y reintentar es seguro (misma Idempotency-Key).
+  ERROR_TRANSITORIO: 503,
   SUSCRIPCION_PAUSADA: 409,
   MODO_STRIPE_CRUZADO: 503,
 };

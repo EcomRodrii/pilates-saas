@@ -94,8 +94,13 @@ export const procesarDunningEstudio = inngest.createFunction(
           const out = await registrarFalloCobro({ admin, reciboId: r.id, studioId, esSepa: false, ahoraISO: nowISO });
           return { tipo: 'fallo' as const, estado: out?.estado };
         }
-        // Sin método guardado, cuenta no lista, no configurado o ya no pendiente →
-        // se omite (NO cuenta como intento; se reintentará en el siguiente barrido).
+        // Sin método guardado, cuenta no lista, no configurado, ya no pendiente
+        // o ERROR_TRANSITORIO (D-5: red caída / 5xx de Stripe, desenlace del
+        // cargo desconocido) → se omite (NO cuenta como intento). Que el
+        // contador no avance es lo que hace SEGURO el siguiente barrido: repite
+        // la MISMA Idempotency-Key (`-i{n}`) y Stripe deduplica — si el cargo
+        // original entró y solo se perdió la respuesta, devuelve aquel
+        // `succeeded` en vez de cobrar otra vez.
         return { tipo: 'omitido' as const, errorCode: cobro.errorCode };
       });
 

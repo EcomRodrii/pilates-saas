@@ -68,6 +68,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, status: resultado.status });
   }
 
+  // D-5: un fallo TRANSITORIO (red/5xx de Stripe, desenlace del cargo
+  // desconocido) NO es un veredicto, así que la penalización se queda en
+  // PENDIENTE_APROBACION para que el botón pueda pulsarse otra vez — el
+  // reintento reutiliza la MISMA Idempotency-Key (el contador del recibo no
+  // avanzó) y Stripe deduplica. Marcarla FALLIDA aquí la terminalizaba: el
+  // guard de arriba (estado !== 'PENDIENTE_APROBACION' → 409) impedía
+  // reintentar, y el recibo del camino manual nace con `proximo_reintento:
+  // null` (lib/inngest/penalizaciones.ts), así que el dunning tampoco lo
+  // recoge — un timeout de Stripe dejaba la penalización perdida para siempre.
+  if (resultado.errorCode === 'ERROR_TRANSITORIO') {
+    return NextResponse.json({ error: resultado.error }, { status: 503 });
+  }
   await admin.from('penalizaciones')
     .update({ estado: 'FALLIDA', procesada_en: new Date().toISOString() })
     .eq('id', pen.id);
