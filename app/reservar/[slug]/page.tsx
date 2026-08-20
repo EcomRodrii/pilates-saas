@@ -24,7 +24,7 @@ import { cifrasVisibles, mereceBanda } from '@/lib/reservar/cifras';
 import { seccionReservarDeSistemaId, CAMPOS_RESERVAR_HORARIO } from '@/lib/portal-home-bloques';
 import { resolverConfig } from '@/lib/theme/campos.ts';
 import { BloqueReservarRender } from '@/components/reservar/bloque-reservar-render';
-import { resolverApariencia, fondoCss, familiaCss, urlFuente, modoTextoDe, luminancia } from '@/lib/reservar/apariencia-widget';
+import { resolverApariencia, fondoCss, familiaCss, urlFuente, familiaDisplayCss, urlFuenteDisplay, modoTextoDe, luminancia } from '@/lib/reservar/apariencia-widget';
 import { resolverConfigWidget } from '@/lib/reservar/config-widget';
 import { varsPaletaModo } from '@/lib/portal-paleta';
 import { MODO_TOKENS } from '@/lib/portal-modo';
@@ -395,6 +395,15 @@ export default function ReservarPage() {
   const esNoche = embedMode && modoTextoDe(apariencia) === 'noche';
   const fuenteWidget = familiaCss(apariencia);
   const cssFuente = urlFuente(apariencia);
+  // Titulares/horas/precios (widgetFuenteDisplay). Contrato de AparienciaWidget:
+  // `fuenteDisplay` a null hereda de `fuente` — el mismo fallback que ya
+  // resuelve `resolverTokensReservar` (lib/reservar-publico-tokens.ts:101).
+  // Se aplica poniendo `--portal-heading-font` en el subárbol del widget: es la
+  // PRIMERA parada de la pila `serif` (lib/portal-design.ts) que ya usan los
+  // ~30 titulares de esta pantalla — cero cambios por titular, y el mismo
+  // canal que ya usa el tema "Geométrico" del portal.
+  const fuenteDisplayWidget = familiaDisplayCss(apariencia) ?? fuenteWidget;
+  const cssFuenteDisplay = urlFuenteDisplay(apariencia);
 
   const [mounted, setMounted] = useState(false);
   // `now` en estado, con reloj de un minuto. Antes era
@@ -1656,6 +1665,10 @@ export default function ReservarPage() {
       background: fondoCss(apariencia) ?? 'var(--portal-bg)',
       color: 'var(--portal-ink)',
       fontFamily: fuenteWidget ?? sans,
+      // Solo se pisa la variable cuando hay fuente de titulares que aplicar —
+      // emitirla siempre rompería el fallback a `--font-display` (la pila
+      // `serif` de siempre) para quien no tocó nada.
+      ...(fuenteDisplayWidget ? { '--portal-heading-font': fuenteDisplayWidget } : {}),
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       // Custom properties en línea: cascadean a todo el subárbol, así que con
       // esto el widget entero pasa a letra clara sin tocar un solo componente.
@@ -1669,6 +1682,10 @@ export default function ReservarPage() {
           efecto. El nombre ya viene filtrado a letras, números y espacios —
           ver `urlFuente`, que lo vuelve a comprobar antes de construir la URL. */}
       {cssFuente && <link rel="stylesheet" href={cssFuente} />}
+      {/* La de titulares, si es OTRA familia — con la misma no hay nada más
+          que cargar (React 19 dedupe por href igual, pero no hace falta ni
+          llegar ahí). */}
+      {cssFuenteDisplay && cssFuenteDisplay !== cssFuente && <link rel="stylesheet" href={cssFuenteDisplay} />}
 
       {/* ── HERO ──────────────────────────────────────────────────────────────
           ⚠️ Aquí ponía que la foto del estudio «no existe hoy en la carga

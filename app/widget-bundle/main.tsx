@@ -22,7 +22,7 @@ import { createRoot } from 'react-dom/client';
 import { StrictMode, useCallback, useEffect, useRef, useState } from 'react';
 import { ReservaCalendario, type ReservaSlot } from '@/components/reserva/reserva-calendario';
 import { MODO_TOKENS, type ModoTokens } from '@/lib/portal-modo';
-import { resolverConfigWidget, fuenteDeDataset, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
+import { resolverConfigWidget, fuenteDeDataset, familiaCssDe, urlFuenteGoogle, CONFIG_WIDGET_POR_DEFECTO, type ConfigWidget } from '@/lib/reservar/config-widget';
 import type { FiltrosSlots } from '@/lib/reservar/construir-slots';
 import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
 import { trackEventoWidget } from '@/lib/reservar/eventos';
@@ -36,9 +36,40 @@ import { canonicalizarOrigen } from '@/lib/legal-info';
 // eso pinta /reservar/[slug] entero (fondo, tipografía, textos), un alcance
 // mucho mayor que "un calendario embebido". La personalización viaja CONGELADA
 // en los atributos del snippet (config-widget.ts): `data-color`/`data-marca`
-// para el primario, `data-fondo`/`data-negro` que derivan un tema desde este
-// (ver montarUno). Tipografía sigue fuera de este bundle.
+// para el primario, `data-fondo`/`data-negro` que derivan un tema desde este,
+// `data-fuente`/`data-fuente-display` para la tipografía (ver montarUno).
 const TEMA = MODO_TOKENS.dia;
+
+// ── Tipografía del bundle (P1) ───────────────────────────────────────────────
+// ⚠️ `@font-face` DENTRO de un shadow root no carga de forma fiable: las
+// fuentes se resuelven contra el documento. La vía que funciona es inyectar el
+// `<link>` de Google Fonts en el <head> del ANFITRIÓN (la web del estudio) y
+// referenciar la familia desde el CSS del shadow. Dedupe por href: dos widgets
+// en la misma página (caso soportado, ver el comentario de data-tentare-booking)
+// no deben pedir la misma hoja dos veces.
+// La URL sale de `urlFuenteGoogle` (validación anti-XSS incluida) y ya lleva
+// `display=swap`: la carga nunca bloquea el pintado — mientras llega se ve la
+// pila de reserva.
+function inyectarFuenteGoogle(nombre: string | null) {
+  const url = urlFuenteGoogle(nombre);
+  if (!url) return;
+  if (document.head.querySelector(`link[href="${url}"]`)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  link.setAttribute('data-tentare-fuente', '');
+  document.head.appendChild(link);
+}
+
+// Pilas base cuando el snippet NO nombra ninguna fuente. Decisión de
+// rendimiento deliberada: el bundle no carga NINGUNA webfont que el estudio no
+// haya pedido — 'Instrument Sans' solo resuelve si la web anfitriona ya la
+// tiene; si no, system-ui (digno y gratis). Para titulares, Georgia: la serif
+// del sistema que ya es el fallback del diseño de /reservar (portal-design.ts).
+// Antes de esto las vars ni existían en el shadow → `var(--font-ui)` sin valor
+// invalidaba la declaración entera y TODO caía a system-ui, titulares incluidos.
+const FUENTE_UI_BASE = "'Instrument Sans', system-ui, sans-serif";
+const FUENTE_DISPLAY_BASE = "'Instrument Serif', Georgia, serif";
 
 // Fase 3 (Booking Engine — checkout embebido): opcional a propósito, mismo
 // criterio que TURNSTILE_SITE_KEY en formulario-acceso.tsx — sin ella,
@@ -286,6 +317,25 @@ function montarUno(host: HTMLElement) {
   raiz.style.setProperty('--success', '#2F6B4F');
   raiz.style.setProperty('--warning', '#8F6215');
   raiz.style.setProperty('--destructive', '#A8442A');
+  // Tipografía (P1): mismo contrato que Modo A (apariencia-widget) —
+  // `fuente-display` a null hereda de `fuente`. Las vars se fijan SIEMPRE
+  // (con la base como valor): `all: initial` en :host NO resetea custom
+  // properties, así que sin esto un `--font-ui` de la web anfitriona se
+  // colaría en el shadow — y sin ninguna definición, `var(--font-ui)`
+  // invalidaba la declaración entera (el bug de "todo en system-ui").
+  inyectarFuenteGoogle(config.fuente);
+  if (config.fuenteDisplay !== config.fuente) inyectarFuenteGoogle(config.fuenteDisplay);
+  const fuenteUi = config.fuente ? familiaCssDe(config.fuente) : FUENTE_UI_BASE;
+  const fuenteDisplay = config.fuenteDisplay ? familiaCssDe(config.fuenteDisplay)
+    : config.fuente ? familiaCssDe(config.fuente) : FUENTE_DISPLAY_BASE;
+  raiz.style.setProperty('--font-ui', fuenteUi);
+  raiz.style.setProperty('--font-display', fuenteDisplay);
+  // `serif` (portal-design.ts) mira primero --portal-heading-font: se fija
+  // también para que un valor heredado del anfitrión no gane a --font-display.
+  raiz.style.setProperty('--portal-heading-font', fuenteDisplay);
+  // El texto que HEREDA (sin fontFamily propio) también debe ver la pila:
+  // la regla de :host queda por encima de raiz y no lee las vars de raiz.
+  raiz.style.fontFamily = fuenteUi;
   // data-fondo pinta el lienzo del widget (por defecto es transparente y se ve
   // la web anfitriona, como siempre). data-negro cambia la tinta del tema.
   // No es un filtro CSS por encima: <ReservaCalendario> pinta por tokens
