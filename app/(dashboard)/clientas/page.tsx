@@ -775,7 +775,7 @@ export default function Socios() {
               aria-label="Borrar búsqueda"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
             >
-              <X size={13} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -872,8 +872,8 @@ export default function Socios() {
               title={sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
             >
               {sortDir === 'asc'
-                ? <ChevronUp size={13} className="text-muted-foreground" />
-                : <ChevronDown size={13} className="text-muted-foreground" />}
+                ? <ChevronUp size={14} className="text-muted-foreground" />
+                : <ChevronDown size={14} className="text-muted-foreground" />}
             </button>
           </div>
         </div>
@@ -1125,7 +1125,7 @@ export default function Socios() {
                           className="p-1.5 rounded-md hover:bg-muted transition-colors"
                           title="Editar"
                         >
-                          <Pencil size={13} className="text-muted-foreground" />
+                          <Pencil size={14} className="text-muted-foreground" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -1138,15 +1138,15 @@ export default function Socios() {
                           title={s.activo ? 'Desactivar' : 'Activar'}
                         >
                           {s.activo
-                            ? <UserX size={13} className="text-muted-foreground" />
-                            : <UserCheck size={13} className="text-success" />}
+                            ? <UserX size={14} className="text-muted-foreground" />
+                            : <UserCheck size={14} className="text-success" />}
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setConfirmEliminar(s.id); }}
                           className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors"
                           title="Eliminar"
                         >
-                          <Trash2 size={13} className="text-destructive" />
+                          <Trash2 size={14} className="text-destructive" />
                         </button>
                         </>)}
                       </div>
@@ -1190,7 +1190,7 @@ export default function Socios() {
                         className="p-1.5 -mr-1.5 rounded-md hover:bg-destructive/10 shrink-0"
                         title="Eliminar"
                       >
-                        <Trash2 size={13} className="text-destructive" />
+                        <Trash2 size={14} className="text-destructive" />
                       </button>
                       )}
                     </div>
@@ -1358,7 +1358,7 @@ export default function Socios() {
               )}
               {form.planId && showForm === 'nueva' && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-lg">
-                  <CheckCircle2 size={13} className="text-success shrink-0" />
+                  <CheckCircle2 size={14} className="text-success shrink-0" />
                   <p className="text-[12px] text-success">
                     Se generará factura automática al completar la inscripción
                   </p>
@@ -1425,7 +1425,7 @@ export default function Socios() {
                 description="Solo si está delante y firma ella. Si se ha apuntado por teléfono, déjalo vacío: se lo pediremos cuando entre a reservar."
               >
                 <div className="relative">
-                  <PenLine size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <PenLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     className={inputCls + ' pl-8 font-medium italic'}
                     placeholder="Nombre completo de la clienta…"

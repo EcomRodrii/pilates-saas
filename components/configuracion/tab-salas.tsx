@@ -214,7 +214,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
           {salas.length === 1 ? '1 sala configurada' : `${salas.length} salas configuradas`}
         </p>
         <button className={btnPrimary} onClick={openNueva}>
-          <Plus size={13} />
+          <Plus size={14} />
           Nueva sala
         </button>
       </div>
@@ -261,14 +261,14 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                           className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-colors"
                           aria-label="Editar sala"
                         >
-                          <Pencil size={13} />
+                          <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => intentarBorrar(sala)}
                           className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                           aria-label="Eliminar sala"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -290,10 +290,10 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => openEditar(sala)} className="p-1.5 rounded-lg hover:bg-background text-muted-foreground" aria-label="Editar sala">
-                      <Pencil size={13} />
+                      <Pencil size={14} />
                     </button>
                     <button onClick={() => intentarBorrar(sala)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground" aria-label="Eliminar sala">
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -311,7 +311,7 @@ export function TabSalas({ showToast }: { showToast: (m: string) => void }) {
             <p className="text-[12px] text-muted-foreground">Una máquina averiada baja el aforo real de las clases de esa sala mientras dure.</p>
           </div>
           <button className={cn(btnSecondary, 'shrink-0')} onClick={abrirAveria} disabled={salas.length === 0}>
-            <Wrench size={13} />
+            <Wrench size={14} />
             Marcar avería
           </button>
         </div>

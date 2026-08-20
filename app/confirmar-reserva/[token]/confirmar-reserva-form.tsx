@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { CalendarX, CheckCircle2, type LucideIcon } from 'lucide-react';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 
 // Confirmar que viene a su clase, sin login. Un solo botón a propósito: la
 // validación de las entrevistas del resto del módulo de riesgo manda que sea
@@ -39,7 +41,7 @@ export function ConfirmarReservaForm({
 
   if (estado === 'confirmada') {
     return (
-      <Pantalla icono="✅" titulo="¡Confirmado!">
+      <Pantalla icono={CheckCircle2} tono="exito" titulo="¡Confirmado!">
         <p className="mt-2 text-sm text-slate-500">
           {estudioNombre ? `${estudioNombre} ya sabe` : 'Ya sabemos'} que vienes a <span className="font-medium text-slate-700">{claseNombre}</span>
           {cuando ? ` (${cuando})` : ''}. Nos vemos allí.
@@ -50,7 +52,7 @@ export function ConfirmarReservaForm({
 
   if (estado === 'liberada') {
     return (
-      <Pantalla icono="🗓️" titulo="Tu plaza ya se liberó">
+      <Pantalla icono={CalendarX} titulo="Tu plaza ya se liberó">
         <p className="mt-2 text-sm text-slate-500">
           No llegamos a tiempo con tu confirmación y ya se la ofrecimos a otra persona. Si quieres, reserva otra clase desde el portal de tu estudio.
         </p>
@@ -91,11 +93,11 @@ export function ConfirmarReservaForm({
   );
 }
 
-function Pantalla({ icono, titulo, children }: { icono: string; titulo: string; children: React.ReactNode }) {
+function Pantalla({ icono, tono, titulo, children }: { icono: LucideIcon; tono?: 'exito' | 'neutro'; titulo: string; children: React.ReactNode }) {
   return (
     <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-        <div className="text-4xl mb-3">{icono}</div>
+        <IconoDesenlace icono={icono} tono={tono} />
         <h1 className="text-lg font-semibold text-slate-900">{titulo}</h1>
         {children}
       </div>

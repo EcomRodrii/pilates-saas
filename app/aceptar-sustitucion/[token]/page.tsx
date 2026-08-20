@@ -1,6 +1,8 @@
+import { CheckCircle2, Hourglass, Lock, PartyPopper, ThumbsUp, type LucideIcon } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
 import { ultimaRespuestaDe, type ContactoFila } from '@/lib/sustituciones/traza';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 import { AceptarForm } from './aceptar-form';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -19,17 +21,17 @@ export default async function AceptarPage({ params }: { params: Promise<{ token:
   const { token } = await params;
   const claim = verificarTokenInstructora(token, 'aceptar_sustitucion');
   if (!claim || !claim.ref) {
-    return <Aviso icono="🔒" titulo="Enlace no válido o caducado" texto="Pide a tu estudio que te avise de otra forma." />;
+    return <Aviso icono={Lock} titulo="Enlace no válido o caducado" texto="Pide a tu estudio que te avise de otra forma." />;
   }
 
   const admin = getSupabaseAdmin();
-  if (!admin) return <Aviso icono="⏳" titulo="No disponible ahora mismo" texto="Inténtalo de nuevo en unos minutos." />;
+  if (!admin) return <Aviso icono={Hourglass} titulo="No disponible ahora mismo" texto="Inténtalo de nuevo en unos minutos." />;
 
   const { data: sust } = await admin
     .from('sustituciones')
     .select('id, estado, sesion_id, sesiones(inicio, tipo_clase_id)')
     .eq('id', claim.ref).eq('studio_id', claim.studioId).maybeSingle();
-  if (!sust) return <Aviso icono="🔒" titulo="Enlace no válido" texto="No encontramos esta sustitución." />;
+  if (!sust) return <Aviso icono={Lock} titulo="Enlace no válido" texto="No encontramos esta sustitución." />;
 
   // Antes que nada: ¿ya contestó ESTA instructora? Va delante del estado de la
   // sustitución porque ninguno de los dos casos se ve bien desde ahí — quien
@@ -44,16 +46,16 @@ export default async function AceptarPage({ params }: { params: Promise<{ token:
     .eq('instructor_id', claim.instructorId);
   const respondida = ultimaRespuestaDe((contactos ?? []) as ContactoFila[]);
   if (respondida === 'rechazado') {
-    return <Aviso icono="👍" titulo="Ya nos contestaste"
+    return <Aviso icono={ThumbsUp} titulo="Ya nos contestaste"
       texto="Nos dijiste que esta no podías cubrirla. Estamos buscando a otra persona — no tienes que hacer nada más." />;
   }
   if (respondida === 'aceptado') {
-    return <Aviso icono="🎉" titulo="Esta clase ya es tuya"
+    return <Aviso icono={PartyPopper} tono="exito" titulo="Esta clase ya es tuya"
       texto="Confirmaste que la cubres. La tienes en tu calendario." />;
   }
 
   if (!EN_JUEGO.includes(sust.estado as string)) {
-    return <Aviso icono="✅" titulo="Ya está cubierta" texto="Otra persona la cogió antes. ¡Gracias igualmente!" />;
+    return <Aviso icono={CheckCircle2} titulo="Ya está cubierta" texto="Otra persona la cogió antes. ¡Gracias igualmente!" />;
   }
 
   const ses = (Array.isArray(sust.sesiones) ? sust.sesiones[0] : sust.sesiones) as
@@ -75,11 +77,11 @@ export default async function AceptarPage({ params }: { params: Promise<{ token:
   );
 }
 
-function Aviso({ icono, titulo, texto }: { icono: string; titulo: string; texto: string }) {
+function Aviso({ icono, tono, titulo, texto }: { icono: LucideIcon; tono?: 'exito' | 'neutro'; titulo: string; texto: string }) {
   return (
     <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-        <div className="text-4xl mb-3">{icono}</div>
+        <IconoDesenlace icono={icono} tono={tono} />
         <h1 className="text-lg font-semibold text-slate-900">{titulo}</h1>
         <p className="mt-2 text-sm text-slate-500">{texto}</p>
       </div>

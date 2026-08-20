@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
@@ -208,7 +209,7 @@ export default function GlosarioPage() {
               {t.extra && <p style={{ fontSize: 15.5, lineHeight: 1.65, color: MUTED, margin: 0 }}>{t.extra}</p>}
               {t.guia && (
                 <Link href={t.guia.href} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 14, fontSize: 14, fontWeight: 700, color: ACC, textDecoration: 'none' }}>
-                  {t.guia.label} <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                  {t.guia.label} <ArrowRight size={14} />
                 </Link>
               )}
             </div>

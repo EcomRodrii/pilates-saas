@@ -105,7 +105,7 @@ export function FichaPlazaFija({ socioId }: { socioId: string }) {
           disabled={salas.length === 0}
           className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors disabled:opacity-40 shrink-0"
         >
-          <Plus size={13} /> Añadir
+          <Plus size={14} /> Añadir
         </button>
       </div>
 

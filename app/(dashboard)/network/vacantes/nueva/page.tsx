@@ -44,7 +44,7 @@ export default function NuevaVacanteNetworkPage() {
   return (
     <div className="space-y-5 max-w-2xl">
       <Link href="/network/vacantes" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver a mis vacantes
+        <ArrowLeft size={14} /> Volver a mis vacantes
       </Link>
 
       <PageHeader title="Nueva vacante" description="Publica lo que buscas — la instructora aplicará directamente." />

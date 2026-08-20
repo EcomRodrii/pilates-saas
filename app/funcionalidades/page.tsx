@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
@@ -95,7 +96,7 @@ export default function FuncionalidadesPage() {
                     <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED, margin: '0 0 16px', flex: 1 }}>{f.resumen}</p>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 700, color: ACC }}>
                       Ver cómo funciona
-                      <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                      <ArrowRight size={15} />
                     </span>
                   </Link>
                 );

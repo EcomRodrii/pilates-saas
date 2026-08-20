@@ -35,7 +35,7 @@ export function ReservarEsquema({ bloques }: { bloques: BloqueHome[] }) {
               ? 'border-dashed border-border bg-transparent'
               : fija ? 'border-dashed border-border bg-muted/40' : 'border-transparent bg-muted'}`}
           >
-            {fija && <Lock size={13} className="flex-none text-muted-foreground mt-0.5" aria-hidden />}
+            {fija && <Lock size={14} className="flex-none text-muted-foreground mt-0.5" aria-hidden />}
             <div className="min-w-0">
               <p className={`text-[13px] font-semibold ${oculta ? 'text-muted-foreground/50 line-through' : 'text-foreground'}`}>
                 {labelDe(b)}

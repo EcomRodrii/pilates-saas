@@ -1268,7 +1268,7 @@ export default function Dashboard() {
               <div className="bg-card rounded-xl border border-border">
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-muted">
                   <div className="flex items-center gap-2">
-                    <RefreshCw size={13} className="text-success" />
+                    <RefreshCw size={14} className="text-success" />
                     <h2 className="text-[13px] font-semibold text-foreground">
                       Renovaciones
                     </h2>

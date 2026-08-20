@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Plus, Users } from 'lucide-react';
+import { Loader2, Plus, Users, Briefcase } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { fetchMisVacantesNetwork } from '@/lib/api-client';
 import { TIPO_TRABAJO_LABEL } from '@/lib/network/catalogo';
 import type { VacanteNetwork } from '@/lib/network/tipos';
@@ -41,7 +42,7 @@ export default function VacantesNetworkPage() {
             href="/network/vacantes/nueva"
             className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5"
           >
-            <Plus size={13} /> Nueva vacante
+            <Plus size={14} /> Nueva vacante
           </Link>
         )}
       />
@@ -51,9 +52,7 @@ export default function VacantesNetworkPage() {
           <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : vacantes.length === 0 ? (
-        <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Todavía no has publicado ninguna vacante.</p>
-        </div>
+        <EmptyState icono={Briefcase} titulo="Todavía no has publicado ninguna vacante." />
       ) : (
         <div className="space-y-2.5">
           {vacantes.map(v => (
@@ -68,7 +67,7 @@ export default function VacantesNetworkPage() {
                 <p className="text-[12px] text-muted-foreground">{TIPO_TRABAJO_LABEL[v.tipoTrabajo]}</p>
               </div>
               <div className="shrink-0 flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
-                <Users size={13} />
+                <Users size={14} />
                 {v.totalCandidaturas ?? 0}
               </div>
             </Link>

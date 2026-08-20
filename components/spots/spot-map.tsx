@@ -98,7 +98,7 @@ export function SpotMap({ spots, reservas, socios, readOnly, onAsignarSpot, onQu
                         ? { backgroundColor: '#C3D9B0', color: 'var(--foreground)' }
                         : { backgroundColor: 'var(--brand)', color: 'var(--brand-foreground)' }}
                     >
-                      {asistida ? <Check size={13} /> : `${reserva.socio.nombre[0]}${reserva.socio.apellidos[0]}`}
+                      {asistida ? <Check size={14} /> : `${reserva.socio.nombre[0]}${reserva.socio.apellidos[0]}`}
                     </div>
                     <span className="text-[10px] font-semibold leading-tight text-foreground">
                       {reserva.socio.nombre.split(' ')[0]}

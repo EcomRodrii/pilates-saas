@@ -327,7 +327,7 @@ export default function MiPerfilNetworkPage() {
                   className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center hover:bg-background transition-colors disabled:opacity-40"
                   aria-label="Subir foto"
                 >
-                  <Camera size={13} className="text-foreground" />
+                  <Camera size={14} className="text-foreground" />
                 </button>
                 <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFotoChange} className="hidden" />
               </div>
@@ -541,11 +541,11 @@ export default function MiPerfilNetworkPage() {
                     )}
                   >
                     {cambiandoEstado ? (
-                      <Loader2 size={13} className="animate-spin" />
+                      <Loader2 size={14} className="animate-spin" />
                     ) : perfil.estado === 'published' ? (
-                      <EyeOff size={13} />
+                      <EyeOff size={14} />
                     ) : (
-                      <Eye size={13} />
+                      <Eye size={14} />
                     )}
                     {perfil.estado === 'published' ? 'Ocultar perfil' : 'Enviar a revisión'}
                   </button>
@@ -556,7 +556,7 @@ export default function MiPerfilNetworkPage() {
                     disabled={cambiandoEstado}
                     className="shrink-0 px-3.5 py-2 rounded-lg text-[12px] font-medium flex items-center gap-1.5 transition-colors disabled:opacity-60 bg-brand text-brand-foreground hover:brightness-95"
                   >
-                    {cambiandoEstado ? <Loader2 size={13} className="animate-spin" /> : <Eye size={13} />}
+                    {cambiandoEstado ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
                     Enviar a revisión
                   </button>
                 )}
@@ -619,7 +619,7 @@ export default function MiPerfilNetworkPage() {
             disabled={guardando || (idPaso === 'basicos' && !form.nombre.trim())}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12.5px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
           >
-            {guardando ? <Loader2 size={13} className="animate-spin" /> : <>Siguiente <ChevronRight size={14} /></>}
+            {guardando ? <Loader2 size={14} className="animate-spin" /> : <>Siguiente <ChevronRight size={14} /></>}
           </button>
         ) : (
           <button
@@ -627,7 +627,7 @@ export default function MiPerfilNetworkPage() {
             disabled={guardando}
             className="px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5 disabled:opacity-60"
           >
-            {guardando ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+            {guardando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
             {guardando ? 'Guardando…' : 'Guardar cambios'}
           </button>
         )}

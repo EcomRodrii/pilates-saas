@@ -1,5 +1,7 @@
+import { Hourglass, Lock, type LucideIcon } from 'lucide-react';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenValoracion } from '@/lib/valoraciones/token';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 import { ValorarForm } from './valorar-form';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
@@ -16,16 +18,16 @@ export default async function ValorarPage({ params }: { params: Promise<{ token:
   const { token } = await params;
   const claim = verificarTokenValoracion(token);
   if (!claim) {
-    return <Aviso icono="🔒" titulo="Enlace no válido o caducado" texto="Pídele a tu estudio que te lo reenvíe." />;
+    return <Aviso icono={Lock} titulo="Enlace no válido o caducado" texto="Pídele a tu estudio que te lo reenvíe." />;
   }
 
   const admin = getSupabaseAdmin();
-  if (!admin) return <Aviso icono="⏳" titulo="No disponible ahora mismo" texto="Inténtalo de nuevo en unos minutos." />;
+  if (!admin) return <Aviso icono={Hourglass} titulo="No disponible ahora mismo" texto="Inténtalo de nuevo en unos minutos." />;
 
   const { data: ses } = await admin
     .from('sesiones').select('inicio, tipo_clase_id, instructor_id, cancelada')
     .eq('id', claim.sesionId).eq('studio_id', claim.studioId).maybeSingle();
-  if (!ses) return <Aviso icono="🔒" titulo="Enlace no válido" texto="No encontramos esta clase." />;
+  if (!ses) return <Aviso icono={Lock} titulo="Enlace no válido" texto="No encontramos esta clase." />;
 
   const [{ data: instructora }, { data: tipo }, { data: estudio }, { data: previa }] = await Promise.all([
     admin.from('instructores').select('nombre').eq('id', ses.instructor_id ?? '').maybeSingle(),
@@ -46,11 +48,11 @@ export default async function ValorarPage({ params }: { params: Promise<{ token:
   );
 }
 
-function Aviso({ icono, titulo, texto }: { icono: string; titulo: string; texto: string }) {
+function Aviso({ icono, tono, titulo, texto }: { icono: LucideIcon; tono?: 'exito' | 'neutro'; titulo: string; texto: string }) {
   return (
     <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-        <div className="text-4xl mb-3">{icono}</div>
+        <IconoDesenlace icono={icono} tono={tono} />
         <h1 className="text-lg font-semibold text-slate-900">{titulo}</h1>
         <p className="mt-2 text-sm text-slate-500">{texto}</p>
       </div>

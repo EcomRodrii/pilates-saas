@@ -30,7 +30,7 @@ export function ResultadosInstructoras({ perfiles }: { perfiles: PerfilNetworkPu
           className="flex items-center gap-1.5 text-[12.5px] font-semibold disabled:opacity-70"
           style={{ color: NW_TINTA }}
         >
-          {estado === 'pidiendo' ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+          {estado === 'pidiendo' ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
           {estado === 'activo' ? 'Ordenado por cercanía' : 'Cerca de mí'}
         </button>
         <p className="text-[12.5px] font-medium" style={{ color: NW_MUTED_2 }}>

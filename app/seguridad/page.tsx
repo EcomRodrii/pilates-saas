@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Activity, CreditCard, Database, Download, FileCheck, Globe, Layers, Lock, Shield, X } from 'lucide-react';
 import { ACC, MUTED, MUTED_DARK } from '@/components/landing/theme';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -31,37 +32,37 @@ function Icon({ children, bg, fg }: { children: React.ReactNode; bg: string; fg:
 const PILLARS = [
   {
     bg: '#F1F2EA', fg: ACC,
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" /><path d="m6.08 9.5-3.49 1.59a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59" /></svg>,
+    icon: <Layers size={21} />,
     title: 'Cada estudio, aislado',
     body: 'Seguridad a nivel de fila en todas las tablas de la base de datos: tu estudio accede únicamente a sus propios datos, nunca a los de otro. Es una barrera técnica, no solo una pantalla.',
   },
   {
     bg: '#EDF3F4', fg: '#3E7C86',
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><circle cx={12} cy={12} r={10} /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>,
+    icon: <Globe size={21} />,
     title: 'Datos en Europa, RGPD',
     body: 'La información se aloja en la Unión Europea y se trata conforme al RGPD. No cruza el Atlántico como en las suites estadounidenses.',
   },
   {
     bg: '#F1F2EA', fg: '#C2503A',
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 13h5l1.5-4 3 8 1.5-4h5" /></svg>,
+    icon: <Activity size={21} />,
     title: 'Datos de salud, con consentimiento',
     body: 'La ficha clínica de tus alumnas (lesiones, embarazo, condiciones) es categoría especial del RGPD. Se guarda con consentimiento explícito y acceso restringido por rol.',
   },
   {
     bg: '#E7F3EC', fg: '#4E9E7F',
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v5h5" /><path d="m9 15 2 2 4-4" /></svg>,
+    icon: <FileCheck size={21} />,
     title: 'Facturación legal (Veri*factu)',
     body: 'Las facturas se emiten con encadenamiento por hash y código QR, según el estándar Veri*factu español. Corrección fiscal de serie, sin capas externas.',
   },
   {
     bg: '#F1F2EA', fg: '#5A6142',
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect width={20} height={14} x={2} y={5} rx={2} /><line x1={2} x2={22} y1={10} y2={10} /></svg>,
+    icon: <CreditCard size={21} />,
     title: 'Pagos que no tocan tu servidor',
     body: 'Los cobros se procesan con Stripe. Tentare no almacena los números de tarjeta de tus alumnas — los gestiona el proveedor de pagos certificado.',
   },
   {
     bg: '#F1F2EA', fg: ACC,
-    icon: <svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><ellipse cx={12} cy={5} rx={9} ry={3} /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></svg>,
+    icon: <Database size={21} />,
     title: 'Copias de seguridad',
     body: 'Guardamos copias fuera de la propia base de datos, en almacenamiento independiente. Si algo se tuerce, tu información se puede restaurar.',
   },
@@ -84,7 +85,7 @@ export default function SeguridadPage() {
         <div style={{ position: 'absolute', top: '-18%', right: '-6%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.28), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 800, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#A8B080', background: 'rgba(90,97,66,.16)', padding: '8px 15px', borderRadius: 999, marginBottom: 22 }}>
-            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></svg>
+            <Shield size={14} />
             Seguridad y privacidad
           </div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px', color: '#fff' }}>Tus datos y los de tus<br />alumnas, protegidos.</h1>
@@ -111,12 +112,12 @@ export default function SeguridadPage() {
 
           <div className="sec-two" style={{ marginTop: 22 }}>
             <Reveal style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
-              <Icon bg="rgba(255,255,255,.08)" fg="#A8B080"><svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><rect width={18} height={11} x={3} y={11} rx={2} /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></Icon>
+              <Icon bg="rgba(255,255,255,.08)" fg="#A8B080"><Lock size={21} /></Icon>
               <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Acceso protegido</h2>
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Inicio de sesión seguro con tu cuenta o con Google, permisos por rol para tu equipo, límites anti-abuso en las peticiones y monitorización continua de errores. Cada instructora ve solo lo que le corresponde.</p>
             </Reveal>
             <Reveal delay={90} style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: 28 }}>
-              <Icon bg="rgba(255,255,255,.08)" fg="#7BD3A8"><svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1={12} x2={12} y1={15} y2={3} /></svg></Icon>
+              <Icon bg="rgba(255,255,255,.08)" fg="#7BD3A8"><Download size={21} /></Icon>
               <h2 style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-.01em', margin: '0 0 8px', color: '#fff' }}>Tus datos son tuyos</h2>
               <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED_DARK, margin: 0 }}>Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te vas con todo.</p>
             </Reveal>
@@ -141,7 +142,7 @@ export default function SeguridadPage() {
             {NEVER.map((t) => (
               <div key={t} style={{ display: 'flex', gap: 13, alignItems: 'flex-start', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '18px 20px' }}>
                 <span style={{ flexShrink: 0, width: 24, height: 24, borderRadius: 7, background: '#F1F2EA', color: '#C2503A', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  <X size={14} strokeWidth={2.4} />
                 </span>
                 <span style={{ fontSize: 15.5, lineHeight: 1.5, color: '#3A3A34' }}>{t}</span>
               </div>

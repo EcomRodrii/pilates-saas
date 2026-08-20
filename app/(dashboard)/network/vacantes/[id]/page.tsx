@@ -2,8 +2,9 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check, X } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, Users } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { Toast, useToast } from '@/components/ui/toast';
 import {
@@ -84,7 +85,7 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
     return (
       <div className="space-y-4 max-w-2xl">
         <Link href="/network/vacantes" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-          <ArrowLeft size={13} /> Volver a mis vacantes
+          <ArrowLeft size={14} /> Volver a mis vacantes
         </Link>
         <div className={`${cardCls} p-8 text-center`}>
           <p className="text-[13px] text-muted-foreground">Esta vacante no existe.</p>
@@ -96,7 +97,7 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
   return (
     <div className="space-y-5 max-w-2xl">
       <Link href="/network/vacantes" className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-        <ArrowLeft size={13} /> Volver a mis vacantes
+        <ArrowLeft size={14} /> Volver a mis vacantes
       </Link>
 
       <PageHeader
@@ -137,8 +138,8 @@ export default function VacanteDetalleNetworkPage({ params }: { params: Promise<
       <h2 className="text-[15px] font-semibold text-foreground">Candidaturas ({candidaturas?.length ?? 0})</h2>
 
       {!candidaturas || candidaturas.length === 0 ? (
-        <div className={`${cardCls} p-6 text-center`}>
-          <p className="text-[13px] text-muted-foreground">Todavía no ha aplicado nadie.</p>
+        <div className={cardCls}>
+          <EmptyState compacto icono={Users} titulo="Todavía no ha aplicado nadie." />
         </div>
       ) : (
         <div className="space-y-2.5">

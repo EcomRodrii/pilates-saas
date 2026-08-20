@@ -56,7 +56,7 @@ function ColorHeredado({ label, value, onChange }: { label: string; value: strin
         />
         {value && (
           <button type="button" onClick={() => onChange(null)} className="text-[11px] text-muted-foreground hover:text-destructive" aria-label={`Quitar ${label}`}>
-            <Trash2 size={13} />
+            <Trash2 size={14} />
           </button>
         )}
       </span>

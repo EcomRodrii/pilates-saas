@@ -38,7 +38,7 @@ export function FranjaDecisiones({
         className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-white"
         style={{ background: 'var(--destructive)' }}
       >
-        <AlertTriangle size={13} />
+        <AlertTriangle size={14} />
       </span>
       <p className="whitespace-nowrap text-[13px] font-bold" style={{ color: 'var(--destructive)' }}>{titulo}</p>
       <p className="min-w-[120px] flex-1 truncate text-[12.5px] text-muted-foreground">

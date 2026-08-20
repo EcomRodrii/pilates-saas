@@ -8,7 +8,7 @@ import { usePortalAuth } from '@/lib/portal-auth';
 import { useStudio, REFRESCO_ACTIVO_MS } from '@/lib/studio-context';
 import { tieneCoberturaPlan } from '@/lib/portal-home-logic';
 import { useModo } from '@/lib/portal-modo';
-import { ChevronLeft, Clock, Users, MapPin, BarChart2, Star, CheckCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Clock, Users, MapPin, BarChart3, Star, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button, BottomSheet, Toast, AforoIndicator, type AvisoToast } from '@/components/portal/ui';
 import { HojaReserva, type ClaseParaReservar, type ResultadoConfirmar } from '@/components/portal/hoja-reserva';
 import { formatFechaLarga } from '@/lib/utils';
@@ -226,7 +226,7 @@ export default function ClaseDetallePage() {
               </button>
             )}
             <div style={{ width: 36, height: 36, borderRadius: 999, background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BarChart2 size={16} style={{ color: '#fff' }} />
+              <BarChart3 size={16} style={{ color: '#fff' }} />
             </div>
           </div>
         </div>
@@ -257,14 +257,14 @@ export default function ClaseDetallePage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '16px 0', borderBottom: `1px solid ${t.line}` }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.muted, marginBottom: 4 }}>
-                <Clock size={13} />
+                <Clock size={14} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Horario</span>
               </div>
               <p style={{ fontSize: 14, fontWeight: 800, color: t.ink }}>{formatTime(ses.inicio)}–{formatTime(ses.fin)}</p>
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.muted, marginBottom: 4 }}>
-                <Users size={13} />
+                <Users size={14} />
                 <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plazas</span>
               </div>
               <AforoIndicator libres={libres} style={{ fontSize: 14, fontWeight: 800 }} />
@@ -272,7 +272,7 @@ export default function ClaseDetallePage() {
           </div>
 
           <div style={{ padding: '16px 0', borderBottom: `1px solid ${t.line}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.muted2 }}>
-            <MapPin size={13} style={{ color: t.muted, flexShrink: 0 }} />
+            <MapPin size={14} style={{ color: t.muted, flexShrink: 0 }} />
             <span style={{ textTransform: 'capitalize' }}>{formatDayFull(ses.inicio)}</span>
             {sala && <span>· {sala.nombre}</span>}
           </div>
@@ -289,8 +289,8 @@ export default function ClaseDetallePage() {
           {miReserva && (
             <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 18, padding: '12px 16px', backgroundColor: miReserva.estado === 'CONFIRMADA' ? 'rgba(62,155,108,0.12)' : 'rgba(217,119,6,0.12)' }}>
               {miReserva.estado === 'CONFIRMADA'
-                ? <CheckCircle size={15} style={{ color: '#3E9B6C', flexShrink: 0 }} />
-                : <AlertCircle size={15} style={{ color: '#8F6215', flexShrink: 0 }} />}
+                ? <CheckCircle2 size={15} style={{ color: '#3E9B6C', flexShrink: 0 }} />
+                : <AlertTriangle size={15} style={{ color: '#8F6215', flexShrink: 0 }} />}
               <p style={{ fontSize: 13, fontWeight: 700, color: miReserva.estado === 'CONFIRMADA' ? '#3E9B6C' : '#8F6215' }}>
                 {miReserva.estado === 'CONFIRMADA' ? 'Ya tienes esta clase reservada' : 'Estás en lista de espera'}
               </p>

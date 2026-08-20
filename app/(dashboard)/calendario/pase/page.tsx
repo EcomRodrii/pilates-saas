@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Camera, CheckCircle2, AlertCircle, DoorOpen, QrCode } from 'lucide-react';
+import { ArrowLeft, Camera, CheckCircle2, XCircle, DoorOpen, QrCode } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { useStudio } from '@/lib/studio-context';
 
@@ -249,7 +249,7 @@ export default function LeerPasePage() {
         >
           {resultado.ok
             ? <CheckCircle2 size={20} style={{ color: '#2E7D46', flexShrink: 0 }} />
-            : <AlertCircle size={20} style={{ color: '#C0362D', flexShrink: 0 }} />}
+            : <XCircle size={20} style={{ color: '#C0362D', flexShrink: 0 }} />}
           <div className="flex flex-col gap-1">
             {resultado.ok ? (
               <>
@@ -257,7 +257,7 @@ export default function LeerPasePage() {
                   {resultado.quien}{resultado.yaEstaba ? ' ya estaba dentro' : ' — dentro'}
                 </p>
                 {resultado.puerta === 'abierta' && (
-                  <p className="text-xs opacity-70 inline-flex items-center gap-1.5"><DoorOpen size={13} />Puerta abierta</p>
+                  <p className="text-xs opacity-70 inline-flex items-center gap-1.5"><DoorOpen size={14} />Puerta abierta</p>
                 )}
                 {resultado.puerta === 'fallo' && (
                   <p className="text-xs" style={{ color: '#A65A0A' }}>La asistencia está marcada, pero la puerta no ha respondido. Ábrela a mano.</p>

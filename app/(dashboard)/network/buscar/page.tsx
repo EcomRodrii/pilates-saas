@@ -11,6 +11,7 @@ import { useCercaDeMi, distanciaDePerfil, ordenarPorCercania } from '@/lib/netwo
 import { encajeBusquedaDe } from '@/lib/network/encaje-busqueda';
 import type { FiltroBusquedaNetwork, PerfilNetworkPublico } from '@/lib/network/tipos';
 import { cardCls } from '@/app/(dashboard)/configuracion/page';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const FILTRO_VACIO: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [], tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
@@ -74,7 +75,7 @@ export default function NetworkBuscadorPage() {
           disabled={estadoCercaDeMi === 'pidiendo' || estadoCercaDeMi === 'activo'}
           className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 disabled:opacity-70"
         >
-          {estadoCercaDeMi === 'pidiendo' ? <Loader2 size={13} className="animate-spin" /> : <MapPin size={13} />}
+          {estadoCercaDeMi === 'pidiendo' ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
           {estadoCercaDeMi === 'activo' ? 'Ordenado por cercanía' : 'Cerca de mí'}
         </button>
         {estadoCercaDeMi === 'denegado' && (
@@ -93,12 +94,13 @@ export default function NetworkBuscadorPage() {
               <Loader2 size={18} className="animate-spin text-muted-foreground" />
             </div>
           ) : resultados.length === 0 ? (
-            <div className={`${cardCls} p-8 text-center`}>
-              <p className="text-[13px] text-muted-foreground">
-                {hayFiltrosActivos
+            <div className={cardCls}>
+              <EmptyState
+                compacto
+                titulo={hayFiltrosActivos
                   ? 'Ninguna profesional coincide con estos filtros.'
                   : 'Todavía no hay profesionales publicadas en tu zona.'}
-              </p>
+              />
             </div>
           ) : (
             resultadosOrdenados.map(({ item: perfil, distanciaKm }) => (

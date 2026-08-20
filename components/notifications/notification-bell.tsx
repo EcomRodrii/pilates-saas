@@ -246,7 +246,7 @@ export function NotificationBell() {
               </button>
               {unread > 0 && (
                 <button onClick={marcarTodas} className="flex items-center gap-1 text-[12px] font-semibold text-brand-medio hover:underline">
-                  <Check size={13} /> Marcar todas
+                  <Check size={14} /> Marcar todas
                 </button>
               )}
             </div>

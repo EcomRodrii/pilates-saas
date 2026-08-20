@@ -112,7 +112,7 @@ export function SelectorPlan({
             <ul className="mt-3 space-y-1.5">
               {bullets.map((b) => (
                 <li key={b} className="flex gap-1.5 text-[12.5px] leading-snug text-muted-foreground">
-                  <Check size={13} className="mt-0.5 shrink-0 text-brand-medio" aria-hidden="true" />
+                  <Check size={14} className="mt-0.5 shrink-0 text-brand-medio" aria-hidden="true" />
                   <span>{b}</span>
                 </li>
               ))}

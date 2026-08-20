@@ -6,10 +6,11 @@ import { authHeader } from '@/lib/api-client';
 import { mapLimit } from '@/lib/concurrency';
 import {
   Bell, MessageCircle, Send, Search, Check, CheckCheck,
-  Info, AlertTriangle, CheckCircle, XCircle, Users, Heart, ChevronRight,
+  Info, AlertTriangle, CheckCircle2, XCircle, Users, Heart, ChevronRight, Inbox,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { LeadStage } from '@/lib/types';
 
 // P2 (auditoría "Veredicto de Marta"): mismas etiquetas de etapa que
@@ -44,7 +45,7 @@ const TIPO_ICON = {
   INFO: { Icon: Info, color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))' },
   AVISO: { Icon: AlertTriangle, color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))' },
   ERROR: { Icon: XCircle, color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))' },
-  EXITO: { Icon: CheckCircle, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
+  EXITO: { Icon: CheckCircle2, color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))' },
 } as const;
 
 // ── Message composer ──────────────────────────────────────────────────────────
@@ -298,7 +299,7 @@ export default function Mensajeria() {
         <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border">
             <div className="flex items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-muted-foreground shrink-0" />
+              <Search size={14} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."
                 className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
@@ -312,7 +313,7 @@ export default function Mensajeria() {
             )}
           </div>
           {notifFiltradas.length === 0 ? (
-            <div className="py-16 text-center text-sm text-muted-foreground">No hay notificaciones</div>
+            <EmptyState compacto icono={Inbox} titulo="No hay notificaciones" />
           ) : (
             <ul className="divide-y divide-muted">
               {notifFiltradas.map(n => {
@@ -354,7 +355,7 @@ export default function Mensajeria() {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
-              <Search size={13} className="text-muted-foreground shrink-0" />
+              <Search size={14} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar en comunidad..."
                 className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
@@ -363,8 +364,8 @@ export default function Mensajeria() {
           </div>
 
           {postsFiltrados.length === 0 ? (
-            <div className="bg-card rounded-2xl border border-border py-16 text-center text-sm text-muted-foreground">
-              No hay posts en la comunidad
+            <div className="bg-card rounded-2xl border border-border">
+              <EmptyState compacto icono={MessageCircle} titulo="No hay posts en la comunidad" />
             </div>
           ) : (
             postsFiltrados.map(post => (
@@ -387,11 +388,11 @@ export default function Mensajeria() {
                     cumplen, y dejan de anunciarse como controles. */}
                 <div className="flex items-center gap-4 mt-4 pt-3 border-t border-muted">
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Heart size={13} aria-hidden="true" />
+                    <Heart size={14} aria-hidden="true" />
                     {post.likes} me gusta
                   </span>
                   <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MessageCircle size={13} aria-hidden="true" />
+                    <MessageCircle size={14} aria-hidden="true" />
                     {post.comentariosCount} comentarios
                   </span>
                 </div>

@@ -496,7 +496,7 @@ export function PanelFacturas() {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 font-bold text-foreground mb-1.5">
-                      <ShieldCheck size={13} className="text-brand-medio" />
+                      <ShieldCheck size={14} className="text-brand-medio" />
                       Sistema de facturación verificable (Veri*Factu)
                     </div>
                     <p className="text-muted-foreground break-all">

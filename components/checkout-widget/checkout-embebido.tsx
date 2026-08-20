@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { Lock, AlertCircle } from 'lucide-react';
+import { Lock, AlertTriangle } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
 import type { PlanTarifa } from '@/lib/types';
 import { sans, serif, radius } from '@/lib/reservar-publico-tokens';
@@ -230,7 +230,7 @@ function FormularioPago({
         // decir "tu plaza sigue bloqueada" sería mentir. El único hecho
         // cierto es que no se ha cobrado nada — eso sí se dice.
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', borderRadius: radius.cardSmall, background: semantic.warning.soft }}>
-          <AlertCircle size={16} style={{ color: semantic.warning.text, flexShrink: 0, marginTop: 1 }} />
+          <AlertTriangle size={16} style={{ color: semantic.warning.text, flexShrink: 0, marginTop: 1 }} />
           <div>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: semantic.warning.text }}>No hemos podido procesar el pago</p>
             <p style={{ fontSize: 12, color: semantic.warning.text, marginTop: 2 }}>{error} No se ha realizado ningún cargo.</p>

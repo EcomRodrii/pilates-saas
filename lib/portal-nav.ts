@@ -49,9 +49,13 @@ export const NAV_DISPONIBLES: NavItemDefault[] = PORTAL_VIDEOS_CONGELADO
 // Catálogo curado de iconos elegibles por pestaña — mismo criterio que
 // BLOCK_CATALOG en portal-home-bloques.ts: una lista cerrada y segura, no un
 // nombre de icono libre.
+// 'Pilates' no es de Lucide: viene del set gratuito Guidance de Streamline
+// (components/icons/pilates-icon.tsx), adaptado a la métrica de la familia.
+// Se AÑADE sin quitar 'Dumbbell': los ids de este catálogo se persisten en la
+// config del tema y retirar uno rompería estudios que ya lo eligieron.
 export const NAV_ICONOS_DISPONIBLES = [
   'Home', 'CalendarDays', 'Ticket', 'Video', 'User', 'Star', 'Heart', 'Bell',
-  'MessageCircle', 'Sparkles', 'MapPin', 'Dumbbell',
+  'MessageCircle', 'Sparkles', 'MapPin', 'Dumbbell', 'Pilates',
 ] as const;
 export type NavIconoId = (typeof NAV_ICONOS_DISPONIBLES)[number];
 

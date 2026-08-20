@@ -413,7 +413,7 @@ function RecompensasTab({ t, socioId, rewardCatalog, rewardRedemptions, rewardHi
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {exito && (
         <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 50, background: t.ink, color: t.bg, fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Check size={13} />Has canjeado {exito}
+          <Check size={14} />Has canjeado {exito}
         </div>
       )}
 

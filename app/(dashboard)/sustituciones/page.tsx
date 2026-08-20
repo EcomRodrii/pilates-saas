@@ -15,9 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
-  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX2, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2,
+  Plus, Check, Clock, AlertTriangle, CheckCircle2, CalendarX, Sparkles, Mail, MailCheck, Users, CalendarOff, Star, CalendarClock, X, RefreshCw, Loader2,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
 const ESTADO: Record<string, EstadoMeta> = {
@@ -323,7 +324,7 @@ export default function SustitucionesPage() {
               onClick={() => setPidiendo(true)}
               className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-[12px] font-bold hover:brightness-110 transition"
             >
-              <CalendarClock size={13} /> Pedirles su disponibilidad
+              <CalendarClock size={14} /> Pedirles su disponibilidad
             </button>
           </div>
         </div>
@@ -351,23 +352,19 @@ export default function SustitucionesPage() {
       {cargando ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando…</p>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-border bg-card">
-          <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-            <Sparkles size={26} className="text-brand-medio" />
-          </div>
-          <p className="text-[16px] font-bold text-foreground">Ninguna baja ahora mismo</p>
-          <p className="text-[13px] text-muted-foreground mt-1 mb-5 max-w-xs">Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar — con sus motivos, sin números.</p>
-          <button onClick={() => setNuevaBaja(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
-            <Plus size={15} /> Marcar una baja
-          </button>
-        </div>
+        <EmptyState
+          icono={Sparkles}
+          titulo="Ninguna baja ahora mismo"
+          descripcion="Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar — con sus motivos, sin números."
+          cta={{ label: 'Marcar una baja', onClick: () => setNuevaBaja(true), icono: Plus }}
+        />
       ) : (
         <div className="space-y-5">
           {activas.length > 0 && (
             <div className="space-y-3">
               {esperandoRespuesta > 0 && (
                 <p className="flex items-center gap-1.5 text-[12px] font-semibold text-warning">
-                  <Clock size={13} />
+                  <Clock size={14} />
                   {esperandoRespuesta} esperando respuesta
                 </p>
               )}
@@ -693,14 +690,14 @@ function SustitucionCard({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-destructive/30 text-destructive text-[12px] font-bold hover:bg-destructive/10 disabled:opacity-50 transition"
               >
                 {accionEnCurso === 'volver-a-buscar'
-              ? <><Loader2 size={13} className="animate-spin" /> Buscando…</>
-              : <><RefreshCw size={13} /> Volver a buscar</>}
+              ? <><Loader2 size={14} className="animate-spin" /> Buscando…</>
+              : <><RefreshCw size={14} /> Volver a buscar</>}
               </button>
               <button
                 onClick={() => onReprogramar(s)} disabled={enProceso}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-destructive/30 text-destructive text-[12px] font-bold hover:bg-destructive/10 disabled:opacity-50 transition"
               >
-                <CalendarClock size={13} /> Reprogramar clase
+                <CalendarClock size={14} /> Reprogramar clase
               </button>
             </div>
           </div>
@@ -721,8 +718,8 @@ function SustitucionCard({
             className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-bold hover:brightness-95 disabled:opacity-50 transition"
           >
             {accionEnCurso === 'volver-a-buscar'
-              ? <><Loader2 size={13} className="animate-spin" /> Buscando…</>
-              : <><RefreshCw size={13} /> Volver a buscar</>}
+              ? <><Loader2 size={14} className="animate-spin" /> Buscando…</>
+              : <><RefreshCw size={14} /> Volver a buscar</>}
           </button>
           {/* Reprogramar salva la clase (plaza intacta, alumnas avisadas del
               cambio): va antes que cancelar, que es lo irreversible. */}
@@ -730,13 +727,13 @@ function SustitucionCard({
             onClick={() => onReprogramar(s)} disabled={enProceso}
             className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-card border border-border text-foreground text-[12px] font-bold hover:bg-muted disabled:opacity-50 transition"
           >
-            <CalendarClock size={13} /> Reprogramar a otro horario
+            <CalendarClock size={14} /> Reprogramar a otro horario
           </button>
           <button
             onClick={() => onCancelar(s)} disabled={enProceso}
             className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
           >
-            <CalendarOff size={13} /> Cancelar clase y avisar a las alumnas
+            <CalendarOff size={14} /> Cancelar clase y avisar a las alumnas
           </button>
         </div>
       ) : (
@@ -881,7 +878,7 @@ function SustitucionCard({
                       </button>
                       <button onClick={() => onConfirmar(s, c.instructor_id)} disabled={enProceso} title="Confirmar directamente"
                         className="flex items-center justify-center w-8 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 transition">
-                        {accionEnCurso === 'confirmar' ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                        {accionEnCurso === 'confirmar' ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                       </button>
                     </div>
                   </div>
@@ -1091,7 +1088,7 @@ function PedirDisponibilidadDialog({
             disabled={enviandoTodas}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold hover:brightness-95 disabled:opacity-50 transition"
           >
-            {enviandoTodas ? <Loader2 size={13} className="animate-spin" /> : <Mail size={13} />}
+            {enviandoTodas ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
             {enviandoTodas ? 'Enviando…' : `Enviar a las ${conEmail.length} por email`}
           </button>
         )}
@@ -1149,7 +1146,7 @@ function ResueltaRow({
   const meta = vencidaSinResolver ? ESTADO.sin_sustituta : (ESTADO[s.estado] ?? ESTADO.resuelta_fuera);
   return (
     <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3">
-      {s.estado === 'confirmada' ? <CheckCircle2 size={16} className="text-success shrink-0" /> : <CalendarX2 size={16} className="text-muted-foreground shrink-0" />}
+      {s.estado === 'confirmada' ? <CheckCircle2 size={16} className="text-success shrink-0" /> : <CalendarX size={16} className="text-muted-foreground shrink-0" />}
       <div className="min-w-0 flex-1">
         <p className="text-[13px] text-foreground truncate">
           <strong>{tipo?.nombre ?? 'Clase'}</strong> · {fmtClase(s.sesiones?.inicio)}

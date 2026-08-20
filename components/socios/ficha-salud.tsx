@@ -570,7 +570,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
         </div>
         <div className="rounded-xl border border-border p-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Activity size={13} /> {rmeta.label}</p>
+            <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1"><Activity size={14} /> {rmeta.label}</p>
             <span className="text-xs font-bold" style={{ color: rmeta.color }}>{riesgo.score}/10</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden" title={`Severidad ${riesgo.desglose.severidad} · Restricciones ${riesgo.desglose.restriccionesDuras} · Revisiones ${riesgo.desglose.revisiones}`}>
@@ -589,7 +589,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
               disabled={adaptacionIALoading}
               className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-[11px] font-bold text-primary-foreground bg-primary hover:brightness-95 disabled:opacity-50 transition-colors"
             >
-              {adaptacionIALoading ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+              {adaptacionIALoading ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
               {adaptacionIALoading ? 'Adaptando…' : 'Adaptar ejercicios con IA'}
             </button>
           )}
@@ -598,7 +598,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
             <div className="rounded-xl border border-border bg-card p-3 space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs text-foreground leading-snug">{adaptacionIA.resumen}</p>
-                <button onClick={() => setAdaptacionIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={13} /></button>
+                <button onClick={() => setAdaptacionIA(null)} title="Cerrar" className="text-muted-foreground hover:text-foreground shrink-0"><X size={14} /></button>
               </div>
               {adaptacionIA.evitar.length > 0 && (
                 <div>
@@ -670,7 +670,7 @@ export function FichaSalud({ socioId, now }: { socioId: string; now: Date }) {
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs font-medium text-muted-foreground">{condiciones.length} registro(s) en la ficha</p>
         <button onClick={abrirNueva} className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-lg text-primary-foreground bg-primary hover:brightness-95 transition-colors">
-          <Plus size={13} /> Añadir condición
+          <Plus size={14} /> Añadir condición
         </button>
       </div>
 

@@ -93,7 +93,7 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] font-medium border border-border text-foreground hover:bg-muted transition-colors"
                       >
-                        <MessageCircle size={13} className="text-[#25D366]" />
+                        <MessageCircle size={14} className="text-[#25D366]" />
                         WhatsApp
                       </a>
                     )}
@@ -105,7 +105,7 @@ export function CoberturaDialog({ open, onOpenChange, sesion, sesiones, instruct
                         'bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-50 disabled:pointer-events-none'
                       )}
                     >
-                      <UserCheck size={13} />
+                      <UserCheck size={14} />
                       Asignar
                     </button>
                   </div>

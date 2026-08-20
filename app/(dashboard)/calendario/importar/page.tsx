@@ -172,7 +172,7 @@ export default function ImportarHorarioPage() {
                   onClick={e => { e.stopPropagation(); descargar('plantilla-horario.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
                   className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline"
                 >
-                  <Download size={13} />Descargar plantilla de ejemplo
+                  <Download size={14} />Descargar plantilla de ejemplo
                 </button>
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function ImportarHorarioPage() {
                 </p>
                 <Link href="/calendario/importar/reservas"
                   className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline">
-                  Importar reservas<ArrowRight size={13} />
+                  Importar reservas<ArrowRight size={14} />
                 </Link>
               </div>
             </div>

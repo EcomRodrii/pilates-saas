@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight, Search } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
 import { SiteNav } from '@/components/recursos/SiteNav';
@@ -144,7 +145,7 @@ export default function RecursosPage() {
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 560, margin: '0 0 30px' }}>Guías prácticas para propietarias de estudios de pilates: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó. Sin humo.</p>
           <div style={{ position: 'relative', maxWidth: 460 }}>
             <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#A8A89F' }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx={11} cy={11} r={8} /><path d="m21 21-4.3-4.3" /></svg>
+              <Search size={18} />
             </span>
             <input
               aria-label="Buscar en recursos"
@@ -191,7 +192,7 @@ export default function RecursosPage() {
                 <p style={{ fontSize: 16, lineHeight: 1.6, color: MUTED, margin: '0 0 20px' }}>{FEATURED.body}</p>
                 <div className="lp-mono" style={{ fontSize: 12, color: '#8E8E86' }}>{FEATURED.meta}</div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 22, fontSize: 15, fontWeight: 700, color: ACC }}>
-                  Leer la guía <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+                  Leer la guía <ArrowRight size={16} />
                 </span>
               </Link>
             </div>

@@ -29,7 +29,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
-import { GoogleIcon } from '@/components/auth/google-icon';
+import { GoogleIcon } from '@/components/icons/brand-icons';
 import { SelectorChips } from '@/components/network/selector-chips';
 import { SeccionExperienciaNetwork } from '@/components/network/seccion-experiencia';
 import {
@@ -367,7 +367,7 @@ export default function CrearPerfilNetworkPage() {
           className="w-full max-w-sm flex items-center justify-center gap-2.5 py-2.5 rounded-xl text-[13.5px] font-semibold hover:bg-black/[.02] transition-colors disabled:opacity-60 mb-4"
           style={{ border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}
         >
-          <GoogleIcon />
+          <GoogleIcon size={16} />
           {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
         </button>
         <div className="flex items-center gap-3 mb-4 max-w-sm">
@@ -482,7 +482,7 @@ export default function CrearPerfilNetworkPage() {
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between px-8 py-4" style={{ borderBottom: `1px solid ${NW_BORDE}` }}>
           <span className="flex items-center gap-1.5 text-[12.5px] font-semibold" style={{ color: NW_MUTED }}>
-            <Check size={13} style={{ color: NW_PRODUCTO }} /> Guardado automáticamente
+            <Check size={14} style={{ color: NW_PRODUCTO }} /> Guardado automáticamente
           </span>
           <Link href="/network/mi-perfil" className="text-[12.5px] font-semibold" style={{ color: NW_MUTED }}>Guardar y salir</Link>
         </div>
@@ -816,7 +816,7 @@ function EstadoDocumento({ estado, motivo }: { estado: VerificacionIdentidadNetw
   if (estado === 'rechazado') {
     return (
       <div className="p-3 rounded-xl" style={{ background: NW_ESTADO.rechazada.fondo }}>
-        <div className="flex items-center gap-1.5"><X size={13} style={{ color: NW_ESTADO.rechazada.color }} /><span className="text-[12.5px] font-bold" style={{ color: NW_ESTADO.rechazada.color }}>Rechazada</span></div>
+        <div className="flex items-center gap-1.5"><X size={14} style={{ color: NW_ESTADO.rechazada.color }} /><span className="text-[12.5px] font-bold" style={{ color: NW_ESTADO.rechazada.color }}>Rechazada</span></div>
         {motivo && <p className="text-[12px] mt-1" style={{ color: NW_ESTADO.rechazada.color }}>{motivo}</p>}
       </div>
     );
@@ -936,11 +936,11 @@ function PasoRevisar({
       </div>
 
       <div className="text-left space-y-1.5 mb-6">
-        <p className="text-[12.5px] flex items-center gap-1.5" style={{ color: NW_MUTED }}><Check size={13} style={{ color: NW_PRODUCTO }} /> Email verificado</p>
+        <p className="text-[12.5px] flex items-center gap-1.5" style={{ color: NW_MUTED }}><Check size={14} style={{ color: NW_PRODUCTO }} /> Email verificado</p>
         <p className="text-[12.5px] flex items-center gap-1.5" style={{ color: NW_MUTED }}>
           {verificacion?.estado === 'verificado'
-            ? <><Check size={13} style={{ color: NW_PRODUCTO }} /> Identidad verificada</>
-            : <><Clock3 size={13} style={{ color: NW_ESTADO.pendiente.color }} /> Identidad {verificacion ? 'en revisión' : 'pendiente'}</>}
+            ? <><Check size={14} style={{ color: NW_PRODUCTO }} /> Identidad verificada</>
+            : <><Clock3 size={14} style={{ color: NW_ESTADO.pendiente.color }} /> Identidad {verificacion ? 'en revisión' : 'pendiente'}</>}
         </p>
       </div>
 

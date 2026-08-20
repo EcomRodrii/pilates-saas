@@ -106,7 +106,7 @@ export default function SolicitudesNetworkPage() {
                     disabled={resolviendoId === s.id}
                     className="px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium flex items-center gap-1.5 disabled:opacity-60"
                   >
-                    {resolviendoId === s.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                    {resolviendoId === s.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                     Aceptar
                   </button>
                   <button
@@ -114,7 +114,7 @@ export default function SolicitudesNetworkPage() {
                     disabled={resolviendoId === s.id}
                     className="px-3.5 py-2 rounded-lg bg-card border border-border text-[12px] text-foreground flex items-center gap-1.5 disabled:opacity-60"
                   >
-                    <X size={13} /> Rechazar
+                    <X size={14} /> Rechazar
                   </button>
                 </div>
               )}
@@ -127,7 +127,7 @@ export default function SolicitudesNetworkPage() {
                   href={`/network/mis-mensajes?hilo=${s.id}`}
                   className="inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium"
                 >
-                  <MessageCircle size={13} /> Enviar mensaje
+                  <MessageCircle size={14} /> Enviar mensaje
                 </Link>
               )}
             </div>

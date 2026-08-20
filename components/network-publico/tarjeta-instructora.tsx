@@ -36,7 +36,7 @@ export function TarjetaInstructoraPublica({ perfil, distanciaKm }: { perfil: Per
         )}
         {perfil.experienciaVerificada && (
           <span className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 text-[11px] font-medium text-foreground shadow-sm">
-            <BadgeCheck size={13} className="text-brand" /> Perfil verificado
+            <BadgeCheck size={14} className="text-brand" /> Perfil verificado
           </span>
         )}
       </div>

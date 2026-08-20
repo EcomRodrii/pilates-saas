@@ -5,7 +5,9 @@
 // canales + resultado + errores). Lee /api/notifications/admin (solo staff).
 
 import { useCallback, useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { authHeader } from '@/lib/api-client';
 import { CATEGORIA_ETIQUETA } from '@/lib/notifications/catalog';
 import type { NotificationCategory } from '@/lib/notifications/types';
@@ -62,9 +64,7 @@ export default function NotificationCenterPage() {
       {cargando ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>
       ) : items.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card px-4 py-12 text-center text-[13px] text-muted-foreground">
-          Aún no se ha enviado ninguna notificación.
-        </div>
+        <EmptyState icono={Bell} titulo="Aún no se ha enviado ninguna notificación." />
       ) : (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">

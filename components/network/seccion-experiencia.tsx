@@ -58,7 +58,7 @@ function PickerEstudio({ onElegir, onCancelar, enviando, v2 }: {
       style={v2 ? { border: `1px solid ${NW_BORDE}`, background: '#fff' } : undefined}
     >
       <div className="relative">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={v2 ? { color: NW_MUTED_2 } : undefined} />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={v2 ? { color: NW_MUTED_2 } : undefined} />
         <input
           autoFocus className={`${v2 ? 'w-full px-3.5 py-2.5 rounded-xl text-[14px] outline-none' : inputCls} pl-8`}
           style={v2 ? { border: `1px solid ${NW_BORDE}`, color: NW_TINTA } : undefined}
@@ -68,8 +68,8 @@ function PickerEstudio({ onElegir, onCancelar, enviando, v2 }: {
       </div>
       {buscando && (
         v2
-          ? <Loader2 size={13} className="animate-spin" style={{ color: NW_MUTED_2 }} />
-          : <Loader2 size={13} className="animate-spin text-muted-foreground" />
+          ? <Loader2 size={14} className="animate-spin" style={{ color: NW_MUTED_2 }} />
+          : <Loader2 size={14} className="animate-spin text-muted-foreground" />
       )}
       {!buscando && q.trim().length >= 2 && resultados.length === 0 && (
         <p className="text-[11px]" style={v2 ? { color: NW_MUTED_2 } : undefined}>
@@ -223,7 +223,7 @@ export function SeccionExperienciaNetwork({
             onClick={() => setFormAbierto(true)}
             className={cLinkAccion} style={sLinkAccion}
           >
-            <Plus size={13} /> Añadir
+            <Plus size={14} /> Añadir
           </button>
         )}
       </div>

@@ -5,7 +5,7 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
-import { IconCheck } from '@/components/landing/icons';
+import { Check } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
 
@@ -87,7 +87,7 @@ export default function VerifactuPage() {
               <>Un <strong>registro inalterable</strong> de cada evento — no solo de la factura final, también de anulaciones y correcciones.</>,
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#F1F2EA', color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>{IconCheck(12)}</span>
+                <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 6, background: '#F1F2EA', color: ACC, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}><Check size={12} /></span>
                 <span style={{ fontSize: 15, lineHeight: 1.5, color: '#3A3A34' }}>{item}</span>
               </div>
             ))}

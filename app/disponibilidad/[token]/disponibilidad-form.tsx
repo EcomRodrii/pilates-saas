@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 import { DIAS, FRANJAS, celdaKey, type FranjaKey } from '@/lib/sustituciones/franjas';
 
 // Rejilla de disponibilidad para la instructora: día × franja, a base de toques.
@@ -49,7 +51,7 @@ export function DisponibilidadForm({
     return (
       <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="text-4xl mb-3">✅</div>
+          <IconoDesenlace icono={CheckCircle2} tono="exito" />
           <h1 className="text-lg font-semibold text-slate-900">¡Guardado!</h1>
           <p className="mt-2 text-sm text-slate-500">
             Tu estudio ya sabe cuándo puedes cubrir clases. Puedes cerrar esta página o

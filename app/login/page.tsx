@@ -11,7 +11,7 @@ import { authHeader } from '@/lib/api-client';
 import { uid as generarId } from '@/lib/utils';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion, recordarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { GoogleIcon } from '@/components/auth/google-icon';
+import { GoogleIcon } from '@/components/icons/brand-icons';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
@@ -405,7 +405,7 @@ export default function LoginPage() {
             onClick={() => void conectarConGoogle()}
             className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[13.5px] font-semibold text-[#3A3A34] hover:bg-[#FAFAF7] transition-colors disabled:opacity-60 mb-4"
           >
-            <GoogleIcon />
+            <GoogleIcon size={16} />
             {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
           </button>
 

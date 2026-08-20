@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
-import { GoogleIcon } from '@/components/auth/google-icon';
+import { GoogleIcon } from '@/components/icons/brand-icons';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { NW } from './data';
@@ -95,7 +95,7 @@ export function SeccionRegistro() {
           ) : (
           <>
           <button type="button" disabled={conectandoGoogle} onClick={() => void conectarConGoogle()} className="nw-reg-google">
-            <GoogleIcon />
+            <GoogleIcon size={16} />
             {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
           </button>
           <div className="nw-reg-sep"><span /><em>o</em><span /></div>

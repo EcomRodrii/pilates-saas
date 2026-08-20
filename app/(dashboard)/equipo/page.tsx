@@ -21,6 +21,7 @@ import {
   type ValoracionDetalle, type AusenciaInstructora,
 } from '@/lib/api-client';
 import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Toast, useToast } from '@/components/ui/toast';
 import { invitarAlEquipo } from '@/lib/api-client';
 import { ausenciaHoy, AUSENCIA_ETIQUETA } from '@/lib/ausencias';
@@ -500,28 +501,18 @@ export default function EquipoPage() {
       {cargandoTarjetas ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando el equipo…</p>
       ) : tarjetas.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-20 rounded-2xl border border-dashed border-border bg-card">
-          <div className="w-14 h-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-            <Users size={26} className="text-brand-medio" />
-          </div>
-          <p className="text-[16px] font-bold text-foreground">Aún no hay nadie en el equipo</p>
-          {gestiona && (
-            <>
-              <p className="text-[13px] text-muted-foreground mt-1 mb-5">Añade a tus instructoras para asignarles clases y citas</p>
-              <button onClick={openNuevo} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
-                <Plus size={15} /> Nuevo miembro
-              </button>
-            </>
-          )}
-        </div>
+        <EmptyState
+          icono={Users}
+          titulo="Aún no hay nadie en el equipo"
+          descripcion={gestiona ? 'Añade a tus instructoras para asignarles clases y citas' : undefined}
+          cta={gestiona ? { label: 'Nuevo miembro', onClick: openNuevo, icono: Plus } : undefined}
+        />
       ) : ordenados.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center py-16 rounded-2xl border border-dashed border-border bg-card">
-          <p className="text-[15px] font-bold text-foreground">Nadie con ese nombre</p>
-          <p className="text-[13px] text-muted-foreground mt-1 mb-4">Prueba con otro filtro.</p>
-          <button onClick={() => { setBusca(''); setFiltroRol('todos'); }} className="px-4 py-2 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
-            Ver todo el equipo
-          </button>
-        </div>
+        <EmptyState
+          titulo="Nadie con ese nombre"
+          descripcion="Prueba con otro filtro."
+          cta={{ label: 'Ver todo el equipo', onClick: () => { setBusca(''); setFiltroRol('todos'); } }}
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
           {ordenados.map(m => (
@@ -1295,7 +1286,7 @@ function AusenciasDialog({ instructor, onClose }: { instructor: Instructor | nul
           {error && <p className="text-[12.5px] text-destructive">{error}</p>}
           {aviso && (
             <p className="flex items-start gap-1.5 text-[12.5px] text-warning">
-              <AlertTriangle size={13} className="shrink-0 mt-0.5" />{aviso}
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />{aviso}
             </p>
           )}
           <button onClick={guardar} disabled={!desde || !hasta || guardando}

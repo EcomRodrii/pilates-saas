@@ -11,7 +11,8 @@ import {
   PLATAFORMAS, PLATAFORMA_META, ESTADO_META,
   type Publicacion, type Plataforma, type EstadoPublicacion,
 } from '@/lib/contenido/types';
-import { Plus, Search, Copy, Trash2 } from 'lucide-react';
+import { Plus, Search, Copy, Trash2, FolderOpen } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function BibliotecaPage() {
   const { publicaciones, duplicarPublicacion, eliminarPublicacion } = useContenido();
@@ -69,9 +70,7 @@ export default function BibliotecaPage() {
 
       {/* Grid */}
       {filtradas.length === 0 ? (
-        <div className="bg-card border border-dashed border-border rounded-3xl p-12 text-center text-sm text-muted-foreground">
-          No hay publicaciones que coincidan con los filtros.
-        </div>
+        <EmptyState icono={FolderOpen} titulo="No hay publicaciones que coincidan con los filtros." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtradas.map((p) => (

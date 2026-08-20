@@ -83,7 +83,7 @@ function ChartCard({ chart, onDelete }: { chart: DashboardChart; onDelete: () =>
         className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
         title="Eliminar gráfico"
       >
-        <Trash2 size={13} />
+        <Trash2 size={14} />
       </button>
       <p className="text-[13px] font-semibold text-foreground pr-6">{chart.nombre}</p>
       <p className="text-[11px] text-muted-foreground mb-2">{metricaLabel}</p>
@@ -124,7 +124,7 @@ export function CustomChartsSection() {
           onClick={() => setModalOpen(true)}
           className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Plus size={13} /> Añadir un gráfico personalizado
+          <Plus size={14} /> Añadir un gráfico personalizado
         </button>
       ) : (
         <>
@@ -137,7 +137,7 @@ export function CustomChartsSection() {
               onClick={() => setModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors"
             >
-              <Plus size={13} /> Crear gráfico
+              <Plus size={14} /> Crear gráfico
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

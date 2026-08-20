@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { Heart } from 'lucide-react';
+import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 
 // La alumna valora la clase que ha recibido: 1-5 estrellas + comentario opcional.
 // Un tap, sin login. El servidor valida el token del deep link e inserta la
@@ -41,7 +43,7 @@ export function ValorarForm({
     return (
       <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6">
         <div className="max-w-sm w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="text-5xl mb-3">🙌</div>
+          <IconoDesenlace icono={Heart} tono="exito" />
           <h1 className="text-xl font-semibold text-slate-900">¡Gracias por tu valoración!</h1>
           <p className="mt-2 text-sm text-slate-500 leading-relaxed">
             {yaValorada && puntuacion === 0

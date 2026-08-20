@@ -35,7 +35,7 @@ import { EASE, dur, display, micro, texto } from '@/lib/portal-design';
 import { BienvenidaPortal } from '@/components/portal/bienvenida-portal';
 import { yaVioBienvenida, marcarBienvenidaVista } from '@/lib/portal-bienvenida';
 import { esTemaPortal } from '@/themes/registro';
-import { GoogleLogo } from '@/components/portal/google-logo';
+import { GoogleIcon } from '@/components/icons/brand-icons';
 import { altaAlEntrar } from '@/lib/api-client';
 import {
   PortadaAcceso, CampoLinea, BotonCta, ErrorCampo, entrada, MARCA_FG,
@@ -271,7 +271,7 @@ export function PuertaPortal() {
                   opacity: googleTrabajando ? 0.6 : 1,
                 }}
               >
-                <GoogleLogo />
+                <GoogleIcon size={18} />
                 {googleTrabajando ? 'Abriendo Google…' : 'Continuar con Google'}
               </button>
 
