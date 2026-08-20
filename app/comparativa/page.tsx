@@ -25,9 +25,15 @@ export const metadata: Metadata = {
 };
 
 // Mismo orden que las columnas de la tabla ROWS de abajo (bsport, momence,
-// eversports, mindbody, timp, lorari, bonsai, glofox) — si se reordena aquí,
-// hay que reordenar las celdas del <tbody> también, o la cabecera deja de
-// casar con los datos.
+// eversports, mindbody, timp, lorari, bonsai, glofox, viday, gesyoga,
+// bookyway, deporweb, flowstark) — si se reordena aquí, hay que reordenar
+// las celdas del <tbody> también, o la cabecera deja de casar con los datos.
+//
+// Los últimos 5 (ViDay, GesYoga, BookyWay, DeporWeb, Flowstark) no son los
+// competidores "conocidos" habituales — son los que de verdad aparecen en
+// el SERP español para "gestión pilates"/"gestión centros de pilates", las
+// únicas 2 queries con volumen real en Search Console verificadas el
+// 20-ago-2026. Se añadieron tras esa auditoría, no antes.
 const COMPETITORS = [
   { slug: 'tentare-vs-bsport', name: 'bsport' },
   { slug: 'tentare-vs-momence', name: 'Momence' },
@@ -37,6 +43,11 @@ const COMPETITORS = [
   { slug: 'tentare-vs-lorari', name: 'Lorari' },
   { slug: 'tentare-vs-bonsai', name: 'Bonsai' },
   { slug: 'tentare-vs-glofox', name: 'Glofox' },
+  { slug: 'tentare-vs-viday', name: 'ViDay' },
+  { slug: 'tentare-vs-gesyoga', name: 'GesYoga' },
+  { slug: 'tentare-vs-bookyway', name: 'BookyWay' },
+  { slug: 'tentare-vs-deporweb', name: 'DeporWeb' },
+  { slug: 'tentare-vs-flowstark', name: 'Flowstark' },
 ];
 
 type Verdict = 'yes' | 'no' | 'partial';
@@ -64,6 +75,11 @@ const ROWS: {
   lorari: [Verdict, string];
   bonsai: [Verdict, string];
   glofox: [Verdict, string];
+  viday: [Verdict, string];
+  gesyoga: [Verdict, string];
+  bookyway: [Verdict, string];
+  deporweb: [Verdict, string];
+  flowstark: [Verdict, string];
 }[] = [
   {
     feature: 'Facturación España (Veri*factu) nativa',
@@ -76,6 +92,11 @@ const ROWS: {
     lorari: ['no', 'Sin mención pública'],
     bonsai: ['no', 'Sin mención pública'],
     glofox: ['no', 'Sin mención pública'],
+    viday: ['yes', 'Sí, con TicketBAI también'],
+    gesyoga: ['yes', 'Sí (en modo ERP)'],
+    bookyway: ['no', 'Sin mención pública'],
+    deporweb: ['partial', 'Sello VeriFactu sin explicar el alcance'],
+    flowstark: ['no', 'Sin mención pública'],
   },
   {
     feature: 'Precio público en la web',
@@ -88,6 +109,11 @@ const ROWS: {
     lorari: ['yes', 'Desde 12€/mes'],
     bonsai: ['yes', 'Gratis (3% comisión) o desde 29€/mes'],
     glofox: ['partial', 'Desde ~100 USD/mes, hasta ~370€/mes'],
+    viday: ['yes', 'Desde 39€/mes'],
+    gesyoga: ['yes', 'Desde 12€/mes'],
+    bookyway: ['partial', 'Sin cuota fija — 1,50€ por usuario añadido'],
+    deporweb: ['no', 'No publica precio'],
+    flowstark: ['yes', 'Gratis hasta 50 clientes, o 19€/mes'],
   },
   {
     feature: 'Sin permanencia',
@@ -100,6 +126,11 @@ const ROWS: {
     lorari: ['partial', 'No lo especifica'],
     bonsai: ['yes', 'Sí'],
     glofox: ['no', 'Compromiso anual o trimestral habitual'],
+    viday: ['yes', 'Sí'],
+    gesyoga: ['partial', 'No lo especifica en público'],
+    bookyway: ['partial', 'Pago por uso, sin permanencia declarada'],
+    deporweb: ['partial', 'No lo especifica en público'],
+    flowstark: ['yes', 'Sí — cancela cuando quieras'],
   },
   {
     feature: 'Datos alojados en la UE',
@@ -112,6 +143,11 @@ const ROWS: {
     lorari: ['partial', 'No especifica el país'],
     bonsai: ['yes', 'Lo declaran en su web'],
     glofox: ['partial', 'No especifica el país'],
+    viday: ['partial', 'No especifica dónde'],
+    gesyoga: ['partial', 'No especifica dónde'],
+    bookyway: ['yes', 'Sí, en Italia'],
+    deporweb: ['partial', 'No especifica dónde'],
+    flowstark: ['partial', 'Sede en España, alojamiento no especificado'],
   },
   {
     feature: 'Sin comisión por captar clientas',
@@ -124,6 +160,11 @@ const ROWS: {
     lorari: ['yes', 'Sin marketplace'],
     bonsai: ['yes', 'Sin marketplace'],
     glofox: ['yes', 'Sin marketplace'],
+    viday: ['yes', 'Sin marketplace'],
+    gesyoga: ['yes', 'Sin marketplace'],
+    bookyway: ['yes', 'Sin marketplace'],
+    deporweb: ['yes', 'Sin marketplace'],
+    flowstark: ['yes', 'Sin marketplace'],
   },
   {
     feature: 'Sustitución de instructoras integrada',
@@ -136,6 +177,11 @@ const ROWS: {
     lorari: ['no', 'No encontrada'],
     bonsai: ['no', 'No encontrada'],
     glofox: ['no', 'No nativa — coordinación manual'],
+    viday: ['no', 'No encontrada'],
+    gesyoga: ['no', 'Solo reasignación manual de profesor'],
+    bookyway: ['no', 'No encontrada'],
+    deporweb: ['no', 'No encontrada'],
+    flowstark: ['no', 'No encontrada'],
   },
 ];
 
@@ -150,7 +196,7 @@ export default function ComparativaPage() {
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Comparativa</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 8 software con los que más se compara.</h1>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 13 software con los que más se compara.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>No somos mejores en todo — y te lo contamos abajo, sin rodeos. Pero para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, hay diferencias que se notan cada día y cada fin de mes.</p>
         </div>
       </header>
@@ -186,13 +232,18 @@ export default function ComparativaPage() {
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.lorari[0]} label={r.lorari[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bonsai[0]} label={r.bonsai[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.glofox[0]} label={r.glofox[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.viday[0]} label={r.viday[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.gesyoga[0]} label={r.gesyoga[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bookyway[0]} label={r.bookyway[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.deporweb[0]} label={r.deporweb[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.flowstark[0]} label={r.flowstark[1]} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai y Glofox son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai, Glofox, ViDay, GesYoga, BookyWay, DeporWeb y Flowstark son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
         </div>
       </section>
 
