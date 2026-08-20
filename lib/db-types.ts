@@ -583,6 +583,10 @@ export interface RowSesiones {
   cancelada_motivo: string | null;
   // migr 20260731160000.
   incidencia_texto: string | null;
+  // migr 20260820193428.
+  zoom_meeting_id: number | null;
+  // migr 20260820193428.
+  zoom_join_url: string | null;
 }
 
 export interface RowSocios {
@@ -891,6 +895,8 @@ export interface RowTiposClase {
   objetivos: string[] | null;
   // migr 20260818010302.
   especialidad_network: string | null;
+  // migr 20260820193428.
+  es_online: boolean | null;
 }
 
 export interface RowUsuarios {

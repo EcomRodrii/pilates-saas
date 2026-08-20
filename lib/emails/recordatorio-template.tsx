@@ -16,6 +16,9 @@ interface Props {
   // Personalización total del estudio (plantillas_email). Si trae `cuerpo`,
   // manda ella y este componente no pinta su estructura por defecto.
   personalizacion?: PersonalizacionPlantilla;
+  // Solo presente si el tipo de clase es online (Zoom) y ya se creó la
+  // reunión (lib/zoom-sync.ts). undefined/null = clase presencial.
+  zoomJoinUrl?: string | null;
 }
 
 export function RecordatorioEmail({
@@ -30,6 +33,7 @@ export function RecordatorioEmail({
   colorPrimario,
   intro,
   personalizacion,
+  zoomJoinUrl,
 }: Props) {
   if (personalizacion?.cuerpo) {
     return (
@@ -42,6 +46,7 @@ export function RecordatorioEmail({
           { label: 'Hora', value: hora },
           { label: 'Sala', value: sala },
           { label: 'Instructora', value: instructor },
+          ...(zoomJoinUrl ? [{ label: 'Enlace de Zoom', value: zoomJoinUrl }] : []),
         ]}
       />
     );
@@ -62,6 +67,7 @@ export function RecordatorioEmail({
         <EmailInfoRow label="Hora" value={hora} />
         <EmailInfoRow label="Sala" value={sala} />
         <EmailInfoRow label="Instructora" value={instructor} />
+        {zoomJoinUrl && <EmailInfoRow label="Enlace de Zoom" value={zoomJoinUrl} />}
       </Section>
 
       <Text style={{ color: '#6B7280', fontSize: 13, margin: 0 }}>

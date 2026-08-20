@@ -879,6 +879,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
     especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
+    esOnline: r.es_online ?? false,
   } as TipoClase;
 }
 
@@ -927,7 +928,14 @@ export function mapBannerPortal(r: RowContenidoPortalBanners): BannerPortal {
 }
 
 
-export function mapSesion(r: FilaSesionPanel): Sesion {
+// zoom_join_url va aparte y OPCIONAL a propósito: es el único campo de
+// `sesiones` que no debe salir de un select genérico (portal de la socia) —
+// solo el panel (staff) y el endpoint específico que ya filtra por reserva
+// CONFIRMADA lo seleccionan. zoom_meeting_id sí es seguro (un id sin la
+// reunión detrás no sirve de nada).
+type FilaSesionMapeable = Omit<FilaSesionPanel, 'zoom_join_url'> & { zoom_join_url?: string | null };
+
+export function mapSesion(r: FilaSesionMapeable): Sesion {
   return {
     id: r.id,
     studioId: r.studio_id,
@@ -943,6 +951,8 @@ export function mapSesion(r: FilaSesionPanel): Sesion {
     googleEventId: r.google_event_id ?? null,
     serieId: r.serie_id ?? null,
     incidenciaTexto: r.incidencia_texto ?? null,
+    zoomMeetingId: r.zoom_meeting_id ?? null,
+    zoomJoinUrl: r.zoom_join_url ?? null,
   } as Sesion;
 }
 
@@ -3644,6 +3654,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
     especialidad_network: t.especialidadNetwork ?? null,
+    es_online: t.esOnline ?? false,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3668,6 +3679,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
   if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
+  if ('esOnline' in changes) db.es_online = changes.esOnline;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }
@@ -4493,7 +4505,7 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select('id, studio_id, socio_id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, intentos_reintento, metodo_cobro, sepa_estado, disputa_estado, disputa_stripe_id, stripe_payment_intent_id, entrega_sesiones_despues, reembolso_solicitado_en, reembolso_stripe_id, reembolso_fallido_en, reembolso_fallo_motivo').eq('studio_id', sid).range(from, to)),
     fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion').eq('studio_id', sid).range(from, to)),

@@ -691,7 +691,10 @@ export async function fetchPublicStudioData(
     // JSON hacia el navegador. La espera de red no se factura; el trabajo de
     // CPU sobre los bytes, sí. La lista es la misma que consume `mapSesion`
     // (tipo `FilaSesionPanel`), así que si se queda corta, `tsc` la nombra.
-    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto').eq('studio_id', studioId).range(from, to)),
+    // Sin zoom_join_url a propósito: el enlace de Zoom nunca sale de un select
+    // genérico del portal (ver comentario de mapSesion). zoom_meeting_id sí,
+    // porque un id sin la reunión detrás no sirve de nada.
+    fetchAllRows(studioId, 'sesiones', (from, to) => admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id').eq('studio_id', studioId).range(from, to)),
     fetchAllRows(studioId, 'reservas', (from, to) => admin.from('reservas').select('id, sesion_id, estado, spot_id').eq('studio_id', studioId).range(from, to)),
   ]);
 
@@ -915,7 +918,7 @@ async function datosClaseParaEmail(
 ): Promise<(DatosClaseEmail & { inicioISO: string }) | null> {
   const { data: ses } = await admin
     .from('sesiones')
-    .select('inicio, tipo_clase_id, sala_id, instructor_id')
+    .select('inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
     .eq('id', sesionId).eq('studio_id', studioId).maybeSingle();
   if (!ses) return null;
   const [{ data: tipo }, { data: sala }, { data: inst }, { data: studio }] = await Promise.all([
@@ -934,6 +937,7 @@ async function datosClaseParaEmail(
     sala: sala?.nombre ?? '',
     instructor: inst?.nombre ?? '',
     estudioNombre: studio?.nombre ?? 'Tentare',
+    zoomJoinUrl: (ses.zoom_join_url as string | null) ?? null,
   };
 }
 
@@ -1191,7 +1195,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
   // 1) Sesiones de la ventana, con todo lo que el email necesita (1 query).
   const { data: sesionesRaw, error } = await admin
     .from('sesiones')
-    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id')
+    .select('id, studio_id, inicio, tipo_clase_id, sala_id, instructor_id, zoom_join_url')
     .eq('studio_id', studioId)
     .eq('cancelada', false)
     .gte('inicio', desdeISO)
@@ -1286,6 +1290,7 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
       sala: (ses.sala_id ? salaNombre.get(ses.sala_id as string) : '') ?? '',
       instructor: (ses.instructor_id ? instNombre.get(ses.instructor_id as string) : '') ?? '',
       estudioNombre: studioNombre.get(ses.studio_id as string) ?? 'Tentare',
+      zoomJoinUrl: (ses.zoom_join_url as string | null) ?? null,
     };
     for (const r of rs) {
       const socia = sociaPorId.get(r.socio_id);

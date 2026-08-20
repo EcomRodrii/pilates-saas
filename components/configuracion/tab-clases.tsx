@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
+import { ColorInput, ColorSwatch, ConfirmDialog, Field, NivelBadge, Toggle, btnPrimary, btnSecondary, cardCls, inputCls } from '@/app/(dashboard)/configuracion/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { InfoTip } from '@/components/ui/tooltip';
 import { eliminarFotoClase, subirFotoClase } from '@/lib/portal-storage';
@@ -51,6 +51,8 @@ type ClaseForm = {
   // no null directo — mismo criterio que el resto de selects opcionales de
   // este formulario (ventanaCancelacionHoras usa '' para lo mismo).
   especialidadNetwork: EspecialidadNetwork | '';
+  // Zoom (migr 20260820150000): por tipo de clase, no por sesión suelta.
+  esOnline: boolean;
 };
 
 const emptyClaseForm = (color: string): ClaseForm => ({
@@ -70,6 +72,7 @@ const emptyClaseForm = (color: string): ClaseForm => ({
   minimoAsistentesPorClase: '',
   penalizacionImporteEur: '',
   especialidadNetwork: '',
+  esOnline: false,
 });
 
 function claseToForm(t: TipoClase): ClaseForm {
@@ -90,6 +93,7 @@ function claseToForm(t: TipoClase): ClaseForm {
     minimoAsistentesPorClase: t.minimoAsistentesPorClase != null ? String(t.minimoAsistentesPorClase) : '',
     penalizacionImporteEur: t.penalizacionImporteEur != null ? String(t.penalizacionImporteEur) : '',
     especialidadNetwork: t.especialidadNetwork ?? '',
+    esOnline: t.esOnline,
   };
 }
 
@@ -120,7 +124,8 @@ const NIVEL_LABELS: Record<TipoClase['nivel'], string> = {
 };
 
 export function TabClases({ showToast }: { showToast: (m: string) => void }) {
-  const { tiposClase, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
+  const { studio, tiposClase, addTipoClase, updateTipoClase, deleteTipoClase } = useStudio();
+  const zoomConectado = !!studio?.zoomEmail;
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -190,6 +195,7 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
       minimoAsistentesPorClase: form.minimoAsistentesPorClase.trim() === '' ? null : Math.max(0, parseInt(form.minimoAsistentesPorClase, 10) || 0),
       penalizacionImporteEur: form.penalizacionImporteEur.trim() === '' ? null : Math.max(0, Number(form.penalizacionImporteEur) || 0),
       especialidadNetwork: form.especialidadNetwork === '' ? null : form.especialidadNetwork,
+      esOnline: form.esOnline,
     };
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
@@ -415,6 +421,24 @@ export function TabClases({ showToast }: { showToast: (m: string) => void }) {
                     </button>
                   );
                 })}
+              </div>
+            </Field>
+            <Field
+              label="Clase online (Zoom)"
+              description={
+                zoomConectado
+                  ? 'Cada sesión de este tipo de clase tendrá su propio enlace de Zoom, generado automáticamente.'
+                  : 'Conecta tu cuenta de Zoom en Configuración → Integraciones para poder activar esto.'
+              }
+            >
+              <div className="flex items-center gap-2.5">
+                <Toggle
+                  on={form.esOnline}
+                  onChange={v => zoomConectado && setForm(f => ({ ...f, esOnline: v }))}
+                />
+                {!zoomConectado && !form.esOnline && (
+                  <span className="text-[12px] text-muted-foreground">No disponible sin Zoom conectado</span>
+                )}
               </div>
             </Field>
             <Field
