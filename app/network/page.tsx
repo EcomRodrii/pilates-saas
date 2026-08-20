@@ -23,10 +23,28 @@ export const metadata: Metadata = {
   description: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
 };
 
-const PASOS_COMO_FUNCIONA = [
-  { n: '01', titulo: 'Descubre', desc: 'Filtra por especialidad, ciudad y disponibilidad entre instructoras verificadas.' },
-  { n: '02', titulo: 'Conoce', desc: 'Perfil completo: experiencia, formación, disponibilidad semanal y opiniones de otros estudios.' },
-  { n: '03', titulo: 'Contacta', desc: 'Escríbele directamente — verificamos el email de cada perfil antes de publicarlo. Sin comisiones ni intermediarios.' },
+// Antes un único bloque de 3 pasos servía "para los dos lados" a la vez —
+// auditoría 2026-08-20: el brief pedía dos bloques diferenciados
+// (instructora / estudio) y el genérico no explicaba de verdad ninguno de
+// los dos flujos reales (el de estudio, sobre todo, ni mencionaba el
+// concierge). Separados, cada uno describe lo que de verdad pasa en ESE
+// lado.
+const PASOS_INSTRUCTORA = [
+  { n: '01', titulo: 'Crea tu perfil', desc: 'Experiencia, formación, especialidades, ciudad y disponibilidad. Unos minutos, no una hoja de cálculo.' },
+  { n: '02', titulo: 'Hazte visible', desc: 'Los estudios pueden encontrarte cuando buscan justo tu especialidad, o compartir tu perfil como tu CV online.' },
+  { n: '03', titulo: 'Conecta', desc: 'Si hay interés, respondes tú directamente. Verificamos el email de cada perfil antes de publicarlo.' },
+] as const;
+
+const PASOS_ESTUDIO = [
+  { n: '01', titulo: 'Cuéntanos qué necesitas', desc: 'Especialidad, ciudad, tipo de colaboración — una sustitución puntual o algo fijo.' },
+  { n: '02', titulo: 'Buscamos por ti', desc: 'Cruzamos tu petición contra la red de instructoras, no solo el directorio público — también las que ya trabajan en estudios Tentare.' },
+  { n: '03', titulo: 'Te presentamos candidatas', desc: 'Hablas directamente con quien encaje. Sin comisión, sin intermediarios de por medio.' },
+] as const;
+
+const CASOS_USO = [
+  { titulo: 'Necesitas una sustitución', texto: 'Un estudio se queda sin quien dé la clase de mañana y busca una instructora disponible en su zona.' },
+  { titulo: 'Buscas nuevas oportunidades', texto: 'Terminaste una certificación de Reformer y quieres que los estudios que buscan ese perfil te encuentren.' },
+  { titulo: 'Quieres incorporar una especialidad', texto: 'Tu estudio quiere ofrecer Yoga prenatal y hoy no tenéis a nadie formada en eso.' },
 ] as const;
 
 // Copy heredado de la landing original (components/landing/network/data.ts,
@@ -55,9 +73,25 @@ const PROBLEMA_ITEMS = [
 ] as const;
 
 const CONFIANZA_ITEMS = [
+  { titulo: 'Sin intermediarios', texto: 'Instructora y estudio habláis directamente — Tentare no se queda en medio ni cobra comisión.' },
   { titulo: 'Email verificado', texto: 'Todo perfil confirma su email antes de publicarse.' },
   { titulo: 'Experiencia confirmada', texto: 'Puedes pedir que un estudio que ya usa Tentare confirme que trabajaste ahí — se marca como verificada en tu perfil.' },
   { titulo: 'Actividad reciente', texto: 'Se nota si sigues buscando o si tu perfil lleva meses parado.' },
+] as const;
+
+const PROBLEMA_ESTUDIO_ITEMS = [
+  {
+    sin: 'Una sustitución urgente se resuelve preguntando en cinco grupos de WhatsApp a la vez.',
+    con: 'Cuéntanos qué necesitas y cruzamos tu petición contra la red de instructoras al momento.',
+  },
+  {
+    sin: 'Los contactos de instructoras se acumulan en notas sueltas, sin saber quién sigue disponible.',
+    con: 'Cada perfil dice si está buscando trabajo, disponible para sustituciones, o ninguna de las dos.',
+  },
+  {
+    sin: 'Comparar candidatas a mano es leer diez conversaciones de WhatsApp distintas.',
+    con: 'Toda la información — experiencia, especialidades, tarifa orientativa — en el mismo formato.',
+  },
 ] as const;
 
 const FAQ_ITEMS = [
@@ -210,18 +244,61 @@ export default async function NetworkLandingPage() {
         </div>
       </section>
 
-      <section id="como-funciona" className="max-w-[1240px] mx-auto px-6 pb-20 scroll-mt-6">
-        <Reveal className="rounded-[26px] p-12" style={{ background: NW_SAGE }}>
-          <div className="grid sm:grid-cols-3 gap-10">
-            {PASOS_COMO_FUNCIONA.map(paso => (
-              <div key={paso.n}>
-                <span className="text-[32px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
-                <h3 className="mt-2 text-[19px] font-extrabold">{paso.titulo}</h3>
-                <p className="mt-1.5 text-[14px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
-              </div>
-            ))}
-          </div>
+      <section id="problema-estudio" className="max-w-[920px] mx-auto px-6 pb-20 scroll-mt-6">
+        <Reveal>
+          <p className="text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
+            Buscar instructoras para tu estudio
+          </p>
+          <h2 className="mt-4 text-[28px] sm:text-[38px] font-extrabold leading-[1.02] tracking-tight max-w-[18ch] text-balance">
+            Encontrar a la persona adecuada no debería ser un caos.
+          </h2>
         </Reveal>
+        <div className="mt-10 flex flex-col gap-3.5">
+          {PROBLEMA_ESTUDIO_ITEMS.map((item, i) => (
+            <Reveal key={item.sin} delayMs={i * 70} className="grid sm:grid-cols-2 gap-3.5">
+              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl" style={{ background: NW_PROBLEMA.fondo, color: NW_PROBLEMA.texto }}>
+                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PROBLEMA.icono }}>✕</span>
+                <p className="text-[14.5px] leading-[1.55] m-0">{item.sin}</p>
+              </div>
+              <div className="flex items-start gap-2.5 px-5 py-4.5 rounded-2xl font-medium" style={{ background: NW_ESTADO.verificada.fondo, color: NW_TINTA }}>
+                <span className="mt-0.5 flex-shrink-0" style={{ color: NW_PRODUCTO }}>✓</span>
+                <p className="text-[14.5px] leading-[1.55] m-0">{item.con}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section id="como-funciona" className="max-w-[1240px] mx-auto px-6 pb-20 scroll-mt-6">
+        <Reveal className="mb-6">
+          <h2 className="text-[26px] font-extrabold tracking-tight">Cómo funciona</h2>
+        </Reveal>
+        <div className="grid md:grid-cols-2 gap-6">
+          <Reveal className="rounded-[26px] p-10" style={{ background: NW_SAGE }}>
+            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para instructoras</p>
+            <div className="flex flex-col gap-6">
+              {PASOS_INSTRUCTORA.map(paso => (
+                <div key={paso.n}>
+                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
+                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
+                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+          <Reveal delayMs={80} className="rounded-[26px] p-10 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+            <p className="text-[12px] font-bold uppercase tracking-wide mb-6" style={{ color: NW_PRODUCTO }}>Para estudios</p>
+            <div className="flex flex-col gap-6">
+              {PASOS_ESTUDIO.map(paso => (
+                <div key={paso.n}>
+                  <span className="text-[24px] font-extrabold" style={{ color: NW_PRODUCTO }}>{paso.n}</span>
+                  <h3 className="mt-1 text-[16px] font-extrabold">{paso.titulo}</h3>
+                  <p className="mt-1 text-[13.5px]" style={{ color: NW_MUTED }}>{paso.desc}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       <section className="max-w-[1240px] mx-auto px-6 pb-24 grid sm:grid-cols-2 gap-6">
@@ -317,6 +394,41 @@ export default async function NetworkLandingPage() {
             </Reveal>
           ))}
         </div>
+      </section>
+
+      <section id="casos-de-uso" className="max-w-[1240px] mx-auto px-6 pb-24 scroll-mt-6">
+        <Reveal>
+          <h2 className="text-[26px] font-extrabold tracking-tight">Cuándo se usa Tentare Network</h2>
+          {/* Etiquetado explícito como escenario, nunca como historia real —
+              brief punto 15/33: "no inventar usuarios". */}
+          <p className="mt-1.5 text-[13.5px]" style={{ color: NW_MUTED }}>Situaciones habituales, no casos reales.</p>
+        </Reveal>
+        <div className="mt-8 grid sm:grid-cols-3 gap-6">
+          {CASOS_USO.map((c, i) => (
+            <Reveal key={c.titulo} delayMs={i * 80} className="rounded-2xl p-6 bg-white" style={{ border: `1px solid ${NW_BORDE}` }}>
+              <h3 className="text-[15.5px] font-extrabold">{c.titulo}</h3>
+              <p className="mt-2 text-[13.5px] leading-[1.5]" style={{ color: NW_MUTED }}>{c.texto}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section id="por-que" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
+        <Reveal className="rounded-[24px] p-10" style={{ background: NW_SAGE }}>
+          <h2 className="text-[22px] font-extrabold tracking-tight">Por qué construimos esto</h2>
+          <p className="mt-3 text-[14.5px] leading-[1.6]" style={{ color: NW_MUTED }}>
+            Tentare ya gestiona la agenda, los pagos y el equipo de estudios reales de Pilates
+            y Yoga. Una y otra vez vimos el mismo problema fuera de nuestro software: encontrar
+            o cubrir una plaza de instructora se resolvía a mano, por WhatsApp, sin ninguna
+            forma de saber quién estaba disponible de verdad. Network es esa pieza que faltaba
+            — construida por el mismo equipo, empezando desde cero y con la beta a la vista,
+            no escondida.
+          </p>
+          <p className="mt-3 text-[13.5px]" style={{ color: NW_MUTED }}>
+            ¿Preguntas, feedback o algo que no cuadra? Escríbenos a{' '}
+            <a href="mailto:hola@tentare.app" className="font-semibold hover:underline" style={{ color: NW_TINTA }}>hola@tentare.app</a>.
+          </p>
+        </Reveal>
       </section>
 
       <section id="faq" className="max-w-[820px] mx-auto px-6 pb-24 scroll-mt-6">
