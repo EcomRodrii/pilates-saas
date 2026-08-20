@@ -1,7 +1,9 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { uid } from '@/lib/utils';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/rate-limit-core';
 import {
   generarTokenAleatorio, sha256Hex, compararEnTiempoConstante, verificarPkce,
   type ScopeOAuth,
@@ -293,4 +295,40 @@ export function auditarAccesoOAuth(
     token_id: p.tokenId, studio_id: p.studioId, cliente_id: p.clienteId, scope_usado: p.scopeUsado,
     metodo: p.metodo, ruta: p.ruta, status_code: p.statusCode, ip: p.ip,
   }).then(() => {}, () => {});
+}
+
+// ─── Wrapper compartido para /api/oauth/v1/* ─────────────────────────────────
+//
+// Los 6 endpoints repetían, copiado casi verbatim, el mismo cableado:
+// rate limit → verificarTokenOAuth → getSupabaseAdmin → comprobar scope
+// (auditando el 403) → lógica de negocio → auditar el resultado final
+// (auditoría de esta sesión, docs/api-publica-v1-diseno.md). `conOAuth`
+// deja al handler SOLO la lógica de negocio — decide su propio
+// `{ status, body }`, y el wrapper se encarga de las cuatro comprobaciones
+// y de las dos auditorías (403 de scope insuficiente, y la de cierre con
+// el status code real que decidió el handler).
+export interface ResultadoOAuth { status: number; body: unknown }
+
+export async function conOAuth(
+  req: NextRequest,
+  opts: { scope: ScopeOAuth; metodo: string; ruta: string; rateLimitKey: string; rateLimitMax: number; rateLimitWindowSeconds?: number },
+  handler: (ctx: ContextoOAuth, admin: SupabaseClient) => Promise<ResultadoOAuth>,
+): Promise<Response> {
+  const limited = await enforceRateLimit(req, opts.rateLimitKey, { max: opts.rateLimitMax, windowSeconds: opts.rateLimitWindowSeconds ?? 60 });
+  if (limited) return limited;
+
+  const ctx = await verificarTokenOAuth(req);
+  if (!ctx) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
+
+  const admin = getSupabaseAdmin();
+  if (!admin) return NextResponse.json({ error: 'server_error' }, { status: 503 });
+
+  if (!tieneScope(ctx, opts.scope)) {
+    auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: opts.scope, metodo: opts.metodo, ruta: opts.ruta, statusCode: 403, ip: clientIp(req) });
+    return NextResponse.json({ error: 'insufficient_scope' }, { status: 403 });
+  }
+
+  const { status, body } = await handler(ctx, admin);
+  auditarAccesoOAuth(admin, { tokenId: ctx.tokenId, studioId: ctx.studioId, clienteId: ctx.clienteId, scopeUsado: opts.scope, metodo: opts.metodo, ruta: opts.ruta, statusCode: status, ip: clientIp(req) });
+  return NextResponse.json(body, { status });
 }

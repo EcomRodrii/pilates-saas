@@ -9,6 +9,7 @@ import { procesarCandidato } from '@/lib/inngest/automatizaciones';
 import { mapLimit } from '@/lib/concurrency';
 import type { AutomationLog } from '@/lib/types';
 import { errorInterno } from '@/lib/errores-servidor';
+import { textoConsentimientoMarketing } from '@/lib/legal-textos';
 
 // Un estudio grande puede tener bastantes candidatos (email + redacción IA por
 // cada uno); damos margen sobre el default de Vercel para que no corte a medias.
@@ -73,6 +74,17 @@ export async function POST(req: NextRequest) {
     const studioColor = data.studio?.colorPrimario;
     const studioLogo = data.studio?.logoUrl;
 
+    // I-5: mismo guard de consentimiento que el cron (lib/inngest/automatizaciones.ts)
+    // — data.socios no trae el texto completo (mismo ahorro de payload que el
+    // resto del panel), así que se lee aparte, targeted.
+    const { data: filasConsentimiento } = await admin
+      .from('socios').select('id, consentimiento_marketing_texto').eq('studio_id', sesion.studioId);
+    const consentimientosMarketing = new Map<string, string>();
+    for (const row of filasConsentimiento ?? []) {
+      if (row.consentimiento_marketing_texto) consentimientosMarketing.set(row.id, row.consentimiento_marketing_texto);
+    }
+    const textoConsentimientoVigente = textoConsentimientoMarketing({ nombre: studioNombre });
+
     const candidatos = computeAutomationCandidatos(
       {
         automationRules: data.automationRules,
@@ -84,6 +96,8 @@ export async function POST(req: NextRequest) {
         tiposClase: data.tiposClase,
         suscripciones: data.suscripciones,
         planesTarifa: data.planesTarifa,
+        consentimientosMarketing,
+        textoConsentimientoVigente,
       },
       new Date(nowISO),
     );

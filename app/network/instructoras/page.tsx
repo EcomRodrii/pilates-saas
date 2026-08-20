@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { filtroDesdeSearchParams } from '@/lib/network/publico';
 import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
+import { LEGAL } from '@/lib/legal-info';
 
 // Marketplace público de Tentare Network — Server Component a propósito
 // (docs/NETWORK-AUDIT-2.md §11): sin esto, Google vería un div vacío que se
@@ -9,8 +10,8 @@ import { MarketplaceLayout } from '@/components/network-v2/MarketplaceLayout';
 // [ciudad] y [ciudad]/[especialidad]) — esta página solo resuelve el
 // filtro desde la querystring, como antes.
 export const metadata: Metadata = {
-  title: 'Instructoras de Pilates | Tentare Network',
-  description: 'Encuentra instructoras de Pilates disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+  title: 'Instructoras de Pilates y Yoga | Tentare Network',
+  description: 'Encuentra instructoras de Pilates y Yoga disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
 };
 
 export default async function MarketplaceInstructorasPage({
@@ -24,5 +25,11 @@ export default async function MarketplaceInstructorasPage({
   );
   const filtro = filtroDesdeSearchParams(urlSearchParams);
 
-  return <MarketplaceLayout filtro={filtro} tituloCiudad={filtro.ciudad} />;
+  return (
+    <MarketplaceLayout
+      filtro={filtro}
+      tituloCiudad={filtro.ciudad}
+      migasPan={[{ name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` }]}
+    />
+  );
 }

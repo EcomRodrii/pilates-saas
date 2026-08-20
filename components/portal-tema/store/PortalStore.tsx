@@ -1,15 +1,21 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from "react";
-import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase, plural } from "@/components/portal-tema/data/studio";
+import { DATOS_DE_MUESTRA, EXERCISES, NOTIFICATIONS, buscarClase } from "@/components/portal-tema/data/studio";
 import type { DatosPortal } from "@/lib/portal-tema/tipos";
 import { mandaLaRuta, repartirDestino } from "@/lib/portal-tema/navegacion";
+// La ÚNICA frase que `mensajeDeFalloAlGuardar` reserva para un fallo de red de
+// verdad. Es lo que separa «vuelve a intentarlo» de «el estudio ha dicho que
+// no» — ver el comentario de la hoja `errorReserva`.
+import { ERROR_RED } from "@/lib/errores";
 
 export type ScreenId =
   | "welcome" | "login" | "registro"
   | "inicio" | "clases" | "calendario" | "reservas" | "perfil" | "centro"
   | "bonos" | "checkout" | "detalle" | "sesion" | "videos" | "instructores"
-  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar"
+  | "confirmada" | "comprar" | "info" | "misdatos" | "preferencias" | "progreso" | "invitar" | "avisos"
+  | "historial"
+  | "favoritas"
   | "compra";
 
 // Las que pueden quedar marcadas en la barra. `bonos` y `centro` entran con la
@@ -55,6 +61,33 @@ export interface PortalState {
   horarioTab: 'clases' | 'espera';
   /** Pestaña abierta en «Mis bonos». Solo la usa `passes_style: "cartera"`. */
   bonosTab: 'bonos' | 'historial';
+  /**
+   * Vista de la Agenda: semana, mes o lista. Solo la usa el tema que pide la
+   * agenda con segmentado (Sereno); el resto siguen viendo la lista de siempre
+   * y ni pintan el control.
+   */
+  agendaVista: 'semana' | 'mes' | 'lista';
+  /**
+   * Sus clases ya asistidas, para «Completadas».
+   *
+   * `null` = todavía no se han pedido (o no hay de quién pedirlas: la
+   * previsualización corre sin sesión de socia). NO es lo mismo que `[]`, que
+   * sí significa «no ha asistido a ninguna» — y por eso la sección solo se
+   * pinta cuando hay array, no cuando hay elementos.
+   *
+   * Se piden EN DIFERIDO al abrir la lista, no al montar el portal: es la
+   * única forma de tener historial sin meterlo en la carga de todo el mundo
+   * (ver `fetchHistorialAsistidas`).
+   */
+  historial: Awaited<ReturnType<AlPedirHistorialPortal>> | null;
+  historialCargando: boolean;
+  /**
+   * La bandeja de avisos. `null` = no se ha pedido todavía (o no hay de quién:
+   * la previsualización corre sin sesión). Distinto de `[]`, que sí es «no
+   * tienes ninguno» — y por eso el vacío solo se dice con array.
+   */
+  avisos: { id: string; tipo: string; texto: string; cuando: string; leido: boolean; accion: string | null }[] | null;
+  avisosCargando: boolean;
   /** Qué sección abre «Información del centro». */
   infoKey: 'horario' | 'normas' | 'contacto' | 'privacidad';
   /**
@@ -71,6 +104,31 @@ export interface PortalState {
     | { tipo: 'espera'; classId: string }
     | { tipo: 'bono'; bonoId: string }
     | { tipo: 'pago' }
+    /**
+     * La reserva no salió. Antes esto era un TOAST y se iba solo en tres
+     * segundos: la socia se quedaba sin saber si se había gastado un crédito
+     * ni cómo volver a intentarlo. Es la única acción del portal que le cuesta
+     * dinero, así que el fallo se queda en pantalla hasta que ella lo cierre.
+     *
+     * `reintentable` distingue «se cayó la conexión» de «el estudio ha dicho
+     * que no» (sin bono, clase empezada, tope semanal…): ofrecer «Reintentar»
+     * sobre un rechazo legítimo sería mandarla a repetir algo que va a volver
+     * a fallar. Sale de comparar contra `ERROR_RED`, que es la ÚNICA frase que
+     * `mensajeDeFalloAlGuardar` reserva para un fallo de red de verdad.
+     */
+    | { tipo: 'errorReserva'; classId: string; mensaje: string; reintentable: boolean }
+    /**
+     * El rechazo se explica solo: no tiene ningún bono ni plan activo, así que
+     * no hay nada que reintentar — hay que comprar.
+     *
+     * ⚠️ NO es una comprobación PREVIA que le impida pulsar. Se decide DESPUÉS
+     * de que el servidor haya dicho que no, y solo cuando su cartera está
+     * vacía de verdad. Adivinarlo antes bloquearía a quien sí puede reservar:
+     * un estudio puede tener `reserva_exigir_plan` desactivado, y un plan
+     * ilimitado no cuenta sesiones. Aquí quien decide sigue siendo el servidor;
+     * esto solo elige qué hoja lo cuenta.
+     */
+    | { tipo: 'sinCreditos'; classId: string }
     | null;
 }
 
@@ -100,6 +158,13 @@ const initialState = (): PortalState => ({
   ultimaReserva: null,
   horarioTab: 'clases',
   bonosTab: 'bonos',
+  // Semana primero: es la vista que responde «¿qué tengo esta semana?», que es
+  // a lo que se entra en la agenda.
+  agendaVista: 'semana',
+  historial: null,
+  historialCargando: false,
+  avisos: null,
+  avisosCargando: false,
   infoKey: 'horario',
   hoja: null,
 });
@@ -152,6 +217,10 @@ export interface PortalActions {
   setFilter(key: string): void;
   setHorarioTab(tab: 'clases' | 'espera'): void;
   setBonosTab(tab: 'bonos' | 'historial'): void;
+  setAgendaVista(vista: 'semana' | 'mes' | 'lista'): void;
+  cargarHistorial(): void;
+  cargarAvisos(): void;
+  abrirAviso(id: string): void;
   goBuy(): void;
   goInfo(key: PortalState['infoKey']): void;
   goMisDatos(): void;
@@ -162,6 +231,8 @@ export interface PortalActions {
   goInvitar(): void;
   logout(): void;
   guardarDatos(datos: Parameters<AlGuardarDatosPortal>[0]): void;
+  anadirTarjeta(): void;
+  quitarTarjeta(): void;
   /** `id` = reservar desde una fila del horario. Sin él, la clase abierta. */
   reserve(id?: string): void;
   /**
@@ -285,6 +356,64 @@ export type AlPagarPortal = (planId: string) => Promise<string | null>;
 export type AlCancelarPortal = (reservaId: string) => Promise<string | null>;
 
 /**
+ * Pide el historial de clases asistidas de la socia. Devuelve `[]` si no hay
+ * sesión o el servidor falla — la sección «Completadas» se calla en vez de
+ * enseñar un error, porque es información de apoyo, no la razón de la
+ * pantalla.
+ *
+ * Va inyectada como el resto de escrituras: el kit no sabe que existe Supabase.
+ */
+/**
+ * Pide la bandeja de avisos de la socia, y marca la visita. Devuelve `[]` si
+ * no hay sesión o el servidor falla.
+ *
+ * Inyectada como el resto: el kit no sabe que existe `/api/notifications`.
+ */
+export type AlPedirAvisosPortal = () => Promise<
+  { id: string; tipo: string; texto: string; cuando: string; leido: boolean; accion: string | null }[]
+>;
+
+/** Abre un aviso: lo marca leído y navega a donde apunte. */
+export type AlAbrirAvisoPortal = (id: string) => void;
+
+/**
+ * Marcar o desmarcar un TIPO de clase como favorito, contra el servidor.
+ *
+ * ⚠️ Por tipo de clase, no por sesión. El kit guardaba el id de la SESIÓN en
+ * `localStorage` («el Reformer del martes a las 18») y el backend guarda
+ * `tipo_clase_id` («Reformer»): el corazón se apagaba solo al cambiar de
+ * semana y no llegaba nada al servidor. Devuelve el error si lo hubo.
+ */
+export type AlAlternarFavoritoPortal = (
+  tipoClaseId: string,
+  accion: 'marcar' | 'desmarcar',
+) => Promise<string | null>;
+
+/**
+ * Qué hace el botón de la bienvenida.
+ *
+ * ⚠️ Inyectable porque el destino depende de dónde se monte: en la
+ * previsualización entra al Inicio, y en el portal real —donde la bienvenida es
+ * lo PRIMERO que ve alguien SIN sesión— tiene que llevar a `/acceso`, que es la
+ * puerta que funciona igual para quien tiene contraseña y para quien no. Ver el
+ * comentario de `app/portal/[slug]/page.tsx`.
+ */
+export type AlEntrarPortal = () => void;
+
+/** Abre la página de Stripe para guardar una tarjeta. `null` = no se pudo. */
+export type AlAnadirTarjetaPortal = () => Promise<string | null>;
+/** Quita la tarjeta guardada. `null` = hecho; si no, el mensaje del servidor. */
+export type AlQuitarTarjetaPortal = () => Promise<string | null>;
+
+export type AlPedirHistorialPortal = () => Promise<
+  {
+    reservaId: string; sesionId: string; inicio: string; nombre: string; instructora: string;
+    /** Cómo acabó: asistió, la canceló, o no apareció. */
+    estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
+  }[]
+>;
+
+/**
  * Guarda los datos de la socia. Devuelve `null` si el servidor lo confirmó, o
  * el mensaje de error si no — nunca se avisa de «Guardado» sin esa respuesta.
  */
@@ -340,11 +469,18 @@ export function PortalProvider({
   alCancelar,
   alReservar,
   alGuardarDatos,
+  alAlternarFavorito,
+  alEntrar,
+  alAnadirTarjeta,
+  alQuitarTarjeta,
+  alPedirHistorial,
+  alPedirAvisos,
+  alAbrirAviso,
   alSalir,
   aspecto,
   compra,
   pantalla,
-  pantallasDeRuta,
+  pantallasSinRuta,
   diaPorDefecto,
   cromoDemo = true,
   esDemo = true,
@@ -376,6 +512,13 @@ export function PortalProvider({
   alPagar?: AlPagarPortal;
   /** Sin esto, "Cancelar" solo borra una fila de la pantalla. */
   alCancelar?: AlCancelarPortal;
+  alAlternarFavorito?: AlAlternarFavoritoPortal;
+  alEntrar?: AlEntrarPortal;
+  alAnadirTarjeta?: AlAnadirTarjetaPortal;
+  alQuitarTarjeta?: AlQuitarTarjetaPortal;
+  alPedirHistorial?: AlPedirHistorialPortal;
+  alPedirAvisos?: AlPedirAvisosPortal;
+  alAbrirAviso?: AlAbrirAvisoPortal;
   /** Sin esto, "Reservar mi plaza" es un `setTimeout`. */
   alReservar?: AlReservarPortal;
   alGuardarDatos?: AlGuardarDatosPortal;
@@ -386,11 +529,13 @@ export function PortalProvider({
    *  interno nunca cambia de pantalla: la dice la ruta. */
   pantalla?: ScreenId;
   /**
-   * Qué pantallas SÍ son una ruta. Solo esas las manda `pantalla`; las que no
-   * (el detalle de una clase) las gobierna el estado, o abrir una clase se
-   * desharía en el mismo render.
+   * Las pantallas que este kit pinta SIN ruta propia (el detalle de una clase).
+   * Solo esas gobiernan por encima de `pantalla`, o abrir una clase se desharía
+   * en el mismo render. Cualquier otra cosa la manda la ruta — incluido el
+   * estado inicial del store, que si entrara aquí dejaría el portal congelado
+   * en `welcome`. Ver `mandaLaRuta`.
    */
-  pantallasDeRuta?: readonly ScreenId[];
+  pantallasSinRuta?: readonly ScreenId[];
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(
@@ -407,6 +552,7 @@ export function PortalProvider({
   useEffect(() => {
     datosRef.current = datos;
   }, [datos]);
+
 
   // El espejo del estado para leerlo sin capturarlo en una clausura vieja: las
   // acciones se construyen una vez (`useMemo`) y el intervalo de la sesión
@@ -433,7 +579,18 @@ export function PortalProvider({
 
   useEffect(() => {
     if (!hydrated.current) return;
-    const { toast, toastId, loading, running, paying, authWorking, ...rest } = state;
+    // ⚠️ `historial` NO se persiste, y no es un descuido: son datos del
+    // SERVIDOR, no estado de pantalla. Guardarlos dejaría a la socia abriendo
+    // la app con el historial de la semana pasada —sin la clase de ayer— hasta
+    // que algo lo refrescara, y encima metería sus clases en el
+    // `localStorage` de un dispositivo compartido. Con `null` se vuelve a
+    // pedir, que es barato y siempre cierto.
+    // ⚠️ `favourites` tampoco se persiste, por el mismo motivo que `historial`:
+    // desde que el corazón habla con `/api/public/favoritos`, la lista es del
+    // SERVIDOR. Guardarla dejaría a la socia viendo en un móvil las favoritas
+    // que quitó en otro, y encima ganando la copia vieja al llegar la buena.
+    const { toast, toastId, loading, running, paying, authWorking, historial, historialCargando,
+            avisos, avisosCargando, favourites: _favoritasDelServidor, ...rest } = state;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
     } catch {
@@ -442,6 +599,18 @@ export function PortalProvider({
   }, [state]);
 
   const set = useCallback((patch: Partial<PortalState>) => dispatch({ type: "patch", patch }), []);
+
+  // Las favoritas las manda el catálogo. El corazón las cambia de forma
+  // optimista y `cargarPublico` re-sincroniza al terminar la escritura, así
+  // que esto es lo que devuelve el servidor a la última — y si rechazó algo,
+  // lo corrige solo.
+  const favoritasDeDatos = datos.favoritas.join("|");
+  useEffect(() => {
+    set({ favourites: favoritasDeDatos ? favoritasDeDatos.split("|") : [] });
+    // `favoritasDeDatos` es una CADENA a propósito: con el array, un catálogo
+    // nuevo con las mismas favoritas dispararía esto en cada refresco.
+  }, [favoritasDeDatos, set]);
+
 
   // Mismo motivo que `datosRef`: `navegar` cambia de identidad en cada render
   // del portal real (se construye con el router), y no puede reconstruir las
@@ -456,6 +625,23 @@ export function PortalProvider({
     alPagarRef.current = alPagar;
   }, [alPagar]);
 
+  const alAlternarFavoritoRef = useRef(alAlternarFavorito);
+  useEffect(() => { alAlternarFavoritoRef.current = alAlternarFavorito; }, [alAlternarFavorito]);
+
+  const alEntrarRef = useRef(alEntrar);
+  useEffect(() => { alEntrarRef.current = alEntrar; }, [alEntrar]);
+
+  const alAnadirTarjetaRef = useRef(alAnadirTarjeta);
+  useEffect(() => { alAnadirTarjetaRef.current = alAnadirTarjeta; }, [alAnadirTarjeta]);
+  const alQuitarTarjetaRef = useRef(alQuitarTarjeta);
+  useEffect(() => { alQuitarTarjetaRef.current = alQuitarTarjeta; }, [alQuitarTarjeta]);
+
+  const alPedirHistorialRef = useRef(alPedirHistorial);
+  useEffect(() => { alPedirHistorialRef.current = alPedirHistorial; }, [alPedirHistorial]);
+  const alPedirAvisosRef = useRef(alPedirAvisos);
+  useEffect(() => { alPedirAvisosRef.current = alPedirAvisos; }, [alPedirAvisos]);
+  const alAbrirAvisoRef = useRef(alAbrirAviso);
+  useEffect(() => { alAbrirAvisoRef.current = alAbrirAviso; }, [alAbrirAviso]);
   const alCancelarRef = useRef(alCancelar);
   useEffect(() => {
     alCancelarRef.current = alCancelar;
@@ -490,11 +676,21 @@ export function PortalProvider({
     // el día seleccionado no se movía y sus clases del 7 y del 8 —que existen
     // en la base de datos— parecían no existir.
     const { estado } = repartirDestino(destino);
-    if (estado) set(estado);
-    // Si fuera no sabe llevarla ahí, la abrimos aquí. La ruta sigue siendo la
-    // de la sección (Clases), y el detalle vive dentro — igual que la hoja de
-    // reserva del portal de siempre, que tampoco tiene URL propia.
-    if (!fuera(destino)) set({ screen: destino.screen });
+    // ⚠️ La pantalla se aplica SIEMPRE, no solo cuando el de fuera dice que no
+    // ha navegado. Esto era un CALLEJÓN SIN SALIDA en toda la app.
+    //
+    // Las pantallas sin ruta propia (Favoritas, Historial, el detalle) mandan
+    // sobre la ruta mientras están abiertas — si no, se cerrarían en el mismo
+    // render en que se abren. Pero con la regla anterior, `back()` navegaba a
+    // `/home` y NO tocaba el store: la pantalla seguía siendo «favoritas», y
+    // como «favoritas» manda sobre la ruta, seguía mandando. Para siempre. La
+    // socia se quedaba encerrada y la flecha no hacía nada.
+    //
+    // Aplicándola siempre, el orden se resuelve solo: el store apunta al
+    // destino, y si ese destino SÍ tiene ruta, el override de la ruta lo
+    // confirma. Ponerle el valor que ya tenía no hace nada.
+    set({ ...(estado ?? {}), screen: destino.screen });
+    fuera(destino);
   }, [set]);
 
   const notify = useCallback(
@@ -536,7 +732,11 @@ export function PortalProvider({
     };
 
     const self: PortalActions = {
-      enter: () => ir({ screen: "inicio", tab: "inicio" }),
+      enter: () => {
+        const fuera = alEntrarRef.current;
+        if (fuera) return fuera();
+        ir({ screen: "inicio", tab: "inicio" });
+      },
       goTab: (tab) => ir({ tab, screen: tab }),
       goSchedule: () => ir({ tab: "clases", screen: "clases" }),
       goBookings: () => ir({ tab: "reservas", screen: "reservas" }),
@@ -582,6 +782,65 @@ export function PortalProvider({
       setFilter: (key) => set({ filter: key }),
       setHorarioTab: (horarioTab) => set({ horarioTab }),
       setBonosTab: (bonosTab) => set({ bonosTab }),
+      setAgendaVista: (agendaVista) => set({ agendaVista }),
+      // Una sola vez por montaje: `historial !== null` ya significa «pedido».
+      // Sin esa guarda, el efecto que la llama al abrir la lista dispararía una
+      // petición por render.
+      cargarAvisos: () => {
+        const pedir = alPedirAvisosRef.current;
+        const s = stateRef.current;
+        if (!pedir || s.avisos !== null || s.avisosCargando) return;
+        set({ avisosCargando: true });
+        pedir()
+          .then((avisos) => set({ avisos, avisosCargando: false, alertsSeen: true }))
+          // Un fallo deja `avisos` en `null`, no en `[]`: «no he podido leer la
+          // bandeja» y «no tienes avisos» son cosas distintas.
+          .catch(() => set({ avisosCargando: false }));
+      },
+      abrirAviso: (id) => { alAbrirAvisoRef.current?.(id); },
+
+      /** Lleva a la página de Stripe. La UI de tarjeta la alojan ELLOS. */
+      anadirTarjeta: () => {
+        const abrir = alAnadirTarjetaRef.current;
+        if (!abrir) return notify("Vista previa: aquí se abriría la página de Stripe");
+        if (stateRef.current.loading) return;
+        set({ loading: true });
+        abrir().then((error) => {
+          set({ loading: false });
+          if (error) notify(error);
+        });
+      },
+
+      /**
+       * Quita la tarjeta guardada.
+       *
+       * ⚠️ Sin escritura optimista: se anuncia con lo que responde el servidor.
+       * Decir «quitada» y que siguiera ahí es el patrón que ya costó un bug en
+       * reservas, y aquí es peor: la socia creería que ya no se le puede cobrar.
+       */
+      quitarTarjeta: () => {
+        const quitar = alQuitarTarjetaRef.current;
+        if (!quitar) return notify("Vista previa: esto no quita nada de verdad");
+        if (stateRef.current.loading) return;
+        set({ loading: true });
+        quitar().then((error) => {
+          set({ loading: false, hoja: null });
+          notify(error ?? "Tarjeta quitada");
+        });
+      },
+
+      cargarHistorial: () => {
+        const pedir = alPedirHistorialRef.current;
+        const s = stateRef.current;
+        if (!pedir || s.historial !== null || s.historialCargando) return;
+        set({ historialCargando: true });
+        pedir()
+          .then((historial) => set({ historial, historialCargando: false }))
+          // Un fallo deja `historial` en `null`, no en `[]`: `[]` diría «no has
+          // asistido a ninguna», que es una afirmación distinta de «no lo he
+          // podido cargar». Así la sección no se pinta en vez de mentir.
+          .catch(() => set({ historialCargando: false }));
+      },
       // Elegir el bono es un paso propio en Tentada; en los otros temas la
       // elección vive dentro de la pantalla de Bonos y `checkout` va directo.
       goBuy: () => ir({ screen: "comprar" }),
@@ -643,8 +902,27 @@ export function PortalProvider({
           // fila del horario (`id`), no hay ninguna elegida y va `null`.
           const plaza = id && id !== s.classId ? null : s.spotElegido;
           reservar(classId, plaza).then((r) => {
+            if (!r.ok) {
+              // ⚠️ La plaza elegida NO se suelta cuando la reserva falla: si se
+              // cayó la conexión, «Reintentar» tiene que pedir el MISMO sitio.
+              // Soltarla aquí convertía el segundo intento en «que me la
+              // asignen», que no es lo que ella eligió.
+              //
+              // Y si su cartera está vacía, el rechazo tiene una salida mejor
+              // que «reintentar»: comprar. La decisión la sigue tomando el
+              // servidor —esto solo elige qué hoja lo explica— y se mira la
+              // cartera ENTERA (`bonos`), no el bono contable: un plan
+              // ilimitado no tiene sesiones que contar y `bono.total` sería 0
+              // teniéndolo activo.
+              const sinNada = datosRef.current.bonos.length === 0;
+              return set({
+                loading: false,
+                hoja: sinNada
+                  ? { tipo: 'sinCreditos', classId }
+                  : { tipo: 'errorReserva', classId, mensaje: r.error, reintentable: r.error === ERROR_RED },
+              });
+            }
             set({ loading: false, spotElegido: null });
-            if (!r.ok) return notify(r.error);
             // A la pantalla de confirmación con el desenlace que dio el
             // SERVIDOR. El aviso se queda igualmente: si la navegación la
             // lleva una ruta que aún no ha pintado, el mensaje ya está.
@@ -700,16 +978,37 @@ export function PortalProvider({
           notify(error ?? "Reserva cancelada");
         });
       },
+      /**
+       * El corazón del detalle.
+       *
+       * ⚠️ Guarda el TIPO de clase, no la sesión abierta. Antes escribía
+       * `classId` en `localStorage` y no llamaba a nadie: la socia marcaba «el
+       * Reformer del martes», el corazón se apagaba solo al cambiar de semana
+       * —porque la sesión ya era otra— y el servidor no se enteraba nunca. El
+       * backend (`/api/public/favoritos`) siempre guardó `tipo_clase_id`.
+       */
       toggleFavourite: () => {
         const s = stateRef.current;
-        const inside = s.favourites.includes(s.classId);
-        set({ favourites: inside ? s.favourites.filter((x) => x !== s.classId) : s.favourites.concat([s.classId]) });
-        notify(inside ? "Fuera de favoritas" : "Guardada en favoritas");
+        const cls = buscarClase(datosRef.current, s.classId);
+        // Sin clase abierta no hay tipo que marcar.
+        if (!cls) return;
+        const tipo = cls.type;
+        const dentro = s.favourites.includes(tipo);
+        // Optimista, como el resto del portal: se ve al instante y el servidor
+        // manda al final. Si dice que no, se deshace y se cuenta — nada de
+        // dejar el corazón encendido sobre un favorito que no existe.
+        set({ favourites: dentro ? s.favourites.filter((x) => x !== tipo) : s.favourites.concat([tipo]) });
+        const alternar = alAlternarFavoritoRef.current;
+        if (!alternar) return notify(dentro ? "Fuera de favoritas" : "Guardada en favoritas");
+        alternar(tipo, dentro ? 'desmarcar' : 'marcar').then((error) => {
+          if (!error) return notify(dentro ? "Fuera de favoritas" : "Guardada en favoritas");
+          const ahora = stateRef.current.favourites;
+          set({ favourites: dentro ? ahora.concat([tipo]) : ahora.filter((x) => x !== tipo) });
+          notify(error);
+        });
       },
-      showFavourites: () => {
-        const n = stateRef.current.favourites.length;
-        notify(n ? plural(n, "clase guardada", "clases guardadas") : "Aún no tienes favoritas");
-      },
+      /** Antes esto era un AVISO con el número. Ahora lleva a su pantalla. */
+      showFavourites: () => ir({ screen: "favoritas" }),
 
       toggleChallenge: (key) => {
         const s = stateRef.current;
@@ -722,8 +1021,13 @@ export function PortalProvider({
         const s = stateRef.current;
         set({ notifications: { ...s.notifications, [key]: !s.notifications[key] } });
       },
+      // ⚠️ Esto decía «Tienes 2 avisos sin leer» con el 2 escrito a mano en el
+      // kit de diseño, sin mirar ninguna bandeja. Ahora abre la bandeja de
+      // verdad; si el tema no la monta (los cuatro anteriores), se queda el
+      // aviso flotante pero SIN inventarse una cifra.
       alerts: () => {
-        notify(stateRef.current.alertsSeen ? "Nada nuevo" : "Tienes 2 avisos sin leer");
+        if (alPedirAvisosRef.current) { ir({ screen: "avisos" }); return; }
+        notify("Tus avisos están en el menú del portal");
         set({ alertsSeen: true });
       },
 
@@ -807,7 +1111,7 @@ export function PortalProvider({
   // detalle de una clase —que no tiene ruta propia— pisarlo con la pantalla de
   // la ruta lo cerraría en el mismo render en el que se abre: el detalle
   // parpadearía y volvería al horario.
-  const gobiernaLaRuta = mandaLaRuta(state.screen, pantallasDeRuta);
+  const gobiernaLaRuta = mandaLaRuta(state.screen, pantallasSinRuta);
   const estado = pantalla && gobiernaLaRuta
     ? { ...state, screen: pantalla, ...(ES_PESTANA(pantalla) ? { tab: pantalla } : null) }
     : state;

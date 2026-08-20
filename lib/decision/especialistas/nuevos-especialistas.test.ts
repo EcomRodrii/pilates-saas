@@ -58,6 +58,36 @@ test('FINANZAS: socia con MENSUAL + BONO simultáneos → el bono casi agotado S
   assert.equal(c[0].datosUsados.nombre, 'Marta');
 });
 
+// 2026-08-18, producción: una socia con SEIS bonos activos y 17 sesiones por
+// delante agotó uno. F1 miraba fila a fila, así que la propietaria recibía «se
+// le acaba el bono» sobre alguien que no se acerca a quedarse sin nada. El
+// aviso solo tiene sentido sobre el saldo de la socia, no sobre el de una fila.
+test('FINANZAS: un bono agotado pero OTRO con saldo → no se avisa de renovación', () => {
+  const s = snap({
+    socios: [socio({ id: '1', nombre: 'Lamine' })],
+    planesTarifa: [plan({ id: 'b', tipo: 'BONO' })],
+    suscripciones: [
+      sus('1', 'b', { id: 'sus-gastado', sesionesRestantes: 0 }),
+      sus('1', 'b', { id: 'sus-nuevo', sesionesRestantes: 4 }),
+    ],
+  });
+  assert.equal(finanzas.detectar(s, M, NOW).filter(c => c.tipo === 'PROPONER_RENOVACION_BONO').length, 0);
+});
+
+test('FINANZAS: agotados TODOS sus bonos → sí se avisa, con el saldo real', () => {
+  const s = snap({
+    socios: [socio({ id: '1', nombre: 'Lamine' })],
+    planesTarifa: [plan({ id: 'b', tipo: 'BONO' })],
+    suscripciones: [
+      sus('1', 'b', { id: 'sus-a', sesionesRestantes: 0 }),
+      sus('1', 'b', { id: 'sus-b', sesionesRestantes: 1 }),
+    ],
+  });
+  const c = finanzas.detectar(s, M, NOW).filter(x => x.tipo === 'PROPONER_RENOVACION_BONO');
+  assert.equal(c.length, 1);
+  assert.equal(c[0].datosUsados.sesionesRestantes, 1, 'el saldo de la socia, no el de la fila que disparó');
+});
+
 test('FINANZAS: dos socias distintas con bonos casi agotados → una candidata por socia', () => {
   const s = snap({
     socios: [socio({ id: '1', nombre: 'Marta' }), socio({ id: '2', nombre: 'Elena' })],

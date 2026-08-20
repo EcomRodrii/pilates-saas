@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verificarSesionStaff, verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { resolverDestinoPostLogin } from '@/lib/network/routing-post-login';
+import { resolverDestinoPostLogin, resolverAccesoPorProducto, type Producto } from '@/lib/network/routing-post-login';
 
 // Único punto de decisión de "a dónde mando a esta cuenta tras iniciar
 // sesión" — docs/NETWORK-AUDIT-2.md §2/§11. Antes esto no existía: cada
@@ -15,25 +15,41 @@ import { resolverDestinoPostLogin } from '@/lib/network/routing-post-login';
 // lib/auth-server.ts) — no se reimplementa esa consulta aquí, solo se usa su
 // resultado.
 //
-// Rediseño 2026-08 (Fase 4): con estudio real → /dashboard, sin cambios.
-// Sin estudio, la rama binaria de antes ("todo lo demás a mi-perfil") ya no
-// basta — mi-perfil dejó de ser el sitio del alta (PR de onboarding) y
-// ahora distingue tres casos reales: sin perfil o con el onboarding a
-// medias → /network/reanudar ("Hola de nuevo", 2f del brief, NUNCA el
-// dashboard de propietaria); perfil ya publicado → /network/mi-perfil (el
-// panel). El propio /network/reanudar usa el mismo cálculo de "paso
-// incompleto" (lib/network/pasos-onboarding.ts) que el wizard usa al
-// abrirse solo, así que las dos pantallas nunca pueden discrepar en qué
-// paso toca.
+// ⚠️ Software vs Network, dos productos independientes (2026-08-19). El bug
+// real que motivó este cambio: esta ruta SOLO miraba "¿tiene estudio?" antes
+// de mirar Network, sin saber por qué PÁGINA se había llamado. Una identidad
+// dual (self-claim: instructora con ficha de Software y perfil de Network)
+// entrando por /network/acceso acababa SIEMPRE en /dashboard, sin excepción
+// — la puerta por la que entras dejaba de importar.
+//
+// Ahora `producto` es un parámetro de ENTRADA, no algo que se adivina de la
+// cuenta: el contexto lo decide la página que llama (/login siempre manda
+// `software`, /network/acceso siempre manda `network`), nunca la identidad.
+// Con `producto`, la respuesta puede ser 'cuenta-de-otro-producto' — sin
+// gate, /clave-nueva (recuperación de contraseña, donde no se está "entrando
+// en" ningún producto) sigue usando la resolución vieja sin bloqueo.
 export async function GET(req: NextRequest) {
+  const productoParam = req.nextUrl.searchParams.get('producto');
+  const producto: Producto | null =
+    productoParam === 'software' || productoParam === 'network' ? productoParam : null;
+
   const sesion = await verificarSesionStaff(req);
-  if (sesion) return NextResponse.json({ destino: resolverDestinoPostLogin(true, null) });
+  const tieneEstudio = !!sesion;
 
   const usuario = await verificarUsuarioSupabase(req);
   const admin = usuario ? getSupabaseAdmin() : null;
   const { data: perfil } = admin
     ? await admin.from('red_perfiles').select('estado').eq('auth_user_id', usuario!.userId).maybeSingle()
     : { data: null };
+  const estadoPerfilNetwork = perfil?.estado ?? null;
 
-  return NextResponse.json({ destino: resolverDestinoPostLogin(false, perfil?.estado ?? null) });
+  if (!producto) {
+    // Sin gate: solo /clave-nueva llega aquí sin `producto`. Se manda a donde
+    // de verdad tiene algo esta identidad, sin bloquear nada — recuperar la
+    // contraseña no es "entrar en" ningún producto en concreto.
+    return NextResponse.json({ destino: resolverDestinoPostLogin(tieneEstudio, estadoPerfilNetwork) });
+  }
+
+  const resultado = resolverAccesoPorProducto(producto, { tieneEstudio, estadoPerfilNetwork });
+  return NextResponse.json(resultado);
 }

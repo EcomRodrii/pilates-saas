@@ -69,6 +69,16 @@ async function porAuthUserId(admin: SupabaseClient, authUserId: string, nombre?:
   }];
 }
 
+// Tentare Network (Fase 2, matching): N profesionales cuyo perfil encaja con
+// una vacante nueva, ya filtradas y resueltas por `data.authUserIds` — el
+// endpoint que publica la vacante hace el cálculo de encaje (sin cron), esto
+// solo traduce cada id a un Recipient. Sin studioId (mismo motivo que
+// `porAuthUserId`: no pertenecen al estudio del evento).
+async function porListaAuthUserIds(admin: SupabaseClient, authUserIds: string[]): Promise<Recipient[]> {
+  const out = await Promise.all(authUserIds.map(id => porAuthUserId(admin, id)));
+  return out.flat();
+}
+
 // Tentare Network (Fase 9): quien envió una solicitud de contacto, para
 // avisarle cuando la profesional la acepta — nunca toda la gerencia, para
 // no convertir el contacto (que incluye email/teléfono privados) en un
@@ -159,6 +169,7 @@ export async function resolverDestinatarios(
   const authUserId = d.authUserId as string | undefined;
   const nombreProfesional = d.profesional as string | undefined;
   const solicitanteAuthUserId = d.solicitanteAuthUserId as string | undefined;
+  const authUserIds = d.authUserIds as string[] | undefined;
 
   // Estas audiencias no pueden resolverse sin su id en `data`. Si falta, el aviso
   // se perdía sin rastro (le pasó a clase.cancelada en producción): grítalo.
@@ -207,6 +218,8 @@ export async function resolverDestinatarios(
       return solicitanteAuthUserId
         ? staffPorAuthUserId(admin, event.studioId, solicitanteAuthUserId)
         : falta('solicitanteAuthUserId');
+    case 'red-instructoras-lista':
+      return authUserIds && authUserIds.length > 0 ? porListaAuthUserIds(admin, authUserIds) : falta('authUserIds');
     default:
       return [];
   }

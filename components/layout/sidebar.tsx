@@ -16,6 +16,7 @@ import { fetchLayout } from '@/lib/api-client';
 import { filtrarItemsMenu } from '@/lib/layout-runtime';
 import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
+import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 
 export function useNavMode() {
   // Por defecto 'esencial' (6 módulos del día a día): un estudio nuevo no se
@@ -98,7 +99,11 @@ function MasDrawer({ onClose, userInitials, userEmail, handleSignOut, sections }
   const pathname = usePathname();
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--foreground)' }}>
+    // --sidebar (#0F0F0F en los dos modos), no --foreground: este cajón es una
+    // superficie SIEMPRE oscura —todo su contenido va en text-white— y
+    // --foreground se INVIERTE en modo oscuro, así que el menú entero quedaba
+    // en blanco sobre blanco. Mismo criterio que el sidebar de escritorio.
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--sidebar)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
@@ -281,17 +286,26 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile top bar ─────────────────────────────────────────────────── */}
+      {/* Las dos barras van con --card, no con '#ffffff'. En claro es el mismo
+          blanco, pero fijo las dejaba blancas con el panel en modo oscuro — y
+          con ellas el logo, que en tinta `auto` pinta ahí su versión NEGATIVA
+          y desaparecía sobre el blanco. */}
       <div
         className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-5 h-12 border-b"
-        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)' }}
+        style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
       >
         <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={30} />
+        {/* La píldora de la prueba también en móvil. `ml-auto` y no un
+            `justify-between` en el contenedor: la píldora no se pinta si el
+            estudio no está en prueba, y con justify-between el logo se
+            quedaría centrado a veces y a la izquierda otras. */}
+        <PildoraPrueba className="ml-auto" />
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         className="lg:hidden fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around px-2 border-t"
-        style={{ backgroundColor: '#ffffff', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
         {bottomNavVisibles.map(item => (
           <BottomNavItem key={item.href} href={item.href} label={item.label} Icon={item.icon} />

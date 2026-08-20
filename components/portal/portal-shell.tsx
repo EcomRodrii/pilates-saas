@@ -80,10 +80,26 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // borde a borde.
   const FRAME: React.CSSProperties = { maxWidth: 480, width: '100%', height: '100%', margin: '0 auto', position: 'relative', overflow: 'hidden', fontFamily: sans };
 
+  // ⚠️ Las pantallas de PUERTA (acceso/login/clave-nueva) cuelgan directas de
+  // FRAME, que recorta con `overflow: hidden` y no tiene dónde rodar — las del
+  // portal sí lo tienen, en su `<main className="overflow-y-auto">`. Mientras
+  // la puerta fueron dos pasos cortos daba igual: cabían. Al unificarla en una
+  // sola pantalla pasó a medir 863 px, y en un iPhone SE (667) el botón de
+  // Google y «no tengo contraseña» quedaban FUERA y sin forma de llegar a
+  // ellos. Medido: `scrollY` seguía en 0 tras rodar 600 px.
+  //
+  // Se abre solo el eje vertical: el horizontal sigue recortado a propósito,
+  // que es lo que mantiene la app dentro del ancho de un teléfono.
+  const MARCO_PUERTA: React.CSSProperties = {
+    ...FRAME,
+    overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
+  } as React.CSSProperties;
+
   if (isClaveNueva) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={FRAME}>{children}</div>
+        <div style={MARCO_PUERTA}>{children}</div>
       </div>
     );
   }
@@ -119,7 +135,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   if (isLoginPage) {
     return (
       <div className="fixed inset-0" style={{ background: t.bg }}>
-        <div style={FRAME}>{children}</div>
+        <div style={MARCO_PUERTA}>{children}</div>
       </div>
     );
   }
@@ -143,10 +159,15 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
   // intención mientras nada la comprobara, que es como un flag temporal se
   // queda para siempre.
   //
-  // Y solo en las CINCO rutas que el kit cubre: `/progreso`, `/compras`,
-  // `/preferencias`, `/notificaciones`, `/invitar`, `/instructores` y
-  // `/videos` no tienen pantalla equivalente y se quedan con el portal de
-  // siempre. Encender la bandera no puede dejar a nadie sin esas pantallas.
+  // Y solo en las rutas que el kit cubre: `/progreso`, `/compras`,
+  // `/preferencias`, `/invitar`, `/instructores` y `/videos` no tienen
+  // pantalla equivalente y se quedan con el portal de siempre. Encender la
+  // bandera no puede dejar a nadie sin esas pantallas.
+  //
+  // ⚠️ `/notificaciones` SÍ la cubre ya (`Avisos`, con los mismos datos de
+  // `fetchNotificaciones`), así que ha salido de esa lista. Lo que sigue fuera
+  // es `/preferencias`, que es otra cosa: allí viven el control por canal y la
+  // activación de push, y el kit todavía no los tiene.
   // ⚠️ Clases estuvo fuera para los estudios con plaza fija hasta que el kit
   // tuvo selector de sitio: el detalle reservaba con `spotId: null` y dejaba a
   // la socia de un reformer sin máquina, que es justo lo que la hoja de

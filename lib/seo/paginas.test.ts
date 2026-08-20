@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  BASE_URL, PAGINAS, PREFIJOS_NO_INDEXABLES, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
+  BASE_URL, PAGINAS, PREFIJOS_NO_INDEXABLES, RUTAS_REDIRECCION, esNoIndexable, paginaDe, relacionadasDe, urlDe, funcionalidades,
 } from './paginas.ts';
 import { LEGAL } from '../legal-info.ts';
 
@@ -36,7 +36,10 @@ function rutasEstaticas(dir = RAIZ_APP, prefijo = ''): string[] {
 // ─── El test que existe para que no se repita el fallo de /comparativa ───────
 
 test('toda página pública de app/ está en el registro SEO', () => {
-  const publicas = rutasEstaticas().filter((r) => !esNoIndexable(r));
+  // Un `redirect()` no es una página: no tiene contenido que indexar y Google
+  // se queda con el destino, no con la URL que redirige. Ver RUTAS_REDIRECCION.
+  const publicas = rutasEstaticas()
+    .filter((r) => !esNoIndexable(r) && !RUTAS_REDIRECCION.includes(r));
   const faltan = publicas.filter((r) => !paginaDe(r));
   assert.deepEqual(
     faltan,
@@ -151,7 +154,11 @@ test('esNoIndexable usa prefijo de cadena, como robots.txt', () => {
   // `/portal` tiene que cubrir `/portal-preview` (no es subruta, pero robots.txt
   // no razona por segmentos) y NO puede cubrir `/funcionalidades/...`.
   assert.equal(esNoIndexable('/portal-preview/x'), true);
-  assert.equal(esNoIndexable('/reservar/mi-estudio'), true);
+  // Abierta a indexación el 2026-08-17 (decisión del fundador). El canonical
+  // del layout es lo que impide que `?tab=`, `?embed=`… se conviertan en
+  // duplicados. `/i/<slug>`, que sirve el MISMO contenido, sigue bloqueada.
+  assert.equal(esNoIndexable('/reservar/mi-estudio'), false);
+  assert.equal(esNoIndexable('/i/una-instructora'), true);
   assert.equal(esNoIndexable('/funcionalidades/sustituciones'), false);
   assert.equal(esNoIndexable('/precios'), false);
 });

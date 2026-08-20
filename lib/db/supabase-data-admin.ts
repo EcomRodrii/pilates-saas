@@ -1,5 +1,6 @@
 import 'server-only';
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
+import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
@@ -9,6 +10,8 @@ import { getLayout } from '@/lib/layout-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
 import { enviarWhatsAppTexto, enviarWhatsAppPlantilla, PLANTILLA_RECORDATORIO, type WhatsAppCredenciales } from '@/lib/whatsapp';
+import { acumuladorSalud } from '@/lib/integraciones/salud';
+import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe } from '@/lib/utils';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 // `debeDevolverBono` ya no se usa aquí: quien decide si se devuelve la sesión
@@ -18,7 +21,7 @@ import {
   contarReservasActivasFuturas, esCancelacionTardia,
   heredaOverride, puedeReservarPorAntelacionMaxima, puedeReservarPorVentanaMinima,
 } from '@/lib/booking-logic';
-import { bonoConsumible, calcularDevolucionBono, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
+import { bonoConsumible, bonoDevolvible, tieneEntitlementActivo, hayAlgoQueContratar, ERROR_SIN_PLAN, ERROR_BONO_NO_CUBRE } from '@/lib/bono-logic';
 import { validarCanje, decidirOtorgarCreditos } from '@/lib/engines/reward-engine';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
@@ -442,6 +445,7 @@ export async function fetchPublicStudioData(
     const [
       tiposClaseRes, salasRes, instructoresRes, spotsRes, planesRes,
       citasServiciosRes, citasDisponibilidadRes, susPlanesRes, sustitucionesRes,
+      valoracionesRes,
     ] = await Promise.all([
       admin.from('tipos_clase').select('*').eq('studio_id', studioId),
       admin.from('salas').select('*').eq('studio_id', studioId),
@@ -463,6 +467,11 @@ export async function fetchPublicStudioData(
       // misma transacción). Nunca `motivo`/`origen`/candidatas descartadas.
       admin.from('sustituciones').select('sesion_id, instructor_original_id')
         .eq('studio_id', studioId).eq('estado', 'confirmada'),
+      // Valoraciones para la nota de cada instructora. Solo `instructor_id` y
+      // `puntuacion`: el comentario y quién lo escribió NO salen del servidor —
+      // esto alimenta una media, no una lista de opiniones, y el comentario es
+      // de la socia que lo escribió, no del catálogo público.
+      admin.from('valoraciones').select('instructor_id, puntuacion').eq('studio_id', studioId),
     ]);
 
     // Exclusivo del portal instalable (app/portal/[slug]) — ver comentario de
@@ -472,9 +481,9 @@ export async function fetchPublicStudioData(
     // su propio Promise.all de tamaño fijo en vez de mezclarse con el de arriba.
     const [
       videosRes, rewardRulesRes, rewardCatalogRes, levelDefsRes, achDefsRes, chalDefsRes,
-      contenidoPortalRes, bannersPortalRes, layout, retoParticipRes, horarioRes,
+      contenidoPortalRes, bannersPortalRes, retoParticipRes, horarioRes,
     ] = liviano
-      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
+      ? [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
       : await Promise.all([
         admin.from('videos_on_demand').select('*').eq('studio_id', studioId),
         admin.from('reward_rules').select('*').eq('studio_id', studioId),
@@ -490,11 +499,8 @@ export async function fetchPublicStudioData(
         admin.from('contenido_portal_banners').select('*')
           .eq('studio_id', studioId).eq('activo', true).contains('ubicacion', ['home'])
           .order('orden', { ascending: true }),
-        // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del
-        // editor de temas) — getLayout ya es una función pública sin auth
-        // (service-role, cacheada con React cache), así que se llama tal cual,
-        // sin RLS/endpoint nuevo.
-        getLayout(studioId),
+        // `getLayout` YA NO va aquí — ver el comentario junto a `temaPublicado`
+        // más abajo, donde se pide FUERA de este caché de 60s.
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
@@ -525,7 +531,25 @@ export async function fetchPublicStudioData(
     return {
       tiposClase: (tiposClaseRes.data ?? []).map(mapTipoClase),
       salas: (salasRes.data ?? []).map(mapSala),
-      instructores: (instructoresRes.data ?? []).map(mapInstructorPublico),
+      instructores: (() => {
+        // La media por instructora, agregada AQUÍ y no en la pantalla: al kit le
+        // llega la nota ya hecha con su número de valoraciones, y quien la pinta
+        // solo decide si la enseña (ver `valoracionParaPantalla`).
+        const suma = new Map<string, { total: number; puntos: number }>();
+        for (const v of (valoracionesRes.data ?? []) as { instructor_id: string; puntuacion: number }[]) {
+          if (!v.instructor_id || typeof v.puntuacion !== 'number') continue;
+          const a = suma.get(v.instructor_id) ?? { total: 0, puntos: 0 };
+          a.total += 1; a.puntos += v.puntuacion;
+          suma.set(v.instructor_id, a);
+        }
+        return (instructoresRes.data ?? []).map((r) => {
+          const base = mapInstructorPublico(r as RowInstructores);
+          const a = suma.get(base.id);
+          return a && a.total > 0
+            ? { ...base, valoracion: { media: a.puntos / a.total, total: a.total } }
+            : base;
+        });
+      })(),
       spots: (spotsRes.data ?? []).map(mapSpot),
       // El horario de apertura, para «Información del centro». Vacío en el
       // modo `liviano` (el widget no lo pide) — misma forma del objeto, como
@@ -545,22 +569,9 @@ export async function fetchPublicStudioData(
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
-      portalHome: layout?.portalHome ?? null,
-      // Orden/visibilidad LEGACY de las secciones de /reservar — ya no la usa
-      // app/reservar/[slug]/page.tsx (lee `bloquesReservar`, más abajo, ya
-      // resuelto). Se mantiene expuesta por si algún consumidor viejo la
-      // sigue leyendo; `resolveLayout` es quien la sintetiza a bloques.
-      reservar: layout?.reservar ?? null,
-      // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
-      // borrador — solo lo publicado llega al portal en vivo.
-      homeBloques: layout?.bloques.home.publicado ?? [],
-      bloquesClases: layout?.bloques.clases.publicado ?? [],
-      bloquesBonos: layout?.bloques.bonos.publicado ?? [],
-      // /reservar (Fase 2 de su generalización a bloques): MISMO patrón que
-      // las tres de arriba — `resolveLayout` ya sintetiza esto desde el
-      // legado (`reservar.orden/ocultos`) cuando nadie ha guardado bloques
-      // todavía, así que la página no tiene que volver a resolverlo.
-      bloquesReservar: layout?.bloques.reservar.publicado ?? [],
+      // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/
+      // `bloquesReservar` YA NO viven aquí — ver `camposLayout` más abajo,
+      // construido con un `getLayout` pedido FUERA de este caché de 60s.
       planMasElegidoId: planMasElegido(
         planesConTiposPub,
         (susPlanesRes.data ?? []).map(r => ({ planId: r.plan_id as string }) as Suscripcion),
@@ -587,6 +598,19 @@ export async function fetchPublicStudioData(
   // existe para evitar — es una query, no trece.
   const temaPublicado = liviano ? null : await getThemePublicado(studioId);
 
+  // Mismo motivo, mismo arreglo — pero para los BLOQUES (Inicio/Clases/Bonos/
+  // Reservar), no el tema. Antes `getLayout` vivía DENTRO de `conCacheCatalogo`
+  // junto al resto (una sala, un plan, sí pueden esperar 60s), así que publicar
+  // una reorganización de bloques —o simplemente activar/desactivar una
+  // sección— tardaba hasta 60s por instancia caliente en reflejarse en el
+  // portal real, mientras que un cambio de COLOR se veía al instante desde que
+  // se sacó `temaPublicado` de aquí arriba. Esa asimetría es exactamente lo que
+  // el fundador reportó como "lo publicado no siempre coincide con lo que
+  // estaba editando" (2026-08-19): dependía de QUÉ se acabara de publicar.
+  // `getLayout` ya está en `cache()` de React (mismo criterio que
+  // `getThemePublicado`), así que esto tampoco reintroduce queries de más.
+  const layout = liviano ? null : await getLayout(studioId);
+
   // Solo lo que el portal necesita como VALOR JS (no CSS): el resto del tema
   // sigue siendo puramente CSS server-rendered (ThemeStyle), esto es la
   // excepción — cosas que portal-shell.tsx/reservar deciden con JS (iconos,
@@ -605,6 +629,15 @@ export async function fetchPublicStudioData(
     widgetOcultarPie: temaPublicado?.widgetOcultarPie ?? false,
     widgetSoloPestana: temaPublicado?.widgetSoloPestana ?? false,
     widgetTexto: temaPublicado?.widgetTexto ?? 'auto',
+    // Fase 1 rediseño widget (docs/widget-reservas-theme-builder-diseno.md).
+    widgetFuenteDisplay: temaPublicado?.widgetFuenteDisplay ?? null,
+    widgetRadioBoton: temaPublicado?.widgetRadioBoton ?? null,
+    widgetRadioInput: temaPublicado?.widgetRadioInput ?? null,
+    widgetSuperficie: temaPublicado?.widgetSuperficie ?? null,
+    widgetTinta: temaPublicado?.widgetTinta ?? null,
+    widgetTextoSecundario: temaPublicado?.widgetTextoSecundario ?? null,
+    widgetLinea: temaPublicado?.widgetLinea ?? null,
+    widgetRelleno: temaPublicado?.widgetRelleno ?? null,
     reservarSobreTitulo: temaPublicado?.reservarSobreTitulo ?? null,
     reservarSobreTexto: temaPublicado?.reservarSobreTexto ?? null,
     reservarAvisoQuiz: temaPublicado?.reservarAvisoQuiz ?? null,
@@ -623,6 +656,27 @@ export async function fetchPublicStudioData(
     // Variantes de forma por bloque (theme-variantes.ts): deciden qué
     // elementos EXISTEN, algo que una CSS var no puede decidir.
     variantes: temaPublicado?.variantes ?? null,
+  };
+
+  // Los 6 campos que antes salían de `layout` DENTRO del catálogo cacheado —
+  // ver el comentario junto a `const layout = ...` arriba.
+  const camposLayout = {
+    portalHome: layout?.portalHome ?? null,
+    // Orden/visibilidad LEGACY de las secciones de /reservar — ya no la usa
+    // app/reservar/[slug]/page.tsx (lee `bloquesReservar`, más abajo, ya
+    // resuelto). Se mantiene expuesta por si algún consumidor viejo la
+    // sigue leyendo; `resolveLayout` es quien la sintetiza a bloques.
+    reservar: layout?.reservar ?? null,
+    // Fase 3 (generalizada en la Fase 1 del Theme Builder): nunca el
+    // borrador — solo lo publicado llega al portal en vivo.
+    homeBloques: layout?.bloques.home.publicado ?? [],
+    bloquesClases: layout?.bloques.clases.publicado ?? [],
+    bloquesBonos: layout?.bloques.bonos.publicado ?? [],
+    // /reservar (Fase 2 de su generalización a bloques): MISMO patrón que
+    // las tres de arriba — `resolveLayout` ya sintetiza esto desde el
+    // legado (`reservar.orden/ocultos`) cuando nadie ha guardado bloques
+    // todavía, así que la página no tiene que volver a resolverlo.
+    bloquesReservar: layout?.bloques.reservar.publicado ?? [],
   };
 
   // Fuera del caché a propósito (ver comentario arriba): disponibilidad real.
@@ -646,6 +700,7 @@ export async function fetchPublicStudioData(
     sesiones: (sesionesData ?? []).map(mapSesion),
     ...catalogo,
     ...camposTema,
+    ...camposLayout,
     aforoReservas: (reservasAforo ?? []) as { id: string; sesion_id: string; estado: string; spot_id: string | null }[],
   };
 
@@ -824,17 +879,31 @@ async function consumirBonoServidor(admin: SupabaseClient, studioId: string, soc
 }
 
 
-async function devolverBonoServidor(admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null) {
+// Devuelve `true` solo si de verdad se devolvió una sesión. Antes no devolvía
+// nada y el llamador daba la devolución por hecha (I-5): ver el comentario en
+// `bonoDevolvible`.
+async function devolverBonoServidor(
+  admin: SupabaseClient, studioId: string, socioId: string, tipoClaseId?: string | null,
+): Promise<boolean> {
   const [{ data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('suscripciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
     admin.from('planes_tarifa').select('*').eq('studio_id', studioId),
   ]);
   const planesConTipos = await hidratarTiposDePlanes(admin as never, studioId, (planRows ?? []).map(mapPlanTarifa));
-  const consumible = bonoConsumible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
-  if (!consumible) return;
-  const { suscripcion: sus, plan, sesionesRestantes } = consumible;
-  const nuevas = calcularDevolucionBono(sesionesRestantes, plan.sesiones);
-  await admin.from('suscripciones').update({ sesiones_restantes: nuevas }).eq('id', sus.id);
+  // I-5: `bonoDevolvible`, no `bonoConsumible`. Para devolver hace falta HUECO,
+  // no saldo — y el bono al que hay que devolverle la sesión es justo el que se
+  // quedó a 0 al gastarla, que `bonoConsumible` descarta.
+  const devolvible = bonoDevolvible(socioId, (susRows ?? []).map(mapSuscripcion), planesConTipos, undefined, tipoClaseId);
+  if (!devolvible) return false;
+  // I-10: incremento ATÓMICO con el tope aplicado en el propio WHERE. Antes era
+  // read-modify-write sobre el snapshot de arriba, así que dos cancelaciones
+  // concurrentes escribían el mismo número y una devolución se perdía en
+  // silencio — la misma asimetría que el consumo ya había resuelto.
+  const { data: nuevoSaldo, error } = await admin.rpc('devolver_sesion_bono', {
+    p_suscripcion_id: devolvible.suscripcion.id, p_studio_id: studioId,
+  });
+  if (error) { reportDbError('[devolverBonoServidor]', error); return false; }
+  return nuevoSaldo != null;
 }
 
 // Reúne los datos de una clase para un email transaccional (nombre de clase,
@@ -1164,6 +1233,13 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
     }
   }
 
+  // Cómo le fue a WhatsApp en ESTA tanda. Antes los fallos solo subían un
+  // contador que acababa en un log: con el token de Meta caducado, la
+  // propietaria seguía viendo «conectado» mientras sus clientas dejaban de
+  // recibir recordatorios, sin un solo aviso. Se acumula aquí y se guarda UNA
+  // vez al final (ver `registrarSaludIntegracion`).
+  const saludWhatsapp = acumuladorSalud();
+
   // 3) Socias implicadas (1 query) y mapas de lookup.
   const socioIds = uniq(reservas.map(r => r.socio_id as string));
   const [{ data: sociosR }, { data: prefsR }, { data: excR }] = socioIds.length
@@ -1246,19 +1322,36 @@ export async function enviarRecordatoriosClasesProximas(studioId: string, desdeI
 
       const whatsapp = whatsappPorStudio.get(ses.studio_id as string);
       if (quiereWhatsapp && whatsapp && socia.telefono) {
-        const res = whatsapp.plantillaAprobada
-          ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
-              datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
-            ])
-          : await enviarWhatsAppTexto(
-              whatsapp, socia.telefono,
-              `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
-            );
-        if (res.ok) enviadosWhatsapp++;
-        else fallidosWhatsapp++;
+        // C-6: reclama (sesión, socia, WHATSAPP) ANTES de enviar. Si el step
+        // de Inngest falla a mitad y reintenta (retries: 3), este insert
+        // choca (23505) para quien ya recibió el mensaje en un intento
+        // previo — no se reenvía. El email ya tiene su propio dedupe
+        // (idempotencyKey de Resend); WhatsApp no tenía ninguno.
+        const { error: dedupError } = await admin
+          .from('recordatorio_envios')
+          .insert({ sesion_id: ses.id as string, socio_id: r.socio_id, canal: 'WHATSAPP' });
+        if (dedupError && dedupError.code !== '23505') throw new Error(dedupError.message);
+        if (!dedupError) {
+          const res = whatsapp.plantillaAprobada
+            ? await enviarWhatsAppPlantilla(whatsapp, socia.telefono, PLANTILLA_RECORDATORIO, [
+                datos.estudioNombre, datos.claseNombre, datos.fecha, datos.hora, datos.sala || 'tu estudio',
+              ])
+            : await enviarWhatsAppTexto(
+                whatsapp, socia.telefono,
+                `Recordatorio · ${datos.estudioNombre}\nTienes ${datos.claseNombre} el ${datos.fecha} a las ${datos.hora}${datos.sala ? ` en ${datos.sala}` : ''}.`,
+              );
+          saludWhatsapp.anota(res);
+          if (res.ok) enviadosWhatsapp++;
+          else fallidosWhatsapp++;
+        }
       }
     }
   }
+
+  // `null` cuando no se intentó ningún envío: entonces no hay noticia nueva del
+  // servicio y sobrescribir la salud borraría la que sí valía.
+  const resultadoWhatsapp = saludWhatsapp.resultado();
+  if (resultadoWhatsapp) await registrarSaludIntegracion(admin, studioId, 'WHATSAPP', resultadoWhatsapp);
 
   return { sesiones: sesiones.length, enviados, fallidos, sinEmail, enviadosWhatsapp, fallidosWhatsapp };
 }
@@ -1374,8 +1467,11 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
   }).then(({ error }) => {
     // FK inválida (studio_id/sesion_id/socio_id inexistentes desde un
     // cliente con datos corruptos) no es un fallo del sistema — no genera
-    // ruido en Sentry.
-    if (error && error.code !== '23503') {
+    // ruido en Sentry. Un `fetch failed` (blip de red Node→Supabase, sin
+    // código de Postgres) tampoco: es la versión servidor del mismo ruido que
+    // `esErrorDeRedCliente` ya filtra en el cliente (JAVASCRIPT-NEXTJS-1Q, un
+    // solo evento aislado, nunca recurrió).
+    if (error && error.code !== '23503' && !/fetch failed/i.test(error.message)) {
       capturarExcepcion(new Error(`registrarEventoWidget: ${error.message}`), { tags: { area: 'analitica-widget' } });
     }
   });
@@ -1534,6 +1630,7 @@ export async function crearReservaPublica(params: {
     if (params.spotId) {
       spotAsignado = await asignarSpotReserva(admin, params.studioId, params.sesionId, reservaId, params.spotId);
     }
+    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: Boolean(spotAsignado) } });
   }
   // S-1: la reserva mueve RESERVAS_TOTALES (y la racha, si la sesión ya pasó),
   // tanto para logros como para retos vigentes.
@@ -1555,6 +1652,100 @@ export async function crearReservaPublica(params: {
     await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
   }
   return { ok: true as const, estado, reservaId, spotAsignado };
+}
+
+// "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.2):
+// variante de crearReservaPublica llamada DESDE EL WEBHOOK tras confirmar un
+// pago (nunca desde una ruta pública sin verificar) — el pago YA ES la
+// prueba de derecho a la clase, así que a diferencia de crearReservaPublica
+// esta función:
+//  · NO repite el gate de plan/bono (exigirPlanResuelto) — el plan que cubre
+//    esta sesión ya se entregó en entregarPlanComprado, en la MISMA llamada
+//    del webhook que dispara esto.
+//  · Deriva `p_reserva_id` de `paymentIntentId` (idsDe().reservaId), no de un
+//    uid() aleatorio — un reintento del webhook con el MISMO PaymentIntent
+//    tiene que reservar la MISMA plaza, nunca dos.
+// Sigue pasando por reservar_plaza (el candado de aforo real) SIN excepción:
+// si la clase se llenó entre que se creó el PaymentIntent y que el pago se
+// confirmó, el resultado puede ser LISTA_ESPERA o rechazo — el dinero ya se
+// cobró en ambos casos (el plan/bono queda entregado igual), esta función
+// solo decide si además hay plaza.
+export async function reservarPlazaTrasPagoPublico(params: {
+  studioId: string; sesionId: string; socioId: string; paymentIntentId: string;
+}): Promise<
+  | { ok: true; estado: string; reservaId: string; spotAsignado: string | null }
+  | { ok: false; motivo: 'sesion-no-encontrada' | 'sesion-invalida' | 'error'; detalle?: string }
+> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+
+  let tipoClaseId: string | null | undefined;
+  let inicioISO: string;
+  {
+    const { data: ses } = await admin
+      .from('sesiones').select('inicio, cancelada, tipo_clase_id')
+      .eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+    if (!ses) return { ok: false, motivo: 'sesion-no-encontrada' };
+    if (ses.cancelada || new Date(ses.inicio as string).getTime() <= Date.now()) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: ses.cancelada ? 'cancelada' : 'ya empezada' };
+    }
+    tipoClaseId = ses.tipo_clase_id as string | null | undefined;
+    inicioISO = ses.inicio as string;
+  }
+
+  const pol = await cargarPoliticaEstudio(admin, params.studioId);
+  const reglasTipo = await cargarReglasReservaTipoClase(admin, params.studioId, tipoClaseId);
+  const permiteListaEsperaResuelto = heredaOverride(reglasTipo.permiteListaEspera, pol.permiteListaEspera);
+  const requiereAprobacionResuelto = heredaOverride(reglasTipo.requiereAprobacion, pol.requiereAprobacion);
+
+  {
+    const ventanaMinima = heredaOverride(reglasTipo.ventanaMinimaMinutos, pol.ventanaMinimaMinutos);
+    if (!puedeReservarPorVentanaMinima(inicioISO, new Date(), ventanaMinima)) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana mínima' };
+    }
+    const antelacionMaxima = heredaOverride(reglasTipo.antelacionMaximaDias, pol.antelacionMaximaDias);
+    if (!puedeReservarPorAntelacionMaxima(inicioISO, new Date(), antelacionMaxima)) {
+      return { ok: false, motivo: 'sesion-invalida', detalle: 'fuera de ventana máxima' };
+    }
+  }
+
+  const { idsDe } = await import('@/lib/billing/entregar-plan-comprado');
+  const reservaId = idsDe(params.paymentIntentId).reservaId;
+  const { data, error } = await admin.rpc('reservar_plaza', {
+    p_studio_id: params.studioId, p_sesion_id: params.sesionId,
+    p_socio_id: params.socioId, p_reserva_id: reservaId,
+    p_permite_lista_espera: permiteListaEsperaResuelto,
+    p_requiere_aprobacion: requiereAprobacionResuelto,
+  });
+  if (error) {
+    // YA_RESERVADA: mismo p_reserva_id que un reintento anterior del webhook
+    // ya insertó — idempotente, se trata como éxito, no como fallo.
+    if (error.message.includes('YA_RESERVADA')) {
+      const { data: existente } = await admin.from('reservas').select('estado, spot_id').eq('id', reservaId).maybeSingle();
+      return { ok: true, estado: (existente?.estado as string) ?? 'CONFIRMADA', reservaId, spotAsignado: (existente?.spot_id as string | null) ?? null };
+    }
+    if (error.message.includes('AFORO_LLENO_SIN_ESPERA')) return { ok: false, motivo: 'sesion-invalida', detalle: 'clase completa' };
+    return { ok: false, motivo: 'error', detalle: error.message };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  const estado: string = row?.estado ?? 'CONFIRMADA';
+
+  if (estado === 'CONFIRMADA') {
+    await consumirBonoServidor(admin, params.studioId, params.socioId, params.sesionId);
+    capturar(params.studioId, { nombre: 'reserva_completada', props: { con_spot_elegido: false } });
+  }
+  await evaluarGamificacionServidor(admin, params.studioId, params.socioId);
+
+  if (estado === 'CONFIRMADA' || estado === 'LISTA_ESPERA') {
+    const { emitirReserva, emitirClaseCasiLlena } = await import('@/lib/notifications/emit');
+    await emitirReserva(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId, estado: estado as 'CONFIRMADA' | 'LISTA_ESPERA' });
+    if (estado === 'CONFIRMADA') await emitirClaseCasiLlena(admin, { studioId: params.studioId, sesionId: params.sesionId });
+  } else if (estado === 'PENDIENTE_APROBACION') {
+    const { emitirReservaPendienteAprobacion } = await import('@/lib/notifications/emit');
+    await emitirReservaPendienteAprobacion(admin, { studioId: params.studioId, sesionId: params.sesionId, socioId: params.socioId });
+  }
+
+  return { ok: true, estado, reservaId, spotAsignado: null };
 }
 
 // Aprobar/rechazar una reserva PENDIENTE_APROBACION desde el panel (Fase 2a).
@@ -1630,13 +1821,27 @@ export async function ofrecerPlazaLibre(params: {
   if (!admin) throw new Error('Service role no configurada');
 
   const { data: ses } = await admin.from('sesiones')
-    .select('aforo_maximo, tipo_clase_id, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
+    .select('tipo_clase_id, cancelada').eq('id', params.sesionId).eq('studio_id', params.studioId).maybeSingle();
   if (!ses || ses.cancelada) return { error: 'Esta clase no está disponible' };
 
+  // I-9: esto comparaba contra `aforo_maximo` CRUDO, que ignora las máquinas
+  // averiadas. Con una avería registrada se ofrecía una plaza que no existe — y
+  // desde que aceptar una oferta comprueba el aforo de verdad (C-4), esa oferta
+  // fantasma le cuesta el sitio a la socia: acepta a tiempo, se encuentra la
+  // clase llena, pierde la plaza y gasta una recuperación por un hueco que nunca
+  // estuvo libre. Se usa la misma fuente que `reservar_plaza`.
+  const { data: aforo, error: errAforo } = await admin.rpc('aforo_efectivo', { p_sesion_id: params.sesionId });
+  if (errAforo) {
+    reportDbError('[ofrecerPlazaLibre] no se pudo calcular el aforo efectivo', errAforo);
+    return { error: 'No se ha podido comprobar el aforo de esta clase' };
+  }
   const { count: confirmadas } = await admin.from('reservas')
     .select('id', { count: 'exact', head: true })
     .eq('sesion_id', params.sesionId).in('estado', ['CONFIRMADA', 'ASISTIDA']);
-  if ((confirmadas ?? 0) >= (ses.aforo_maximo as number)) {
+  // `null` = sesión sin aforo definido, mismo criterio que reservar_plaza: no
+  // hay límite que respetar.
+  const limite = aforo as number | null;
+  if (limite != null && (confirmadas ?? 0) >= limite) {
     return { error: 'No hay ningún hueco libre en esta clase ahora mismo' };
   }
 
@@ -1706,10 +1911,13 @@ export async function aceptarOfertaListaEspera(params: {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
-  // La RPC solo tiene una salida no-excepcional (`select 'CONFIRMADA'`); todo
-  // lo demás sale por `raise exception` y se lee abajo en `error`. Por eso no
-  // se mira el `data`: no lleva nada que no sepamos ya.
-  const { error } = await admin.rpc('aceptar_oferta_lista_espera', {
+  // C-4: la RPC ya NO tiene una sola salida buena. Comprueba el aforo y que la
+  // clase no haya empezado (antes no hacía ninguna de las dos cosas: era la
+  // única vía de confirmación sin candado, y producía overbooking real). Cuando
+  // la plaza ya no está devuelve `AFORO_LLENO` / `CLASE_YA_EMPEZADA` en vez de
+  // lanzar, porque una excepción revertiría la cancelación que sí queremos que
+  // persista. Hay que leer el `data`.
+  const { data, error } = await admin.rpc('aceptar_oferta_lista_espera', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId, p_socio_id: params.socioId
   });
   if (error) {
@@ -1719,9 +1927,48 @@ export async function aceptarOfertaListaEspera(params: {
     if (error.message.includes('NO_AUTORIZADO')) return { error: 'No autorizado' };
     return { error: error.message };
   }
+  const fila = Array.isArray(data) ? data[0] : data;
+  const resultado = (fila?.estado as string | undefined) ?? 'CONFIRMADA';
 
   const { data: res } = await admin.from('reservas').select('sesion_id').eq('id', params.reservaId).maybeSingle();
   const sesionId = res?.sesion_id as string | undefined;
+
+  if (resultado !== 'CONFIRMADA') {
+    // Aceptó dentro de plazo y aun así se queda sin plaza. Decisión de producto:
+    // PIERDE EL SITIO (ya la ha cancelado la RPC) y se le compensa con una
+    // recuperación — la misma que se da al cancelar una plaza fija, con su tope
+    // de 4 aplicado dentro de `crear_recuperacion`. NO se consume bono: no ha
+    // llegado a ocupar plaza.
+    const recupId = `recup-${uid()}`;
+    const { data: creada } = await admin.rpc('crear_recuperacion', {
+      p_id: recupId,
+      p_studio_id: params.studioId,
+      p_socio_id: params.socioId,
+      p_origen_reserva_id: params.reservaId,
+      p_motivo: resultado === 'AFORO_LLENO'
+        ? 'La plaza se ocupó antes de aceptar la oferta'
+        : 'La clase ya había empezado al aceptar la oferta',
+    });
+    if (sesionId) {
+      const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
+      await emitirReservaCancelada(admin, {
+        studioId: params.studioId, sesionId, socioId: params.socioId, reservaId: params.reservaId,
+        motivo: resultado === 'AFORO_LLENO' ? 'plaza_ya_ocupada' : 'clase_ya_empezada',
+      });
+    }
+    // El mensaje no puede sonar a que llegó tarde: aceptó a tiempo. Y si la
+    // recuperación no se creó (tope alcanzado), no se le promete.
+    const compensada = creada === 'CREADA';
+    const base = resultado === 'AFORO_LLENO'
+      ? 'La plaza se ocupó justo antes de que aceptaras.'
+      : 'La clase ya había empezado cuando aceptaste.';
+    return {
+      error: compensada
+        ? `${base} Te hemos guardado una recuperación para que la uses en otra clase.`
+        : `${base} No hemos podido guardarte una recuperación: habla con el estudio.`,
+    };
+  }
+
   if (sesionId) {
     await consumirBonoServidor(admin, params.studioId, params.socioId, sesionId);
     const { emitirReserva } = await import('@/lib/notifications/emit');
@@ -1737,15 +1984,23 @@ export async function aceptarOfertaListaEspera(params: {
 // criterio que expirarReservaPendiente.
 export async function expirarOfertaListaEspera(params: {
   studioId: string; reservaId: string; sesionId: string; socioId: string;
-}): Promise<void> {
+  // Devuelve si la oferta se expiró DE VERDAD. Antes era `Promise<void>` y el
+  // fallo de la RPC se quedaba en un `console.error`: el barrido que la llama
+  // (cada 5 minutos) contaba esa oferta como expirada, devolvía 200 y nadie se
+  // enteraba nunca de que la plaza seguía bloqueada y la siguiente de la cola
+  // no la recibía jamás.
+}): Promise<boolean> {
   const admin = getSupabaseAdmin();
-  if (!admin) return;
+  if (!admin) return false;
   const { data, error } = await admin.rpc('expirar_oferta_lista_espera', {
     p_studio_id: params.studioId, p_reserva_id: params.reservaId
   });
   if (error) {
-    console.error('[expirarOfertaListaEspera]', error.message);
-    return;
+    capturarExcepcion(error, {
+      tags: { contexto: 'expirarOfertaListaEspera' },
+      extra: { studioId: params.studioId, reservaId: params.reservaId, sesionId: params.sesionId },
+    });
+    return false;
   }
   const { emitirReservaCancelada } = await import('@/lib/notifications/emit');
   await emitirReservaCancelada(admin, {
@@ -1761,6 +2016,7 @@ export async function expirarOfertaListaEspera(params: {
       socioId: row.oferta_socio_id as string, expiraEn: row.oferta_expira_en as string
     });
   }
+  return true;
 }
 
 // Fase 2c: cancela una sesión completa porque no alcanzó el mínimo de
@@ -1806,8 +2062,13 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
     .in('estado', ['CONFIRMADA', 'LISTA_ESPERA', 'PENDIENTE_APROBACION']);
 
   const confirmadas = afectadas.filter(r => r.estado === 'CONFIRMADA' && r.socio_id);
+  // I-5: se guarda POR SOCIA si la devolución tuvo efecto, para que el email no
+  // le prometa a nadie una sesión que no ha recuperado. En esta cancelación cada
+  // socia recibe su propio correo, así que el dato es por persona, no global.
+  const devueltoPorSocia = new Map<string, boolean>();
   for (const r of confirmadas) {
-    await devolverBonoServidor(admin, params.studioId, r.socio_id as string, tipoClaseId);
+    const socioId = r.socio_id as string;
+    devueltoPorSocia.set(socioId, await devolverBonoServidor(admin, params.studioId, socioId, tipoClaseId));
   }
 
   const { emitirClaseCancelada } = await import('@/lib/notifications/emit');
@@ -1826,7 +2087,7 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
       if (!s.email) continue;
       await enviarEmailTransaccional({
         tipo: 'cancelacion', to: s.email as string, toName: (s.nombre as string) ?? 'Socia',
-        data: { ...datos, bonoDevuelto: true },
+        data: { ...datos, bonoDevuelto: devueltoPorSocia.get(s.id as string) === true },
         studioId: params.studioId,
         idempotencyKey: `minimo-no-alcanzado-${params.sesionId}-${s.id}`
       });
@@ -1927,8 +2188,11 @@ export async function ejecutarCancelacionReserva(
     // panel. `?? true` mantiene lo de siempre si la RPC aún no trae la columna.
     if (inicio && (row?.devolver_bono ?? true)) {
       // Se devuelve al bono que cubre esa clase: es del que se descontó.
-      await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
-      bonoDevuelto = true;
+      // I-5: `bonoDevuelto` sale de lo que REALMENTE pasó, no de haber llamado.
+      // Antes se ponía a true a pelo, así que el email de cancelación le decía a
+      // la socia que le habíamos devuelto la sesión aunque no se hubiera
+      // devuelto nada.
+      bonoDevuelto = await devolverBonoServidor(admin, params.studioId, cancelada.socio_id as string, ses?.tipo_clase_id as string | null);
     }
   }
 
@@ -1994,6 +2258,29 @@ export async function cancelarReservaPublica(params: {
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.email);
   if (!socia) return { error: 'No autorizado' as const };
+
+  // I-7: el camino de CREAR tiene su guardia de "clase ya empezada"
+  // (crearReservaPublica), el de cancelar no la tenía en ninguna capa — ni aquí
+  // ni en `cancelar_reserva_plaza`, que solo mira `inicio` para decidir si la
+  // cancelación es TARDÍA, no para impedirla. Cancelar por API una clase ya
+  // terminada encadenaba la promoción de la lista de espera y la devolución de
+  // bono sobre una clase que ya se ha dado.
+  //
+  // La guardia va AQUÍ y no dentro de la RPC a propósito: mostrador sí puede
+  // necesitar cancelar una reserva pasada para cuadrar el histórico, y la RPC
+  // es el camino común de las dos. Mismo criterio que la guardia de crear, que
+  // también vive en la capa pública y no en `reservar_plaza`.
+  const { data: reservaRow } = await admin.from('reservas')
+    .select('sesion_id').eq('id', params.reservaId).eq('studio_id', params.studioId)
+    .eq('socio_id', params.socioId).maybeSingle();
+  if (reservaRow?.sesion_id) {
+    const { data: sesionRow } = await admin.from('sesiones')
+      .select('inicio').eq('id', reservaRow.sesion_id as string).maybeSingle();
+    if (sesionRow?.inicio && new Date(sesionRow.inicio as string).getTime() <= Date.now()) {
+      return { error: 'Esta clase ya ha empezado: habla con el estudio si necesitas anularla.' as const };
+    }
+  }
+
   // tardia/bonoDevuelto → la UI puede confirmar a la socia si recuperó la sesión.
   const r = await ejecutarCancelacionReserva(admin, { studioId: params.studioId, reservaId: params.reservaId, socioId: params.socioId });
   if ('error' in r) return r;
@@ -2374,6 +2661,142 @@ export async function toggleFavoritoPublico(params: {
     .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('tipo_clase_id', params.tipoClaseId);
   if (error) return { error: 'No se ha podido quitar el favorito.' };
   return { ok: true };
+}
+
+/** Una clase a la que la socia YA asistió. Lo mínimo para pintar su fila. */
+/**
+ * El estado de la reserva embebida, normalizado.
+ *
+ * Con `!inner` sobre una relación uno-a-muchos PostgREST devuelve un ARRAY, y
+ * la forma cambia según cómo resuelva la relación: se normaliza en vez de
+ * asumirla. Sin estado reconocible se cae a `ASISTIDA`, que es lo que devolvía
+ * esta consulta cuando solo traía asistidas.
+ */
+function estadoDeReserva(
+  r: { estado?: string }[] | { estado?: string } | null,
+): ClaseAsistida['estado'] {
+  const bruto = Array.isArray(r) ? r[0]?.estado : r?.estado;
+  return bruto === 'CANCELADA' || bruto === 'NO_SHOW' ? bruto : 'ASISTIDA';
+}
+
+export interface ClaseAsistida {
+  reservaId: string;
+  sesionId: string;
+  /** Inicio en ISO. Quien lo pinte decide el formato y la zona. */
+  inicio: string;
+  nombre: string;
+  instructora: string;
+  /**
+   * Cómo acabó.
+   *
+   * ⚠️ Esta consulta solo devolvía `ASISTIDA`, y por eso «Historial de clases»
+   * no podía ser un historial: enseñaba la mitad de lo que pasó. Una clase que
+   * la socia canceló también es su historial —y saber CUÁNDO canceló es justo
+   * lo que se va a mirar cuando discuta un cargo—. Se devuelve el estado en
+   * vez de tres listas: quien lo pinte decide si separa o mezcla.
+   */
+  estado: 'ASISTIDA' | 'CANCELADA' | 'NO_SHOW';
+}
+
+/**
+ * Las clases pasadas a las que la socia asistió, de la más reciente a la más
+ * antigua.
+ *
+ * ⚠️ Existe porque el catálogo público NO puede responder a esto:
+ * `fetchPublicStudioData` acota las sesiones a `fin >= ahora` (para que el
+ * aforo no arrastre meses de historia en cada carga del portal), así que una
+ * clase pasada no llega nunca al cliente. Ensanchar aquella ventana habría
+ * penalizado la carga de TODOS los portales, incluidos los que no enseñan
+ * historial; esto se pide aparte y solo cuando hace falta.
+ *
+ * ⚠️ Solo `ASISTIDA`. Una `CONFIRMADA` cuya clase ya pasó no es lo mismo: o el
+ * estudio no pasa lista, o no fue. Meterla aquí le contaría a la socia como
+ * hecha una clase a la que quizá no fue, y este historial se suma en «clases
+ * este mes».
+ *
+ * ⚠️ `order` + `limit` van SIEMPRE juntos y explícitos: PostgREST corta en 1000
+ * filas EN SILENCIO, y sin orden estable el corte devuelve un subconjunto
+ * arbitrario que además cambia entre llamadas. Es el patrón que ya costó el
+ * truncado de los backups (#684).
+ */
+export async function historialAsistidasPublico(params: {
+  studioId: string; socioId: string; limite?: number;
+}): Promise<ClaseAsistida[]> {
+  const admin = getSupabaseAdmin();
+  if (!admin) return [];
+  // Tope duro además del que pida quien llama: esta lista se pinta de una vez,
+  // sin paginar, y nadie lee 500 filas de un tirón en un móvil.
+  const limite = Math.min(Math.max(params.limite ?? 30, 1), 100);
+
+  // ⚠️ Se consulta desde `sesiones`, no desde `reservas`, y el motivo es el
+  // ORDEN: la columna por la que hay que ordenar (`inicio`) vive aquí. Al
+  // revés habría que ordenar por una columna de la tabla EMBEBIDA, que
+  // depende de cómo PostgREST resuelva ese caso — y si no lo aplicara, el
+  // `limit` se llevaría 30 filas arbitrarias en vez de las 30 últimas, en
+  // silencio y sin fallar. Ordenar por una columna de la tabla de la que se
+  // selecciona no tiene esa duda.
+  //
+  // El filtro por socia va sobre la reserva embebida con `!inner`, así que una
+  // sesión sin reserva suya no entra.
+  const { data, error } = await admin
+    .from('sesiones')
+    .select('id, inicio, tipo_clase_id, instructor_id, reservas!inner(id, socio_id, estado, studio_id)')
+    .eq('studio_id', params.studioId)
+    .eq('reservas.studio_id', params.studioId)
+    .eq('reservas.socio_id', params.socioId)
+    // ⚠️ Las tres, no solo las asistidas. «Completadas» de la agenda SÍ filtra
+    // a `ASISTIDA` al pintarlas: si no, una clase cancelada aparecería como
+    // completada, que es exactamente lo contrario de lo que pasó.
+    .in('reservas.estado', ['ASISTIDA', 'CANCELADA', 'NO_SHOW'])
+    .lt('inicio', new Date().toISOString())
+    .order('inicio', { ascending: false })
+    .limit(limite);
+  if (error || !data) return [];
+
+  // Los nombres se resuelven aparte y no con otro `!inner`: anidar tres niveles
+  // en PostgREST hace la consulta frágil (y silenciosamente vacía si una FK no
+  // está declarada como espera). Dos lecturas pequeñas por catálogo, cacheables
+  // por el propio Postgres, son más predecibles.
+  const filas = (data as unknown as {
+    id: string; inicio: string; tipo_clase_id: string; instructor_id: string;
+    reservas: { id: string; estado?: string }[] | { id: string; estado?: string } | null;
+  }[]).map((s) => ({
+    // Con `!inner` sobre una relación uno-a-muchos, PostgREST devuelve un
+    // ARRAY. Una socia no puede tener dos reservas ASISTIDA de la misma
+    // sesión, así que se coge la primera — pero se normaliza en vez de
+    // asumir la forma.
+    reservaId: (Array.isArray(s.reservas) ? s.reservas[0]?.id : s.reservas?.id) ?? s.id,
+    // El estado sale de la MISMA fila de la que sale `reservaId`, no de otra
+    // lectura: normalizar por separado dejaría un estado que no es el de esa
+    // reserva en cuanto haya dos.
+    estado: estadoDeReserva(s.reservas),
+    sesionId: s.id,
+    inicio: s.inicio,
+    tipoClaseId: s.tipo_clase_id,
+    instructorId: s.instructor_id,
+  }));
+  const tipoIds = [...new Set(filas.map((f) => f.tipoClaseId).filter(Boolean))];
+  const instrIds = [...new Set(filas.map((f) => f.instructorId).filter(Boolean))];
+
+  const [tipos, instructores] = await Promise.all([
+    tipoIds.length
+      ? admin.from('tipos_clase').select('id, nombre').eq('studio_id', params.studioId).in('id', tipoIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+    instrIds.length
+      ? admin.from('instructores').select('id, nombre').eq('studio_id', params.studioId).in('id', instrIds)
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
+  ]);
+  const nombreTipo = new Map((tipos.data ?? []).map((t) => [t.id, t.nombre]));
+  const nombreInstr = new Map((instructores.data ?? []).map((i) => [i.id, i.nombre]));
+
+  return filas.map((f) => ({
+    reservaId: f.reservaId,
+    sesionId: f.sesionId,
+    inicio: f.inicio,
+    estado: f.estado,
+    nombre: nombreTipo.get(f.tipoClaseId) ?? 'Clase',
+    instructora: nombreInstr.get(f.instructorId) ?? '',
+  }));
 }
 
 // Apunta/desapunta a la socia autenticada de un reto del carrusel de Inicio

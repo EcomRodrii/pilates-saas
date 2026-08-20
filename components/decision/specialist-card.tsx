@@ -51,7 +51,8 @@ export function SpecialistCard({ data }: { data: PorEspecialistaAPI }) {
 
         {data.impactoTotal && (
           <p className="text-[16px] font-bold text-foreground">
-            {data.impactoTotal.valor >= 0 ? '+' : ''}{data.impactoTotal.valor}€/mes
+            {data.impactoTotal.valor >= 0 ? '+' : ''}{data.impactoTotal.valor}€/mes{' '}
+            <span className="text-[12px] font-normal text-muted-foreground">de impacto potencial</span>
           </p>
         )}
 

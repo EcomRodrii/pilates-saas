@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { perfilCoincideFiltro, PERFILES_SEED_E2E } from './publico.ts';
+import { perfilCoincideFiltro, PERFILES_SEED_E2E, slugCiudadUrl } from './publico.ts';
 import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 // ⚠️ Existe porque `perfilCoincideFiltro` reimplementa a mano lo que en
@@ -12,7 +12,7 @@ import type { FiltroBusquedaNetwork } from './tipos.ts';
 
 const SIN_FILTROS: FiltroBusquedaNetwork = {
   ciudad: null, especialidades: [], disponibilidad: [], horarios: [],
-  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [],
+  tipoTrabajo: [], experienciaMinima: null, tarifaRango: [], soloIdentidadVerificada: false, soloExperienciaVerificada: false, soloCertificacionVerificada: false, valoracionMinima: null, idioma: null,
 };
 
 const [marta, sofia] = PERFILES_SEED_E2E;
@@ -50,4 +50,46 @@ test('ciudad: substring sin distinguir mayúsculas, como el ilike de Postgres', 
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'madr' }), true);
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'MADRID' }), true);
   assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, ciudad: 'Barcelona' }), false);
+});
+
+test('soloIdentidadVerificada: Marta tiene identidadVerificadaEn, Sofía no', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloIdentidadVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('soloExperienciaVerificada: Marta true, Sofía false', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloExperienciaVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('slugCiudadUrl: minúsculas y espacios a guiones, SIN quitar tildes (round-trip con ciudadDesdeParam)', () => {
+  assert.equal(slugCiudadUrl('Madrid'), 'madrid');
+  assert.equal(slugCiudadUrl('Alcalá de Henares'), 'alcalá-de-henares');
+  assert.equal(slugCiudadUrl('  Barcelona  '), 'barcelona');
+});
+
+test('soloCertificacionVerificada: Marta true, Sofía false', () => {
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, soloCertificacionVerificada: true };
+  assert.equal(perfilCoincideFiltro(marta, f), true);
+  assert.equal(perfilCoincideFiltro(sofia, f), false);
+});
+
+test('idioma: substring sin distinguir mayúsculas sobre cualquier elemento del array', () => {
+  // Marta: ['es', 'en'] — perfil de seed tiene idiomas cortos, sin acentos.
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'en' }), true);
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'EN' }), true);
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, idioma: 'fr' }), false);
+  // Sofía: ['es'] únicamente.
+  assert.equal(perfilCoincideFiltro(sofia, { ...SIN_FILTROS, idioma: 'en' }), false);
+});
+
+test('valoracionMinima: Sofía sin reseñas (promedio null) nunca cumple un mínimo pedido', () => {
+  // Mismo criterio que tarifaRango con null: un mínimo pedido nunca lo
+  // cumple un perfil sin dato, aunque el mínimo sea 0-como.
+  const f: FiltroBusquedaNetwork = { ...SIN_FILTROS, valoracionMinima: 4 };
+  assert.equal(perfilCoincideFiltro(marta, f), true); // 4.8 >= 4
+  assert.equal(perfilCoincideFiltro(sofia, f), false); // promedio: null
+  assert.equal(perfilCoincideFiltro(marta, { ...SIN_FILTROS, valoracionMinima: 4.9 }), false); // 4.8 < 4.9
 });

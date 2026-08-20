@@ -23,12 +23,23 @@ const FONDOS = [
 
 export function WidgetPreview({
   slug, fondo, fuente, ocultarPie, soloPestana,
+  fuenteDisplay, radioBoton, radioInput, superficie, tinta, textoSecundario, linea, relleno,
 }: {
   slug: string | null | undefined;
   fondo: string | null;
   fuente: string | null;
   ocultarPie: boolean;
   soloPestana: boolean;
+  // Fase 1 rediseño widget — todos opcionales, mismo criterio que el resto:
+  // ausentes = el aspecto de siempre.
+  fuenteDisplay?: string | null;
+  radioBoton?: number | null;
+  radioInput?: number | null;
+  superficie?: string | null;
+  tinta?: string | null;
+  textoSecundario?: string | null;
+  linea?: string | null;
+  relleno?: string | null;
 }) {
   const [cual, setCual] = useState<'claro' | 'oscuro'>('claro');
 
@@ -42,6 +53,14 @@ export function WidgetPreview({
   // lo que se ve, no por la variable.
   p.set('pie', ocultarPie ? '0' : '1');
   p.set('solo-pestana', soloPestana ? '1' : '0');
+  if (fuenteDisplay) p.set('fuente-display', fuenteDisplay);
+  if (radioBoton != null) p.set('radio-boton', String(radioBoton));
+  if (radioInput != null) p.set('radio-input', String(radioInput));
+  if (superficie) p.set('superficie', superficie);
+  if (tinta) p.set('tinta', tinta);
+  if (textoSecundario) p.set('texto-secundario', textoSecundario);
+  if (linea) p.set('linea', linea);
+  if (relleno) p.set('relleno', relleno);
 
   const activo = FONDOS.find((f) => f.id === cual)!;
 

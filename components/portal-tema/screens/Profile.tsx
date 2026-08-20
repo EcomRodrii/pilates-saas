@@ -1,11 +1,13 @@
 "use client";
 
-import { Button, Card, SectionTitle, Status, Switch } from "@/components/portal-tema/components/ui/primitives";
+import { Button, Card, SectionTitle, Switch } from "@/components/portal-tema/components/ui/primitives";
+import { CuentaFilas } from "@/components/portal-tema/components/blocks/CuentaFilas";
 import { Island, StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useCountUp } from "@/components/portal-tema/hooks/motion";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 import { ProfileTentada } from "@/components/portal-tema/screens/Profile.tentada";
+import { ProfileSereno } from "@/components/portal-tema/screens/Profile.sereno";
 
 function Metric({ value, label }: { value: number; label: string }) {
   const shown = useCountUp(value);
@@ -22,6 +24,8 @@ export function Profile({ vm }: { vm: ViewModel }) {
   // Tentada trae su propia forma (cabecera verde y filas), y con «Aspecto» y
   // el estado SEPA que el prototipo no tiene pero el perfil de la socia sí.
   if (vm.features.profile_style === "header") return <ProfileTentada vm={vm} />;
+  // Sereno: cabecera con avatar y correo, tres cifras y opciones en fichas.
+  if (vm.features.profile_style === "fichas") return <ProfileSereno vm={vm} />;
   return <ProfileKit vm={vm} />;
 }
 
@@ -76,30 +80,25 @@ function ProfileKit({ vm }: { vm: ViewModel }) {
           </div>
         </section>
 
+        {/* ⚠️ Aquí había una TABLA DE HISTORIAL ESCRITA A MANO en el JSX
+            —«Pilates Reformer · Mié 3 · Asistida», «Reformer fuerza · Vie 29 ·
+            No asistida»— que veía CADA socia de un estudio con este tema, como
+            si fueran sus clases. Datos inventados en producción.
+
+            Ahora es una fila que lleva al historial de verdad, con lo que esa
+            socia hizo. */}
         <section>
-          <SectionTitle>Historial</SectionTitle>
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr><th>Clase</th><th>Día</th><th className="is-numeric">Estado</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="table__name">Pilates Reformer</td><td>Mié 3</td>
-                  <td className="is-numeric"><Status tone="success">Asistida</Status></td>
-                </tr>
-                <tr>
-                  <td className="table__name">Pilates de suelo</td><td>Lun 1</td>
-                  <td className="is-numeric"><Status tone="success">Asistida</Status></td>
-                </tr>
-                <tr>
-                  <td className="table__name">Reformer fuerza</td><td>Vie 29</td>
-                  <td className="is-numeric"><Status tone="error">No asistida</Status></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <SectionTitle>Mi cuenta</SectionTitle>
+          <Card className="filas">
+            <CuentaFilas vm={vm} />
+          </Card>
         </section>
+
+        {/* Cerrar sesión FALTABA en este tema. No es un detalle: sin ella, una
+            socia que entra desde un móvil prestado no tiene forma de salir. */}
+        <Button block variant="ghost" style={{ marginTop: 18 }} onClick={actions.logout}>
+          Cerrar sesión
+        </Button>
         <div style={{ height: 8 }}></div>
       </div>
     </>

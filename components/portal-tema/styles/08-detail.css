@@ -103,7 +103,7 @@
   position: relative;
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  background: #E7DCEF;
+  background: var(--support-soft);
   overflow: hidden;
 }
 .session-photo__veil {
@@ -230,3 +230,26 @@
   cursor: default;
 }
 .plazas__nota { margin-top: 10px; }
+
+/* ── Detalle con el título BAJO la foto (Sereno) ────────────────────────── */
+/* Sobre la foto solo va el estado, abajo a la izquierda: el título en el
+ * lienzo no depende del brillo de la imagen que haya subido el estudio. */
+.detail-hero--solo-estado { display: flex; align-items: flex-end; }
+.sheet--bajo { background: var(--bg); border-radius: 0; box-shadow: none; padding-top: 20px; }
+.detail__titulo-bajo {
+  font-family: var(--font-display); font-weight: var(--weight-display);
+  font-size: 27px; line-height: 1.15; letter-spacing: -.02em; color: var(--ink);
+}
+.rail--chips2 { gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+.chip2 {
+  flex: 0 0 auto;
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  padding: 6px 14px;
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  line-height: 1.15;
+}
+.chip2__label { font-size: 11px; color: var(--muted); }
+.chip2__valor { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.detail__desc { margin-top: 14px; font-size: 14px; line-height: 1.55; color: var(--muted); }

@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   bonoDe, clasesDeLaSemana, construirDatosPortal, fechaLarga, filtrosDe,
-  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
+  bonosDe, comprasDe, condicionesDe, horaLocal, horarioDe, hoyDe, inicialDe, planesDe, profesoresDe, columnasDeSala, plazasDeSesion, reservadasDe, rejillaMesPortal, semanaDe, sociaDe,
 } from './datos.ts';
+// La misma regla que ejecuta la RPC al cancelar, y la que el kit usa para
+// redactar la hoja. Se prueba AQUÍ, junto al dato que la alimenta.
+import { debeDevolverBono } from '../booking-logic.ts';
 import type { PlazaPortal, StudioClass } from './tipos.ts';
 import type { Spot } from '../types.ts';
 import type { Instructor, PlanTarifa, Reserva, Sala, Sesion, Socio, Suscripcion, TipoClase } from '../types.ts';
@@ -16,14 +19,14 @@ const tipo = (id: string, nombre: string, extra: Partial<TipoClase> = {}): TipoC
   nivel: 'TODOS', fotoUrl: null, ventanaCancelacionHoras: null, reservaExigirPlan: null,
   reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, permiteListaEspera: null,
   requiereAprobacion: null, listaEsperaPlazoAceptacionMinutos: null, minimoAsistentesPorClase: null,
-  penalizacionImporteEur: null, ...extra,
+  penalizacionImporteEur: null, especialidadNetwork: null, ...extra,
 });
 
 const sala = (id: string, nombre: string): Sala => ({ id, studioId: 's1', nombre, capacidad: 10, color: '#000' });
 
-const instructor = (id: string, nombre: string): Instructor => ({
+const instructor = (id: string, nombre: string, extra: Partial<Instructor> = {}): Instructor => ({
   id, studioId: 's1', nombre, email: null, telefono: null, color: '#000', activo: true,
-  rol: 'INSTRUCTOR', authUserId: null,
+  rol: 'INSTRUCTOR', authUserId: null, ...extra,
 });
 
 const sesion = (id: string, inicio: string, fin: string, extra: Partial<Sesion> = {}): Sesion => ({
@@ -97,6 +100,11 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
   assert.equal(clases.length, 1);
   assert.deepEqual(clases[0], {
     id: 'x1', name: 'Reformer', type: 't1', day: 3,
+    // La fecha LOCAL completa, junto al día del mes. `day` sirve dentro de una
+    // semana; en cuanto algo compara contra la rejilla del mes —que trae
+    // celdas de los meses vecinos— el número solo miente. Mismo motivo que el
+    // filtro por fecha de aquí arriba.
+    fecha: '2026-09-03',
     time: '18:00', end: '18:50', duration: '50 min',
     // La hora de PARED es Madrid (18:00); el instante real es UTC. Las dos
     // salen de la misma sesión, así que no pueden discrepar.
@@ -105,6 +113,9 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // píldora del detalle y en «Nivel …». Con los datos de muestra no se vio
     // porque ya traían texto humano.
     room: 'Sala 2', level: 'Intermedio', teacher: 'Marta Gómez', initial: 'M',
+    // Sin `foto_url` en su ficha, cadena vacía: quien la pinte se queda con el
+    // monograma en vez de intentar cargar una imagen que no existe.
+    teacherFoto: '',
     seats: 10, plazas: [], // «Reformer» en el nombre → la foto de SU familia, no la genérica.
         fotoUrl: '/por-defecto/clase-reformer.webp', description: 'Fuerza y control',
     // Sin objetivos marcados en el tipo de clase, el detalle no pinta la
@@ -114,6 +125,33 @@ test('clasesDeLaSemana: resuelve tipo, sala e instructora, y la hora es de Madri
     // ninguna, en vez de copiar el «6 horas» del prototipo.
     cancelHoras: null,
   });
+});
+
+// ⚠️ El mismo bug que el filtro del horario, pero en la AGENDA — y este salió
+// mirando la pantalla, no razonando: la vista de mes marcaba el 4 de septiembre
+// (gris, del mes vecino) teniendo seleccionado el 4 de agosto, y debajo enseñaba
+// la reserva de septiembre como si fuera de ese día. `day` no distingue meses y
+// la rejilla del mes SIEMPRE trae celdas de los vecinos.
+test('cada clase trae su fecha completa, no solo el día del mes', () => {
+  const clases = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-04T16:00:00.000Z', '2026-09-04T17:00:00.000Z')],
+    tiposClase: [tipo('t1', 'Reformer')],
+  });
+  assert.equal(clases[0].day, 4);
+  assert.equal(clases[0].fecha, '2026-09-04');
+});
+
+test('semanaDe: cada día trae su fecha, no solo el número', () => {
+  // La semana que CRUZA de mes es donde se nota: dos días con el mismo número
+  // no pueden convivir, pero sí dos con el mismo número en meses distintos en
+  // cuanto se compara contra la rejilla del mes.
+  const semana = semanaDe(new Date('2026-09-03T10:00:00.000Z'));
+  assert.deepEqual(semana.map((d) => d.fecha), [
+    '2026-08-31', '2026-09-01', '2026-09-02', '2026-09-03',
+    '2026-09-04', '2026-09-05', '2026-09-06',
+  ]);
 });
 
 test('clasesDeLaSemana: fuera de la semana, canceladas y orden', () => {
@@ -367,6 +405,33 @@ test('construirDatosPortal: un estudio vacío da datos vacíos pero válidos', (
   });
 });
 
+// ── La política de cancelación, entera ──────────────────────────────────────
+// La hoja de cancelar del kit prometía «La clase vuelve a tu bono» a cualquiera
+// que tuviera bono, sin mirar la hora. Para no mentir hacen falta las DOS
+// mitades de la política, y la segunda no llegaba al portal: la RPC decide con
+// `v_devolver := v_devolver_tardia or not v_tardia`.
+
+test('construirDatosPortal: `devolverBonoTardia` viaja, y por defecto es false', () => {
+  const ahora = new Date('2026-09-03T10:00:00.000Z');
+  // Sin declararlo: `studios.cancelacion_devolver_bono_tardia` es `false` por
+  // defecto, y suponer lo contrario sería prometerle una devolución que no hay.
+  assert.equal(construirDatosPortal({ ...BASE, ahora }).devolverBonoTardia, false);
+  assert.equal(
+    construirDatosPortal({ ...BASE, ahora, cancelacionDevolverBonoTardia: true }).devolverBonoTardia, true);
+});
+
+test('debeDevolverBono con los datos del portal: la ventana sola NO decide', () => {
+  // El caso que motivó todo esto. Misma clase, misma hora, misma ventana: lo
+  // único que cambia es la bandera del estudio, y el desenlace es el contrario.
+  const inicio = '2026-09-03T18:00:00.000Z';
+  const dentroDePlazo = new Date('2026-09-03T14:00:00.000Z'); // 4 h antes, ventana de 6
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 6, false), false);
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 6, true), true);
+  // Fuera de plazo devuelve siempre, y sin ventana configurada nunca es tardía.
+  assert.equal(debeDevolverBono(inicio, new Date('2026-09-03T09:00:00.000Z'), 6, false), true);
+  assert.equal(debeDevolverBono(inicio, dentroDePlazo, 0, false), true);
+});
+
 test('construirDatosPortal: los filtros solo traen tipos que están en las clases', () => {
   const datos = construirDatosPortal({
     ...BASE,
@@ -390,7 +455,8 @@ test('construirDatosPortal: los filtros solo traen tipos que están en las clase
 // aquí: si `StudioClass` gana un campo, este ayudante tiene que enterarse.
 function clase(id: string): StudioClass {
   return {
-    id, name: 'Reformer', type: 't1', day: 7, time: '18:15', end: '19:10',
+    id, name: 'Reformer', type: 't1', day: 7, fecha: '2026-09-07', time: '18:15', end: '19:10',
+    teacherFoto: '',
     startsAt: '2026-09-07T16:15:00.000Z', endsAt: '2026-09-07T17:10:00.000Z', cancelHoras: null,
     duration: '55 min', room: 'Sala 1', teacher: 'Ana', initial: 'A',
     level: 'Todos los niveles', seats: 3, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
@@ -661,8 +727,8 @@ test('sociaDe: «Domiciliado» exige mandato SEPA, no solo el método preferido'
 // `useViewModel`. Punto 4 de `themes/RETOMAR.md`.
 
 const claseEn = (iso: string): StudioClass => ({
-  id: `c-${iso}`, name: 'Reformer', type: 'reformer',
-  day: Number(iso.slice(8, 10)), time: '10:00', end: '10:50',
+  id: `c-${iso}`, name: 'Reformer', type: 'reformer', teacherFoto: '',
+  day: Number(iso.slice(8, 10)), fecha: iso.slice(0, 10), time: '10:00', end: '10:50',
   startsAt: iso, endsAt: iso, duration: '50 min', room: 'Sala 1',
   level: 'Todos los niveles', teacher: 'Ana', cancelHoras: null,
   initial: 'A', seats: 10, plazas: [], fotoUrl: '/por-defecto/clase.webp', description: '', benefits: [],
@@ -807,4 +873,47 @@ test('columnasDeSala cuenta columnas distintas, no el máximo', () => {
   // Una sala mal rellenada no revienta la pantalla.
   assert.equal(columnasDeSala(Array.from({ length: 20 }, (_, i) => pl(i))), 8);
   assert.equal(columnasDeSala([pl(0), pl(0), pl(0)]), 1);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La foto de la instructora.
+//
+// ⚠️ El dato SIEMPRE llegó al portal (`mapInstructorPublico` lo incluye) y este
+// adaptador lo tiraba: `profesoresDe` construía {id, nombre, inicial, bio} y
+// nada más. En producción 7 de las 9 instructoras del estudio piloto tienen
+// foto, así que se estaba sustituyendo una cara real por una inicial en todas
+// las pantallas donde aparece.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('profesoresDe conserva la foto, y `avatar` sirve de reserva', () => {
+  const [conFoto, conAvatar, sinNada] = profesoresDe([
+    instructor('i1', 'Marta Gómez', { fotoUrl: 'https://cdn/marta.webp' }),
+    // Son dos columnas distintas de la misma tabla y no todas las fichas usan
+    // la misma: si solo se mirara `foto_url`, media plantilla saldría sin cara.
+    instructor('i2', 'Emma Ruiz', { avatar: 'https://cdn/emma.webp' }),
+    instructor('i3', 'Nuria Peña'),
+  ]);
+  assert.equal(conFoto.foto, 'https://cdn/marta.webp');
+  assert.equal(conAvatar.foto, 'https://cdn/emma.webp');
+  // Vacía, NO `undefined`: quien la pinta comprueba `foto &&`, y un `undefined`
+  // colándose en un `src` intenta cargar la página actual como imagen.
+  assert.equal(sinNada.foto, '');
+});
+
+test('la clase resuelve la foto de QUIEN la da, no por nombre', () => {
+  // ⚠️ Se cruza por id en el adaptador y no por nombre en la pantalla: dos
+  // instructoras que se llamen igual son raras, pero cruzar personas por su
+  // nombre es un error que solo se descubre el día que pasa.
+  const clases = clasesDeLaSemana({
+    ...BASE,
+    ahora: new Date('2026-09-03T10:00:00.000Z'),
+    sesiones: [sesion('x1', '2026-09-03T16:00:00.000Z', '2026-09-03T16:50:00.000Z', { instructorId: 'i2' })],
+    tiposClase: [tipo('t1', 'Reformer')],
+    salas: [sala('sa1', 'Sala 2')],
+    instructores: [
+      instructor('i1', 'Marta Gómez', { fotoUrl: 'https://cdn/marta.webp' }),
+      instructor('i2', 'Emma Ruiz', { fotoUrl: 'https://cdn/emma.webp' }),
+    ],
+  });
+  assert.equal(clases[0].teacherFoto, 'https://cdn/emma.webp');
 });

@@ -3,6 +3,8 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { mapFilaACandidatura, type FilaRedCandidatura } from '@/lib/network/mapeo';
+import { encajeCandidaturaDe, type EncajeCandidatura } from '@/lib/network/encaje-candidatura';
+import type { VacanteNetwork } from '@/lib/network/tipos';
 
 // Candidaturas de UNA vacante — solo staff del estudio dueño. Se verifica
 // vacante.studio_id === sesion.studioId ANTES de leer nada: el riesgo más
@@ -17,22 +19,54 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
 
   const { id } = await params;
-  const { data: vacante } = await admin.from('red_vacantes').select('id, studio_id').eq('id', id).maybeSingle();
+  const { data: vacante } = await admin
+    .from('red_vacantes')
+    .select('id, studio_id, especialidades, horarios, tipo_trabajo, tarifa_rango, studios ( ciudad )')
+    .eq('id', id)
+    .maybeSingle();
   if (!vacante || vacante.studio_id !== sesion.studioId) {
     return NextResponse.json({ error: 'Vacante no encontrada.' }, { status: 404 });
   }
+  const estudioCiudad = (vacante.studios as unknown as { ciudad: string | null } | null)?.ciudad ?? null;
+  const vacanteParaEncaje = {
+    especialidades: vacante.especialidades as VacanteNetwork['especialidades'],
+    horarios: vacante.horarios as VacanteNetwork['horarios'],
+    tipoTrabajo: vacante.tipo_trabajo as VacanteNetwork['tipoTrabajo'],
+    tarifaRango: vacante.tarifa_rango as VacanteNetwork['tarifaRango'],
+    estudioCiudad,
+  };
 
   const { data, error } = await admin
     .from('red_candidaturas')
-    .select('id, vacante_id, perfil_id, mensaje, notas_estudio, estado, solicitud_id, creado_en, actualizado_en, resuelto_en, red_perfiles ( nombre, foto_url )')
+    .select(`
+      id, vacante_id, perfil_id, mensaje, notas_estudio, estado, solicitud_id, creado_en, actualizado_en, resuelto_en,
+      red_perfiles ( nombre, foto_url, ciudad, especialidades, disponibilidad_horarios, tipo_trabajo, tarifa_rango )
+    `)
     .eq('vacante_id', id)
     .order('creado_en', { ascending: false });
   if (error) return errorInterno('network:vacantes:candidaturas:GET', error, 'No se han podido cargar las candidaturas.');
 
-  type Fila = FilaRedCandidatura & { red_perfiles: { nombre: string | null; foto_url: string | null } | null };
-  const candidaturas = ((data ?? []) as unknown as Fila[]).map(f =>
-    mapFilaACandidatura(f, { perfilNombre: f.red_perfiles?.nombre ?? null, perfilFotoUrl: f.red_perfiles?.foto_url ?? null }),
-  );
+  type FilaPerfil = {
+    nombre: string | null; foto_url: string | null; ciudad: string | null;
+    especialidades: string[]; disponibilidad_horarios: string[]; tipo_trabajo: string[]; tarifa_rango: string | null;
+  };
+  type Fila = FilaRedCandidatura & { red_perfiles: FilaPerfil | null };
+  const candidaturas = ((data ?? []) as unknown as Fila[]).map(f => {
+    const perfil = f.red_perfiles;
+    const encaje: EncajeCandidatura | null = perfil
+      ? encajeCandidaturaDe(vacanteParaEncaje, {
+        ciudad: perfil.ciudad,
+        especialidades: perfil.especialidades as VacanteNetwork['especialidades'],
+        disponibilidadHorarios: perfil.disponibilidad_horarios as VacanteNetwork['horarios'],
+        tipoTrabajo: perfil.tipo_trabajo,
+        tarifaRango: perfil.tarifa_rango as VacanteNetwork['tarifaRango'] | null,
+      })
+      : null;
+    return {
+      ...mapFilaACandidatura(f, { perfilNombre: perfil?.nombre ?? null, perfilFotoUrl: perfil?.foto_url ?? null }),
+      encaje,
+    };
+  });
 
   return NextResponse.json({ candidaturas });
 }

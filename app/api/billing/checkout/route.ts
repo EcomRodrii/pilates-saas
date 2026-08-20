@@ -5,7 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
-import { PLANES, TRIAL_DIAS, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
+import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { errorInterno } from '@/lib/errores-servidor';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
@@ -61,7 +61,6 @@ export async function POST(req: NextRequest) {
     if (plan === 'CADENA') {
       let cadenaId = studio.cadena_id as string | null;
       let cadena: { id: string; stripe_customer_id: string | null; subscription_status: string | null } | null = null;
-      let cadenaRecienCreada = false;
 
       if (cadenaId) {
         const { data } = await admin.from('cadenas').select('id, stripe_customer_id, subscription_status').eq('id', cadenaId).maybeSingle();
@@ -91,16 +90,9 @@ export async function POST(req: NextRequest) {
           cadena = data;
         } else {
           cadena = { id: cadenaId, stripe_customer_id: null, subscription_status: null };
-          cadenaRecienCreada = true;
         }
       }
       if (!cadena) throw new Error('No se pudo resolver la cadena');
-
-      // Al crear la cadena en esta misma petición, `cadena.subscription_status`
-      // siempre es null — el historial real de prueba gratuita es el del propio
-      // estudio, no el de la fila de cadena recién nacida (si no, cada alta de
-      // cadena regalaría un trial nuevo aunque el estudio ya hubiera gastado el suyo).
-      const primeraVez = cadenaRecienCreada ? !studio.subscription_status : !cadena.subscription_status;
 
       // Si el estudio venía de ESTUDIO/BASE con una suscripción individual viva,
       // hay que cancelarla — si no, queda cobrando en paralelo con la de cadena.
@@ -125,9 +117,12 @@ export async function POST(req: NextRequest) {
         mode: 'subscription',
         customer: customerId,
         line_items: [{ price, quantity: 1 }],
+        // Sin `trial_period_days`: la prueba gratuita ya se ha disfrutado
+        // ANTES de llegar aquí (7 días locales, sin tarjeta, desde que se creó
+        // el estudio — ver lib/billing/trial.ts). Añadirla otra vez aquí sería
+        // regalar una segunda prueba a quien acaba de terminar la primera.
         subscription_data: {
           metadata: { cadenaId: cadena.id, plan },
-          ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
         },
         metadata: { cadenaId: cadena.id, plan },
         success_url: `${appUrl}/configuracion?suscripcion=ok`,
@@ -156,11 +151,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prueba gratuita solo en la PRIMERA suscripción: si el estudio nunca ha tenido
-    // suscripción (subscription_status vacío) le damos TRIAL_DIAS días. Un estudio
-    // que ya se suscribió antes (aunque cancelara) no vuelve a tener prueba.
-    const primeraVez = !studio.subscription_status;
-
     // Customer del estudio (se crea una vez y se guarda).
     let customerId = studio.stripe_customer_id as string | null;
     if (!customerId) {
@@ -177,12 +167,15 @@ export async function POST(req: NextRequest) {
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price, quantity: 1 }],
-      // Vincula la suscripción al estudio y al plan (lo lee el webhook). En la
-      // primera suscripción añade la prueba gratuita: el Checkout recoge la tarjeta
-      // pero no cobra hasta que termina el trial (se convierte sola).
+      // Vincula la suscripción al estudio y al plan (lo lee el webhook).
+      //
+      // ⚠️ Ya NO se pide `trial_period_days`. La prueba gratuita dejó de vivir
+      // en Stripe: son 7 días locales y sin tarjeta que arrancan al crear el
+      // estudio (lib/billing/trial.ts). Quien llega hasta aquí es porque
+      // decidió pagar —durante su prueba o después de agotarla—, así que este
+      // Checkout cobra desde el primer periodo.
       subscription_data: {
         metadata: { studioId: studio.id, plan },
-        ...(primeraVez ? { trial_period_days: TRIAL_DIAS } : {}),
       },
       metadata: { studioId: studio.id, plan },
       success_url: `${appUrl}/configuracion?suscripcion=ok`,

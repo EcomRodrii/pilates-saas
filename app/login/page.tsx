@@ -1,20 +1,47 @@
 'use client';
 
 import { useState, useEffect, useId, useRef } from 'react';
+import Link from 'next/link';
+import { ArrowLeftRight } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
 import { dbCreateStudio, dbInsertInstructoraPropia, dbReclamarAccesoEquipo, setCurrentStudioId } from '@/lib/supabase-data';
 import { authHeader } from '@/lib/api-client';
 import { uid as generarId } from '@/lib/utils';
-import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
+import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion, recordarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
+import { normalizarNombreDeGoogle } from '@/lib/auth/normalizar-nombre-google';
 
 export default function LoginPage() {
   const uid = useId();
-  const { signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion, signInWithGoogle } = useAuth();
+  const {
+    signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion, signInWithGoogle, verificarOtpSignup,
+  } = useAuth();
   const [modo, setModo] = useState<'entrar' | 'crear'>('entrar');
+  // Alta recién creada, esperando el código de 6 dígitos — sustituye al viejo
+  // "revisa tu email y pulsa el enlace". `emailOtp` no vive en `email` (el
+  // campo del formulario) para poder volver a "cambiar correo" sin perder lo
+  // que la persona ya había escrito antes de enviarlo.
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  // Autenticó bien, pero esta identidad no tiene NADA en Software — sí tiene
+  // perfil de Network. Nunca se le concede el panel: se le dice la verdad y
+  // se cierra la sesión que se acaba de abrir (ver el bloque de abajo).
+  const [cuentaDeNetwork, setCuentaDeNetwork] = useState(false);
+  // Recarga/atrás/pestaña cerrada y reabierta a medio verificar: el email
+  // pendiente sobrevive en sessionStorage (lib/auth/otp-pendiente.ts) — sin
+  // esto, un F5 en plena verificación devolvía sin más al formulario de
+  // "Iniciar sesión", como si el alta nunca hubiera pasado.
+  useEffect(() => {
+    const pendiente = leerEmailOtpPendiente();
+    if (!pendiente) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEmailOtp(pendiente);
+    setModo('crear');
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -32,10 +59,6 @@ export default function LoginPage() {
   // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
   // alguien le mandase el enlace desde el panel de Supabase.
   const [recuperando, setRecuperando] = useState(false);
-  // Se enseña solo cuando el error ES el de email sin confirmar: un botón de
-  // "reenviar confirmación" siempre visible invita a pulsarlo a quien no lo
-  // necesita, y cada pulsación gasta el rate limit de correos del proyecto.
-  const [faltaConfirmar, setFaltaConfirmar] = useState(false);
   // Este efecto crea el estudio, y crear un estudio NO es idempotente. Sus
   // dependencias cambian de identidad más de una vez por login (`user` es un
   // objeto nuevo en cada evento de auth), y `pending_studio` solo se limpia al
@@ -55,6 +78,19 @@ export default function LoginPage() {
     if (new URLSearchParams(window.location.search).get('alta') !== '1') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setModo('crear');
+  }, []);
+
+  // Segunda vía para el token de invitación, además del sessionStorage que
+  // /invitacion ya guardó al entrar (lib/equipo/invitacion-pendiente.ts). Se
+  // vio en producción una cuenta creada y confirmada por OTP sin vincular a
+  // ningún estudio — sessionStorage se había perdido en el salto desde
+  // /invitacion sin dejar traza de la causa exacta. Si el token llega por
+  // querystring (mismo origen, /invitacion → /login, sin relación con el
+  // enlace del correo), se vuelve a guardar aquí — cubre el caso justo antes
+  // de que se necesite, tanto si sessionStorage sobrevivió como si no.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('token');
+    if (token) recordarTokenInvitacion(token);
   }, []);
 
   // Vuelta de Google con fallo (cancelado, callback caído, provider mal
@@ -93,25 +129,21 @@ export default function LoginPage() {
     yaArrancado.current = true;
 
     (async () => {
-      // `user_metadata.nombre` es lo que leen sidebar, menú de perfil,
-      // notificaciones y los formularios de Network (7 sitios, ver grep) —
-      // pero Google nunca rellena esa clave, pone `full_name`/`name`. Sin
-      // esto, cualquier alta por Google se vería como "Instructora" o en
-      // blanco en todo el panel. Se normaliza aquí, una sola vez y para
-      // TODOS los puntos de entrada de Google (Manager y Network pasan por
-      // este mismo efecto, ya que signInWithGoogle() siempre vuelve a
-      // /login) — no en cada sitio que lo lee.
-      if (!user.user_metadata?.nombre) {
-        const nombreGoogle = user.user_metadata?.full_name || user.user_metadata?.name;
-        if (nombreGoogle) await supabase.auth.updateUser({ data: { nombre: nombreGoogle } });
-      }
+      // Ver lib/auth/normalizar-nombre-google.ts — se llama también desde
+      // /network/acceso, que desde 2026-08-19 tiene su propio retorno de
+      // Google en vez de pasar siempre por aquí.
+      await normalizarNombreDeGoogle(user);
       // Alta pendiente de /crear-estudio (el proyecto exigía confirmar el
       // email antes de tener sesión): crea el negocio real ahora que ya hay
       // sesión. Los datos viajan en la metadata del usuario (no localStorage),
       // así que esto funciona aunque el email se confirme desde otro
       // dispositivo distinto al que hizo el alta.
+      // `plan` desde que el alta pública deja elegirlo (es el que se disfruta
+      // durante la prueba). `ciudad`/`telefono` son opcionales: el alta nueva
+      // ya no pide teléfono, pero las metadatas escritas por la versión
+      // anterior siguen llegando con él hasta que se consuman.
       const pending = user.user_metadata?.pending_studio as
-        | { nombre: string; ciudad: string; telefono: string; comoNosConocio?: string }
+        | { nombre: string; ciudad?: string; telefono?: string; comoNosConocio?: string; plan?: 'BASE' | 'ESTUDIO' | 'CADENA' }
         | undefined;
       if (pending) {
         const newStudio = await dbCreateStudio({ ...pending, ownerAuthUserId: user.id });
@@ -196,29 +228,32 @@ export default function LoginPage() {
       // §2). /api/auth/destino-post-login es la única fuente de verdad de
       // "a dónde pertenece esta cuenta"; fail-open a /dashboard si la llamada
       // falla, que es el comportamiento de siempre.
-      const destinoResuelto = await fetch('/api/auth/destino-post-login', { headers: await authHeader() })
+      // `producto=software`: el contexto lo fija ESTA página, no se adivina de
+      // la cuenta (regla central del cambio de 2026-08-19 — Software/Network
+      // son dos productos, el contexto lo decide la puerta por la que se
+      // entra). Antes esta llamada no llevaba `producto` y priorizaba
+      // "¿tiene estudio?" diera igual desde dónde se hubiera entrado: una
+      // instructora con self-claim (ficha de Software + perfil de Network)
+      // que entrara aquí SÍ pertenece a Software, así que sigue yendo a
+      // /dashboard igual que siempre — lo nuevo es la cuenta que NO tiene
+      // nada aquí, que antes se colaba igual.
+      const resultado = await fetch('/api/auth/destino-post-login?producto=software', { headers: await authHeader() })
         .then(r => (r.ok ? r.json() : null))
         .catch(() => null);
-      window.location.href = destinoResuelto?.destino ?? '/dashboard';
+
+      if (resultado?.tipo === 'cuenta-de-otro-producto') {
+        // No se deja una sesión válida abierta mostrando un mensaje de
+        // bloqueo: eso es justo el estado ambiguo que se quiere evitar.
+        await supabase.auth.signOut();
+        setCuentaDeNetwork(true);
+        return;
+      }
+      window.location.href = resultado?.destino ?? '/dashboard';
     });
   }, [session, user, loading]);
 
-  // El captcha se exige a nivel de PROYECTO en Supabase, así que esta llamada
-  // también lo necesita: sin token, gotrue la rechaza igual que un login.
-  async function reenviarElCorreoDeConfirmacion() {
-    setError(''); setInfo('');
-    setRecuperando(true);
-    const token = await pedirToken();
-    if (token === null) { setRecuperando(false); setError(ERROR_CAPTCHA); return; }
-    const r = await reenviarConfirmacion(email, token || undefined);
-    setRecuperando(false);
-    if (r.error) { setError(r.error); return; }
-    setFaltaConfirmar(false);
-    setInfo(`Te hemos reenviado el correo de confirmación a ${email.trim()}. Mira también en spam.`);
-  }
-
   async function pedirEnlaceDeRecuperacion() {
-    setError(''); setInfo(''); setFaltaConfirmar(false);
+    setError(''); setInfo('');
     if (!email.trim()) {
       setError('Escribe tu email arriba y vuelve a pulsar.');
       return;
@@ -258,11 +293,17 @@ export default function LoginPage() {
         // argumento de no revelar si la cuenta existe no aplica aquí: la
         // pantalla anterior acaba de decirlo. Los mensajes concretos salen de
         // `mensajeDeError` en auth-context, que sí distingue los casos.
+        // Cuenta sin confirmar: en vez de un enlace "reenviar confirmación"
+        // suelto, se manda directo a la pantalla de código — el mismo paso
+        // que ve quien se acaba de registrar, así no hay dos experiencias
+        // distintas para "te falta confirmar el email".
+        if (/confirmar tu email/i.test(error)) {
+          recordarEmailOtpPendiente(email.trim());
+          setEmailOtp(email.trim());
+          setSubmitting(false);
+          return;
+        }
         setError(error);
-        // Y ese mensaje decía "busca nuestro correo" sin ofrecer nada más: si
-        // el correo no llegó, se borró, o el enlace caducó, era un callejón sin
-        // salida. Ahora se ofrece reenviarlo, solo en este caso concreto.
-        setFaltaConfirmar(/confirmar tu email/i.test(error));
         setSubmitting(false);
       }
       // El redirect + reclamo de cuenta lo hace el useEffect al detectar sesión.
@@ -287,11 +328,8 @@ export default function LoginPage() {
         setModo('entrar');
         setSubmitting(false);
       } else if (needsConfirmation) {
-        setInfo('Cuenta creada. Revisa tu email para confirmarla y luego inicia sesión.');
-        setModo('entrar');
-        // Nada más crearse es cuando más falla: el correo tarda, cae en spam, o
-        // se escribe mal la dirección. Que el reenvío esté a mano desde ya.
-        setFaltaConfirmar(true);
+        recordarEmailOtpPendiente(email.trim());
+        setEmailOtp(email.trim());
         setSubmitting(false);
       }
       // Si no requiere confirmación, ya hay sesión y el useEffect se encarga.
@@ -306,9 +344,49 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <LogoTentare formato="vertical" alto={76} className="mb-2" />
-          <p className="text-[14px] text-[#8E8E86] mt-1">Panel de gestión</p>
+          <p className="text-[14px] font-semibold text-[#8E8E86] mt-1">Tentare Software</p>
+          <p className="text-[12.5px] text-[#A8A89F]">Gestión de tu estudio de Pilates</p>
         </div>
 
+        {cuentaDeNetwork ? (
+          <div className="bg-white rounded-2xl p-6 text-center" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'var(--accent)' }}>
+              <ArrowLeftRight size={18} style={{ color: 'var(--accent-foreground)' }} aria-hidden="true" />
+            </div>
+            <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1.5">Esta cuenta es de Tentare Network</h2>
+            <p className="text-[13.5px] leading-relaxed text-[#6C6C64] mb-5">
+              El email y la contraseña son correctos, pero esta cuenta pertenece a Tentare Network, no a Tentare
+              Software — son dos productos independientes. Para gestionar un estudio necesitas una cuenta de
+              Software.
+            </p>
+            <Link
+              href="/network/acceso"
+              className="block w-full rounded-xl bg-brand px-4 py-2.5 text-center text-[13.5px] font-semibold text-brand-foreground transition-colors hover:brightness-95"
+            >
+              Ir a Tentare Network
+            </Link>
+            <button
+              type="button"
+              onClick={() => { setCuentaDeNetwork(false); setEmail(''); setPassword(''); }}
+              className="mt-3 text-[13px] font-medium text-[#8E8E86] hover:text-[#3A3A34] transition-colors"
+            >
+              Volver a intentarlo con otra cuenta
+            </button>
+          </div>
+        ) : emailOtp ? (
+          <OtpVerificacion
+            email={emailOtp}
+            onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
+            onReenviar={async () => {
+              const token = await pedirToken();
+              if (token === null) return { error: ERROR_CAPTCHA };
+              return reenviarConfirmacion(emailOtp, token || undefined);
+            }}
+            onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setError(''); setInfo(''); }}
+            onVerificado={() => olvidarEmailOtpPendiente()}
+          />
+        ) : (
+        <>
         {/* Card */}
         <div className="bg-white rounded-2xl p-6" style={{ border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
           <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-5">
@@ -370,15 +448,6 @@ export default function LoginPage() {
             {error && (
               <p className="text-[13px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">{error}</p>
             )}
-            {faltaConfirmar && (
-              <button
-                type="button" disabled={recuperando}
-                onClick={() => void reenviarElCorreoDeConfirmacion()}
-                className="w-full text-center text-[12.5px] font-semibold text-[#3A3A34] hover:underline disabled:opacity-60"
-              >
-                {recuperando ? 'Enviando…' : 'Reenviarme el correo de confirmación'}
-              </button>
-            )}
             {info && (
               <p className="text-[13px] rounded-lg px-3 py-2" style={{ color: '#22251A', background: '#F1F2EA' }}>{info}</p>
             )}
@@ -422,6 +491,20 @@ export default function LoginPage() {
             </>
           )}
         </p>
+
+        {/* Segunda vía, no la primera — esta pantalla es la puerta de un
+            equipo con invitación (ver el copy de "Crear cuenta" arriba), no
+            el sitio donde alguien sin estudio empieza. Enlace recíproco al
+            de NAV_NETWORK (components/landing/enlaces.ts) y al que ya tenía
+            /network/acceso hacia aquí — antes solo funcionaba en un sentido. */}
+        <p className="text-center text-[12px] text-[#A8A89F] mt-3">
+          ¿Das clases de Pilates o Yoga?{' '}
+          <Link href="/network/crear-perfil" className="font-semibold text-[#3A3A34] hover:underline">
+            Crea tu perfil en Tentare Network
+          </Link>
+        </p>
+        </>
+        )}
       </div>
     </div>
   );

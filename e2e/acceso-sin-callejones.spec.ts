@@ -9,6 +9,12 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // llegó, se borró, o el enlace caducó, no había NADA que hacer desde dentro:
 // un callejón sin salida en la primera pantalla del producto.
 //
+// Migración a OTP: el enlace de confirmación desapareció del todo. Ahora, al
+// intentar entrar sin confirmar, se manda directo a la pantalla de código de
+// 6 dígitos (mismo componente OtpVerificacion que ven las altas nuevas) — no
+// hay ya un botón "reenviar el correo" suelto en el formulario de login, el
+// reenvío vive DENTRO de esa pantalla.
+//
 // **2. Dar de alta a alguien del equipo interno** obligaba a que esa persona
 // hubiera entrado antes en Tentare por su cuenta. Para montar tu propio equipo
 // eso es un ida y vuelta absurdo: quien da de alta quiere crear la cuenta,
@@ -33,7 +39,7 @@ async function seedSesion(page: Page) {
 }
 
 test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida', () => {
-  test('ofrece reenviar el correo, y solo cuando el problema es ese', async ({ page }) => {
+  test('manda directo a la pantalla de código, y solo cuando el problema es ese', async ({ page }) => {
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.route('**/auth/v1/token**', route =>
       json(route, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' }, 400));
@@ -43,14 +49,14 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
     await page.getByLabel('Contraseña').fill('miContrasena1');
     await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
 
-    await expect(page.getByText(/Te falta confirmar tu email/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reenviarme el correo de confirmación' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('nueva@ejemplo.com')).toBeVisible();
   });
 
-  test('con la contraseña mal NO se ofrece reenviar nada', async ({ page }) => {
-    // El control. Sin esto, el test anterior pasaría igual si el botón
-    // estuviera siempre visible — y un botón que invita a pulsarlo a quien no
-    // lo necesita gasta el límite de correos del proyecto para todos.
+  test('con la contraseña mal NO se manda a la pantalla de código', async ({ page }) => {
+    // El control. Sin esto, el test anterior pasaría igual si esa pantalla
+    // apareciera siempre — y aparecer sin necesidad sería tan confuso como el
+    // botón suelto que sustituye.
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.route('**/auth/v1/token**', route =>
       json(route, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }, 400));
@@ -61,23 +67,26 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
     await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
 
     await expect(page.getByText('Email o contraseña incorrectos')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Reenviarme el correo de confirmación' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toHaveCount(0);
   });
 
-  test('al reenviarlo, lo dice con la dirección concreta', async ({ page }) => {
+  test('al reenviar el código desde esa pantalla, la petición sale de verdad', async ({ page }) => {
     let pedido = false;
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.route('**/auth/v1/token**', route =>
       json(route, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' }, 400));
     await page.route('**/auth/v1/resend**', route => { pedido = true; return json(route, {}); });
+    await page.route('**/api/auth/otp/reenviado', route => json(route, { ok: true }));
 
     await page.goto('/login');
     await page.getByLabel('Email').fill('nueva@ejemplo.com');
     await page.getByLabel('Contraseña').fill('miContrasena1');
     await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Reenviarme el correo de confirmación' }).click();
+    await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toBeVisible({ timeout: 30_000 });
 
-    await expect(page.getByText(/reenviado el correo de confirmación a nueva@ejemplo\.com/)).toBeVisible();
+    await page.getByRole('button', { name: /Reenviar código/ }).click();
+
+    await expect(page.getByText('Código reenviado. Revisa tu correo.')).toBeVisible();
     expect(pedido, 'la petición de reenvío tiene que salir de verdad').toBe(true);
   });
 });

@@ -1,0 +1,35 @@
+# Tentare
+
+> Software de gestión para estudios de Pilates en España. Reservas online, calendario y salas, sustitución automática de instructoras, cobros recurrentes, facturación electrónica (Veri*factu) y una app para las alumnas — todo en un solo panel.
+
+Tentare está pensado para estudios de Pilates independientes y cadenas pequeñas que operan con reformers, un calendario ajustado y equipo de instructoras — no es un software genérico de gimnasio al que se le ha añadido Pilates como categoría más. Interfaz y soporte en español, datos alojados en la UE.
+
+## Producto
+
+- [Funcionalidades](https://www.tentare.app/funcionalidades): las 15 áreas del producto (reservas online, lista de espera, calendario y salas, gestión de instructoras, sustituciones, bonos y membresías, cobros recurrentes, facturación, ficha de clienta, automatizaciones y avisos, informes y rentabilidad, cancelaciones y políticas, app para alumnas, control de asistencia, multi-centro).
+- [Precios](https://www.tentare.app/precios): tres planes públicos y sin permanencia — Base 29€/mes, Estudio 59€/mes, Cadena 149€/mes. Prueba de 14 días.
+- [Comparativa](https://www.tentare.app/comparativa): cómo se compara Tentare con bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai y Glofox — precio real, permanencia, facturación española y sustitución de instructoras, punto por punto.
+- [Cambiarte a Tentare](https://www.tentare.app/soluciones/cambiar-de-software): migración de clientas, bonos, clases, reservas y pagos históricos desde otro software.
+- [Seguridad](https://www.tentare.app/seguridad): aislamiento por estudio, datos en la UE, RGPD, facturación Veri*factu, pagos con Stripe.
+- [Crear estudio](https://www.tentare.app/crear-estudio): alta de un estudio nuevo.
+
+## Recursos
+
+- [Centro de Recursos](https://www.tentare.app/recursos): guías prácticas de gestión para propietarias de estudios de Pilates (ocupación, precios, sustituciones, retención, facturación).
+- [Glosario](https://www.tentare.app/glosario): definiciones neutrales de los términos del sector (software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio, etc.).
+
+## Tentare Network
+
+- [Tentare Network](https://www.tentare.app/network): directorio público de instructoras de Pilates y Yoga en España, gratuito para instructoras y estudios.
+
+## Legal
+
+- [Aviso legal](https://www.tentare.app/legal) · [Privacidad](https://www.tentare.app/privacidad) · [Términos](https://www.tentare.app/terminos) · [Cookies](https://www.tentare.app/cookies)
+- Titular: Marcos Roca Rodríguez (autónomo), Barcelona, España.
+- Contacto: hola@tentare.app
+
+## Notas para agentes
+
+- Contenido en español, sin versiones en otros idiomas.
+- Los precios y funcionalidades listados arriba están sujetos a cambio — la fuente de verdad son las páginas enlazadas, no este fichero.
+- `/sitemap.xml` tiene el listado completo y actualizado de páginas públicas indexables.

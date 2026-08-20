@@ -1,5 +1,6 @@
 // AUTO-GENERADO desde supabase/migrations/*.sql — filas de BD (snake_case).
-// Regenerar con: python3 scripts/gen-db-types.py  (no editar a mano).
+// Regenerar con: python3 scripts/gen-db-types.py  (no editar a mano:
+// las correcciones van en TIPOS_MANUALES/NOTAS_MANUALES dentro del script).
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export interface RowReservas {
@@ -12,9 +13,13 @@ export interface RowReservas {
   posicion_espera: number | null;
   check_in_en: string | null;
   creado_en: string | null;
+  // migr 0059.
   confirmacion_pedida_en: string | null;
+  // migr 0059.
   confirmado_en: string | null;
+  // migr 0065.
   recordatorio_confirmacion_en: string | null;
+  // migr 20260731130000.
   oferta_expira_en: string | null;
 }
 
@@ -76,7 +81,9 @@ export interface RowAutomationLogs {
   ejecutado_en: string | null;
   proxima_accion_en: string | null;
   recibo_id: string | null;
+  // migr 0053.
   automatizacion_id: string | null;
+  // migr 0062.
   mensaje_cliente: string | null;
 }
 
@@ -106,6 +113,7 @@ export interface RowAutomatizaciones {
   activa: boolean | null;
   ejecutadas: number | null;
   creada_en: string | null;
+  // migr 0034.
   pasos: unknown | null;
 }
 
@@ -115,6 +123,7 @@ export interface RowBackups {
   tipo: string;
   datos: any;
   creado_en: string;
+  // migr 0002.
   storage_key: string | null;
 }
 
@@ -133,8 +142,11 @@ export interface RowCampanas {
   creada_en: string | null;
   enviada_en: string | null;
   programada_en: string | null;
+  // migr 0033.
   objetivo: string | null;
+  // migr 0033.
   presupuesto: number | null;
+  // migr 0034.
   publicaciones: unknown | null;
 }
 
@@ -185,7 +197,9 @@ export interface RowCitas {
   estado: string;
   precio: number | null;
   creado_en: string | null;
+  // migr 0024.
   pagada: boolean | null;
+  // migr 0046.
   servicio_id: string | null;
 }
 
@@ -201,7 +215,9 @@ export interface RowCodigosDescuento {
   expira: string | null;
   activo: boolean | null;
   creado_en: string | null;
+  // migr 0033.
   min_importe: number | null;
+  // migr 0033.
   solo_nuevas: boolean | null;
 }
 
@@ -244,15 +260,25 @@ export interface RowFacturas {
   verifactu_prev_hash: string | null;
   verifactu_ts: string | null;
   verifactu_seq: number | null;
+  // migr 0085.
   fiskaly_invoice_id: string | null;
+  // migr 0085.
   verifactu_qr_url: string | null;
+  // migr 0085.
   verifactu_qr_imagen: string | null;
+  // migr 0085.
   verifactu_estado: string | null;
+  // migr 0085.
   verifactu_csv: string | null;
+  // migr 20260812121955.
   serie: string | null;
+  // migr 20260812121955.
   tipo: string | null;
+  // migr 20260812121955.
   rectifica_a: string | null;
+  // migr 20260812121955.
   tipo_rectificativa: string | null;
+  // migr 20260812121955.
   importe_rectificacion: number | null;
 }
 
@@ -267,8 +293,11 @@ export interface RowInstructores {
   rol: string | null;
   auth_user_id: string | null;
   avatar: string | null;
+  // migr 0071.
   foto_url: string | null;
+  // migr 20260811222916.
   bio: string | null;
+  // migr 20260817145031.
   tipo_contrato: string | null;
 }
 
@@ -279,6 +308,7 @@ export interface RowIntegracionCredenciales {
   refresh_token: string | null;
   expires_at: string | null;
   actualizado_en: string | null;
+  // migr 20260813151635.
   metadata: any | null;
 }
 
@@ -289,6 +319,13 @@ export interface RowIntegraciones {
   activo: boolean;
   config: any;
   actualizado_en: string;
+  // migr 20260818142206. Salud real del servicio (ver
+  // lib/integraciones/salud.ts).
+  ultimo_ok_en: string | null;
+  // migr 20260818142206.
+  ultimo_error: string | null;
+  // migr 20260818142206.
+  ultimo_error_en: string | null;
 }
 
 export interface RowLevelDefinitions {
@@ -320,6 +357,7 @@ export interface RowMensajesEquipo {
   autor_nombre: string;
   texto: string;
   creado_en: string | null;
+  // migr 0026.
   canal_id: string | null;
 }
 
@@ -366,8 +404,12 @@ export interface RowPlanesTarifa {
   tipo: string;
   sesiones: number | null;
   activo: boolean | null;
+  // migr 0079.
   validez_dias: number | null;
+  // migr 0079.
   limite_semanal: number | null;
+  // migr 20260819202520.
+  oferta_hasta: string | null;
 }
 
 export interface RowPostsComunidad {
@@ -417,23 +459,42 @@ export interface RowRecibos {
   fecha_cobro: string | null;
   fecha_devolucion: string | null;
   intentos_reintento: number | null;
+  // migr 0036.
   metodo_cobro: string | null;
+  // migr 0036.
   sepa_estado: string | null;
+  // migr 0051.
   proximo_reintento: string | null;
+  // migr 0140.
   disputa_estado: string | null;
+  // migr 0140.
   disputa_stripe_id: string | null;
+  // migr 20260731001721.
   stripe_payment_intent_id: string | null;
+  // migr 20260806160000.
   entrega_tipo: string | null;
+  // migr 20260806160000.
   entrega_aplicada: boolean | null;
+  // migr 20260806160000.
   entrega_aplicada_en: string | null;
+  // migr 20260806160000.
   entrega_sesiones_antes: number | null;
+  // migr 20260806160000.
   entrega_sesiones_despues: number | null;
+  // migr 20260806160000.
   entrega_fecha_fin_antes: string | null;
+  // migr 20260806160000.
   entrega_fecha_fin_despues: string | null;
+  // migr 20260806160000.
   entrega_estado_antes: string | null;
+  // migr 20260806160000.
   importe_devuelto: number | null;
+  // migr 20260811100957.
   reembolso_solicitado_en: string | null;
+  // migr 20260811100957.
   reembolso_stripe_id: string | null;
+  // migr 20260817214500.
+  checkout_session_id: string | null;
 }
 
 export interface RowRewardActions {
@@ -512,8 +573,11 @@ export interface RowSesiones {
   precio_puntual: number | null;
   google_event_id: string | null;
   serie_id: string | null;
+  // migr 0044.
   valoracion_pedida_en: string | null;
+  // migr 20260731140000.
   cancelada_motivo: string | null;
+  // migr 20260731160000.
   incidencia_texto: string | null;
 }
 
@@ -540,23 +604,41 @@ export interface RowSocios {
   foto_url: string | null;
   auth_user_id: string | null;
   direccion: string | null;
+  // migr 0011.
   borrado_en: string | null;
+  // migr 0015.
   campos_extra: Record<string, string | number | boolean | null> | null;
+  // migr 0036.
   metodo_pago_preferido: string | null;
+  // migr 0036.
   sepa_mandate_id: string | null;
+  // migr 0036.
   sepa_payment_method_id: string | null;
+  // migr 0109.
   aceptacion_origen: string | null;
+  // migr 0109.
   aceptacion_por: string | null;
+  // migr 0138.
   consentimiento_salud_fecha: string | null;
+  // migr 0138.
   consentimiento_salud_registrado_por: string | null;
+  // migr 20260804201830.
   consentimiento_salud_revocado_en: string | null;
+  // migr 20260811090114.
   tarjeta_exp_mes: number | null;
+  // migr 20260811090114.
   tarjeta_exp_anio: number | null;
+  // migr 20260811090114.
   tarjeta_marca: string | null;
+  // migr 20260811090114.
   tarjeta_ultimos4: string | null;
+  // migr 20260812013920.
   origen_lead: string | null;
+  // migr 20260813122718.
   consentimiento_marketing_en: string | null;
+  // migr 20260813122718.
   consentimiento_marketing_texto: string | null;
+  // migr 20260813122718.
   consentimiento_marketing_por: string | null;
 }
 
@@ -608,76 +690,152 @@ export interface RowStudios {
   subscription_id: string | null;
   subscription_status: string | null;
   current_period_end: string | null;
+  // migr 0007.
   kiosk_token: string | null;
+  // migr 0008.
   stripe_terminal_reader_id: string | null;
+  // migr 0008.
   stripe_terminal_location_id: string | null;
+  // migr 0014.
   logo_url: string | null;
+  // migr 0014.
   iva_por_defecto: number | null;
+  // migr 0018.
   dep_umbral_alto: number | null;
+  // migr 0018.
   dep_umbral_medio: number | null;
+  // migr 0018.
   dep_ventana_dias: number | null;
+  // migr 0039.
   modo_autonomia: string | null;
+  // migr 0039.
   umbral_score_autonomo: number | null;
+  // migr 0039.
   avisar_alumnas: boolean | null;
+  // migr 0058.
   onboarding_descartado_en: string | null;
+  // migr 0059.
   pedir_confirmacion_riesgo: boolean | null;
+  // migr 0060.
   gmail_email: string | null;
+  // migr 0061.
   zoom_email: string | null;
+  // migr 0064.
   gestoria_email: string | null;
+  // migr 0066.
   cadena_id: string | null;
+  // migr 0071.
   foto_url: string | null;
+  // migr 0085.
   fiskaly_signer_id: string | null;
+  // migr 0085.
   fiskaly_client_id: string | null;
+  // migr 0086.
   recuperacion_caducidad_tipo: string | null;
+  // migr 0086.
   recuperacion_caducidad_dias: number | null;
+  // migr 0090.
   sepa_acreedor_id: string | null;
+  // migr 0090.
   sepa_iban: string | null;
+  // migr 0090.
   sepa_titular: string | null;
+  // migr 0107.
   politica_privacidad: string | null;
+  // migr 0107.
   terminos_servicio: string | null;
+  // migr 0110.
   compra_publica_modo: string | null;
+  // migr 0123.
   como_nos_conocio: string | null;
+  // migr 0127.
   bienvenida_vista_en: string | null;
+  // migr 0127.
   onb_centros: string | null;
+  // migr 0127.
   onb_software_anterior: string | null;
+  // migr 0127.
   onb_alumnos_activos: string | null;
+  // migr 0127.
   onb_importar_datos: string | null;
+  // migr 0127.
   onb_prioridad: string[] | null;
+  // migr 0127.
   onb_ayuda_alta: string | null;
+  // migr 0134.
   descripcion: string | null;
+  // migr 0134.
   anio_fundacion: number | null;
+  // migr 20260725223957.
   suspendido_en: string | null;
+  // migr 20260725223957.
   suspendido_motivo: string | null;
+  // migr 20260725223957.
   suspendido_por: string | null;
+  // migr 20260730152516.
   reserva_ventana_minima_minutos: number | null;
+  // migr 20260730152516.
   reserva_antelacion_maxima_dias: number | null;
+  // migr 20260730152516.
   permite_lista_espera: boolean | null;
+  // migr 20260730192445.
   requiere_aprobacion: boolean | null;
+  // migr 20260730225253.
   penalizacion_importe_eur: number | null;
+  // migr 20260730225253.
   penalizacion_aplica_no_show: boolean | null;
+  // migr 20260730225253.
   penalizacion_aplica_cancelacion_tardia: boolean | null;
+  // migr 20260730225253.
   penalizacion_cobro_automatico: boolean | null;
+  // migr 20260731123128.
   decision_contrato_visto_en: string | null;
+  // migr 20260731130000.
   lista_espera_plazo_aceptacion_minutos: number | null;
+  // migr 20260731140000.
   minimo_asistentes_por_clase: number | null;
+  // migr 20260731160000.
   hora_apertura: string | null;
+  // migr 20260731160000.
   hora_cierre: string | null;
+  // migr 20260804180132.
   instructor_reparto_penalizacion_pct: number | null;
+  // migr 20260805120000.
   tour_visto_en: string | null;
+  // migr 20260807120000.
   portal_react: boolean | null;
+  // migr 20260807134223.
   gestoria_envio_automatico: string | null;
+  // migr 20260807134223.
   gestoria_ultimo_envio_periodo: string | null;
+  // migr 20260809020328.
   requiere_checkin_qr: boolean | null;
+  // migr 20260810140000.
   imagen_bienvenida_url: string | null;
+  // migr 20260811091725.
   reembolsos_activos: boolean | null;
+  // migr 20260811091725.
   reembolso_plazo_dias: number | null;
+  // migr 20260811091725.
   reembolso_solo_sin_usar: boolean | null;
+  // migr 20260811094419.
   pagina_publica_oculta: boolean | null;
+  // migr 20260811094419.
   pagina_publica_clave_hash: string | null;
+  // migr 20260812220000.
   tipo_cuenta: string | null;
+  // migr 20260813004723.
   normas_texto: string | null;
+  // migr 20260813151752.
   klaviyo_account_name: string | null;
+  // migr 20260814140800.
   widget_dominios_autorizados: string[] | null;
+  // migr 20260819110611. Fin de la prueba gratuita LOCAL de 7 días (sin
+  // tarjeta). La fija el trigger `trg_arrancar_prueba_gratuita` al crear el
+  // estudio, NUNCA el cliente. NULL = sin prueba local (los estudios
+  // anteriores a la apertura al público), que no es lo mismo que una prueba
+  // agotada — ver `estadoTrial()` en lib/billing/trial.ts.
+  trial_ends_at: string | null;
 }
 
 export interface RowSuscripciones {
@@ -701,19 +859,30 @@ export interface RowTiposClase {
   descripcion: string | null;
   nivel: string | null;
   foto_url: string | null;
+  // migr 0116.
   ventana_cancelacion_horas: number | null;
+  // migr 20260730152516.
   reserva_exigir_plan: boolean | null;
+  // migr 20260730152516.
   reserva_ventana_minima_minutos: number | null;
+  // migr 20260730152516.
   reserva_antelacion_maxima_dias: number | null;
+  // migr 20260730152516.
   permite_lista_espera: boolean | null;
+  // migr 20260730192445.
   requiere_aprobacion: boolean | null;
+  // migr 20260730225253.
   penalizacion_importe_eur: number | null;
+  // migr 20260731130000.
   lista_espera_plazo_aceptacion_minutos: number | null;
+  // migr 20260731140000.
   minimo_asistentes_por_clase: number | null;
   // migr 20260811134019. `text[] not null default '{}'` — pero se declara
-  // nullable aquí porque una fila leída con un `select` que no la pida llega
-  // sin ella, y el mapper ya lo tolera.
+  // nullable aquí porque una fila leída con un `select` que no la pida
+  // llega sin ella, y el mapper ya lo tolera.
   objetivos: string[] | null;
+  // migr 20260818010302.
+  especialidad_network: string | null;
 }
 
 export interface RowUsuarios {
@@ -737,6 +906,7 @@ export interface RowVentasPos {
   metodo_pago: string;
   notas: string | null;
   realizada_en: string | null;
+  // migr 0036.
   stripe_payment_intent_id: string | null;
 }
 
@@ -753,6 +923,7 @@ export interface RowVideosOnDemand {
   likes: number | null;
   activo: boolean | null;
   creado_en: string | null;
+  // migr 0013.
   stream_uid: string | null;
 }
 
@@ -812,7 +983,9 @@ export interface RowRecomendacionOutcomes {
   ventana_dias: number;
   medido_en: string | null;
   creado_en: string | null;
+  // migr 20260806213813.
   impacto_real: any | null;
+  // migr 20260806213813.
   confianza_medicion: string | null;
 }
 
@@ -928,12 +1101,19 @@ export interface RowPlantillasEmail {
   intro: string | null;
   activa: boolean;
   actualizado_en: string | null;
+  // migr 20260811005749.
   cuerpo: string | null;
+  // migr 20260811005749.
   boton_texto: string | null;
+  // migr 20260811005749.
   color_cabecera: string | null;
+  // migr 20260811005749.
   color_boton: string | null;
+  // migr 20260811005749.
   logo_url: string | null;
+  // migr 20260811005749.
   pie: string | null;
+  // migr 20260811005749.
   fuente: string | null;
 }
 
@@ -992,7 +1172,9 @@ export interface RowWebhookEvents {
   id: string;
   tipo: string | null;
   recibido_en: string;
+  // migr 20260730012417.
   estado: string | null;
+  // migr 20260730012417.
   reclamado_en: string | null;
 }
 
@@ -1015,6 +1197,7 @@ export interface RowInstructoraDisponibilidadExcepciones {
   hora_fin: string | null;
   tipo: string;
   creado_en: string | null;
+  // migr 0101.
   ausencia_id: string | null;
 }
 
@@ -1032,7 +1215,10 @@ export interface RowSustituciones {
   aprobada_at: string | null;
   creado_en: string | null;
   resuelto_en: string | null;
+  // migr 0056.
   origen: string | null;
+  // migr 20260818010302. Sugerencia sin puntuar, aparte de `ranking`.
+  candidatos_network: any;
 }
 
 export interface RowSustitucionContactos {
@@ -1098,6 +1284,7 @@ export interface RowInstructorEnlacesVigentes {
   scope: string;
   token: string;
   actualizado_en: string;
+  // migr 0120.
   email_enviado_en: string | null;
 }
 
@@ -1126,6 +1313,7 @@ export interface RowCadenas {
   subscription_status: string | null;
   current_period_end: string | null;
   creado_en: string;
+  // migr 0108.
   layout_config: any | null;
 }
 
@@ -1399,7 +1587,9 @@ export interface RowInstructorTarifas {
   moneda: string;
   actualizado_en: string;
   actualizado_por: string | null;
+  // migr 20260804180132.
   base_mensual_eur: number | null;
+  // migr 20260804180132.
   recargo_sustitucion_pct: number | null;
 }
 
@@ -1640,11 +1830,17 @@ export interface RowRedPerfiles {
   creado_en: string;
   actualizado_en: string;
   ultimo_acceso_en: string | null;
+  // migr 20260813164631.
   slug: string | null;
+  // migr 20260813175242.
   destacado: boolean | null;
+  // migr 20260813223506.
   idiomas: string[] | null;
+  // migr 20260813223506.
   instagram: string | null;
+  // migr 20260813223506.
   linkedin: string | null;
+  // migr 20260813223506.
   web: string | null;
 }
 
@@ -1783,19 +1979,6 @@ export interface RowRedCertificaciones {
   resuelto_por: string | null;
 }
 
-export interface RowRedFormalizaciones {
-  id: string;
-  solicitud_id: string;
-  propuesto_por: string;
-  tipo_contrato: string;
-  estudio_confirmado_en: string | null;
-  instructora_confirmada_en: string | null;
-  estado: string;
-  instructor_id: string | null;
-  creado_en: string;
-  actualizado_en: string;
-}
-
 export interface RowThemeImports {
   id: string;
   studio_id: string;
@@ -1807,40 +1990,12 @@ export interface RowThemeImports {
   detalle: string | null;
   creado_en: string;
   creado_por: string | null;
+  // migr 20260814082837.
   publicado: boolean | null;
+  // migr 20260814082837.
   publicado_en: string | null;
+  // migr 20260814091805.
   rutas_editadas: string[] | null;
-}
-
-export interface RowRedVacantes {
-  id: string;
-  studio_id: string;
-  publicado_por: string;
-  titulo: string;
-  especialidades: string[];
-  horarios: string[];
-  tipo_trabajo: string;
-  tarifa_rango: string;
-  requisitos: string | null;
-  descripcion: string;
-  estado: string;
-  creado_en: string;
-  actualizado_en: string;
-  cerrado_en: string | null;
-}
-
-export interface RowRedCandidaturas {
-  id: string;
-  vacante_id: string;
-  perfil_id: string;
-  studio_id: string;
-  mensaje: string | null;
-  notas_estudio: string | null;
-  estado: string;
-  solicitud_id: string | null;
-  creado_en: string;
-  actualizado_en: string;
-  resuelto_en: string | null;
 }
 
 export interface RowOauthClientes {
@@ -1917,4 +2072,69 @@ export interface RowWidgetEventos {
   sesion_clase_id: string | null;
   origen: string | null;
   creado_en: string;
+  // migr 20260817013933.
+  socio_id: string | null;
+}
+
+export interface RowTareas {
+  id: string;
+  studio_id: string;
+  socio_id: string | null;
+  titulo: string;
+  descripcion: string | null;
+  estado: string;
+  origen: string;
+  creado_en: string;
+  completado_en: string | null;
+}
+
+export interface RowRedFormalizaciones {
+  id: string;
+  solicitud_id: string;
+  propuesto_por: string;
+  tipo_contrato: string;
+  estudio_confirmado_en: string | null;
+  instructora_confirmada_en: string | null;
+  estado: string;
+  instructor_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowRedVacantes {
+  id: string;
+  studio_id: string;
+  publicado_por: string;
+  titulo: string;
+  especialidades: string[];
+  horarios: string[];
+  tipo_trabajo: string;
+  tarifa_rango: string;
+  requisitos: string | null;
+  descripcion: string;
+  estado: string;
+  creado_en: string;
+  actualizado_en: string;
+  cerrado_en: string | null;
+}
+
+export interface RowRedCandidaturas {
+  id: string;
+  vacante_id: string;
+  perfil_id: string;
+  studio_id: string;
+  mensaje: string | null;
+  notas_estudio: string | null;
+  estado: string;
+  solicitud_id: string | null;
+  creado_en: string;
+  actualizado_en: string;
+  resuelto_en: string | null;
+}
+
+export interface RowRecordatorioEnvios {
+  sesion_id: string;
+  socio_id: string;
+  canal: string;
+  enviado_en: string;
 }

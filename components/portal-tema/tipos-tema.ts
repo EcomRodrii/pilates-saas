@@ -1,10 +1,27 @@
-/** Contrato del tema. Los cuatro temas rellenan esta misma forma. */
+/** Contrato del tema. Los cinco temas rellenan esta misma forma. */
 
 export type WelcomeStyle = "photo" | "soft" | "dark";
-export type GreetingStyle = "display-first" | "micro-first";
+/**
+ * Jerarquía de la cabecera del Inicio.
+ *
+ *   `display-first` — «Hola, Laura» grande arriba y la pregunta debajo (Oliva).
+ *   `micro-first`   — un micro («Buenos días») y el nombre debajo.
+ *   `date-first`    — la FECHA de hoy en micro y «Hola, Laura» en la serif
+ *                     grande debajo, sin avatar (Sereno). La campana se queda
+ *                     a la derecha, con su punto.
+ */
+export type GreetingStyle = "display-first" | "micro-first" | "date-first";
 export type QuickLinksStyle = "cards" | "bare";
 export type TabBarStyle = "classic" | "floating";
-export type DetailStyle = "card" | "bleed";
+/**
+ * Cabecera del detalle de clase.
+ *   `card`       — foto contenida y el título dentro de la hoja.
+ *   `bleed`      — foto a sangre con el título y la instructora ENCIMA.
+ *   `bleed-bajo` — foto a sangre pero el título DEBAJO, sobre el lienzo, con
+ *                  el estado como píldora sobre la foto (Sereno). El texto
+ *                  deja de depender del brillo de la imagen.
+ */
+export type DetailStyle = "card" | "bleed" | "bleed-bajo";
 
 /**
  * Forma de la tarjeta de "próxima clase".
@@ -27,7 +44,24 @@ export type WeekStripStyle = "card" | "bare";
  *   `basico`  — Inicio · Clases · Reservas · Perfil (Oliva/Bloom/Noir).
  *   `centro`  — Inicio · Reservas · Mi centro · Bonos · Perfil (Tentada).
  */
-export type TabSet = "basico" | "centro";
+/**
+ * Qué cuatro (o cinco) pestañas lleva la barra.
+ *
+ *   `basico`  — Inicio · Clases · Reservas · Perfil.
+ *   `centro`  — los cinco de Tentada, con «Mi centro» y «Bonos».
+ *   `agenda`  — como `basico`, pero la tercera se llama «Agenda» y su icono es
+ *               un reloj. Es la de Sereno: su prototipo titula esa pantalla
+ *               «Mi agenda», no «Mis reservas».
+ *
+ * ⚠️ Es un `tab_set` nuevo y no un renombrado del de siempre a propósito. El
+ * README del paquete pedía hacerlo «vía la config de nav existente
+ * (`lib/portal-nav.ts`), sin tocar el kit», y esa vía NO llega hasta aquí:
+ * `NAV_SEG_IDS` es del portal viejo (`home`/`clases`/`bonos`/`videos`/`perfil`),
+ * no tiene ningún segmento `reservas`, y el kit no lee `navPortal` en ningún
+ * sitio — comprobado con grep. Cambiar la etiqueta de `basico` habría
+ * renombrado la pestaña también a Oliva, Bloom y Noir, que no lo han pedido.
+ */
+export type TabSet = "basico" | "centro" | "agenda";
 
 /**
  * Forma de la pantalla de horario.
@@ -48,8 +82,10 @@ export type PassesStyle = "plan" | "cartera";
  *   `card`   — la maqueta del kit (Oliva/Bloom/Noir).
  *   `header` — cabecera verde y filas, con «Aspecto» y el estado SEPA
  *              conservados del perfil de siempre (Tentada).
+ *   `fichas` — avatar y correo arriba, tres cifras y las opciones agrupadas en
+ *              fichas (Sereno).
  */
-export type ProfileStyle = "card" | "header";
+export type ProfileStyle = "card" | "header" | "fichas";
 
 export type HomeBlockName =
   | "greeting"
@@ -66,7 +102,8 @@ export type HomeBlockName =
   | "weekly-progress"
   | "quick-links"
   | "week-strip"
-  | "studio-banner";
+  | "studio-banner"
+  | "waitlist-banner";
 
 export interface ThemeFeatures {
   welcome_style: WelcomeStyle;
@@ -75,9 +112,61 @@ export interface ThemeFeatures {
   welcome_cta_circle: boolean;
   greeting_style: GreetingStyle;
   hero_badge: boolean;
+  /**
+   * El «cuándo» de la próxima clase va como CHIP sobre la foto, y la
+   * instructora en una fila con su inicial (Sereno). Solo tiene sentido donde
+   * la foto es una banda con sitio libre; con la foto a la derecha
+   * (Oliva/Bloom/Noir) el chip caería encima del texto.
+   */
+  hero_chip?: boolean;
+  /**
+   * Forma de la tira de días del horario y la agenda.
+   *
+   *   ausente / `circulos` — el número en un círculo, con la etiqueta encima
+   *                          y el punto debajo (Oliva/Bloom/Noir).
+   *   `cajas`              — cada día en su tarjeta con borde, etiqueta y
+   *                          número apilados (Sereno).
+   *
+   * Tentada ya pinta cajas en su pantalla de Reservas, pero por una prop del
+   * componente, no por el tema: son dos usos distintos de la misma forma.
+   */
+  day_strip_style?: "circulos" | "cajas";
+  /**
+   * La forma de una fila del horario.
+   *
+   *   `clasica` — hora + nombre + monograma de la instructora y estado
+   *               (Oliva/Bloom/Noir). Es el valor por defecto.
+   *   `sereno`  — con filete separador, estado y plazas al pie, y flecha.
+   *   `plana`   — dos formas según sea suya o esté libre, con el botón de
+   *               reservar EN LA PROPIA FILA (Tentada).
+   *
+   * ⚠️ Existe porque la pantalla lo deducía de otras banderas: la fila de
+   * Sereno se elegía con `day_strip_style === "cajas"` —una bandera de la TIRA
+   * DE DÍAS— y la de Tentada con `schedule_style === "tabs"`. Dos ejes
+   * distintos montados encima de otros dos, así que un tema que quisiera días
+   * en caja con la fila clásica no podía pedirlo. Ahora el eje tiene su nombre
+   * y `Schedule` no elige nada: la fila la decide el tema.
+   */
+  row_style?: "clasica" | "sereno" | "plana";
+  /**
+   * La tarjeta de bono con foto, monograma y el saldo en serif grande
+   * (Sereno). Ausente = la tarjeta `.pass` de siempre.
+   */
+  pass_style_sereno?: boolean;
   quick_links_style: QuickLinksStyle;
   tab_bar_style: TabBarStyle;
   tab_icon_fill: boolean;
+  /**
+   * Qué pestañas de la barra FLOTANTE llevan etiqueta.
+   *
+   *   `activa` — solo la activa (Bloom, y el comportamiento de siempre).
+   *   `todas`  — las cuatro, siempre (Sereno).
+   *
+   * Opcional a propósito: ausente = `activa`, así los cuatro temas anteriores
+   * no declaran nada y no cambian. En la barra clásica no aplica — ahí todas
+   * las pestañas llevan etiqueta desde siempre.
+   */
+  tab_labels?: "activa" | "todas";
   detail_style: DetailStyle;
   next_class_style: NextClassStyle;
   week_strip_style: WeekStripStyle;
@@ -106,7 +195,7 @@ export interface TypeEntry {
 }
 
 export interface ThemeConfig {
-  id: "tentada" | "oliva" | "bloom" | "noir";
+  id: "tentada" | "oliva" | "bloom" | "noir" | "sereno";
   name: string;
   version: string;
   studio: string;
@@ -124,11 +213,31 @@ export interface ThemeConfig {
    */
   greeting_note?: string;
   /**
+   * El rótulo sobre la tarjeta de la próxima clase. Ausente = «Próxima clase».
+   *
+   * ⚠️ Es COPY del tema, como `closing_quote`, y vive aquí porque ANTES vivía
+   * en un `cfg.id === "noir" || cfg.id === "tentada" || cfg.id === "sereno"`
+   * dentro del view model. Una lista de temas escrita a mano en el código: dar
+   * de alta un sexto obligaba a editar esa línea, y olvidarlo no fallaba —
+   * salía el rótulo del otro grupo y nadie se enteraba. En Tentada además no
+   * es un matiz: es el rótulo impreso en el billete.
+   */
+  next_class_label?: string;
+  /** El rótulo de los accesos rápidos. Ausente = «Accesos rápidos». Mismo
+   *  motivo que `next_class_label`: era un `cfg.id === "oliva"`. */
+  quick_links_heading?: string;
+  /**
    * La cita con la que el Inicio cierra. Es COPY del tema, no del estudio: el
    * bloque la firma con el nombre real y el año de apertura, que sí son datos.
    * Sin ella el bloque no se pinta.
    */
   closing_quote?: string;
+  /**
+   * Los tres valores que firma la tarjeta de bono («Equilibrio · Bienestar ·
+   * Conexión»). Es COPY del tema, igual que `closing_quote`: no sale de ningún
+   * dato de la socia ni del estudio, y sin él el pie de la tarjeta no se pinta.
+   */
+  pass_valores?: { icono: "leaf" | "music" | "heart" | "compass" | "bolt"; label: string }[];
   welcome: { line1: string; line2: string; text: string; cta: string };
   fonts: { families: string[]; display: string; body: string };
   designSystem: {

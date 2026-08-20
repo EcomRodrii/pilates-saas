@@ -48,7 +48,12 @@
   margin-top: 26px;
   width: 100%;
   height: var(--welcome-cta-height);
-  border-radius: 999px;
+  /* Dos valores que estaban escritos a mano aquí y ningún tema podía cambiar:
+   * la píldora completa y la flecha. Sereno los quiere distintos (botón de
+   * radio 16 y sin flecha), y el sitio de esa decisión es el tema, no este
+   * fichero. Con el valor de siempre por defecto, los otros cuatro no se
+   * mueven ni un píxel. */
+  border-radius: var(--welcome-cta-radius, 999px);
   background: var(--welcome-cta-bg);
   color: var(--welcome-cta-ink);
   display: flex; align-items: center; justify-content: var(--welcome-cta-justify);
@@ -59,7 +64,7 @@
   transition: transform .18s ease, box-shadow .22s ease;
 }
 .welcome__cta:hover { box-shadow: var(--shadow-float); }
-.welcome__cta-arrow { font-size: 17px; opacity: .82; }
+.welcome__cta-arrow { display: var(--welcome-cta-arrow-display, inline); font-size: 17px; opacity: .82; }
 .welcome__cta-arrow--circle {
   width: 48px; height: 48px;
   border-radius: 50%;

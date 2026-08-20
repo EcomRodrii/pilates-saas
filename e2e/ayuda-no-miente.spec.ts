@@ -19,12 +19,17 @@ import { FAQS } from '@/lib/faqs';
 // Así que ya no se comprueba una frase suelta, sino las dos cosas que de verdad
 // tienen que ser ciertas: que la pantalla pide contraseña, y que el control que
 // la ayuda le manda buscar EXISTE con ese nombre.
+//
+// Y volvió a saltar al unificar la puerta: el control pasó a llamarse «No tengo
+// contraseña o la he olvidado» porque hace las dos cosas, y nombrar solo una de
+// ellas delataría si esa socia tiene contraseña puesta. La ayuda decía el
+// nombre viejo. Tercera vez que este test paga lo que costó escribirlo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SLUG = 'tentare';
 
 /** El nombre del control que la ayuda le dice a la clienta que busque. */
-const CONTROL_PRIMER_ACCESO = 'Nunca he creado una — mándame un enlace';
+const CONTROL_PRIMER_ACCESO = 'No tengo contraseña o la he olvidado — mándame un enlace';
 
 test('el portal pide contraseña y la ayuda nombra un control que existe', async ({ page }) => {
   // El paso 2 de la puerta, que es donde se pide la contraseña y donde está

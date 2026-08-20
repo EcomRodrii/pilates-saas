@@ -14,7 +14,21 @@
 // la marca, solo tiñe su disco"), pero eso es una marca de 24px en la nav,
 // no el tono de cada botón y cada fondo de la página.
 
-export const NW_TINTA = '#1A1A1A';
+// Fase 2 del sistema de diseño (2026-08-18): NW_TINTA/NW_PRODUCTO (abajo) son
+// los dos únicos tokens de esta paleta que hoy coinciden EXACTAMENTE con un
+// custom property de Studio (--foreground/--brand) — se citan por variable
+// en vez de repetir el hex, así que un rebranding de Studio se propaga aquí
+// solo. El resto de esta paleta (fondo, sage, muted, bordes...) es una
+// paleta HERMANA, no un calco de Studio — sus valores no coinciden con
+// ningún custom property existente, así que se quedan en hex fijo aquí
+// (fusionarlos de verdad cambiaría el aspecto del marketplace sin que se
+// haya pedido; decisión explícita, no un olvido).
+//
+// Seguro porque `.dark` solo se añade al contenedor del panel
+// (lib/panel-theme.tsx, nunca a <html>, ver app/globals.css) — /network
+// vive fuera de (dashboard), así que estas var() SIEMPRE resuelven al valor
+// de :root (claro), nunca al de .dark. Cero cambio visual hoy.
+export const NW_TINTA = 'var(--foreground)';
 export const NW_FONDO = '#FAF9F5';
 export const NW_VERDE_OSCURO = '#0F0F0F';
 export const NW_SAGE = '#F1F2EA';
@@ -30,8 +44,19 @@ export const NW_ESTRELLA = '#C99A3C';
 // Acento de página — el ACC de la landing principal (components/landing/
 // theme.ts), no el verde del disco del logo. Mismo nombre de export
 // (NW_PRODUCTO) para no tocar los ~40 sitios que ya lo citan; solo cambia
-// el valor.
-export const NW_PRODUCTO = '#343825';
+// el valor. Fusionado con --brand (ver la nota de NW_TINTA arriba): mismo
+// hex hoy, ahora también el mismo origen.
+export const NW_PRODUCTO = 'var(--brand)';
+
+// Tarjeta "sin Network" de la sección Problema (/network) — el único sitio
+// que usa este tono neutro apagado, distinto de NW_MUTED (que sí se repite
+// en toda la página). Centralizado aquí tras la auditoría del sistema de
+// diseño (2026-08-18): vivía como hex suelto en app/network/page.tsx.
+export const NW_PROBLEMA = {
+  fondo: '#F4F2EC',
+  texto: '#6B6B62',
+  icono: '#B0AFA4',
+} as const;
 
 export const NW_ESTADO = {
   verificada: { color: '#2E5A3A', fondo: '#EAF0E7' },

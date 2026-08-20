@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ACC } from '@/components/landing/theme';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { SiteNav } from './SiteNav';
 import { SiteFooter } from './SiteFooter';
 
@@ -10,19 +11,26 @@ export type TocItem = { id: string; label: string };
 
 export function ArticleShell({
   category,
+  kind = 'Guía',
   coverGradient,
   title,
   intro,
   readTime,
   toc,
+  backHref,
+  backLabel,
   children,
 }: {
   category: string;
+  /** Etiqueta junto al badge de categoría — "Guía" por defecto, "Comparativa" en /comparativa/*. */
+  kind?: string;
   coverGradient: string;
   title: string;
   intro: string;
   readTime: string;
   toc: TocItem[];
+  backHref?: string;
+  backLabel?: string;
   children: React.ReactNode;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
@@ -57,15 +65,20 @@ export function ArticleShell({
 
   return (
     <>
+      {/* Todas las páginas que usan este armazón (9 guías de /recursos + la
+          comparativa larga de Glofox) llevaban Article/Breadcrumb propios pero
+          ninguna Organization/WebSite — auditoría SEO 2026-08-18. Un único
+          punto, no 10 imports repetidos. */}
+      <OrganizationStructuredData />
       <div ref={barRef} style={{ position: 'fixed', top: 0, left: 0, height: 3, width: 0, background: ACC, zIndex: 120, boxShadow: '0 0 10px rgba(90,97,66,.5)' }} />
-      <SiteNav />
+      <SiteNav {...(backHref ? { backHref, backLabel } : {})} />
 
       <header style={{ position: 'relative', background: coverGradient, color: '#fff', overflow: 'hidden', padding: 'clamp(48px,7vw,84px) clamp(20px,4vw,44px) clamp(40px,5vw,60px)' }}>
         <div style={{ position: 'absolute', top: '-20%', right: '-6%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,.14), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 820, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.8)', marginBottom: 20 }}>
             <span style={{ background: 'rgba(255,255,255,.16)', padding: '5px 12px', borderRadius: 999 }}>{category}</span>
-            <span>Guía</span>
+            <span>{kind}</span>
           </div>
           <h1 style={{ fontWeight: 800, fontSize: 'clamp(30px,5vw,54px)', lineHeight: 1.04, letterSpacing: '-.035em', margin: '0 0 22px', maxWidth: '17ch' }}>{title}</h1>
           <p style={{ fontSize: 'clamp(17px,1.6vw,20px)', lineHeight: 1.55, color: 'rgba(255,255,255,.86)', maxWidth: 600, margin: '0 0 28px' }}>{intro}</p>

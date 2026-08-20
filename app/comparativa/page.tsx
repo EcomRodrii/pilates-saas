@@ -25,9 +25,9 @@ export const metadata: Metadata = {
 };
 
 // Mismo orden que las columnas de la tabla ROWS de abajo (bsport, momence,
-// eversports, mindbody, timp, lorari, bonsai) — si se reordena aquí, hay que
-// reordenar las celdas del <tbody> también, o la cabecera deja de casar con
-// los datos.
+// eversports, mindbody, timp, lorari, bonsai, glofox) — si se reordena aquí,
+// hay que reordenar las celdas del <tbody> también, o la cabecera deja de
+// casar con los datos.
 const COMPETITORS = [
   { slug: 'tentare-vs-bsport', name: 'bsport' },
   { slug: 'tentare-vs-momence', name: 'Momence' },
@@ -36,6 +36,7 @@ const COMPETITORS = [
   { slug: 'tentare-vs-timp', name: 'TIMP' },
   { slug: 'tentare-vs-lorari', name: 'Lorari' },
   { slug: 'tentare-vs-bonsai', name: 'Bonsai' },
+  { slug: 'tentare-vs-glofox', name: 'Glofox' },
 ];
 
 type Verdict = 'yes' | 'no' | 'partial';
@@ -62,6 +63,7 @@ const ROWS: {
   timp: [Verdict, string];
   lorari: [Verdict, string];
   bonsai: [Verdict, string];
+  glofox: [Verdict, string];
 }[] = [
   {
     feature: 'Facturación España (Veri*factu) nativa',
@@ -73,6 +75,7 @@ const ROWS: {
     timp: ['yes', 'Nativo, con TicketBAI'],
     lorari: ['no', 'Sin mención pública'],
     bonsai: ['no', 'Sin mención pública'],
+    glofox: ['no', 'Sin mención pública'],
   },
   {
     feature: 'Precio público en la web',
@@ -84,6 +87,7 @@ const ROWS: {
     timp: ['yes', 'Desde 50€/mes'],
     lorari: ['yes', 'Desde 12€/mes'],
     bonsai: ['yes', 'Gratis (3% comisión) o desde 29€/mes'],
+    glofox: ['partial', 'Desde ~100 USD/mes, hasta ~370€/mes'],
   },
   {
     feature: 'Sin permanencia',
@@ -95,6 +99,7 @@ const ROWS: {
     timp: ['partial', 'Preaviso de 15 días'],
     lorari: ['partial', 'No lo especifica'],
     bonsai: ['yes', 'Sí'],
+    glofox: ['no', 'Compromiso anual o trimestral habitual'],
   },
   {
     feature: 'Datos alojados en la UE',
@@ -106,6 +111,7 @@ const ROWS: {
     timp: ['partial', 'No especifica el país'],
     lorari: ['partial', 'No especifica el país'],
     bonsai: ['yes', 'Lo declaran en su web'],
+    glofox: ['partial', 'No especifica el país'],
   },
   {
     feature: 'Sin comisión por captar clientas',
@@ -117,6 +123,7 @@ const ROWS: {
     timp: ['no', 'Vía TIMPY, con comisión'],
     lorari: ['yes', 'Sin marketplace'],
     bonsai: ['yes', 'Sin marketplace'],
+    glofox: ['yes', 'Sin marketplace'],
   },
   {
     feature: 'Sustitución de instructoras integrada',
@@ -128,6 +135,7 @@ const ROWS: {
     timp: ['no', 'Sin evidencia pública'],
     lorari: ['no', 'No encontrada'],
     bonsai: ['no', 'No encontrada'],
+    glofox: ['no', 'No nativa — coordinación manual'],
   },
 ];
 
@@ -142,7 +150,7 @@ export default function ComparativaPage() {
         <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
           <div className="lp-mono" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 11.5, letterSpacing: '.14em', textTransform: 'uppercase', color: '#22251A', background: '#F1F2EA', padding: '8px 15px', borderRadius: 999, marginBottom: 24 }}>Comparativa</div>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 7 software con los que más se compara.</h1>
+          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>Tentare frente a los 8 software con los que más se compara.</h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 620, margin: 0 }}>No somos mejores en todo — y te lo contamos abajo, sin rodeos. Pero para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, hay diferencias que se notan cada día y cada fin de mes.</p>
         </div>
       </header>
@@ -177,13 +185,14 @@ export default function ComparativaPage() {
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.timp[0]} label={r.timp[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.lorari[0]} label={r.lorari[1]} /></td>
                       <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.bonsai[0]} label={r.bonsai[1]} /></td>
+                      <td style={{ padding: '15px 16px', fontSize: 12.5, color: '#8E8E86', borderBottom: i < ROWS.length - 1 ? '1px solid #EDEDE6' : undefined }}><Mark v={r.glofox[0]} label={r.glofox[1]} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Reveal>
-          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari y Bonsai son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
+          <p className="lp-mono" style={{ fontSize: 11, color: '#A8A89F', margin: '16px 4px 0', lineHeight: 1.6 }}>Basado en información pública de cada proveedor a mediados de 2026 — el mismo dato que ya está publicado y con fuente en cada página 1 a 1 de abajo. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. bsport, Momence, Eversports, Mindbody, TIMP, Lorari, Bonsai y Glofox son marcas de sus respectivos propietarios; esta comparación es orientativa y sin ánimo de menoscabo.</p>
         </div>
       </section>
 

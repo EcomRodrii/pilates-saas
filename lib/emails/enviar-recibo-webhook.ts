@@ -39,9 +39,10 @@ export async function enviarEmailReciboWebhook(
     // ejemplo (RFC 2606), y sin email no hay a quién escribir.
     if (!email || esDominioReservado(email)) return;
 
-    const [marca, { data: studioRow }, { data: factura }] = await Promise.all([
+    // `resolverMarcaEstudio` ya trae el nombre del estudio (`marca.nombre`),
+    // así que la segunda consulta a `studios` por el MISMO id era redundante.
+    const [marca, { data: factura }] = await Promise.all([
       resolverMarcaEstudio(p.studioId),
-      admin.from('studios').select('nombre').eq('id', p.studioId).maybeSingle(),
       // Puede no existir todavía: la factura se sella aparte (Veri*Factu), no
       // en el momento del cobro. El email sale igual, solo sin número.
       admin.from('facturas').select('numero_completo').eq('recibo_id', p.reciboId).maybeSingle(),
@@ -55,7 +56,7 @@ export async function enviarEmailReciboWebhook(
       importe: Number(recibo.importe),
       fechaCobro: (recibo.fecha_cobro as string | null) ?? new Date().toISOString(),
       numeroFactura: (factura?.numero_completo as string | null) ?? undefined,
-      estudioNombre: (studioRow?.nombre as string | null) ?? 'Tentare',
+      estudioNombre: marca.estudioNombre ?? 'Tentare',
       logoUrl: marca.logoUrl,
       colorPrimario: marca.colorPrimario,
       // Enlace a "Mis compras" del portal, donde ya se muestra la factura a la
@@ -66,7 +67,11 @@ export async function enviarEmailReciboWebhook(
     const subject = `Pago confirmado — ${concepto}`;
 
     const { data, error } = await resend.emails.send({
-      from: remitentePorMarca(studioRow?.nombre ?? 'Tentare'),
+      from: remitentePorMarca(marca.nombre ?? 'Tentare'),
+      // Reply-To del estudio: un justificante de pago es de los correos que
+      // más se contestan ("no reconozco este cargo"), y esa respuesta tiene
+      // que llegarle al estudio, no al buzón de la plataforma.
+      ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
       to: [email],
       subject,
       html,

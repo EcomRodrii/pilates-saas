@@ -271,7 +271,7 @@ export default function MiPerfilNetworkPage() {
     <div className="space-y-5 max-w-2xl">
       <PageHeader
         title="Mi perfil en Network"
-        description="Cómo te ven los estudios que buscan profesionales de Pilates en Tentare Network."
+        description="Cómo te ven los estudios que buscan profesionales de Pilates y Yoga en Tentare Network."
       />
 
       {/* Progreso: barra por %, más los pasos como puntos clicables — saltar
@@ -380,7 +380,7 @@ export default function MiPerfilNetworkPage() {
       {idPaso === 'especialidades' && (
         <div className={`${cardCls} p-6 space-y-3`}>
           <h3 className="text-[14px] font-semibold text-foreground">Especialidades</h3>
-          <p className="text-[12.5px] text-muted-foreground -mt-1">En qué tipo de Pilates estás especializada.</p>
+          <p className="text-[12.5px] text-muted-foreground -mt-1">En qué disciplina y técnicas estás especializada.</p>
           <SelectorChips
             opciones={ESPECIALIDADES_NETWORK.map(v => ({ valor: v, etiqueta: ESPECIALIDAD_LABEL[v] }))}
             seleccion={form.especialidades ?? []}
@@ -571,7 +571,8 @@ export default function MiPerfilNetworkPage() {
               <ListaBadgesNetwork badges={badges} />
               {!badges.emailVerificado && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  Confirma tu email desde el enlace que te enviamos al crear tu cuenta para conseguir este badge.
+                  Confirma tu email con el código de 6 dígitos que te enviamos al crear tu cuenta
+                  para conseguir este badge.
                 </p>
               )}
             </div>

@@ -97,7 +97,13 @@ html[data-theme="oliva"] {
   --radius-quick-link: 20px;
 
   /* ── Sombras ───────────────────────────────────────────────────────── */
-  --shadow-card: none;
+  /* ⚠️ Antes `none`: en el HOVER se apoyaba toda la elevación, y `:hover`
+   * nunca dispara en una pantalla táctil — que es el 100% del uso real. El
+   * resultado era una tarjeta sin ninguna profundidad en el sitio donde la
+   * socia realmente la mira. Sombra de reposo suave, con el mismo tinte que
+   * ya usa `--shadow-card-hover`, solo más corta y más tenue — el hover sigue
+   * leyéndose como "más elevado", no como "el único momento con sombra". */
+  --shadow-card: 0 10px 22px -18px rgba(20,28,22,.3);
   --shadow-card-hover: 0 18px 40px -26px rgba(20,28,22,.45);
   --shadow-float: 0 16px 40px -18px rgba(20,28,22,.4);
   --shadow-control: 0 14px 30px -12px rgba(30,43,34,.5);

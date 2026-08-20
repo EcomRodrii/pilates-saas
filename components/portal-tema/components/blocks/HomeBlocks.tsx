@@ -25,6 +25,23 @@ import { PORTAL_VIDEOS_CONGELADO } from "@/lib/frozen-features";
 /** Cabecera del inicio: saludo, avatar y campana con aviso. */
 function Greeting({ vm }: { vm: ViewModel }) {
   const actions = useActions();
+  // Sereno no lleva avatar aquí: la fecha va en micro y el saludo debajo, en la
+  // serif grande. Es la MISMA cabecera con otra jerarquía, no otro bloque —
+  // por eso es un valor de `greeting_style` y no un componente nuevo.
+  if (vm.features.greeting_style === "date-first") {
+    return (
+      <header className="greeting greeting--fecha">
+        <div className="greeting__body">
+          <p className="greeting__micro">{vm.greeting.today}</p>
+          <p className="greeting__name">{vm.greeting.hola}</p>
+        </div>
+        <button className="icon-btn icon-btn--bell is-pressable" onClick={actions.alerts} aria-label="Avisos">
+          <Icon name="bell" stroke={1.8} size={20} />
+          {vm.greeting.hasAlert ? <i className="icon-btn__dot"></i> : null}
+        </button>
+      </header>
+    );
+  }
   return (
     <header className="greeting">
       <Avatar>{vm.greeting.initial}</Avatar>
@@ -121,15 +138,31 @@ function NextClass({ vm }: { vm: ViewModel }) {
         <button className="hero is-pressable" onClick={() => actions.openClass(vm.next!.id)}>
           <span className="hero__photo"><FotoTema src={vm.next!.foto} respaldo={RESPALDO_CLASE} /></span>
           <span className="hero__veil"></span>
+          {/* El chip del CUÁNDO va sobre la foto, no bajo el título. Solo donde
+              la foto es una banda con sitio para él (Sereno); en los temas que
+              la ponen a la derecha el texto ya vive ahí y se pisarían. */}
+          {vm.features.hero_chip ? <span className="hero__chip">{vm.next.chip}</span> : null}
           <span className="hero__body">
             {vm.features.hero_badge ? (
               <span className="hero__badge"><Icon name="calendar" stroke={1.8} /></span>
             ) : null}
             <span className="hero__title">{vm.next.name}</span>
-            <span className="hero__teacher">{vm.next.teacher}</span>
-            <span className="hero__meta">{vm.next.meta}</span>
+            {/* Con inicial delante, como la captura: la instructora es una
+                persona, y una inicial la ancla mejor que otra línea de texto
+                gris. Sin ella, la fila de siempre. */}
+            {vm.features.hero_chip ? (
+              <span className="hero__quien">
+                <span className="hero__quien-inicial">{vm.next.teacherInitial}</span>
+                <span>{vm.next.quien}</span>
+              </span>
+            ) : (
+              <>
+                <span className="hero__teacher">{vm.next.teacher}</span>
+                <span className="hero__meta">{vm.next.meta}</span>
+              </>
+            )}
             <span className="hero__cta">
-              <span>Ver detalles</span>
+              <span>{vm.features.hero_chip ? "Ver clase" : "Ver detalles"}</span>
               <span className="hero__cta-arrow">→</span>
             </span>
           </span>
@@ -454,6 +487,35 @@ function StudioBanner({
   );
 }
 
+/**
+ * «Estás en lista de espera · Reformer fuerza · Mañana 18:00».
+ *
+ * Se pinta SOLO si de verdad está en alguna cola (`vm.waitlist`), que sale de
+ * sus reservas reales en estado `LISTA_ESPERA` — no de una lista aparte. Sin
+ * cola no ocupa nada: un banner permanente que casi siempre dice «no estás en
+ * ninguna» sería ruido en la primera pantalla.
+ *
+ * Lleva a la clase, que es donde puede salirse de la cola o ver su puesto.
+ */
+function WaitlistBanner({ vm }: { vm: ViewModel }) {
+  const actions = useActions();
+  const primera = vm.waitlist[0];
+  if (!primera) return null;
+  return (
+    <button
+      data-bloque-id={idEditor("waitlist-banner")}
+      className="espera-banner is-pressable"
+      onClick={() => actions.openClass(primera.id)}
+    >
+      <i className="espera-banner__dot" aria-hidden="true"></i>
+      <span className="espera-banner__texto">
+        Estás en lista de espera · {primera.name} · {primera.dateLine}
+      </span>
+      <Icon name="forward" size={12} stroke={1.8} />
+    </button>
+  );
+}
+
 const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode> = {
   greeting: Greeting,
   "home-header": HomeHeader,
@@ -470,6 +532,7 @@ const REGISTRY: Record<HomeBlockName, (p: { vm: ViewModel }) => React.ReactNode>
   "quick-links": QuickLinks,
   "week-strip": WeekStrip,
   "studio-banner": StudioBanner,
+  "waitlist-banner": WaitlistBanner,
 };
 
 /**

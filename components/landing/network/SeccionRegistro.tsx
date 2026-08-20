@@ -1,9 +1,11 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/auth/google-icon';
+import { OtpVerificacion } from '@/components/auth/otp-verificacion';
+import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
 import { NW } from './data';
 
 // Sección final: es aquí donde se decide todo, así que lleva el peso visual
@@ -14,7 +16,7 @@ import { NW } from './data';
 
 export function SeccionRegistro() {
   const uid = useId();
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, verificarOtpSignup, reenviarConfirmacion } = useAuth();
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,6 +25,14 @@ export function SeccionRegistro() {
   const [submitting, setSubmitting] = useState(false);
   const [conectandoGoogle, setConectandoGoogle] = useState(false);
   const { widget: captcha, pedirToken } = useCaptcha();
+  // Alta recién creada, esperando el código de 6 dígitos — mismo patrón que
+  // app/login/page.tsx.
+  const [emailOtp, setEmailOtp] = useState<string | null>(null);
+  useEffect(() => {
+    const pendiente = leerEmailOtpPendiente();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pendiente) setEmailOtp(pendiente);
+  }, []);
 
   async function conectarConGoogle() {
     setError(''); setInfo('');
@@ -52,7 +62,8 @@ export function SeccionRegistro() {
       return;
     }
     if (needsConfirmation) {
-      setInfo('Cuenta creada. Revisa tu email para confirmarla — al volver, tu perfil ya estará listo para rellenar.');
+      recordarEmailOtpPendiente(email.trim());
+      setEmailOtp(email.trim());
       setSubmitting(false);
       return;
     }
@@ -68,6 +79,21 @@ export function SeccionRegistro() {
         </div>
 
         <div className="nw-reg-card">
+          {emailOtp ? (
+            <OtpVerificacion
+              email={emailOtp}
+              onVerificar={codigo => verificarOtpSignup(emailOtp, codigo)}
+              onReenviar={async () => {
+                const token = await pedirToken();
+                if (token === null) return { error: ERROR_CAPTCHA };
+                return reenviarConfirmacion(emailOtp, token || undefined);
+              }}
+              onCambiarEmail={() => { olvidarEmailOtpPendiente(); setEmailOtp(null); setError(''); setInfo(''); }}
+              onVerificado={() => { olvidarEmailOtpPendiente(); window.location.href = '/network/inicio'; }}
+              sinTarjeta
+            />
+          ) : (
+          <>
           <button type="button" disabled={conectandoGoogle} onClick={() => void conectarConGoogle()} className="nw-reg-google">
             <GoogleIcon />
             {conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
@@ -101,6 +127,8 @@ export function SeccionRegistro() {
           <p className="nw-reg-login">
             ¿Ya tienes cuenta de Tentare? <a href="/login">Inicia sesión</a>
           </p>
+          </>
+          )}
         </div>
       </div>
 

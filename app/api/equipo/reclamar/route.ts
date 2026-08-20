@@ -71,7 +71,13 @@ export async function POST(req: NextRequest) {
   );
   if (motivo) {
     console.warn('[equipo:reclamar] rechazo', motivo, 'ficha', ficha.id, 'rol', ficha.rol, 'emisor', rolEmisor);
-    return errorPeticion(MENSAJE_RECHAZO[motivo], motivo === 'FICHA_INACTIVA' ? 404 : 403);
+    // 409, no 403: son estados de negocio con su propio mensaje y su propia
+    // acción siguiente ("pídeselo a la propietaria"), no un intento de acceso
+    // no autorizado — mismo criterio 409 que el resto de rutas de este repo
+    // (app/api/equipo/route.ts). Con 403 se colaban en Sentry como error de
+    // app (JAVASCRIPT-NEXTJS-1N): esErrorDeRedCliente/esConflictoDeNegocioEsperado
+    // en lib/supabase-data.ts solo filtra 409.
+    return errorPeticion(MENSAJE_RECHAZO[motivo], motivo === 'FICHA_INACTIVA' ? 404 : 409);
   }
 
   // El `.is('auth_user_id', null)` es la carrera cerrada: si entre la lectura y

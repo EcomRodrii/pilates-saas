@@ -23,7 +23,7 @@ import { useStudio } from '@/lib/studio-context';
 export function useDatosPortal(socioId: string | null) {
   const {
     studio, sesiones, reservas, tiposClase, salas, spots, instructores,
-    planesTarifa, suscripciones, socios, recibos, studioConfig, rachaSocio, homeBloques,
+    planesTarifa, suscripciones, socios, recibos, studioConfig, rachaSocio, homeBloques, favoritos,
   } = useStudio();
 
   // Antes de `datos`: ese `useMemo` la lee al construirse, y declararla
@@ -47,8 +47,13 @@ export function useDatosPortal(socioId: string | null) {
     // Las secciones tal como las dejó la propietaria: el kit respeta su orden
     // y sus ocultas en vez de imponer las del tema. Ver `ordenDelInicio`.
     bloquesInicio: homeBloques,
+    // Sus favoritos REALES, por tipo de clase. Ver `DatosPortal.favoritas`.
+    favoritas: favoritos,
     planes: planesTarifa,
     cancelacionVentanaHoras: studio?.cancelacionVentanaHoras ?? null,
+    // La otra mitad de la política. Sin ella la hoja de cancelar no puede
+    // decir si el crédito vuelve — ver `devolverBonoTardia` en `DatosPortal`.
+    cancelacionDevolverBonoTardia: studio?.cancelacionDevolverBonoTardia ?? false,
     // Para el cierre de pantalla que firma el estudio. `anioFundacion` es el
     // año en que ABRIÓ, no el alta en Tentare (`creadoEn`) — sin él el pie va
     // sin año en vez de inventarse uno.
@@ -85,11 +90,11 @@ export function useDatosPortal(socioId: string | null) {
     // filtra igualmente: el panel carga los de todo el estudio por otra vía y
     // este componente no puede depender de por cuál entró.
     recibos: socioId ? recibos.filter((r) => r.socioId === socioId) : [],
-  }), [sesiones, reservas, tiposClase, salas, spots, instructores, homeBloques, planesTarifa, suscripciones, recibos, socia, socioId,
+  }), [sesiones, reservas, tiposClase, salas, spots, instructores, homeBloques, favoritos, planesTarifa, suscripciones, recibos, socia, socioId,
        studio?.nombre, studio?.anioFundacion, studio?.direccion, studio?.ciudad,
        studio?.codigoPostal, studio?.telefono, studio?.email, studio?.fotoUrl, studio?.imagenBienvenidaUrl,
        studio?.normasTexto, studio?.horarioSemana, studioConfig?.politicaPrivacidad, racha,
-       studio?.cancelacionVentanaHoras]);
+       studio?.cancelacionVentanaHoras, studio?.cancelacionDevolverBonoTardia]);
 
   // `socia` sale también: el marco la necesita para «Mis datos», y
   // recalcularla allí sería el mismo `find` dos veces sobre la misma lista.

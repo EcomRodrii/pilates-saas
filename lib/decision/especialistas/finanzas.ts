@@ -27,17 +27,49 @@ const MS_DIA = 86400000;
  * la primera y la segunda quedaba invisible para F1, punto ciego real del
  * feedback P2-5).
  */
-function reglaF1(sus: Suscripcion, idx: IndicesSenal): Candidata | null {
+function reglaF1(sus: Suscripcion, idx: IndicesSenal, now: Date): Candidata | null {
   if (sus.sesionesRestantes == null || sus.sesionesRestantes > 1) return null;
   const plan = idx.planPorId.get(sus.planId);
   if (!plan || plan.tipo !== 'BONO') return null;
   const socio = idx.socioPorId.get(sus.socioId);
   if (!socio) return null;
 
-  const confianza = confianzaRenovarBono({ bonoCasiAgotado: sus.sesionesRestantes <= 1, socioActivo: socio.activo });
+  // ⚠️ Que ESTE bono esté a cero no significa que se quede sin venir. Los bonos
+  // con saldo conviven a propósito (ver `asignarPlan` en studio-context), así
+  // que una socia puede tener cuatro y agotar uno sin acercarse a quedarse
+  // seca. Sin esta suma, la propietaria recibía «a X se le acaba el bono»
+  // sobre alguien con 17 sesiones pagadas por delante — visto en producción el
+  // 2026-08-18. Es el mismo punto ciego de mirar UNA suscripción que ya
+  // corrigió P2-5, un escalón más abajo: ahí era «solo veía la primera», aquí
+  // es «mira una y no suma las demás».
+  const hoyISO = now.toISOString().slice(0, 10);
+  let saldoTotal = 0;
+  // Y una sola candidata por socia, no una por fila: con dos bonos a cero el
+  // especialista devolvía la misma alerta dos veces y solo la salvaba el
+  // `dedupeKey` aguas abajo. La representante es la que caduca antes (con
+  // desempate por id), igual que elige `bonoConsumible`.
+  let representante: Suscripcion | null = null;
+  for (const otra of idx.suscripcionesPorSocio.get(socio.id) ?? []) {
+    if (otra.estado !== 'ACTIVA' || otra.sesionesRestantes == null) continue;
+    if (otra.fechaFin && otra.fechaFin < hoyISO) continue;
+    const p = idx.planPorId.get(otra.planId);
+    if (!p || (p.tipo !== 'BONO' && p.tipo !== 'PUNTUAL')) continue;
+    saldoTotal += otra.sesionesRestantes;
+    const fin = otra.fechaFin ?? '9999-12-31';
+    const finActual = representante?.fechaFin ?? '9999-12-31';
+    if (!representante || fin < finActual || (fin === finActual && otra.id < representante.id)) {
+      representante = otra;
+    }
+  }
+  if (saldoTotal > 1) return null;
+  if (representante && representante.id !== sus.id) return null;
+
+  const confianza = confianzaRenovarBono({ bonoCasiAgotado: saldoTotal <= 1, socioActivo: socio.activo });
   if (!confianza) return null;
 
-  const restantes = sus.sesionesRestantes;
+  // El número que se le enseña a la propietaria es el saldo real de la socia,
+  // no el de la fila que disparó la regla.
+  const restantes = saldoTotal;
   const motivoMotor = restantes === 0
     ? `${socio.nombre} ha gastado todas las sesiones de su bono. Es el momento de proponerle renovar antes de que se enfríe.`
     : `A ${socio.nombre} le queda 1 sesión de su bono. Si le proponemos renovar ahora, no se queda sin venir.`;
@@ -396,7 +428,7 @@ export const finanzas: Especialista = {
       // con sesiones sin usar) — con 1 sesión y caducando, lo urgente es que se
       // le acaba, no que caduque. Y las dos comparten dedupeKey, así que solo
       // puede salir una por socia de todas formas.
-      const candidata = reglaF1(sus, idx) ?? reglaF3(sus, idx, now) ?? reglaF2(sus, idx, s, now);
+      const candidata = reglaF1(sus, idx, now) ?? reglaF3(sus, idx, now) ?? reglaF2(sus, idx, s, now);
       if (candidata) candidatas.push(candidata);
 
       // F4/F5 van APARTE de la cadena de bono: hablan de la cuota mensual, no

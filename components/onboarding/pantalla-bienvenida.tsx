@@ -2,7 +2,12 @@
 
 // Pantalla de bienvenida a pantalla completa, mostrada UNA sola vez justo
 // después de crear el estudio: intro con efecto máquina de escribir → wizard
-// rápido de 6 preguntas (un toque por respuesta) → resumen. Diseñada en
+// rápido de 11 preguntas (un toque por respuesta, con auto-avance) → resumen.
+// Eran 6; las 5 de operativa (salas, aforo, duración, clases, cobro) se
+// añadieron porque son las que dejan el estudio MONTADO en vez de solo
+// perfilado — ver §8 en lib/onboarding/plan-configuracion.ts. Cinco toques más
+// aquí es el intercambio explícito por no llegar al panel con una lista de
+// cosas que configurar a mano. Diseñada en
 // Claude Design (Bienvenida.dc.html) y portada aquí con los tokens reales del
 // producto (oliva/arena) en vez de los hex de la maqueta.
 //
@@ -17,9 +22,18 @@ import { useRouter } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from '@/components/ui/icon-button';
+import { TRIAL_DIAS } from '@/lib/billing/trial';
 import { authHeader } from '@/lib/api-client';
 import type { Studio } from '@/lib/types';
 import { useStudio } from '@/lib/studio-context';
+// Las opciones se pintan DESDE el módulo puro a propósito: la etiqueta que se
+// enseña y la que se interpreta son el mismo dato, así que no pueden divergir
+// al editar una de las dos (hay un test que recorre las listas enteras).
+import {
+  OPCIONES_SALAS, OPCIONES_AFORO, OPCIONES_DURACION, OPCIONES_COBRO,
+  TIPOS_CLASE_SUGERIDOS, interpretarRespuestasWizard, planificarConfiguracion,
+  planVacio,
+} from '@/lib/onboarding/plan-configuracion';
 
 const FRASES = [
   'Tu estudio ya está en marcha.',
@@ -38,6 +52,15 @@ type Respuestas = {
   importar?: string;
   foco?: string[];
   ayuda?: string;
+  // §8 — Las cinco de operativa son las ÚNICAS que configuran algo de verdad:
+  // se convierten en salas con su aforo, tipos de clase con su duración y
+  // borradores de bono/cuota (lib/onboarding/plan-configuracion.ts). Las seis
+  // de arriba siguen siendo perfil del estudio.
+  salas?: string;
+  aforo?: string;
+  duracion?: string;
+  clases?: string[];
+  cobro?: string[];
 };
 
 type Paso = {
@@ -49,35 +72,111 @@ type Paso = {
   multi?: number;
 };
 
+// ── De dónde viene el estudio ───────────────────────────────────────────────
+// ⚠️ Solo plataformas de GESTIÓN de estudio, que es lo que se está preguntando.
+// Aquí estuvo «Un Respiro», que no lo es: es un marketplace donde la clienta
+// compra bonos de clases sueltas, no el sistema con el que un estudio lleva su
+// agenda, sus alumnas y sus cobros. Ofrecerlo como respuesta a «¿con qué llevas
+// tu estudio?» invita a contestar algo que después no se puede migrar.
+//
+// La lista sale de los competidores que el propio negocio sigue de verdad —los
+// que tienen su página en /comparativa— más las dos respuestas honestas que no
+// son un producto: la hoja de cálculo y no usar nada.
+const SIN_SOFTWARE = 'Todavía ninguno';
+const OTRO_SOFTWARE = 'Otro';
+
+const OPCIONES_SOFTWARE = [
+  SIN_SOFTWARE,
+  'Bsport',
+  'TIMP',
+  'Eversports',
+  'Momence',
+  'Mindbody',
+  'Glofox',
+  'Bonsai',
+  'Lorari',
+  'Excel o Google Sheets',
+  OTRO_SOFTWARE,
+] as const;
+
+/** ¿Hay datos que traer de otro sitio? Ni «ninguno» ni «otro» son migrables:
+ *  del primero no hay nada, y del segundo no sabemos siquiera qué es. */
+function vieneDeOtraPlataforma(software: string | undefined): boolean {
+  return !!software && software !== SIN_SOFTWARE && software !== OTRO_SOFTWARE;
+}
+
 const PASOS: Paso[] = [
   {
     id: 'centros', etiqueta: 'Tu estudio', titulo: '¿Cuántos centros tienes?',
-    nota: 'Si gestionas más de uno, activamos la vista multicentro.',
+    // Decía "activamos la vista multicentro". No se activa nada: las sedes de
+    // una cadena se crean por /api/cadena/sedes y el multicentro depende de
+    // eso, no de esta respuesta. Se cuenta lo que sí pasa.
+    nota: 'Nos dice si vas a necesitar gestionar varias sedes.',
     opciones: ['1 estudio', '2-3 estudios', '4-10 estudios', 'Más de 10'],
   },
   {
-    id: 'software', etiqueta: 'Tu estudio', titulo: '¿Desde qué software vienes?',
-    nota: 'Si vienes de otra plataforma, migramos tus datos gratis.',
-    opciones: ['Ninguno', 'Bsport', 'Momence', 'Eversports', 'Mindbody', 'Un Respiro', 'Excel', 'Otro'],
+    id: 'software', etiqueta: 'Tu estudio', titulo: '¿Con qué llevas ahora tu estudio?',
+    // "¿Desde qué software vienes?" daba por hecho que viene de uno, y muchos
+    // estudios no vienen de ninguno: lo llevan en papel, en WhatsApp o en una
+    // hoja de cálculo. Preguntado así, «Todavía ninguno» es una respuesta más,
+    // no la confesión de que te falta algo.
+    nota: 'Si vienes de otra plataforma, traemos tus datos gratis. Y si no usas ninguna, también está bien.',
+    opciones: [...OPCIONES_SOFTWARE],
   },
   {
     id: 'alumnos', etiqueta: 'Tu estudio', titulo: '¿Cuántos alumnos activos tienes?',
-    nota: 'Ajustamos los límites y los informes a tu tamaño real.',
+    // Decía "ajustamos los límites y los informes a tu tamaño real". No hay
+    // límites por estudio que ajustar, y los informes se calculan sobre los
+    // datos reales, no sobre esta respuesta.
+    nota: 'Nos ayuda a entender el tamaño de tu estudio desde el primer día.',
     opciones: ['Menos de 50', '50-150', '150-300', '300-600', 'Más de 600'],
+  },
+  {
+    id: 'salas', etiqueta: 'Tu espacio', titulo: '¿Cuántas salas tienes?',
+    nota: 'Las creamos por ti para que puedas programar clases hoy mismo.',
+    opciones: [...OPCIONES_SALAS],
+  },
+  {
+    id: 'aforo', etiqueta: 'Tu espacio', titulo: '¿Cuántas plazas hay en cada sala?',
+    nota: 'Es el límite real de reservas por clase, así que no lo adivinamos.',
+    opciones: [...OPCIONES_AFORO],
+  },
+  {
+    id: 'duracion', etiqueta: 'Tus clases', titulo: '¿Cuánto dura una clase?',
+    nota: 'La duración por defecto de cada clase que programes.',
+    opciones: [...OPCIONES_DURACION],
+  },
+  {
+    id: 'clases', etiqueta: 'Tus clases', titulo: '¿Qué clases das?',
+    nota: 'Elige hasta cuatro. Las dejamos creadas y podrás añadir más luego.',
+    opciones: [...TIPOS_CLASE_SUGERIDOS],
+    multi: 4,
+  },
+  {
+    id: 'cobro', etiqueta: 'Tus precios', titulo: '¿Cómo cobras a tus alumnas?',
+    // No se promete el precio: se deja el bono con la forma correcta y en
+    // borrador. Un precio inventado sería un bono comprable por dinero que
+    // nadie ha decidido.
+    nota: 'Dejamos preparado lo que uses; el precio lo pones tú antes de activarlo.',
+    opciones: [...OPCIONES_COBRO],
+    multi: 2,
   },
   {
     id: 'importar', etiqueta: 'Migración', titulo: '¿Quieres que importemos tus datos?',
     // 'Otro' es un cajón genérico, no el nombre real de ninguna plataforma —
     // interpolarlo tal cual daba "reservas de Otro." (#issue pendiente).
-    nota: (a) => a.software && a.software !== 'Ninguno' && a.software !== 'Otro'
+    nota: (a) => vieneDeOtraPlataforma(a.software)
       ? `Alumnos, bonos y reservas de ${a.software}. Lo hacemos nosotros, sin coste.`
       : 'Si tienes listas en Excel o en papel, las pasamos nosotros, sin coste.',
     opciones: ['Sí, importadlos', 'No, empiezo de cero'],
   },
   {
     id: 'foco', etiqueta: 'Prioridad', titulo: '¿Qué es lo que más te preocupa ahora mismo?',
-    nota: 'Elige hasta dos. Con eso ordenamos tu panel de inicio.',
-    opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de profesoras', 'Automatizar tareas', 'Marketing', 'Otro'],
+    // Esta sí se cumple ya: `ordenarSeccionesHome` sube la sección que atiende
+    // la prioridad elegida (lib/home-sections.ts). Se matiza el "ordenamos"
+    // porque no todas las prioridades tienen hoy una sección que mover.
+    nota: 'Elige hasta dos. Subimos a lo primero de tu panel lo que más te importe.',
+    opciones: ['Conseguir más alumnos', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras', 'Automatizar tareas', 'Marketing', 'Otro'],
     multi: 2,
   },
   {
@@ -247,11 +346,16 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
       : 1 + e.paso + (listo ? 1 : 0);
 
   // ── Resumen ────────────────────────────────────────────────────────────
-  const migra = e.ans.software && e.ans.software !== 'Ninguno';
+  const migra = vieneDeOtraPlataforma(e.ans.software);
   const resumen = ([
     ['Centros', e.ans.centros],
     ['Alumnos activos', e.ans.alumnos],
-    ['Vienes de', e.ans.software],
+    ['Salas', e.ans.salas],
+    ['Plazas por sala', e.ans.aforo],
+    ['Duración de clase', e.ans.duracion],
+    ['Clases', (e.ans.clases ?? []).join(' · ')],
+    ['Cobras con', (e.ans.cobro ?? []).join(' · ')],
+    ['Ahora usas', e.ans.software],
     ['Prioridad', (e.ans.foco ?? []).join(' · ')],
     ['Puesta en marcha', e.ans.ayuda],
     ['Importamos tus datos', e.ans.importar],
@@ -259,7 +363,7 @@ function computeVals(e: Engine, now: number, nombreEstudio: string) {
     .filter((f) => !!f[1])
     .map(([label, valor]) => ({
       label, valor: valor as string,
-      color: label === 'Vienes de' && migra ? '#55622C' : '#1A1A1A',
+      color: label === 'Ahora usas' && migra ? '#55622C' : '#1A1A1A',
     }));
 
   const bt = e.buttonAt != null ? ease((now - e.buttonAt) / 480) : 0;
@@ -367,6 +471,33 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
       onbPrioridad: ans.foco ?? null,
       onbAyudaAlta: ans.ayuda ?? null,
     });
+
+    // §8 — Lo que de verdad convierte el cuestionario en un estudio montado:
+    // crea sus salas con su aforo, sus tipos de clase con su duración y los
+    // borradores de bono/cuota. Antes de esto, TODAS las respuestas del
+    // asistente se guardaban en `studios.onb_*` y no las leía nadie.
+    //
+    // Se espera (`await`) a propósito, a diferencia del aviso de ayuda-alta de
+    // abajo: en cuanto la propietaria entra al panel, el checklist de primeros
+    // pasos consulta salas/tipos/planes para marcar qué está hecho. Sin
+    // esperar, entraría a un checklist que dice "configura tus salas" con las
+    // salas ya creándose por detrás — y la impresión sería justo la contraria
+    // de la que se busca.
+    //
+    // El endpoint es idempotente (inserta lo que falte, por nombre), así que un
+    // reintento no duplica nada. Fallo suave: si no se puede aplicar, ella ya
+    // ha visto su resumen y el panel sigue siendo usable — el checklist le
+    // pedirá esas mismas cosas, que es el comportamiento de siempre.
+    const operativa = interpretarRespuestasWizard(ans);
+    if (!planVacio(planificarConfiguracion(operativa))) {
+      try {
+        await fetch('/api/onboarding/configurar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify(operativa),
+        });
+      } catch { /* fallo suave: el checklist de primeros pasos sigue estando */ }
+    }
     // "Quiero una videollamada" / "Configuradlo por mí": antes esto se quedaba
     // solo en la columna onb_ayuda_alta y nadie del equipo se enteraba de que
     // alguien había pedido ayuda humana. Best-effort: si falla, la propietaria
@@ -512,7 +643,18 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
       style={{ gridTemplateColumns: 'minmax(0, 1fr) clamp(0px, calc((100vw - 900px) * 100), 38%)' }}
       data-screen="bienvenida"
     >
-      <div className="relative overflow-hidden">
+      {/* ⚠️ `overflow-clip`, NO `overflow-hidden`. Las dos capas decorativas de
+          abajo llevan `inset: -80px`, así que sobresalen del panel y lo hacían
+          desplazable a lo ancho (scrollWidth 879 vs clientWidth 794). Con
+          `hidden` eso es un contenedor de scroll de verdad: en cuanto algo
+          recibía el foco —un chip de respuesta, el botón de sonido— el
+          navegador lo desplazaba 85 px para «traerlo a la vista» y esos 85 px
+          de contenido se quedaban fuera PARA SIEMPRE, porque `hidden` no deja
+          volver atrás. Se veía como una pantalla rota: la pregunta empezaba
+          cortada y «Continuar» quedaba a medias.
+          `clip` recorta exactamente igual pero no crea contenedor desplazable,
+          así que no hay nada que desplazar. Medido antes/después. */}
+      <div className="relative overflow-clip">
         <div
           className="absolute inset-0"
           style={{ background: 'linear-gradient(to bottom, #F7F6F1 0%, #F2F1EB 22%, #EDEDE6 48%, #E9E9E1 68%, #E7E7DF 76%, #E7E7DF 100%)' }}
@@ -675,7 +817,52 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
         </div>
       </div>
 
-      <div className="relative overflow-hidden border-l border-black/[0.07] bg-gradient-to-br from-[#1A1A1A] to-[#2A2A24]">
+      {/* La columna derecha pintaba SOLO la etiqueta del pie: casi 500 px de
+          negro sin nada, un tercio de la pantalla sin usar. Es lo que hacía que
+          el alta pareciera un formulario a medio hacer.
+          Ahora enseña el estudio tomando forma: cada respuesta aparece aquí en
+          cuanto se da. No es adorno — es la respuesta visible a «¿para qué me
+          preguntas esto?», que era otra de las quejas. Reutiliza `vals.resumen`,
+          que ya se calculaba para la pantalla final; no hay estado nuevo. */}
+      <div className="relative overflow-clip border-l border-black/[0.07] bg-gradient-to-br from-[#1A1A1A] to-[#2A2A24]">
+        <div className="absolute inset-x-0 top-0 p-[clamp(22px,3vh,34px)]">
+          <div className="text-[11px] font-bold tracking-[0.2em] uppercase" style={{ color: '#D9C29E' }}>
+            Tu estudio
+          </div>
+          <div className="mt-1 text-[13px] leading-relaxed text-white/55">
+            {vals.resumen.length === 0
+              ? 'Lo que respondas se irá montando aquí.'
+              : 'Esto es lo que dejamos configurado.'}
+          </div>
+
+          <div className="mt-6">
+            {vals.resumen.map((r) => (
+              <div
+                key={r.label}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4 border-b py-2.5"
+                style={{ borderColor: 'rgba(255,255,255,0.09)' }}
+              >
+                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.13em] text-white/45">
+                  {r.label}
+                </span>
+                <span className="whitespace-nowrap text-right text-[13px] font-semibold text-white/90">{r.valor}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* La promesa que trajo a esta persona hasta aquí, a la vista mientras
+              rellena. Es el momento en que más dudas entran. */}
+          <div
+            className="mt-7 rounded-2xl px-4 py-3.5"
+            style={{ background: 'rgba(217,194,158,0.10)', border: '1px solid rgba(217,194,158,0.18)' }}
+          >
+            <div className="text-[12.5px] font-bold text-white/90">{TRIAL_DIAS} días gratis</div>
+            <div className="mt-0.5 text-[12px] leading-relaxed text-white/55">
+              Sin tarjeta. Si no eliges plan, la prueba simplemente termina.
+            </div>
+          </div>
+        </div>
+
         <div className="absolute left-0 right-0 bottom-0 p-[clamp(22px,3vh,34px)] flex items-center gap-2.5">
           <span className="w-[5px] h-[5px] rounded-full" style={{ background: '#D9C29E' }} />
           <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-white">{vals.panelPie}</span>

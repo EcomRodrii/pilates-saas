@@ -77,9 +77,15 @@ export type CambiosPerfilNetwork = Partial<
 // `resumenResenas`: mismo criterio de coste que `experienciaVerificada` —
 // se calcula en LOTE para los N perfiles de un listado (una query con
 // `.in(perfilId)` agrupada), nunca una consulta por tarjeta.
+// `certificacionVerificada`: mismo criterio de coste que `experienciaVerificada`
+// — se calcula en LOTE para los N perfiles de un listado (una query con
+// `.in(perfilId)` sobre red_certificaciones filtrada a estado='verificado'),
+// nunca una consulta por tarjeta. Una certificación 'pendiente'/'en_revision'
+// NO cuenta — mismo criterio que "Formación verificada" del perfil público
+// (docs/README): no se enseña como logro solo por haberla subido.
 export type PerfilNetworkPublico =
   Omit<PerfilNetwork, 'authUserId' | 'emailContacto' | 'telefonoContacto'>
-  & { experienciaVerificada: boolean; resumenResenas: ResumenResenas };
+  & { experienciaVerificada: boolean; certificacionVerificada: boolean; resumenResenas: ResumenResenas };
 
 // Filtros del buscador (docs/NETWORK-IMPLEMENTATION-PLAN.md §4, §8). Todos
 // opcionales: sin filtros, se listan todos los perfiles publicados.
@@ -95,6 +101,27 @@ export interface FiltroBusquedaNetwork {
   // discreto (tarifaRango, no un número) — aquí se filtra por los rangos
   // seleccionados, honesto con lo que el dato puede responder de verdad.
   tarifaRango: TarifaRangoNetwork[];
+  // Fase 2 "búsqueda avanzada" — identidad va directo a SQL
+  // (`identidad_verificada_en is not null`); experiencia se resuelve
+  // post-query, sobre el mismo Set ya calculado en lote para el badge de
+  // cada tarjeta (`buscarPerfilesPublico`) — ningún cálculo nuevo, solo se
+  // usa también para filtrar, no solo para pintar.
+  soloIdentidadVerificada: boolean;
+  soloExperienciaVerificada: boolean;
+  // Mismo criterio que soloExperienciaVerificada: red_certificaciones ya se
+  // consulta en lote para calcular `certificacionVerificada` de cada
+  // tarjeta — filtrar por ella no añade ninguna consulta nueva.
+  soloCertificacionVerificada: boolean;
+  // Reseñas ya se agregan en lote para pintar `resumenResenas` en cada
+  // tarjeta — mismo dato, filtrado después en vez de un `HAVING` en SQL
+  // (supabase-js no hace GROUP BY).
+  valoracionMinima: number | null;
+  // `red_perfiles.idiomas` es texto libre por diseño (migración
+  // 20260813223506: "Español (nativo), Inglés (avanzado)", sin catálogo
+  // fijo). Coincidencia parcial sin distinguir mayúsculas sobre CUALQUIER
+  // elemento del array — mismo criterio que `ciudad`, pero en JS (post-
+  // query) porque es un array, no una columna de texto simple.
+  idioma: string | null;
 }
 
 // Historial laboral declarado — docs/NETWORK-IMPLEMENTATION-PLAN.md §3.
@@ -164,6 +191,22 @@ export interface MensajeNetwork {
   remitenteSoyYo: boolean;
   creadoEn: string;
   leidoEn: string | null;
+}
+
+// Sugerencia sin puntuar de Tentare Network para cubrir un hueco de
+// sustitución (docs/NETWORK-SUSTITUCIONES-EXTENSION.md §2) — snapshot en el
+// momento de crear la baja, guardado aparte del ranking interno puntuado
+// (`sustituciones.candidatos_network`, migr 20260818010000). Sin
+// `compatibilidad`/`score`/`prob_aceptacion` a propósito: puntuar a alguien
+// sin historial en este estudio con la fórmula de SustitucionCandidata sería
+// un sesgo, no una medida — mismo principio que cerró el bug de
+// "Compatibilidad 87 %" fabricada.
+export interface CandidatoNetworkSustitucion {
+  perfilId: string;
+  slug: string | null;
+  nombre: string;
+  fotoUrl: string | null;
+  ciudad: string | null;
 }
 
 // Formalizar contratación (siguiente fase) — doble confirmación sobre el

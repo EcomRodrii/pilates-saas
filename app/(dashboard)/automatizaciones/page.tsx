@@ -26,20 +26,38 @@ function horasRestantes(iso: string) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+// Un tono de la paleta CATEGÓRICA por acción (--cat-1..9, app/globals.css).
+// Nueve acciones, nueve tonos, sin repetir: antes --warning pintaba dos de
+// ellas y otras dos eran verdes a 3° de distancia, así que la lista no
+// distinguía nada. El tono NO significa "bien" ni "mal" — para eso están los
+// semánticos de resultadoConfig, justo debajo.
+//
+// El reparto conserva lo que ya se leía bien: correo en la familia de la marca,
+// WhatsApp en verde, nota en teal, aviso al mostrador en ocre, y las dos
+// acciones que regalan algo (clase gratis, ejercicios) en la mitad cálida donde
+// estaban el magenta y el rosa que se van. Cobro y plan pasan a azul e índigo,
+// que era el hueco libre.
 const accionConfig: Record<AccionAutomatica, { label: string; icon: React.ElementType; color: string }> = {
-  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--brand)' },
-  ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: '#35785A' },
-  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: '#5A6142' },
-  CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: '#0891B2' },
-  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--warning)' },
-  OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: '#DB2777' },
-  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: 'var(--success)' },
-  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: '#F7A6C4' },
-  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: 'var(--warning)' },
+  ENVIAR_EMAIL:      { label: 'Email', icon: Mail, color: 'var(--cat-1)' },
+  ENVIAR_WHATSAPP:   { label: 'WhatsApp', icon: MessageSquare, color: 'var(--cat-2)' },
+  COBRAR_RECIBO:     { label: 'Cobro automático', icon: CreditCard, color: 'var(--cat-4)' },
+  CREAR_NOTA:        { label: 'Nota de progreso', icon: Eye, color: 'var(--cat-3)' },
+  NOTIFICAR_ADMIN:   { label: 'Notificación admin', icon: Bell, color: 'var(--cat-9)' },
+  OFRECER_CLASE_GRATIS: { label: 'Clase gratis', icon: Gift, color: 'var(--cat-6)' },
+  PROPONER_PLAN:     { label: 'Proponer plan', icon: TrendingUp, color: 'var(--cat-5)' },
+  ENVIAR_EJERCICIOS: { label: 'Ejercicios casa', icon: Send, color: 'var(--cat-7)' },
+  OFRECER_DESCUENTO: { label: 'Oferta de reactivación', icon: Gift, color: 'var(--cat-8)' },
 };
 
+// El fondo del icono es su propio color, muy diluido sobre la tarjeta.
+// ⚠️ Va con color-mix y no concatenando alfa al hex (`cfg.color + '18'`, que es
+// lo que había): con un token eso producía la cadena `var(--cat-1)18`, CSS
+// inválido, y el círculo se quedaba transparente. Ya pasaba con las cuatro
+// acciones que usaban var(--brand) / var(--warning) / var(--success).
+const tinte = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, var(--card))`;
+
 const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  EJECUTADO:       { label: 'Ejecutado', color: '#35785A', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
+  EJECUTADO:       { label: 'Ejecutado', color: 'var(--success)', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', icon: CheckCircle2 },
   ESPERANDO:       { label: 'Esperando', color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', icon: Clock },
   FALLIDO:         { label: 'Fallido', color: 'var(--destructive)', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', icon: XCircle },
   PENDIENTE_ADMIN: { label: 'Acción humana', color: 'var(--brand-secondary)', bg: 'color-mix(in srgb, var(--brand) 12%, var(--card))', icon: AlertTriangle },
@@ -327,7 +345,7 @@ function RuleCard({
                 <div key={i} className="flex items-start gap-2.5">
                   <div
                     className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ background: cfg.color + '18' }}
+                    style={{ background: tinte(cfg.color, 12) }}
                   >
                     <Icon size={12} style={{ color: cfg.color }} />
                   </div>
@@ -378,12 +396,12 @@ function LogItem({
       'flex items-start gap-3 p-3 rounded-xl border',
       log.resultado === 'PENDIENTE_ADMIN' && 'border-border bg-brand/10',
       log.resultado === 'EJECUTADO' && 'border-muted bg-card',
-      log.resultado === 'ESPERANDO' && 'border-amber-100 bg-warning/10',
-      log.resultado === 'FALLIDO' && 'border-red-100 bg-destructive/10',
+      log.resultado === 'ESPERANDO' && 'border-warning/30 bg-warning/10',
+      log.resultado === 'FALLIDO' && 'border-destructive/30 bg-destructive/10',
     )}>
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-        style={{ background: accionCfg.color + '20' }}
+        style={{ background: tinte(accionCfg.color, 14) }}
       >
         <AIcon size={14} style={{ color: accionCfg.color }} />
       </div>

@@ -21,6 +21,7 @@ export const HOME_SECCIONES: HomeSeccion[] = [
   { id: 'resumen', label: 'Hoy de un vistazo' },
   { id: 'automatizaciones', label: 'Resumen de automatizaciones' },
   { id: 'ingresos', label: 'Ingresos del mes' },
+  { id: 'crecimiento', label: 'Crecimiento web (embudo del widget)' },
   { id: 'kpis', label: 'Indicadores (KPIs)' },
   { id: 'graficos', label: 'Gráficas personalizadas' },
   { id: 'principal', label: 'Clases, pagos y actividad' },
@@ -47,9 +48,46 @@ export const HOME_SECCIONES: HomeSeccion[] = [
 // lo encontraría abajo del todo.
 export const HOME_FIJAS_PRIMERO: readonly string[] = ['accion', 'onboarding'];
 
-/** Aplica el orden fijo por encima del orden elegido por el estudio. */
-export function ordenarSeccionesHome(visibles: string[]): string[] {
+// Prioridad elegida en el asistente de bienvenida (`studios.onb_prioridad`) →
+// sección de la home que la atiende.
+//
+// El asistente lleva prometiendo en pantalla "Con eso ordenamos tu panel de
+// inicio" desde que existe, y no ordenaba nada: la respuesta se guardaba en
+// `onb_prioridad` y no la leía nadie. Esto es lo que la hace real.
+//
+// Solo están las prioridades que tienen una sección DE VERDAD. Las otras
+// ('Conseguir más alumnos', 'Sustituciones de profesoras', 'Marketing',
+// 'Otro') no aparecen a propósito: no hay hoy una sección de la home que las
+// atienda —marketing vive detrás de un flag desactivado— y mapearlas a la
+// sección "más parecida" movería el panel por un motivo inventado. Sin
+// coincidencia, el orden se queda como estaba, que es la respuesta honesta.
+const SECCION_POR_PRIORIDAD: Record<string, string> = {
+  'Cobros': 'ingresos',
+  'Gestionar reservas': 'principal',
+  'Automatizar tareas': 'automatizaciones',
+};
+
+/**
+ * Aplica el orden fijo por encima del orden elegido por el estudio y, tras las
+ * fijas, sube lo que la propietaria dijo que le preocupaba.
+ *
+ * `prioridad` es opcional: sin ella el comportamiento es exactamente el de
+ * antes. Las fijas ('accion', 'onboarding') siguen mandando sobre todo — son
+ * avisos que dejan de aparecer solos, y la prioridad no debe enterrarlos.
+ */
+export function ordenarSeccionesHome(visibles: string[], prioridad?: string[] | null): string[] {
   const fijas = HOME_FIJAS_PRIMERO.filter((id) => visibles.includes(id));
   const resto = visibles.filter((id) => !fijas.includes(id));
-  return [...fijas, ...resto];
+
+  // Orden de elección respetado: si dijo "Cobros" y luego "Gestionar reservas",
+  // ingresos va antes que principal. Dedup por si dos prioridades apuntaran a
+  // la misma sección.
+  const preferidas = [...new Set(
+    (prioridad ?? [])
+      .map((p) => SECCION_POR_PRIORIDAD[p])
+      .filter((id): id is string => !!id && resto.includes(id)),
+  )];
+  if (preferidas.length === 0) return [...fijas, ...resto];
+
+  return [...fijas, ...preferidas, ...resto.filter((id) => !preferidas.includes(id))];
 }

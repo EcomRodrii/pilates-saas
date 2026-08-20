@@ -39,6 +39,7 @@ const CRONS_GLOBALES = [
   'lib/reservas-pendientes/expirar.ts',
   'lib/minimo-asistentes/cancelar-por-minimo.ts',
   'lib/checkin/marcar-asistidas-automatico.ts',
+  'lib/sustituciones/cerrar-vencidas.ts',
 ];
 
 // Tablas que crecen con el uso: una lectura suya sin paginar es la que rompe.

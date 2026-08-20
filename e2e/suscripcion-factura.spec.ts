@@ -64,10 +64,16 @@ test.describe('Pantalla de suscripción', () => {
     await expect(page.getByText(/Próximo cobro el/)).toBeVisible();
     await expect(page.getByText(/15 de agosto de 2026/)).toBeVisible();
 
-    // La tarjeta está en Stripe: el botón dice a dónde lleva.
-    await expect(page.getByRole('button', { name: 'Ver facturas y método de pago' })).toBeVisible();
+    // La tarjeta está en Stripe: el botón dice a dónde lleva. El rótulo cambió
+    // al rediseñar la pantalla (apertura al público) y ahora nombra las tres
+    // cosas que hay detrás; la promesa de P2-20 —que se vea dónde está la
+    // tarjeta— se mantiene.
+    await expect(page.getByRole('button', { name: 'Facturas, tarjeta y cambio de plan' })).toBeVisible();
   });
 
+  // Prueba de STRIPE (con tarjeta), no la local de 7 días: son las
+  // suscripciones anteriores a que la prueba dejara de vivir en Stripe. Ya no
+  // se crean nuevas, pero las que hay siguen vivas.
   test('durante la prueba, la fecha se anuncia como PRIMER cobro', async ({ page }) => {
     await montarSuscripcion(page, {
       plan: 'ESTUDIO',

@@ -25,6 +25,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LogoTentare } from '@/components/marca/logo-tentare';
+import { InsigniaBeta } from '@/components/network-v2/InsigniaBeta';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 
@@ -60,8 +61,9 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
     <div className="min-h-dvh" style={{ background: '#EEEEE8' }}>
       <header className="border-b border-[#E7E7E0] bg-white">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/network/inicio" className="flex items-center">
+          <Link href="/network/inicio" className="flex items-center gap-2.5">
             <LogoTentare formato="horizontal" producto="network" titulo="Tentare Network" alto={26} />
+            <InsigniaBeta alto={26} />
           </Link>
           {user && (
             <button

@@ -1,0 +1,54 @@
+-- Complemento inmediato de 20260817144333 (revoke select ... from authenticated).
+-- Aquella cerró el agujero de email/teléfono, pero al quitar el SELECT de TABLA
+-- rompió, de rebote, 20 policies de otras 7 tablas de Network.
+--
+-- POR QUÉ. Una expresión de policy que consulta OTRA tabla se evalúa con los
+-- privilegios del rol que lanza la consulta, no con los del dueño. Todas estas
+-- policies llevan dentro `exists (select 1 from public.red_perfiles rp where
+-- rp.auth_user_id = auth.uid())`, así que sin SELECT sobre red_perfiles el
+-- planner corta antes de evaluar nada. Comprobado en producción justo después
+-- del revoke, con `set local role authenticated`:
+--
+--   red_experiencias             => ERROR: permission denied for table red_perfiles
+--   red_mensajes                 => ERROR: permission denied for table red_perfiles
+--   red_certificaciones          => ERROR: permission denied for table red_perfiles
+--   red_referencias              => ERROR: permission denied for table red_perfiles
+--   red_solicitudes_contacto     => ERROR: permission denied for table red_perfiles
+--   red_perfiles_identidad       => ERROR: permission denied for table red_perfiles
+--   red_verificaciones_identidad => ERROR: permission denied for table red_perfiles
+--
+-- Hoy NINGUNA ruta del producto entra por ahí (todo Network lee con
+-- service_role, que ignora GRANTs y RLS), así que esto no llegó a romper nada
+-- de cara a la usuaria — pero dejar 20 policies muertas en cuanto alguien
+-- abriese una lectura directa es exactamente la clase de mina que la auditoría
+-- existe para no plantar.
+--
+-- LA CORRECCIÓN: privilegio mínimo. Se conceden EXACTAMENTE las tres columnas
+-- que esas 20 policies necesitan, ni una más. Extraídas del propio catálogo,
+-- no de memoria:
+--
+--   select distinct m[1] from pg_policy p,
+--     lateral regexp_matches(pg_get_expr(p.polqual,p.polrelid), 'rp\.([a-z_]+)', 'g') m
+--    where pg_get_expr(p.polqual,p.polrelid) like '%red_perfiles%';
+--   =>  auth_user_id, estado, id
+--
+-- Resultado: `email_contacto` y `telefono_contacto` siguen siendo ilegibles por
+-- REST (que era el 🔴), y de paso tampoco son legibles nombre, ciudad,
+-- descripción ni ninguna otra columna del perfil: la superficie queda MÁS
+-- PEQUEÑA que antes del agujero, no solo parcheada.
+--
+-- Verificación tras aplicar (mismo método, `set local role authenticated`):
+--   las 8 tablas responden OK, y
+--   select ... from red_perfiles where email_contacto is not null
+--     => ERROR: permission denied for table red_perfiles
+--
+-- RIESGO RESIDUAL, explícito: con `red_perfiles_select_publicado`
+-- (estado = 'published') todavía viva, una cuenta cualquiera puede enumerar
+-- `auth_user_id` de los perfiles publicados. Cerrarlo del todo pide o bien
+-- retirar esa policy (nadie la usa: ningún componente de navegador consulta
+-- red_perfiles) o envolver los `exists` de las otras 7 tablas en funciones
+-- SECURITY DEFINER. Son 20 policies: es una decisión de diseño, no un parche,
+-- y se deja documentada en AUDITORIA-SEMANAL-2026-08-17.md (I-3) en vez de
+-- improvisarla aquí.
+
+grant select (id, auth_user_id, estado) on public.red_perfiles to authenticated;

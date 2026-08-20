@@ -4,7 +4,7 @@ import { Icon } from "@/components/portal-tema/components/ui/Icon";
 import { Button } from "@/components/portal-tema/components/ui/primitives";
 import { StatusBar } from "@/components/portal-tema/components/layout/chrome";
 import { useActions } from "@/components/portal-tema/store/PortalStore";
-import { eventoIcs, nombreIcs } from "@/lib/calendario-ics";
+import { AnadirAlCalendario } from "@/components/portal-tema/components/ui/anadir-al-calendario";
 import type { ViewModel } from "@/components/portal-tema/store/useViewModel";
 
 /**
@@ -63,25 +63,16 @@ export function Confirmed({ vm }: { vm: ViewModel }) {
           </div>
         </section>
 
-        {/* El fichero lo construye `lib/calendario-ics.ts`, el MISMO que usa la
-            página pública de reservas. Dos generadores del mismo formato es
-            como se acaba con un `.ics` que Outlook acepta en un sitio y
-            rechaza en el otro. */}
-        <Button
-          block variant="ghost"
-          onClick={() => {
-            const ics = eventoIcs(c.ics, new Date());
-            const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar;charset=utf-8" }));
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = nombreIcs(c.name, c.ics.inicio);
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-        >
-          Añadir al calendario
-          <Icon name="calendar" size={15} stroke={1.6} />
-        </Button>
+        {/* Antes aquí solo había `.ics`. Ahora las dos salidas (Google Calendar
+            y el calendario del propio dispositivo), que es lo que cubre a la
+            vez a quien vive en Google y a quien va con un iPhone. Ver
+            components/portal-tema/components/ui/anadir-al-calendario.tsx. */}
+        <div style={{ marginBottom: 8 }}>
+          <p style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8, opacity: 0.72 }}>
+            Añádela a tu calendario
+          </p>
+          <AnadirAlCalendario evento={c.ics} size="md" />
+        </div>
         <Button block size="lg" onClick={actions.goBookings}>Ver mis reservas</Button>
         <div style={{ height: 8 }}></div>
       </div>

@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   const desde = new Date(Math.min(ahora.getTime() - 30 * MS_DIA, inicioMes.getTime(), lunes.getTime()));
   const hasta = new Date(ahora.getTime() + 21 * MS_DIA);
 
-  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc, ultimaClaseRes] = await Promise.all([
+  const [{ data: instructores, error: errInst }, { data: sesiones, error: errSes }, valRpc, ultimaClaseRes, dispRes] = await Promise.all([
     admin.from('instructores')
       .select('id, nombre, rol, color, avatar, foto_url, activo, auth_user_id, email, telefono')
       .eq('studio_id', sesion.studioId),
@@ -86,11 +86,23 @@ export async function GET(req: NextRequest) {
       .lte('inicio', ahora.toISOString())
       .order('inicio', { ascending: false })
       .limit(2000),
+    // P3 (auditoría "Veredicto de Marta"): "Pedirle disponibilidad" no decía
+    // si ya había respondido. `guardarDisponibilidad` (lib/sustituciones/
+    // disponibilidad.ts) borra e reinserta TODAS sus filas en cada guardado,
+    // así que el `creado_en` más reciente de sus propias filas ES la fecha de
+    // su último guardado — sin columna nueva. Límite conocido: si guarda su
+    // disponibilidad completamente VACÍA, no queda ninguna fila y este dato
+    // desaparece — caso raro, no se resuelve aquí.
+    admin.from('instructora_disponibilidad')
+      .select('instructor_id, creado_en')
+      .eq('studio_id', sesion.studioId)
+      .order('creado_en', { ascending: false }),
   ]);
   if (errInst) return errorInterno('equipo:tarjetas:instructores', errInst, 'No se ha podido cargar el equipo.');
   if (errSes) return errorInterno('equipo:tarjetas:sesiones', errSes, 'No se ha podido cargar el equipo.');
   if (valRpc.error) return errorInterno('equipo:tarjetas:valoraciones', valRpc.error, 'No se ha podido cargar el equipo.');
   if (ultimaClaseRes.error) return errorInterno('equipo:tarjetas:ultima_clase', ultimaClaseRes.error, 'No se ha podido cargar el equipo.');
+  if (dispRes.error) return errorInterno('equipo:tarjetas:disponibilidad', dispRes.error, 'No se ha podido cargar el equipo.');
 
   // Primera fila vista de cada instructor_id = su más reciente, porque venimos
   // ordenados por inicio descendente.
@@ -104,6 +116,14 @@ export async function GET(req: NextRequest) {
     if (!ultimaClasePorInstructor.has(row.instructor_id)) ultimaClasePorInstructor.set(row.instructor_id, row.inicio);
     if (row.inicio >= hace90dias) {
       clasesUltimos90DiasPorInstructor.set(row.instructor_id, (clasesUltimos90DiasPorInstructor.get(row.instructor_id) ?? 0) + 1);
+    }
+  }
+
+  // Primera fila vista por instructor_id = la más reciente (venimos ordenados desc).
+  const disponibilidadActualizadaPorInstructor = new Map<string, string>();
+  for (const row of (dispRes.data ?? []) as { instructor_id: string; creado_en: string }[]) {
+    if (!disponibilidadActualizadaPorInstructor.has(row.instructor_id)) {
+      disponibilidadActualizadaPorInstructor.set(row.instructor_id, row.creado_en);
     }
   }
 
@@ -240,6 +260,7 @@ export async function GET(req: NextRequest) {
       ocupacionPct, valoracion: valoracionPorInstructor.get(i.id) ?? null,
       horasMes: Math.round(horasMes * 10) / 10, costeMes,
       coincideContigo,
+      disponibilidadActualizadaEn: disponibilidadActualizadaPorInstructor.get(i.id) ?? null,
     };
 
     // La vista de compañeras (instructora mirando a otra persona) no recibe
@@ -251,6 +272,7 @@ export async function GET(req: NextRequest) {
         ocupacionPct: null, valoracion: null, horasMes: null, costeMes: null,
         semana: [0, 0, 0, 0, 0, 0, 0], horasDia: [null, null, null, null, null, null, null],
         ultimaClaseIso: null, clasesUltimos90Dias: null,
+        disponibilidadActualizadaEn: null,
       };
     }
     return base;

@@ -91,7 +91,7 @@ function diasDeLaSemana(ahora: Date, tz: string): { fecha: string; dia: DiaPorta
     d.setUTCDate(d.getUTCDate() - diaSemana + i);
     const idx = d.getUTCDay();
     const fecha = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-    return { fecha, dia: { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate() } };
+    return { fecha, dia: { key: CLAVE_DIA[idx], label: ETIQUETA_DIA[idx], num: d.getUTCDate(), fecha } };
   });
 }
 
@@ -242,6 +242,11 @@ export function profesoresDe(instructores: Instructor[]): ProfesorPortal[] {
     // `bio` es nullable de verdad: sin ella la ficha no pinta un párrafo
     // vacío ni un texto de relleno.
     bio: (i.bio ?? '').trim(),
+    // `foto_url` primero y `avatar` de reserva: son dos columnas distintas de
+    // la misma tabla y no todas las fichas usan la misma.
+    foto: (i.fotoUrl ?? i.avatar ?? '').trim(),
+    // Se pasa tal cual: la decisión de enseñarla o no es de la pantalla.
+    ...(i.valoracion ? { valoracion: i.valoracion } : null),
   }));
 }
 
@@ -270,6 +275,8 @@ export interface FuenteDatosPortal {
    */
   spots?: Spot[];
   instructores: Instructor[];
+  /** Sus favoritos, tal como los da el contexto (o ya normalizados). */
+  favoritas?: readonly (string | { tipoClaseId: string })[];
   /** Las secciones del Inicio que guardó la propietaria. Ver `bloquesInicio`. */
   bloquesInicio?: readonly { kind: string; sistemaId?: string; oculto?: boolean; fijo?: boolean }[];
   socio: Socio | null;
@@ -291,6 +298,17 @@ export interface FuenteDatosPortal {
   planes: PlanTarifa[];
   /** La ventana de cancelación del estudio (`studios.cancelacion_ventana_horas`). */
   cancelacionVentanaHoras?: number | null;
+  /**
+   * `studios.cancelacion_devolver_bono_tardia`: si el estudio devuelve la
+   * sesión INCLUSO cuando cancela dentro de la ventana. Por defecto `false`.
+   *
+   * ⚠️ Sin este dato no se puede decir la verdad sobre el crédito, y la hoja de
+   * cancelar del kit lo estaba prometiendo igualmente («La clase vuelve a tu
+   * bono», sin mirar nada). La ventana sola NO basta: la RPC decide con
+   * `v_devolver := v_devolver_tardia or not v_tardia`, así que un estudio con
+   * esta bandera activa sí devuelve aunque cancele tarde.
+   */
+  cancelacionDevolverBonoTardia?: boolean;
   /**
    * Nombre y año de apertura, para el cierre de pantalla que firma el
    * estudio. `anioFundacion` es opcional de verdad: `studios.anio_fundacion`
@@ -393,7 +411,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
     })
     .filter(({ fecha }) => fechas.has(fecha))
     .sort((a, b) => a.s.inicio.localeCompare(b.s.inicio))
-    .map(({ s, dia }) => {
+    .map(({ s, fecha, dia }) => {
       const tipo = porTipo.get(s.tipoClaseId);
       const sala = porSala.get(s.salaId);
       const instructor = porInstructor.get(s.instructorId);
@@ -406,6 +424,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         // pueden llamarse igual y el nombre además se puede renombrar.
         type: s.tipoClaseId,
         day: dia,
+        fecha,
         time: horaLocal(s.inicio, tz),
         end: horaLocal(s.fin, tz),
         startsAt: s.inicio,
@@ -415,6 +434,7 @@ export function clasesDeLaSemana(f: FuenteDatosPortal): StudioClass[] {
         level: tipo ? (NIVEL[tipo.nivel] ?? '') : '',
         teacher: nombreInstructor,
         initial: inicialDe(nombreInstructor),
+        teacherFoto: (instructor?.fotoUrl ?? instructor?.avatar ?? '').trim(),
         seats: Math.max(0, s.aforoMaximo - plazasOcupadas(s.id, f.reservas)),
         plazas: plazasDeSesion(s, f.spots, f.reservas),
         fotoUrl: imagenDeClase(tipo),
@@ -576,6 +596,7 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
   return {
     clases,
     ahoraISO: f.ahora.toISOString(),
+    devolverBonoTardia: f.cancelacionDevolverBonoTardia ?? false,
     hoy: hoyDe(f.ahora, tz),
     racha: f.racha ?? null,
     estudio: f.estudio ?? {
@@ -600,6 +621,9 @@ export function construirDatosPortal(f: FuenteDatosPortal): DatosPortal {
     compras: comprasDe(f.recibos ?? [], tz),
     socia: sociaDe(f.socio),
     profesores: profesoresDe(f.instructores),
+    // Se normaliza a ids sueltos: al kit no le hace falta la fila entera, y
+    // así la pantalla compara contra `StudioClass.type` sin traducir nada.
+    favoritas: (f.favoritas ?? []).map((x) => (typeof x === 'string' ? x : x.tipoClaseId)),
     reservadas: f.reservasPropias && reservadasDe(f.reservasPropias, clases),
   };
 }
@@ -659,6 +683,11 @@ export interface CeldaMes {
   selected: boolean;
   /** Hay al menos una clase ese día. */
   marked: boolean;
+  /**
+   * Anterior a hoy. La agenda los apaga: no se puede reservar en el pasado, y
+   * un día pasado con el mismo peso que uno futuro invita a pulsarlo.
+   */
+  pasado: boolean;
 }
 
 /**
@@ -710,6 +739,7 @@ export function rejillaMesPortal(
       label: d.getUTCDate(),
       outside,
       today: fecha === hoyLocal,
+      pasado: fecha < hoyLocal,
       selected: !outside && d.getUTCDate() === seleccionado,
       marked: conClase.has(fecha),
     });

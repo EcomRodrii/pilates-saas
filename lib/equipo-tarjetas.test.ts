@@ -17,7 +17,7 @@ function m(overrides: Partial<MiembroCompleto> = {}): MiembroCompleto {
     clasesUltimos90Dias: null,
     semana: [1, 0, 1, 0, 1, 0, 0], horasDia: [null, null, null, null, null, null, null],
     ocupacionPct: 80, valoracion: { media: 4.8, total: 34 },
-    horasMes: 20, costeMes: 400, coincideContigo: null,
+    horasMes: 20, costeMes: 400, coincideContigo: null, disponibilidadActualizadaEn: null,
     ...overrides,
   };
 }

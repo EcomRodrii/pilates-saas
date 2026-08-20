@@ -95,7 +95,20 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
   const cuenta = studio.stripe_account_id as string;
 
-  const piId = await resolverPaymentIntent(stripe, cuenta, recibo.stripe_payment_intent_id as string | null, recibo.id as string);
+  const { id: piId, duplicados } = await resolverPaymentIntent(stripe, cuenta, recibo.stripe_payment_intent_id as string | null, recibo.id as string);
+  if (duplicados.length > 1) {
+    // Este recibo se cobró MÁS DE UNA VEZ. Elegir cuál devolver no puede hacerlo
+    // el servidor a ciegas (importes iguales, cuentas iguales), pero decir "no
+    // encontramos el cobro" cuando hay dos es lo peor que se puede responder
+    // aquí: es justo el caso en el que hay que devolver dinero con urgencia.
+    return NextResponse.json({
+      error: 'Este recibo tiene MÁS DE UN COBRO en Stripe, así que aquí no podemos elegir cuál devolver. '
+        + 'Ábrelos en Stripe y devuelve el que sobra: ' + duplicados.join(', ') + '. '
+        + 'Tentare detectará la devolución igual y te ofrecerá quitar el bono.',
+      motivo: 'VARIOS_COBROS',
+      paymentIntents: duplicados,
+    }, { status: 409 });
+  }
   if (!piId) {
     // Pasa con los recibos ANTERIORES a este cambio: hasta ahora el id del
     // cargo solo se guardaba en la rama SEPA, así que un cobro con tarjeta o
@@ -187,27 +200,31 @@ async function resolverPaymentIntent(
   cuenta: string,
   guardado: string | null,
   reciboId: string,
-): Promise<string | null> {
-  if (guardado) return guardado;
+): Promise<{ id: string | null; duplicados: string[] }> {
+  if (guardado) return { id: guardado, duplicados: [] };
   try {
     const res = await stripe.paymentIntents.search(
       { query: `metadata['reciboId']:'${reciboId}'`, limit: 2 },
       { stripeAccount: cuenta },
     );
-    // Más de uno = un reintento de cobro dejó dos PaymentIntents con el mismo
-    // reciboId. Cuál devolver no lo puede decidir un servidor a ciegas.
-    if (res.data.length !== 1) return null;
+    // Más de uno = el mismo recibo se cobró dos veces (dos sesiones de checkout
+    // pagables, o un reintento). Cuál devolver no lo puede decidir un servidor a
+    // ciegas — pero SÍ hay que decir que existen: antes esto caía en el mismo
+    // "no encontramos el cobro" que un recibo sin rastro, o sea el mensaje
+    // contrario a la verdad justo cuando hay un cargo duplicado que devolver.
+    if (res.data.length > 1) return { id: null, duplicados: res.data.map((p) => p.id) };
+    if (res.data.length !== 1) return { id: null, duplicados: [] };
     const pi = res.data[0];
-    if (pi.status !== 'succeeded') return null;
+    if (pi.status !== 'succeeded') return { id: null, duplicados: [] };
     const admin = getSupabaseAdmin();
     if (admin) {
       await admin.from('recibos').update({ stripe_payment_intent_id: pi.id }).eq('id', reciboId);
     }
-    return pi.id;
+    return { id: pi.id, duplicados: [] };
   } catch {
     // El índice de búsqueda de Stripe tarda ~1 min en ver un objeto nuevo, y
     // puede fallar. No es motivo para romper: se responde "sin rastro" y el
     // estudio lo devuelve desde Stripe.
-    return null;
+    return { id: null, duplicados: [] };
   }
 }

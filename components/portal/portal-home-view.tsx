@@ -48,6 +48,7 @@ import { useModo } from '@/lib/portal-modo';
 import { HojaPase } from '@/components/portal/hoja-pase';
 import { AforoIndicator } from '@/components/portal/ui';
 import { pedirPaseDeAcceso, portalAuthHeader } from '@/lib/api-client';
+import { usePortalHref } from '@/components/portal/portal-preview-bridge';
 import {
   dur, transicion, display, micro, texto, radio, altura, sombra, cristal, desenfoque, escala } from '@/lib/portal-design';
 import type { BannerPortal } from '@/lib/types';
@@ -116,6 +117,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
   escribible?: boolean;
 }) {
   const { slug } = useParams<{ slug: string }>();
+  const portalHref = usePortalHref();
   const {
     socios, suscripciones, planesTarifa, sesiones, reservas,
     tiposClase, salas, instructores, studio, contenidoPortal, bannersPortal,
@@ -399,7 +401,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             homeCard.sala?.nombre,
           ].filter(Boolean) as string[],
           cta: txt('proximaClase', 'proximaBoton', 'Ver mi acceso'),
-          href: `/portal/${slug}/reservas`,
+          href: portalHref(`/${slug}/reservas`),
           abrePase: true,
         };
       }
@@ -408,33 +410,33 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           volanta: txt('proximaClase', 'bonoVolanta', 'Tu bono se acaba'), contador: null,
           titulo: txt('proximaClase', 'bonoTitulo', 'Te queda una sesión'),
           meta: [plan?.nombre, txt('proximaClase', 'bonoTexto', 'Renuévalo y sigues igual')].filter(Boolean) as string[],
-          cta: txt('proximaClase', 'bonoBoton', 'Renovar mi bono'), href: `/portal/${slug}/compras`,
+          cta: txt('proximaClase', 'bonoBoton', 'Renovar mi bono'), href: portalHref(`/${slug}/compras`),
         };
       case 'RACHA_EN_RIESGO':
         return {
           volanta: `Racha de ${homeCard.semanas} semanas`, contador: null,
           titulo: txt('proximaClase', 'rachaTitulo', 'No la pierdas ahora'),
           meta: metaConSugerencia([`Te quedan ${homeCard.diasParaPerder} ${homeCard.diasParaPerder === 1 ? 'día' : 'días'}`], txt('proximaClase', 'rachaTexto', 'Reserva esta semana')),
-          cta: txt('proximaClase', 'rachaBoton', 'Buscar mi clase'), href: `/portal/${slug}/clases`,
+          cta: txt('proximaClase', 'rachaBoton', 'Buscar mi clase'), href: portalHref(`/${slug}/clases`),
         };
       case 'INACTIVA':
         return {
           volanta: `${homeCard.diasSinVenir} días sin venir`, contador: null,
           titulo: txt('proximaClase', 'inactivaTitulo', 'Tu sitio te espera'),
           meta: metaConSugerencia([], txt('proximaClase', 'inactivaTexto', 'Hay clases con hueco esta semana')),
-          cta: txt('proximaClase', 'inactivaBoton', 'Volver a reservar'), href: `/portal/${slug}/clases`,
+          cta: txt('proximaClase', 'inactivaBoton', 'Volver a reservar'), href: portalHref(`/${slug}/clases`),
         };
       default:
         return {
           volanta: txt('proximaClase', 'vaciaVolanta', 'Sin clases reservadas'), contador: null,
           titulo: txt('proximaClase', 'vaciaTitulo', 'Empieza por aquí'),
           meta: metaConSugerencia([], txt('proximaClase', 'vaciaTexto', 'Elige el día que mejor te venga')),
-          cta: txt('proximaClase', 'vaciaBoton', 'Ver la agenda'), href: `/portal/${slug}/clases`,
+          cta: txt('proximaClase', 'vaciaBoton', 'Ver la agenda'), href: portalHref(`/${slug}/clases`),
         };
     }
   })();
 
-  const filas = accesosRapidosDe({ slug, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
+  const filas = accesosRapidosDe({ slug, portalHref, proximas, totalAsistidas, sinLeer, nInstructoras: instructores.length });
 
   // La foto de la tarjeta grande: la SUYA si la propietaria le puso una, si no
   // la del portal, y si tampoco la de por defecto. La herencia va en este orden
@@ -532,7 +534,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           </div>
           )}
           <Link
-            href={`/portal/${slug}/notificaciones`}
+            href={portalHref(`/${slug}/notificaciones`)}
             aria-label={sinLeer !== null && sinLeer > 0 ? `Notificaciones, ${sinLeer} sin leer` : 'Notificaciones'}
             style={{
               position: 'relative', width: 40, height: 40, flex: '0 0 40px', marginTop: 22,
@@ -589,7 +591,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
             es el mismo bloque, aunque el tema decida pintarlo de otra forma. */}
         {tarjetaRotulada && homeCard.caso !== 'PROXIMA_CLASE' ? (
           <Link
-            href={'href' in tarjeta ? tarjeta.href : `/portal/${slug}/clases`}
+            href={'href' in tarjeta ? tarjeta.href : portalHref(`/${slug}/clases`)}
             data-tarjeta="principal"
             style={{
               display: 'block', textDecoration: 'none', padding: 22,
@@ -738,7 +740,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <div style={{ height: 44 }} />
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                   <h2 style={{ ...display(escala('seccion', 30)), color: t.ink }}>{txt('estaSemana', 'titulo', 'Esta semana')}</h2>
-                  <Link href={`/portal/${slug}/clases`} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
+                  <Link href={portalHref(`/${slug}/clases`)} style={{ ...micro(9.5, 0.2, 600), color: t.heroAccent, textDecoration: 'none' }}>
                     {txt('estaSemana', 'enlaceTexto', 'Agenda →')}
                   </Link>
                 </div>
@@ -753,7 +755,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                     return (
                       <Link
                         key={s.id}
-                        href={`/portal/${slug}/clases/${s.id}`}
+                        href={portalHref(`/${slug}/clases/${s.id}`)}
                         style={{
                           flex: '0 0 158px', height: 178, borderRadius: radio.card, background: t.surface,
                           padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
@@ -865,7 +867,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
           <div {...wrap('invitarAmiga')}>
             <div style={{ height: 34 }} />
             <Link
-              href={`/portal/${slug}/invitar`}
+              href={portalHref(`/${slug}/invitar`)}
               style={{
                 position: 'relative', display: 'block', height: altura.banner, borderRadius: radio.banner,
                 overflow: 'hidden', background: t.surface2, boxShadow: sombra.banner, textDecoration: 'none',
@@ -965,7 +967,7 @@ export function PortalHomeView({ session, homeBloquesOverride, escribible = true
                 <div key={b.id}>
                   <div style={{ height: 18 }} />
                   {b.linkTipo === 'interno'
-                    ? <Link href={`/portal/${slug}${b.linkValor}`} style={estiloBanner}>{contenido}</Link>
+                    ? <Link href={portalHref(`/${slug}${b.linkValor}`)} style={estiloBanner}>{contenido}</Link>
                     : <a href={hrefExterno!} target="_blank" rel="noopener noreferrer" style={estiloBanner}>{contenido}</a>}
                 </div>
               );

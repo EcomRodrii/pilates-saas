@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { KeyRound, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { authHeader } from '@/lib/api-client';
 
 const MIN_LEN = 8;
 
@@ -36,9 +37,21 @@ export default function ClaveNueva() {
   // puede decidir nada mirando `session` en el primer render.
   const sinSesion = !loading && !session;
 
+  // ⚠️ Antes mandaba SIEMPRE a /dashboard, sin mirar si la identidad tenía
+  // estudio de verdad — exactamente el mismo bug que ya se documentó en
+  // destino-post-login (docs/NETWORK-AUDIT-2.md §2), aquí sin arreglar: una
+  // cuenta de Tentare Network que recuperase su contraseña aterrizaba en el
+  // panel de gestión, vacío o ajeno. Recuperar la contraseña no es "entrar en"
+  // ningún producto (no hay gate aquí, a diferencia de /login y
+  // /network/acceso): se manda a donde esta identidad de verdad tiene algo.
   useEffect(() => {
     if (!hecho) return;
-    const t = setTimeout(() => router.replace('/dashboard'), 1800);
+    const t = setTimeout(async () => {
+      const destino = await fetch('/api/auth/destino-post-login', { headers: await authHeader() })
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null);
+      router.replace(destino?.destino ?? '/dashboard');
+    }, 1800);
     return () => clearTimeout(t);
   }, [hecho, router]);
 

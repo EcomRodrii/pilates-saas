@@ -13,6 +13,7 @@ import type {
   TriggerRule,
 } from '@/lib/types';
 import { ultimaAsistidaPorSocio, huboAvisoInactividadReciente } from './senales-inactividad.ts';
+import { tieneConsentimientoMarketingVigente } from '../marketing/consentimiento.ts';
 
 // Detección de candidatos a notificar, compartida entre el botón "Ejecutar
 // ahora" del dashboard (app/api/automatizaciones/run/route.ts) y el cron de
@@ -66,6 +67,14 @@ export interface AutomationCandidato {
   // Lo lee lib/inngest/automatizaciones.ts para prefijar el `detalle` del
   // log con MARCA_INACTIVIDAD.
   marcaInactividad?: boolean;
+  // I-5 (auditoría 19-ago): marca los ENVIAR_EMAIL de re-enganche
+  // (AUSENCIA_DIAS/NUEVA_SOCIA sin aprobación humana) que son comerciales de
+  // verdad — a diferencia de PAGO_PENDIENTE_DIAS/CLASE_MANANA/RENOVACION_COBRADA,
+  // que son avisos de servicio sobre algo que ya existe (una deuda, una
+  // clase reservada, un cobro), no una invitación a comprar. `procesarCandidato`
+  // exige consentimiento vigente y añade enlace de baja SOLO cuando es true —
+  // igual criterio LSSI que ya aplica el motor de marketing.
+  comercial?: boolean;
 }
 
 export interface AutomationEngineInput {
@@ -80,10 +89,19 @@ export interface AutomationEngineInput {
   // RENOVACION_COBRADA (confirmar renovación + hito de fidelidad).
   suscripciones: Suscripcion[];
   planesTarifa: PlanTarifa[];
+  // I-5: guard de consentimiento (art. 7.4 RGPD), mismo patrón exacto que ya
+  // usa el motor de marketing (marketing-automation-engine.ts) — filas
+  // crudas, no un Map ya construido por el llamador del cron (gotcha de
+  // Inngest serializando Maps a `{}` en el replay).
+  consentimientosMarketing: Map<string, string>;
+  textoConsentimientoVigente: string;
 }
 
 export function computeAutomationCandidatos(
-  { automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa }: AutomationEngineInput,
+  {
+    automationRules, automationLogs, socios, reservas, recibos, sesiones, tiposClase, suscripciones, planesTarifa,
+    consentimientosMarketing, textoConsentimientoVigente,
+  }: AutomationEngineInput,
   now: Date
 ): AutomationCandidato[] {
   const candidatos: AutomationCandidato[] = [];
@@ -179,6 +197,9 @@ export function computeAutomationCandidatos(
         if (dias >= diasCheckin) {
           const yaCheckin = logsEpisodio.some(l => l.detalle.includes('¿Todo bien por el estudio?'));
           if (yaCheckin) return;
+          // I-5: comercial (re-enganche sin aprobación humana) — exige
+          // consentimiento vigente, mismo criterio que el motor de marketing.
+          if (!tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
           candidatos.push({
             rule, socio,
             titulo: '¿Todo bien por el estudio?',
@@ -186,6 +207,7 @@ export function computeAutomationCandidatos(
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
             marcaInactividad: true,
+            comercial: true,
           });
           return;
         }
@@ -200,6 +222,8 @@ export function computeAutomationCandidatos(
           l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO',
         );
         if (alreadyLogged) return;
+        // I-5: comercial — mismo guard que arriba.
+        if (!tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
         candidatos.push({
           rule, socio,
           titulo: 'Te echamos de menos',
@@ -207,6 +231,7 @@ export function computeAutomationCandidatos(
           proximaAccionEn: new Date(now.getTime() + 48 * 3600000).toISOString(),
           accion: 'ENVIAR_EMAIL',
           marcaInactividad: true,
+          comercial: true,
         });
       });
     }
@@ -462,12 +487,15 @@ export function computeAutomationCandidatos(
         if (!socioTieneReserva.has(socio.id) && diasDesdeAlta >= diasSinReservar) {
           const yaAvisado = logsDe(rule.id, socio.id).some(l => l.accion === 'ENVIAR_EMAIL' && l.resultado !== 'FALLIDO');
           if (yaAvisado) return;
+          // I-5: comercial — mismo guard que AUSENCIA_DIAS.
+          if (!tieneConsentimientoMarketingVigente(consentimientosMarketing.get(socio.id), textoConsentimientoVigente)) return;
           candidatos.push({
             rule, socio,
             titulo: '¿Ya has visto los horarios?',
             mensajeCliente: `${socio.nombre}, ¿ya has echado un vistazo a los horarios? Reserva tu primera clase cuando quieras desde tu área de socia — te esperamos.`,
             proximaAccionEn: null,
             accion: 'ENVIAR_EMAIL',
+            comercial: true,
           });
         }
       });

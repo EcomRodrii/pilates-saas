@@ -101,7 +101,10 @@ test.describe('Portal — Compras', () => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/compras`);
     await expect(page.getByRole('heading', { name: 'Compras' })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole('button', { name: 'Volver a Bonos' }).click();
+    // ⚠️ `link`, no `button`: la flecha pasó a ser un enlace de verdad para
+    // que navegue sin depender de la hidratación — que es lo que hacía que
+    // ESTE test fallara en la primera pasada de CI y pasara al relanzar.
+    await page.getByRole('link', { name: 'Volver a Bonos' }).click();
     await expect(page).toHaveURL(new RegExp(`/portal/${SLUG}/bonos$`), { timeout: 30_000 });
   });
 });
@@ -118,7 +121,9 @@ test.describe('El corte de /mi-plan', () => {
   test('el menú marca Bonos también estando en Compras', async ({ page }) => {
     await montarPortal(page, { conSesion: true });
     await page.goto(`/portal/${SLUG}/compras`);
-    const bonos = page.getByRole('link', { name: 'Bonos' });
+    // `exact`, porque desde que la flecha de volver es un enlace hay DOS que
+    // contienen «Bonos» en su nombre accesible: el del menú y «Volver a Bonos».
+    const bonos = page.getByRole('link', { name: 'Bonos', exact: true });
     await expect(bonos).toBeVisible({ timeout: 30_000 });
     // `aria-current` es lo que dice «estás aquí» a un lector de pantalla; el
     // prototipo marcaba Inicio, que es decirle que está donde no está.

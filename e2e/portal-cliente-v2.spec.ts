@@ -23,41 +23,60 @@ const tarjetaGrande = (page: Page) => page.locator('[data-tarjeta="principal"]')
 test.describe('Portal de la clienta — 01 Acceso', () => {
   test.beforeEach(async ({ page }) => { await montarPortal(page, { conSesion: false }); });
 
-  // La hoja de cápsulas de v2 la sustituyó la PUERTA ÚNICA (handoff «una sola
-  // puerta»): ya no hay una pantalla con email y contraseña a la vez, hay dos
-  // pasos. Lo que este test protegía —que los métodos ofrecidos son los que
-  // existen de verdad, y que hay salida para quien aún no es clienta— sigue
-  // siendo cierto y sigue comprobándose; lo que cambia es dónde vive cada cosa.
-  test('el paso 1 pide el email y deja salida a quien todavía no es clienta', async ({ page }) => {
+  // La hoja de cápsulas de v2 la sustituyó la PUERTA ÚNICA, y después los dos
+  // pasos (email → clave) los sustituyó UNA sola pantalla: el fundador entró en
+  // la app, vio dos pantallas seguidas pidiéndole entrar y dijo lo evidente —eso
+  // sigue pareciendo dos accesos—. Lo que estos tests protegen no ha cambiado en
+  // ninguna de las tres formas: que los métodos ofrecidos existen de verdad, y
+  // que hay salida para quien todavía no es clienta.
+  test('la puerta pide email y contraseña a la vez, y deja salida a quien no es clienta', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/acceso`);
 
+    // ⚠️ Los DOS campos en la MISMA pantalla. Este es el contrato del cambio:
+    // si alguien vuelve a partirlo en dos pasos, aquí salta.
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: 'Seguir' })).toBeVisible();
+    await expect(page.getByPlaceholder('Tu contraseña')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+    // Y ya no hay ningún «Seguir» que lleve a una segunda pantalla.
+    await expect(page.getByRole('button', { name: 'Seguir' })).toHaveCount(0);
 
-    // Ni Apple ni Google: no hay OAuth social en este repo, y un botón que
-    // promete entrar con Apple y no entra es una mentira en la pantalla de
-    // acceso.
-    await expect(page.getByText(/continuar con (apple|google)/i)).toHaveCount(0);
+    // ⚠️ La regla no ha cambiado —nada que prometa algo que no funciona— pero
+    // el hecho sí: el proveedor de GOOGLE está activo en el proyecto, así que
+    // ese botón entra de verdad y aquí se exige que esté.
+    await expect(page.getByRole('button', { name: /continuar con google/i })).toBeVisible();
+    // APPLE sigue fuera: exige cuenta de desarrollador de pago y no está
+    // configurado. Un botón suyo hoy seguiría siendo una mentira.
+    await expect(page.getByText(/continuar con apple/i)).toHaveCount(0);
 
     await expect(page.getByRole('link', { name: /reserva tu primera clase/i })).toHaveAttribute('href', `/reservar/${SLUG}`);
   });
 
-  // ⚠️ La regla de negocio que no se puede romper: el paso 2 NO pregunta al
-  // servidor si esta socia tiene contraseña —eso filtraría quién está dada de
-  // alta—, así que enseña las DOS continuaciones siempre.
-  test('el paso 2 ofrece contraseña Y enlace, sin preguntar cuál toca', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
+  // ⚠️ La regla de negocio que no se puede romper: la puerta NO pregunta al
+  // servidor si tal email tiene contraseña —eso filtraría quién está dada de
+  // alta—, así que las DOS salidas están a la vista desde el primer momento.
+  // Con una sola pantalla esto sale gratis: no hay ni siquiera un instante en
+  // el que se pudiera preguntar.
+  test('contraseña Y enlace conviven, sin preguntar cuál toca', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/acceso`);
 
     await expect(page.getByPlaceholder('Tu contraseña')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
     await expect(page.getByRole('button', { name: /mándame un enlace/i })).toBeVisible();
   });
 
-  // Sin email no hay paso 2: se vuelve al paso 1. Cubre a todo el que tuviera
-  // /login guardado en favoritos, que era la forma NORMAL de entrar antes.
-  test('entrar directo al paso 2 sin email devuelve al paso 1', async ({ page }) => {
+  // /login es la dirección que la gente tiene guardada y la que el estudio ha
+  // repartido. Sigue viva y enseña la misma puerta — sin email en la URL, sin
+  // rebotes y sin pedir nada raro.
+  test('la dirección de siempre (/login) enseña la misma puerta', async ({ page }) => {
     await page.goto(`/portal/${SLUG}/login`);
     await expect(page.getByPlaceholder('tu@email.com')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByPlaceholder('Tu contraseña')).toBeVisible();
+  });
+
+  // Y el email que venga en la URL se respeta: es lo que hace que volver atrás
+  // desde cualquier sitio no le borre a la socia lo que ya había escrito.
+  test('el email de la URL llega escrito', async ({ page }) => {
+    await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
+    await expect(page.getByPlaceholder('tu@email.com')).toHaveValue('quien.sea@ejemplo.com', { timeout: 30_000 });
   });
 
   // El ritmo de 66 px era el de la hoja de cápsulas de v2, que la puerta única
@@ -66,7 +85,7 @@ test.describe('Portal de la clienta — 01 Acceso', () => {
   // mitad exacta de su altura: 62 → 31. Redondear a 32 deja un plano recto de
   // 2 px en el centro del lado, y se ve.
   test('el CTA es una cápsula perfecta: radio la mitad exacta del alto', async ({ page }) => {
-    await page.goto(`/portal/${SLUG}/login?email=quien.sea%40ejemplo.com`);
+    await page.goto(`/portal/${SLUG}/acceso`);
     const boton = page.getByRole('button', { name: 'Entrar' });
     await expect(boton).toBeVisible({ timeout: 30_000 });
 

@@ -34,7 +34,7 @@ export default function SolicitudesNetworkPage() {
   // Misma razón que app/network/mi-perfil/page.tsx: fuera de (dashboard), sin
   // guard de sesión heredado.
   useEffect(() => {
-    if (!cargandoSesion && !user) router.replace('/network/unirse');
+    if (!cargandoSesion && !user) router.replace('/network/acceso');
   }, [cargandoSesion, user, router]);
 
   useEffect(() => {

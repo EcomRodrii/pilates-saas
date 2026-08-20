@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { StudioSlugGate } from '@/components/studio-slug-gate';
 import { getStudioSeo } from '@/lib/studio-seo';
+import { BASE_URL } from '@/lib/seo/paginas';
+import { EstudioStructuredData } from '@/components/seo/estudio-structured-data';
 import { getThemePublicado } from '@/lib/theme-data';
 import { metadatosPublicos } from '@/lib/theme/seo-publico';
 import { cookies } from 'next/headers';
@@ -14,26 +16,33 @@ import { urlMonograma } from '@/lib/monograma-estudio';
 // la ciudad del estudio. Sirve para lo que la socia comparte por WhatsApp y
 // para los previsualizadores de enlaces — NO para buscadores (ver abajo).
 //
-// ⚠️ Estas páginas NO se indexan, por decisión de producto (2026-08-11): la
-// prioridad de tentare.app es SEO B2B (propietarias buscando software), y abrir
-// `/reservar/<slug>` generaría miles de URLs B2C locales, una por estudio, que
-// compiten por consultas que no convierten en cliente de Tentare.
+// ⚠️ Estas páginas SÍ se indexan desde el 2026-08-17, por decisión expresa del
+// fundador. Antes no, y el motivo escrito era: prioridad de SEO B2B y no querer
+// miles de URLs B2C, una por estudio.
 //
-// Antes esto se contradecía consigo mismo: aquí se declaraba `index: true` y
-// `app/robots.ts` prohibía `/reservar`. Google no puede rastrear para leer una
-// etiqueta que le hemos prohibido ir a buscar, así que la etiqueta no hacía
-// nada y la intención real quedaba sin escribir en ningún sitio.
+// Se levantan las DOS puertas a la vez —esta y `PREFIJOS_NO_INDEXABLES` en
+// lib/seo/paginas.ts— porque levantar solo una no hace nada: Google no puede
+// leer una etiqueta de una URL que le hemos prohibido rastrear. Es la misma
+// razón por la que antes había que cerrarlas a la vez.
 //
-// Ahora las dos puertas dicen lo mismo. El `noindex` es la segunda línea: si
-// algún día se levanta el `disallow` de robots.txt —o un rastreador lo ignora—
-// la página sigue diciendo que no se indexe. Para volver a abrirlas hay que
-// tocar los DOS sitios a la vez, que es exactamente lo que se quiere.
+// ⚠️ **Indexar sin `canonical` habría sido peor que no indexar.** Esta página
+// vive con parámetros: `?tab=` (5 valores), `?embed=1`, `?fondo=`, `?texto=`,
+// `?ref=` del widget, `?solo-pestana=1`… Cada combinación es una URL distinta
+// con el MISMO contenido, así que sin canonical un solo estudio genera decenas
+// de duplicados que compiten entre sí y reparten la autoridad. El canonical
+// apunta siempre a la URL limpia.
+//
+// Sigue sin indexarse lo que no debe: una página OCULTA (la propietaria aún la
+// está preparando) y un slug que no existe.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const studio = await getStudioSeo(slug);
   if (!studio) {
     return { title: 'Reservar clase de Pilates', robots: { index: false, follow: false } };
   }
+  // La URL limpia de esta página, sin un solo parámetro. Es lo que se declara
+  // como canónica y lo que se ofrece al sitemap.
+  const canonica = `${BASE_URL}/reservar/${slug}`;
   // Favicon del estudio (white-label) y su texto para compartir/buscadores,
   // si los tiene configurados en su tema.
   const theme = await getThemePublicado(studio.id);
@@ -51,10 +60,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: descripcion,
     openGraph: { title: titulo, description: descripcion, type: 'website', locale: 'es_ES', ...imagenes },
     twitter: { card: tarjeta, title: titulo, description: descripcion, ...imagenes },
-    // Nunca indexable, esté la página oculta o no (ver cabecera). `follow: false`
-    // porque los únicos enlaces que salen de aquí van al portal de la socia, que
-    // también está fuera del índice.
-    robots: { index: false, follow: false },
+    // Indexable salvo que el estudio la tenga OCULTA mientras la prepara: eso
+    // no es contenido publicado, y además el layout la sustituye por la pantalla
+    // de acceso, así que lo que se indexaría sería el cartel, no el estudio.
+    robots: studio.paginaOculta
+      ? { index: false, follow: false }
+      : { index: true, follow: true },
+    // Sin esto, `?tab=citas`, `?embed=1`, `?ref=abc`… serían páginas distintas
+    // con el mismo contenido. Ver la cabecera.
+    alternates: { canonical: canonica },
     // Sin favicon propio entra el monograma (inicial + color de marca): antes
     // caía al favicon RAÍZ, que es el de Tentare — la pestaña del navegador de
     // esta página enseñaba la marca de otro negocio.
@@ -91,6 +105,28 @@ export default async function ReservarSlugLayout({ children, params }: { childre
   const studio = await getStudioSeo(slug);
   return (
     <StudioSlugGate slug={slug} initialStudioId={studio?.id ?? null} initialResuelto>
+      {/* Negocio local, para que Google sepa que detrás de esta página de
+          reservas hay un estudio con nombre, dirección y teléfono — lo que
+          decide si aparece en el paquete local de «pilates cerca de mí».
+          Solo si la página es indexable: describir como negocio abierto una
+          página que la propietaria tiene OCULTA sería anunciar lo que ella ha
+          decidido no publicar todavía. */}
+      {studio && !studio.paginaOculta && (
+        <EstudioStructuredData
+          estudio={{
+            nombre: studio.nombre,
+            url: `${BASE_URL}/reservar/${slug}`,
+            direccion: studio.direccion,
+            ciudad: studio.ciudad,
+            codigoPostal: studio.codigoPostal,
+            telefono: studio.telefono,
+            email: studio.email,
+            descripcion: studio.descripcion,
+            // La foto del local; el logo no sirve como `image` de un negocio.
+            imagenUrl: studio.fotoUrl,
+          }}
+        />
+      )}
       <ThemeStyle slug={slug} />
       <ThemePreviewListener />
       {children}

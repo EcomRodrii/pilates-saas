@@ -246,6 +246,13 @@ export const PLANS = [
 ];
 
 export const FAQ_ITEMS: { q: string; a: string }[] = [
+  // La primera desde que Tentare está abierto al público: es lo que todo el
+  // mundo pregunta antes que nada, y la respuesta («no, no pedimos tarjeta»)
+  // es justo la que quita el freno para probarlo.
+  {
+    q: '¿La prueba pide tarjeta?',
+    a: 'No. Son 7 días gratis con todo abierto y no te pedimos ningún dato de pago para empezar: creas tu estudio y entras. Cuando termina la prueba no se te cobra nada — si no eliges plan, simplemente se pausa y tus datos siguen ahí intactos.',
+  },
   {
     q: '¿Sustituye a mi software actual o convive con él?',
     a: 'Lo sustituye del todo: reservas, cobros, calendario, alumnas e instructoras están dentro. Y la migración te la hacemos nosotros en 48h: nos mandas lo que puedas exportar (da igual el formato) y te entregamos el estudio montado, con un acta para comprobar que todo cuadra. Tu software actual sigue funcionando mientras tanto.',

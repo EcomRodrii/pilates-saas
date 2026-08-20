@@ -9,6 +9,12 @@
 .tab-bar {
   flex: none;
   display: flex;
+  /* Es armazón, no contenido: va por encima de lo que rueda por debajo. Antes
+     no tenía ninguno, y el único motivo de que no la tapara nada era que nada
+     se superponía TODAVÍA. Un botón que deja de responder porque algo
+     transparente lo cubre es el bug más caro de diagnosticar del kit. */
+  position: relative;
+  z-index: var(--z-armazon);
   padding: 14px 16px calc(30px + env(safe-area-inset-bottom));
   background: var(--tab-bar-bg);
   border-top: var(--tab-bar-border);
@@ -34,13 +40,23 @@
 }
 .tab.is-active .tab__label { font-weight: 600; }
 
+/* ⚠️ La cápsula flotante estaba escrita a mano: fondo, radio, borde y la
+ * pastilla activa iban con valores fijos, así que un tema no podía cambiarla
+ * aunque declarara `--tab-bar-bg` y `--tab-bar-border` — solo los leía la
+ * barra pegada. Bloom era el único que flotaba y sus valores COINCIDÍAN con
+ * los fijos (`--tab-bar-bg: var(--surface)`, borde `none`), así que nadie lo
+ * notó hasta que Sereno pidió una cápsula con cristal esmerilado y pastilla
+ * arena. Ahora lee los mismos tokens que la otra barra, con los valores de
+ * antes por defecto: Bloom no se mueve. */
 .tab-bar--floating {
   margin: 12px 22px calc(26px + env(safe-area-inset-bottom));
   height: 66px;
   padding: 0 9px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 0;
+  border-radius: var(--tab-bar-radius, 999px);
+  background: var(--tab-bar-bg, var(--surface));
+  border: var(--tab-bar-border, 0);
+  backdrop-filter: var(--tab-bar-blur, none);
+  -webkit-backdrop-filter: var(--tab-bar-blur, none);
   box-shadow: var(--shadow-float);
   align-items: center;
   justify-content: space-around;
@@ -52,14 +68,37 @@
   gap: 8px;
   height: 48px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: var(--tab-pill-radius, 999px);
 }
 .tab-bar--floating .tab.is-active {
   padding: 0 20px;
-  background: var(--brand);
-  color: var(--on-brand);
+  /* La marca sigue siendo el valor por defecto (Bloom). Sereno la pide arena
+   * con la tinta encima: su marca ES la tinta, y una pastilla de marca dejaría
+   * un rectángulo negro flotando sobre la porcelana. */
+  background: var(--tab-pill-bg, var(--brand));
+  color: var(--tab-pill-ink, var(--on-brand));
 }
 .tab-bar--floating .tab__label { font-size: 13.5px; }
+
+/* Cápsula con las CUATRO etiquetas (Sereno). En fila no caben —la cuarta se
+ * sale de la barra, medido en el navegador—, así que icono y texto se apilan y
+ * cada pestaña reparte el ancho a partes iguales, igual que en el prototipo. */
+.tab-bar--etiquetas { padding: 0 6px; gap: 2px; }
+.tab-bar--etiquetas .tab {
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  /* ⚠️ Faltaba, y se veía: sin `justify-content` la columna se pega al techo de
+   * la pastilla. Medido en el navegador: 0 px de hueco arriba y 13 abajo, o sea
+   * el icono y su texto descentrados dentro de su propia caja. `align-items`
+   * solo centra en el eje CRUZADO (horizontal aquí); el vertical es este. */
+  justify-content: center;
+  gap: 3px;
+  height: 52px;
+  padding: 0 4px;
+}
+.tab-bar--etiquetas .tab.is-active { padding: 0 4px; }
+.tab-bar--etiquetas .tab__label { font-size: 10px; }
 
 /* ── Barra superior de pantallas de detalle ──────────────────────────────── */
 .topbar {
@@ -154,3 +193,12 @@
 .week--boxed .day.is-active { background: var(--brand); }
 .week--boxed .day.is-active .day__label { color: var(--on-brand); opacity: .8; }
 .week--boxed .day.is-active .day__num { color: var(--on-brand); font-weight: 700; }
+
+/* Las cajas de Sereno: tarjeta con borde y el punto del día visible. Tentada
+ * ya usaba `--boxed` sin borde ni punto, así que los tres van por token con su
+ * valor de antes por defecto y su pantalla no se mueve. */
+.week--boxed .day {
+  background: var(--day-box-bg, transparent);
+  border: var(--day-box-border, 0);
+}
+.week--boxed .day__dot { display: var(--day-box-dot, none); margin-top: 3px; }

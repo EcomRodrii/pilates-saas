@@ -2,6 +2,7 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { mapLimit } from '@/lib/concurrency';
 import { supabase } from '@/lib/db/supabase';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
+import type { Plan } from '@/lib/billing/entitlements';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
@@ -371,7 +372,10 @@ export type FilaReciboPanel = Omit<RowRecibos,
   | 'entrega_tipo' | 'entrega_aplicada' | 'entrega_aplicada_en'
   | 'entrega_sesiones_antes'
   | 'entrega_fecha_fin_antes' | 'entrega_fecha_fin_despues'
-  | 'entrega_estado_antes' | 'importe_devuelto'>;
+  | 'entrega_estado_antes' | 'importe_devuelto'
+  // Solo la usa /api/stripe/checkout en servidor, para reutilizar la sesión ya
+  // abierta de un recibo (20260817214500). El panel no la pinta ni la decide.
+  | 'checkout_session_id'>;
 
 export function mapSocio(r: FilaSocioPanel): Socio {
   // ⚠️ `versionTexto` llega VACÍO desde el arranque del panel, y es a propósito.
@@ -680,6 +684,7 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     validezDias: r.validez_dias ?? null,
     limiteSemanal: r.limite_semanal ?? null,
     activo: r.activo,
+    ofertaHasta: r.oferta_hasta ?? null,
   } as PlanTarifa;
 }
 
@@ -813,6 +818,7 @@ export function mapTipoClase(r: RowTiposClase): TipoClase {
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? null,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? null,
     penalizacionImporteEur: r.penalizacion_importe_eur ?? null,
+    especialidadNetwork: (r.especialidad_network as TipoClase['especialidadNetwork']) ?? null,
   } as TipoClase;
 }
 
@@ -990,14 +996,19 @@ export function mapVentaPOS(r: RowVentasPos): VentaPOS {
   } as VentaPOS;
 }
 
-export function mapIntegracion(r: RowIntegraciones): Integracion {
+// `Omit<..., 'config'>` a propósito: la consulta del panel ya no pide `config`,
+// y declararlo así hace que el compilador cace cualquier intento de volver a
+// leer las credenciales desde aquí.
+export function mapIntegracion(r: Omit<RowIntegraciones, 'config'>): Integracion {
   return {
     id: r.id,
     studioId: r.studio_id,
     tipo: r.tipo,
     activo: r.activo,
-    config: r.config ?? {},
     actualizadoEn: r.actualizado_en,
+    ultimoOkEn: r.ultimo_ok_en ?? null,
+    ultimoError: r.ultimo_error ?? null,
+    ultimoErrorEn: r.ultimo_error_en ?? null,
   } as Integracion;
 }
 
@@ -1305,6 +1316,7 @@ function planTarifaToDb(plan: PlanTarifa) {
     validez_dias: plan.validezDias ?? null,
     limite_semanal: plan.limiteSemanal ?? null,
     activo: plan.activo,
+    oferta_hasta: plan.ofertaHasta ?? null,
   };
 }
 
@@ -2841,6 +2853,27 @@ export async function dbConsumirSesionBono(
   return { ok: true, saldo: data as number };
 }
 
+// I-10 · espejo exacto del anterior para DEVOLVER. El consumo ya era atómico y
+// la devolución no: se leía el saldo del snapshot local, se calculaba
+// `min(tope, restantes+1)` en JS y se escribía el resultado, así que dos
+// cancelaciones concurrentes escribían el mismo número y una devolución se
+// perdía sin error. La RPC hace el incremento con el tope dentro del WHERE.
+//
+// `saldo: null` NO es un fallo: significa que no había hueco (el bono ya estaba
+// al total del plan), que es un desenlace legítimo y distinto de un error.
+export async function dbDevolverSesionBono(
+  suscripcionId: string, studioId: string,
+): Promise<{ ok: true; saldo: number | null } | { error: string }> {
+  const { data, error } = await supabase.rpc('devolver_sesion_bono', {
+    p_suscripcion_id: suscripcionId, p_studio_id: studioId,
+  });
+  if (error) {
+    reportDbError('[dbDevolverSesionBono]', error);
+    return { error: error.message };
+  }
+  return { ok: true, saldo: (data as number | null) ?? null };
+}
+
 // F1 (B1-B4): agregación de ingresos SERVER-SIDE (migr 0096). Sustituye al sum()
 // sobre el array de recibos del cliente (capado a 1000 → mentía a escala). Un sum()
 // en SQL agrega todas las filas; la RLS acota por estudio. `desde` = 'YYYY-MM-DD' o
@@ -3404,14 +3437,30 @@ export async function dbDeletePostComunidad(id: string) {
   if (error) reportDbError('[dbDeletePostComunidad]', error);
 }
 
-export async function dbUpsertIntegracion(intg: Integracion) {
+export async function dbUpsertIntegracion(
+  intg: Integracion,
+  // Aparte del registro porque `Integracion` ya no las lleva (ver lib/types.ts):
+  // las credenciales solo existen en el cliente mientras el modal está abierto.
+  config: Record<string, string>,
+  reiniciarSalud = false,
+) {
   const row = {
     id: intg.id,
     studio_id: intg.studioId ?? STUDIO_ID,
     tipo: intg.tipo,
     activo: intg.activo,
-    config: intg.config ?? {},
+    config: config ?? {},
     actualizado_en: intg.actualizadoEn,
+    // Las columnas de salud NO se listan salvo que haya que reiniciarlas: en un
+    // upsert, lo que no se nombra no se toca, y así una tanda del cron que haya
+    // escrito la salud entre que se cargó la pantalla y se pulsó Guardar no se
+    // pisa con el valor viejo que tuviera el navegador.
+    //
+    // Sí se reinician cuando cambian las credenciales: un token nuevo no ha
+    // fallado todavía, y dejar el error del anterior pintaría en rojo algo
+    // recién arreglado. Vuelve a SIN_PROBAR, que es la verdad hasta que alguien
+    // hable con el servicio.
+    ...(reiniciarSalud ? { ultimo_ok_en: null, ultimo_error: null, ultimo_error_en: null } : {}),
   };
   const { error } = await supabase.from('integraciones').upsert(row, { onConflict: 'studio_id,tipo' });
   if (error) reportDbError('[dbUpsertIntegracion]', error);
@@ -3480,6 +3529,7 @@ export async function dbInsertTipoClase(t: TipoClase): Promise<ResultadoEscritur
     lista_espera_plazo_aceptacion_minutos: t.listaEsperaPlazoAceptacionMinutos ?? null,
     minimo_asistentes_por_clase: t.minimoAsistentesPorClase ?? null,
     penalizacion_importe_eur: t.penalizacionImporteEur ?? null,
+    especialidad_network: t.especialidadNetwork ?? null,
   };
   const { error } = await supabase.from('tipos_clase').insert(row);
   return error ? falloEscritura('[dbInsertTipoClase]', error) : ESCRITURA_OK;
@@ -3503,6 +3553,7 @@ export async function dbUpdateTipoClase(id: string, changes: Partial<TipoClase>)
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
   if ('penalizacionImporteEur' in changes) db.penalizacion_importe_eur = changes.penalizacionImporteEur;
+  if ('especialidadNetwork' in changes) db.especialidad_network = changes.especialidadNetwork;
   const { error } = await supabase.from('tipos_clase').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateTipoClase]', error) : ESCRITURA_OK;
 }
@@ -3704,7 +3755,7 @@ export async function dbReclamarAccesoEquipo(token: string): Promise<number> {
       body: JSON.stringify({ token }),
     });
     const cuerpo = await res.json().catch(() => null) as { vinculadas?: number } | null;
-    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', cuerpo ?? { status: res.status }); return 0; }
+    if (!res.ok) { reportDbError('[dbReclamarAccesoEquipo]', { ...cuerpo, status: res.status }); return 0; }
     return cuerpo?.vinculadas ?? 0;
   } catch (e) {
     reportDbError('[dbReclamarAccesoEquipo]', e);
@@ -3833,7 +3884,15 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
   const base = slugify(nombre);
   let candidate = base;
   let n = 2;
-  while (true) {
+  // ⚠️ Bucle ACOTADO. Era `while (true)` y su única salida era que la RPC
+  // devolviera exactamente `true`: si fallaba —red caída, RLS, la función aún
+  // sin desplegar— no salía nunca. Y el precio no era un error, era peor: el
+  // alta se quedaba colgada para siempre, sin mensaje, girando peticiones. Lo
+  // destapó un e2e cuyo mock devolvía `[]` a todo.
+  // 60 intentos es de sobra para un choque real de nombres (haría falta que 60
+  // estudios se llamaran igual); pasar de ahí solo puede significar que la RPC
+  // no está contestando lo que se espera.
+  for (let intentos = 0; intentos < 60; intentos++) {
     // Un estudio llamado "Admin", "Reservar" o "Login" generaba ese slug tal
     // cual: nadie lo comprobaba contra las rutas propias de la app en el alta
     // (solo el renombrado posterior, en /api/estudio/direccion, llamaba a
@@ -3843,11 +3902,20 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
     // P-2: vía RPC SECURITY DEFINER. Leer `studios` directamente exigía una
     // política que dejaba ver TODAS las filas (y con ellas nif, stripe_account_id
     // y kiosk_token de cualquier estudio). Esto devuelve solo un booleano.
-    const { data } = reservado ? { data: false } : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    const { data, error } = reservado
+      ? { data: false, error: null }
+      : await supabase.rpc('slug_estudio_disponible', { p_slug: candidate });
+    // Un error de la RPC no es "ese slug está pillado": es que no sabemos si lo
+    // está. Reintentar con otro sufijo no arregla nada y disfraza el fallo.
+    if (error) break;
     if (data === true) return candidate;
     candidate = `${base}-${n}`;
     n++;
   }
+  // Sin respuesta fiable, se devuelve un candidato con sufijo aleatorio en vez
+  // de colgarse. El INSERT lleva su propio reintento por choque de slug
+  // (`23505`), así que si aun así colisiona, se resuelve allí.
+  return `${base}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 // Crea un negocio nuevo (multi-tenancy: alta real desde /crear-estudio) y lo
@@ -3855,7 +3923,20 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
-export async function dbCreateStudio(fields: { nombre: string; ciudad: string; telefono: string; ownerAuthUserId: string; comoNosConocio?: string; tipoCuenta?: 'ESTUDIO' | 'FREELANCE' }): Promise<{ id: string; slug: string } | null> {
+export async function dbCreateStudio(fields: {
+  nombre: string;
+  // Opcionales desde la apertura al público: la BD solo exige `nombre`, y el
+  // alta dejó de pedir el teléfono (no hace falta para empezar; se rellena en
+  // Configuración cuando toque). Se mantienen en la firma porque el alta de
+  // freelance y el camino de `pending_studio` antiguo siguen mandándolos.
+  ciudad?: string;
+  telefono?: string;
+  ownerAuthUserId: string;
+  comoNosConocio?: string;
+  tipoCuenta?: 'ESTUDIO' | 'FREELANCE';
+  /** Plan elegido en el alta. Es el que se disfruta durante la prueba. */
+  plan?: Plan;
+}): Promise<{ id: string; slug: string } | null> {
   // Carreras que se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
   //    después; DOS PROPIETARIAS DISTINTAS con el mismo nombre de estudio pueden
@@ -3886,9 +3967,18 @@ export async function dbCreateStudio(fields: { nombre: string; ciudad: string; t
     const { error } = await supabase.from('studios').insert({
       id,
       nombre: fields.nombre,
-      ciudad: fields.ciudad,
-      telefono: fields.telefono,
-      plan: 'BASE',
+      ciudad: fields.ciudad ?? null,
+      telefono: fields.telefono ?? null,
+      // El plan que eligió en el alta: durante la prueba se disfruta ESE, no
+      // siempre BASE. Los valores posibles los acota un CHECK en la BD
+      // (`studios_plan_valido`), porque este INSERT lo hace el cliente.
+      //
+      // ⚠️ NO se manda `trial_ends_at` ni `subscription_status`: los fija el
+      // trigger `trg_arrancar_prueba_gratuita` en la propia base. Mandarlos
+      // desde aquí no serviría de nada (el trigger los pisa) y sugeriría que
+      // el cliente puede decidir cuánto dura su prueba, que es justo lo que
+      // ese trigger existe para impedir.
+      plan: fields.plan ?? 'BASE',
       owner_auth_user_id: fields.ownerAuthUserId,
       slug,
       como_nos_conocio: fields.comoNosConocio || null,
@@ -3965,9 +4055,21 @@ export interface SedeSeleccionable {
 // — nunca una policy de fila sobre `studios`, que expone columnas sensibles
 // (nif, stripe_customer_id, kiosk_token...) a cualquiera con acceso de fila.
 export async function fetchMisEstudios(): Promise<SedeSeleccionable[]> {
-  const { data, error } = await supabase.rpc('mis_estudios');
-  if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
-  return (data as SedeSeleccionable[]) ?? [];
+  // ⚠️ Sin try/catch, un fallo de RED (no un error de Postgres/PostgREST)
+  // hace que `await` LANCE en vez de resolver con `{ error }` — el `if
+  // (error)` de abajo nunca se alcanza, y la excepción sale sin capturar
+  // hasta el `.then()` de cada llamador (ninguno tiene `.catch()`), que
+  // Sentry ve como rejection global: "TypeError: Load failed" en Safari
+  // (JAVASCRIPT-NEXTJS-R/-18), ruido de red ya filtrado en todo lo demás por
+  // `reportDbError`/`esErrorDeRedCliente`, colándose aquí por esta vía.
+  try {
+    const { data, error } = await supabase.rpc('mis_estudios');
+    if (error) { reportDbError('[fetchMisEstudios]', error); return []; }
+    return (data as SedeSeleccionable[]) ?? [];
+  } catch (e) {
+    reportDbError('[fetchMisEstudios]', e);
+    return [];
+  }
 }
 
 // Cambia la sede activa de la sesión actual (selector "cambiar de sede").
@@ -4066,6 +4168,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
     currentPeriodEnd: r.current_period_end ?? null,
+    trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     cancelacionDevolverBonoTardia: r.cancelacion_devolver_bono_tardia ?? false,
     reservaExigirPlan: r.reserva_exigir_plan ?? true,
@@ -4302,7 +4405,13 @@ export async function fetchCriticalStudioData(studioId?: string) {
     db.from('notas_internas').select('*').eq('studio_id', sid),
     db.from('condiciones_salud').select('*').eq('studio_id', sid),
     db.from('respuestas_sesion').select('*').eq('studio_id', sid),
-    db.from('integraciones').select('*').eq('studio_id', sid),
+    // Columnas explícitas y SIN `config`: el arranque del panel no necesita el
+    // token de WhatsApp ni la clave de Kisi, y mandarlos en cada carga los deja
+    // en la memoria del navegador todo el día para nada. Se piden al abrir el
+    // modal (GET /api/integrations/config).
+    db.from('integraciones')
+      .select('id, studio_id, tipo, activo, actualizado_en, ultimo_ok_en, ultimo_error, ultimo_error_en')
+      .eq('studio_id', sid),
     // El chat de equipo ya NO se consume desde aquí (se carga bajo demanda en su
     // propia página vía dbListMensajesEquipo). Se mantiene la posición del array
     // para no romper el desestructurado posicional de abajo, pero acotado para

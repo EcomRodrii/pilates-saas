@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, BadgeCheck, Star, MapPin, GraduationCap } from 'lucide-react';
@@ -11,9 +12,10 @@ import { BotonContactar, BotonReportar } from '@/components/network-publico/boto
 import { rangoAnios } from '@/lib/network/formato';
 import {
   ESPECIALIDAD_LABEL, HORARIO_LABEL, TIPO_TRABAJO_LABEL, TARIFA_RANGO_LABEL, DISPONIBILIDAD_ESTADO_LABEL,
+  tituloProfesionalDe,
 } from '@/lib/network/catalogo';
 import { LEGAL } from '@/lib/legal-info';
-import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA } from '@/components/network-v2/tokens';
+import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, NW_PRODUCTO, NW_ESTRELLA, NW_ESTADO } from '@/components/network-v2/tokens';
 
 // Perfil público indexable (1c del rediseño) — Server Component puro, sin
 // 'use client': generateMetadata solo funciona así. Misma capa de datos que
@@ -32,13 +34,19 @@ import { NW_FONDO, NW_TINTA, NW_MUTED, NW_MUTED_2, NW_SAGE, NW_SAND, NW_BORDE, N
 // calendario por día — fabricar esa vista sería inventar un dato que no
 // existe.
 
-async function cargar(slug: string) {
+// cache(): generateMetadata() y PerfilInstructoraPage() llaman los dos a
+// cargar() para el mismo slug — sin memoizar por request, Next ejecuta las
+// ~6-7 queries de obtenerPerfilPublicoPorSlug DOS VECES por carga de página
+// (auditoría de performance, 2026-08-18). A diferencia de fetch(), las
+// llamadas de supabase-js no se dedupean solas; React.cache() sí lo hace
+// dentro del mismo render.
+const cargar = cache(async (slug: string) => {
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const detalle = await obtenerPerfilPublicoPorSlug(admin, slug);
   if (!detalle || 'error' in detalle) return null;
   return detalle;
-}
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -47,9 +55,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const { perfil } = detalle;
   const ciudad = perfil.ciudad ? ` en ${perfil.ciudad}` : '';
-  const title = `${perfil.nombre} — Instructora de Pilates${ciudad} | Tentare Network`;
+  const profesion = tituloProfesionalDe(perfil.especialidades);
+  const title = `${perfil.nombre} — ${profesion}${ciudad} | Tentare Network`;
   const description = perfil.descripcion?.slice(0, 155)
-    ?? `Instructora de Pilates${ciudad}. ${perfil.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(', ')}.`;
+    ?? `${profesion}${ciudad}. ${perfil.especialidades.map(e => ESPECIALIDAD_LABEL[e]).join(', ')}.`;
   const url = `${LEGAL.url}/network/instructoras/${slug}`;
 
   return {
@@ -60,19 +69,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-function FilaStat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
+// `destacado`: tarifa y estado de disponibilidad son los dos datos que de
+// verdad deciden un "me interesa" rápido — antes pesaban exactamente igual
+// que "nº de estudios" o "disponible para", cuatro stats idénticos en fila
+// sin ninguna jerarquía entre ellos (auditoría UX, 2026-08-18). El resto se
+// queda con el peso discreto de siempre.
+function FilaStat({ valor, etiqueta, destacado = false }: { valor: string; etiqueta: string; destacado?: boolean }) {
   return (
     <div>
-      <p className="text-[20px] font-extrabold" style={{ color: NW_TINTA }}>{valor}</p>
+      <p className={destacado ? 'text-[22px] font-extrabold' : 'text-[18px] font-bold'} style={{ color: destacado ? NW_PRODUCTO : NW_TINTA }}>{valor}</p>
       <p className="text-[12.5px]" style={{ color: NW_MUTED_2 }}>{etiqueta}</p>
     </div>
   );
 }
 
-function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+// `compacta`: "Formación" es la única sección que no ayuda a decidir rápido
+// (certificaciones ya verificadas, información de refuerzo, no de
+// diagnóstico) — antes tenía el mismo H2 de 22px que "Sobre mí"/"Experiencia"/
+// "Opiniones", pesando igual que datos con más peso real para la decisión.
+function Seccion({ titulo, children, compacta = false }: { titulo: string; children: React.ReactNode; compacta?: boolean }) {
   return (
     <section>
-      <h2 className="text-[22px] font-extrabold" style={{ color: NW_TINTA }}>{titulo}</h2>
+      <h2 className={compacta ? 'text-[15px] font-bold uppercase tracking-wide' : 'text-[22px] font-extrabold'} style={{ color: compacta ? NW_MUTED_2 : NW_TINTA }}>{titulo}</h2>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -85,23 +103,37 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
   const { perfil, experiencias, certificaciones, badges, resenas } = detalle;
 
+  const url = `${LEGAL.url}/network/instructoras/${slug}`;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
     name: perfil.nombre,
-    jobTitle: 'Instructora de Pilates',
+    jobTitle: tituloProfesionalDe(perfil.especialidades),
     ...(perfil.ciudad ? { address: { '@type': 'PostalAddress', addressLocality: perfil.ciudad } } : {}),
     ...(perfil.fotoUrl ? { image: perfil.fotoUrl } : {}),
     ...(perfil.descripcion ? { description: perfil.descripcion } : {}),
-    url: `${LEGAL.url}/network/instructoras/${slug}`,
+    url,
+    isPartOf: { '@type': 'WebSite', name: LEGAL.marca, url: LEGAL.url },
     ...(perfil.resumenResenas.total > 0 ? {
       aggregateRating: { '@type': 'AggregateRating', ratingValue: perfil.resumenResenas.promedio, reviewCount: perfil.resumenResenas.total },
     } : {}),
   };
 
+  // Mismo patrón de 3 niveles que FeatureStructuredData.tsx.
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: LEGAL.url },
+      { '@type': 'ListItem', position: 2, name: 'Instructoras', item: `${LEGAL.url}/network/instructoras` },
+      { '@type': 'ListItem', position: 3, name: perfil.nombre, item: url },
+    ],
+  };
+
   return (
     <div style={{ background: NW_FONDO, color: NW_TINTA }}>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
       <NavPublico />
 
       <div className="max-w-[1240px] mx-auto px-6 pt-8 pb-24">
@@ -111,18 +143,19 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
         <div className="grid lg:grid-cols-[420px_1fr] gap-10">
           <div>
-            <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} />
+            <FotoInstructora fotoUrl={perfil.fotoUrl} nombre={perfil.nombre} aspectRatio="4 / 4.8" radius={26} eager />
           </div>
 
           <div>
             {badges.experienciaVerificada && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: '#EAF0E7', color: '#2E5A3A' }}>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-bold mb-3" style={{ background: NW_ESTADO.verificada.fondo, color: NW_ESTADO.verificada.color }}>
                 <BadgeCheck size={13} /> Perfil verificado
               </span>
             )}
             <h1 className="text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight">{perfil.nombre}</h1>
             <p className="mt-2 text-[16px] font-bold" style={{ color: NW_PRODUCTO }}>
-              Instructora de Pilates{perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
+              {tituloProfesionalDe(perfil.especialidades)}
+              {perfil.especialidades.length > 0 ? ` · ${perfil.especialidades.slice(0, 2).map(e => ESPECIALIDAD_LABEL[e]).join(' & ')}` : ''}
             </p>
             <div className="mt-3 flex items-center gap-4 flex-wrap text-[13.5px]" style={{ color: NW_MUTED }}>
               {perfil.resumenResenas.total > 0 && (
@@ -138,9 +171,15 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
 
             <div className="mt-6 pt-6 grid grid-cols-2 sm:grid-cols-4 gap-4" style={{ borderTop: `1px solid ${NW_BORDE}` }}>
               {perfil.aniosExperiencia != null && <FilaStat valor={`${perfil.aniosExperiencia}`} etiqueta="años de experiencia" />}
+              {experiencias.length > 0 && (
+                <FilaStat
+                  valor={`${new Set(experiencias.map(e => e.studioId ?? e.nombreEstudio)).size}`}
+                  etiqueta="estudios"
+                />
+              )}
               <FilaStat valor={perfil.tipoTrabajo.length > 0 ? perfil.tipoTrabajo.map(t => TIPO_TRABAJO_LABEL[t]).slice(0, 2).join(' · ') : '—'} etiqueta="disponible para" />
-              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" />
-              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" />
+              <FilaStat valor={perfil.tarifaRango ? TARIFA_RANGO_LABEL[perfil.tarifaRango] : 'A consultar'} etiqueta="tarifa orientativa" destacado />
+              <FilaStat valor={DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]} etiqueta="estado" destacado />
             </div>
           </div>
         </div>
@@ -162,6 +201,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
                     </span>
                   ))}
                 </div>
+              </Seccion>
+            )}
+
+            {/* Dato ya existía en BD y en el filtro de búsqueda, pero nunca
+                se pintaba en el perfil (auditoría UX, 2026-08-18). En el
+                bloque de body (visible en mobile), no solo en el aside, que
+                está oculto ahí. */}
+            {perfil.idiomas.length > 0 && (
+              <Seccion titulo="Idiomas" compacta>
+                <p className="text-[14px]" style={{ color: NW_TINTA }}>{perfil.idiomas.join(', ')}</p>
               </Seccion>
             )}
 
@@ -191,7 +240,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
             )}
 
             {certificaciones.length > 0 && (
-              <Seccion titulo="Formación">
+              <Seccion titulo="Formación" compacta>
                 <div className="space-y-3">
                   {certificaciones.map((c, i) => (
                     <div key={`${c.nombre}-${i}`} className="flex items-start gap-3">
@@ -206,18 +255,19 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
               </Seccion>
             )}
 
-            {(perfil.disponibilidadHorarios.length > 0 || perfil.tipoTrabajo.length > 0) && (
-              <Seccion titulo="Disponibilidad">
-                <p className="text-[14px] font-semibold" style={{ color: NW_TINTA }}>{DISPONIBILIDAD_ESTADO_LABEL[perfil.disponibilidadEstado]}</p>
-                {perfil.disponibilidadHorarios.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2.5">
-                    {perfil.disponibilidadHorarios.map(h => (
-                      <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
-                        {HORARIO_LABEL[h]}
-                      </span>
-                    ))}
-                  </div>
-                )}
+            {/* El estado de disponibilidad y "disponible para" ya viven en
+                la fila de stats de cabecera — esta sección solo aporta dato
+                nuevo cuando hay franjas horarias (auditoría UX, 2026-08-18:
+                antes repetía el mismo estado dos veces en la misma pantalla). */}
+            {perfil.disponibilidadHorarios.length > 0 && (
+              <Seccion titulo="Horarios">
+                <div className="flex flex-wrap gap-2">
+                  {perfil.disponibilidadHorarios.map(h => (
+                    <span key={h} className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold" style={{ background: '#fff', border: `1px solid ${NW_BORDE}`, color: NW_TINTA }}>
+                      {HORARIO_LABEL[h]}
+                    </span>
+                  ))}
+                </div>
               </Seccion>
             )}
 
@@ -272,7 +322,7 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
       {/* CTA sticky inferior en móvil (1e frame 2). */}
       <div
         className="lg:hidden fixed bottom-0 inset-x-0 p-4 pt-8"
-        style={{ background: 'linear-gradient(to top, #FAF9F5 55%, transparent)' }}
+        style={{ background: `linear-gradient(to top, ${NW_FONDO} 55%, transparent)` }}
       >
         <div className="bg-white rounded-2xl p-3 flex items-center justify-between gap-3" style={{ border: `1px solid ${NW_BORDE}`, boxShadow: '0 -8px 24px rgba(34,42,51,.1)' }}>
           <div className="min-w-0">
@@ -285,7 +335,16 @@ export default async function PerfilInstructoraPage({ params }: { params: Promis
         </div>
       </div>
 
-      <PieNetwork />
+      {/* pb-36 (144px, > los ~134px medidos del CTA sticky de arriba):
+          `pb-24` del contenedor de arriba solo reserva hueco DENTRO de esa
+          columna, PieNetwork es un hermano fuera de ella — sin este
+          padding, el CTA fijo tapaba el pie entero en móvil (auditoría
+          mobile-first, 2026-08-18: "Privacidad" y "Parte del ecosistema
+          Tentare" quedaban inalcanzables incluso haciendo scroll hasta el
+          final). Solo en móvil (lg:pb-0): el CTA es lg:hidden. */}
+      <div className="pb-36 lg:pb-0">
+        <PieNetwork />
+      </div>
     </div>
   );
 }

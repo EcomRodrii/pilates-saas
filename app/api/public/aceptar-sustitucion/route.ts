@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenInstructora } from '@/lib/sustituciones/token';
+import { sesionYaEmpezada, MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { avisarAlumnas } from '@/lib/sustituciones/avisos';
 import { escalacionVigente, contactarDesde, alertarPropietaria, modoAutonomiaEfectivo } from '@/lib/sustituciones/contacto';
 import { inngest, EVENTS } from '@/lib/inngest/client';
@@ -24,6 +25,24 @@ export async function POST(req: NextRequest) {
   const sustitucionId = claim.ref;
 
   if (body?.accion === 'aceptar') {
+    // La RPC `confirmar_sustitucion` NO comprueba si la clase ya empezó (solo
+    // revalida el solape de horario), y el token del email dura 3 h — justo la
+    // ventana de una baja de última hora. Sin este guardia, aceptar a las 20:10
+    // una clase de las 20:00 reasignaba `sesiones.instructor_id` de una clase ya
+    // dada, la marcaba confirmada y disparaba `avisarAlumnas(..., 'cubierta')`
+    // ("tu clase sigue en pie") a posteriori: un estado imposible, porque la
+    // clase la dio otra persona. El camino de panel ya lo comprueba
+    // (app/api/sustituciones/route.ts, action 'confirmar'); este no. Mismo
+    // guardia, mismo mensaje, mismo 409.
+    const { data: sust } = await admin
+      .from('sustituciones').select('sesion_id').eq('id', sustitucionId).eq('studio_id', claim.studioId).maybeSingle();
+    if (sust?.sesion_id) {
+      const { data: ses } = await admin.from('sesiones').select('inicio').eq('id', sust.sesion_id).maybeSingle();
+      if (ses && sesionYaEmpezada(ses.inicio as string)) {
+        return NextResponse.json({ ok: false, motivo: 'clase_ya_empezada', error: MENSAJE_CLASE_YA_EMPEZADA }, { status: 409 });
+      }
+    }
+
     const { data, error } = await admin.rpc('confirmar_sustitucion', {
       p_sustitucion_id: sustitucionId,
       p_instructor_id: claim.instructorId,

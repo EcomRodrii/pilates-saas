@@ -130,9 +130,9 @@ test.describe('Biblioteca de temas', () => {
     await montar(page);
     await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
 
-    // Tentada (el predeterminado nuevo), el tema de siempre y los tres de
-    // diseño. Ni uno más: 'geometric' y 'editorial' se retiraron.
-    for (const id of ['tentada', 'classic', 'oliva', 'bloom', 'noir']) {
+    // Tentada (el predeterminado), el tema de siempre, los tres de diseño y
+    // Sereno. Ni uno más: 'geometric' y 'editorial' se retiraron.
+    for (const id of ['tentada', 'classic', 'oliva', 'bloom', 'noir', 'sereno']) {
       await expect(filaTema(page, id)).toBeVisible();
     }
     for (const id of ['geometric', 'editorial']) {
@@ -226,6 +226,36 @@ test.describe('Biblioteca de temas', () => {
     expect(variantesBloom.barra).toBeUndefined();
     expect(variantesBloom.retos).toBe('color');
     expect(body.themeVersion).toBe(5);
+  });
+
+  test('"Usar" en Sereno manda la tinta de marca, el malva destacado y la barra flotante', async ({ page }) => {
+    // La prueba de que Sereno pasa por el Theme Builder EXISTENTE: se elige de
+    // la misma biblioteca, se guarda en el mismo borrador y con el mismo PUT
+    // que los otros cuatro. Si algún día hiciera falta un camino propio, este
+    // test dejaría de tener sentido — y ese es justo el aviso.
+    const { puts } = await montar(page);
+    await expect(page.getByRole('heading', { name: 'Biblioteca de temas' })).toBeVisible({ timeout: 30_000 });
+
+    await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/theme') && r.method() === 'PUT'),
+      filaTema(page, 'sereno').getByRole('button', { name: 'Usar' }).click(),
+    ]);
+
+    const body = puts.at(-1)!;
+    expect(body.themeId).toBe('sereno');
+    // La marca es la TINTA y el malva es el destacado, no al revés.
+    expect(body.primary).toBe('#221F1C');
+    expect(body.destacado).toBe('#8A6478');
+    expect(body.fontId).toBe('figtree');
+    expect(body.portalHeadingFontId).toBe('libreCaslon');
+    expect(body.barraFlotante).toBe(true);
+    expect(body.barraClasica).toBeFalsy();
+    expect(body.cardStyle).toBe('elevated');
+    expect(body.radioTema).toEqual({ card: 22, boton: 16, chip: 999, acceso: 18 });
+    // Las cuatro pestañas con etiqueta — a diferencia de Bloom, que hereda
+    // «solo la activa» por no declarar el eje.
+    expect((body.variantes as Record<string, string>).barra).toBe('todas');
+    expect(body.themeVersion).toBe(1);
   });
 
   test('"Usar" en Oliva manda su radio de tarjeta/botón y la barra clásica', async ({ page }) => {

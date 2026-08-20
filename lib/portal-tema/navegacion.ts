@@ -50,22 +50,35 @@ export function repartirDestino<D extends ConPantalla>(destino: D): {
  * Quién manda la pantalla: la ruta o el estado del portal.
  *
  * Casi siempre la ruta — el portal real navega con URLs y el store se limita a
- * copiarla. La excepción es la pantalla que NO tiene ruta: el detalle de una
- * clase, que vive dentro de Clases igual que la hoja de reserva del portal de
- * siempre.
+ * copiarla. La excepción es la pantalla que el kit SÍ pinta pero que NO tiene
+ * ruta: el detalle de una clase, que vive dentro de Clases igual que la hoja de
+ * reserva del portal de siempre.
  *
- * ⚠️ Sin esta excepción, abrir una clase se deshace en el mismo render en el
+ * ⚠️ Sin esa excepción, abrir una clase se deshace en el mismo render en el
  * que se abre: el store pone `detalle`, la ruta sigue siendo `/clases`, y el
  * `pantalla` de fuera lo pisa. La socia ve un parpadeo y sigue en el horario —
  * y como el detalle es la ÚNICA pantalla desde la que se reserva, no puede
  * reservar.
+ *
+ * ⚠️ La excepción va por INCLUSIÓN, y esto costó el portal entero. Antes se
+ * escribía al revés —«manda el store si la pantalla abierta no es de ruta»— y
+ * el estado inicial del store (`welcome`) tampoco es de ruta: desde el PRIMER
+ * render la ruta dejaba de mandar y no volvía nunca, porque lo único que movería
+ * `screen` es navegar, que es justo lo que se estaba ignorando. El Inicio se
+ * seguía viendo por el `?? PANTALLAS.inicio` del final, así que no parecía roto:
+ * parecía que no funcionaba nada. Y la barra de pestañas no se montaba, porque
+ * `welcome` no es una de las pantallas que la llevan.
+ *
+ * Por eso la lista que entra aquí son las pantallas SIN ruta que el kit pinta,
+ * no las que sí la tienen: cualquier otra cosa —incluida una pantalla que este
+ * kit no pinta— deja mandar a la ruta.
  */
 export function mandaLaRuta<P extends string>(
   pantallaAbierta: P,
-  pantallasDeRuta: readonly P[] | undefined,
+  pantallasSinRuta: readonly P[] | undefined,
 ): boolean {
   // Sin lista, el llamador no distingue: se comporta como siempre (manda la
   // ruta). Es lo que hace la previsualización de temas, que no navega por URL.
-  if (!pantallasDeRuta) return true;
-  return pantallasDeRuta.includes(pantallaAbierta);
+  if (!pantallasSinRuta) return true;
+  return !pantallasSinRuta.includes(pantallaAbierta);
 }

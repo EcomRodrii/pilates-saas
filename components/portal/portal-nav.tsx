@@ -32,6 +32,7 @@ import {
 import { useModo } from '@/lib/portal-modo';
 import { EASE, dur, texto, radio, altura, sombra, cristal, desenfoque } from '@/lib/portal-design';
 import type { NavItemDefault } from '@/lib/portal-nav';
+import { usePortalHref } from './portal-preview-bridge';
 
 const ICONOS: Record<string, LucideIcon> = {
   Home, CalendarDays, Ticket, Video, User, Star, Heart, Bell, MessageCircle, Sparkles, MapPin, Dumbbell,
@@ -60,6 +61,7 @@ export function PortalNav({
   etiquetas?: 'soloActiva' | 'todas' | 'todasRelleno';
 }) {
   const { t, noche } = useModo();
+  const portalHref = usePortalHref();
   // `interactive` decide la MECÁNICA de posición (absolute con desplazamiento
   // propio vs relative — el widget de preview ya vive dentro de un contenedor
   // que lo coloca, no necesita posicionarse solo). `flotante` decide el
@@ -178,7 +180,7 @@ export function PortalNav({
         return interactive ? (
           <Link
             key={item.seg}
-            href={`/portal/${slug}/${item.seg}`}
+            href={portalHref(`/${slug}/${item.seg}`)}
             aria-current={active ? 'page' : undefined}
             aria-label={item.label}
             style={estilo}

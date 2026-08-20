@@ -20,9 +20,9 @@
 export interface AparienciaWidget {
   /** `null` = el fondo del portal, como hasta ahora. */
   fondo: 'transparente' | string | null;
-  /** Nombre de familia (Google Fonts). `null` = la tipografía del tema. */
+  /** Nombre de familia (Google Fonts) para el cuerpo/UI. `null` = la del tema. */
   fuente: string | null;
-  /** Radio de las esquinas en px. `null` = el del tema. */
+  /** Radio de las esquinas de TARJETAS en px. `null` = el del tema. */
   radio: number | null;
   /** El pie con dirección y legales. La web anfitriona ya suele tener el suyo. */
   ocultarPie: boolean;
@@ -37,10 +37,31 @@ export interface AparienciaWidget {
    * oscuro, que es como se veía siempre.
    */
   texto: 'auto' | 'claro' | 'oscuro';
+  // Fase 1 del rediseño (docs/widget-reservas-theme-builder-diseno.md §3):
+  // extensión ADITIVA — todo `null` = el aspecto de MODO_TOKENS.dia/.noche de
+  // siempre, cero cambio visual para quien no los toque.
+  /** Fuente de titulares/horas/precios. `null` = la misma que `fuente`. */
+  fuenteDisplay: string | null;
+  /** Radio de BOTONES en px. `null` = píldora, como hasta ahora. */
+  radioBoton: number | null;
+  /** Radio de INPUTS/chips de día en px. `null` = el de `radio`. */
+  radioInput: number | null;
+  /** Fondo de tarjetas/inputs. `null` = blanco (o el oscuro de la paleta noche). */
+  superficie: string | null;
+  /** Color del texto principal. `null` = el de la paleta. */
+  tinta: string | null;
+  /** Color del texto secundario/muted. `null` = el de la paleta. */
+  textoSecundario: string | null;
+  /** Color de bordes y separadores. `null` = el de la paleta. */
+  linea: string | null;
+  /** Relleno suave (chips, notas, skeleton). `null` = el de la paleta. */
+  relleno: string | null;
 }
 
 export const APARIENCIA_POR_DEFECTO: AparienciaWidget = {
   fondo: null, fuente: null, radio: null, ocultarPie: false, soloPestana: false, texto: 'auto',
+  fuenteDisplay: null, radioBoton: null, radioInput: null,
+  superficie: null, tinta: null, textoSecundario: null, linea: null, relleno: null,
 };
 
 /**
@@ -79,6 +100,13 @@ function leerRadio(v: string | null): number | undefined {
   return Number.isInteger(n) && n >= 0 && n <= 32 ? n : undefined;
 }
 
+/** Igual que `leerFondo`, para un color que NO admite 'transparente'. */
+function leerColor(v: string | null): string | undefined {
+  if (v == null) return undefined;
+  const t = v.trim();
+  return COLOR_VALIDO.test(t) ? t : undefined;
+}
+
 /** Lo mínimo que hace falta de la URL. Un `URLSearchParams` encaja tal cual. */
 export interface ParamsWidget {
   get(nombre: string): string | null;
@@ -108,6 +136,18 @@ export function resolverApariencia(
     ? textoCrudo : undefined;
   const pie = leerBooleano(params.get('pie'));
   const soloPestana = leerBooleano(params.get('solo-pestana'));
+  // Fase 1 rediseño widget — mismos parámetros de URL que el resto, para que
+  // el iframe de vista previa del Theme Builder (WidgetPreview) pueda mostrar
+  // un borrador sin publicarlo primero.
+  const fuenteDisplayCruda = params.get('fuente-display');
+  const fuenteDisplay = fuenteDisplayCruda != null && fuenteValida(fuenteDisplayCruda) ? fuenteDisplayCruda.trim() : undefined;
+  const radioBoton = leerRadio(params.get('radio-boton'));
+  const radioInput = leerRadio(params.get('radio-input'));
+  const superficie = leerColor(params.get('superficie'));
+  const tinta = leerColor(params.get('tinta'));
+  const textoSecundario = leerColor(params.get('texto-secundario'));
+  const linea = leerColor(params.get('linea'));
+  const relleno = leerColor(params.get('relleno'));
 
   return {
     fondo: fondo ?? base.fondo,
@@ -118,6 +158,14 @@ export function resolverApariencia(
     ocultarPie: pie === undefined ? base.ocultarPie : !pie,
     soloPestana: soloPestana ?? base.soloPestana,
     texto: texto ?? base.texto,
+    fuenteDisplay: fuenteDisplay ?? base.fuenteDisplay,
+    radioBoton: radioBoton ?? base.radioBoton,
+    radioInput: radioInput ?? base.radioInput,
+    superficie: superficie ?? base.superficie,
+    tinta: tinta ?? base.tinta,
+    textoSecundario: textoSecundario ?? base.textoSecundario,
+    linea: linea ?? base.linea,
+    relleno: relleno ?? base.relleno,
   };
 }
 
@@ -188,4 +236,49 @@ export function urlFuente(a: AparienciaWidget): string | null {
   if (!a.fuente || !fuenteValida(a.fuente)) return null;
   const familia = encodeURIComponent(a.fuente.trim()).replace(/%20/g, '+');
   return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+}
+
+/** Igual que `familiaCss`, para la fuente de titulares/horas/precios. */
+export function familiaDisplayCss(a: AparienciaWidget): string | null {
+  if (!a.fuenteDisplay) return null;
+  return `'${a.fuenteDisplay}', system-ui, sans-serif`;
+}
+
+/** Igual que `urlFuente`, para la fuente de titulares/horas/precios. */
+export function urlFuenteDisplay(a: AparienciaWidget): string | null {
+  if (!a.fuenteDisplay || !fuenteValida(a.fuenteDisplay)) return null;
+  const familia = encodeURIComponent(a.fuenteDisplay.trim()).replace(/%20/g, '+');
+  return `https://fonts.googleapis.com/css2?family=${familia}:wght@400;500;600;700&display=swap`;
+}
+
+/**
+ * Los tokens de RADIO resueltos, con el valor de siempre como fallback: sin
+ * tocar nada, `radioBoton`/`radioInput` heredan de `radio` (que a su vez
+ * hereda del tema si tampoco está puesto) — un estudio que solo cambia
+ * `radio` sigue viendo un widget coherente, no tarjetas de un radio y botones
+ * de otro por accidente.
+ */
+export function radiosDe(a: AparienciaWidget, porDefecto: { tarjeta: number; boton: number; input: number }) {
+  return {
+    tarjeta: a.radio ?? porDefecto.tarjeta,
+    boton: a.radioBoton ?? a.radio ?? porDefecto.boton,
+    input: a.radioInput ?? a.radio ?? porDefecto.input,
+  };
+}
+
+/**
+ * Los tokens de COLOR resueltos, con la paleta día/noche (`lib/portal-paleta.ts`)
+ * como fallback — nunca un color a medias: si el estudio no toca ninguno de
+ * los 5 controles nuevos, esto devuelve exactamente `porDefecto`.
+ */
+export function coloresDe(a: AparienciaWidget, porDefecto: {
+  superficie: string; tinta: string; textoSecundario: string; linea: string; relleno: string;
+}) {
+  return {
+    superficie: a.superficie ?? porDefecto.superficie,
+    tinta: a.tinta ?? porDefecto.tinta,
+    textoSecundario: a.textoSecundario ?? porDefecto.textoSecundario,
+    linea: a.linea ?? porDefecto.linea,
+    relleno: a.relleno ?? porDefecto.relleno,
+  };
 }

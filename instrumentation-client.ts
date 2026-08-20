@@ -19,8 +19,10 @@
 // (comprobado: cero rastro de rrweb en el bundle de producción). Se quitan en
 // vez de dejar una opción que aparenta estar activa y no lo está.
 import { cargarCuandoOcioso, forzarCarga } from '@/lib/sentry-cliente';
+import { cargarCuandoOcioso as cargarPosthogCuandoOcioso } from '@/lib/posthog-cliente';
 
 cargarCuandoOcioso();
+cargarPosthogCuandoOcioso();
 
 export const onRouterTransitionStart = (...args: unknown[]): void => {
   void forzarCarga().then((m) => {

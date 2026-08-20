@@ -12,7 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publish } from './engine.ts';
 import { EVENTOS } from './catalog.ts';
-import { cuandoEstudio, horaEstudio, fechaCortaEstudio } from '@/lib/utils';
+import { cuandoEstudio, horaEstudio, fechaCortaEstudio, TZ_ESTUDIO } from '@/lib/utils';
 
 function cuandoLargo(iso: string): string {
   try {
@@ -83,7 +83,12 @@ export async function emitirReservaAbandonada(
       const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
       claseTexto = ` una plaza en ${ctx.clase} (${ctx.cuando})`;
     }
-    const hoy = new Date().toISOString().slice(0, 10);
+    // Fecha LOCAL del estudio, no UTC (auditoría de esta sesión): con
+    // `toISOString()` el "día" cambiaba a medianoche UTC en vez de a
+    // medianoche en España, dejando una ventana de ~1-2h cada noche sin la
+    // única defensa real de este endpoint sin JWT (comentario de arriba) —
+    // mismo idiom ya usado en portal-sugerencias.ts/agenda.ts.
+    const hoy = new Date().toLocaleDateString('en-CA', { timeZone: TZ_ESTUDIO });
     const dedup = p.sesionId
       ? `reserva-abandonada:${p.sesionId}:${p.socioId}:${hoy}`
       : `reserva-abandonada:${p.socioId}:${hoy}`;
@@ -111,7 +116,7 @@ export async function emitirReservaAbandonada(
 // clase ya ha empezado", esta es "no aceptaste la plaza liberada a tiempo").
 export async function emitirReservaCancelada(
   admin: SupabaseClient,
-  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' },
+  p: { studioId: string; sesionId: string; socioId: string; reservaId: string; motivo?: 'rechazada' | 'expirada' | 'oferta_caducada' | 'plaza_ya_ocupada' | 'clase_ya_empezada' },
 ): Promise<void> {
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
@@ -121,7 +126,16 @@ export async function emitirReservaCancelada(
         ? ' No se aprobó a tiempo: la clase ya ha empezado.'
         : p.motivo === 'oferta_caducada'
           ? ' No aceptaste la plaza a tiempo y se ha ofrecido a la siguiente en la lista.'
-          : '';
+          // Aceptó dentro de plazo, pero la plaza ya no estaba: mientras su
+          // oferta seguía viva, otra persona reservó el hueco por la vía normal
+          // (una reserva en LISTA_ESPERA no ocupa aforo). No es culpa suya, así
+          // que el texto no puede sonar a que llegó tarde — y se le compensa con
+          // una recuperación, que es lo que menciona el final de la frase.
+          : p.motivo === 'plaza_ya_ocupada'
+            ? ' La plaza se ocupó justo antes de que aceptaras. Te hemos guardado una recuperación para otra clase.'
+            : p.motivo === 'clase_ya_empezada'
+              ? ' La clase ya había empezado cuando aceptaste. Te hemos guardado una recuperación para otra clase.'
+              : '';
     await publish({
       type: EVENTOS.RESERVA_CANCELADA, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, motivoTexto },
@@ -177,6 +191,31 @@ export async function emitirReservaPendienteAprobacion(
     });
   } catch (e) {
     console.error('[notifications] emitirReservaPendienteAprobacion:', e instanceof Error ? e.message : e);
+  }
+}
+
+// I-3: pagado por el checkout embebido pero la clase concreta no se pudo
+// reservar (aforo lleno/cancelada entre crear el PaymentIntent y confirmar
+// el pago) — avisa al mostrador para que lo resuelva a mano con la socia.
+export async function emitirReservaPagadaSinPlaza(
+  admin: SupabaseClient, p: { studioId: string; sesionId: string; socioId: string },
+): Promise<void> {
+  try {
+    const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
+    const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    await publish({
+      type: EVENTOS.RESERVA_PAGADA_SIN_PLAZA, studioId: p.studioId,
+      data: { ...ctx, socioId: p.socioId, socia },
+      resource: { type: 'sesion', id: p.sesionId },
+      // Sin dedup por paymentIntentId a propósito: si el webhook reintenta el
+      // MISMO evento no debe duplicarse, y no hay más de un pago por
+      // (sesión, socia) en este camino — reservarPlazaTrasPagoPublico ya lo
+      // impide (mismo criterio que emitirReservaPendienteAprobacion).
+      dedupKey: `reserva-pagada-sin-plaza:${p.sesionId}:${p.socioId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirReservaPagadaSinPlaza:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -721,6 +760,46 @@ export async function emitirRedContactoSolicitado(
 
 // `emailContacto` nunca es null aquí — aceptar exige que la profesional
 // tenga uno guardado (ver app/api/network/contacto/resolver/route.ts).
+// Fase 2 (matching). `studioId` es el estudio dueño de la vacante — la
+// audiencia 'gerencia' ya resuelve por él (mismo patrón que
+// emitirRedVerificacionSolicitada).
+export async function emitirRedCandidaturaRecibida(
+  admin: SupabaseClient,
+  p: { studioId: string; candidaturaId: string; vacanteTitulo: string; profesional: string },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_CANDIDATURA_RECIBIDA, studioId: p.studioId,
+      data: { vacanteTitulo: p.vacanteTitulo, profesional: p.profesional },
+      resource: { type: 'red_candidatura', id: p.candidaturaId },
+      dedupKey: `red-candidatura-recibida:${p.candidaturaId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedCandidaturaRecibida:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Fase 2 (matching). `studioId` es el estudio que publica — la audiencia
+// 'red-instructoras-lista' ignora ese studioId y resuelve por
+// `data.authUserIds` (ver recipients.ts), calculados por el caller (sin
+// cron: ver app/api/network/vacantes/[id]/estado/route.ts). `NotificationEvent.
+// studioId` es obligatorio igual que en emitirRedExperienciaConfirmada.
+export async function emitirRedVacanteEncaja(
+  admin: SupabaseClient,
+  p: { studioId: string; vacanteId: string; titulo: string; authUserIds: string[] },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.RED_VACANTE_ENCAJA, studioId: p.studioId,
+      data: { vacanteId: p.vacanteId, titulo: p.titulo, authUserIds: p.authUserIds },
+      resource: { type: 'red_vacante', id: p.vacanteId },
+      dedupKey: `red-vacante-encaja:${p.vacanteId}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirRedVacanteEncaja:', e instanceof Error ? e.message : e);
+  }
+}
+
 export async function emitirRedContactoAceptado(
   admin: SupabaseClient,
   p: {

@@ -13,10 +13,11 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { expirarOfertaListaEspera } from '@/lib/db/supabase-data-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
+import { capturarMensaje } from '@/lib/sentry-cliente';
 
-export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: number }> {
+export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: number; fallos: number }> {
   const admin = getSupabaseAdmin();
-  if (!admin) return { expiradas: 0 };
+  if (!admin) return { expiradas: 0, fallos: 0 };
   // Paginado: query global (todos los estudios) y PostgREST corta a 1.000
   // filas en silencio. Una oferta que cayera fuera del corte no expiraría
   // nunca y bloquearía la plaza para la siguiente de la cola.
@@ -30,15 +31,30 @@ export async function barrerOfertasListaEsperaExpiradas(): Promise<{ expiradas: 
       .lte('oferta_expira_en', new Date().toISOString())
       .range(from, to),
   );
-  if (!ofertas.length) return { expiradas: 0 };
+  if (!ofertas.length) return { expiradas: 0, fallos: 0 };
+  // Se cuentan los ÉXITOS, no las candidatas. Antes se devolvía
+  // `ofertas.length` pasara lo que pasara, y `expirarOfertaListaEspera` traga
+  // el fallo de la RPC con un `console.error` y un `return` mudo: si la RPC
+  // fallaba, la oferta no expiraba, la siguiente de la cola no recibía nunca la
+  // plaza, y este barrido —que corre cada 5 minutos— devolvía 200 con
+  // `expiradas: N` y Sentry limpio. Un bucle infinito silencioso.
+  let expiradas = 0;
+  let fallos = 0;
   for (const o of ofertas) {
     if (!o.socio_id || !o.sesion_id) continue;
-    await expirarOfertaListaEspera({
+    const ok = await expirarOfertaListaEspera({
       studioId: o.studio_id,
       reservaId: o.id,
       sesionId: o.sesion_id,
       socioId: o.socio_id,
     });
+    if (ok) expiradas += 1;
+    else fallos += 1;
   }
-  return { expiradas: ofertas.length };
+  if (fallos > 0) {
+    capturarMensaje('[lista-espera] ofertas caducadas que no se pudieron expirar', 'error', {
+      extra: { fallos, candidatas: ofertas.length },
+    });
+  }
+  return { expiradas, fallos };
 }

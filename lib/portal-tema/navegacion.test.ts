@@ -42,18 +42,31 @@ test('conserva el día aunque valga 0 (no confundir vacío con falsy)', () => {
 
 // ── Quién manda la pantalla ─────────────────────────────────────────────────
 
-const RUTAS = ['inicio', 'clases', 'reservas', 'bonos', 'perfil'] as const;
+const SIN_RUTA = ['detalle', 'confirmada'] as const;
 
 test('estando en una sección, manda la ruta', () => {
-  assert.equal(mandaLaRuta('clases', RUTAS), true);
+  assert.equal(mandaLaRuta('clases', SIN_RUTA), true);
 });
 
 test('con el detalle de una clase abierto, manda el estado', () => {
   // ⚠️ Si esto devolviera `true`, el detalle se cerraría en el mismo render en
   // el que se abre y NO SE PODRÍA RESERVAR: es la única pantalla con el botón.
-  assert.equal(mandaLaRuta('detalle', RUTAS), false);
+  assert.equal(mandaLaRuta('detalle', SIN_RUTA), false);
 });
 
-test('sin lista de rutas, manda la ruta (la previsualización de temas)', () => {
+test('sin lista, manda la ruta (la previsualización de temas)', () => {
   assert.equal(mandaLaRuta('detalle', undefined), true);
+});
+
+// ⚠️ EL bug que tumbó el portal entero. `welcome` es el estado inicial del
+// store y no la pinta el portal real: si bloqueara la ruta, el portal se
+// quedaría congelado ahí desde el primer render — sin barra de pestañas y sin
+// responder a nada—, pintando el Inicio solo por el fallback del marco.
+test('la pantalla inicial del store NO bloquea la ruta', () => {
+  assert.equal(mandaLaRuta('welcome', SIN_RUTA), true);
+});
+
+// Una pantalla que este kit no pinta tampoco puede secuestrar la navegación.
+test('una pantalla desconocida deja mandar a la ruta', () => {
+  assert.equal(mandaLaRuta('lo-que-sea', SIN_RUTA as readonly string[]), true);
 });

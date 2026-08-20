@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { fijarUsuario } from '@/lib/sentry-cliente';
+import { identificar as identificarEnPosthog, resetear as resetearPosthog } from '@/lib/posthog-cliente';
 import { supabase } from './db/supabase';
 import { captchaGastado } from './auth/captcha-usado.ts';
 import { ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
@@ -13,6 +14,14 @@ import { setCurrentStudioId } from './supabase-data';
 // email ni nombre — respeta sendDefaultPii:false de la config de Sentry.
 function identificarEnSentry(session: Session | null) {
   fijarUsuario(session?.user ? { id: session.user.id } : null);
+}
+
+// Este contexto es SOLO de personal (propietaria/manager/instructora/
+// recepción) — las socias entran por lib/portal-auth.tsx, no por aquí. Mismo
+// criterio que identificarEnSentry: solo el id (UUID), nunca email ni nombre.
+function identificarEnPosthogSiHaySesion(session: Session | null) {
+  if (session?.user) identificarEnPosthog(session.user.id);
+  else resetearPosthog();
 }
 
 type AuthContextType = {
@@ -34,10 +43,13 @@ type AuthContextType = {
   recuperarPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   establecerPassword: (nueva: string) => Promise<{ error: string | null }>;
   reenviarConfirmacion: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  verificarOtpSignup: (email: string, token: string) => Promise<{ error: string | null; errorCode: OtpErrorCode | null }>;
   signInWithGoogle: (redirectPath?: string) => Promise<{ error: string | null }>;
   linkGoogle: () => Promise<{ error: string | null }>;
   unlinkGoogle: () => Promise<{ error: string | null }>;
 };
+
+export type OtpErrorCode = 'INVALIDO' | 'DEMASIADOS_INTENTOS';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -49,12 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       identificarEnSentry(data.session);
+      identificarEnPosthogSiHaySesion(data.session);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       identificarEnSentry(session);
+      identificarEnPosthogSiHaySesion(session);
     });
 
     return () => subscription.unsubscribe();
@@ -81,12 +95,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (m.includes('captcha')) return ERROR_CAPTCHA;
     if (m.includes('invalid login credentials')) return 'Email o contraseña incorrectos';
     if (m.includes('email not confirmed')) {
-      return 'Te falta confirmar tu email. Busca nuestro correo (mira también en spam) y pulsa el enlace.';
+      // El texto solo se muestra tal cual donde no hay pantalla de OTP que lo
+      // intercepte (comprobado por sustring "confirmar tu email" — ver
+      // app/login/page.tsx y app/network/acceso/page.tsx). Ya no dice "pulsa
+      // el enlace": desde la migración a OTP no hay ningún enlace que pulsar.
+      return 'Te falta confirmar tu email. Busca el código que te mandamos (mira también en spam).';
     }
     if (m.includes('user already registered')) {
       return 'Ya hay una cuenta con ese email. Inicia sesión, o usa «he olvidado mi contraseña».';
     }
-    if (m.includes('password')) return 'La contraseña debe tener al menos 8 caracteres.';
+    if (m.includes('password')) return 'La contraseña debe tener al menos 6 caracteres.';
     // Fase 9/10: este Google ya es la identidad de OTRA cuenta de Tentare —
     // el caso que linkIdentity rechaza en vez de fusionar en silencio.
     if (m.includes('identity is already linked') || m.includes('already linked to another user')) {
@@ -295,6 +313,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  // Verificación de email por OTP de 6 dígitos (sustituye al enlace de
+  // confirmación). Pasa por /api/auth/otp/verificar en vez de llamar a
+  // `supabase.auth.verifyOtp()` directo: ese endpoint aplica el límite de
+  // intentos por email que gotrue no lleva (ver el comentario de esa ruta).
+  // Al tener éxito, el servidor devuelve los tokens de la sesión ya creada
+  // (gotrue confirma el email y abre sesión en el mismo verifyOtp) y aquí se
+  // hidratan con `setSession` — `onAuthStateChange` se dispara solo y
+  // `session`/`user` de este contexto quedan al día, sin más código en cada
+  // pantalla que use este flujo.
+  async function verificarOtpSignup(email: string, token: string) {
+    const res = await fetch('/api/auth/otp/verificar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, token }),
+    });
+    const data = await res.json().catch(() => null) as
+      | { ok: true; session: { access_token: string; refresh_token: string } }
+      | { error: string; errorCode: OtpErrorCode }
+      | null;
+    if (!data || 'error' in data) {
+      return { error: data?.error ?? 'No se ha podido verificar el código. Inténtalo de nuevo.', errorCode: data?.errorCode ?? null };
+    }
+    const { error } = await supabase.auth.setSession(data.session);
+    if (error) return { error: mensajeDeError(error), errorCode: null };
+    return { error: null, errorCode: null };
+  }
+
   // Recuperar la contraseña cuando NO puedes entrar. No existía: `/login` no
   // ofrecía "he olvidado mi contraseña" y `resetPasswordForEmail` no se
   // llamaba desde ningún sitio del código. Una propietaria que olvidase su
@@ -337,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(() => ({
     session, user: session?.user ?? null, loading,
     signIn, signUp, signOut, updateProfile, updateEmail, updatePassword,
-    recuperarPassword, establecerPassword, reenviarConfirmacion,
+    recuperarPassword, establecerPassword, reenviarConfirmacion, verificarOtpSignup,
     signInWithGoogle, linkGoogle, unlinkGoogle,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [session, loading]);

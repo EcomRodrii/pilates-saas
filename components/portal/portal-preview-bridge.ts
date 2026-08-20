@@ -1,5 +1,57 @@
 import { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import type { BloqueHome, PantallaId } from '@/lib/portal-home-bloques';
+
+/**
+ * Construye un enlace INTERNO del portal, consciente de si está montado en
+ * el árbol real (`/portal/[slug]`) o dentro del editor de temas
+ * (`/portal-preview/[slug]`) — mismo componente compartido en los dos.
+ *
+ * `ruta` es la parte que va DESPUÉS de `/portal`/`/portal-preview`, p.ej.
+ * `/${slug}/clases`. Se usa así en vez de con `/portal` a pelo porque, antes
+ * de esto, clicar cualquier enlace del portal DENTRO del preview del editor
+ * sacaba a la "socia de mentira" fuera del árbol `/portal-preview` —que no
+ * lleva sesión a propósito— y aterrizaba en el portal real, que la mandaba a
+ * `/login` sin salida: el callejón que reportó el fundador (2026-08-19), "no
+ * puedo navegar / no puedo volver atrás / páginas que dejan de funcionar".
+ *
+ * ⚠️ Dentro del preview, además, hay que REPETIR el token de la URL actual en
+ * cada enlace: cada pantalla de `/portal-preview/[slug]/*` valida su propio
+ * `?t=` en el servidor (`tokenPreviewValido`, por segmento, no solo en el
+ * primer salto) — sin arrastrarlo, la primera vez que se navegara DENTRO del
+ * iframe caería igual en el placeholder "Recarga la vista previa", solo que
+ * por un motivo distinto (token ausente en vez de portal real sin sesión).
+ * Se relee de la propia URL (no de una prop): es el mismo token que ya
+ * validó ESTA carga, así que sigue siendo válido para la siguiente mientras
+ * dure la sesión de edición.
+ *
+ * Se deriva de la URL, no de una prop: así funciona igual en cualquier
+ * componente compartido entre los dos árboles (`portal-home-view.tsx`,
+ * `bloque-home-render.tsx`, `portal-nav.tsx`) sin enhebrar un prop nuevo por
+ * cada capa — el mismo criterio que ya usa `useStudio()` para resolver el
+ * estudio en ambos árboles.
+ */
+export function usePortalHref(): (ruta: string) => string {
+  const pathname = usePathname() ?? '';
+  const searchParams = useSearchParams();
+  const enPreview = pathname.startsWith('/portal-preview/');
+  const token = enPreview ? searchParams?.get('t') ?? '' : '';
+  return (ruta: string) => {
+    if (!enPreview) return `/portal${ruta}`;
+    // ⚠️ Inicio vive en la RAÍZ dentro de `/portal-preview` (`page.tsx` del
+    // slug, sin sub-ruta) — a diferencia del portal real, donde Inicio SÍ es
+    // `/portal/[slug]/home`. `app/portal-preview/[slug]/home/` no existe.
+    // Quien construye un enlace a Inicio con la misma forma que usaría para
+    // el portal real (`/${slug}/home`, que es justo lo que hace la barra de
+    // navegación con `NAV_DEFAULT`) aterrizaría en un 404 dentro del
+    // preview — medido: la pestaña «Inicio» clicada desde Bonos rompía así.
+    // Se normaliza aquí, en el único sitio que construye URLs de preview, en
+    // vez de en cada llamador: cualquier enlace futuro a Inicio queda a
+    // salvo del mismo bache sin tener que saberlo.
+    const rutaNormalizada = ruta.endsWith('/home') ? ruta.slice(0, -'/home'.length) : ruta;
+    return `/portal-preview${rutaNormalizada}${token ? `?t=${encodeURIComponent(token)}` : ''}`;
+  };
+}
 
 /**
  * Qué hace un click dentro del preview: `editar` lo selecciona en el panel

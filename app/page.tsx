@@ -23,6 +23,7 @@ import { SeccionFaq } from '@/components/landing/SeccionFaq';
 import { SeccionRecursos } from '@/components/landing/SeccionRecursos';
 import { SeccionCtaFinal } from '@/components/landing/SeccionCtaFinal';
 import { WhatsAppFab } from '@/components/landing/WhatsAppFab';
+import { PopupEmpezar } from '@/components/landing/PopupEmpezar';
 import { GlobalStyles } from '@/components/landing/GlobalStyles';
 import { IntroLogo } from '@/components/landing/IntroLogo';
 import { StructuredData } from '@/components/landing/StructuredData';
@@ -111,6 +112,9 @@ export default function LandingPage() {
       </div>
       <SeccionCtaFinal />
       <WhatsAppFab />
+      {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
+          (lib/landing/popup-frecuencia.ts), no aquí. */}
+      <PopupEmpezar />
       <GlobalStyles />
     </div>
   );

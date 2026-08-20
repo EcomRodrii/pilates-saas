@@ -59,6 +59,9 @@ export async function enviarEmailesCambioClase(
     }));
     const { error } = await resend.emails.send({
       from: remitentePorMarca(marca.nombre || 'Tentare'),
+      // Reply-To del estudio: si la clienta contesta, le contesta a SU estudio.
+      // La dirección que firma sigue siendo la verificada de la plataforma.
+      ...(marca.replyTo ? { replyTo: marca.replyTo } : {}),
       to: [d.email],
       subject,
       html,

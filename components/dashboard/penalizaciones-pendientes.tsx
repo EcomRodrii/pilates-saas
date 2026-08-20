@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { dbListarPenalizacionesPendientes, type PenalizacionPendiente } from '@/lib/supabase-data';
 import { aprobarPenalizacion } from '@/lib/api-client';
+import { formatEuro } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 // Fase 3: cargos de penalización (cancelación tardía/no-show) detectados con
@@ -56,7 +57,7 @@ export function PenalizacionesPendientes({ onToast }: { onToast: (m: string) => 
             <div className="min-w-0">
               <p className="truncate text-[13px] text-foreground">{p.socioNombre}</p>
               <p className="text-[11px] text-muted-foreground">
-                {p.tipo === 'NO_SHOW' ? 'No presentada' : 'Cancelación tardía'} · {p.importe.toFixed(2)} €
+                {p.tipo === 'NO_SHOW' ? 'No presentada' : 'Cancelación tardía'} · {formatEuro(p.importe)}
               </p>
             </div>
             <Button

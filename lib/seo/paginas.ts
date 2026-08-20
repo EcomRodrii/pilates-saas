@@ -288,12 +288,13 @@ export const PAGINAS: PaginaSeo[] = [
     // de `paginaDe('/')` tiene mucho más radio de impacto que el resto de
     // páginas (afecta al fallback de TODA la app), así que aquí solo se
     // mantiene el texto EN SYNC a mano — verificado que coincide
-    // literalmente con `app/layout.tsx` el 2026-08-13, tras encontrar que
-    // llevaba divergido desde el lote P0 original.
+    // literalmente con `app/layout.tsx`, actualizado el 2026-08-18 al
+    // reposicionar la home hacia Barcelona (decisión de negocio explícita
+    // del fundador, no una corrección de divergencia).
     path: '/',
-    titulo: 'Software de Gestión para Estudios de Pilates | Tentare',
+    titulo: 'Software de Gestión para Estudios de Pilates en Barcelona',
     descripcion:
-      'Gestiona tu estudio de Pilates con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
+      'Gestiona tu estudio de Pilates en Barcelona con reservas, pagos, calendario y sustituciones automáticas. Sin permanencia y desde 29 €/mes.',
     grupo: 'home',
     etiqueta: 'Inicio',
     prioridad: 1,
@@ -328,17 +329,17 @@ export const PAGINAS: PaginaSeo[] = [
   },
   ...FUNCIONALIDADES,
 
-  // ── Tentare Network — marketplace público de instructoras de Pilates ──────
+  // ── Tentare Network — marketplace público de instructoras de Pilates y Yoga ──
   // Rediseño 2026-08: `/network` pasa de ruta bloqueada (buscador privado de
   // la propietaria, movido a /network/buscar) a landing pública del
   // marketplace — ver el comentario sobre PREFIJOS_NO_INDEXABLES más arriba.
   {
     path: '/network',
-    titulo: 'Tentare Network — Encuentra tu instructora de Pilates',
-    descripcion: 'La red profesional de instructoras de Pilates. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
+    titulo: 'Tentare Network — Encuentra tu instructora de Pilates y Yoga',
+    descripcion: 'La red profesional de instructoras de Pilates y Yoga. Estudios buscan por especialidad, ciudad y disponibilidad, y contactan directamente.',
     grupo: 'funcionalidades',
     etiqueta: 'Tentare Network',
-    resumen: 'Descubre, conoce y contacta con instructoras de Pilates verificadas.',
+    resumen: 'Descubre, conoce y contacta con instructoras de Pilates y Yoga verificadas.',
     prioridad: 0.8,
     changeFrequency: 'weekly',
     relacionadas: ['/network/instructoras', '/funcionalidades/sustituciones'],
@@ -352,8 +353,8 @@ export const PAGINAS: PaginaSeo[] = [
   // vive en EXCEPCIONES_INDEXABLES, no aquí.
   {
     path: '/network/instructoras',
-    titulo: 'Instructoras de Pilates | Tentare Network',
-    descripcion: 'Encuentra instructoras de Pilates disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
+    titulo: 'Instructoras de Pilates y Yoga | Tentare Network',
+    descripcion: 'Encuentra instructoras de Pilates y Yoga disponibles cerca de ti. Filtra por especialidad, ubicación y disponibilidad.',
     grupo: 'funcionalidades',
     etiqueta: 'Marketplace de instructoras',
     resumen: 'El marketplace de Tentare Network, con filtros reales.',
@@ -361,16 +362,32 @@ export const PAGINAS: PaginaSeo[] = [
     changeFrequency: 'daily',
     relacionadas: ['/network', '/funcionalidades/sustituciones'],
   },
+  // Registrado tras la auditoría SEO 2026-08-18: ya estaba excepcionada en
+  // EXCEPCIONES_INDEXABLES (por eso es rastreable) pero faltaba en este
+  // registro, así que no entraba en el sitemap ni en el interlinking —
+  // paginas.test.ts lo caza. Prioridad menor que el marketplace: es el
+  // punto de conversión, no de descubrimiento.
+  {
+    path: '/network/crear-perfil',
+    titulo: 'Crea tu perfil de instructora | Tentare Network',
+    descripcion: 'Publica tu perfil una vez. Los estudios de Pilates y Yoga te contactan a ti cuando tu disponibilidad encaja.',
+    grupo: 'funcionalidades',
+    etiqueta: 'Alta de instructora',
+    resumen: 'Publica tu perfil gratis en Tentare Network.',
+    prioridad: 0.5,
+    changeFrequency: 'monthly',
+    relacionadas: ['/network', '/network/instructoras'],
+  },
 
   // ── Ya existían antes de este registro ────────────────────────────────────
   {
     path: '/comparativa',
-    titulo: 'Comparativa: Tentare frente a los 7 software de gestión de Pilates',
+    titulo: 'Comparativa: Tentare frente a los 8 software de gestión de Pilates',
     descripcion:
-      'Compara Tentare con los 7 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
+      'Compara Tentare con los 8 software con los que más se compara en estudios de Pilates: facturación Veri*factu, precio público, permanencia, datos en la UE y sustitución de instructoras.',
     grupo: 'software',
     etiqueta: 'Comparativa',
-    resumen: 'Tentare frente a las siete plataformas con las que más se compara.',
+    resumen: 'Tentare frente a las ocho plataformas con las que más se compara.',
     prioridad: 0.8,
     changeFrequency: 'monthly',
     actualizado: '2026-08-13',
@@ -413,6 +430,24 @@ export const PAGINAS: PaginaSeo[] = [
     // "Tentare vs X" está decidiendo si (y cómo) cambiarse, no mirando precio.
     relacionadas: [...relacionadasFuncionalidad, '/soluciones/cambiar-de-software'],
   })),
+  // Glofox queda FUERA de la plantilla `.map()` de arriba a propósito: las
+  // otras 7 son la tabla ROWS/CompetitorPage de siempre, pero este post es un
+  // artículo largo verbatim (título y contenido exactos pedidos por el
+  // fundador, 2026-08-18) — el título real de la página no es "Tentare vs
+  // Glofox: comparativa..." sino el suyo propio, así que necesita su entrada
+  // literal en vez de heredar la plantilla genérica.
+  {
+    path: '/comparativa/tentare-vs-glofox',
+    titulo: 'Glofox vs. Tentare: cuál conviene a tu estudio de Pilates',
+    descripcion:
+      'Precio real en euros, permanencia, gestión por reformer individual y sustitución de instructoras — Glofox frente a Tentare, sin folletos de marketing.',
+    grupo: 'software',
+    etiqueta: 'Tentare vs Glofox',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: '2026-08-18',
+    relacionadas: ['/funcionalidades/sustituciones', '/precios', '/soluciones/cambiar-de-software'],
+  },
   {
     path: '/soluciones/cambiar-de-software',
     titulo: 'Cambiarte a Tentare desde otro software, sin perder nada',
@@ -468,6 +503,8 @@ export const PAGINAS: PaginaSeo[] = [
     ['ocupacion-clases-valle', '2026-08-06', 'Cómo subir la ocupación de tus clases valle'],
     ['reducir-cancelaciones-ultima-hora', '2026-08-06', 'Reduce las cancelaciones de última hora'],
     ['checklist-elegir-software-estudio', '2026-08-06', 'Checklist: cómo elegir el software de tu estudio'],
+    ['reservas-en-tu-web', '2026-08-18', 'Cómo integrar reservas de Pilates en tu propia web'],
+    ['widget-vs-iframe-reservas-pilates', '2026-08-18', 'Cómo integrar reservas online en la web de tu estudio de pilates'],
   ] as const).map(([slug, actualizado, titulo]): PaginaSeo => ({
     path: `/recursos/${slug}`,
     titulo,
@@ -588,10 +625,20 @@ export const PREFIJOS_NO_INDEXABLES = [
   '/instructora',
   // Puerta de demo temporal para grabar vídeo — no es contenido real, nunca indexable
   '/demo',
-  // Cara pública operativa de cada estudio (decisión: B2B primero, sin miles de URLs por estudio)
-  // '/i' es el enlace público de instructora freelance — mismo motor que
-  // /reservar (reexporta su layout/page tal cual), misma decisión de no-index.
-  '/portal', '/kiosk', '/reservar', '/i',
+  // Cara pública operativa de cada estudio.
+  //
+  // ⚠️ `/reservar` YA NO está aquí: decisión del fundador (2026-08-17) de abrir
+  // a indexación la página de reservas de cada estudio. Se levantan las DOS
+  // puertas a la vez —esta y el `robots` del layout— porque levantar solo una
+  // no hace nada: Google no puede leer una etiqueta de una URL que le hemos
+  // prohibido rastrear.
+  //
+  // '/i' SIGUE bloqueado, y no es un olvido: es el enlace público de
+  // instructora freelance y REEXPORTA el layout/page de /reservar tal cual. Si
+  // se abriera también, el mismo contenido viviría en dos URLs distintas y
+  // competirían entre sí. Abrirlo es una decisión aparte, y necesitaría su
+  // propio canonical.
+  '/portal', '/kiosk', '/i',
   // Enlaces firmados de un solo uso
   '/aceptar-sustitucion', '/confirmar-reserva', '/disponibilidad', '/no-puedo', '/valorar',
   // Panel de gestión — TODOS los segmentos de app/(dashboard)
@@ -627,7 +674,36 @@ export const PREFIJOS_NO_INDEXABLES = [
  * privado de Network" tal cual, y aquí queda documentado qué se abrió y por
  * qué — mismo criterio que ya usaba este mecanismo antes del rediseño.
  */
-export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras'];
+// `/network/crear-perfil` es el wizard de alta — punto de entrada real con
+// tráfico entrante (enlaces compartidos, "Crea tu perfil" desde /login y
+// /network/acceso), no autoservicio privado como el resto de /network/*.
+// Auditoría SEO 2026-08-18: llevaba metadata propia (título/descripción,
+// app/network/crear-perfil/layout.tsx) desde una ronda anterior con la
+// intención explícita de que fuera indexable, pero el bloqueo de PREFIJOS_
+// NO_INDEXABLES ('/network/' entero) la dejaba fuera de rastreo igualmente
+// — "se queda indexable" nunca se cumplió porque nadie cruzó las dos
+// piezas. Solo el paso 1 (cuenta) es alcanzable sin sesión; los pasos
+// siguientes exigen auth, así que un rastreador sin sesión no ve nada
+// privado.
+export const EXCEPCIONES_INDEXABLES: readonly string[] = ['/network/instructoras', '/network/crear-perfil'];
+
+/**
+ * Rutas que son un `redirect()` y no una página.
+ *
+ * Existe porque el registro solo contempla dos categorías —página pública
+ * registrada, o prefijo bloqueado— y un redirect no es ninguna de las dos:
+ * no tiene contenido que indexar, y Google no indexa la URL que redirige sino
+ * su destino. Meterlo en el registro lo colaría en el sitemap; bloquearlo por
+ * prefijo es imposible sin bloquear también a sus hijos (`/reservar` es prefijo
+ * de cadena de `/reservar/<slug>`, que SÍ queremos indexar).
+ *
+ * Solo para redirects de verdad: si algún día una de estas pinta algo, deja de
+ * pertenecer aquí.
+ */
+export const RUTAS_REDIRECCION: readonly string[] = [
+  // Compatibilidad con enlaces antiguos sin slug → /reservar/<estudio por defecto>.
+  '/reservar',
+];
 
 /** ¿Esta ruta cae bajo un prefijo bloqueado? Prefijo de cadena, como robots.txt. */
 export function esNoIndexable(path: string): boolean {
