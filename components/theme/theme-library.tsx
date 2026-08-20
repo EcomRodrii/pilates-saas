@@ -24,7 +24,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useThemeEditor } from './theme-editor';
 import { useStudio } from '@/lib/studio-context';
 import { ThemeThumbVivo } from './theme-thumb-vivo';
-import { ImportarTemaZip } from './importar-tema-zip';
 import { THEME_DEFINITIONS, getThemeDefinition, type ThemeDefinition } from '@/lib/theme-definitions';
 import { fetchThemePublicado, guardarThemeBorrador, fetchBloquesBorrador, fetchBloquesPublicado, guardarBloquesBorradorApi, fetchHomePreviewToken } from '@/lib/api-client';
 import { mensajeSeguro, ERROR_RED } from '@/lib/errores';
@@ -396,12 +395,24 @@ export function ThemeLibrary() {
         </p>
       </section>
 
-      {/* El importador de ZIP: analiza, sube, enseña el resultado fiel, y deja
-          publicar/borrar entre los ZIPs subidos. Publicar SÍ hace el tema
-          visible de verdad, en el origen dedicado `imports.tentare.app` (ver
-          `app/tema-publicado/[slug]/[[...ruta]]/route.ts`) — nunca bajo
-          `tentare.app`, que es el origen de confianza del panel. */}
-      <ImportarTemaZip slug={hook.studio?.slug ?? null} />
+      {/* El importador de ZIP se retiró de aquí (2026-08-20): con el motor de
+          bloques ya haciendo de verdad de Sections/Blocks para Inicio/Clases/
+          Bonos/Reservar (ver themes/registro.ts, varsSombraSobreTema y
+          alrededores), tener AQUÍ una tercera vía —estática, con su propio
+          "Publicar" en un origen aparte, sin relación con `studio_theme`—
+          era justo la confusión de "tres sistemas de temas" que se pidió
+          quitar. Comprobado antes de tocarlo: en producción solo existía UN
+          ZIP importado, del propio estudio de pruebas (`tentare`) — cero
+          clientas reales afectadas.
+          El servido del ÚNICO import ya publicado sigue vivo tal cual en
+          `imports.tentare.app` (`app/tema-publicado/[slug]/[[...ruta]]/
+          route.ts`, que lee `theme_imports` directamente y no pasa por este
+          componente) — retirar el panel de gestión no rompe esa URL.
+          El componente (`components/theme/importar-tema-zip.tsx`), las rutas
+          de API que gestiona y el editor `editor-zip` se quedan sin montar
+          desde ningún sitio — huérfanos a propósito, no borrados: decidir si
+          se eliminan del todo es una pieza aparte, más grande (toca API,
+          tabla y tests), que no se ha pedido todavía. */}
 
       <ConfirmDialog
         open={pendiente !== null}
