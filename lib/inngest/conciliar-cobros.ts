@@ -36,7 +36,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { entregarPlanComprado, idsDe } from '@/lib/billing/entregar-plan-comprado';
 import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
-import { pendientesDeEntregar, type SesionCobrada, type Pendiente } from '@/lib/billing/conciliar-sesiones';
+import { pendientesDeEntregar, pendientesDeEntregarPI, queEntregarPI, type SesionCobrada, type CobroPI, type Pendiente } from '@/lib/billing/conciliar-sesiones';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Cuánto atrás se mira. Generoso a propósito: con el barrido cada 5 minutos
@@ -85,6 +85,40 @@ async function listarSesionesVentana(
   return todas;
 }
 
+// El checkout embebido del widget (Modo B) cobra con un PaymentIntent DIRECTO,
+// sin Checkout Session: el listado de arriba no lo ve, así que se listan
+// aparte. Este listado es más ruidoso que el de sesiones — entran TODOS los PI
+// de la cuenta: los abandonados del propio widget (cada POST al endpoint crea
+// uno en `requires_payment_method` aunque la socia cierre la pestaña), los
+// nacidos de Checkout Session, POS y SEPA. El filtro real (status + origen de
+// metadata) es client-side, en el módulo puro. Mismo techo defensivo que las
+// sesiones, con tag PROPIO: si salta, hay que saber cuál de los dos listados
+// se rompió.
+const TECHO_PIS = 2000;
+
+async function listarPIsVentana(
+  stripe: Stripe,
+  cuenta: string,
+  desde: number,
+): Promise<Stripe.PaymentIntent[]> {
+  const todos: Stripe.PaymentIntent[] = [];
+  for await (const pi of stripe.paymentIntents.list(
+    { created: { gte: desde }, limit: 100 },
+    { stripeAccount: cuenta },
+  )) {
+    todos.push(pi);
+    if (todos.length >= TECHO_PIS) {
+      Sentry.captureMessage('[conciliador] techo de paginado de PaymentIntents alcanzado: puede quedar dinero sin conciliar', {
+        level: 'error',
+        tags: { area: 'cobros', tipo: 'techo-paginado-pi' },
+        extra: { cuenta, techo: TECHO_PIS },
+      });
+      break;
+    }
+  }
+  return todos;
+}
+
 // Detecta qué está cobrado y sin entregar en una ventana dada. NO entrega nada.
 //
 // Separar "detectar" de "entregar" es lo que permite que el barrido que RECUPERA
@@ -97,10 +131,15 @@ async function detectarPendientes(
   stripe: Stripe,
   studio: { id: string; stripe_account_id: string },
   ventanaHoras: number,
-): Promise<{ pendientes: Pendiente[]; sesionPorId: Map<string, Stripe.Checkout.Session> }> {
+): Promise<{
+  pendientes: Pendiente[];
+  sesionPorId: Map<string, Stripe.Checkout.Session>;
+  piPorId: Map<string, Stripe.PaymentIntent>;
+}> {
   const desde = Math.floor(Date.now() / 1000) - ventanaHoras * 3600;
 
   const todas = await listarSesionesVentana(stripe, studio.stripe_account_id, desde);
+  const pis = await listarPIsVentana(stripe, studio.stripe_account_id, desde);
 
   const sesiones: SesionCobrada[] = todas.map(s => ({
     id: s.id,
@@ -108,12 +147,32 @@ async function detectarPendientes(
     paymentStatus: s.payment_status,
     metadata: s.metadata,
   }));
+  const cobrosPI: CobroPI[] = pis.map(pi => ({
+    id: pi.id,
+    status: pi.status,
+    metadata: pi.metadata,
+  }));
 
   // Qué está ya hecho, en DOS consultas y no una por sesión: los recibos que ya
   // constan cobrados, y los `rec-web-…` que ya existen (una compra de plan
-  // entregada deja ese recibo, con id derivado de la sesión).
+  // entregada deja ese recibo, con id derivado de la sesión o del PI).
   const idsRecibo = sesiones.map(s => s.metadata?.reciboId).filter((x): x is string => !!x);
   const idsWeb = sesiones.map(s => idsDe(s.id).reciboId);
+  // ⚠️ Los `rec-web-…` esperados de los PI van a ESTA consulta (existencia,
+  // sin filtro de estado), nunca a la de COBRADO: un recibo DEVUELTO debe
+  // seguir dedupeando — reentregarlo re-ejecutaría la renovación de una
+  // compra ya devuelta.
+  //
+  // Y SOLO de los PI que clasifican como candidatos Modo B (el mismo
+  // clasificador puro que decide qué entregar, una sola fuente de la regla):
+  // meter un id por CADA PI de la ventana —abandonos, POS, SEPA, los nacidos
+  // de sesiones, que son la mayoría— inflaría el `.in()` hasta poder tumbar
+  // la consulta, y como su error se descarta (patrón heredado de la vía de
+  // sesiones), el dedupe colapsaría a vacío y se reintentaría la entrega
+  // entera cada 5 min: el dinero lo salva el 23505, pero el email de recibo
+  // se reenviaría a cada socia en cada pasada.
+  const candidatosPI = cobrosPI.filter(pi => queEntregarPI(pi, studio.id) !== null);
+  const idsWebPI = candidatosPI.map(pi => idsDe(pi.id).reciboId);
 
   const recibosCobrados = new Set<string>();
   if (idsRecibo.length) {
@@ -124,17 +183,28 @@ async function detectarPendientes(
   }
 
   const sesionesEntregadas = new Set<string>();
-  if (idsWeb.length) {
+  const pisEntregados = new Set<string>();
+  if (idsWeb.length || idsWebPI.length) {
     const { data } = await admin
-      .from('recibos').select('id').eq('studio_id', studio.id).in('id', idsWeb);
+      .from('recibos').select('id').eq('studio_id', studio.id).in('id', [...idsWeb, ...idsWebPI]);
     const existentes = new Set((data ?? []).map(r => (r as { id: string }).id));
     for (const s of sesiones) {
       if (existentes.has(idsDe(s.id).reciboId)) sesionesEntregadas.add(s.id);
     }
+    for (const pi of candidatosPI) {
+      if (existentes.has(idsDe(pi.id).reciboId)) pisEntregados.add(pi.id);
+    }
   }
 
-  const pendientes = pendientesDeEntregar(sesiones, studio.id, { recibosCobrados, sesionesEntregadas });
-  return { pendientes, sesionPorId: new Map(todas.map(s => [s.id, s])) };
+  const pendientes = [
+    ...pendientesDeEntregar(sesiones, studio.id, { recibosCobrados, sesionesEntregadas }),
+    ...pendientesDeEntregarPI(cobrosPI, studio.id, pisEntregados),
+  ];
+  return {
+    pendientes,
+    sesionPorId: new Map(todas.map(s => [s.id, s])),
+    piPorId: new Map(pis.map(pi => [pi.id, pi])),
+  };
 }
 
 async function conciliarEstudio(
@@ -142,9 +212,9 @@ async function conciliarEstudio(
   stripe: Stripe,
   studio: { id: string; stripe_account_id: string },
 ): Promise<number> {
-  const { pendientes, sesionPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_HORAS);
+  const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_HORAS);
   for (const p of pendientes) {
-    await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId));
+    await entregar(admin, stripe, studio.stripe_account_id, p, sesionPorId.get(p.sesionId), piPorId.get(p.sesionId));
   }
   return pendientes.length;
 }
@@ -173,19 +243,21 @@ async function vigilarEstudio(
   stripe: Stripe,
   studio: { id: string; stripe_account_id: string },
 ): Promise<number> {
-  const { pendientes, sesionPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
+  const { pendientes, sesionPorId, piPorId } = await detectarPendientes(admin, stripe, studio, VENTANA_VIGILANCIA_HORAS);
 
   // Solo lo que ya está FUERA del alcance del barrido de recuperación. Lo más
   // reciente que 12 h no es un problema todavía: el otro cron lo cogerá en su
   // próximo tic, y avisar de ello sería ruido diario garantizado.
   const limite = Math.floor(Date.now() / 1000) - VENTANA_HORAS * 3600;
+  const creadoDe = (p: Pendiente): number | undefined =>
+    sesionPorId.get(p.sesionId)?.created ?? piPorId.get(p.sesionId)?.created;
   const escapados = pendientes.filter(p => {
-    const s = sesionPorId.get(p.sesionId);
-    return s !== undefined && s.created < limite;
+    const creado = creadoDe(p);
+    return creado !== undefined && creado < limite;
   });
 
   for (const p of escapados) {
-    const s = sesionPorId.get(p.sesionId);
+    const creado = creadoDe(p);
     Sentry.captureMessage('[conciliador] cobro sin entregar FUERA de la ventana de recuperación', {
       level: 'error',
       tags: { area: 'cobros', tipo: 'fuera-de-ventana' },
@@ -193,8 +265,8 @@ async function vigilarEstudio(
         studioId: studio.id,
         sesionId: p.sesionId,
         tipo: p.tipo,
-        creadoEn: s ? new Date(s.created * 1000).toISOString() : null,
-        horasSinEntregar: s ? Math.round((Date.now() / 1000 - s.created) / 3600) : null,
+        creadoEn: creado ? new Date(creado * 1000).toISOString() : null,
+        horasSinEntregar: creado ? Math.round((Date.now() / 1000 - creado) / 3600) : null,
         queHacer: 'El conciliador ya NO lo va a recuperar solo. Revisar por qué el webhook no lo entregó y entregarlo a mano.',
       },
     });
@@ -241,12 +313,19 @@ export const conciliarCobrosVigilancia = inngest.createFunction(
   },
 );
 
+// `sesion` y `pi` son excluyentes: un pendiente nace del listado de sesiones
+// (Modo A) o del de PaymentIntents (Modo B, checkout embebido), nunca de los
+// dos. Esto es una RED DE ENTREGA de lo comprado, no una réplica del webhook:
+// igual que ya pasaba en Modo A, no se replica el guardado de tarjeta ni el
+// consumo del código de descuento — una compra recuperada por aquí entrega el
+// bono (y la plaza, en Modo B) pero no descuenta el uso del código.
 async function entregar(
   admin: SupabaseClient,
   stripe: Stripe,
   cuenta: string,
   p: Pendiente,
   sesion: Stripe.Checkout.Session | undefined,
+  pi: Stripe.PaymentIntent | undefined,
 ) {
   // Que este barrido tenga trabajo significa que el webhook NO hizo el suyo.
   // Entregar en silencio arreglaría a la socia y escondería la avería, que es
@@ -274,17 +353,29 @@ async function entregar(
     return;
   }
 
-  const entrega = await entregarPlanComprado(admin, {
-    sessionId: p.sesionId,
-    studioId: p.studioId,
-    planId: p.planId,
-    socioId: p.socioId,
+  // Los mismos datos que usa la rama correspondiente del webhook. En la vía PI
+  // (Modo B) el email/nombre viajan en la metadata desde la creación del PI;
+  // en Modo A los pone Stripe en la propia sesión.
+  const datos = pi ? {
+    email: pi.metadata?.socioEmail ?? null,
+    nombre: pi.metadata?.socioNombre ?? null,
+    importeCobradoCentimos: pi.amount_received ?? pi.amount ?? null,
+    paymentIntentId: pi.id,
+  } : {
     email: sesion?.customer_details?.email ?? sesion?.customer_email ?? null,
     nombre: sesion?.customer_details?.name ?? null,
     // Lo cobrado de VERDAD, no el precio de catálogo de ahora: entre la compra
     // y este barrido el estudio puede haber cambiado el precio del plan.
     importeCobradoCentimos: typeof sesion?.amount_total === 'number' ? sesion.amount_total : null,
     paymentIntentId: typeof sesion?.payment_intent === 'string' ? sesion.payment_intent : null,
+  };
+
+  const entrega = await entregarPlanComprado(admin, {
+    sessionId: p.sesionId,
+    studioId: p.studioId,
+    planId: p.planId,
+    socioId: p.socioId,
+    ...datos,
     origenLead: p.origenLead,
   });
 
@@ -297,10 +388,54 @@ async function entregar(
     return;
   }
 
-  // Sin esto, la compra es invisible a reembolsos y disputas: sus manejadores
-  // leen `pi.metadata.reciboId`, y el PaymentIntent de una compra de plan nace
-  // sin metadata porque el recibo aún no existía. Mismo remate que el webhook.
-  if (typeof sesion?.payment_intent === 'string') {
+  if (pi) {
+    // Mismo remate que el webhook del checkout embebido: sin `reciboId` en la
+    // metadata, la compra es invisible a reembolsos y disputas. Merge
+    // conservando lo que ya hay — el PI de Modo B NACE con metadata (origen
+    // incluido), a diferencia del de Modo A, que nace vacío y se puede pisar.
+    try {
+      await stripe.paymentIntents.update(
+        pi.id,
+        { metadata: { ...pi.metadata, reciboId: entrega.reciboId } },
+        { stripeAccount: cuenta },
+      );
+    } catch { /* el bono ya está entregado; esto es el remate, no el cobro */ }
+
+    // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md
+    // §4.2): si la compra venía con una clase concreta, la plaza también es
+    // parte de lo pagado — la pantalla ya le dijo "reservada" a la socia.
+    // Idempotente por `res-web-<pi>` y serializado por el FOR UPDATE de
+    // `reservar_plaza`: la carrera con el webhook acaba en YA_RESERVADA (que
+    // se trata como éxito, sin consumir bono dos veces), no en plaza doble.
+    // Con el retraso del conciliador la clase puede haber empezado o cerrado
+    // su ventana de reserva — ese fallo acaba en Sentry + aviso al mostrador,
+    // que es justo lo que toca: que alguien llame a la socia hoy.
+    if (pi.metadata?.sesionId) {
+      try {
+        const { reservarPlazaTrasPagoPublico } = await import('@/lib/db/supabase-data-admin');
+        const r = await reservarPlazaTrasPagoPublico({
+          studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id,
+        });
+        if (!r.ok) {
+          Sentry.captureMessage('[conciliador] plan entregado pero NO se pudo reservar la clase pagada', {
+            level: 'error',
+            tags: { area: 'cobros', tipo: 'conciliado-sin-plaza' },
+            extra: { studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId, paymentIntentId: pi.id, motivo: r.motivo, detalle: r.detalle },
+          });
+          const { emitirReservaPagadaSinPlaza } = await import('@/lib/notifications/emit');
+          await emitirReservaPagadaSinPlaza(admin, { studioId: p.studioId, sesionId: pi.metadata.sesionId, socioId: entrega.socioId });
+        }
+      } catch (e) {
+        Sentry.captureException(e instanceof Error ? e : new Error('conciliador reservarPlazaTrasPagoPublico'), {
+          extra: { contexto: 'conciliador reservarPlazaTrasPagoPublico', studioId: p.studioId, sesionId: pi.metadata?.sesionId, paymentIntentId: pi.id },
+        });
+      }
+    }
+  } else if (typeof sesion?.payment_intent === 'string') {
+    // Sin esto, la compra es invisible a reembolsos y disputas: sus manejadores
+    // leen `pi.metadata.reciboId`, y el PaymentIntent de una compra de plan
+    // Modo A nace sin metadata porque el recibo aún no existía. Mismo remate
+    // que el webhook.
     try {
       await stripe.paymentIntents.update(
         sesion.payment_intent,

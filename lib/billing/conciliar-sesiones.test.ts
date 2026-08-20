@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { estaPagada, queEntregar, pendientesDeEntregar, type SesionCobrada } from './conciliar-sesiones.ts';
+import {
+  estaPagada, queEntregar, pendientesDeEntregar, type SesionCobrada,
+  queEntregarPI, pendientesDeEntregarPI, type CobroPI,
+} from './conciliar-sesiones.ts';
 
 function ses(p: Partial<SesionCobrada> = {}): SesionCobrada {
   return {
@@ -85,6 +88,80 @@ test('⚠️ el caso que motiva todo esto: cobrado y sin entregar', () => {
   const pendientes = pendientesDeEntregar([ses()], 'studio-1', VACIO);
   assert.equal(pendientes.length, 1);
   assert.equal(pendientes[0].tipo, 'plan');
+});
+
+// ── Modo B: PaymentIntent directo del checkout embebido ─────────────────────
+
+function pago(p: Partial<CobroPI> = {}): CobroPI {
+  return {
+    id: 'pi_3AbCdEf123456789012345',
+    status: 'succeeded',
+    metadata: { studioId: 'studio-1', planId: 'plan-3', origen: 'plan_web_embebido' },
+    ...p,
+  };
+}
+
+test('el caso que motiva D-1: PI cobrado, entrega del webhook perdida', () => {
+  // Stripe dice succeeded, la base de datos no tiene el `rec-web-…`. Sin la
+  // vía PI, el conciliador era ciego a esto: dinero cobrado sin bono y sin red.
+  const pendientes = pendientesDeEntregarPI([pago()], 'studio-1', new Set());
+  assert.equal(pendientes.length, 1);
+  assert.deepEqual(pendientes[0], {
+    sesionId: 'pi_3AbCdEf123456789012345', tipo: 'plan', studioId: 'studio-1',
+    planId: 'plan-3', socioId: null, origenLead: null,
+  });
+});
+
+test('⚠️ un PI sin cobrar no cuenta (los abandonos son la mayoría del listado)', () => {
+  // Cada POST al checkout embebido crea un PI en requires_payment_method
+  // aunque la socia cierre la pestaña sin pagar.
+  assert.equal(queEntregarPI(pago({ status: 'requires_payment_method' }), 'studio-1'), null);
+  assert.equal(queEntregarPI(pago({ status: 'processing' }), 'studio-1'), null);
+  assert.equal(queEntregarPI(pago({ status: 'canceled' }), 'studio-1'), null);
+});
+
+test('solo el origen del checkout embebido: POS, SEPA y Modo A quedan fuera', () => {
+  assert.equal(queEntregarPI(pago({ metadata: { studioId: 'studio-1', planId: 'plan-3', origen: 'pos_terminal' } }), 'studio-1'), null);
+  assert.equal(queEntregarPI(pago({ metadata: { studioId: 'studio-1', reciboId: 'rec-9', origen: 'sepa_recibo' } }), 'studio-1'), null);
+  // El PI de una compra Modo A se sella con origen 'plan_web' DESPUÉS de
+  // entregarla — y esa entrega ya la vigila el listado de sesiones.
+  assert.equal(queEntregarPI(pago({ metadata: { studioId: 'studio-1', planId: 'plan-3', origen: 'plan_web', reciboId: 'rec-web-x' } }), 'studio-1'), null);
+  assert.equal(queEntregarPI(pago({ metadata: null }), 'studio-1'), null);
+});
+
+test('sin planId no hay nada que entregar (vía PI)', () => {
+  assert.equal(queEntregarPI(pago({ metadata: { studioId: 'studio-1', origen: 'plan_web_embebido' } }), 'studio-1'), null);
+});
+
+test('⚠️ el reciboId sellado NO lo reclasifica como recibo', () => {
+  // Un PI Modo B ya entregado lleva reciboId en metadata (lo sella el webhook).
+  // Sigue clasificando como 'plan': el dedupe de tipo 'recibo' filtra por
+  // estado COBRADO, así que un `rec-web-…` DEVUELTO volvería a salir como
+  // pendiente y se re-ejecutaría la renovación de una compra ya devuelta.
+  const p = queEntregarPI(pago({ metadata: { studioId: 'studio-1', planId: 'plan-3', origen: 'plan_web_embebido', reciboId: 'rec-web-abc' } }), 'studio-1');
+  assert.equal(p?.tipo, 'plan');
+});
+
+test('⚠️ la metadata NO decide de qué estudio es (vía PI)', () => {
+  // Misma regla que las sesiones: la autoridad es la cuenta Connect de la que
+  // se listó el PI; la metadata solo puede confirmarla.
+  assert.equal(queEntregarPI(pago({ metadata: { studioId: 'studio-otro', planId: 'plan-3', origen: 'plan_web_embebido' } }), 'studio-1'), null);
+});
+
+test('lo ya entregado no se vuelve a entregar (vía PI)', () => {
+  const pi = pago();
+  assert.deepEqual(pendientesDeEntregarPI([pi], 'studio-1', new Set([pi.id])), []);
+});
+
+test('mezcla realista de PIs: solo sale lo que falta', () => {
+  const pis = [
+    pago({ id: 'pi_live_1' }),                                       // falta
+    pago({ id: 'pi_live_2', status: 'requires_payment_method' }),    // abandono
+    pago({ id: 'pi_live_3', metadata: { studioId: 'studio-1', origen: 'pos_terminal' } }), // POS
+    pago({ id: 'pi_live_4' }),                                       // ya entregado
+  ];
+  const pendientes = pendientesDeEntregarPI(pis, 'studio-1', new Set(['pi_live_4']));
+  assert.deepEqual(pendientes.map(p => p.sesionId), ['pi_live_1']);
 });
 
 test('mezcla realista: solo sale lo que falta', () => {

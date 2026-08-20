@@ -60,6 +60,74 @@ export function queEntregar(s: SesionCobrada, studioEsperado: string): Pendiente
   return null;
 }
 
+// ── Modo B: PaymentIntent directo del checkout embebido ─────────────────────
+//
+// El widget (Fase 3, docs/checkout-embebido-diseno.md §5) cobra planes con un
+// PaymentIntent DIRECTO, sin Checkout Session: `checkout.sessions.list` no los
+// ve. Sin esta vía, el conciliador era ciego a ese camino — y como el webhook
+// responde 200 antes de procesar (after()), un fallo suyo al entregar dejaba
+// dinero cobrado sin bono y sin NINGUNA red que lo recogiera (D-1, auditoría
+// 20-ago).
+
+/** Lo mínimo que necesitamos de un PaymentIntent para decidir. */
+export interface CobroPI {
+  id: string;
+  status: string | null;
+  metadata: Record<string, string> | null | undefined;
+}
+
+/**
+ * Qué hay que entregar de este PaymentIntent, si es que hay algo.
+ *
+ * Solo clasifica compras de PLAN del checkout embebido (`origen:
+ * 'plan_web_embebido'`, escrito incondicionalmente al crear el PI). Todo lo
+ * demás queda fuera a propósito: el PI de una compra Modo A se sella con
+ * `origen: 'plan_web'` DESPUÉS de entregar y ya lo vigila el listado de
+ * sesiones; POS (`pos_*`) y SEPA (`sepa_recibo`) tienen sus propios caminos.
+ *
+ * ⚠️ `metadata.reciboId` se IGNORA para clasificar: un PI Modo B ya entregado
+ * lleva `reciboId` sellado por el webhook, y reclasificarlo como tipo
+ * 'recibo' lo sacaría del dedupe correcto — el de tipo 'recibo' filtra por
+ * estado COBRADO, así que un `rec-web-…` que pasara a DEVUELTO volvería a
+ * salir como pendiente y `entregar()` re-ejecutaría la renovación sobre un
+ * recibo ya devuelto. Como tipo 'plan', el dedupe es por EXISTENCIA del
+ * `rec-web-…` (sin filtro de estado) y un DEVUELTO sigue dedupeando.
+ *
+ * Mismo criterio de tenant que `queEntregar`: la metadata solo CONFIRMA el
+ * estudio; la autoridad es la cuenta Connect de la que se listó el PI.
+ */
+export function queEntregarPI(pi: CobroPI, studioEsperado: string): Pendiente | null {
+  if (pi.status !== 'succeeded') return null;
+  const md = pi.metadata ?? {};
+  if (md.origen !== 'plan_web_embebido') return null;
+  if (md.studioId && md.studioId !== studioEsperado) return null;
+  if (!md.planId) return null;
+  return {
+    sesionId: pi.id, tipo: 'plan', studioId: studioEsperado,
+    planId: md.planId, socioId: md.socioId ?? null, origenLead: md.origenLead ?? null,
+  };
+}
+
+/**
+ * De todos los PaymentIntents cobrados, lo que todavía no se ha entregado.
+ * `yaEntregados` son los ids de PI cuyo `rec-web-…` ya existe — en CUALQUIER
+ * estado, ver el aviso de `queEntregarPI`.
+ */
+export function pendientesDeEntregarPI(
+  pis: CobroPI[],
+  studioEsperado: string,
+  yaEntregados: Set<string>,
+): Pendiente[] {
+  const salida: Pendiente[] = [];
+  for (const pi of pis) {
+    const p = queEntregarPI(pi, studioEsperado);
+    if (!p) continue;
+    if (yaEntregados.has(p.sesionId)) continue;
+    salida.push(p);
+  }
+  return salida;
+}
+
 /**
  * De todo lo cobrado, lo que todavía no se ha entregado.
  *
