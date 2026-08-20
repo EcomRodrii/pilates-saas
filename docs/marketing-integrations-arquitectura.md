@@ -479,8 +479,15 @@ solo el enlace de email.
    la sincronización hace un PUT idempotente por socia (`subscriber_hash`),
    aceptable para el volumen de un estudio. La columna
    `studios.mailchimp_account_name` (pensada para el "nombre de cuenta" que
-   solo tiene sentido con OAuth) se creó y se revirtió en el mismo día —
-   sin OAuth no hay nombre de cuenta que pintar.
+   solo tiene sentido con OAuth) se creó y se revirtió en la misma sesión,
+   con sus dos migraciones (`add`/`drop`) borradas del repo antes de
+   mergear: `scripts/gen-db-types.py` lee `supabase/migrations/*`
+   literalmente sin ejecutar el SQL en orden, así que un `drop column`
+   posterior no "cancela" el `add column` a sus ojos — con los dos ficheros
+   presentes, `lib/db-types.ts` (sin la columna, porque no existe en la BD
+   real) quedaba desincronizado y el CI lo bloqueaba. Ya aplicadas y
+   revertidas en la BD real antes de borrar los ficheros — sin OAuth no hay
+   nombre de cuenta que pintar.
    Brevo queda fuera de esta pieza a propósito: mismo motivo que llevó a
    descartar el OAuth de Mailchimp (Brevo tampoco ofrece registro OAuth
    self-service) — su integración, si se pide, sería el mismo patrón de
