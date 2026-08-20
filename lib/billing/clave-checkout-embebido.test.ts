@@ -12,6 +12,7 @@ const BASE = {
   socioId: null,
   socioEmail: 'maria@example.com',
   sesionId: 'ses-lunes-10h',
+  codigoDescuentoId: null,
 };
 
 test('⚠️ el caso del doble cobro: dos pestañas a caballo del minuto', () => {
@@ -84,8 +85,25 @@ test('compra suelta de bono (sin clase): conserva la ventana de un minuto', () =
 
 test('invitada sin email y sin clase: sigue habiendo clave, no revienta', () => {
   const clave = claveCheckoutEmbebido(
-    { studioId: 's1', planId: 'p1', socioId: null, socioEmail: null, sesionId: null },
+    { studioId: 's1', planId: 'p1', socioId: null, socioEmail: null, sesionId: null, codigoDescuentoId: null },
     Date.parse('2026-08-19T10:00:00.000Z'),
   );
   assert.ok(clave.startsWith('checkout-embebido-s1-p1-guest-'));
+});
+
+// Regresión (diseño #canje-codigos-descuento-checkout): sin el código de
+// descuento en la clave, un reintento con un código distinto reutilizaría el
+// PaymentIntent del primer intento con el importe viejo.
+test('⚠️ mismo intento con y sin código de descuento NO comparten clave', () => {
+  const ahora = Date.parse('2026-08-19T10:00:00.000Z');
+  const sinCodigo = claveCheckoutEmbebido({ ...BASE, codigoDescuentoId: null }, ahora);
+  const conCodigo = claveCheckoutEmbebido({ ...BASE, codigoDescuentoId: 'c-verano10' }, ahora);
+  assert.notEqual(sinCodigo, conCodigo, 'aplicar o quitar un código cambia el importe, así que es un intento distinto');
+});
+
+test('dos códigos de descuento distintos tampoco comparten clave', () => {
+  const ahora = Date.parse('2026-08-19T10:00:00.000Z');
+  const a = claveCheckoutEmbebido({ ...BASE, codigoDescuentoId: 'c-a' }, ahora);
+  const b = claveCheckoutEmbebido({ ...BASE, codigoDescuentoId: 'c-b' }, ahora);
+  assert.notEqual(a, b);
 });

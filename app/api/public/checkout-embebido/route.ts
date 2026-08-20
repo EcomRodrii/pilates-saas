@@ -9,6 +9,9 @@ import { respuestaPreflightWidget, conCorsWidget } from '@/lib/cors-widget';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { socioAutenticado } from '@/lib/db/supabase-data-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
+import { resolverDescuentoCheckout } from '@/lib/billing/descuento-checkout';
+import { mapCodigoDescuento } from '@/lib/supabase-data';
+import type { RowCodigosDescuento } from '@/lib/db-types';
 
 // Fase 3 del "Booking Experience Engine" — checkout embebido dentro del widget
 // (Modo B): sustituye `stripe.checkout.sessions.create()` (redirect de página
@@ -68,6 +71,10 @@ export async function POST(req: NextRequest) {
     // Nunca decide el importe (siempre viene de plan.precio abajo) — solo
     // marca qué reservar después.
     sesionId?: string;
+    // Auditoría vs Momence (#canje-codigos-descuento-checkout): mismo criterio
+    // que app/api/stripe/checkout — texto tal cual, el servidor recalcula el
+    // importe final.
+    codigoDescuento?: string;
   } | null;
 
   if (!body?.studioId) {
@@ -160,9 +167,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const importe = Number(plan.precio);
+  let importe = Number(plan.precio);
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
+  }
+
+  // Auditoría vs Momence: canje de código de descuento. Mismo criterio que
+  // app/api/stripe/checkout — el servidor recalcula siempre, un código
+  // inválido/caducado/agotado no bloquea la compra, solo se ignora.
+  let codigoDescuentoId: string | null = null;
+  if (body.codigoDescuento) {
+    const { data: codigosRaw } = await admin
+      .from('codigos_descuento')
+      .select('*')
+      .eq('studio_id', body.studioId);
+    const codigos = (codigosRaw ?? []).map(r => mapCodigoDescuento(r as RowCodigosDescuento));
+    const resultado = resolverDescuentoCheckout(codigos, body.codigoDescuento, {
+      hoyISO: new Date().toISOString(),
+      subtotal: importe,
+      esNueva: !socioId,
+    });
+    if (resultado.ok) {
+      importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
+      const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
+      codigoDescuentoId = codigoAplicado?.id ?? null;
+    }
   }
 
   // "Pagar y reservar sin login previo" (docs/reserva-sin-login-diseno.md §4.1):
@@ -211,6 +240,7 @@ export async function POST(req: NextRequest) {
   const idemKey = claveCheckoutEmbebido({
     studioId: body.studioId, planId: body.planId, socioId,
     socioEmail: body.socioEmail ?? null, sesionId: body.sesionId ?? null,
+    codigoDescuentoId,
   });
 
   // I-2 (auditoría 19-ago): el PaymentIntent se creaba con
@@ -292,6 +322,7 @@ export async function POST(req: NextRequest) {
   if (body.socioEmail) metadata.socioEmail = body.socioEmail;
   if (body.socioNombre) metadata.socioNombre = body.socioNombre;
   if (body.sesionId) metadata.sesionId = body.sesionId;
+  if (codigoDescuentoId) metadata.codigoDescuentoId = codigoDescuentoId;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
