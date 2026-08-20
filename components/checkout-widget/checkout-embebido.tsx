@@ -10,7 +10,7 @@
 // no hace falta 3DS ni ningún método con redirect, Stripe NO navega y esta
 // promesa se resuelve en el propio Shadow Root.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type StripeError, type PaymentIntent } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Lock, AlertTriangle } from 'lucide-react';
 import type { ModoTokens } from '@/lib/portal-modo';
@@ -305,23 +305,46 @@ function FormularioPago({
     // widget lee al remontar para avisar del resultado.
     const url = new URL(window.location.href);
     url.searchParams.set('tentare_pago', 'retorno');
-    const { error: err, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: url.toString(),
-        // Obligatorio en cuanto la dirección es `never` en el Element: Stripe
-        // exige que la aporte quien la ocultó. Se manda SOLO el país, que es
-        // lo único que este flujo sabe de verdad — nunca un código postal
-        // heredado de otro sitio, que es justo el bug que se está cerrando.
-        //
-        // España fija, igual que `TZ_ESTUDIO`: el producto es presencial y
-        // solo se vende en España (mismo criterio ya cerrado que dejó fuera
-        // el selector de idioma y el de huso horario). Si algún día hay un
-        // estudio fuera, esto sale de su ficha, no de aquí.
-        payment_method_data: { billing_details: { address: { country: 'ES' } } },
-      },
-      redirect: 'if_required',
-    });
+    let err: StripeError | undefined;
+    let paymentIntent: PaymentIntent | undefined;
+    try {
+      // ⚠️ Este `try` arregla un cuelgue REAL de producción (2026-08-20, primer
+      // pago con Apple Pay): `confirmPayment` no siempre resuelve con
+      // `{ error }` — también puede RECHAZAR la promesa (Stripe.js lanza
+      // `IntegrationError` y compañía). Sin `try`, la excepción se llevaba por
+      // delante el `setEnviando(false)` de abajo y el botón se quedaba en
+      // «Procesando el pago…» PARA SIEMPRE: sin éxito, sin error y sin salida.
+      // Este mismo fichero ya advierte unas líneas más arriba de que Stripe.js
+      // «falla de DOS maneras distintas»; aquí solo se contemplaba una.
+      const r = await Promise.race([
+        stripe.confirmPayment({
+          elements,
+          confirmParams: { return_url: url.toString() },
+          redirect: 'if_required',
+        }),
+        // Y un tope de tiempo, porque «no resolver nunca» es un estado real: si
+        // la hoja del wallet se cierra de una forma que Stripe no nos reporta,
+        // la promesa se queda pendiente y el `try` por sí solo no salva de eso.
+        // 90 s sobran para 3DS y para el sheet de Apple Pay; pasados, la
+        // persona recupera el control de la pantalla.
+        new Promise<never>((_, rechaza) =>
+          setTimeout(() => rechaza(new Error('TENTARE_TIMEOUT')), 90_000),
+        ),
+      ]);
+      err = r.error;
+      paymentIntent = r.paymentIntent;
+    } catch (e) {
+      const esTimeout = e instanceof Error && e.message === 'TENTARE_TIMEOUT';
+      console.error('[checkout-embebido] confirmPayment no resolvió', e);
+      setEnviando(false);
+      setError(esTimeout
+        // Honesto: aquí NO sabemos si se cobró. Decir «no se ha realizado
+        // ningún cargo» sería justo la mentira que este repo ya ha pagado cara
+        // otras veces.
+        ? 'No hemos podido confirmar el pago a tiempo. Comprueba tu banco antes de reintentar: si ves el cargo, escríbenos y lo resolvemos sin cobrarte dos veces.'
+        : 'No hemos podido procesar el pago. Vuelve a intentarlo.');
+      return;
+    }
     setEnviando(false);
     if (err) {
       // El motivo REAL del rechazo, que hasta ahora se perdía: `err.message`
@@ -374,24 +397,27 @@ function FormularioPago({
         <PaymentElement
           onReady={() => setElementoListo(true)}
           options={{
-            // ⚠️ NO pedimos dirección de facturación en ningún paso de este
-            // flujo — y hasta ahora no lo decíamos, que no es lo mismo. Sin
-            // `fields`, regía el default de Stripe (`auto`): era ÉL quien
-            // decidía pintar un campo de código postal dentro del bloque de
-            // tarjeta. Con `labels: 'floating'` ese campo va sin rótulo
-            // visible una vez escrito, así que se rellenaba (a mano o por el
-            // autocompletar del navegador) sin que la persona registrara que
-            // había introducido un código postal — y el banco lo rechazaba
-            // por no coincidir con el de la tarjeta. De ahí el error absurdo:
-            // «el código postal no coincide» en un formulario que, hasta
-            // donde se ve, no pide ninguno.
+            // ⚠️ Aquí estuvo `fields: { billingDetails: { address: 'never' } }`
+            // durante unas horas, para quitar el campo de código postal que
+            // Stripe pinta por su cuenta cuando `fields` no se declara. Se ha
+            // RETIRADO, por dos motivos que solo se vieron con un pago real:
             //
-            // `never` lo quita del formulario Y de lo que se envía. No es
-            // esconder el error: es dejar de mandar un dato que nunca
-            // pedimos, con lo que la comprobación pasa a «no disponible» en
-            // vez de «no coincide». La verificación antifraude real en España
-            // es 3DS/SCA, que no depende de esto.
-            fields: { billingDetails: { address: 'never' } },
+            //  1. **No resolvía el caso reportado.** El error «el código postal
+            //     no coincide» salió pagando con Apple Pay, y un wallet aporta
+            //     SIEMPRE sus propios `billing_details` desde la tarjeta
+            //     guardada en el teléfono: `fields` no gobierna eso. El código
+            //     postal que el banco rechazaba venía del Apple Wallet, no de
+            //     ningún campo de nuestro formulario.
+            //  2. **Es el principal sospechoso de un cuelgue en producción.**
+            //     Poner `never` obliga a mandar la dirección a mano en
+            //     `confirmParams`, y el primer pago con Apple Pay tras
+            //     desplegarlo se quedó clavado sin resolver ni fallar.
+            //
+            // Se vuelve al comportamiento de siempre —el que funcionó en los
+            // cobros con tarjeta del 18-ago— hasta poder probar la variante en
+            // un iPhone de verdad. Si el campo de código postal molesta en el
+            // camino de TARJETA, la salida es que se vea y se entienda (rótulo
+            // permanente en ese bloque), no ocultarlo.
             ...(datosPago ? {
               defaultValues: {
                 billingDetails: {

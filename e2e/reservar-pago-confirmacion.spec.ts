@@ -93,14 +93,22 @@ window.Stripe = function () {
     createToken: function () { return Promise.resolve({}); },
     createPaymentMethod: function () { return Promise.resolve({}); },
     confirmCardPayment: function () { return Promise.resolve({}); },
-    confirmPayment: function () { return Promise.resolve({ paymentIntent: { status: 'succeeded' } }); },
+    confirmPayment: function () {
+      // El comportamiento lo elige cada test con window.__TENTARE_CONFIRM.
+      var modo = window.__TENTARE_CONFIRM || 'succeeded';
+      if (modo === 'throw') { throw new Error('IntegrationError simulado'); }
+      if (modo === 'reject') { return Promise.reject(new Error('IntegrationError simulado')); }
+      if (modo === 'pending') { return new Promise(function () {}); }  // NUNCA resuelve
+      return Promise.resolve({ paymentIntent: { status: 'succeeded' } });
+    },
     registerAppInfo: function () {},
     _registerWrapper: function () {},
   };
 };
 `;
 
-async function pagarHastaDone(page: Page) {
+async function pulsarPagar(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded') {
+  await page.addInitScript((m) => { (window as unknown as Record<string, string>).__TENTARE_CONFIRM = m; }, modoConfirm);
   await page.clock.install({ time: new Date(AHORA) });
   await page.route('**/rest/v1/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ id: STUDIO_ID }) }));
   // El enlace mágico post-pago (signInWithOtp) — mock neutro, no se prueba aquí.
@@ -131,7 +139,13 @@ async function pagarHastaDone(page: Page) {
   const botonPagar = page.getByRole('button', { name: 'Pagar 18 € y reservar' });
   await expect(botonPagar).toBeEnabled({ timeout: 20_000 });
   await botonPagar.click();
+}
 
+// Solo llega hasta pulsar «Pagar». Separado de `pagarHastaDone` porque los
+// caminos de FALLO nunca alcanzan el paso 'done' — esperar su ancla ahí sería
+// un test que no puede pasar por construcción.
+async function pagarHastaDone(page: Page, modoConfirm: 'succeeded' | 'throw' | 'reject' | 'pending' = 'succeeded') {
+  await pulsarPagar(page, modoConfirm);
   // Ancla ESTABLE del paso 'done' (existe en todos los estados de
   // confirmación): el título cambia con el polling, esto no.
   await expect(page.getByText('Tus clases y tus bonos están en tu portal', { exact: false })).toBeVisible({ timeout: 20_000 });
@@ -219,4 +233,44 @@ test('lista de espera: el aforo voló entre pago y reserva → se dice claro', a
   // Ni confirmación ni calendario: no hay plaza que guardar.
   await expect(page.getByText('¡Plaza confirmada!')).not.toBeVisible();
   await expect(page.getByText('Añadir a tu calendario')).not.toBeVisible();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ Regresión de un cuelgue REAL de producción (2026-08-20, primer pago con
+// Apple Pay): `confirmPayment` puede RECHAZAR la promesa en vez de devolver
+// `{ error }`. `pagar()` no tenía `try/catch`, así que la excepción se llevaba
+// por delante el `setEnviando(false)` y el botón se quedaba en «Procesando el
+// pago…» para siempre: sin éxito, sin error y sin forma de salir.
+//
+// El caso 'pending' es todavía peor y también ocurrió: una promesa que no
+// resuelve NUNCA. Contra eso el `try` no basta y hace falta un tope de tiempo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+for (const modo of ['throw', 'reject'] as const) {
+  test(`⚠️ si Stripe.js lanza (${modo}), el botón NO se queda en «Procesando el pago…»`, async ({ page }) => {
+    await pulsarPagar(page, modo);
+
+    // El botón vuelve a estar disponible y se explica qué ha pasado.
+    await expect(page.getByText('Procesando el pago…')).toHaveCount(0, { timeout: 20_000 });
+    // `.first()`: el aviso tiene titular y cuerpo, y los dos empiezan igual.
+    await expect(page.getByText('No hemos podido procesar el pago', { exact: false }).first()).toBeVisible();
+    // Y se puede reintentar: el botón de pagar sigue vivo, no deshabilitado.
+    await expect(page.getByRole('button', { name: /Pagar/ })).toBeEnabled();
+  });
+}
+
+test('⚠️ si la promesa no resuelve NUNCA, el tope de tiempo devuelve el control', async ({ page }) => {
+  await pulsarPagar(page, 'pending');
+
+  // Mientras corre el reloj, el botón está en su estado de proceso: eso es
+  // correcto. Lo que no puede es quedarse ahí para siempre.
+  await expect(page.getByText('Procesando el pago…')).toBeVisible();
+
+  // `page.clock` está instalado, así que el tope de 90 s se puede adelantar sin
+  // esperar de verdad.
+  await page.clock.fastForward('01:40');
+
+  await expect(page.getByText('Procesando el pago…')).toHaveCount(0, { timeout: 20_000 });
+  // Y el mensaje NO promete que no se haya cobrado: aquí no se sabe.
+  await expect(page.getByText('Comprueba tu banco', { exact: false })).toBeVisible();
 });
