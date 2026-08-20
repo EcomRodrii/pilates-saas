@@ -58,11 +58,11 @@ export default function VerifactuPage() {
       >
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>Si gestionas un estudio de Pilates en España, es probable que ya hayas oído hablar de Veri*factu — y también es probable que no tengas del todo claro qué significa para tu día a día. Esta guía lo resume sin tecnicismos: qué es, cuándo te obliga y qué tiene que hacer tu software de facturación por ti.</p>
 
-        <h2 id="s1">Qué es Veri*factu y por qué te afecta</h2>
+        <h2 id="s1">¿Qué es Veri*factu y por qué te afecta?</h2>
         <p>Veri*factu es el sistema que exige la <strong>Ley Antifraude</strong> (desarrollada en el Real Decreto 1007/2023) para que el software de facturación no pueda ocultar, modificar ni eliminar ventas. Cada factura que emites queda <strong>encadenada a la anterior mediante un hash</strong> y lleva un <strong>código QR</strong> de verificación. Si tu sistema está en modalidad Veri*factu, además puede enviar el registro a la Agencia Tributaria en el momento de emitirla.</p>
         <p>En la práctica, para tu estudio esto significa una cosa: <strong>el programa que uses para facturar bonos, mensualidades y clases sueltas tiene que cumplirlo</strong>. No es una casilla más en tu declaración — es un requisito técnico del propio software. (Definición corta en el <Link href="/glosario#verifactu" style={{ color: ACC }}>glosario</Link>.)</p>
 
-        <h2 id="s2">Cuándo es obligatorio</h2>
+        <h2 id="s2">¿Cuándo es obligatorio Veri*factu?</h2>
         <p>El calendario se ha movido más de una vez. Tras el aplazamiento aprobado por el Real Decreto-ley 15/2025 (2 de diciembre de 2025), las fechas vigentes hoy son:</p>
         <StatBlock
           eyebrow="Calendario vigente"
@@ -76,7 +76,7 @@ export default function VerifactuPage() {
         <p>2026 es, en la práctica, <strong>el año para prepararte</strong> sin la presión de la fecha límite encima. Cambiar de software de facturación lleva semanas, no días: revisar los datos, migrarlos y comprobar que todo cuadra.</p>
         <p>Hay un matiz que se suele pasar por alto: esas dos fechas son para <strong>quien emite las facturas</strong> — tu estudio. Los <strong>desarrolladores del software</strong> ya tenían su propia fecha límite, anterior y ya pasada: el <strong>29 de julio de 2025</strong>. En la práctica, esto significa que cualquier software que sigas usando en 2026 y todavía no cumpla Veri*factu ya va con retraso respecto a su propia obligación — no es que &ldquo;todavía le quede tiempo&rdquo; como al tuyo.</p>
 
-        <h2 id="s3">Qué debe tener cada factura</h2>
+        <h2 id="s3">¿Qué debe tener cada factura con Veri*factu?</h2>
         <p>Con un sistema en modalidad Veri*factu, cada factura que emite tu estudio incluye de forma automática:</p>
         <div style={{ background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16, padding: '22px 24px', margin: '22px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
