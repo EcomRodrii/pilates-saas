@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Check, Copy, Plug } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -9,6 +9,11 @@ import { authHeader } from '@/lib/api-client';
 import { labelCls, cardCls } from '@/app/(dashboard)/configuracion/page';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { TabCrecimientoWeb } from '@/components/configuracion/tab-crecimiento-web';
+import { ReservaCalendario } from '@/components/reserva/reserva-calendario';
+import { useDatosWidget } from '@/lib/widget/usar-datos-widget';
+import { MODO_TOKENS } from '@/lib/portal-modo';
+
+const COLOR_WIDGET_POR_DEFECTO = '#343825';
 
 // Antes vivía escondido dentro de Estudio → Enlaces, una sub-pestaña que
 // nadie mira buscando "cómo pongo Tentare en mi web". Movido a su propio
@@ -193,6 +198,14 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // Compacto (480px, pensado para una barra lateral) vs ancho completo (100%
   // del contenedor anfitrión) — antes venía fijo a 480px sin más opción.
   const [anchoCompleto, setAnchoCompleto] = useState(false);
+  // Color del widget "Calendario embebido (sin iframe)" — el único dato que
+  // hoy soporta personalizar (`data-color` en el snippet, ver
+  // app/widget-bundle/main.tsx). Antes había que escribir el hex a mano
+  // sobre el placeholder `TU-COLOR-HEX` sin ver el resultado; el mismo
+  // <ReservaCalendario> que monta el bundle real se pinta aquí con datos
+  // reales del estudio (useDatosWidget, misma llamada que usa el bundle) para
+  // ver el color de verdad antes de copiar el código.
+  const [colorWidget, setColorWidget] = useState(COLOR_WIDGET_POR_DEFECTO);
   const widget = WIDGETS.find(w => w.id === activo)!;
   const origen = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -251,7 +264,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
   // código a copiar es un `<div>`+`<script>` sueltos, sin el listener de
   // auto-resize (no hace falta: es contenido normal de la página, no un
   // documento aparte con su propia altura que comunicar).
-  const codigoScript = `<div data-tentare-booking data-studio="${slug}" data-color="TU-COLOR-HEX"></div>
+  const codigoScript = `<div data-tentare-booking data-studio="${slug}" data-color="${colorWidget}"></div>
 <script src="${origen}/widget.js" async></script>`;
   // `allow="payment"` es lo que delega el Feature-Policy de pago al iframe:
   // sin él, el checkout embebido de Stripe (Payment Request API/Apple Pay)
@@ -339,11 +352,37 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
         </div>
       )}
       {widget.modo === 'script' && (
-        <GestionDominios
-          dominios={dominiosAutorizados}
-          onGuardar={dominios => updateStudio({ widgetDominiosAutorizados: dominios })}
-          showToast={showToast}
-        />
+        <>
+          <GestionDominios
+            dominios={dominiosAutorizados}
+            onGuardar={dominios => updateStudio({ widgetDominiosAutorizados: dominios })}
+            showToast={showToast}
+          />
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[12px] text-muted-foreground">Color:</span>
+            <input
+              type="color"
+              value={colorWidget}
+              onChange={e => setColorWidget(e.target.value)}
+              className="h-7 w-9 rounded border border-border bg-transparent p-0.5 cursor-pointer"
+              aria-label="Color del widget"
+            />
+            <input
+              type="text"
+              value={colorWidget}
+              onChange={e => setColorWidget(e.target.value)}
+              className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-[12px] font-mono text-foreground"
+            />
+            {colorWidget !== COLOR_WIDGET_POR_DEFECTO && (
+              <button
+                onClick={() => setColorWidget(COLOR_WIDGET_POR_DEFECTO)}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                Restablecer
+              </button>
+            )}
+          </div>
+        </>
       )}
       {widget.modo !== 'script' && (
       <div className="flex items-center gap-2 mb-4">
@@ -371,10 +410,7 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
       <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4">
         <div className="rounded-xl border border-border overflow-y-auto bg-muted/30" style={{ maxHeight: 640 }}>
           {widget.modo === 'script' ? (
-            <div className="flex items-center justify-center h-40 text-[12px] text-muted-foreground text-center px-4">
-              Este widget vive dentro de TU web — no hay vista previa aquí.
-              Pega el código y ábrela para verlo.
-            </div>
+            <PreviewWidgetScript slug={slug} color={colorWidget} />
           ) : listo ? (
             <iframe ref={previewRef} key={`${activo}-${sesionElegida}`} src={src} title={`Vista previa: ${widget.nombre}`} className="w-full" style={{ border: 0, height: widget.alto }} allow="payment" />
           ) : (
@@ -397,9 +433,8 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
               </button>
               {widget.modo === 'script' && (
                 <p className="text-[11px] text-muted-foreground mt-2">
-                  Cambia <code className="font-mono">TU-COLOR-HEX</code> por el
-                  color de marca de tu estudio (o quita el atributo entero para
-                  usar el de Tentare por defecto).
+                  Ya lleva el color que elegiste arriba — vuelve a copiarlo si
+                  lo cambias después de pegarlo en tu web.
                 </p>
               )}
             </>
@@ -412,6 +447,43 @@ function WidgetEmbebible({ slug, showToast }: { slug: string; showToast: (m: str
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Vista previa en vivo del widget "Calendario embebido" — mismo componente y
+// mismo hook de datos que monta app/widget-bundle/main.tsx, así que lo que se
+// ve aquí es EXACTAMENTE lo que verá la visitante, no una maqueta aparte.
+// Componente separado (no un `if` dentro de WidgetEmbebible) para que
+// useDatosWidget solo pida datos públicos cuando esta pestaña está activa —
+// las reglas de los hooks no permiten llamarlo condicionalmente en el padre.
+function PreviewWidgetScript({ slug, color }: { slug: string; color: string }) {
+  const { slots, cargando, error, recargar } = useDatosWidget(slug, '');
+  const t = MODO_TOKENS.dia;
+  return (
+    <div
+      style={{
+        // Mismas 5 CSS vars que fija app/widget-bundle/main.tsx al montar el
+        // bundle real — el resto de tokens de color salen de `--portal-*`,
+        // ninguno hardcodeado aquí.
+        '--portal-brand': color,
+        '--portal-brand-foreground': '#D9C29E',
+        '--success': '#2F6B4F',
+        '--warning': '#8F6215',
+        '--destructive': '#A8442A',
+      } as CSSProperties}
+      className="p-3"
+    >
+      <ReservaCalendario
+        t={t}
+        slots={slots}
+        onReservar={() => {}}
+        onCancelar={() => {}}
+        vacio={{ titulo: 'No hay clases disponibles', cuerpo: 'Vuelve a mirar más tarde.' }}
+        estiloDias="grid"
+        loading={cargando}
+        error={error ? { onReintentar: recargar, titulo: 'No hemos podido cargar el horario' } : undefined}
+      />
     </div>
   );
 }

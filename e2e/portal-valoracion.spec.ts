@@ -18,7 +18,8 @@ test.setTimeout(120_000);
 test('con muestra suficiente se enseña la nota, y nunca sin su respaldo', async ({ page }) => {
   await page.goto('/portal-tema-preview/tentada');
   await page.locator('.welcome__cta').click();
-  // La lista vive dentro de «Mi centro» → «Instructores».
+  // La lista vive dentro de «Mi centro» → «Instructores» (antes «Profesores»,
+  // renombrado en #1264 para alinear con el resto del portal).
   await page.getByRole('button', { name: 'Mi centro' }).first().click();
   await page.getByRole('button', { name: 'Instructores' }).click();
 
@@ -32,7 +33,8 @@ test('con muestra suficiente se enseña la nota, y nunca sin su respaldo', async
 test('por debajo del mínimo no se pinta nada, ni un hueco', async ({ page }) => {
   await page.goto('/portal-tema-preview/tentada');
   await page.locator('.welcome__cta').click();
-  // La lista vive dentro de «Mi centro» → «Instructores».
+  // La lista vive dentro de «Mi centro» → «Instructores» (antes «Profesores»,
+  // renombrado en #1264 para alinear con el resto del portal).
   await page.getByRole('button', { name: 'Mi centro' }).first().click();
   await page.getByRole('button', { name: 'Instructores' }).click();
   await expect(page.locator('.valoracion').first()).toBeVisible({ timeout: 30_000 });

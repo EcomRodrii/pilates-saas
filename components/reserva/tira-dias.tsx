@@ -89,6 +89,7 @@ export function TiraDias({
               aria-selected={activo}
               aria-label={`${d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}, ${n} ${n === 1 ? 'clase' : 'clases'}`}
               onClick={() => onSeleccionar(key)}
+              className="reserva-day-chip"
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                 minWidth: 54, padding: '9px 6px 7px', borderRadius: tokens.radioChip,

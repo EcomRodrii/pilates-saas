@@ -182,6 +182,16 @@ export interface ReservaCalendarioProps {
    * que ya pasó.
    */
   finalizadasHoy?: { id: string; inicio: string; fin: string; claseNombre: string; instructorNombre: string | null; instructorColor: string | null; instructorFotoUrl: string | null }[];
+  /**
+   * La carga pública todavía no ha llegado (primer pintado, antes de
+   * `dataLoaded`). Antes de esto no había ningún estado intermedio: el
+   * catálogo vacío inicial se pintaba como "Sin clases este día" durante el
+   * primer segundo, que es justo la mentira que Fase 4 ya había cerrado para
+   * el caso de ERROR — le faltaba el caso de CARGANDO. Solo afecta al pintado
+   * de `estiloDias='dias'` (único caller de Modo A); el resto de variantes ya
+   * tenían su propio hueco vacío tolerable antes de esto.
+   */
+  loading?: boolean;
 }
 
 // Neutros FIJOS del formato 06 — nunca `t`. Ver comentario de `estiloDias` arriba.
@@ -229,7 +239,7 @@ function RoundPhoto({ nombre, color, fotoUrl, size, ring }: { nombre: string; co
 export function ReservaCalendario({
   t, slots, onReservar, onCancelar, onAceptarOferta,
   variant = 'calendario', cancelacionVentanaHoras, ventanaPorTipo, vacio, error, fontFamily = FUENTE,
-  irADia, estiloDias = 'semana', finalizadasHoy,
+  irADia, estiloDias = 'semana', finalizadasHoy, loading = false,
 }: ReservaCalendarioProps) {
   const hoy = useMemo(() => new Date(), []);
   const hoyKey = localDayKey(hoy);
@@ -347,7 +357,11 @@ export function ReservaCalendario({
 
   return (
     <div style={{ fontFamily }}>
-      {variant === 'calendario' && estiloDias === 'dias' && (
+      {variant === 'calendario' && estiloDias === 'dias' && loading && (
+        <SkeletonDias t={t} />
+      )}
+
+      {variant === 'calendario' && estiloDias === 'dias' && !loading && (
         <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}` }}>
           <TiraDias
             dias={diez}
@@ -488,7 +502,7 @@ export function ReservaCalendario({
         )
       )}
 
-      {variant === 'calendario' && estiloDias === 'dias' && (() => {
+      {variant === 'calendario' && estiloDias === 'dias' && !loading && (() => {
         const diaSel = new Date(`${selectedDayKey}T12:00:00`);
         const esHoy = selectedDayKey === hoyKey;
         const finalizadas = esHoy ? (finalizadasHoy ?? []) : [];
@@ -623,6 +637,42 @@ export function ReservaCalendario({
   );
 }
 
+// Cabecera del formato 01 mientras `dataLoaded` sigue en false — mismo hueco
+// visual que la tira + la tarjeta del día reales (mismo alto, mismos radios),
+// así el layout no salta cuando llegan los datos. El brillo reutiliza el
+// keyframe ya compartido con las citas 1:1 (`widget-skeleton-shimmer`).
+function SkeletonDias({ t }: { t: ModoTokens }) {
+  const bloque = (w: string | number, h: number, r = 8): CSSProperties => ({
+    width: w, height: h, borderRadius: r,
+    background: `linear-gradient(100deg, ${t.surface2} 40%, ${t.line} 50%, ${t.surface2} 60%)`,
+    backgroundSize: '200% 100%', animation: 'widget-skeleton-shimmer 1.1s linear infinite',
+  });
+  return (
+    <div aria-hidden="true" aria-busy="true">
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${t.line}`, overflow: 'hidden' }}>
+        {Array.from({ length: 6 }).map((_, i) => <div key={i} style={bloque(56, 68, 18)} />)}
+      </div>
+      <div style={{ borderRadius: radius.card, background: t.surface, border: `1px solid ${t.line}`, overflow: 'hidden' }}>
+        <div style={{ padding: '13px 20px', borderBottom: `1px solid ${t.line}`, background: t.surface2 }}>
+          <div style={bloque(140, 12)} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '0 16px' }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, borderTop: i > 0 ? `1px solid ${t.line}` : undefined, padding: '18px 4px' }}>
+              <div style={bloque(46, 23, 6)} />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={bloque('60%', 18)} />
+                <div style={bloque('35%', 12)} />
+              </div>
+              <div style={bloque(88, 40, radius.pillBtnSm - 2)} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Fila de slot (tarjeta de horario) ────────────────────────────────────────
 
 /** Fase 4 del rediseño: fila de una clase de HOY ya finalizada — mismo porte
@@ -699,6 +749,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
     <button
       type="button"
       onClick={onOpen}
+      className="reserva-slot-row"
       aria-label={`${slot.claseNombre} a las ${fmtHora(slot.inicio)}${slot.instructorNombre ? `, con ${slot.instructorNombre}` : ''}, ${
         slot.miEstado === 'CONFIRMADA' ? 'ya la tienes reservada'
         : slot.miEstado === 'LISTA_ESPERA' ? 'estás en lista de espera'
@@ -706,6 +757,7 @@ function SlotRow({ t, slot, onOpen }: { t: ModoTokens; slot: ReservaSlot; onOpen
       style={{
         display: 'flex', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', background: 'transparent',
         alignItems: 'center', flexWrap: 'wrap', gap: 14, borderTop: `1px solid ${t.line}`, padding: '18px 4px',
+        borderRadius: radius.spot,
       }}
     >
       {/* Hora + duración */}
@@ -836,6 +888,7 @@ function BookingSheet({
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
+      className="animate-sheet-backdrop-in"
       style={{
         position: 'fixed', inset: 0, zIndex: 50, display: 'flex',
         // Abajo en móvil (hoja), centrado en pantallas grandes (diálogo).
@@ -845,6 +898,7 @@ function BookingSheet({
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="reserva-sheet-in"
         // Medido en el navegador a 1280px: esto era una banda a TODO el ancho
         // pegada al borde inferior, con ~1000px de vacío entre cada etiqueta y
         // su valor («HORARIO ......... 10:00 – 10:50») y un botón «RESERVAR» de
@@ -858,9 +912,10 @@ function BookingSheet({
         // ⚠️ Con una clase CSS habría quedado mejor (diálogo centrado en
         // vertical), pero este componente es inline-styled A PROPÓSITO: también
         // lo compila esbuild para el bundle embebido, sin Tailwind ni PostCSS
-        // (solo `animate-spin`, resuelto a mano en widget.css). Una clase nueva
-        // habría que duplicarla ahí, y el widget incrustado se vería distinto
-        // del alojado en cuanto una de las dos se quedara atrás.
+        // (`animate-spin`/`animate-sheet-*`/`reserva-*`, resueltas a mano en
+        // widget.css). Una clase nueva habría que duplicarla ahí, y el widget
+        // incrustado se vería distinto del alojado en cuanto una de las dos se
+        // quedara atrás.
         style={{
           width: '100%', maxWidth: 560, background: t.bg, borderRadius: '24px 24px 0 0',
           padding: `10px 20px ${sheetBottomPadding}`, display: 'flex', flexDirection: 'column', gap: 14,
@@ -894,6 +949,17 @@ function BookingSheet({
             valor={lleno ? `Completa (${slot.aforoMaximo}/${slot.aforoMaximo})` : `${slot.ocupadas}/${slot.aforoMaximo} · ${libres} ${libres === 1 ? 'libre' : 'libres'}`}
             valorColor={lleno ? semantic.danger.text : (libres <= 2 ? semantic.warning.text : t.ink)}
           />
+          {/* Barra de ocupación — la cifra de arriba ya lo dice, esto es para
+              leerlo de un vistazo sin hacer la resta mental. Mismo ratio/color
+              que el punto de SlotRow (lib/ocupacion.ts), nunca un número
+              inventado aparte. */}
+          <div style={{ height: 4, borderRadius: 999, background: t.line, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', width: `${Math.round(ratioOcupacion(slot.ocupadas, slot.aforoMaximo) * 100)}%`,
+              background: colorOcupacion(ratioOcupacion(slot.ocupadas, slot.aforoMaximo)), borderRadius: 999,
+              transition: `width .5s ${EASE}`,
+            }} />
+          </div>
           {slot.instructorNombre && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4 }}>
               <RoundPhoto nombre={slot.instructorNombre} color={slot.instructorColor} fotoUrl={slot.instructorFotoUrl} size={34} ring={t.surface2} />
@@ -956,6 +1022,7 @@ function BookingSheet({
               type="button"
               disabled={enviando}
               onClick={onAceptarOferta}
+              className="reserva-cta-btn"
               style={{
                 width: '100%', height: 44, borderRadius: 14, border: 'none', fontSize: 13.5, fontWeight: 800,
                 background: 'var(--portal-brand)', color: 'var(--portal-brand-foreground)',
@@ -997,6 +1064,7 @@ function BookingSheet({
           onClick={esCancelar ? onCancelar : onReservar}
           disabled={resultado === 'CANCELADA' || enviando}
           aria-busy={enviando}
+          className="reserva-cta-btn"
           style={{
             width: '100%', height: 52, borderRadius: 14, fontSize: 14.5, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.02em', border: 'none',
@@ -1042,7 +1110,7 @@ function EstadoIcono({ estado }: { estado: 'CONFIRMADA' | 'LISTA_ESPERA' }) {
 function Banner({ tipo, texto }: { tipo: 'ok' | 'warn'; texto: string }) {
   const c = tipo === 'ok' ? semantic.success : semantic.warning;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 14, padding: '11px 14px', background: c.soft }}>
+    <div role="status" className="reserva-banner-in" style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 14, padding: '11px 14px', background: c.soft }}>
       {tipo === 'ok'
         ? <CheckCircle size={15} style={{ color: c.text, flexShrink: 0 }} />
         : <AlertCircle size={15} style={{ color: c.text, flexShrink: 0 }} />}

@@ -1838,6 +1838,7 @@ export default function ReservarPage() {
                 slots={slots}
                 variant="calendario"
                 estiloDias="dias"
+                loading={!dataLoaded}
                 onReservar={handleReservarCalendario}
                 onCancelar={cancelarReserva}
                 onAceptarOferta={aceptarOfertaEspera}

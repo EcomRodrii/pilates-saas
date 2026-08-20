@@ -434,6 +434,38 @@ nextjs-portal { display: none !important; }
 .animate-sheet-backdrop-in { animation: sheet-backdrop-in .2s ease both; }
 .animate-sheet-pop-in { animation: sheet-pop-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* Widget de reservas (components/reserva/reserva-calendario.tsx) — pulido
+   pedido por el fundador tras la fase de responsabilidad única (#1256).
+   Duplicado en app/widget-bundle/widget.css a propósito, mismo motivo que
+   widget-skeleton-shimmer arriba: el componente también se compila para el
+   bundle embebido (Shadow DOM), que no ve esta hoja.
+   El tinte de hover/press va sobre `--portal-brand` (color-mix), nunca un
+   gris fijo: así el feedback táctil respeta el white-label del estudio en
+   los dos modos de embebido, incluida la rejilla de neutros fijos (formato
+   06) que sigue recibiendo `--portal-brand` aunque ignore el resto de `t`. */
+.reserva-slot-row { transition: background-color .18s ease; }
+.reserva-slot-row:hover { background-color: color-mix(in oklab, var(--portal-brand) 6%, transparent); }
+.reserva-slot-row:active { background-color: color-mix(in oklab, var(--portal-brand) 10%, transparent); }
+
+.reserva-day-chip:hover { border-color: color-mix(in oklab, var(--portal-brand) 55%, transparent); }
+
+.reserva-cta-btn { transition: filter .18s ease, transform .12s ease; }
+.reserva-cta-btn:hover:not(:disabled) { filter: brightness(.94); }
+.reserva-cta-btn:active:not(:disabled) { transform: scale(.98); }
+
+@keyframes reserva-banner-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.reserva-banner-in { animation: reserva-banner-in .3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* La hoja de reserva es `width:100%` (banda completa en móvil, columna
+   centrada desde 560px) — a diferencia de PublicSheet, que siempre es una
+   tarjeta flotante. Reusar `.animate-sheet-pop-in` (con `scale(.97)`) deja el
+   ancho medible por debajo del real mientras dura la animación: un test de
+   e2e midiendo `boundingBox().width` justo tras abrir la hoja en 390px de
+   viewport lo pilló (`reservar-escritorio-no-es-movil-estirado.spec.ts`).
+   Sin `scale`, el ancho es el real desde el primer frame. */
+@keyframes reserva-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.reserva-sheet-in { animation: reserva-sheet-in .28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
 /* Burbuja flotante de WhatsApp (components/layout/whatsapp-fab.tsx) — el
    anillo pulsante que llama la atención sobre la burbuja mientras la tarjeta
    está cerrada. Lento (2.8s) y con hueco entre pulsos para que no resulte
