@@ -19,7 +19,7 @@ export interface RowReservas {
   confirmado_en: string | null;
   // migr 0065.
   recordatorio_confirmacion_en: string | null;
-  // migr 20260731130000.
+  // migr 20260730204404.
   oferta_expira_en: string | null;
 }
 
@@ -780,6 +780,8 @@ export interface RowStudios {
   permite_lista_espera: boolean | null;
   // migr 20260730192445.
   requiere_aprobacion: boolean | null;
+  // migr 20260730204404.
+  lista_espera_plazo_aceptacion_minutos: number | null;
   // migr 20260730225253.
   penalizacion_importe_eur: number | null;
   // migr 20260730225253.
@@ -790,8 +792,6 @@ export interface RowStudios {
   penalizacion_cobro_automatico: boolean | null;
   // migr 20260731123128.
   decision_contrato_visto_en: string | null;
-  // migr 20260731130000.
-  lista_espera_plazo_aceptacion_minutos: number | null;
   // migr 20260731140000.
   minimo_asistentes_por_clase: number | null;
   // migr 20260731160000.
@@ -836,7 +836,7 @@ export interface RowStudios {
   // anteriores a la apertura al público), que no es lo mismo que una prueba
   // agotada — ver `estadoTrial()` en lib/billing/trial.ts.
   trial_ends_at: string | null;
-  // migr 20260820103000. Última config del Widget Builder por tipo de
+  // migr 20260820100454. Última config del Widget Builder por tipo de
   // widget (solo comodidad del panel — la config efectiva viaja congelada
   // en el snippet copiado). NUNCA en studioPublico().
   widget_builder: Record<string, unknown> | null;
@@ -875,10 +875,10 @@ export interface RowTiposClase {
   permite_lista_espera: boolean | null;
   // migr 20260730192445.
   requiere_aprobacion: boolean | null;
+  // migr 20260730204404.
+  lista_espera_plazo_aceptacion_minutos: number | null;
   // migr 20260730225253.
   penalizacion_importe_eur: number | null;
-  // migr 20260731130000.
-  lista_espera_plazo_aceptacion_minutos: number | null;
   // migr 20260731140000.
   minimo_asistentes_por_clase: number | null;
   // migr 20260811134019. `text[] not null default '{}'` — pero se declara
