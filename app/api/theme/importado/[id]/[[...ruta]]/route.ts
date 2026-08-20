@@ -11,6 +11,7 @@ import { featureDeEstudio } from '@/lib/billing/feature-estudio';
 import { errorInterno } from '@/lib/errores-servidor';
 import { guardarBorradorTheme, getThemeBorrador } from '@/lib/theme-data';
 import { instalarTema } from '@/lib/theme-schema';
+import { themeIdSeguro } from '@/themes/registro';
 import type { ImportedThemeManifest } from '@/lib/theme-import/manifest';
 
 /** Límite de tamaño de un fichero editado a mano — el importador de ZIP
@@ -160,6 +161,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const contenido = extraerContenidoDeMarca(fuente ? fuente.contenido : '');
 
     const draftActual = await getThemeBorrador(auth.studioId);
+    // ⚠️ NUNCA un `themeId` que no sea de los cuatro del kit. Esto llegó a
+    // escribir el literal 'importado' — nadie lo lee en ningún otro sitio (no
+    // es una señal, era un descuido) — y como `esTemaPortal('importado')` es
+    // `false`, `PortalShell` cerraba la puerta del kit y el portal REAL de la
+    // socia caía al de siempre, en silencio. El comentario de
+    // `theme-library.tsx` es explícito: importar un ZIP solo debe afectar a
+    // `imports.tentare.app`, nunca a la app de la socia. Se conserva el tema
+    // NATIVO que el estudio ya tuviera (o el por defecto si no es válido) —
+    // la extracción cambia colores y textos, nunca qué portal se sirve.
     const nuevo = instalarTema(draftActual, {
       primary: contenido.primary,
       ...(contenido.secondary ? { secondary: contenido.secondary } : {}),
@@ -168,7 +178,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       reservarCta: contenido.reservarCta,
       reservarSobreTitulo: contenido.reservarSobreTitulo,
       reservarSobreTexto: contenido.reservarSobreTexto,
-    }, { themeId: 'importado', themeVersion: 1 });
+    }, { themeId: themeIdSeguro(draftActual.themeId), themeVersion: 1 });
     await guardarBorradorTheme(auth.studioId, nuevo);
 
     // La foto de portada, solo si el estudio no tenía ya una — ver el

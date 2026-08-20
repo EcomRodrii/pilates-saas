@@ -46,6 +46,26 @@ export function esTemaPortal(id: string | null | undefined): id is TemaPortalId 
   return !!id && id in TEMAS_PORTAL;
 }
 
+/**
+ * El id de tema que SÍ se puede persistir en `studio_theme.themeId` — el
+ * pedido si es de los cuatro del kit, o el por defecto si no.
+ *
+ * Existe porque ya se rompió una vez sin él: la extracción de colores de un
+ * tema importado (`app/api/theme/importado/.../route.ts`) escribió el
+ * literal `'importado'` directamente en `themeId`, y como nada valida ese
+ * campo al guardar, `esTemaPortal()` lo rechazó silenciosamente en el
+ * siguiente render — `PortalShell` cerró la puerta del kit y el portal REAL
+ * de la socia cayó al de siempre, sin ningún error ni aviso. Estuvo así dos
+ * días en el estudio piloto antes de que alguien lo notara.
+ *
+ * Cualquier código que vaya a escribir un `themeId` a partir de un valor que
+ * no sea uno de los cuatro literales de este fichero —extraído, importado,
+ * copiado de otro campo— pasa por aquí primero.
+ */
+export function themeIdSeguro(pedido: string | null | undefined, porDefecto: TemaPortalId = TEMA_PORTAL_POR_DEFECTO): TemaPortalId {
+  return esTemaPortal(pedido) ? pedido : porDefecto;
+}
+
 // ── Los controles de la propietaria, mapeados a tokens ──────────────────────
 //
 // ⚠️ `radioTema` y `escalaTexto` NO son variantes del tema: son ajustes que la
