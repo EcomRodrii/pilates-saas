@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 const PASOS_COMO_FUNCIONA = [
   { n: '01', titulo: 'Descubre', desc: 'Filtra por especialidad, ciudad y disponibilidad entre instructoras verificadas.' },
   { n: '02', titulo: 'Conoce', desc: 'Perfil completo: experiencia, formación, disponibilidad semanal y opiniones de otros estudios.' },
-  { n: '03', titulo: 'Contacta', desc: 'Escríbele directamente. Sin comisiones ni intermediarios — habláis vosotras dos.' },
+  { n: '03', titulo: 'Contacta', desc: 'Escríbele directamente — verificamos el email de cada perfil antes de publicarlo. Sin comisiones ni intermediarios.' },
 ] as const;
 
 // Copy heredado de la landing original (components/landing/network/data.ts,
@@ -80,6 +80,13 @@ export default async function NetworkLandingPage() {
     : null;
   const perfiles = resultado && 'perfiles' in resultado ? resultado.perfiles : [];
   const destacadas = [...perfiles].sort((a, b) => Number(b.destacado) - Number(a.destacado)).slice(0, 4);
+  // Para el hero: una foto REAL antes que el flag `destacado` — auditoría UX
+  // 2026-08-19 midió que con 0-2 perfiles reales, `destacadas[0]` puede ser
+  // justo el único sin foto (ordenado primero por `destacado`), y eso hacía
+  // caer al fallback de foto de stock genérica aun habiendo una foto de
+  // instructora real disponible. Mostrar la persona real pesa más para la
+  // confianza que respetar el orden de "destacado".
+  const heroPerfil = perfiles.find(p => p.fotoUrl) ?? null;
 
   // FAQ_ITEMS ya existe y se pinta más abajo (<details>/<summary>) — esto
   // solo declara el mismo contenido como dato estructurado, sin duplicar
@@ -99,44 +106,52 @@ export default async function NetworkLandingPage() {
 
       <section className="max-w-[1240px] mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center">
         <div>
-          <span
-            className="nw-fade-up inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[12px] font-extrabold uppercase tracking-[.1em]"
-            style={{ background: NW_SAGE, color: NW_TINTA }}
-          >
-            <span className="nw-pulse-dot w-[7px] h-[7px] rounded-full" style={{ background: NW_PRODUCTO }} />
-            Beta · Empezando en Barcelona y Madrid
-          </span>
-          <p className="nw-fade-up mt-4 text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO, animationDelay: '60ms' }}>
+          <p className="nw-fade-up text-[13px] font-bold uppercase tracking-[.16em]" style={{ color: NW_PRODUCTO }}>
             Red profesional de instructoras de Pilates y Yoga
           </p>
-          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance" style={{ animationDelay: '120ms' }}>
+          <h1 className="nw-fade-up mt-5 text-[44px] sm:text-[56px] font-extrabold leading-[0.98] tracking-tight text-balance" style={{ animationDelay: '60ms' }}>
             Encuentra la{' '}
             <span style={{ color: NW_PRODUCTO }}>instructora de Pilates y Yoga</span>{' '}
             que necesitas.
           </h1>
-          <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '190ms' }}>
+          <p className="nw-fade-up mt-5 text-[17.5px]" style={{ color: NW_MUTED, animationDelay: '120ms' }}>
             Publica lo que buscas o explora perfiles verificados directamente. Sin comisiones, sin intermediarios.
           </p>
-          <div className="nw-fade-up mt-8" style={{ animationDelay: '260ms' }}>
+          <div className="nw-fade-up mt-8" style={{ animationDelay: '190ms' }}>
             <BuscadorHero />
           </div>
+          {/* Discreto a propósito, DEBAJO del CTA — no lo primero que se lee.
+              Auditoría UX 2026-08-19: un badge grande de "beta/empezando" como
+              primer elemento del hero comunica "esto está vacío" antes de que
+              nadie llegue a leer la propuesta. La honestidad sobre la beta se
+              queda (no se oculta), solo deja de competir con el mensaje
+              principal por la atención de los primeros 2 segundos. */}
+          <p className="nw-fade-up mt-5 flex items-center gap-2 text-[12.5px] font-medium" style={{ color: NW_MUTED, animationDelay: '260ms' }}>
+            <span className="nw-pulse-dot w-[6px] h-[6px] rounded-full" style={{ background: NW_PRODUCTO }} />
+            Beta · empezando en Barcelona y Madrid
+          </p>
         </div>
-        {destacadas[0]?.fotoUrl ? (
+        {heroPerfil ? (
           <div className="nw-fade-up relative" style={{ animationDelay: '140ms' }}>
-            <FotoInstructora fotoUrl={destacadas[0].fotoUrl} nombre="" aspectRatio="1 / 1.08" radius={26} eager />
+            <FotoInstructora fotoUrl={heroPerfil.fotoUrl!} nombre={heroPerfil.nombre} aspectRatio="1 / 1.08" radius={26} eager />
             <div
               className="absolute top-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-bold"
               style={{ background: 'rgba(250,249,245,.88)', backdropFilter: 'blur(8px)', color: NW_TINTA }}
             >
-              <span className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-white" style={{ background: NW_PRODUCTO }}>✓</span>
-              {perfiles.length} perfiles verificados
+              {heroPerfil.experienciaVerificada && (
+                <span className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-white text-[11px]" style={{ background: NW_PRODUCTO }}>✓</span>
+              )}
+              {heroPerfil.nombre}{heroPerfil.ciudad ? ` · ${heroPerfil.ciudad}` : ''}
             </div>
           </div>
         ) : (
-          // Sin ninguna instructora destacada todavía (red nueva, sin fotos
-          // que mostrar): foto de marca del hero con efecto parallax sutil,
-          // en vez del placeholder rayado de FotoInstructora (ese comunica
-          // "foto rota" a tamaño de tarjeta, y aquí ocupa media pantalla).
+          // Sin ninguna instructora con foto todavía (red nueva): foto de
+          // marca del hero con efecto parallax sutil, en vez del placeholder
+          // rayado de FotoInstructora (ese comunica "foto rota" a tamaño de
+          // tarjeta, y aquí ocupa media pantalla). Solo escritorio: en móvil
+          // un genérico de stock no aporta credibilidad, mejor no ocupar la
+          // pantalla con él (auditoría UX) — una foto REAL sí se muestra en
+          // móvil (rama de arriba, sin `hidden`).
           <div className="nw-fade-up hidden lg:block" style={{ animationDelay: '140ms' }}>
             <HeroParallax src="/network/hero-reformer.webp" alt="" />
           </div>
@@ -147,9 +162,17 @@ export default async function NetworkLandingPage() {
         <section className="max-w-[1240px] mx-auto px-6 pb-20">
           <Reveal className="flex items-end justify-between mb-6">
             <h2 className="text-[26px] font-extrabold tracking-tight">Descubre instructoras de Pilates y Yoga</h2>
-            <Link href="/network/instructoras" className="text-[13.5px] font-bold hover:opacity-70" style={{ color: NW_PRODUCTO }}>
-              Ver todas →
-            </Link>
+            {/* Solo con inventario suficiente de verdad — auditoría UX
+                2026-08-19: mandar tráfico a /network/instructoras con 2
+                perfiles reales es mandar a la gente a una página que, en
+                cuanto filtra por ciudad o especialidad, casi siempre da 0
+                resultados. Sin este link, quien quiere un perfil concreto
+                usa el formulario de #estudios (concierge) en su lugar. */}
+            {perfiles.length >= 5 && (
+              <Link href="/network/instructoras" className="text-[13.5px] font-bold hover:opacity-70" style={{ color: NW_PRODUCTO }}>
+                Ver todas →
+              </Link>
+            )}
           </Reveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {destacadas.map((p, i) => (
@@ -216,19 +239,31 @@ export default async function NetworkLandingPage() {
             Crear perfil gratis
           </Link>
         </Reveal>
+        {/* Concierge como puerta principal del lado estudio, no el buscador
+            — decisión de producto 2026-08-19 (tras auditoría cruzada
+            producto+UX): con 2 perfiles públicos, "busca tú misma" casi
+            siempre da 0 resultados. El equipo de Tentare cruza la petición
+            contra la red completa de instructoras (incluidas las que ya
+            trabajan en estudios Tentare, no solo los perfiles públicos),
+            así que hay oferta real detrás aunque el directorio público
+            todavía sea pequeño. El buscador sigue existiendo, pero como
+            opción secundaria (enlace de texto), no como el CTA principal. */}
         <Reveal delayMs={80} className="rounded-[24px] p-10 bg-white transition-transform duration-300 hover:-translate-y-1" style={{ border: `1px solid ${NW_BORDE}` }}>
           <h2 className="text-[24px] font-extrabold leading-tight">
-            Soy propietaria — Encuentra a tu <span style={{ color: NW_PRODUCTO }}>próxima instructora</span>.
+            Soy propietaria — Te buscamos a tu <span style={{ color: NW_PRODUCTO }}>próxima instructora</span>.
           </h2>
           <p className="mt-3 text-[14px]" style={{ color: NW_MUTED }}>
-            Filtra por especialidad, ciudad y disponibilidad. Sin publicar una oferta ni esperar candidaturas.
+            Cuéntanos qué necesitas y cruzamos tu petición contra la red de instructoras — no solo los perfiles públicos, también las que ya trabajan en estudios Tentare — para presentarte candidatas directamente.
           </p>
-          <Link
-            href="/network/instructoras"
+          <a
+            href="#estudios"
             className="inline-block mt-6 px-6 py-3 rounded-full text-[14px] font-bold text-white transition-transform hover:scale-[1.04]"
             style={{ background: NW_TINTA }}
           >
-            Explorar la network
+            Cuéntanos qué necesitas
+          </a>
+          <Link href="/network/instructoras" className="block mt-3 text-[12.5px] font-semibold hover:opacity-70" style={{ color: NW_MUTED }}>
+            O explora los perfiles públicos tú misma →
           </Link>
         </Reveal>
       </section>
@@ -242,9 +277,10 @@ export default async function NetworkLandingPage() {
             ¿Eres un estudio y estás buscando instructoras?
           </h2>
           <p className="mt-2 text-[14.5px]" style={{ color: NW_MUTED }}>
-            Todavía estamos incorporando las primeras instructoras. Cuéntanos qué perfil necesitas
-            — especialidad, ciudad, tipo de colaboración — y te avisamos en cuanto encontremos
-            alguien que pueda encajar.
+            No busques tú en un directorio que todavía está creciendo. Cuéntanos qué necesitas
+            — especialidad, ciudad, tipo de colaboración — y el equipo de Tentare cruza tu
+            petición contra la red de instructoras, incluidas las que ya trabajan en estudios
+            Tentare, para presentarte candidatas directamente.
           </p>
           <div className="mt-6">
             <FormularioInteresEstudio variante="completo" />

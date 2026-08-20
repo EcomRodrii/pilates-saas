@@ -55,12 +55,21 @@ export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre:
 
   return (
     <>
-      <button
-        onClick={() => setAbierto(true)}
-        className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all"
-      >
-        Contactar con {nombre.split(' ')[0]}
-      </button>
+      <div>
+        <button
+          onClick={() => setAbierto(true)}
+          className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-brand text-brand-foreground text-[13.5px] font-semibold hover:brightness-110 transition-all"
+        >
+          Contactar con {nombre.split(' ')[0]}
+        </button>
+        {/* Auditoría UX 2026-08-19: el único sitio donde se explicaba qué pasa
+            tras contactar era el mensaje de éxito, DESPUÉS de enviar. Quien
+            todavía no ha pulsado el botón no sabe si esto es una caja negra —
+            una línea antes del clic, no solo después. */}
+        <p className="mt-2 text-[12px] text-[#8E8E86]">
+          Verificamos el email de cada perfil antes de publicarlo. Tu mensaje llega directo, sin comisión ni intermediarios.
+        </p>
+      </div>
       {abierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setAbierto(false)}>
           <div className="w-full max-w-sm bg-white rounded-2xl p-5" onClick={e => e.stopPropagation()}>
@@ -78,6 +87,9 @@ export function BotonContactar({ perfilId, nombre }: { perfilId: string; nombre:
                   placeholder="Preséntate y cuéntale qué buscas…"
                   className="w-full min-h-24 px-3.5 py-2.5 rounded-xl border border-[#E7E7E0] text-[13.5px] text-[#1A1A1A] resize-y focus:outline-none focus:ring-2 focus:ring-brand/15"
                 />
+                <p className="mt-2 text-[12px] text-[#8E8E86]">
+                  {nombre.split(' ')[0]} verá el nombre de tu estudio con tu mensaje. Su email y teléfono solo se comparten contigo si acepta responder.
+                </p>
                 {error && <p className="text-[12.5px] text-destructive mt-2">{error}</p>}
                 <button
                   onClick={enviar}
