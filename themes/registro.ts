@@ -142,6 +142,37 @@ export function varsRadioSobreTema(radio: {
 }
 
 /**
+ * `cardStyle` ("de siempre") → la sombra de tarjeta del kit. Primera pieza de
+ * llevar el kit hacia el editor real: antes, elegir "Elevada"/"Con borde" en
+ * la categoría "Tarjetas" del editor no cambiaba NADA en el preview de un
+ * tema del kit — el campo existía, pero nada lo leía del lado del kit.
+ *
+ * Mismo criterio que `varsTarjeta` (lib/theme-runtime.ts) para la app de
+ * siempre: `flat` (el default) no declara nada — el tema conserva su propia
+ * sombra de reposo (la que arregló el PR de Oliva/Tentada), en vez de
+ * pisarla con un `none` que la aplanaría de vuelta. `elevated` SÍ pisa con
+ * una sombra más marcada, teñida con la tinta del tema (`ink`) en vez de un
+ * negro plano — así "elevada" en Sereno se sigue viendo cálida, y en Noir
+ * oscura, no el mismo gris en los cinco temas. `bordered` apaga la sombra a
+ * propósito (el borde, que el kit ya pinta siempre, pasa a ser la única
+ * pista de límite).
+ */
+export function varsSombraSobreTema(cardStyle: string | undefined, ink: string | undefined): Record<string, string> {
+  if (cardStyle === 'elevated') {
+    const tinte = ink ? `color-mix(in srgb, ${ink} 32%, transparent)` : 'rgba(20,28,22,.32)';
+    const tinteHover = ink ? `color-mix(in srgb, ${ink} 46%, transparent)` : 'rgba(20,28,22,.46)';
+    return {
+      '--shadow-card': `0 12px 26px -18px ${tinte}`,
+      '--shadow-card-hover': `0 20px 44px -26px ${tinteHover}`,
+    };
+  }
+  if (cardStyle === 'bordered') {
+    return { '--shadow-card': 'none', '--shadow-card-hover': 'none' };
+  }
+  return {};
+}
+
+/**
  * `escalaTexto` (px por paso) → un MULTIPLICADOR sobre los `--size-*` del tema.
  *
  * Multiplicador y no valor absoluto: los tokens del tema ya traen la escala

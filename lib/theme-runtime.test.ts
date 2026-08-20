@@ -9,7 +9,7 @@ import {
   varsKitDelTema,
 } from './theme-runtime.ts';
 import { DEFAULT_THEME, themeConfigSchema } from './theme-schema.ts';
-import { varsRadioSobreTema } from '../themes/registro.ts';
+import { varsRadioSobreTema, varsSombraSobreTema } from '../themes/registro.ts';
 import { cumpleContraste } from './wcag-contrast.ts';
 
 test('foregroundParaFondo: blanco sobre fondo oscuro, negro sobre fondo claro', () => {
@@ -259,4 +259,40 @@ test('la escala SÍ se toca cuando la propietaria la mueve de verdad', () => {
     escalaTexto: { seccion: 30, tituloPantalla: 39, saludo: 66, tituloHero: 37.5, bienvenida: 37.5 },
   });
   assert.match(css!, /--size-greeting: 66px;/);
+});
+
+// ── Fase 1 de llevar el kit hacia el editor real: `cardStyle` → sombra ──────
+//
+// Antes, elegir "Elevada"/"Con borde" en la categoría "Tarjetas" del editor
+// no cambiaba NADA en el preview de un tema del kit — el campo existía y se
+// guardaba, pero nada del lado del kit lo leía. `varsSombraSobreTema` es el
+// primer campo del kit derivado de un ajuste "de siempre" YA existente, en
+// vez de un ajuste nuevo — mismo criterio que ya usan color/radio/escala.
+
+test('varsSombraSobreTema: "flat" (el default) no declara nada — el tema conserva su propia sombra', () => {
+  assert.deepEqual(varsSombraSobreTema('flat', '#221122'), {});
+  assert.deepEqual(varsSombraSobreTema(undefined, '#221122'), {});
+});
+
+test('varsSombraSobreTema: "elevated" tiñe la sombra con la tinta del tema, no un negro plano', () => {
+  const v = varsSombraSobreTema('elevated', '#221122');
+  assert.match(v['--shadow-card'], /#221122/);
+  assert.match(v['--shadow-card-hover'], /#221122/);
+  assert.notEqual(v['--shadow-card'], 'none');
+});
+
+test('varsSombraSobreTema: "bordered" apaga la sombra — el borde del kit ya está siempre puesto', () => {
+  assert.deepEqual(varsSombraSobreTema('bordered', '#221122'), {
+    '--shadow-card': 'none', '--shadow-card-hover': 'none',
+  });
+});
+
+test('varsKitDelTema: cardStyle "elevated" de un tema del kit sí llega al preview', () => {
+  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'sereno', cardStyle: 'elevated', text: '#332211' });
+  assert.match(css!, /--shadow-card: 0 12px 26px -18px color-mix\(in srgb, #332211 32%, transparent\);/);
+});
+
+test('varsKitDelTema: cardStyle "flat" no pisa la sombra propia del tema (sin --shadow-card en el bloque inyectado)', () => {
+  const css = varsKitDelTema({ ...DEFAULT_THEME, themeId: 'sereno', cardStyle: 'flat' });
+  assert.doesNotMatch(css!, /--shadow-card:/);
 });
