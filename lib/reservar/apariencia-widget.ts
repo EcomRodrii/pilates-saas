@@ -17,6 +17,10 @@
 // estudio la NOMBRE («Space Grotesk») y la carguemos nosotros. La interfaz lo
 // dice con esas palabras en vez de prometer una herencia que no existe.
 
+// El regex de color vive en config-widget.ts (módulo común de los dos modos de
+// embebido, sin dependencias) — una sola puerta anti-XSS, no dos copias.
+import { COLOR_VALIDO } from './config-widget.ts';
+
 export interface AparienciaWidget {
   /** `null` = el fondo del portal, como hasta ahora. */
   fondo: 'transparente' | string | null;
@@ -72,7 +76,6 @@ export const APARIENCIA_POR_DEFECTO: AparienciaWidget = {
  * CSS o del `<link>` que la carga.
  */
 const FUENTE_VALIDA = /^[A-Za-z0-9][A-Za-z0-9 ]{0,39}$/;
-const COLOR_VALIDO = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 export function fuenteValida(v: string): boolean {
   return FUENTE_VALIDA.test(v.trim());
