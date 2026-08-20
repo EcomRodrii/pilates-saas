@@ -1780,6 +1780,13 @@ export async function resolverReservaPendiente(params: {
   });
   if (error) {
     if (error.message.includes('NO_ENCONTRADA_O_YA_RESUELTA')) return { error: 'Esta reserva ya no está pendiente de aprobación' };
+    // R-2: la RPC valida ahora el límite semanal del plan (el mismo bloque que
+    // reservar_plaza). La excepción revierte todo, así que la reserva SIGUE
+    // pendiente de aprobación — el mensaje se lo dice a quien aprueba para que
+    // decida, en vez de dejarle un error críptico.
+    if (error.message.includes('LIMITE_SEMANAL')) {
+      return { error: 'La socia ya alcanzó el límite semanal de su plan y no tiene recuperaciones disponibles. La reserva sigue pendiente: libera una clase de esa semana o recházala.' };
+    }
     return { error: error.message };
   }
   const row = Array.isArray(data) ? data[0] : data;
