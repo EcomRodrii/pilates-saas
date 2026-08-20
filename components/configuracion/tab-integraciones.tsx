@@ -119,7 +119,7 @@ const CATALOGO_INTEGRACIONES: CatalogoIntegracion[] = [
   {
     tipo: 'GMAIL',
     nombre: 'Gmail',
-    descripcion: 'Envía emails desde el Gmail de la propietaria y trae sus contactos como clientas nuevas. Conexión OAuth — no necesitas pegar ninguna clave.',
+    descripcion: 'Trae tus contactos de Google como clientas nuevas. Conexión OAuth — no necesitas pegar ninguna clave.',
     Icon: Mail,
     color: '#EA4335',
     bg: '#F5F5F5',
@@ -366,7 +366,7 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
     if (!res.ok) { showToast('No se pudo iniciar la conexión con Gmail'); return; }
     const { state } = await res.json() as { state: string };
     const redirect = encodeURIComponent(`${appUrl}/api/integrations/gmail/callback`);
-    const scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
+    const scope = encodeURIComponent('https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email');
     window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirect}&response_type=code&scope=${scope}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
   }
 
@@ -402,18 +402,6 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
       showToast(`${data.creadas} clientas nuevas desde tus contactos de Gmail (${data.yaExistian} ya existían)`);
     } finally {
       setSincronizandoContactos(false);
-    }
-  };
-
-  const [probandoGmail, setProbandoGmail] = useState(false);
-  const enviarPruebaGmail = async () => {
-    setProbandoGmail(true);
-    try {
-      const res = await fetch('/api/integrations/gmail/test', { method: 'POST', headers: await authHeader() });
-      const data = await res.json();
-      showToast(res.ok ? 'Email de prueba enviado — revisa tu bandeja de entrada' : `Error: ${data.error}`);
-    } finally {
-      setProbandoGmail(false);
     }
   };
 
@@ -750,9 +738,6 @@ export function TabIntegraciones({ showToast }: { showToast: (m: string) => void
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={sincronizarContactosGmail} disabled={sincronizandoContactos} className={cn(btnPrimary, sincronizandoContactos && 'opacity-50')}>
                         {sincronizandoContactos ? 'Sincronizando…' : 'Sincronizar contactos'}
-                      </button>
-                      <button onClick={enviarPruebaGmail} disabled={probandoGmail} className={cn(btnSecondary, probandoGmail && 'opacity-50')}>
-                        {probandoGmail ? 'Enviando…' : 'Enviar email de prueba'}
                       </button>
                       <button onClick={desconectarGmail} className={btnSecondary}>Desconectar</button>
                     </div>

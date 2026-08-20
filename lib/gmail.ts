@@ -1,9 +1,10 @@
 // Adaptador de la integración Gmail (OAuth real, mismo patrón que
 // lib/google-calendar.ts — una sola app de Google para toda la plataforma,
-// cada estudio conecta su propia cuenta). Dos capacidades:
-//   1. Enviar emails desde el Gmail de la propietaria (en vez del Resend de
-//      plataforma), vía la Gmail API.
-//   2. Traer sus contactos como clientas nuevas, vía la People API.
+// cada estudio conecta su propia cuenta). Trae los contactos del estudio
+// como clientas nuevas, vía la People API — solo lectura, sin scope de
+// envío (gmail.send se retiró del consentimiento OAuth: no hay hoy ningún
+// flujo real que envíe correo a clientas desde aquí, ver PR de verificación
+// OAuth de 2026-08-18).
 //
 // Todo esto corre en servidor (rutas de app/api/**). El token vive en
 // `integracion_credenciales` con provider='gmail' — misma tabla que Google
@@ -19,7 +20,6 @@ import { fetchExterno } from '@/lib/fetch-externo';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
-const GMAIL_API = 'https://gmail.googleapis.com/gmail/v1';
 const PEOPLE_API = 'https://people.googleapis.com/v1';
 // El scope se construye en el cliente (conectarGmail en tab-integraciones.tsx),
 // igual que hace Google Calendar — aquí solo hace falta para el intercambio
@@ -135,38 +135,6 @@ export async function getGoogleAccountEmail(accessToken: string): Promise<string
   if (!res.ok) return null;
   const data = await res.json();
   return data.email ?? null;
-}
-
-// Codifica un email en el formato "raw" que exige la Gmail API: MIME
-// básico, base64url (Google no acepta el base64 normal — hay que cambiar
-// +/ por -_ y quitar el padding).
-function construirMimeBase64Url(opts: { to: string; from: string; asunto: string; cuerpo: string }): string {
-  const mime = [
-    `From: ${opts.from}`,
-    `To: ${opts.to}`,
-    `Subject: =?UTF-8?B?${Buffer.from(opts.asunto, 'utf-8').toString('base64')}?=`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-    '',
-    opts.cuerpo,
-  ].join('\r\n');
-  return Buffer.from(mime, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/** Envía un email desde el Gmail conectado del estudio. */
-export async function enviarEmailGmail(
-  accessToken: string,
-  opts: { from: string; to: string; asunto: string; cuerpo: string },
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const raw = construirMimeBase64Url(opts);
-  const res = await fetchExterno(`${GMAIL_API}/users/me/messages/send`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ raw }),
-  });
-  const data = await res.json().catch(() => null) as { id?: string; error?: { message?: string } } | null;
-  if (!res.ok || !data?.id) return { ok: false, error: data?.error?.message ?? 'No se pudo enviar el email con Gmail' };
-  return { ok: true, id: data.id };
 }
 
 export interface ContactoGmail {

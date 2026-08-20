@@ -85,7 +85,41 @@ export default function Privacidad() {
         Comisión Europea).
       </p>
 
-      <h2>6. Tus derechos</h2>
+      <h2>6. Datos de Google obtenidos mediante integraciones OAuth</h2>
+      <p>
+        Si conectas tu cuenta de Google desde Configuración → Integraciones, accedemos a dos tipos de datos de
+        tu Cuenta de Google, solo cuando tú lo activas y con tu consentimiento explícito en la pantalla de
+        Google:
+      </p>
+      <ul>
+        <li>
+          <strong>Google Calendar</strong> (<code>calendar.events</code>): al pulsar «Sincronizar ahora»,
+          creamos, actualizamos o eliminamos en tu calendario principal los eventos correspondientes a las
+          clases de tu estudio (título, sala, instructora, hora de inicio y fin). Solo tocamos los eventos que
+          hemos creado nosotros; nunca leemos, listamos ni modificamos el resto de tu calendario.
+        </li>
+        <li>
+          <strong>Contactos de Google</strong> (<code>contacts.readonly</code>): al pulsar «Sincronizar
+          contactos», importamos el nombre y el email de tus contactos como clientas nuevas, para evitar que
+          las des de alta a mano. Es de solo lectura: nunca modificamos tus contactos, y solo importamos los
+          que tienen un email que todavía no existe como clienta.
+        </li>
+      </ul>
+      <p>
+        Los datos obtenidos por estas dos vías se almacenan únicamente en nuestra base de datos (Supabase, ver
+        tabla de proveedores anterior) para prestarte el servicio. <strong>No los compartimos, vendemos ni
+        transferimos a ningún tercero</strong>, salvo que la ley nos obligue a ello. El uso y la transferencia
+        a cualquier otra aplicación de la información recibida de las API de Google se ajusta a la{' '}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+          Política de datos de usuario de los servicios de API de Google
+        </a>, incluidos los requisitos de uso limitado. Puedes desconectar tu cuenta de Google en cualquier
+        momento desde esa misma pantalla, y revocar el acceso desde{' '}
+        <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">
+          los permisos de tu Cuenta de Google
+        </a>.
+      </p>
+
+      <h2>7. Tus derechos</h2>
       <p>
         Puedes ejercer los derechos de <strong>acceso, rectificación, supresión, oposición, limitación del
         tratamiento y portabilidad</strong>, así como retirar el consentimiento prestado, escribiendo a{' '}
@@ -95,20 +129,20 @@ export default function Privacidad() {
         clienta de un estudio, dirige tu solicitud al estudio como responsable; te ayudaremos a canalizarla.
       </p>
 
-      <h2>7. Seguridad</h2>
+      <h2>8. Seguridad</h2>
       <p>
         Aplicamos medidas técnicas y organizativas apropiadas (cifrado en tránsito, control de acceso por
         roles, aislamiento por estudio y registro de accesos a los datos sensibles) para proteger los datos
         frente a accesos no autorizados, pérdida o alteración.
       </p>
 
-      <h2>8. Menores</h2>
+      <h2>9. Menores</h2>
       <p>
         El servicio se dirige a profesionales y no está destinado a menores de edad. No recabamos
         conscientemente datos de menores para la creación de cuentas.
       </p>
 
-      <h2>9. Cambios</h2>
+      <h2>10. Cambios</h2>
       <p>
         Podemos actualizar esta política para reflejar cambios legales o del servicio. Publicaremos la versión
         vigente en esta página, indicando su fecha de actualización.
